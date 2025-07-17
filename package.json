@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "echo 'Build script disabled for deployment'",
+    "build": "cd frontend && npm run build",
     "start": "cd backend && npm start",
     "install-deps": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
