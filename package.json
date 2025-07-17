@@ -7,7 +7,7 @@
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "echo 'Root build completed - use frontend/build for deployment'",
+    "build": "cd frontend && npm install && npm run build && cd .. && cp -r frontend/build .",
     "start": "cd backend && npm start",
     "install-deps": "npm install && cd backend && npm install && cd ../frontend && npm install"
   },
