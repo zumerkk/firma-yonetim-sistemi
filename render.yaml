@@ -1,0 +1,37 @@
+services:
+  # 🚀 Backend Service - Express.js API
+  - type: web
+    name: firma-yonetim-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        sync: false  # Manuel olarak eklenecek
+      - key: JWT_SECRET
+        sync: false  # Manuel olarak eklenecek
+      - key: FRONTEND_URL
+        value: https://firma-yonetim-frontend.onrender.com
+    healthCheckPath: /api/health
+
+  # 🎨 Frontend Service - React Static Site
+  - type: web
+    name: firma-yonetim-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://firma-yonetim-backend.onrender.com/api
+      - key: GENERATE_SOURCEMAP
+        value: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html 
