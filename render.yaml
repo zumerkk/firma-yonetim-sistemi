@@ -31,6 +31,8 @@ services:
         value: https://firma-yonetim-backend.onrender.com/api
       - key: GENERATE_SOURCEMAP
         value: false
+      - key: NODE_VERSION
+        value: 18
     routes:
       - type: rewrite
         source: /*

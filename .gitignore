@@ -45,3 +45,4 @@ Thumbs.db
 
 # Keep uploads directory but ignore files
 !/backend/uploads/.gitkeep
+build/
