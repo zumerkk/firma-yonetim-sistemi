@@ -24,8 +24,9 @@ services:
     name: firma-yonetim-frontend
     env: static
     plan: free
-    buildCommand: cd frontend && npm install && npm run build
-    staticPublishPath: frontend/build
+    rootDirectory: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
         value: https://firma-yonetim-backend.onrender.com/api
