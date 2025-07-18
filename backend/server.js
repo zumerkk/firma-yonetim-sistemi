@@ -15,7 +15,7 @@ const firmaRoutes = require('./routes/firma');
 const importRoutes = require('./routes/import');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // 🛡️ Güvenlik middleware'leri
 app.use(helmet()); // Güvenlik başlıkları ekler
@@ -55,8 +55,8 @@ app.use(cors({
 }));
 
 // 📨 JSON ve URL parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 🗄️ MongoDB bağlantısı
 const connectDB = async () => {

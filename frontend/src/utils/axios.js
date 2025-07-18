@@ -6,33 +6,55 @@ const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 // Axios instance oluştur
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 10000, // 10 saniye timeout
+  timeout: 15000, // 15 saniye timeout (daha uzun)
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - her istekte token ekle
+// Request interceptor - her istekte token kontrol et
 api.interceptors.request.use(
   (config) => {
-    // LocalStorage'dan token al
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    // Eğer Authorization header zaten set edilmişse, tekrar ekleme
+    if (!config.headers.Authorization) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
     }
+    
+    // Debug log for troubleshooting
+    console.log('🔍 API Request:', {
+      url: config.url,
+      method: config.method,
+      hasAuth: !!config.headers.Authorization
+    });
+    
     return config;
   },
   (error) => {
+    console.error('❌ Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - hata yönetimi
+// Response interceptor - gelişmiş hata yönetimi
 api.interceptors.response.use(
   (response) => {
+    console.log('✅ API Response Success:', {
+      url: response.config.url,
+      status: response.status,
+      data: response.data?.success
+    });
     return response;
   },
   (error) => {
+    console.error('❌ API Response Error:', {
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message
+    });
+    
     // 401 Unauthorized - token geçersiz veya süresi dolmuş
     if (error.response?.status === 401) {
       const shouldClearToken = error.response?.data?.clearToken;
@@ -42,16 +64,18 @@ api.interceptors.response.use(
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         
+        // Header'dan da temizle
+        delete api.defaults.headers.common['Authorization'];
+        
         // Sadece login olmayan sayfalarda yönlendir
         if (!window.location.pathname.includes('/login')) {
           console.log('↩️ Login sayfasına yönlendiriliyor...');
-          window.location.href = '/login';
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
         }
       }
     }
-    
-    // Hata mesajını konsola yazdır
-    console.error('API Error:', error.response?.data || error.message);
     
     return Promise.reject(error);
   }

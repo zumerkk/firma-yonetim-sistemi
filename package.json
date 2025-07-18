@@ -1,15 +1,27 @@
 {
-  "name": "firma-yonetim-sistemi",
+  "name": "cahit-firma-yonetim-sistemi",
   "version": "1.0.0",
   "description": "Modern danışmanlık hizmeti otomasyonu - Firma yönetim sistemi",
-  "main": "index.js",
+  "main": "backend/server.js",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "cd backend && npm run dev",
     "client": "cd frontend && npm start",
-    "build": "cd frontend && npm install && npm run build && cd .. && cp -r frontend/build .",
+    "build": "cd frontend && npm ci --production && npm run build",
+    "build:backend": "cd backend && npm ci --production",
     "start": "cd backend && npm start",
-    "install-deps": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "install-deps": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "install-deps:prod": "npm ci --production && cd backend && npm ci --production && cd ../frontend && npm ci --production",
+    "test": "cd frontend && npm test",
+    "test:backend": "cd backend && npm test",
+    "seed:admin": "cd backend && node seedAdmin.js",
+    "seed:firmalar": "cd backend && node seedFirmalar.js",
+    "deploy:check": "npm run build && npm run build:backend",
+    "postinstall": "echo 'Installation completed successfully! Run npm run dev to start development server.'"
   },
   "keywords": [
     "firma-yonetimi",
@@ -17,10 +29,16 @@
     "otomasyon",
     "react",
     "nodejs",
-    "mongodb"
+    "mongodb",
+    "render-deployment",
+    "mern-stack"
   ],
-  "author": "Firma Yönetim Sistemi",
+  "author": "Cahit - Firma Yönetim Sistemi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YOUR_USERNAME/cahit-firma-yonetim.git"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }

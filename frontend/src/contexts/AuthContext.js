@@ -1,23 +1,20 @@
-// 🔐 Authentication Context
+// 🔐 Authentication Context - FIXED VERSION
 // JWT tabanlı kimlik doğrulama ve kullanıcı durumu yönetimi
+// Centralized axios instance kullanımı
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import api from '../utils/axios'; // 🎯 Centralized axios instance kullan
 
-// API base URL - Production/Development uyumlu
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-
-// 🔧 Axios konfigürasyonu
-axios.defaults.baseURL = API_BASE_URL;
-
-// Token'ı axios headers'ına ekle
+// 🔧 Token'ı localStorage ve axios headers'ına ekle
 const setAuthToken = (token) => {
   if (token) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    // Centralized axios instance'a token ekle
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     localStorage.setItem('token', token);
   } else {
-    delete axios.defaults.headers.common['Authorization'];
+    delete api.defaults.headers.common['Authorization'];
     localStorage.removeItem('token');
+    localStorage.removeItem('user'); // User data da temizle
   }
 };
 
@@ -128,51 +125,88 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // 🚀 Uygulama başladığında token kontrolü
+  // 🚀 Uygulama başladığında token kontrolü - ENHANCED
   useEffect(() => {
     const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+    
+    console.log('🚀 AuthContext initializing...', { hasToken: !!token, hasUser: !!userData });
+    
     if (token) {
-      setAuthToken(token);
-      loadUser();
+      try {
+        setAuthToken(token);
+        // Stored user data varsa kullan, yoksa API'den yükle
+        if (userData) {
+          const user = JSON.parse(userData);
+          dispatch({ 
+            type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
+            payload: user 
+          });
+          console.log('✅ User loaded from localStorage');
+        } else {
+          loadUser();
+        }
+      } catch (error) {
+        console.error('❌ Token initialization error:', error);
+        setAuthToken(null);
+        dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: 'Token hatası' });
+      }
     } else {
       dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: 'Token bulunamadı' });
     }
   }, []);
 
-  // 👤 Kullanıcı bilgilerini yükle
+  // 👤 Kullanıcı bilgilerini yükle - ENHANCED
   const loadUser = async () => {
     dispatch({ type: AUTH_ACTIONS.LOAD_USER_START });
     
     try {
-      const response = await axios.get('/auth/profile');
+      const response = await api.get('/auth/profile');
+      const user = response.data.data.user;
+      
+      // User data'yı localStorage'a da kaydet
+      localStorage.setItem('user', JSON.stringify(user));
+      
       dispatch({ 
         type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
-        payload: response.data.data.user 
+        payload: user 
       });
+      
+      console.log('✅ User profile loaded and saved');
     } catch (error) {
       console.error('❌ Load user error:', error);
+      const errorMessage = error.response?.data?.message || 'Kullanıcı bilgileri yüklenemedi';
+      
       dispatch({ 
         type: AUTH_ACTIONS.LOAD_USER_FAILURE, 
-        payload: error.response?.data?.message || 'Kullanıcı bilgileri yüklenemedi' 
+        payload: errorMessage 
       });
-      setAuthToken(null); // Token geçersizse temizle
+      
+      // Token geçersizse temizle
+      if (error.response?.status === 401) {
+        setAuthToken(null);
+      }
     }
   };
 
-  // 🔑 Giriş yapma
+  // 🔑 Giriş yapma - ENHANCED
   const login = async (credentials) => {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
     
     try {
-      const response = await axios.post('/auth/login', credentials);
+      const response = await api.post('/auth/login', credentials);
       const { user, token } = response.data.data;
       
+      // Token ve user data'yı set et
       setAuthToken(token);
+      localStorage.setItem('user', JSON.stringify(user)); // User data'yı da kaydet
+      
       dispatch({ 
         type: AUTH_ACTIONS.LOGIN_SUCCESS, 
         payload: { user, token } 
       });
       
+      console.log('✅ Login successful, user data saved');
       return { success: true, message: 'Giriş başarılı' };
     } catch (error) {
       console.error('❌ Login error:', error);
@@ -185,20 +219,24 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 📝 Kayıt olma
+  // 📝 Kayıt olma - ENHANCED
   const register = async (userData) => {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
     
     try {
-      const response = await axios.post('/auth/register', userData);
+      const response = await api.post('/auth/register', userData);
       const { user, token } = response.data.data;
       
+      // Token ve user data'yı set et
       setAuthToken(token);
+      localStorage.setItem('user', JSON.stringify(user)); // User data'yı da kaydet
+      
       dispatch({ 
         type: AUTH_ACTIONS.LOGIN_SUCCESS, 
         payload: { user, token } 
       });
       
+      console.log('✅ Registration successful, user data saved');
       return { success: true, message: 'Kayıt başarılı' };
     } catch (error) {
       console.error('❌ Register error:', error);
@@ -211,20 +249,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🚪 Çıkış yapma
+  // 🚪 Çıkış yapma - ENHANCED
   const logout = () => {
-    setAuthToken(null);
+    console.log('🚪 User logging out, cleaning up...');
+    setAuthToken(null); // Bu localStorage ve headers'ı temizleyecek
     dispatch({ type: AUTH_ACTIONS.LOGOUT });
   };
 
-  // ✏️ Profil güncelleme
+  // ✏️ Profil güncelleme - ENHANCED
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put('/auth/profile', profileData);
+      const response = await api.put('/auth/profile', profileData);
+      const updatedUser = response.data.data.user;
+      
+      // Updated user data'yı localStorage'a da kaydet
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
       dispatch({ 
         type: AUTH_ACTIONS.UPDATE_PROFILE, 
-        payload: response.data.data.user 
+        payload: updatedUser 
       });
+      
+      console.log('✅ Profile updated and saved');
       return { success: true, message: 'Profil güncellendi' };
     } catch (error) {
       console.error('❌ Update profile error:', error);
@@ -236,7 +282,7 @@ export const AuthProvider = ({ children }) => {
   // 🔒 Şifre değiştirme
   const changePassword = async (passwordData) => {
     try {
-      const response = await axios.put('/auth/change-password', passwordData);
+      const response = await api.put('/auth/change-password', passwordData);
       return { success: true, message: response.data.message };
     } catch (error) {
       console.error('❌ Change password error:', error);

@@ -574,13 +574,19 @@ const getExcelData = async (req, res) => {
       firmaIl: firma.firmaIl,
       firmaIlce: firma.firmaIlce,
       kepAdresi: firma.kepAdresi,
-      yabanciSermayeli: firma.yabanciSermayeli ? 'EVET' : 'HAYIR',
+      firmaTelefon: firma.firmaTelefon,
+      firmaEmail: firma.firmaEmail,
+      firmaWebsite: firma.firmaWebsite,
+      yabanciSermayeli: firma.yabanciSermayeli,
       anaFaaliyetKonusu: firma.anaFaaliyetKonusu,
       etuysYetkiBitisTarihi: firma.etuysYetkiBitisTarihi,
+      dysYetkiBitisTarihi: firma.dysYetkiBitisTarihi,
       ilkIrtibatKisi: firma.ilkIrtibatKisi,
       yetkiliKisiler: firma.yetkiliKisiler,
       notlar: firma.notlar,
-      olusturmaTarihi: firma.createdAt
+      aktif: firma.aktif,
+      olusturmaTarihi: firma.createdAt,
+      createdAt: firma.createdAt
     }));
 
     sendSuccess(res, {

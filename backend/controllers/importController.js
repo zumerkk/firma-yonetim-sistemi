@@ -1,10 +1,12 @@
 // 📊 Import Controller
-// Excel verilerini sisteme aktarma
+// Excel ve CSV verilerini sisteme aktarma
 
 const multer = require('multer');
 const XLSX = require('xlsx');
 const Firma = require('../models/Firma');
 const path = require('path');
+const fs = require('fs');
+const csv = require('csv-parser');
 
 // 📂 Multer konfigürasyonu
 const storage = multer.diskStorage({
@@ -19,23 +21,25 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage,
   fileFilter: (req, file, cb) => {
-    // Excel dosya formatları
+    // Excel ve CSV dosya formatları
     const allowedTypes = [
       'application/vnd.ms-excel',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'text/csv'
+      'text/csv',
+      'application/csv'
     ];
     
-    if (allowedTypes.includes(file.mimetype)) {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(file.mimetype) || ext === '.csv' || ext === '.xlsx' || ext === '.xls') {
       cb(null, true);
     } else {
       cb(new Error('Sadece Excel (.xlsx, .xls) veya CSV dosyaları kabul edilir'));
     }
   },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit (büyük CSV dosyaları için)
 });
 
-// 📥 Excel Import
+// 📥 Excel/CSV Import
 const importExcel = async (req, res) => {
   try {
     if (!req.file) {
@@ -45,101 +49,173 @@ const importExcel = async (req, res) => {
       });
     }
 
-    // Excel dosyasını oku
-    const workbook = XLSX.readFile(req.file.path);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
+    console.log('📁 Import başladı:', req.file.originalname, 'Boyut:', req.file.size);
+
+    const ext = path.extname(req.file.originalname).toLowerCase();
+    let jsonData = [];
+
+    // CSV dosyası ise
+    if (ext === '.csv') {
+      console.log('📄 CSV dosyası tespit edildi');
+      jsonData = await parseCSV(req.file.path);
+    } else {
+      // Excel dosyası ise
+      console.log('📊 Excel dosyası tespit edildi');
+      const workbook = XLSX.readFile(req.file.path);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      jsonData = XLSX.utils.sheet_to_json(worksheet);
+    }
     
-    // JSON'a çevir
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+    console.log(`📋 Toplam ${jsonData.length} satır veri bulundu`);
     
     if (!jsonData || jsonData.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Excel dosyası boş veya geçersiz format'
+        message: 'Dosya boş veya geçersiz format'
       });
     }
 
     const results = {
       success: 0,
       failed: 0,
-      errors: []
+      errors: [],
+      skipped: 0,
+      updated: 0
     };
 
-    // Her satırı işle
-    for (let i = 0; i < jsonData.length; i++) {
-      try {
-        const row = jsonData[i];
-        
-        // Excel sütunlarını model alanlarına map et
-        const firmaData = mapExcelToFirma(row, i + 2); // +2 çünkü Excel 1'den başlar ve header var
-        
-        // Firma ID kontrolü
-        const existingFirma = await Firma.findOne({ firmaId: firmaData.firmaId });
-        if (existingFirma) {
+    // Batch processing için
+    const BATCH_SIZE = 100;
+    const totalBatches = Math.ceil(jsonData.length / BATCH_SIZE);
+    
+    console.log(`🔄 ${totalBatches} batch halinde işlenecek (Batch boyutu: ${BATCH_SIZE})`);
+
+    // Her satırı işle - batch processing
+    for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      const startIdx = batchIndex * BATCH_SIZE;
+      const endIdx = Math.min(startIdx + BATCH_SIZE, jsonData.length);
+      const batch = jsonData.slice(startIdx, endIdx);
+      
+      console.log(`📦 Batch ${batchIndex + 1}/${totalBatches} işleniyor (${startIdx + 1}-${endIdx})`);
+      
+      for (let i = 0; i < batch.length; i++) {
+        const globalIndex = startIdx + i;
+        try {
+          const row = batch[i];
+          
+          // Excel sütunlarını model alanlarına map et
+          const firmaData = mapExcelToFirma(row, globalIndex + 2); // +2 çünkü Excel 1'den başlar ve header var
+          
+          // Firma ID kontrolü - CSV'de belirtilmişse kullan, yoksa otomatik oluştur
+          if (firmaData.firmaId) {
+            const existingFirma = await Firma.findOne({ firmaId: firmaData.firmaId });
+            if (existingFirma) {
+              // Firma varsa güncelle
+              Object.assign(existingFirma, {
+                ...firmaData,
+                sonGuncelleyen: req.user._id
+              });
+              await existingFirma.save();
+              results.updated++;
+              continue;
+            }
+          }
+
+          // Vergi No kontrolü
+          const existingVergiNo = await Firma.findOne({ vergiNoTC: firmaData.vergiNoTC });
+          if (existingVergiNo) {
+            // Vergi no ile firma varsa güncelle
+            Object.assign(existingVergiNo, {
+              ...firmaData,
+              sonGuncelleyen: req.user._id
+            });
+            await existingVergiNo.save();
+            results.updated++;
+            continue;
+          }
+
+          // Yeni firma oluştur
+          const firma = new Firma({
+            ...firmaData,
+            olusturanKullanici: req.user._id
+          });
+
+          await firma.save();
+          results.success++;
+          
+          // Her 50 kayıtta bir log
+          if ((results.success + results.updated) % 50 === 0) {
+            console.log(`✅ İşlenen: ${results.success + results.updated} (Yeni: ${results.success}, Güncellenen: ${results.updated})`);
+          }
+          
+        } catch (error) {
           results.failed++;
-          results.errors.push(`Satır ${i + 2}: Firma ID (${firmaData.firmaId}) zaten mevcut`);
-          continue;
+          // Sadece ilk 10 hatayı kaydet
+          if (results.errors.length < 10) {
+            results.errors.push(`Satır ${globalIndex + 2}: ${error.message}`);
+          }
         }
-
-        // Vergi No kontrolü
-        const existingVergiNo = await Firma.findOne({ vergiNoTC: firmaData.vergiNoTC });
-        if (existingVergiNo) {
-          results.failed++;
-          results.errors.push(`Satır ${i + 2}: Vergi No (${firmaData.vergiNoTC}) zaten mevcut`);
-          continue;
-        }
-
-        // Yeni firma oluştur
-        const firma = new Firma({
-          ...firmaData,
-          olusturanKullanici: req.user._id
-        });
-
-        await firma.save();
-        results.success++;
-        
-      } catch (error) {
-        results.failed++;
-        results.errors.push(`Satır ${i + 2}: ${error.message}`);
       }
     }
 
     // Dosyayı sil
-    const fs = require('fs');
     fs.unlinkSync(req.file.path);
+
+    console.log('✅ Import tamamlandı:', results);
 
     res.json({
       success: true,
-      message: `İşlem tamamlandı: ${results.success} başarılı, ${results.failed} hatalı`,
+      message: `İşlem tamamlandı: ${results.success} yeni, ${results.updated} güncellendi, ${results.failed} hatalı`,
       data: results
     });
 
   } catch (error) {
-    console.error('❌ Import Excel error:', error);
+    console.error('❌ Import Excel/CSV error:', error);
+    
+    // Dosyayı temizle
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+    
     res.status(500).json({
       success: false,
-      message: 'Excel dosyası işlenirken hata oluştu',
+      message: 'Dosya işlenirken hata oluştu',
       error: error.message
     });
   }
 };
 
-// 🔄 Excel verilerini Firma modeline map et
+// CSV Parse Helper
+const parseCSV = (filePath) => {
+  return new Promise((resolve, reject) => {
+    const results = [];
+    fs.createReadStream(filePath)
+      .pipe(csv({
+        separator: ',',
+        encoding: 'utf8',
+        skipLinesWithError: true
+      }))
+      .on('data', (data) => results.push(data))
+      .on('end', () => resolve(results))
+      .on('error', reject);
+  });
+};
+
+// 🔄 Excel/CSV verilerini Firma modeline map et
 const mapExcelToFirma = (row, rowNumber) => {
-  // Excel sütun isimleri (yeni format)
-  const firmaId = row['Firma ID'] || row['firmaId'] || row['FirmaID'];
-  const vergiNoTC = row['Vergi No/TC No'] || row['vergiNoTC'] || row['VergiNo'];
-  const tamUnvan = row['Tam Unvan (NOKTASIZ BÜYÜK)'] || row['tamUnvan'] || row['Unvan'];
-  const adres = row['Adres'] || row['adres'];
-  const firmaIl = row['Firma İl'] || row['firmaIl'] || row['Il'];
-  const firmaIlce = row['Firma İlçe'] || row['firmaIlce'] || row['Ilce'];
-  const kepAdresi = row['KEP Adresi'] || row['kepAdresi'] || row['KEP'];
-  const yabanciSermaye = row['Yabancı Sermayeli mi?'] || row['yabanciSermaye'];
+  // Excel/CSV sütun isimleri (yeni format)
+  const firmaId = row['Firma ID (Boş Bırak)'] || row['Firma ID'] || row['firmaId'] || '';
+  const vergiNoTC = row['Vergi No/TC No'] || row['vergiNoTC'] || row['VergiNo'] || '';
+  const tamUnvan = row['Tam Unvan (NOKTASIZ BÜYÜK)'] || row['tamUnvan'] || row['Unvan'] || '';
+  const adres = row['Adres'] || row['adres'] || '';
+  const firmaIl = row['Firma İl'] || row['firmaIl'] || row['Il'] || '';
+  const firmaIlce = row['Firma İlçe'] || row['firmaIlce'] || row['Ilce'] || '';
+  const kepAdresi = row['KEP Adresi'] || row['kepAdresi'] || row['KEP'] || '';
+  const yabanciSermaye = row['Yabancı Sermayeli mi?'] || row['yabanciSermaye'] || '';
   const anaFaaliyetKonusu = row['Ana Faaliyet Konusu'] || row['anaFaaliyetKonusu'] || '';
   const ilkIrtibatKisi = row['İlk İrtibat Kişisi'] || row['ilkIrtibatKisi'] || '';
-  const etuysYetki = row['ETUYS YETKİ BİTİŞ'] || row['etuysYetki'];
-  const dysYetki = row['DYS YETKİ BİTİŞ'] || row['dysYetki'];
+  const etuysYetki = row['ETUYS YETKİ BİTİŞ'] || row['etuysYetki'] || '';
+  const dysYetki = row['DYS YETKİ BİTİŞ'] || row['dysYetki'] || '';
   
   // Yetkili kişi bilgileri - Yeni format
   const yetkili1Ad = row['Yetkili Kişi1'] || row['YetkiliAd1'] || '';
@@ -152,58 +228,51 @@ const mapExcelToFirma = (row, rowNumber) => {
   const yetkili2Tel1 = row['Yetkili Kişi2 Tel'] || row['YetkiliTel21'] || '';
   const yetkili2Tel2 = row['Yetkili Kişi2 Tel2'] || row['YetkiliTel22'] || '';
   const yetkili2Email1 = row['Yetkili Kişi2 Mail'] || row['YetkiliEmail21'] || '';
-  const yetkili2Email2 = row['Yetkili Kişi2 Mail2'] || row['YetkiliEmail22'] || '';
+  const yetkili2Email2 = row['Yetkili Kişi,2 Mail2'] || row['Yetkili Kişi2 Mail2'] || row['YetkiliEmail22'] || '';
 
-  // Validasyon
-  if (!firmaId) throw new Error('Firma ID zorunludur');
-  if (!vergiNoTC) throw new Error('Vergi No/TC zorunludur');
-  if (!tamUnvan) throw new Error('Tam ünvan zorunludur');
-  if (!adres) throw new Error('Adres zorunludur');
-  if (!firmaIl) throw new Error('Firma ili zorunludur');
-  if (!firmaIlce) throw new Error('Firma ilçesi zorunludur');
-
-  // Tarihleri parse et
-  const parseDate = (dateStr) => {
-    if (!dateStr || dateStr.trim() === '') return null;
-    
-    try {
-      // Farklı tarih formatlarını dene
-      const date = new Date(dateStr);
-      return isNaN(date.getTime()) ? null : date;
-    } catch (error) {
-      return null;
-    }
-  };
+  // Boş değerleri kontrol et ve atla
+  if (!vergiNoTC || !tamUnvan) {
+    throw new Error('Vergi No/TC ve Tam ünvan zorunludur');
+  }
 
   // Yetkili kişiler array'i
   const yetkiliKisiler = [];
   
   // Yetkili Kişi 1
   if (yetkili1Ad && yetkili1Ad.trim() !== '') {
+    // Telefon numarası yoksa varsayılan ekle
+    const tel1 = yetkili1Tel1 && yetkili1Tel1.trim() !== '' ? yetkili1Tel1.trim() : '0000000000';
+    const email1 = yetkili1Email1 && yetkili1Email1.trim() !== '' ? yetkili1Email1.trim() : `${yetkili1Ad.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+    
     yetkiliKisiler.push({
       adSoyad: yetkili1Ad.trim(),
-      telefon1: yetkili1Tel1 || '',
+      telefon1: tel1,
       telefon2: yetkili1Tel2 || '',
-      eposta1: yetkili1Email1 || '',
+      eposta1: email1,
       eposta2: yetkili1Email2 || ''
     });
   }
 
   // Yetkili Kişi 2
   if (yetkili2Ad && yetkili2Ad.trim() !== '') {
+    // Telefon numarası yoksa varsayılan ekle
+    const tel1 = yetkili2Tel1 && yetkili2Tel1.trim() !== '' ? yetkili2Tel1.trim() : '0000000000';
+    const email1 = yetkili2Email1 && yetkili2Email1.trim() !== '' ? yetkili2Email1.trim() : `${yetkili2Ad.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+    
     yetkiliKisiler.push({
       adSoyad: yetkili2Ad.trim(),
-      telefon1: yetkili2Tel1 || '',
+      telefon1: tel1,
       telefon2: yetkili2Tel2 || '',
-      eposta1: yetkili2Email1 || '',
+      eposta1: email1,
       eposta2: yetkili2Email2 || ''
     });
   }
 
   // Eğer hiç yetkili kişi yoksa varsayılan ekle
   if (yetkiliKisiler.length === 0) {
+    const defaultName = ilkIrtibatKisi && ilkIrtibatKisi.trim() !== '' ? ilkIrtibatKisi.trim() : 'Belirtilmemiş';
     yetkiliKisiler.push({
-      adSoyad: 'Belirtilmemiş',
+      adSoyad: defaultName,
       telefon1: '0000000000',
       telefon2: '',
       eposta1: 'bilgi@example.com',
@@ -211,22 +280,49 @@ const mapExcelToFirma = (row, rowNumber) => {
     });
   }
 
-  return {
-    firmaId: firmaId.toString().toUpperCase(),
-    vergiNoTC: vergiNoTC.toString(),
-    tamUnvan: tamUnvan.toString(),
-    adres: adres.toString(),
-    firmaIl: firmaIl.toString().toUpperCase(),
-    firmaIlce: firmaIlce.toString().toUpperCase(),
-    kepAdresi: kepAdresi ? kepAdresi.toString().toLowerCase() : '',
-    yabanciIsareti: yabanciSermaye === 'EVET' || yabanciSermaye === 'Evet' || yabanciSermaye === true,
-    anaFaaliyetKonusu: anaFaaliyetKonusu || '',
-    ilkIrtibatKisi: ilkIrtibatKisi || '',
-    etuysYetkiBitis: parseDate(etuysYetki),
-    dysYetkiBitis: parseDate(dysYetki),
+  // Tarihleri parse et
+  const parseDate = (dateStr) => {
+    if (!dateStr || dateStr.toString().trim() === '') return null;
+    
+    try {
+      const str = dateStr.toString().trim();
+      
+      // DD.MM.YYYY formatı
+      if (str.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
+        const [day, month, year] = str.split('.');
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      }
+      
+      // Diğer formatlar
+      const date = new Date(str);
+      return isNaN(date.getTime()) ? null : date;
+    } catch (error) {
+      return null;
+    }
+  };
+
+  const result = {
+    vergiNoTC: vergiNoTC.toString().trim(),
+    tamUnvan: tamUnvan.toString().trim(),
+    adres: adres ? adres.toString().trim() : 'Belirtilmemiş',
+    firmaIl: firmaIl ? firmaIl.toString().toUpperCase().trim() : 'İSTANBUL',
+    firmaIlce: firmaIlce ? firmaIlce.toString().toUpperCase().trim() : 'MERKEZ',
+    kepAdresi: kepAdresi ? kepAdresi.toString().toLowerCase().trim() : '',
+    yabanciSermayeli: yabanciSermaye === 'EVET' || yabanciSermaye === 'Evet' || yabanciSermaye === true,
+    anaFaaliyetKonusu: anaFaaliyetKonusu ? anaFaaliyetKonusu.toString().trim() : '',
+    ilkIrtibatKisi: ilkIrtibatKisi ? ilkIrtibatKisi.toString().trim() : yetkiliKisiler[0].adSoyad,
+    etuysYetkiBitisTarihi: parseDate(etuysYetki),
+    dysYetkiBitisTarihi: parseDate(dysYetki),
     yetkiliKisiler,
     aktif: true
   };
+
+  // Firma ID varsa ekle
+  if (firmaId && firmaId.toString().trim() !== '') {
+    result.firmaId = firmaId.toString().toUpperCase().trim();
+  }
+
+  return result;
 };
 
 // 📤 Örnek Excel Template İndir
@@ -235,7 +331,7 @@ const downloadTemplate = (req, res) => {
     // Örnek veri - yeni format
     const templateData = [
       {
-        'Firma ID': 'A000001',
+        'Firma ID (Boş Bırak)': 'A000001',
         'Vergi No/TC No': '1234567890',
         'Tam Unvan (NOKTASIZ BÜYÜK)': 'ÖRNEK FİRMA LİMİTED ŞİRKETİ',
         'Adres': 'Örnek Mahallesi Örnek Caddesi No:1',
@@ -257,30 +353,6 @@ const downloadTemplate = (req, res) => {
         'İlk İrtibat Kişisi': 'Ahmet Yılmaz',
         'ETUYS YETKİ BİTİŞ': '31.12.2024',
         'DYS YETKİ BİTİŞ': '31.12.2024'
-      },
-      {
-        'Firma ID': 'A000002',
-        'Vergi No/TC No': '9876543210',
-        'Tam Unvan (NOKTASIZ BÜYÜK)': 'TEST SANAYİ VE TİCARET ANONİM ŞİRKETİ',
-        'Adres': 'Test Mahallesi Test Sokak No:2',
-        'Firma İl': 'İSTANBUL',
-        'Firma İlçe': 'KARTAL',
-        'KEP Adresi': 'test@testsanayi.com.tr',
-        'Yabancı Sermayeli mi?': 'EVET',
-        'Ana Faaliyet Konusu': '1234',
-        'Yetkili Kişi1': 'Mehmet Özkan',
-        'Yetkili Kişi1 Tel': '05334455667',
-        'Yetkili Kişi1 Tel2': '02164455667',
-        'Yetkili Kişi1 Mail': 'mehmet@testsanayi.com',
-        'Yetkili Kişi1 Mail2': 'mehmet.ozkan@testsanayi.com',
-        'Yetkili Kişi2': 'Fatma Kaya',
-        'Yetkili Kişi2 Tel': '05447788990',
-        'Yetkili Kişi2 Tel2': '02167788990',
-        'Yetkili Kişi2 Mail': 'fatma@testsanayi.com',
-        'Yetkili Kişi2 Mail2': 'fatma.kaya@testsanayi.com',
-        'İlk İrtibat Kişisi': 'Mehmet Özkan',
-        'ETUYS YETKİ BİTİŞ': '15.06.2025',
-        'DYS YETKİ BİTİŞ': '28.02.2025'
       }
     ];
 
@@ -297,7 +369,7 @@ const downloadTemplate = (req, res) => {
       { wch: 15 }, // İlçe
       { wch: 25 }, // KEP
       { wch: 15 }, // Yabancı
-      { wch: 15 }, // Faaliyet
+      { wch: 20 }, // Faaliyet
       { wch: 20 }, // Yetkili 1 Ad
       { wch: 15 }, // Yetkili 1 Tel
       { wch: 15 }, // Yetkili 1 Tel2
@@ -308,7 +380,7 @@ const downloadTemplate = (req, res) => {
       { wch: 15 }, // Yetkili 2 Tel2
       { wch: 25 }, // Yetkili 2 Mail
       { wch: 25 }, // Yetkili 2 Mail2
-      { wch: 15 }, // İlk İrtibat
+      { wch: 20 }, // İlk İrtibat
       { wch: 15 }, // ETUYS
       { wch: 15 }  // DYS
     ];
@@ -321,7 +393,7 @@ const downloadTemplate = (req, res) => {
     // Buffer'a çevir
     const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
-    res.setHeader('Content-Disposition', 'attachment; filename=firma-import-template-yeni.xlsx');
+    res.setHeader('Content-Disposition', 'attachment; filename=firma-import-template.xlsx');
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.send(buffer);
 

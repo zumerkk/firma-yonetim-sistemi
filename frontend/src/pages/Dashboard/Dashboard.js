@@ -1,262 +1,308 @@
-// 🏠 ENTERPRISE DASHBOARD PAGE
-// Ana dashboard sayfası - Firma istatistikleri ve özet bilgiler
-// Corporate-level professional design
+// 🏢 Dashboard - COMPACT PROFESSIONAL EDITION  
+// Minimal, functional, clickable dashboard with optimized layout
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
-  Grid,
+  Typography,
   Card,
   CardContent,
-  Typography,
+  Grid,
   Button,
   Avatar,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
   Chip,
-  Divider,
-  IconButton,
-  Tooltip
+  LinearProgress,
+  IconButton
 } from '@mui/material';
 import {
   Business as BusinessIcon,
-  Add as AddIcon,
-  TrendingUp as TrendingUpIcon,
-  People as PeopleIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
   LocationOn as LocationIcon,
-  Schedule as ScheduleIcon,
+  Add as AddIcon,
+  ViewList as ViewListIcon,
   Assessment as AssessmentIcon,
   Refresh as RefreshIcon,
-  Visibility as VisibilityIcon,
-  BarChart as ChartIcon
+  Autorenew as AutorenewIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
 import { useFirma } from '../../contexts/FirmaContext';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { stats, fetchStats, firmalar, fetchFirmalar } = useFirma();
+  const { firmalar, loading, stats, fetchFirmalar, fetchStats } = useFirma();
+  const [refreshing, setRefreshing] = useState(false);
 
-  // 🚀 Component mount olduğunda verileri yükle
+  // 🔄 Data Loading
   useEffect(() => {
     const loadData = async () => {
-      try {
-        await fetchStats();
-        await fetchFirmalar({ limit: 5 }); // Son 5 firmayı getir
-      } catch (error) {
-        console.error('Dashboard veri yükleme hatası:', error);
-      }
+      await Promise.all([
+        fetchFirmalar(),
+        fetchStats()
+      ]);
     };
-    
     loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array - sadece mount'ta çalış
+  }, [fetchFirmalar, fetchStats]);
 
-  // 🔄 Verileri yenile
+  // 🔄 Manual Refresh
   const handleRefresh = async () => {
+    setRefreshing(true);
     await Promise.all([
-      fetchStats(),
-      fetchFirmalar({ limit: 5 })
+      fetchFirmalar(),
+      fetchStats()
     ]);
+    setTimeout(() => setRefreshing(false), 500);
   };
 
-  // 🎯 Hızlı işlemler - Professional Actions
-  const quickActions = [
-    {
-      title: 'Yeni Firma Ekle',
-      icon: <AddIcon sx={{ fontSize: 28 }} />,
-      color: '#2e7d32',
-      gradient: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
-      action: () => navigate('/firmalar/yeni'),
-      description: 'Yeni firma kaydı oluştur',
-      subtitle: 'Excel formatında kayıt'
-    },
-    {
-      title: 'Firma Listesi',
-      icon: <BusinessIcon sx={{ fontSize: 28 }} />,
-      color: '#1976d2',
-      gradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-      action: () => navigate('/firmalar'),
-      description: 'Tüm firmaları görüntüle',
-      subtitle: '1185 firma kayıtlı'
-    },
-    {
-      title: 'İstatistikler',
-      icon: <AssessmentIcon sx={{ fontSize: 28 }} />,
-      color: '#9c27b0',
-      gradient: 'linear-gradient(135deg, #e91e63 0%, #9c27b0 100%)',
-      action: () => navigate('/istatistikler'),
-      description: 'Detaylı raporları incele',
-      subtitle: 'Grafik ve analiz'
-    }
-  ];
+  // 👨‍💼 Recent Companies - Son eklenen firmaları ID'ye göre sırala
+  const recentCompanies = (firmalar || [])
+    .filter(firma => firma.aktif !== false) // Sadece aktif firmaları göster
+    .sort((a, b) => {
+      // Önce createdAt'e göre sırala (en yeni önce)
+      const dateA = new Date(a.createdAt);
+      const dateB = new Date(b.createdAt);
+      if (dateB - dateA !== 0) return dateB - dateA;
+      
+      // Eğer tarihler aynıysa firmaId'ye göre sırala (A001185, A001184, ...)
+      const idA = a.firmaId ? parseInt(a.firmaId.substring(1)) : 0;
+      const idB = b.firmaId ? parseInt(b.firmaId.substring(1)) : 0;
+      return idB - idA;
+    })
+    .slice(0, 5);
 
-  // 📊 İstatistik kartları - Professional Stats
-  const statCards = [
+  // 📊 Dashboard Statistics - Compact & Clickable
+  const dashboardStats = [
     {
       title: 'Toplam Firma',
       value: stats?.toplamFirma || 0,
-      icon: <BusinessIcon sx={{ fontSize: 32 }} />,
-      color: '#1976d2',
-      gradient: 'linear-gradient(135deg, #2196f3 0%, #1976d2 100%)',
-      subtitle: 'Sistemdeki toplam firma sayısı',
-      change: '+12',
-      changeType: 'positive'
+      change: '+5.2%',
+      changeType: 'increase',
+      icon: <BusinessIcon sx={{ fontSize: 20 }} />,
+      color: '#1e40af',
+      gradient: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+      action: () => navigate('/firmalar')
     },
     {
-      title: 'Aktif Firmalar',
+      title: 'Aktif Firmalar', 
       value: stats?.aktifFirma || 0,
-      icon: <TrendingUpIcon sx={{ fontSize: 32 }} />,
-      color: '#2e7d32',
-      gradient: 'linear-gradient(135deg, #4caf50 0%, #2e7d32 100%)',
-      subtitle: 'Aktif durumda olan firmalar',
-      change: '+8',
-      changeType: 'positive'
+      change: '+2.1%',
+      changeType: 'increase',
+      icon: <CheckCircleIcon sx={{ fontSize: 20 }} />,
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+      action: () => navigate('/firmalar?aktif=true')
     },
     {
-      title: 'ETUYS Süresi Yaklaşan',
-      value: stats?.etuysSuresiYaklasan || 0,
-      icon: <ScheduleIcon sx={{ fontSize: 32 }} />,
-      color: '#f57c00',
-      gradient: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
-      subtitle: '30 gün içinde süre dolacak',
-      change: '3',
-      changeType: 'warning'
+      title: 'Yetki Süresi Yaklaşan',
+      value: stats?.etuysUyarilari?.count || 0,
+      change: '-12.5%',
+      changeType: 'decrease',
+      icon: <WarningIcon sx={{ fontSize: 20 }} />,
+      color: '#a16207',
+      gradient: 'linear-gradient(135deg, #a16207 0%, #f59e0b 100%)',
+      action: () => navigate('/firmalar?etuysUyari=true')
     },
     {
-      title: 'Farklı İl',
-      value: stats?.farkliIl || 0,
-      icon: <LocationIcon sx={{ fontSize: 32 }} />,
-      color: '#9c27b0',
-      gradient: 'linear-gradient(135deg, #e91e63 0%, #9c27b0 100%)',
-      subtitle: 'Yabancı sermayeli firmaların il sayısı',
-      change: '2',
-      changeType: 'info'
+      title: 'Süresi Geçmiş',
+      value: (stats?.toplamFirma || 0) - (stats?.etuysYetkili || 0) - (stats?.etuysUyarilari?.count || 0),
+      change: '+3',
+      changeType: 'neutral',
+      icon: <LocationIcon sx={{ fontSize: 20 }} />,
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+      action: () => navigate('/firmalar?etuysGecmis=true')
+    }
+  ];
+
+  // 🚀 Quick Actions - Compact
+  const quickActions = [
+    {
+      title: 'Yeni Firma Ekle',
+      description: 'Yeni firma kaydı',
+      icon: <AddIcon />,
+      color: '#059669',
+      action: () => navigate('/firmalar/yeni')
+    },
+    {
+      title: 'Firma Listesi',
+      description: 'Tüm firmaları görüntüle',
+      icon: <ViewListIcon />,
+      color: '#1e40af',
+      action: () => navigate('/firmalar')
     }
   ];
 
   return (
-    <Box className="fade-in">
-      {/* 👋 Professional Welcome Section */}
-      <Box className="glass-card" sx={{ mb: 4, p: 4, position: 'relative', overflow: 'hidden' }}>
-        {/* Background decoration */}
-        <Box sx={{
-          position: 'absolute',
-          top: -20,
-          right: -20,
-          width: 120,
-          height: 120,
-          background: 'linear-gradient(135deg, rgba(33, 150, 243, 0.1), rgba(25, 118, 210, 0.1))',
-          borderRadius: '50%',
-          filter: 'blur(40px)'
-        }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+    <Box sx={{ 
+      width: '100%',
+      height: '100%',
+      p: { xs: 2, sm: 2.5, md: 3 },
+      boxSizing: 'border-box',
+      bgcolor: '#f8fafc',
+      overflow: 'auto',
+      display: 'flex',
+      flexDirection: 'column',
+    }}>
+      {/* 👋 Compact Welcome Section */}
+      <Box sx={{ mb: 2.5, position: 'relative' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', md: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', md: 'center' },
+          gap: 2
+        }}>
           <Box>
-            <Typography variant="h4" component="h1" sx={{ 
-              fontWeight: 600,
-              color: '#424242',
-              mb: 1
-            }}>
-              Hoş geldiniz, {user?.adSoyad || 'Sistem Yöneticisi'}
+            <Typography 
+              variant="h4" 
+              component="h1" 
+              sx={{ 
+                fontWeight: 700, 
+                color: '#1e293b', 
+                mb: 0.5,
+                fontSize: { xs: '1.5rem', md: '1.75rem' }
+              }}
+            >
+              Hoş geldiniz, Sistem
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+            <Typography 
+              variant="body1" 
+              color="text.secondary"
+              sx={{ 
+                fontSize: '0.875rem'
+              }}
+            >
               Firma yönetim sistemi - Ana kontrol paneli
             </Typography>
-            <Chip 
-              label="Profesyonel Sürüm" 
-              size="small" 
-              variant="outlined"
-              sx={{
-                borderColor: '#1976d2',
-                color: '#1976d2',
-                fontWeight: 500,
-                fontSize: '0.75rem'
-              }}
-            />
           </Box>
           
-          <Tooltip title="Verileri Yenile" arrow>
-            <IconButton 
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Button
+              variant="outlined"
+              startIcon={refreshing ? <AutorenewIcon className="rotating" /> : <RefreshIcon />}
               onClick={handleRefresh}
+              disabled={refreshing}
+              size="small"
               sx={{ 
-                width: 48, 
-                height: 48,
-                border: '1px solid #e0e0e0',
-                '&:hover': {
-                  backgroundColor: '#f5f5f5',
-                  borderColor: '#1976d2'
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                px: 1.5,
+                py: 0.5,
+                minWidth: 'auto',
+                '& .rotating': {
+                  animation: 'spin 1s linear infinite'
+                },
+                '@keyframes spin': {
+                  '0%': { transform: 'rotate(0deg)' },
+                  '100%': { transform: 'rotate(360deg)' }
                 }
               }}
             >
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+              Yenile
+            </Button>
+            
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<AssessmentIcon />}
+              onClick={() => navigate('/istatistikler')}
+              size="small"
+              sx={{ 
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.75rem',
+                px: 1.5,
+                py: 0.5,
+                minWidth: 'auto'
+              }}
+            >
+              İstatistikler
+            </Button>
+          </Box>
         </Box>
       </Box>
 
-      {/* 📊 Professional Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        {statCards.map((stat, index) => (
-          <Grid size={{ xs: 12, sm: 6, md: 3 }} key={index}>
-            <Card className="dashboard-stat-card slide-up" sx={{
-              position: 'relative',
-              overflow: 'hidden',
-              '&::before': {
-                background: stat.gradient
-              }
-            }}>
-              <CardContent sx={{ position: 'relative', zIndex: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+      {/* Loading Bar */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
+
+      {/* 📊 Compact Dashboard Stats Cards - CLICKABLE */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {dashboardStats.map((stat, index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Card 
+              onClick={stat.action}
+              sx={{ 
+                height: '100%',
+                background: 'rgba(255, 255, 255, 0.95)',
+                borderRadius: 2,
+                border: '1px solid rgba(226, 232, 240, 0.5)',
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  transform: 'translateY(-1px)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
+                  borderColor: stat.color
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: stat.gradient
+                }
+              }}
+            >
+              <CardContent sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
                   <Avatar sx={{ 
                     background: stat.gradient,
-                    width: 56, 
-                    height: 56,
-                    boxShadow: '0 8px 24px rgba(0,0,0,0.15)'
+                    width: 36, 
+                    height: 36,
+                    boxShadow: `0 2px 8px ${stat.color}25`
                   }}>
                     {stat.icon}
                   </Avatar>
                   
-                  <Box sx={{ textAlign: 'right' }}>
-                    <Typography 
-                      variant="h3" 
-                      component="div" 
-                      className="stat-number"
-                      sx={{
-                        background: stat.gradient,
-                        backgroundClip: 'text',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        fontWeight: 800,
-                        fontSize: '2.5rem'
-                      }}
-                    >
-                      {stat.value.toLocaleString()}
-                    </Typography>
-                    <Chip 
-                      label={`+${stat.change}`}
-                      size="small"
-                      sx={{
-                        background: stat.changeType === 'positive' ? 'rgba(76, 175, 80, 0.1)' : 
-                                  stat.changeType === 'warning' ? 'rgba(255, 152, 0, 0.1)' : 'rgba(33, 150, 243, 0.1)',
-                        color: stat.changeType === 'positive' ? '#2e7d32' : 
-                               stat.changeType === 'warning' ? '#f57c00' : '#1976d2',
-                        fontWeight: 600,
-                        fontSize: '0.7rem'
-                      }}
-                    />
-                  </Box>
+                  <Chip 
+                    label={stat.change}
+                    size="small"
+                    sx={{
+                      background: stat.changeType === 'increase' ? 'rgba(5, 150, 105, 0.1)' : 
+                                stat.changeType === 'decrease' ? 'rgba(161, 98, 7, 0.1)' : 'rgba(30, 64, 175, 0.1)',
+                      color: stat.changeType === 'increase' ? '#059669' : 
+                             stat.changeType === 'decrease' ? '#a16207' : '#1e40af',
+                      fontWeight: 600,
+                      fontSize: '0.6rem',
+                      height: 18,
+                      border: 'none'
+                    }}
+                  />
                 </Box>
                 
-                <Typography variant="h6" className="text-heading-medium" sx={{ mb: 1, fontWeight: 600 }}>
-                  {stat.title}
+                <Typography variant="h5" sx={{
+                  color: stat.color,
+                  fontWeight: 800,
+                  fontSize: '1.4rem',
+                  lineHeight: 1,
+                  mb: 0.5
+                }}>
+                  {typeof stat.value === 'number' ? stat.value.toLocaleString('tr-TR') : stat.value}
                 </Typography>
-                <Typography variant="body2" className="text-body-small" color="text.secondary">
-                  {stat.subtitle}
+                
+                <Typography variant="subtitle2" sx={{ 
+                  fontWeight: 600, 
+                  color: '#374151', 
+                  fontSize: '0.75rem',
+                  lineHeight: 1.2
+                }}>
+                  {stat.title}
                 </Typography>
               </CardContent>
             </Card>
@@ -264,188 +310,149 @@ const Dashboard = () => {
         ))}
       </Grid>
 
-      <Grid container spacing={3}>
-        {/* 🚀 Quick Actions - Professional */}
-        <Grid size={{ xs: 12, md: 8 }}>
-          <Card className="glass-card">
-            <CardContent sx={{ p: 4 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <PeopleIcon sx={{ mr: 2, color: '#1976d2', fontSize: 28 }} />
-                <Typography variant="h5" className="text-heading-large" sx={{ fontWeight: 600 }}>
-                  Hızlı İşlemler
+      <Grid container spacing={2}>
+        {/* 🚀 Compact Quick Actions */}
+        <Grid item xs={12} lg={4}>
+          <Card sx={{ 
+            height: '100%',
+            borderRadius: 2,
+            border: '1px solid rgba(226, 232, 240, 0.5)'
+          }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                <BusinessIcon sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
+                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                  🚀 Hızlı İşlemler
                 </Typography>
               </Box>
               
-              <Grid container spacing={3}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {quickActions.map((action, index) => (
-                  <Grid size={{ xs: 12, sm: 4 }} key={index}>
-                    <Card 
-                      className="scale-in"
-                      onClick={action.action}
-                      sx={{
-                        cursor: 'pointer',
-                        background: 'rgba(255, 255, 255, 0.7)',
-                        backdropFilter: 'blur(8px)',
-                        border: '1px solid rgba(255, 255, 255, 0.3)',
-                        borderRadius: 3,
-                        transition: 'all 0.3s ease',
-                        '&:hover': {
-                          background: 'rgba(255, 255, 255, 0.9)',
-                          transform: 'translateY(-8px) scale(1.02)',
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
-                          borderColor: action.color,
-                        }
-                      }}
-                    >
-                      <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                        <Avatar sx={{ 
-                          background: action.gradient,
-                          width: 60, 
-                          height: 60, 
-                          mx: 'auto', 
-                          mb: 2,
-                          boxShadow: `0 8px 24px ${action.color}40`
-                        }}>
-                          {action.icon}
-                        </Avatar>
-                        <Typography variant="h6" className="text-heading-medium" sx={{ mb: 1, fontWeight: 600 }}>
-                          {action.title}
-                        </Typography>
-                        <Typography variant="body2" className="text-body-small" color="text.secondary" sx={{ mb: 1 }}>
-                          {action.description}
-                        </Typography>
-                        <Chip 
-                          label={action.subtitle}
-                          size="small"
-                          sx={{
-                            background: `${action.color}15`,
-                            color: action.color,
-                            fontWeight: 500,
-                            fontSize: '0.7rem'
-                          }}
-                        />
-                      </CardContent>
-                    </Card>
-                  </Grid>
+                  <Button
+                    key={index}
+                    onClick={action.action}
+                    variant="outlined"
+                    startIcon={action.icon}
+                    sx={{
+                      justifyContent: 'flex-start',
+                      textTransform: 'none',
+                      borderRadius: 2,
+                      p: 1.5,
+                      borderColor: 'rgba(226, 232, 240, 0.8)',
+                      color: action.color,
+                      fontSize: '0.8rem',
+                      fontWeight: 500,
+                      '&:hover': {
+                        borderColor: action.color,
+                        bgcolor: `${action.color}08`
+                      }
+                    }}
+                  >
+                    <Box sx={{ textAlign: 'left', flex: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                        {action.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                        {action.description}
+                      </Typography>
+                    </Box>
+                  </Button>
                 ))}
-              </Grid>
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        {/* 📋 Recent Companies - Professional */}
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Card className="glass-card">
-            <CardContent sx={{ p: 0 }}>
-              <Box sx={{ p: 3, pb: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <BusinessIcon sx={{ mr: 2, color: '#1976d2', fontSize: 28 }} />
-                    <Typography variant="h6" className="text-heading-medium" sx={{ fontWeight: 600 }}>
-                      Son Eklenen Firmalar
-                    </Typography>
-                  </Box>
-                  <Tooltip title="Tümünü Gör" arrow>
-                    <IconButton 
-                      size="small" 
-                      onClick={() => navigate('/firmalar')}
+        {/* 👥 Compact Recent Companies */}
+        <Grid item xs={12} lg={8}>
+          <Card sx={{ 
+            height: '100%',
+            borderRadius: 2,
+            border: '1px solid rgba(226, 232, 240, 0.5)'
+          }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <CheckCircleIcon sx={{ color: 'success.main', mr: 1, fontSize: 20 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                    📋 Son Eklenen Firmalar
+                  </Typography>
+                </Box>
+                <IconButton 
+                  size="small" 
+                  onClick={() => navigate('/firmalar')}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  <ViewListIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              
+              {recentCompanies.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {recentCompanies.map((firma) => (
+                    <Box 
+                      key={firma._id}
+                      onClick={() => navigate(`/firmalar/${firma._id}`)}
                       sx={{ 
-                        background: 'rgba(33, 150, 243, 0.1)',
-                        color: '#1976d2',
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        p: 1.5,
+                        borderRadius: 2,
+                        border: '1px solid rgba(226, 232, 240, 0.5)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
                         '&:hover': {
-                          background: 'rgba(33, 150, 243, 0.2)',
-                          transform: 'scale(1.1)'
+                          bgcolor: 'rgba(59, 130, 246, 0.02)',
+                          borderColor: 'rgba(59, 130, 246, 0.3)'
                         }
                       }}
                     >
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-                <Divider sx={{ background: 'rgba(33, 150, 243, 0.1)' }} />
-              </Box>
-
-              <List sx={{ p: 0 }}>
-                {firmalar?.slice(0, 5).map((firma, index) => (
-                  <ListItem 
-                    key={firma._id} 
-                    sx={{
-                      px: 3,
-                      py: 2,
-                      cursor: 'pointer',
-                      borderRadius: 2,
-                      mx: 1,
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        background: 'rgba(33, 150, 243, 0.05)',
-                        transform: 'translateX(8px)',
-                      }
-                    }}
-                    onClick={() => navigate(`/firmalar/${firma._id}`)}
-                  >
-                    <ListItemAvatar>
                       <Avatar sx={{ 
-                        background: `linear-gradient(135deg, ${['#1976d2', '#2e7d32', '#f57c00', '#9c27b0', '#d32f2f'][index % 5]}, ${['#2196f3', '#4caf50', '#ff9800', '#e91e63', '#f44336'][index % 5]})`,
-                        fontSize: '0.875rem',
-                        fontWeight: 600
+                        width: 32, 
+                        height: 32, 
+                        bgcolor: 'primary.main',
+                        fontSize: '0.7rem',
+                        mr: 1.5
                       }}>
-                        {firma.firmaId || `F${index + 1}`}
+                        {firma.tamUnvan?.charAt(0)}
                       </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography 
-                          variant="body1" 
-                          className="text-body-medium" 
-                          sx={{ 
-                            fontWeight: 500, 
-                            fontSize: '0.9rem',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap'
-                          }}
-                        >
-                          {firma.tamUnvan || 'Firma Adı Yok'}
+                      
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ 
+                          fontWeight: 600, 
+                          mb: 0.25,
+                          fontSize: '0.8rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {firma.tamUnvan}
                         </Typography>
-                      }
-                      secondary={
-                        <span style={{ display: 'flex', alignItems: 'center', marginTop: '4px' }}>
-                          <LocationIcon style={{ fontSize: 14, marginRight: '4px', color: '#64748b' }} />
-                          <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                            {firma.il || 'Konum Belirtilmemiş'}
-                          </span>
-                        </span>
-                      }
-                    />
-                    <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          {firma.firmaId} • {firma.firmaIl || 'Şehir belirtilmemiş'}
+                        </Typography>
+                      </Box>
+                      
                       <Chip 
-                        label="Aktif"
+                        label={firma.firmaId}
                         size="small"
-                        className="status-success"
-                        sx={{ fontSize: '0.65rem' }}
+                        color="primary"
+                        sx={{ fontSize: '0.6rem', height: 20 }}
                       />
                     </Box>
-                  </ListItem>
-                ))}
-              </List>
-
-              <Box sx={{ p: 2, pt: 1 }}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<ChartIcon />}
-                  onClick={() => navigate('/firmalar')}
-                  className="btn-glass"
-                  sx={{
-                    borderRadius: 2,
-                    py: 1.5,
-                    fontWeight: 600,
-                    fontSize: '0.875rem'
-                  }}
-                >
-                  Tüm Firmaları Görüntüle
-                </Button>
-              </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 2,
+                  color: 'text.secondary'
+                }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    Henüz firma eklenmemiş
+                  </Typography>
+                </Box>
+              )}
             </CardContent>
           </Card>
         </Grid>

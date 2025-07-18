@@ -1,40 +1,60 @@
 services:
-  # 🚀 Backend Service - Express.js API
+  # 🚀 Backend Service - Express.js API Server
   - type: web
-    name: firma-yonetim-backend
+    name: cahit-firma-backend
     env: node
     plan: free
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
+    rootDir: backend
+    buildCommand: npm install --production
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 10000
       - key: MONGODB_URI
-        sync: false  # Manuel olarak eklenecek
+        sync: false  # Manuel olarak Render dashboard'dan eklenecek
       - key: JWT_SECRET
-        sync: false  # Manuel olarak eklenecek
+        sync: false  # Manuel olarak Render dashboard'dan eklenecek
+      - key: JWT_EXPIRE
+        value: 7d
       - key: FRONTEND_URL
-        value: https://firma-yonetim-frontend.onrender.com
+        value: https://cahit-firma-frontend.onrender.com
+      - key: MAX_FILE_SIZE
+        value: 50mb
+      - key: UPLOAD_PATH
+        value: ./uploads
+      - key: RATE_LIMIT_WINDOW
+        value: 15
+      - key: RATE_LIMIT_MAX
+        value: 100
     healthCheckPath: /api/health
 
   # 🎨 Frontend Service - React Static Site
   - type: web
-    name: firma-yonetim-frontend
+    name: cahit-firma-frontend
     env: static
     plan: free
-    rootDirectory: frontend
+    rootDir: frontend
     buildCommand: npm install && npm run build
     staticPublishPath: build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://firma-yonetim-backend.onrender.com/api
+        value: https://cahit-firma-backend.onrender.com/api
       - key: GENERATE_SOURCEMAP
         value: false
       - key: NODE_VERSION
         value: 18
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=4096
     routes:
       - type: rewrite
         source: /*
-        destination: /index.html 
+        destination: /index.html
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000
+      - path: /
+        name: Cache-Control
+        value: public, max-age=0 

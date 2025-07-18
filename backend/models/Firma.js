@@ -62,36 +62,37 @@ const firmaSchema = new mongoose.Schema({
   firmaId: {
     type: String,
     unique: true,
+    sparse: true,
     trim: true,
-    uppercase: true,
-    validate: {
-      validator: function(v) {
-        return /^A\d{6}$/.test(v);
-      },
-      message: 'Firma ID A000000 formatında olmalıdır'
-    }
+    index: true
   },
   
-  // 🎯 Temel Kimlik Bilgileri
+  // 🏢 Temel Firma Bilgileri
   vergiNoTC: {
     type: String,
-    required: [true, 'Vergi No/TC No zorunludur'],
+    required: [true, 'Vergi numarası zorunludur'],
     unique: true,
     trim: true,
     validate: {
       validator: function(v) {
-        return /^\d{10}$/.test(v) || /^\d{11}$/.test(v);
+        // CSV import için gevşetilmiş validasyon
+        if (!v) return false;
+        const cleaned = v.replace(/\s/g, '');
+        return /^\d{9,11}$/.test(cleaned);
       },
-      message: 'Vergi No (10 hane) veya TC No (11 hane) olmalıdır'
-    }
+      message: 'Vergi numarası 10 veya 11 haneli olmalıdır'
+    },
+    index: true
   },
   
   tamUnvan: {
     type: String,
     required: [true, 'Tam ünvan zorunludur'],
     trim: true,
-    maxlength: [500, 'Tam ünvan 500 karakterden fazla olamaz'],
-    index: true
+    uppercase: true,
+    minlength: [3, 'Tam ünvan en az 3 karakter olmalıdır'],
+    maxlength: [500, 'Tam ünvan en fazla 500 karakter olabilir'],
+    index: 'text'
   },
   
   // 📍 Lokasyon Bilgileri
@@ -180,35 +181,18 @@ const firmaSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: '',
-    enum: {
-      values: ['', 'İNŞAAT VE MÜHENDİSLİK', 'BİLİŞİM VE YAZILIM', 'DANIŞMANLIK HİZMETLERİ', 
-               'GÜVENLIK HİZMETLERİ', 'TEMİZLİK HİZMETLERİ', 'GIDA VE İÇECEK', 
-               'TEKSTİL VE KONFEKS.', 'OTOMOTİV VE YEDEK PARÇA', 'MAKİNE VE EKİPMAN', 'DİĞER'],
-      message: 'Geçersiz faaliyet konusu'
-    }
+    maxlength: [100, 'Ana faaliyet konusu 100 karakterden fazla olamaz']
   },
   
   // 📅 Yetki Tarihleri
   etuysYetkiBitisTarihi: {
     type: Date,
-    default: null,
-    validate: {
-      validator: function(v) {
-        return !v || v > new Date();
-      },
-      message: 'ETUYS yetki bitiş tarihi gelecek bir tarih olmalıdır'
-    }
+    default: null
   },
   
   dysYetkiBitisTarihi: {
     type: Date,
-    default: null,
-    validate: {
-      validator: function(v) {
-        return !v || v > new Date();
-      },
-      message: 'DYS yetki bitiş tarihi gelecek bir tarih olmalıdır'
-    }
+    default: null
   },
   
   // 👤 İrtibat Kişisi

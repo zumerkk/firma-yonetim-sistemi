@@ -29,7 +29,7 @@ import Settings from './pages/Settings/Settings';
 // Styles
 import './styles/global.css';
 
-// 🎨 ULTRA-PROFESSIONAL CORPORATE TEMA - ENTERPRISE EDITION
+// 🎨 CORPORATE EXCELLENCE THEME - MUTED PROFESSIONAL COLORS
 const theme = createTheme({
   // 🏢 Corporate Professional Renk Paleti - Psikolojik Etki
   palette: {
@@ -41,58 +41,58 @@ const theme = createTheme({
       200: '#c7d2fe',
       300: '#a5b4fc',
       400: '#818cf8',
-      main: '#1e293b', // Ana renk: Professional Dark Blue
-      600: '#0f172a',
-      700: '#020617',
-      800: '#0c1220',
-      900: '#020617',
+      main: '#1e40af', // Corporate navy blue
+      600: '#1e3a8a',
+      700: '#172554',
+      800: '#1e293b',
+      900: '#172554',
       contrastText: '#ffffff',
     },
     // 🥇 Sophisticated Gold - Premium Vurgu
     secondary: {
-      main: '#d97706', // Elegant Gold
-      light: '#fbbf24',
-      dark: '#92400e',
+      main: '#059669', // Professional emerald
+      light: '#10b981',
+      dark: '#064e3b',
       contrastText: '#ffffff',
     },
     // 🌿 Professional Green - Başarı ve Büyüme
     success: {
-      main: '#059669', // Modern Green
+      main: '#059669', // Same as secondary
       light: '#10b981',
-      dark: '#047857',
+      dark: '#064e3b',
       contrastText: '#ffffff',
     },
     // ⚠️ Refined Orange - Uyarı
     warning: {
-      main: '#ea580c', // Refined Orange
-      light: '#fb923c',
-      dark: '#c2410c',
+      main: '#a16207', // Corporate amber
+      light: '#f59e0b',
+      dark: '#7c2d12',
       contrastText: '#ffffff',
     },
     // ❌ Sophisticated Red - Hata
     error: {
-      main: '#dc2626', // Modern Red
+      main: '#dc2626', // Executive red
       light: '#ef4444',
-      dark: '#b91c1c',
+      dark: '#7f1d1d',
       contrastText: '#ffffff',
     },
     // ℹ️ Corporate Blue - Bilgi
     info: {
-      main: '#0369a1', // Corporate Blue
+      main: '#0284c7', // Professional sky blue
       light: '#0ea5e9',
       dark: '#0c4a6e',
       contrastText: '#ffffff',
     },
     // 🎨 Professional Background Scheme
     background: {
-      default: '#f8fafc', // Ultra Clean Background
-      paper: '#ffffff', // Pure White
+      default: '#f8fafc',
+      paper: '#ffffff',
     },
     // 📝 Professional Text Colors
     text: {
-      primary: '#1e293b', // Professional Dark Blue
-      secondary: '#64748b', // Muted Gray
-      disabled: '#cbd5e1', // Light Gray
+      primary: '#1e293b',
+      secondary: '#64748b',
+      disabled: '#cbd5e1',
     },
     // 🎯 Corporate Gray Scale
     grey: {
@@ -112,65 +112,72 @@ const theme = createTheme({
   
   // 🔤 Typography Sistemi - Inter Font Family
   typography: {
-    fontFamily: '"Inter", "Roboto", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     fontWeightLight: 300,
     fontWeightRegular: 400,
     fontWeightMedium: 500,
     fontWeightBold: 600,
     h1: {
-      fontSize: '2.25rem', // 36px
+      fontSize: '2.5rem', // 36px
       fontWeight: 700,
-      lineHeight: 1.1,
+      lineHeight: 1.2,
       letterSpacing: '-0.02em',
+      color: '#1e293b',
     },
     h2: {
-      fontSize: '1.875rem', // 30px
-      fontWeight: 600,
-      lineHeight: 1.2,
+      fontSize: '2rem', // 30px
+      fontWeight: 700,
+      lineHeight: 1.3,
       letterSpacing: '-0.01em',
+      color: '#1e293b',
     },
     h3: {
       fontSize: '1.5rem', // 24px
       fontWeight: 600,
       lineHeight: 1.3,
+      color: '#1e293b',
     },
     h4: {
       fontSize: '1.25rem', // 20px
       fontWeight: 600,
       lineHeight: 1.4,
+      color: '#1e293b',
     },
     h5: {
       fontSize: '1.125rem', // 18px
       fontWeight: 600,
       lineHeight: 1.4,
+      color: '#1e293b',
     },
     h6: {
       fontSize: '1rem', // 16px
       fontWeight: 600,
-      lineHeight: 1.4,
+      lineHeight: 1.5,
+      color: '#1e293b',
     },
     body1: {
-      fontSize: '1rem', // 16px
+      fontSize: '0.95rem', // 16px
       lineHeight: 1.6,
       fontWeight: 400,
+      color: '#374151',
     },
     body2: {
       fontSize: '0.875rem', // 14px
       lineHeight: 1.5,
       fontWeight: 400,
+      color: '#64748b',
     },
     caption: {
       fontSize: '0.75rem', // 12px
       lineHeight: 1.4,
-      fontWeight: 500,
-      textTransform: 'uppercase',
-      letterSpacing: '0.08em',
+      fontWeight: 400,
+      color: '#6b7280',
     },
     button: {
       fontSize: '0.875rem',
       fontWeight: 600,
       textTransform: 'none', // Büyük harf dönüşümünü kaldır
-      letterSpacing: '0.02em',
+      letterSpacing: '0.01em',
     },
   },
   
@@ -185,18 +192,13 @@ const theme = createTheme({
   // 🎭 Shadow Sistemi
   shadows: [
     'none',
-    '0 1px 2px rgba(0, 0, 0, 0.05)',
-    '0 4px 6px rgba(0, 0, 0, 0.07)',
-    '0 10px 15px rgba(0, 0, 0, 0.1)',
-    '0 20px 25px rgba(0, 0, 0, 0.15)',
-    '0 25px 50px rgba(0, 0, 0, 0.25)',
-    // ... diğer shadow değerleri Material-UI standartlarına göre
-    '0 8px 32px rgba(31, 38, 135, 0.37)', // Glassmorphism shadow
-    '0 10px 40px rgba(31, 38, 135, 0.4)',
-    '0 12px 48px rgba(31, 38, 135, 0.45)',
-    '0 14px 56px rgba(31, 38, 135, 0.5)',
-    // Remaining shadows to complete the array
-    ...Array(15).fill('0 25px 50px rgba(0, 0, 0, 0.25)'),
+    '0 1px 3px rgba(0, 0, 0, 0.05)',
+    '0 4px 6px rgba(0, 0, 0, 0.05)',
+    '0 5px 15px rgba(0, 0, 0, 0.08)',
+    '0 10px 24px rgba(0, 0, 0, 0.1)',
+    '0 15px 35px rgba(0, 0, 0, 0.1)',
+    '0 20px 40px rgba(0, 0, 0, 0.1)',
+    ...Array(18).fill('0 25px 50px rgba(0, 0, 0, 0.15)')
   ],
   
   // 🔄 Transitions
@@ -224,42 +226,28 @@ const theme = createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
+          borderRadius: 10,
           textTransform: 'none',
-          borderRadius: 8, // More conservative radius
           fontWeight: 600,
           fontSize: '0.875rem',
-          padding: '10px 20px',
-          boxShadow: 'none',
+          padding: '8px 16px',
           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-          letterSpacing: '0.025em',
           '&:hover': {
             transform: 'translateY(-1px)',
-            boxShadow: '0 4px 12px rgba(30, 41, 59, 0.15)',
+            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.15)',
           },
         },
         contained: {
-          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-          color: '#ffffff',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
           '&:hover': {
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-            boxShadow: '0 6px 20px rgba(30, 41, 59, 0.25)',
+            boxShadow: '0 6px 20px rgba(0, 0, 0, 0.25)',
           },
         },
         outlined: {
-          backgroundColor: '#ffffff',
-          border: '1px solid #e2e8f0',
-          color: '#1e293b',
+          borderWidth: '1.5px',
           '&:hover': {
-            backgroundColor: '#f8fafc',
-            borderColor: '#1e293b',
-            boxShadow: '0 2px 8px rgba(30, 41, 59, 0.1)',
-          },
-        },
-        text: {
-          color: '#64748b',
-          '&:hover': {
-            backgroundColor: '#f1f5f9',
-            color: '#1e293b',
+            borderWidth: '1.5px',
+            background: 'rgba(255, 255, 255, 0.1)',
           },
         },
       },
@@ -269,23 +257,8 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
           borderRadius: 12,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          transition: 'all 0.2s ease',
-        },
-        elevation1: {
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-        },
-        elevation2: {
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.07)',
-        },
-        elevation3: {
-          boxShadow: '0 10px 15px rgba(0, 0, 0, 0.1)',
-        },
-        elevation4: {
-          boxShadow: '0 20px 25px rgba(0, 0, 0, 0.1)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
         },
       },
     },
@@ -294,17 +267,15 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          background: '#ffffff',
-          border: '1px solid #e2e8f0',
-          borderRadius: 12,
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRadius: 16,
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.2)',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           overflow: 'hidden',
           position: 'relative',
           '&:hover': {
             transform: 'translateY(-2px)',
-            boxShadow: '0 10px 25px rgba(30, 41, 59, 0.15)',
-            borderColor: '#cbd5e1',
+            boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)',
           },
         },
       },
@@ -314,14 +285,8 @@ const theme = createTheme({
     MuiAppBar: {
       styleOverrides: {
         root: {
-          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-          borderBottom: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-          color: '#ffffff',
-          '& .MuiToolbar-root': {
-            paddingLeft: '24px',
-            paddingRight: '24px',
-          },
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          border: 'none',
         },
       },
     },
@@ -454,16 +419,16 @@ const theme = createTheme({
     MuiChip: {
       styleOverrides: {
         root: {
-          borderRadius: 20,
+          borderRadius: 8,
           fontWeight: 500,
           fontSize: '0.75rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
         },
         filled: {
-          background: 'rgba(33, 150, 243, 0.1)',
-          color: '#1976d2',
-          border: '1px solid rgba(33, 150, 243, 0.2)',
+          background: 'rgba(30, 64, 175, 0.1)',
+          color: '#1e40af',
+          '&:hover': {
+            background: 'rgba(30, 64, 175, 0.2)',
+          },
         },
       },
     },
@@ -477,6 +442,71 @@ const theme = createTheme({
           border: '1px solid rgba(255, 255, 255, 0.2)',
           borderRadius: 20,
           boxShadow: '0 20px 60px rgba(31, 38, 135, 0.4)',
+        },
+      },
+    },
+
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#cbd5e1 #f1f5f9',
+          '&::-webkit-scrollbar': {
+            width: 8,
+          },
+          '&::-webkit-scrollbar-track': {
+            background: '#f1f5f9',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#cbd5e1',
+            borderRadius: 4,
+            '&:hover': {
+              background: '#94a3b8',
+            },
+          },
+        },
+      },
+    },
+
+    MuiSelect: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          '&:hover': {
+            borderColor: '#cbd5e1',
+          },
+        },
+      },
+    },
+
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          borderRadius: 12,
+          border: '1px solid',
+          fontSize: '0.875rem',
+        },
+        standardSuccess: {
+          backgroundColor: 'rgba(5, 150, 105, 0.1)',
+          borderColor: 'rgba(5, 150, 105, 0.3)',
+          color: '#064e3b',
+        },
+        standardError: {
+          backgroundColor: 'rgba(220, 38, 38, 0.1)',
+          borderColor: 'rgba(220, 38, 38, 0.3)',
+          color: '#7f1d1d',
+        },
+        standardWarning: {
+          backgroundColor: 'rgba(161, 98, 7, 0.1)',
+          borderColor: 'rgba(161, 98, 7, 0.3)',
+          color: '#7c2d12',
+        },
+        standardInfo: {
+          backgroundColor: 'rgba(30, 64, 175, 0.1)',
+          borderColor: 'rgba(30, 64, 175, 0.3)',
+          color: '#1e3a8a',
         },
       },
     },
@@ -510,60 +540,124 @@ function App() {
   );
 }
 
-// 📱 ENTERPRISE ANA UYGULAMA LAYOUT'U
+// 📱 MODERN GRID LAYOUT SYSTEM - ULTIMATE SOLUTION
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [isMobile, setIsMobile] = React.useState(window.innerWidth < 1024);
 
   const handleSidebarToggle = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  // 📱 Responsive listener
+  React.useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      // Mobilde sidebar'ı otomatik kapat
+      if (mobile) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
-    <>
-      {/* 🔝 Enterprise Header - Fixed Position */}
-      <Header onSidebarToggle={handleSidebarToggle} />
+    <Box 
+      sx={{ 
+        display: 'grid',
+        gridTemplateRows: '64px 1fr',
+        gridTemplateColumns: {
+          xs: '1fr',
+          lg: sidebarOpen ? '280px 1fr' : '0px 1fr'
+        },
+        gridTemplateAreas: {
+          xs: `
+            "header"
+            "content"
+          `,
+          lg: sidebarOpen ? `
+            "header header"
+            "sidebar content"
+          ` : `
+            "header"
+            "content"
+          `
+        },
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        transition: 'grid-template-columns 0.3s ease',
+        backgroundColor: '#f8fafc'
+      }}
+    >
+      {/* 🔝 Fixed Header - Grid Area */}
+      <Box 
+        sx={{ 
+          gridArea: 'header',
+          zIndex: 1201
+        }}
+      >
+        <Header onSidebarToggle={handleSidebarToggle} />
+      </Box>
       
-      {/* 📊 Professional Sidebar */}
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* 📊 Modern Sidebar - Grid Area */}
+      {!isMobile && sidebarOpen && (
+        <Box 
+          sx={{ 
+            gridArea: 'sidebar',
+            zIndex: 1200,
+            overflow: 'hidden'
+          }}
+        >
+          <Sidebar 
+            open={sidebarOpen} 
+            onClose={() => setSidebarOpen(false)}
+            variant="persistent"
+          />
+        </Box>
+      )}
+
+      {/* 📱 Mobile Sidebar Overlay */}
+      {isMobile && (
+        <Sidebar 
+          open={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)}
+          variant="temporary"
+        />
+      )}
       
-      {/* 📄 Ana İçerik Alanı - Fixed Scroll Solution */}
+      {/* 📄 MAIN CONTENT AREA - GRID SOLUTION */}
       <Box
         component="main"
-        className="main-content"
         sx={{
-          // 🔧 Sidebar Scroll Düzeltmesi
-          marginLeft: { xs: 0, md: sidebarOpen ? '240px' : '0px' }, // Responsive sidebar space
-          marginTop: '64px', // Header space
-          transition: 'margin 0.3s ease', // Smooth transition
-          padding: { xs: 2, sm: 3 }, // Responsive padding
-          paddingBottom: 4, // Bottom space
+          gridArea: 'content',
+          overflow: 'auto',
+          position: 'relative',
+          backgroundColor: 'transparent',
+          width: '100%',
+          height: '100%',
           
-          // 🎯 Kritik scroll çözümü - Ana problem burada!
-          minHeight: 'calc(100vh - 64px)', // Minimum height
-          maxHeight: 'calc(100vh - 64px)', // Maximum height - EKLENDI!
-          overflowY: 'auto', // Vertical scroll MUTLAKA
-          overflowX: 'hidden', // Horizontal scroll gizli
-          
-          // 📱 Position ve display optimizasyonu
-          position: 'static', // relative yerine static - DÜZELTME!
-          display: 'block', // Block display - EKLENDI!
-          backgroundColor: '#f8fafc', // Clean background
-          
-          // 🎨 Professional scrollbar styling
+          // 🎨 Professional Scrollbar
           '&::-webkit-scrollbar': {
-            width: '8px',
+            width: '6px',
           },
           '&::-webkit-scrollbar-track': {
-            background: '#f1f5f9',
-            borderRadius: '4px',
+            background: 'rgba(241, 245, 249, 0.6)',
+            borderRadius: '3px',
           },
           '&::-webkit-scrollbar-thumb': {
-            background: '#cbd5e1',
-            borderRadius: '4px',
+            background: 'rgba(148, 163, 184, 0.8)',
+            borderRadius: '3px',
+            transition: 'background 0.2s ease',
             '&:hover': {
-              background: '#94a3b8',
+              background: 'rgba(100, 116, 139, 0.9)',
             },
-          },
+          }
         }}
       >
         <Routes>
@@ -586,26 +680,54 @@ function AppLayout() {
           {/* 👤 Profil */}
           <Route path="/profil" element={<Profile />} />
           
-          {/* 🚫 404 - Enterprise Error Page */}
+          {/* 🚫 404 - Corporate Error Page */}
           <Route path="*" element={
-            <Box className="glass-card" sx={{ 
+            <Box sx={{ 
               textAlign: 'center', 
               mt: 5, 
               p: 4,
               maxWidth: 600,
-              mx: 'auto'
+              mx: 'auto',
+              background: 'rgba(255, 255, 255, 0.9)',
+              borderRadius: 3,
+              border: '1px solid rgba(226, 232, 240, 0.5)',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)'
             }}>
-              <Typography variant="h4" component="h2" className="text-heading-large" sx={{ mb: 2 }}>
+              <Typography variant="h4" component="h2" sx={{ 
+                mb: 2,
+                fontWeight: 700,
+                color: '#1e293b'
+              }}>
                 🚫 Sayfa Bulunamadı
               </Typography>
-              <Typography variant="body1" className="text-body-medium" color="text.secondary">
+              <Typography variant="body1" color="text.secondary" sx={{
+                fontSize: '0.95rem',
+                lineHeight: 1.6
+              }}>
                 Aradığınız sayfa sistemde mevcut değil. Lütfen URL'yi kontrol ediniz.
               </Typography>
             </Box>
           } />
         </Routes>
       </Box>
-    </>
+      
+      {/* 📱 Mobile Overlay - For sidebar backdrop */}
+      {isMobile && sidebarOpen && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 64,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.3)',
+            zIndex: 1199,
+            backdropFilter: 'blur(2px)'
+          }}
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+    </Box>
   );
 }
 

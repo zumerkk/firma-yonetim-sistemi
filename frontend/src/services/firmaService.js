@@ -289,7 +289,8 @@ export const importExcel = async (file) => {
       'text/csv'
     ];
     
-    if (!allowedTypes.includes(file.type)) {
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    if (!allowedTypes.includes(file.type) && !['csv', 'xlsx', 'xls'].includes(fileExtension)) {
       throw new Error('Sadece Excel (.xlsx, .xls) ve CSV dosyaları desteklenmektedir');
     }
     
@@ -306,6 +307,11 @@ export const importExcel = async (file) => {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 300000, // 5 dakika timeout (büyük dosyalar için)
+      onUploadProgress: (progressEvent) => {
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        console.log(`Upload Progress: ${percentCompleted}%`);
+      }
     });
     
     return handleResponse(response);
