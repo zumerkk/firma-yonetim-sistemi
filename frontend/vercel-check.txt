@@ -1,0 +1,1 @@
+Frontend klasörü mevcut - Vercel test dosyası 

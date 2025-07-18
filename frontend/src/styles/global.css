@@ -1,0 +1,480 @@
+/* 🏢 KURUMSAL GLOBAL STYLES - CORPORATE EDITION */
+/* 💼 Profesyonel ve sade tasarım sistemi */
+
+/* 📱 Base Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden; /* Yatay scroll her zaman gizli */
+  overflow-y: visible; /* Dikey scroll'u content'e bırak - DÜZELTME! */
+  scroll-behavior: smooth;
+  position: static; /* relative yerine static - DÜZELTME! */
+}
+
+body {
+  font-family: 'Inter', 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f8fafc; /* Ultra Clean Professional Background */
+  min-height: 100vh;
+  color: #1e293b; /* Professional Text Color */
+  margin: 0; /* Reset margin - EKLENDI! */
+  padding: 0; /* Reset padding - EKLENDI! */
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 🎨 KURUMSAL ANIMATIONS - Sade ve profesyonel */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInDown {
+  from {
+    transform: translateY(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(102, 126, 234, 0.8);
+  }
+}
+
+@keyframes colorShift {
+  0% { color: #667eea; }
+  25% { color: #764ba2; }
+  50% { color: #f093fb; }
+  75% { color: #f5576c; }
+  100% { color: #667eea; }
+}
+
+/* 🏢 ULTRA-PROFESSIONAL CARD EFFECTS */
+.corporate-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.corporate-card:hover {
+  box-shadow: 0 10px 25px rgba(30, 41, 59, 0.15) !important;
+  transform: translateY(-2px) !important;
+  border-color: #cbd5e1 !important;
+}
+
+.premium-card {
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(15px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 20px !important;
+  box-shadow: 
+    0 15px 45px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  position: relative !important;
+  overflow: hidden !important;
+  transition: all 0.3s ease !important;
+}
+
+.premium-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(102, 126, 234, 0.8) 25%, 
+    rgba(118, 75, 162, 0.8) 75%, 
+    transparent 100%
+  );
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+.premium-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 🎯 BUTTON STYLES */
+.btn-glass {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 12px !important;
+  color: inherit !important;
+  font-weight: 600 !important;
+  padding: 8px 16px !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.btn-glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(255, 255, 255, 0.4) 50%, 
+    transparent 100%
+  );
+  transition: left 0.6s ease;
+}
+
+.btn-glass:hover::before {
+  left: 100%;
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 1) !important;
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 📱 CONTAINER STYLES */
+.app-container {
+  min-height: 100vh;
+  background: transparent;
+  overflow: visible; /* Scroll'a tam izin ver */
+}
+
+.main-content {
+  /* Perfect scroll for both sidebar states */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  height: auto !important;
+  position: relative !important;
+  scroll-behavior: smooth !important;
+}
+
+/* 🎨 GRADIENT TEXT EFFECTS */
+.text-gradient-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-weight: 700 !important;
+}
+
+.text-gradient-success {
+  background: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-weight: 700 !important;
+}
+
+.text-gradient-warning {
+  background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%) !important;
+  background-clip: text !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-weight: 700 !important;
+}
+
+/* 📊 PROGRESS & LOADING STYLES */
+.loading-shimmer {
+  background: linear-gradient(90deg, 
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+/* 🎯 UTILITY CLASSES */
+.fade-in {
+  animation: slideInUp 0.6s ease-out;
+}
+
+.scale-hover {
+  transition: transform 0.3s ease;
+}
+
+.scale-hover:hover {
+  transform: scale(1.02);
+}
+
+.glow-effect {
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+  transition: box-shadow 0.3s ease;
+}
+
+.glow-effect:hover {
+  box-shadow: 0 0 30px rgba(102, 126, 234, 0.6);
+}
+
+/* 📱 RESPONSIVE DESIGN */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 16px !important;
+  }
+  
+  .ultra-glass {
+    border-radius: 12px !important;
+    backdrop-filter: blur(15px) !important;
+  }
+  
+  .premium-card {
+    border-radius: 16px !important;
+    backdrop-filter: blur(12px) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-container {
+    padding: 12px !important;
+  }
+  
+  .ultra-glass {
+    border-radius: 8px !important;
+    backdrop-filter: blur(10px) !important;
+  }
+  
+  .premium-card {
+    border-radius: 12px !important;
+    backdrop-filter: blur(10px) !important;
+  }
+}
+
+/* 🎨 PROFESSIONAL SCROLLBAR STYLING */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Firefox Scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+/* 🌟 SPECIAL EFFECTS */
+.particle-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.particle-effect::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: 
+    radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 40% 40%, rgba(120, 219, 255, 0.1) 0%, transparent 50%);
+  animation: float 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* 🎯 FOCUS STATES */
+.MuiTextField-root .MuiOutlinedInput-root.Mui-focused {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2) !important;
+}
+
+.MuiButton-root:focus {
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.3) !important;
+}
+
+/* 🚀 PERFORMANCE OPTIMIZATIONS */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* 💫 HIGH-END ANIMATIONS */
+@keyframes complexFloat {
+  0%, 100% { 
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    opacity: 0.7;
+  }
+  25% {
+    transform: translate3d(10px, -10px, 0) rotate(1deg);
+    opacity: 0.9;
+  }
+  50% { 
+    transform: translate3d(0, -20px, 0) rotate(2deg);
+    opacity: 1;
+  }
+  75% {
+    transform: translate3d(-10px, -10px, 0) rotate(1deg);
+    opacity: 0.9;
+  }
+}
+
+@keyframes morphGradient {
+  0% {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+  }
+  25% {
+    background: linear-gradient(45deg, #f093fb, #f5576c);
+  }
+  50% {
+    background: linear-gradient(45deg, #4facfe, #00f2fe);
+  }
+  75% {
+    background: linear-gradient(45deg, #43e97b, #38f9d7);
+  }
+  100% {
+    background: linear-gradient(45deg, #667eea, #764ba2);
+  }
+}
+
+/* 🎨 ADVANCED HOVER EFFECTS */
+.interactive-hover {
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  position: relative;
+  overflow: hidden;
+}
+
+.interactive-hover::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, transparent 70%);
+  transition: all 0.6s ease;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.interactive-hover:hover::after {
+  width: 200%;
+  height: 200%;
+}
+
+/* 🌈 COLOR THEME VARIABLES */
+:root {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --success-gradient: linear-gradient(135deg, #4caf50 0%, #8bc34a 100%);
+  --warning-gradient: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+  --error-gradient: linear-gradient(135deg, #f44336 0%, #e91e63 100%);
+  --glass-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.3);
+  --shadow-light: 0 8px 25px rgba(0, 0, 0, 0.1);
+  --shadow-medium: 0 15px 45px rgba(0, 0, 0, 0.15);
+  --shadow-heavy: 0 25px 80px rgba(0, 0, 0, 0.2);
+}
+
+/* 🎪 ANIMATION DELAYS FOR STAGGERED EFFECTS */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* 🔥 FINAL TOUCH - BRAND SIGNATURE */
+.enterprise-signature {
+  position: relative;
+  overflow: hidden;
+}
+
+.enterprise-signature::before {
+  content: '✨ ENTERPRISE EDITION ✨';
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--primary-gradient);
+  color: white;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border-radius: 0 0 0 12px;
+  opacity: 0.8;
+} 
