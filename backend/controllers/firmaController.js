@@ -935,8 +935,8 @@ const exportPDF = async (req, res) => {
       size: 'A4', 
       margin: 40,
       info: {
-        Title: 'Firma Yönetim Sistemi - Premium İstatistik Raporu',
-        Author: 'Firma Yönetim Sistemi Enterprise Edition',
+        Title: 'GM Planlama Danışmanlık - Premium İstatistik Raporu',
+        Author: 'GM Planlama Danışmanlık Firma Yönetim Sistemi',
         Subject: 'Detaylı İstatistik Analizi ve Trend Raporu',
         Keywords: 'firma, istatistik, analiz, trend, rapor, enterprise'
       }

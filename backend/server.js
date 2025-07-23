@@ -1,4 +1,4 @@
-// 🚀 Firma Yönetim Sistemi - Backend Server
+// 🚀 GM Planlama Danışmanlık - Backend Server
 // Bu dosya Ana server dosyamız. Express uygulamasını başlatır ve tüm rotaları yönetir.
 
 const express = require('express');
@@ -85,7 +85,7 @@ const connectDB = async () => {
 // 🎯 Ana rotalar
 app.get('/', (req, res) => {
   res.json({
-    message: '🚀 Firma Yönetim Sistemi API aktif!',
+    message: '🚀 GM Planlama Danışmanlık API aktif!',
     version: '1.0.0',
     status: 'OK',
     endpoints: [

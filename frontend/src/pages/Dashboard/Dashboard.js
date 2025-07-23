@@ -189,7 +189,7 @@ const Dashboard = () => {
                 fontSize: '0.875rem'
               }}
             >
-              Firma yönetim sistemi - Ana kontrol paneli
+                              GM Planlama Danışmanlık - Ana kontrol paneli
             </Typography>
           </Box>
           

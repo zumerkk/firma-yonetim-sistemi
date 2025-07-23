@@ -111,10 +111,13 @@ const Header = ({ onSidebarToggle }) => {
               mr: 2, 
               width: 40,
               height: 40,
-              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)',
-              boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)'
+              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
+              boxShadow: '0 8px 25px rgba(25, 118, 210, 0.4)',
+              fontSize: '18px',
+              fontWeight: 900,
+              fontFamily: 'Arial, sans-serif'
             }}>
-              <BusinessIcon sx={{ fontSize: 24, color: 'white' }} />
+              GM
             </Avatar>
             
             <Box>
@@ -124,14 +127,14 @@ const Header = ({ onSidebarToggle }) => {
                 sx={{ 
                   fontWeight: 800,
                   fontSize: '1.25rem',
-                  background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
+                  background: 'linear-gradient(135deg, #1e293b 0%, #1976d2 100%)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   letterSpacing: '-0.02em'
                 }}
               >
-                Firma Yönetim Sistemi
+                GM Planlama Danışmanlık
               </Typography>
               <Typography 
                 variant="caption" 
@@ -141,7 +144,7 @@ const Header = ({ onSidebarToggle }) => {
                   fontSize: '0.75rem'
                 }}
               >
-                Enterprise Edition V2.0
+                Firma Yönetim Sistemi V2.0
               </Typography>
             </Box>
           </Box>

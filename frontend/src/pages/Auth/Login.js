@@ -137,7 +137,7 @@ const Login = () => {
               </Box>
               
               <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 600, color: 'text.primary' }}>
-                Firma Yönetim Sistemi
+                GM Planlama Danışmanlık
               </Typography>
               
               <Typography variant="body1" color="text.secondary">
@@ -260,7 +260,7 @@ const Login = () => {
         {/* 📄 Alt Bilgi */}
         <Box sx={{ textAlign: 'center', mt: 3 }}>
           <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-            © 2024 Firma Yönetim Sistemi. Tüm hakları saklıdır.
+                            © 2024 GM Planlama Danışmanlık. Tüm hakları saklıdır.
           </Typography>
         </Box>
       </Container>

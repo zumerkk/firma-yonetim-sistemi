@@ -1,4 +1,4 @@
-// 🚀 Firma Yönetim Sistemi - Ana Uygulama
+// 🚀 GM Planlama Danışmanlık - Ana Uygulama
 // Modern React tabanlı firma tanımlama ve yönetim sistemi
 
 import React from 'react';
