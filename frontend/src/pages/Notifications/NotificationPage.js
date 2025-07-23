@@ -30,13 +30,10 @@ import {
   CircularProgress,
   Tooltip,
   Paper,
-  Stack,
   Switch,
   FormControlLabel,
   Collapse,
-  Fab,
-  Badge,
-  Divider
+  Badge
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -51,13 +48,9 @@ import {
   DoneAll as DoneAllIcon,
   Delete as DeleteIcon,
   Clear as ClearIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
   Security as SecurityIcon,
-  Assessment as AssessmentIcon,
-  Sort as SortIcon,
   ViewList as ViewListIcon,
   ViewModule as ViewModuleIcon
 } from '@mui/icons-material';
@@ -93,12 +86,21 @@ const NotificationPage = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'card'
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [deleteDialog, setDeleteDialog] = useState({ open: false, type: 'single', id: null });
 
-  // 🚀 Initialize page
+  // 🚀 Initialize page - manual initialization to prevent infinite refresh
   useEffect(() => {
-    loadNotifications();
-  }, [loadNotifications]);
+    // İlk yüklemede bir kere çalıştır
+    const fetchData = async () => {
+      try {
+        await loadNotifications();
+      } catch (error) {
+        console.error('İlk yükleme hatası:', error);
+      }
+    };
+    
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 🔍 Search handler
   const handleSearch = useCallback(() => {

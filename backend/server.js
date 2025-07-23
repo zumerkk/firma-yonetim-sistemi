@@ -21,43 +21,44 @@ const activityRoutes = require('./routes/activity');
 const notificationRoutes = require('./routes/notification');
 
 const app = express();
+
+// 🌐 CORS ayarlarını EN BAŞTA tanımla (middleware order çok önemli)
+app.use(cors({
+  origin: 'http://localhost:3000', // Development için sadece localhost
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Access-Control-Allow-Origin'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+}));
 const PORT = process.env.PORT || 5001;
 
 // 🛡️ Güvenlik middleware'leri
 app.use(helmet()); // Güvenlik başlıkları ekler
 app.use(compression()); // Gzip sıkıştırması
 
-// 📊 Rate limiting - DDoS koruması
+// 📊 Rate limiting - DDoS koruması (Development için daha yüksek limit)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 dakika
-  max: 100, // IP başına maksimum 100 istek
-  message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin.'
+  max: 1000, // Development için daha yüksek limit (normalde 100)
+  message: 'Çok fazla istek gönderdiniz, lütfen daha sonra tekrar deneyin.',
+  standardHeaders: true, // "RateLimit-*" headerları ekle (draft) 
+  legacyHeaders: false // "X-RateLimit-*" headerlarını devre dışı bırak
 });
-app.use(limiter);
+// API rotaları için rate limit
+app.use('/api', limiter);
 
-// 🌐 CORS ayarları - Frontend ile haberleşme için (Development + Production)
-const allowedOrigins = [
-  'http://localhost:3000', // Development
-  'http://localhost:3001', // Development alternate
-  process.env.FRONTEND_URL, // Environment'tan gelen URL
-  'https://firma-yonetim-frontend.onrender.com', // Production URL
-];
-
+// 🌐 CORS ayarları - Frontend ile haberleşme için
+// CORS middleware'ini en başta kullan!
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log('🚫 CORS blocked origin:', origin);
-      callback(new Error('CORS policy violation'));
-    }
-  },
+  origin: 'http://localhost:3000', // Development için sadece bu origin
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Access-Control-Allow-Origin'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
 
 // 📨 JSON ve URL parsing
