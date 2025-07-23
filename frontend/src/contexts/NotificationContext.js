@@ -58,25 +58,7 @@ export const NotificationProvider = ({ children }) => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const REFRESH_INTERVAL = 30000; // 30 seconds
 
-  // 🚀 Initialize notification system
-  useEffect(() => {
-    if (user?.id) {
-      initializeNotifications();
-      notificationService.initializeSocket(user.id);
-      
-      // Start auto-refresh
-      if (autoRefresh) {
-        startAutoRefresh();
-      }
-    }
-
-    return () => {
-      stopAutoRefresh();
-      notificationService.cleanup();
-    };
-  }, [user, autoRefresh, initializeNotifications, startAutoRefresh, stopAutoRefresh]);
-
-  // 🔄 Auto-refresh management
+  // 🔄 Auto-refresh management  
   const startAutoRefresh = useCallback(() => {
     if (intervalRef.current) return;
     
@@ -346,6 +328,24 @@ export const NotificationProvider = ({ children }) => {
       loadStats()
     ]);
   }, [loadNotifications, refreshUnreadCount, loadRecentNotifications, loadStats]);
+
+  // 🚀 Initialize notification system
+  useEffect(() => {
+    if (user?.id) {
+      initializeNotifications();
+      notificationService.initializeSocket(user.id);
+      
+      // Start auto-refresh
+      if (autoRefresh) {
+        startAutoRefresh();
+      }
+    }
+
+    return () => {
+      stopAutoRefresh();
+      notificationService.cleanup();
+    };
+  }, [user, autoRefresh, initializeNotifications, startAutoRefresh, stopAutoRefresh]);
 
   // 🎯 Context value
   const contextValue = {
