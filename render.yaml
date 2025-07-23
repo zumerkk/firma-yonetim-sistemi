@@ -30,31 +30,21 @@ services:
         value: 100
     healthCheckPath: /api/health
 
-  # 🎨 Frontend Service - React Static Site
+  # 🎨 Frontend Service - React Web Service with SPA Routing
   - type: web
     name: cahit-firma-frontend
-    env: static
+    env: node
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    staticPublishPath: build
+    startCommand: npm run serve
     envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
       - key: REACT_APP_API_URL
         value: https://cahit-firma-backend.onrender.com/api
       - key: GENERATE_SOURCEMAP
         value: false
-      - key: NODE_VERSION
-        value: 18
-      - key: NODE_OPTIONS
-        value: --max-old-space-size=4096
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: public, max-age=31536000
-      - path: /
-        name: Cache-Control
-        value: public, max-age=0 
+    healthCheckPath: /health 
