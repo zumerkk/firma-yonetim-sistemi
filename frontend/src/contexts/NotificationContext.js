@@ -74,7 +74,7 @@ export const NotificationProvider = ({ children }) => {
       stopAutoRefresh();
       notificationService.cleanup();
     };
-  }, [user, autoRefresh]);
+  }, [user, autoRefresh, initializeNotifications, startAutoRefresh, stopAutoRefresh]);
 
   // 🔄 Auto-refresh management
   const startAutoRefresh = useCallback(() => {
@@ -83,7 +83,7 @@ export const NotificationProvider = ({ children }) => {
     intervalRef.current = setInterval(() => {
       refreshUnreadCount();
     }, REFRESH_INTERVAL);
-  }, []);
+  }, [refreshUnreadCount]);
 
   const stopAutoRefresh = useCallback(() => {
     if (intervalRef.current) {

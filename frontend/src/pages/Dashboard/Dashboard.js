@@ -25,8 +25,7 @@ import {
   Assessment as AssessmentIcon,
   Refresh as RefreshIcon,
   Autorenew as AutorenewIcon,
-  History as HistoryIcon,
-  Person as PersonIcon
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { useFirma } from '../../contexts/FirmaContext';
 import activityService from '../../services/activityService';

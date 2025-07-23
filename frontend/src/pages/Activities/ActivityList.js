@@ -33,7 +33,6 @@ import {
   Sort as SortIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
 import activityService from '../../services/activityService';
 
 const ActivityList = () => {

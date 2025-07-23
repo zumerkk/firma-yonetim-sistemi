@@ -17,17 +17,11 @@ import {
   Chip,
   Divider,
   CircularProgress,
-  Alert,
-  Avatar,
-  Paper,
-  MenuList,
   MenuItem,
   Switch,
   FormControlLabel,
   TextField,
   InputAdornment,
-  Tabs,
-  Tab,
   Tooltip,
   Card,
   CardContent,
@@ -46,13 +40,10 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterListIcon,
   Search as SearchIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Close as CloseIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
-  Security as SecurityIcon,
-  Assessment as AssessmentIcon
+  Security as SecurityIcon
 } from '@mui/icons-material';
 import { useNotifications } from '../../contexts/NotificationContext';
 
@@ -69,13 +60,11 @@ const NotificationDropdown = ({ sx = {} }) => {
     autoRefresh,
     setAutoRefresh,
     getTypeColor,
-    getTypeIcon,
     formatRelativeTime
   } = useNotifications();
 
   // 🔧 Component State
   const [anchorEl, setAnchorEl] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

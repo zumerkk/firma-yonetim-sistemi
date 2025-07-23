@@ -41,7 +41,6 @@ import {
   Refresh as RefreshIcon,
   RestoreOutlined as RestoreIcon
 } from '@mui/icons-material';
-import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
 
 const Settings = () => {

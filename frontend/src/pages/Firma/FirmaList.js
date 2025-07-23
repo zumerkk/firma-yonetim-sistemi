@@ -52,7 +52,6 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useFirma } from '../../contexts/FirmaContext';
-import { useAuth } from '../../contexts/AuthContext';
 import { TURKEY_CITIES } from '../../data/turkeyData';
 import ExcelJS from 'exceljs';
 import { importExcel, downloadTemplate } from '../../services/firmaService'; // Import servislerini ekledim

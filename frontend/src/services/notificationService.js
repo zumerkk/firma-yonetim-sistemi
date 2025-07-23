@@ -1,7 +1,7 @@
 // 🔔 NOTIFICATION SERVICE - ENTERPRISE EDITION
 // Professional notification management with real-time features
 
-import axios from './axios';
+import axios from '../utils/axios';
 
 class NotificationService {
   constructor() {
@@ -150,7 +150,7 @@ class NotificationService {
   // 🗑️ Bildirimi sil
   async deleteNotification(notificationId) {
     try {
-      const response = await axios.delete(`/notifications/${notificationId}`);
+      await axios.delete(`/notifications/${notificationId}`);
       
       return {
         success: true,

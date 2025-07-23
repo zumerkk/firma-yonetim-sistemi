@@ -11,14 +11,12 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Badge,
   Tooltip,
   Divider,
   Chip
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  Notifications as NotificationsIcon,
   AccountCircle as AccountCircleIcon,
   ExitToApp as LogoutIcon,
   Person as PersonIcon,
