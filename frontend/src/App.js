@@ -10,6 +10,7 @@ import { Box, Typography } from '@mui/material';
 // Context providers
 import { AuthProvider } from './contexts/AuthContext';
 import { FirmaProvider } from './contexts/FirmaContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 
 // Components
 import Header from './components/Layout/Header';
@@ -519,23 +520,25 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <FirmaProvider>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <Box className="app-container">
-              <Routes>
-                {/* 🔐 Public Routes - Giriş Sayfası */}
-                <Route path="/login" element={<Login />} />
-                
-                {/* 🏠 Protected Routes - Ana Uygulama */}
-                <Route path="/*" element={
-                  <ProtectedRoute>
-                    <AppLayout />
-                  </ProtectedRoute>
-                } />
-              </Routes>
-            </Box>
-          </Router>
-        </FirmaProvider>
+        <NotificationProvider>
+          <FirmaProvider>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Box className="app-container">
+                <Routes>
+                  {/* 🔐 Public Routes - Giriş Sayfası */}
+                  <Route path="/login" element={<Login />} />
+                  
+                  {/* 🏠 Protected Routes - Ana Uygulama */}
+                  <Route path="/*" element={
+                    <ProtectedRoute>
+                      <AppLayout />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </Box>
+            </Router>
+          </FirmaProvider>
+        </NotificationProvider>
       </AuthProvider>
     </ThemeProvider>
   );

@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import NotificationDropdown from '../Notifications/NotificationDropdown';
 
 const Header = ({ onSidebarToggle }) => {
   const { user, logout } = useAuth();
@@ -150,40 +151,8 @@ const Header = ({ onSidebarToggle }) => {
 
         {/* 🎯 Sağ Taraf - Bildirimler ve Profil */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {/* 🔔 Bildirimler */}
-          <Tooltip title="Bildirimler" arrow>
-            <IconButton 
-              sx={{
-                width: 48,
-                height: 48,
-                background: 'rgba(245, 158, 11, 0.1)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(245, 158, 11, 0.2)',
-                color: '#f59e0b',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  background: 'rgba(245, 158, 11, 0.2)',
-                  transform: 'scale(1.05)',
-                  boxShadow: '0 8px 25px rgba(245, 158, 11, 0.3)'
-                }
-              }}
-            >
-              <Badge 
-                badgeContent={3} 
-                sx={{
-                  '& .MuiBadge-badge': {
-                    background: 'linear-gradient(135deg, #ef4444, #f97316)',
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
-                  }
-                }}
-              >
-                <NotificationsIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          {/* 🔔 Bildirimler - Enterprise Edition */}
+          <NotificationDropdown />
 
           {/* 🎯 Dashboard Hızlı Erişim */}
           <Tooltip title="Dashboard'a Git" arrow>

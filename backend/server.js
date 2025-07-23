@@ -18,6 +18,7 @@ const authRoutes = require('./routes/auth');
 const firmaRoutes = require('./routes/firma');
 const importRoutes = require('./routes/import');
 const activityRoutes = require('./routes/activity');
+const notificationRoutes = require('./routes/notification');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -107,6 +108,7 @@ app.use('/api/firma', firmaRoutes);  // /api/firmalar → /api/firma
 app.use('/api/import', importRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/activities', activityRoutes); // Frontend compatibility
+app.use('/api/notifications', notificationRoutes); // Bildirim sistemi
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
