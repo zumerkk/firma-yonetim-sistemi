@@ -27,6 +27,7 @@ import ActivityList from './pages/Activities/ActivityList';
 import Profile from './pages/Profile/Profile';
 import Statistics from './pages/Statistics/Statistics';
 import Settings from './pages/Settings/Settings';
+import NotificationPage from './pages/Notifications/NotificationPage';
 
 // Styles
 import './styles/global.css';
@@ -677,6 +678,9 @@ function AppLayout() {
           
           {/* 📋 Son İşlemler */}
           <Route path="/son-islemler" element={<ActivityList />} />
+          
+          {/* 🔔 Bildirimler */}
+          <Route path="/bildirimler" element={<NotificationPage />} />
           
           {/* 📊 İstatistikler */}
           <Route path="/istatistikler" element={<Statistics />} />
