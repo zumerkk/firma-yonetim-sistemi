@@ -1,7 +1,7 @@
-// ��️ Firma Detail Page - Professional Edition
-// Firma detay sayfası - Excel sisteminin modern karşılığı
+// 🏢️ Firma Detail Page - ENHANCED PROFESSIONAL EDITION
+// Firma detay sayfası - Activity History, Edit-in-place, Related Records
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -20,7 +20,6 @@ import {
   ListItemText,
   Stack,
   IconButton,
-
   Alert,
   Skeleton,
   CardHeader,
@@ -30,7 +29,14 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
-  CircularProgress
+  CircularProgress,
+  Tabs,
+  Tab,
+  TextField,
+  LinearProgress,
+  Tooltip,
+  Badge,
+  Snackbar
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -40,22 +46,27 @@ import {
   LocationOn as LocationIcon,
   Email as EmailIcon,
   Phone as PhoneIcon,
-  Language as WebsiteIcon,
   Person as PersonIcon,
   CalendarToday as CalendarIcon,
   Assignment as AssignmentIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   ErrorOutline as ErrorIcon,
-  Launch as LaunchIcon,
-
   AccountBalance as AccountIcon,
   Public as GlobalIcon,
   Schedule as ScheduleIcon,
   Notes as NotesIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  History as HistoryIcon,
+  Save as SaveIcon,
+  Cancel as CancelIcon,
+  EditOutlined as EditInPlaceIcon,
+  Refresh as RefreshIcon,
+  AccessTime as TimeIcon
 } from '@mui/icons-material';
 import { useFirma } from '../../contexts/FirmaContext';
+import activityService from '../../services/activityService';
+import api from '../../utils/axios';
 
 const FirmaDetail = () => {
   const { id } = useParams();
@@ -65,6 +76,30 @@ const FirmaDetail = () => {
   // 🗑️ Silme dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  
+  // 📋 Tab state
+  const [activeTab, setActiveTab] = useState(0);
+  
+  // 📈 Activity History State
+  const [activities, setActivities] = useState([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  
+  // ✏️ Edit-in-place state
+  const [editMode, setEditMode] = useState({});
+  const [editValues, setEditValues] = useState({});
+  const [editLoading, setEditLoading] = useState(false);
+  
+  // 📢 Snackbar state
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  // 📢 Snackbar helper
+  const showSnackbar = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
+
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  }, []);
 
   // 🔄 Firma verisini yükle
   useEffect(() => {
@@ -78,6 +113,65 @@ const FirmaDetail = () => {
       clearError();
     };
   }, [id, fetchFirma, clearFirma, clearError]);
+
+  // 📋 Load firma activities
+  const loadFirmaActivities = useCallback(async () => {
+    if (!firma?._id || activeTab !== 1) return;
+    
+    setActivityLoading(true);
+    try {
+      const result = await activityService.getFirmaActivities(firma._id, { limit: 20 });
+      if (result.success) {
+        setActivities(result.data.activities || []);
+      }
+    } catch (error) {
+      console.error('Firma activities error:', error);
+      showSnackbar('Aktiviteler yüklenirken hata oluştu', 'error');
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [firma?._id, activeTab, showSnackbar]);
+
+  useEffect(() => {
+    loadFirmaActivities();
+  }, [loadFirmaActivities]);
+
+  // ✏️ Edit-in-place handlers
+  const startEdit = (field, currentValue) => {
+    setEditMode(prev => ({ ...prev, [field]: true }));
+    setEditValues(prev => ({ ...prev, [field]: currentValue }));
+  };
+
+  const cancelEdit = (field) => {
+    setEditMode(prev => ({ ...prev, [field]: false }));
+    setEditValues(prev => ({ ...prev, [field]: undefined }));
+  };
+
+  const saveEdit = async (field) => {
+    setEditLoading(true);
+    try {
+      const updateData = { [field]: editValues[field] };
+      const response = await api.put(`/firmalar/${id}`, updateData);
+      
+      if (response.data.success) {
+        // Refresh firma data
+        await fetchFirma(id);
+        setEditMode(prev => ({ ...prev, [field]: false }));
+        setEditValues(prev => ({ ...prev, [field]: undefined }));
+        showSnackbar('Başarıyla güncellendi!', 'success');
+      }
+    } catch (error) {
+      console.error('Edit error:', error);
+      showSnackbar('Güncelleme sırasında hata oluştu', 'error');
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // 🎨 Tab change handler
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
 
   // 📅 Tarih formatı
   const formatDate = (dateString) => {
@@ -116,7 +210,6 @@ const FirmaDetail = () => {
       
       if (result.success) {
         setDeleteDialogOpen(false);
-        // Başarılı silme mesajı gösterebiliriz
         navigate('/firmalar', { 
           replace: true,
           state: { 
@@ -125,14 +218,71 @@ const FirmaDetail = () => {
           }
         });
       } else {
-        // Hata durumu - dialog açık kalabilir
-        alert(result.message || 'Firma silinirken hata oluştu');
+        showSnackbar(result.message || 'Firma silinirken hata oluştu', 'error');
       }
     } catch (error) {
-      alert('Firma silinirken hata oluştu');
+      showSnackbar('Firma silinirken hata oluştu', 'error');
     } finally {
       setDeleting(false);
     }
+  };
+
+  // ✏️ Editable Field Component
+  const EditableField = ({ field, value, label, type = 'text', multiline = false }) => {
+    const isEditing = editMode[field];
+    const editValue = editValues[field] ?? value;
+
+    if (isEditing) {
+      return (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            size="small"
+            value={editValue}
+            onChange={(e) => setEditValues(prev => ({ ...prev, [field]: e.target.value }))}
+            multiline={multiline}
+            rows={multiline ? 2 : 1}
+            fullWidth
+            disabled={editLoading}
+          />
+          <IconButton 
+            size="small" 
+            color="primary" 
+            onClick={() => saveEdit(field)}
+            disabled={editLoading}
+          >
+            {editLoading ? <CircularProgress size={16} /> : <SaveIcon />}
+          </IconButton>
+          <IconButton 
+            size="small" 
+            onClick={() => cancelEdit(field)}
+            disabled={editLoading}
+          >
+            <CancelIcon />
+          </IconButton>
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, group: 'hover' }}>
+        <Typography variant="body2">
+          {value || 'Belirtilmemiş'}
+        </Typography>
+        <Tooltip title={`${label} düzenle`}>
+          <IconButton 
+            size="small" 
+            onClick={() => startEdit(field, value)}
+            sx={{ 
+              opacity: 0, 
+              '.group:hover &': { opacity: 1 },
+              transition: 'opacity 0.2s'
+            }}
+          >
+            <EditInPlaceIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    );
   };
 
   // 🎨 Loading Component
@@ -205,7 +355,7 @@ const FirmaDetail = () => {
           >
             <BackIcon />
           </IconButton>
-    <Box>
+          <Box>
             <Typography variant="h4" component="h1" sx={{ fontWeight: 600, color: 'primary.main' }}>
               {firma.tamUnvan}
             </Typography>
@@ -220,12 +370,6 @@ const FirmaDetail = () => {
             variant="contained"
             startIcon={<EditIcon />}
             onClick={() => navigate(`/firmalar/${id}/duzenle`)}
-            sx={{ 
-              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #1565c0 0%, #0d47a1 100%)',
-              }
-            }}
           >
             Düzenle
           </Button>
@@ -235,452 +379,523 @@ const FirmaDetail = () => {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={() => setDeleteDialogOpen(true)}
-            sx={{ 
-              borderColor: 'error.main',
-              color: 'error.main',
-              '&:hover': {
-                borderColor: 'error.dark',
-                color: 'error.dark',
-                backgroundColor: 'rgba(211, 47, 47, 0.04)',
-              }
-            }}
           >
             Sil
           </Button>
         </Stack>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* 🏢 Temel Bilgiler */}
-        <Grid item xs={12} md={6}>
-          <Card className="glass-card" sx={{ height: '100%' }}>
-            <CardHeader
-              avatar={<BusinessIcon sx={{ color: 'primary.main' }} />}
-              title="Temel Bilgiler"
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              <List sx={{ p: 0 }}>
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <AccountIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Firma ID"
-                    secondary={firma.firmaId}
-                  />
-                </ListItem>
-                
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <AssignmentIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Vergi No / TC"
-                    secondary={firma.vergiNoTC}
-                  />
-                </ListItem>
+      {/* 📑 Tab Navigation */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={handleTabChange}>
+          <Tab icon={<InfoIcon />} label="Genel Bilgiler" />
+          <Tab 
+            icon={
+              <Badge badgeContent={activities.length} color="primary">
+                <HistoryIcon />
+              </Badge>
+            } 
+            label="Aktivite Geçmişi" 
+          />
+        </Tabs>
+      </Box>
 
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <BusinessIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Tam Ünvan"
-                    secondary={firma.tamUnvan}
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <GlobalIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Yabancı Sermayeli"
-                    secondary={
-                      <Chip
-                        label={firma.yabanciSermayeli ? 'Evet' : 'Hayır'}
-                        color={firma.yabanciSermayeli ? 'warning' : 'default'}
-                        size="small"
-                      />
-                    }
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <InfoIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Ana Faaliyet Konusu"
-                    secondary={firma.anaFaaliyetKonusu || 'Belirtilmemiş'}
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 📍 Lokasyon Bilgileri */}
-        <Grid item xs={12} md={6}>
-          <Card className="glass-card" sx={{ height: '100%' }}>
-            <CardHeader
-              avatar={<LocationIcon sx={{ color: 'primary.main' }} />}
-              title="Lokasyon Bilgileri"
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              <List sx={{ p: 0 }}>
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <LocationIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="Adres"
-                    secondary={firma.adres}
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <LocationIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="İl / İlçe"
-                    secondary={`${firma.firmaIl}${firma.firmaIlce ? ` / ${firma.firmaIlce}` : ''}`}
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <EmailIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="KEP Adresi"
-                    secondary={
-                      firma.kepAdresi ? (
-                        <Link href={`mailto:${firma.kepAdresi}`} color="primary">
-                          {firma.kepAdresi}
-                        </Link>
-                      ) : 'Belirtilmemiş'
-                    }
-                  />
-                </ListItem>
-
-                {firma.firmaTelefon && (
+      {/* 📄 Tab Content */}
+      {activeTab === 0 && (
+        <Grid container spacing={3}>
+          {/* 🏢 Temel Bilgiler */}
+          <Grid item xs={12} md={6}>
+            <Card className="glass-card" sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={<BusinessIcon sx={{ color: 'primary.main' }} />}
+                title="Temel Bilgiler"
+                action={
+                  <Tooltip title="Bilgileri yenile">
+                    <IconButton onClick={() => fetchFirma(id)}>
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
+                }
+                sx={{ pb: 1 }}
+              />
+              <CardContent sx={{ pt: 0 }}>
+                <List sx={{ p: 0 }}>
                   <ListItem sx={{ px: 0, py: 1 }}>
                     <ListItemIcon sx={{ minWidth: 40 }}>
-                      <PhoneIcon color="primary" />
+                      <AccountIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Firma Telefon"
+                      primary="Firma ID"
+                      secondary={firma.firmaId}
+                    />
+                  </ListItem>
+                  
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <AssignmentIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Vergi No / TC"
+                      secondary={<EditableField field="vergiNoTC" value={firma.vergiNoTC} label="Vergi No/TC" />}
+                    />
+                  </ListItem>
+
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <BusinessIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Tam Ünvan"
+                      secondary={<EditableField field="tamUnvan" value={firma.tamUnvan} label="Tam Ünvan" />}
+                    />
+                  </ListItem>
+
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <GlobalIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Yabancı Sermayeli"
                       secondary={
-                        <Link href={`tel:${firma.firmaTelefon}`} color="primary">
-                          {firma.firmaTelefon}
-                        </Link>
+                        <Chip
+                          label={firma.yabanciSermayeli ? 'Evet' : 'Hayır'}
+                          color={firma.yabanciSermayeli ? 'warning' : 'default'}
+                          size="small"
+                        />
                       }
                     />
                   </ListItem>
-                )}
 
-                {firma.firmaEmail && (
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <InfoIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Ana Faaliyet Konusu"
+                      secondary={<EditableField field="anaFaaliyetKonusu" value={firma.anaFaaliyetKonusu} label="Ana Faaliyet Konusu" />}
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 📍 Lokasyon Bilgileri */}
+          <Grid item xs={12} md={6}>
+            <Card className="glass-card" sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={<LocationIcon sx={{ color: 'primary.main' }} />}
+                title="Lokasyon Bilgileri"
+                sx={{ pb: 1 }}
+              />
+              <CardContent sx={{ pt: 0 }}>
+                <List sx={{ p: 0 }}>
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <LocationIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="Adres"
+                      secondary={<EditableField field="adres" value={firma.adres} label="Adres" multiline />}
+                    />
+                  </ListItem>
+
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <LocationIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="İl / İlçe"
+                      secondary={`${firma.firmaIl}${firma.firmaIlce ? ` / ${firma.firmaIlce}` : ''}`}
+                    />
+                  </ListItem>
+
                   <ListItem sx={{ px: 0, py: 1 }}>
                     <ListItemIcon sx={{ minWidth: 40 }}>
                       <EmailIcon color="primary" />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Firma Email"
+                      primary="KEP Adresi"
                       secondary={
-                        <Link href={`mailto:${firma.firmaEmail}`} color="primary">
-                          {firma.firmaEmail}
-                        </Link>
+                        firma.kepAdresi ? (
+                          <Link href={`mailto:${firma.kepAdresi}`} color="primary">
+                            {firma.kepAdresi}
+                          </Link>
+                        ) : <EditableField field="kepAdresi" value={firma.kepAdresi} label="KEP Adresi" />
                       }
                     />
                   </ListItem>
-                )}
 
-                {firma.firmaWebsite && (
-                  <ListItem sx={{ px: 0, py: 1 }}>
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                      <WebsiteIcon color="primary" />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary="Website"
-                      secondary={
-                        <Link 
-                          href={firma.firmaWebsite} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          color="primary"
-                          sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
-                        >
-                          {firma.firmaWebsite}
-                          <LaunchIcon fontSize="small" />
-                        </Link>
-                      }
-                    />
-                  </ListItem>
-                )}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 📅 Yetki Bilgileri */}
-        <Grid item xs={12} md={6}>
-          <Card className="glass-card" sx={{ height: '100%' }}>
-            <CardHeader
-              avatar={<ScheduleIcon sx={{ color: 'primary.main' }} />}
-              title="Yetki Bilgileri"
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              <List sx={{ p: 0 }}>
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <CalendarIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="ETUYS Yetki Bitiş"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2">
-                          {formatDate(firma.etuysYetkiBitisTarihi)}
-                        </Typography>
-                        <Chip
-                          label={etuysStatus.label}
-                          color={etuysStatus.color}
-                          size="small"
-                          icon={
-                            etuysStatus.status === 'expired' ? <ErrorIcon /> :
-                            etuysStatus.status === 'expiring' ? <WarningIcon /> :
-                            etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                          }
-                        />
-                      </Box>
-                    }
-                  />
-                </ListItem>
-
-                <ListItem sx={{ px: 0, py: 1 }}>
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    <CalendarIcon color="primary" />
-                  </ListItemIcon>
-                  <ListItemText
-                    primary="DYS Yetki Bitiş"
-                    secondary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2">
-                          {formatDate(firma.dysYetkiBitisTarihi)}
-                        </Typography>
-                        <Chip
-                          label={dysStatus.label}
-                          color={dysStatus.color}
-                          size="small"
-                          icon={
-                            dysStatus.status === 'expired' ? <ErrorIcon /> :
-                            dysStatus.status === 'expiring' ? <WarningIcon /> :
-                            dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                          }
-                        />
-                      </Box>
-                    }
-                  />
-                </ListItem>
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 👥 Yetkili Kişiler */}
-        <Grid item xs={12} md={6}>
-          <Card className="glass-card" sx={{ height: '100%' }}>
-            <CardHeader
-              avatar={<PersonIcon sx={{ color: 'primary.main' }} />}
-              title="Yetkili Kişiler"
-              sx={{ pb: 1 }}
-            />
-            <CardContent sx={{ pt: 0 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                İlk İrtibat: <strong>{firma.ilkIrtibatKisi}</strong>
-              </Typography>
-              
-              {firma.yetkiliKisiler && firma.yetkiliKisiler.length > 0 ? (
-                <Stack spacing={2}>
-                  {firma.yetkiliKisiler.map((yetkili, index) => (
-                    <Paper 
-                      key={index} 
-                      sx={{ 
-                        p: 2, 
-                        backgroundColor: 'rgba(25, 118, 210, 0.04)',
-                        border: '1px solid rgba(25, 118, 210, 0.12)'
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                        <Avatar sx={{ backgroundColor: 'primary.main', width: 32, height: 32 }}>
-                          {index + 1}
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                            {yetkili.adSoyad}
-      </Typography>
-      
-                          <Stack spacing={0.5}>
-                            {yetkili.telefon1 && (
-                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <PhoneIcon fontSize="small" color="primary" />
-                                <Link href={`tel:${yetkili.telefon1}`} color="primary">
-                                  {yetkili.telefon1}
-                                </Link>
-                              </Typography>
-                            )}
-                            
-                            {yetkili.telefon2 && (
-                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <PhoneIcon fontSize="small" color="primary" />
-                                <Link href={`tel:${yetkili.telefon2}`} color="primary">
-                                  {yetkili.telefon2}
-                                </Link>
-                              </Typography>
-                            )}
-                            
-                            {yetkili.eposta1 && (
-                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <EmailIcon fontSize="small" color="primary" />
-                                <Link href={`mailto:${yetkili.eposta1}`} color="primary">
-                                  {yetkili.eposta1}
-                                </Link>
-        </Typography>
-                            )}
-                            
-                            {yetkili.eposta2 && (
-                              <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <EmailIcon fontSize="small" color="primary" />
-                                <Link href={`mailto:${yetkili.eposta2}`} color="primary">
-                                  {yetkili.eposta2}
-                                </Link>
-        </Typography>
-                            )}
-                          </Stack>
-                        </Box>
-                      </Box>
-      </Paper>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="text.secondary">
-                  Yetkili kişi bilgisi bulunmamaktadır.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 📝 Notlar ve Sistem Bilgileri */}
-        {(firma.notlar || firma.createdAt) && (
-          <Grid item xs={12}>
-            <Card className="glass-card">
-              <CardHeader
-                avatar={<NotesIcon sx={{ color: 'primary.main' }} />}
-                title="Notlar ve Sistem Bilgileri"
-                sx={{ pb: 1 }}
-              />
-              <CardContent sx={{ pt: 0 }}>
-                {firma.notlar && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                      Notlar:
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {firma.notlar}
-                    </Typography>
-                  </Box>
-                )}
-                
-                <Divider sx={{ my: 2 }} />
-                
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="body2" color="text.secondary">
-                      <strong>Oluşturma Tarihi:</strong> {formatDate(firma.createdAt)}
-                    </Typography>
-                  </Grid>
-                  
-                  {firma.updatedAt && (
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Son Güncelleme:</strong> {formatDate(firma.updatedAt)}
-                      </Typography>
-                    </Grid>
+                  {firma.firmaTelefon && (
+                    <ListItem sx={{ px: 0, py: 1 }}>
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <PhoneIcon color="primary" />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary="Firma Telefon"
+                        secondary={
+                          <Link href={`tel:${firma.firmaTelefon}`} color="primary">
+                            {firma.firmaTelefon}
+                          </Link>
+                        }
+                      />
+                    </ListItem>
                   )}
-                  
-                  {firma.olusturanKullanici && (
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Oluşturan:</strong> {firma.olusturanKullanici.adSoyad || firma.olusturanKullanici.email}
-                      </Typography>
-                    </Grid>
-                  )}
-                  
-                  {firma.sonGuncelleyen && (
-                    <Grid item xs={12} sm={6}>
-                      <Typography variant="body2" color="text.secondary">
-                        <strong>Son Güncelleyen:</strong> {firma.sonGuncelleyen.adSoyad || firma.sonGuncelleyen.email}
-                      </Typography>
-                    </Grid>
-                  )}
-                </Grid>
+                </List>
               </CardContent>
             </Card>
           </Grid>
-                 )}
-       </Grid>
 
-       {/* 🗑️ Silme Onay Dialogu */}
-       <Dialog
-         open={deleteDialogOpen}
-         onClose={() => !deleting && setDeleteDialogOpen(false)}
-         aria-labelledby="delete-dialog-title"
-         aria-describedby="delete-dialog-description"
-         maxWidth="sm"
-         fullWidth
-       >
-         <DialogTitle id="delete-dialog-title" sx={{ color: 'error.main', fontWeight: 600 }}>
-           ⚠️ Firmayı Sil
-         </DialogTitle>
-         <DialogContent>
-           <DialogContentText id="delete-dialog-description">
-             <strong>{firma?.tamUnvan}</strong> firmasını silmek istediğinizden emin misiniz?
-           </DialogContentText>
-           <DialogContentText sx={{ mt: 1, color: 'error.main' }}>
-             Bu işlem geri alınamaz ve firma veritabanından kalıcı olarak silinecektir.
-           </DialogContentText>
-         </DialogContent>
-         <DialogActions sx={{ p: 3, pt: 1 }}>
-           <Button 
-             onClick={() => setDeleteDialogOpen(false)}
-             disabled={deleting}
-             variant="outlined"
-           >
-             İptal
-           </Button>
-           <Button 
-             onClick={handleDeleteFirma}
-             disabled={deleting}
-             variant="contained"
-             color="error"
-             startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
-             sx={{
-               background: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)',
-               '&:hover': {
-                 background: 'linear-gradient(135deg, #b71c1c 0%, #8e0000 100%)',
-               }
-             }}
-           >
-             {deleting ? 'Siliniyor...' : 'Evet, Sil'}
-           </Button>
-         </DialogActions>
-       </Dialog>
+          {/* 📅 Yetki Bilgileri */}
+          <Grid item xs={12} md={6}>
+            <Card className="glass-card" sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={<ScheduleIcon sx={{ color: 'primary.main' }} />}
+                title="Yetki Bilgileri"
+                sx={{ pb: 1 }}
+              />
+              <CardContent sx={{ pt: 0 }}>
+                <List sx={{ p: 0 }}>
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <CalendarIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="ETUYS Yetki Bitiş"
+                      secondary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2">
+                            {formatDate(firma.etuysYetkiBitisTarihi)}
+                          </Typography>
+                          <Chip
+                            label={etuysStatus.label}
+                            color={etuysStatus.color}
+                            size="small"
+                            icon={
+                              etuysStatus.status === 'expired' ? <ErrorIcon /> :
+                              etuysStatus.status === 'expiring' ? <WarningIcon /> :
+                              etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                            }
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+
+                  <ListItem sx={{ px: 0, py: 1 }}>
+                    <ListItemIcon sx={{ minWidth: 40 }}>
+                      <CalendarIcon color="primary" />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary="DYS Yetki Bitiş"
+                      secondary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="body2">
+                            {formatDate(firma.dysYetkiBitisTarihi)}
+                          </Typography>
+                          <Chip
+                            label={dysStatus.label}
+                            color={dysStatus.color}
+                            size="small"
+                            icon={
+                              dysStatus.status === 'expired' ? <ErrorIcon /> :
+                              dysStatus.status === 'expiring' ? <WarningIcon /> :
+                              dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                            }
+                          />
+                        </Box>
+                      }
+                    />
+                  </ListItem>
+                </List>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 👥 Yetkili Kişiler */}
+          <Grid item xs={12} md={6}>
+            <Card className="glass-card" sx={{ height: '100%' }}>
+              <CardHeader
+                avatar={<PersonIcon sx={{ color: 'primary.main' }} />}
+                title="Yetkili Kişiler"
+                sx={{ pb: 1 }}
+              />
+              <CardContent sx={{ pt: 0 }}>
+                {firma.ilkIrtibatKisi && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    İlk İrtibat: <strong>{firma.ilkIrtibatKisi}</strong>
+                  </Typography>
+                )}
+                
+                {firma.yetkiliKisiler && firma.yetkiliKisiler.length > 0 ? (
+                  <Stack spacing={2}>
+                    {firma.yetkiliKisiler.map((yetkili, index) => (
+                      <Paper 
+                        key={index} 
+                        sx={{ 
+                          p: 2, 
+                          backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                          border: '1px solid rgba(25, 118, 210, 0.12)'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                          <Avatar sx={{ backgroundColor: 'primary.main', width: 32, height: 32 }}>
+                            {index + 1}
+                          </Avatar>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                              {yetkili.adSoyad}
+                            </Typography>
+                            
+                            <Stack spacing={0.5}>
+                              {yetkili.telefon1 && (
+                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <PhoneIcon fontSize="small" color="primary" />
+                                  <Link href={`tel:${yetkili.telefon1}`} color="primary">
+                                    {yetkili.telefon1}
+                                  </Link>
+                                </Typography>
+                              )}
+                              
+                              {yetkili.telefon2 && (
+                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <PhoneIcon fontSize="small" color="primary" />
+                                  <Link href={`tel:${yetkili.telefon2}`} color="primary">
+                                    {yetkili.telefon2}
+                                  </Link>
+                                </Typography>
+                              )}
+                              
+                              {yetkili.eposta1 && (
+                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <EmailIcon fontSize="small" color="primary" />
+                                  <Link href={`mailto:${yetkili.eposta1}`} color="primary">
+                                    {yetkili.eposta1}
+                                  </Link>
+                                </Typography>
+                              )}
+                              
+                              {yetkili.eposta2 && (
+                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <EmailIcon fontSize="small" color="primary" />
+                                  <Link href={`mailto:${yetkili.eposta2}`} color="primary">
+                                    {yetkili.eposta2}
+                                  </Link>
+                                </Typography>
+                              )}
+                            </Stack>
+                          </Box>
+                        </Box>
+                      </Paper>
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Henüz yetkili kişi eklenmemiş
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 📝 Notlar ve Sistem Bilgileri */}
+          {(firma.notlar || firma.createdAt) && (
+            <Grid item xs={12}>
+              <Card className="glass-card">
+                <CardHeader
+                  avatar={<NotesIcon sx={{ color: 'primary.main' }} />}
+                  title="Notlar ve Sistem Bilgileri"
+                  sx={{ pb: 1 }}
+                />
+                <CardContent sx={{ pt: 0 }}>
+                  {firma.notlar && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                        Notlar:
+                      </Typography>
+                      <EditableField field="notlar" value={firma.notlar} label="Notlar" multiline />
+                    </Box>
+                  )}
+                  
+                  <Divider sx={{ my: 2 }} />
+                  
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Typography variant="body2" color="text.secondary">
+                        <strong>Oluşturma Tarihi:</strong> {formatDate(firma.createdAt)}
+                      </Typography>
+                    </Grid>
+                    
+                    {firma.updatedAt && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Son Güncelleme:</strong> {formatDate(firma.updatedAt)}
+                        </Typography>
+                      </Grid>
+                    )}
+                    
+                    {firma.olusturanKullanici && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Oluşturan:</strong> {firma.olusturanKullanici.adSoyad || firma.olusturanKullanici.email}
+                        </Typography>
+                      </Grid>
+                    )}
+                    
+                    {firma.sonGuncelleyen && (
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Son Güncelleyen:</strong> {firma.sonGuncelleyen.adSoyad || firma.sonGuncelleyen.email}
+                        </Typography>
+                      </Grid>
+                    )}
+                  </Grid>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+        </Grid>
+      )}
+
+      {/* 📋 Activity History Tab */}
+      {activeTab === 1 && (
+        <Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Firma Aktivite Geçmişi
+            </Typography>
+            <Button 
+              variant="outlined" 
+              startIcon={<RefreshIcon />}
+              onClick={loadFirmaActivities}
+              disabled={activityLoading}
+            >
+              Yenile
+            </Button>
+          </Box>
+          
+          {activityLoading ? (
+            <LinearProgress sx={{ mb: 3 }} />
+          ) : activities.length > 0 ? (
+            <Stack spacing={2}>
+              {activities.map((activity, index) => (
+                <Card key={activity._id} sx={{ border: '1px solid rgba(25, 118, 210, 0.2)' }}>
+                  <CardContent sx={{ py: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                      <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                        <BusinessIcon />
+                      </Avatar>
+                      
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600, mb: 0.5 }}>
+                          {activity.aksiyon}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                          {activity.mesaj}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <TimeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                            <Typography variant="caption" color="text.secondary">
+                              {new Date(activity.createdAt).toLocaleString('tr-TR')}
+                            </Typography>
+                          </Box>
+                          
+                          {activity.kullanici?.adSoyad && (
+                            <>
+                              <Typography variant="caption" color="text.secondary">•</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                <Typography variant="caption" color="text.secondary">
+                                  {activity.kullanici.adSoyad}
+                                </Typography>
+                              </Box>
+                            </>
+                          )}
+                          
+                          <Chip 
+                            label={activity.kategori} 
+                            size="small" 
+                            color="primary" 
+                            variant="outlined"
+                            sx={{ ml: 'auto' }}
+                          />
+                        </Box>
+                      </Box>
+                    </Box>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+          ) : (
+            <Paper sx={{ p: 4, textAlign: 'center', bgcolor: 'grey.50' }}>
+              <HistoryIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Henüz aktivite bulunmuyor
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Bu firma ile ilgili işlemler burada görünecek
+              </Typography>
+            </Paper>
+          )}
+        </Box>
+      )}
+
+      {/* 🗑️ Silme Onay Dialogu */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => !deleting && setDeleteDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 600 }}>
+          ⚠️ Firmayı Sil
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            <strong>{firma?.tamUnvan}</strong> firmasını silmek istediğinizden emin misiniz?
+          </DialogContentText>
+          <DialogContentText sx={{ mt: 1, color: 'error.main' }}>
+            Bu işlem geri alınamaz ve firma veritabanından kalıcı olarak silinecektir.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, pt: 1 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)}
+            disabled={deleting}
+            variant="outlined"
+          >
+            İptal
+          </Button>
+          <Button 
+            onClick={handleDeleteFirma}
+            disabled={deleting}
+            variant="contained"
+            color="error"
+            startIcon={deleting ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+          >
+            {deleting ? 'Siliniyor...' : 'Evet, Sil'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 📢 Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

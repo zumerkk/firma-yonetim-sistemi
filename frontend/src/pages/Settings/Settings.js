@@ -1,7 +1,7 @@
-// ⚙️ Settings Page - Sistem Ayarları
-// Kullanıcı ve sistem ayarları sayfası
+// ⚙️ Settings Page - FUNCTIONAL BACKEND INTEGRATION
+// Kullanıcı ve sistem ayarları sayfası - Real API calls
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -17,7 +17,6 @@ import {
   TextField,
   Button,
   Alert,
-  Paper,
   List,
   ListItem,
   ListItemIcon,
@@ -27,7 +26,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Container
+  Container,
+  Snackbar,
+  LinearProgress
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -36,65 +37,162 @@ import {
   Storage as StorageIcon,
   Email as EmailIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  Refresh as RefreshIcon,
+  RestoreOutlined as RestoreIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
+import api from '../../utils/axios';
 
 const Settings = () => {
-  const { user } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '' });
+  
   const [settings, setSettings] = useState({
     // 🔔 Bildirim Ayarları
-    emailNotifications: true,
-    pushNotifications: false,
-    smsNotifications: false,
-    reminderNotifications: true,
+    notifications: {
+      email: true,
+      push: false,
+      sms: false,
+      reminders: true
+    },
     
     // 🎨 Arayüz Ayarları
-    theme: 'light',
-    language: 'tr',
-    dateFormat: 'DD/MM/YYYY',
-    currency: 'TRY',
+    ui: {
+      theme: 'light',
+      language: 'tr',
+      dateFormat: 'DD/MM/YYYY',
+      currency: 'TRY'
+    },
     
     // 📊 Veri Ayarları
-    autoSave: true,
-    backupFrequency: 'daily',
-    dataRetention: '365',
+    data: {
+      autoSave: true,
+      backupFrequency: 'daily',
+      dataRetention: 365,
+      exportFormat: 'excel'
+    },
     
     // 🔒 Güvenlik Ayarları
-    twoFactorAuth: false,
-    sessionTimeout: '30',
-    passwordExpiry: '90'
+    security: {
+      twoFactorAuth: false,
+      sessionTimeout: 30,
+      passwordExpiry: 90,
+      loginAlerts: true
+    }
   });
 
-  const [openDialog, setOpenDialog] = useState(false);
-  const [saveMessage, setSaveMessage] = useState('');
+  // 📢 Snackbar helper
+  const showSnackbar = useCallback((message, severity = 'success') => {
+    setSnackbar({ open: true, message, severity });
+  }, []);
 
-  // 📝 Ayar değişikliği
-  const handleSettingChange = (key, value) => {
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  }, []);
+
+  // 🔄 Load user settings
+  const loadSettings = useCallback(async () => {
+    try {
+      const response = await api.get('/auth/settings');
+      if (response.data.success) {
+        setSettings(response.data.data.settings);
+      }
+    } catch (error) {
+      console.error('Settings load error:', error);
+      showSnackbar('Ayarlar yüklenirken hata oluştu', 'error');
+    } finally {
+      setInitialLoading(false);
+    }
+  }, [showSnackbar]);
+
+  // 🚀 Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  // 📝 Setting change handler
+  const handleSettingChange = (category, key, value) => {
     setSettings(prev => ({
       ...prev,
-      [key]: value
+      [category]: {
+        ...prev[category],
+        [key]: value
+      }
     }));
   };
 
-  // 💾 Ayarları kaydet
-  const handleSave = () => {
-    // TODO: API call to save settings
-    setSaveMessage('Ayarlar başarıyla kaydedildi!');
-    setTimeout(() => setSaveMessage(''), 3000);
+  // 💾 Save settings
+  const handleSave = async () => {
+    setLoading(true);
+    
+    try {
+      const response = await api.put('/auth/settings', { settings });
+      
+      if (response.data.success) {
+        showSnackbar('Ayarlar başarıyla kaydedildi!', 'success');
+      }
+    } catch (error) {
+      console.error('Settings save error:', error);
+      const errorMessage = error.response?.data?.message || 'Ayarlar kaydedilirken hata oluştu';
+      showSnackbar(errorMessage, 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 🔄 Ayarları sıfırla
+  // 🔄 Reset settings
   const handleReset = () => {
-    setOpenDialog(true);
+    setConfirmDialog({ open: true, type: 'reset' });
   };
 
-  const confirmReset = () => {
-    // TODO: Reset to default settings
-    setOpenDialog(false);
-    setSaveMessage('Ayarlar varsayılan değerlere sıfırlandı!');
-    setTimeout(() => setSaveMessage(''), 3000);
+  const confirmReset = async () => {
+    setLoading(true);
+    setConfirmDialog({ open: false, type: '' });
+    
+    try {
+      // Default settings
+      const defaultSettings = {
+        notifications: {
+          email: true,
+          push: false,
+          sms: false,
+          reminders: true
+        },
+        ui: {
+          theme: 'light',
+          language: 'tr',
+          dateFormat: 'DD/MM/YYYY',
+          currency: 'TRY'
+        },
+        data: {
+          autoSave: true,
+          backupFrequency: 'daily',
+          dataRetention: 365,
+          exportFormat: 'excel'
+        },
+        security: {
+          twoFactorAuth: false,
+          sessionTimeout: 30,
+          passwordExpiry: 90,
+          loginAlerts: true
+        }
+      };
+
+      const response = await api.put('/auth/settings', { settings: defaultSettings });
+      
+      if (response.data.success) {
+        setSettings(defaultSettings);
+        showSnackbar('Ayarlar varsayılan değerlere sıfırlandı!', 'success');
+      }
+    } catch (error) {
+      console.error('Settings reset error:', error);
+      showSnackbar('Ayarlar sıfırlanırken hata oluştu', 'error');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -108,7 +206,7 @@ const Settings = () => {
       position: 'relative',
     }}>
       <Container maxWidth="lg">
-        {/* �� Sayfa Başlığı */}
+        {/* 📱 Sayfa Başlığı */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
             ⚙️ Ayarlar
@@ -118,11 +216,10 @@ const Settings = () => {
           </Typography>
         </Box>
 
-        {saveMessage && (
-          <Alert severity="success" sx={{ mb: 3 }}>
-            {saveMessage}
-          </Alert>
-        )}
+        {/* 🔄 Initial Loading */}
+        {initialLoading ? (
+          <LinearProgress sx={{ mb: 3 }} />
+        ) : null}
 
         <Grid container spacing={3}>
           {/* 🔔 Bildirim Ayarları */}
@@ -147,8 +244,9 @@ const Settings = () => {
                     />
                     <ListItemSecondaryAction>
                       <Switch
-                        checked={settings.emailNotifications}
-                        onChange={(e) => handleSettingChange('emailNotifications', e.target.checked)}
+                        checked={settings.notifications.email}
+                        onChange={(e) => handleSettingChange('notifications', 'email', e.target.checked)}
+                        disabled={loading}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -163,8 +261,9 @@ const Settings = () => {
                     />
                     <ListItemSecondaryAction>
                       <Switch
-                        checked={settings.pushNotifications}
-                        onChange={(e) => handleSettingChange('pushNotifications', e.target.checked)}
+                        checked={settings.notifications.push}
+                        onChange={(e) => handleSettingChange('notifications', 'push', e.target.checked)}
+                        disabled={loading}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -175,12 +274,13 @@ const Settings = () => {
                     </ListItemIcon>
                     <ListItemText 
                       primary="Hatırlatma Bildirimleri" 
-                      secondary="ETUYS ve DYS süre hatırlatmaları"
+                      secondary="ETYUS ve DYS süre hatırlatmaları"
                     />
                     <ListItemSecondaryAction>
                       <Switch
-                        checked={settings.reminderNotifications}
-                        onChange={(e) => handleSettingChange('reminderNotifications', e.target.checked)}
+                        checked={settings.notifications.reminders}
+                        onChange={(e) => handleSettingChange('notifications', 'reminders', e.target.checked)}
+                        disabled={loading}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -200,43 +300,45 @@ const Settings = () => {
                   </Typography>
                 </Box>
                 
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
+                <Grid container spacing={3}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Tema</InputLabel>
                       <Select
-                        value={settings.theme}
+                        value={settings.ui.theme}
                         label="Tema"
-                        onChange={(e) => handleSettingChange('theme', e.target.value)}
+                        onChange={(e) => handleSettingChange('ui', 'theme', e.target.value)}
+                        disabled={loading}
                       >
-                        <MenuItem value="light">🌞 Açık Tema</MenuItem>
-                        <MenuItem value="dark">🌙 Koyu Tema</MenuItem>
-                        <MenuItem value="auto">🔄 Otomatik</MenuItem>
+                        <MenuItem value="light">Açık Tema</MenuItem>
+                        <MenuItem value="dark">Koyu Tema</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
                   
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Dil</InputLabel>
                       <Select
-                        value={settings.language}
+                        value={settings.ui.language}
                         label="Dil"
-                        onChange={(e) => handleSettingChange('language', e.target.value)}
+                        onChange={(e) => handleSettingChange('ui', 'language', e.target.value)}
+                        disabled={loading}
                       >
-                        <MenuItem value="tr">🇹🇷 Türkçe</MenuItem>
-                        <MenuItem value="en">🇺🇸 English</MenuItem>
+                        <MenuItem value="tr">Türkçe</MenuItem>
+                        <MenuItem value="en">English</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
                   
-                  <Grid item xs={6}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Tarih Formatı</InputLabel>
                       <Select
-                        value={settings.dateFormat}
+                        value={settings.ui.dateFormat}
                         label="Tarih Formatı"
-                        onChange={(e) => handleSettingChange('dateFormat', e.target.value)}
+                        onChange={(e) => handleSettingChange('ui', 'dateFormat', e.target.value)}
+                        disabled={loading}
                       >
                         <MenuItem value="DD/MM/YYYY">DD/MM/YYYY</MenuItem>
                         <MenuItem value="MM/DD/YYYY">MM/DD/YYYY</MenuItem>
@@ -245,19 +347,77 @@ const Settings = () => {
                     </FormControl>
                   </Grid>
                   
-                  <Grid item xs={6}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Para Birimi</InputLabel>
                       <Select
-                        value={settings.currency}
+                        value={settings.ui.currency}
                         label="Para Birimi"
-                        onChange={(e) => handleSettingChange('currency', e.target.value)}
+                        onChange={(e) => handleSettingChange('ui', 'currency', e.target.value)}
+                        disabled={loading}
                       >
-                        <MenuItem value="TRY">₺ TL</MenuItem>
-                        <MenuItem value="USD">$ USD</MenuItem>
-                        <MenuItem value="EUR">€ EUR</MenuItem>
+                        <MenuItem value="TRY">Türk Lirası (₺)</MenuItem>
+                        <MenuItem value="USD">US Dollar ($)</MenuItem>
+                        <MenuItem value="EUR">Euro (€)</MenuItem>
                       </Select>
                     </FormControl>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* 📊 Veri Ayarları */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                  <StorageIcon sx={{ color: 'warning.main', mr: 1 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Veri Ayarları
+                  </Typography>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.data.autoSave}
+                          onChange={(e) => handleSettingChange('data', 'autoSave', e.target.checked)}
+                          disabled={loading}
+                        />
+                      }
+                      label="Otomatik Kaydetme"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth>
+                      <InputLabel>Yedekleme Sıklığı</InputLabel>
+                      <Select
+                        value={settings.data.backupFrequency}
+                        label="Yedekleme Sıklığı"
+                        onChange={(e) => handleSettingChange('data', 'backupFrequency', e.target.value)}
+                        disabled={loading}
+                      >
+                        <MenuItem value="daily">Günlük</MenuItem>
+                        <MenuItem value="weekly">Haftalık</MenuItem>
+                        <MenuItem value="monthly">Aylık</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Veri Saklama (Gün)"
+                      type="number"
+                      value={settings.data.dataRetention}
+                      onChange={(e) => handleSettingChange('data', 'dataRetention', parseInt(e.target.value) || 365)}
+                      disabled={loading}
+                      inputProps={{ min: 30, max: 3650 }}
+                    />
                   </Grid>
                 </Grid>
               </CardContent>
@@ -275,194 +435,130 @@ const Settings = () => {
                   </Typography>
                 </Box>
                 
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.twoFactorAuth}
-                          onChange={(e) => handleSettingChange('twoFactorAuth', e.target.checked)}
-                        />
-                      }
-                      label="İki Faktörlü Kimlik Doğrulama"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="Oturum Zaman Aşımı (dk)"
-                      type="number"
-                      value={settings.sessionTimeout}
-                      onChange={(e) => handleSettingChange('sessionTimeout', e.target.value)}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="Şifre Geçerlilik (gün)"
-                      type="number"
-                      value={settings.passwordExpiry}
-                      onChange={(e) => handleSettingChange('passwordExpiry', e.target.value)}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* 📊 Veri Ayarları */}
-          <Grid item xs={12} md={6}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <StorageIcon sx={{ color: 'info.main', mr: 1 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    Veri Yönetimi
-                  </Typography>
-                </Box>
-                
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={settings.autoSave}
-                          onChange={(e) => handleSettingChange('autoSave', e.target.checked)}
-                        />
-                      }
-                      label="Otomatik Kaydetme"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Yedekleme Sıklığı</InputLabel>
-                      <Select
-                        value={settings.backupFrequency}
-                        label="Yedekleme Sıklığı"
-                        onChange={(e) => handleSettingChange('backupFrequency', e.target.value)}
-                      >
-                        <MenuItem value="hourly">Saatlik</MenuItem>
-                        <MenuItem value="daily">Günlük</MenuItem>
-                        <MenuItem value="weekly">Haftalık</MenuItem>
-                        <MenuItem value="monthly">Aylık</MenuItem>
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={6}>
-                    <TextField
-                      fullWidth
-                      label="Veri Saklama (gün)"
-                      type="number"
-                      value={settings.dataRetention}
-                      onChange={(e) => handleSettingChange('dataRetention', e.target.value)}
-                    />
-                  </Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* 📋 Sistem Bilgileri */}
-          <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                  📋 Sistem Bilgileri
-                </Typography>
-                
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
-                      <Typography variant="h6" sx={{ color: 'primary.main' }}>
-                        v1.0.0
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Uygulama Sürümü
-                      </Typography>
-                    </Paper>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.security.twoFactorAuth}
+                          onChange={(e) => handleSettingChange('security', 'twoFactorAuth', e.target.checked)}
+                          disabled={loading}
+                        />
+                      }
+                      label="İki Faktörlü Doğrulama"
+                    />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
-                      <Typography variant="h6" sx={{ color: 'success.main' }}>
-                        Online
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Bağlantı Durumu
-                      </Typography>
-                    </Paper>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Oturum Zaman Aşımı (Dakika)"
+                      type="number"
+                      value={settings.security.sessionTimeout}
+                      onChange={(e) => handleSettingChange('security', 'sessionTimeout', parseInt(e.target.value) || 30)}
+                      disabled={loading}
+                      inputProps={{ min: 5, max: 480 }}
+                    />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
-                      <Typography variant="h6" sx={{ color: 'info.main' }}>
-                        MongoDB
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Veritabanı
-                      </Typography>
-                    </Paper>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Şifre Geçerlilik (Gün)"
+                      type="number"
+                      value={settings.security.passwordExpiry}
+                      onChange={(e) => handleSettingChange('security', 'passwordExpiry', parseInt(e.target.value) || 90)}
+                      disabled={loading}
+                      inputProps={{ min: 30, max: 365 }}
+                    />
                   </Grid>
                   
-                  <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2, textAlign: 'center', bgcolor: 'grey.50' }}>
-                      <Typography variant="h6" sx={{ color: 'warning.main' }}>
-                        {user?.rol || 'User'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Kullanıcı Rolü
-                      </Typography>
-                    </Paper>
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={settings.security.loginAlerts}
+                          onChange={(e) => handleSettingChange('security', 'loginAlerts', e.target.checked)}
+                          disabled={loading}
+                        />
+                      }
+                      label="Giriş Uyarıları"
+                    />
                   </Grid>
                 </Grid>
               </CardContent>
             </Card>
-          </Grid>
-
-          {/* 💾 İşlem Butonları */}
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button
-                variant="outlined"
-                startIcon={<CancelIcon />}
-                onClick={handleReset}
-                color="error"
-              >
-                Sıfırla
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<SaveIcon />}
-                onClick={handleSave}
-                sx={{ minWidth: 120 }}
-              >
-                Kaydet
-              </Button>
-            </Box>
           </Grid>
         </Grid>
 
-        {/* 🔄 Sıfırlama Onay Dialogu */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-          <DialogTitle>Ayarları Sıfırla</DialogTitle>
-          <DialogContent>
-            <Typography>
-              Tüm ayarları varsayılan değerlere sıfırlamak istediğinizden emin misiniz?
-              Bu işlem geri alınamaz.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button onClick={confirmReset} color="error" variant="contained">
-              Sıfırla
-            </Button>
-          </DialogActions>
-        </Dialog>
+        {/* 💾 Action Buttons */}
+        <Box sx={{ display: 'flex', gap: 2, mt: 4, justifyContent: 'center' }}>
+          <Button
+            variant="contained"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={loading || initialLoading}
+            sx={{ minWidth: 150 }}
+          >
+            {loading ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
+          </Button>
+          
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadSettings}
+            disabled={loading || initialLoading}
+          >
+            Yenile
+          </Button>
+          
+          <Button
+            variant="outlined"
+            color="warning"
+            startIcon={<RestoreIcon />}
+            onClick={handleReset}
+            disabled={loading || initialLoading}
+          >
+            Sıfırla
+          </Button>
+        </Box>
       </Container>
+
+      {/* 🔄 Confirmation Dialog */}
+      <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, type: '' })}>
+        <DialogTitle>Ayarları Sıfırla</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tüm ayarları varsayılan değerlere sıfırlamak istediğinizden emin misiniz? 
+            Bu işlem geri alınamaz.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialog({ open: false, type: '' })}>
+            İptal
+          </Button>
+          <Button onClick={confirmReset} color="warning" variant="contained">
+            Sıfırla
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 📢 Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={handleCloseSnackbar}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

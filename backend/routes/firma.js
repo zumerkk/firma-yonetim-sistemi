@@ -8,67 +8,68 @@ const router = express.Router();
 // Controllers
 const {
   createFirma,
-  getFirmalar,
+  getFirmalar, 
   getFirma,
   updateFirma,
   deleteFirma,
   searchFirmalar,
-  searchByField,
   getFirmaStats,
-  getIlIlceListesi,
-  getExcelData
+  getExcelData,
+  exportExcel,
+  exportPDF,
+  exportStatsExcel,
+  getNextFirmaId
 } = require('../controllers/firmaController');
 
 // Middleware
 const { authenticate, authorize, checkPermission, checkOwnership } = require('../middleware/auth');
 const { validateCreateFirma, validateUpdateFirma } = require('../middleware/validation');
 
-// 🔍 GET /api/firmalar/search - Genel Firma Arama (Auth gerekli)
-// Bu route'u en üstte tanımlıyoruz çünkü :id parametresi ile çakışmaması için
+// 🔍 GET /api/firma/search - Genel Firma Arama
 router.get('/search', authenticate, searchFirmalar);
 
-// 🔍 GET /api/firmalar/search/:field/:value - Tek Alan Araması (Excel panel formatı)
-// Örnek: /api/firmalar/search/vergiNoTC/1234567890
-router.get('/search/:field/:value', authenticate, searchByField);
+// 🆔 GET /api/firma/next-id - Sonraki Firma ID'yi al
+router.get('/next-id', authenticate, getNextFirmaId);
 
-// 📊 GET /api/firmalar/stats - Firma İstatistikleri (Auth gerekli)
-router.get('/stats', authenticate, getFirmaStats);
+// 📊 GET /api/firma/stats - Firma istatistikleri (Admin)
+router.get('/stats', authenticate, authorize('admin'), getFirmaStats);
 
-// 📍 GET /api/firmalar/il-ilce - İl/İlçe/Faaliyet Listesi (Auth gerekli)
-router.get('/il-ilce', authenticate, getIlIlceListesi);
+// 📤 GET /api/firma/excel-data - Excel Export Data (Admin) - ESKİ VERSION
+router.get('/excel-data', authenticate, authorize('admin'), getExcelData);
 
-// 📊 GET /api/firmalar/excel-data - Excel Format Export (Auth gerekli)
-router.get('/excel-data', authenticate, getExcelData);
+// 📊 GET /api/firma/export/excel - Premium Excel Export (Admin) - FİRMA LİSTESİ
+router.get('/export/excel', authenticate, authorize('admin'), exportExcel);
 
-// 📋 GET /api/firmalar - Firma Listesi (Auth gerekli, sayfalama ve filtreleme ile)
+// 📄 GET /api/firma/export/pdf - Premium PDF Export (Admin) - İSTATİSTİK RAPORU
+router.get('/export/pdf', authenticate, authorize('admin'), exportPDF);
+
+// 📈 GET /api/firma/export/stats-excel - Premium İstatistik Excel (Admin)
+router.get('/export/stats-excel', authenticate, authorize('admin'), exportStatsExcel);
+
+// 📋 GET /api/firma - Firma Listesi 
 router.get('/', authenticate, getFirmalar);
 
-// 📝 POST /api/firmalar - Yeni Firma Ekleme (Auth + Yetki gerekli)
-// Otomatik firma ID oluşturma ile
+// 📝 POST /api/firma - Yeni Firma Ekleme
 router.post('/', 
   authenticate, 
-  checkPermission('firmaEkle'), 
   validateCreateFirma, 
   createFirma
 );
 
-// 👁️ GET /api/firmalar/:id - Tekil Firma Detayı (Auth gerekli)
+// ⚠️ IMPORTANT: :id route'ları en sona koy - yoksa diğer route'ları yakalar
+// 👁️ GET /api/firma/:id - Tekil Firma Detayı
 router.get('/:id', authenticate, getFirma);
 
-// ✏️ PUT /api/firmalar/:id - Firma Güncelleme (Auth + Yetki + Sahiplik gerekli)
+// ✏️ PUT /api/firma/:id - Firma Güncelleme
 router.put('/:id', 
   authenticate, 
-  checkPermission('firmaDuzenle'), 
-  checkOwnership('Firma'), 
   validateUpdateFirma, 
   updateFirma
 );
 
-// 🗑️ DELETE /api/firmalar/:id - Firma Silme (Auth + Yetki + Sahiplik gerekli)
+// 🗑️ DELETE /api/firma/:id - Firma Silme
 router.delete('/:id', 
   authenticate, 
-  checkPermission('firmaSil'), 
-  checkOwnership('Firma'), 
   deleteFirma
 );
 

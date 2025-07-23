@@ -89,6 +89,41 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [500, 'Notlar 500 karakterden fazla olamaz']
+  },
+
+  // ⚙️ Kullanıcı Ayarları
+  settings: {
+    // 🔔 Bildirim Ayarları
+    notifications: {
+      email: { type: Boolean, default: true },
+      push: { type: Boolean, default: false },
+      sms: { type: Boolean, default: false },
+      reminders: { type: Boolean, default: true }
+    },
+    
+    // 🎨 Arayüz Ayarları
+    ui: {
+      theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+      language: { type: String, enum: ['tr', 'en'], default: 'tr' },
+      dateFormat: { type: String, enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'], default: 'DD/MM/YYYY' },
+      currency: { type: String, enum: ['TRY', 'USD', 'EUR'], default: 'TRY' }
+    },
+    
+    // 📊 Veri Ayarları
+    data: {
+      autoSave: { type: Boolean, default: true },
+      backupFrequency: { type: String, enum: ['daily', 'weekly', 'monthly'], default: 'daily' },
+      dataRetention: { type: Number, default: 365 }, // days
+      exportFormat: { type: String, enum: ['excel', 'csv', 'pdf'], default: 'excel' }
+    },
+    
+    // 🔒 Güvenlik Ayarları
+    security: {
+      twoFactorAuth: { type: Boolean, default: false },
+      sessionTimeout: { type: Number, default: 30 }, // minutes
+      passwordExpiry: { type: Number, default: 90 }, // days
+      loginAlerts: { type: Boolean, default: true }
+    }
   }
   
 }, {

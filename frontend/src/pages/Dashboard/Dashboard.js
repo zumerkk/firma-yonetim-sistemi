@@ -24,32 +24,50 @@ import {
   ViewList as ViewListIcon,
   Assessment as AssessmentIcon,
   Refresh as RefreshIcon,
-  Autorenew as AutorenewIcon
+  Autorenew as AutorenewIcon,
+  History as HistoryIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { useFirma } from '../../contexts/FirmaContext';
+import activityService from '../../services/activityService';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { firmalar, loading, stats, fetchFirmalar, fetchStats } = useFirma();
   const [refreshing, setRefreshing] = useState(false);
+  const [recentActivities, setRecentActivities] = useState([]);
+
+  // 📋 Load Recent Activities
+  const loadRecentActivities = useCallback(async () => {
+    try {
+      const result = await activityService.getRecentActivities(8);
+      if (result.success) {
+        setRecentActivities(result.data.activities || []);
+      }
+    } catch (error) {
+      console.error('Recent activities loading error:', error);
+    }
+  }, []);
 
   // 🔄 Data Loading
   useEffect(() => {
     const loadData = async () => {
       await Promise.all([
         fetchFirmalar(),
-        fetchStats()
+        fetchStats(),
+        loadRecentActivities()
       ]);
     };
     loadData();
-  }, [fetchFirmalar, fetchStats]);
+  }, [fetchFirmalar, fetchStats, loadRecentActivities]);
 
   // 🔄 Manual Refresh
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([
       fetchFirmalar(),
-      fetchStats()
+      fetchStats(),
+      loadRecentActivities()
     ]);
     setTimeout(() => setRefreshing(false), 500);
   };
@@ -364,7 +382,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* 👥 Compact Recent Companies */}
-        <Grid item xs={12} lg={8}>
+        <Grid item xs={12} lg={4}>
           <Card sx={{ 
             height: '100%',
             borderRadius: 2,
@@ -450,6 +468,102 @@ const Dashboard = () => {
                 }}>
                   <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
                     Henüz firma eklenmemiş
+                  </Typography>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* 📋 Son İşlemler Widget */}
+        <Grid item xs={12} lg={4}>
+          <Card sx={{ 
+            height: '100%',
+            borderRadius: 2,
+            border: '1px solid rgba(226, 232, 240, 0.5)'
+          }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <HistoryIcon sx={{ color: 'error.main', mr: 1, fontSize: 20 }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
+                    📋 Son İşlemler
+                  </Typography>
+                </Box>
+                <IconButton 
+                  size="small" 
+                  onClick={() => navigate('/son-islemler')}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  <ViewListIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              
+              {recentActivities.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {recentActivities.map((activity) => (
+                    <Box 
+                      key={activity._id}
+                      onClick={() => navigate('/son-islemler')}
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        p: 1.5,
+                        borderRadius: 2,
+                        border: '1px solid rgba(226, 232, 240, 0.5)',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          bgcolor: 'rgba(220, 38, 38, 0.02)',
+                          borderColor: 'rgba(220, 38, 38, 0.3)'
+                        }
+                      }}
+                    >
+                      <Avatar sx={{ 
+                        width: 32, 
+                        height: 32, 
+                        bgcolor: activityService.getStatusColor(activity.status) === 'error' ? 'error.main' : 
+                                activityService.getStatusColor(activity.status) === 'success' ? 'success.main' : 'primary.main',
+                        fontSize: '0.7rem',
+                        mr: 1.5
+                      }}>
+                        {activity.user?.name?.charAt(0)?.toUpperCase()}
+                      </Avatar>
+                      
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ 
+                          fontWeight: 600, 
+                          mb: 0.25,
+                          fontSize: '0.8rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {activity.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          {activity.user?.name} • {activityService.formatDate(activity.createdAt, 'relative')}
+                        </Typography>
+                      </Box>
+                      
+                      <Chip 
+                        label={activityService.getActionDisplayName(activity.action)}
+                        size="small"
+                        color={activityService.getStatusColor(activity.status)}
+                        variant="outlined"
+                        sx={{ fontSize: '0.6rem', height: 20 }}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 2,
+                  color: 'text.secondary'
+                }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                    📝 Henüz işlem geçmişi bulunmamaktadır
                   </Typography>
                 </Box>
               )}

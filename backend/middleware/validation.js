@@ -219,41 +219,41 @@ const validateCreateFirma = [
     
   // Birinci yetkili kişi (opsiyonel alanlar)
   body('yetkiliKisiler.0.telefon2')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .matches(/^[0-9+\s-()]{10,20}$/)
     .withMessage('Geçerli bir telefon numarası giriniz (Telefon 2)'),
     
   body('yetkiliKisiler.0.eposta2')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isEmail()
     .withMessage('Geçerli bir e-posta adresi giriniz (E-posta 2)')
     .normalizeEmail(),
     
   // İkinci yetkili kişi (tamamı opsiyonel)
   body('yetkiliKisiler.1.adSoyad')
-    .optional()
+    .optional({ checkFalsy: true })
     .isLength({ min: 2, max: 100 })
     .withMessage('İkinci yetkili kişi ad soyad 2-100 karakter arasında olmalıdır')
     .trim(),
     
   body('yetkiliKisiler.1.telefon1')
-    .optional()
+    .optional({ checkFalsy: true })
     .matches(/^[0-9+\s-()]{10,20}$/)
     .withMessage('Geçerli bir telefon numarası giriniz'),
     
   body('yetkiliKisiler.1.telefon2')
-    .optional()
+    .optional({ checkFalsy: true })
     .matches(/^[0-9+\s-()]{10,20}$/)
     .withMessage('Geçerli bir telefon numarası giriniz'),
     
   body('yetkiliKisiler.1.eposta1')
-    .optional()
+    .optional({ checkFalsy: true })
     .isEmail()
     .withMessage('Geçerli bir e-posta adresi giriniz')
     .normalizeEmail(),
     
   body('yetkiliKisiler.1.eposta2')
-    .optional()
+    .optional({ checkFalsy: true })
     .isEmail()
     .withMessage('Geçerli bir e-posta adresi giriniz')
     .normalizeEmail()

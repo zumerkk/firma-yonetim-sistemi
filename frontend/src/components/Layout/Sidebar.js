@@ -25,7 +25,8 @@ import {
   ExpandLess,
   ExpandMore,
   TrendingUp as TrendingUpIcon,
-  Assessment as AssessmentIcon
+  Assessment as AssessmentIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -73,6 +74,14 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
   // Corporate Bottom Menu Items
   const bottomMenuItems = [
+    {
+      text: 'Son İşlemler',
+      icon: <HistoryIcon />,
+      path: '/son-islemler',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      description: 'Aktivite geçmişi'
+    },
     {
       text: 'İstatistikler',
       icon: <AssessmentIcon />,

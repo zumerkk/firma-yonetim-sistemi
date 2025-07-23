@@ -297,6 +297,117 @@ const logout = (req, res) => {
   });
 };
 
+// ⚙️ Kullanıcı Ayarlarını Getir
+const getSettings = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+    
+    // Default settings eğer yoksa
+    const defaultSettings = {
+      notifications: {
+        email: true,
+        push: false,
+        sms: false,
+        reminders: true
+      },
+      ui: {
+        theme: 'light',
+        language: 'tr',
+        dateFormat: 'DD/MM/YYYY',
+        currency: 'TRY'
+      },
+      data: {
+        autoSave: true,
+        backupFrequency: 'daily',
+        dataRetention: 365,
+        exportFormat: 'excel'
+      },
+      security: {
+        twoFactorAuth: false,
+        sessionTimeout: 30,
+        passwordExpiry: 90,
+        loginAlerts: true
+      }
+    };
+    
+    res.json({
+      success: true,
+      data: {
+        settings: user.settings || defaultSettings
+      }
+    });
+    
+  } catch (error) {
+    console.error('🚨 Get Settings Hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ayarlar alınırken hata oluştu',
+      error: error.message
+    });
+  }
+};
+
+// ⚙️ Kullanıcı Ayarlarını Güncelle
+const updateSettings = async (req, res) => {
+  try {
+    const { settings } = req.body;
+    
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Kullanıcı bulunamadı'
+      });
+    }
+    
+    // Settings'i merge et (deep merge)
+    user.settings = {
+      notifications: {
+        ...user.settings?.notifications,
+        ...settings?.notifications
+      },
+      ui: {
+        ...user.settings?.ui,
+        ...settings?.ui
+      },
+      data: {
+        ...user.settings?.data,
+        ...settings?.data
+      },
+      security: {
+        ...user.settings?.security,
+        ...settings?.security
+      }
+    };
+    
+    await user.save();
+    
+    res.json({
+      success: true,
+      message: 'Ayarlar başarıyla güncellendi',
+      data: {
+        settings: user.settings
+      }
+    });
+    
+  } catch (error) {
+    console.error('🚨 Update Settings Hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Ayarlar güncellenirken hata oluştu',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -304,5 +415,7 @@ module.exports = {
   updateProfile,
   changePassword,
   getUserStats,
-  logout
+  logout,
+  getSettings,
+  updateSettings
 }; 

@@ -6,9 +6,6 @@ import {
   Box,
   Typography,
   Button,
-  Card,
-  CardContent,
-  Grid,
   TextField,
   MenuItem,
   Chip,
@@ -28,7 +25,7 @@ import {
   Paper,
   Collapse,
   Stack,
-  Divider
+  Grid
 } from '@mui/material';
 import {
   DataGrid,
@@ -38,13 +35,11 @@ import {
   GridToolbarColumnsButton
 } from '@mui/x-data-grid';
 import {
-  Business as BusinessIcon,
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterListIcon,
   Clear as ClearIcon,
   Visibility as VisibilityIcon,
   GetApp as GetAppIcon,
@@ -52,19 +47,17 @@ import {
   Person as PersonIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  CloudUpload as CloudUploadIcon // Import icon eklendi
+  CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useFirma } from '../../contexts/FirmaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { TURKEY_CITIES } from '../../data/turkeyData';
-import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { importExcel, downloadTemplate } from '../../services/firmaService'; // Import servislerini ekledim
 
 const FirmaList = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { 
     firmalar, 
     loading, 
@@ -537,6 +530,29 @@ const FirmaList = () => {
             color={color}
             sx={{ fontSize: '0.7rem' }}
           />
+        );
+      }
+    },
+    {
+      field: 'olusturanKullanici',
+      headerName: 'Ekleyen Kullanıcı',
+      width: 150,
+      renderCell: (params) => {
+        const user = params.value;
+        if (!user) return <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>;
+        
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <PersonIcon sx={{ fontSize: 16, color: user.rol === 'admin' ? 'error.main' : 'primary.main' }} />
+            <Box>
+              <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+                {user.adSoyad}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                {user.rol === 'admin' ? '👑 Admin' : '👤 Kullanıcı'}
+              </Typography>
+            </Box>
+          </Box>
         );
       }
     },

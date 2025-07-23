@@ -12,7 +12,9 @@ const {
   updateProfile,
   changePassword,
   getUserStats,
-  logout
+  logout,
+  getSettings,
+  updateSettings
 } = require('../controllers/authController');
 
 // Middleware
@@ -39,10 +41,16 @@ router.put('/profile', authenticate, validateUpdateProfile, updateProfile);
 // 🔒 PUT /api/auth/change-password - Şifre Değiştirme (Auth gerekli)
 router.put('/change-password', authenticate, validateChangePassword, changePassword);
 
-// 📊 GET /api/auth/stats - Kullanıcı İstatistikleri (Admin gerekli)
+// 📊 GET /api/auth/stats - Kullanıcı İstatistikleri (Admin)
 router.get('/stats', authenticate, authorize('admin'), getUserStats);
 
-// 🚪 POST /api/auth/logout - Çıkış
+// ⚙️ GET /api/auth/settings - Kullanıcı Ayarları (Auth gerekli)
+router.get('/settings', authenticate, getSettings);
+
+// ⚙️ PUT /api/auth/settings - Kullanıcı Ayarlarını Güncelle (Auth gerekli)
+router.put('/settings', authenticate, updateSettings);
+
+// 🚪 POST /api/auth/logout - Çıkış yapma (client-side token cleanup)
 router.post('/logout', logout);
 
 // 🔍 GET /api/auth/verify - Token Doğrulama (Frontend için)

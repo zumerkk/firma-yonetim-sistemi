@@ -51,6 +51,36 @@ React 19 + Material-UI 7 + Modern Tools
 
 ## 🚀 Hızlı Başlangıç
 
+### 📋 Ön Gereksinimler
+```bash
+Node.js 16+ (Önerilir: Node.js 18)
+npm veya yarn
+MongoDB Atlas hesabı (ücretsiz tier yeterli)
+```
+
+### ⚙️ Environment Kurulumu
+
+#### 1. Backend Environment (.env) Kurulumu
+```bash
+cd backend
+
+# .env.example dosyasını .env olarak kopyalayın
+cp .env.example .env
+
+# .env dosyasını düzenleyip kendi bilgilerinizi girin:
+# - MONGODB_URI: MongoDB Atlas connection string
+# - JWT_SECRET: Güçlü bir JWT secret key
+# - Diğer ayarlar varsayılan değerlerle kalabilir
+```
+
+**⚠️ ÖNEMLİ: .env Dosyası Sorunları için KALICI ÇÖZÜM**
+- `.env` dosyası gitignore'da olduğu için git ile paylaşılmaz
+- Eğer `.env` dosyanız silinirse: `cp .env.example .env` komutu ile geri yükleyebilirsiniz  
+- Yedekleme için özel bilgilerinizi `.env.example` dışında başka bir yere kaydedin
+- Proje klonladığınızda ilk işiniz `.env` dosyası oluşturmak olmalı
+
+#### 2. Hızlı Kurulum - Tek Komutla Çalıştırma
+
 ### ⚡ Tek Komutla Çalıştırma
 ```bash
 # Projeyi klonlayın

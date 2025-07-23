@@ -219,104 +219,66 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 📝 Kayıt olma - ENHANCED
-  const register = async (userData) => {
-    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-    
+  // 🚪 Çıkış yapma
+  const logout = useCallback(async () => {
     try {
-      const response = await api.post('/auth/register', userData);
-      const { user, token } = response.data.data;
-      
-      // Token ve user data'yı set et
-      setAuthToken(token);
-      localStorage.setItem('user', JSON.stringify(user)); // User data'yı da kaydet
-      
-      dispatch({ 
-        type: AUTH_ACTIONS.LOGIN_SUCCESS, 
-        payload: { user, token } 
-      });
-      
-      console.log('✅ Registration successful, user data saved');
-      return { success: true, message: 'Kayıt başarılı' };
+      // API call (opsiyonel - çoğunlukla client-side)
+      await api.post('/auth/logout');
     } catch (error) {
-      console.error('❌ Register error:', error);
-      const errorMessage = error.response?.data?.message || 'Kayıt oluşturulamadı';
-      dispatch({ 
-        type: AUTH_ACTIONS.LOGIN_FAILURE, 
-        payload: errorMessage 
-      });
-      return { success: false, message: errorMessage };
+      // Logout hatası önemli değil, devam et
+      console.warn('Logout API call failed:', error);
+    } finally {
+      // Her durumda client-side cleanup yap
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      dispatch({ type: AUTH_ACTIONS.LOGOUT });
+      console.log('🚪 User logged out successfully');
     }
-  };
-
-  // 🚪 Çıkış yapma - ENHANCED
-  const logout = () => {
-    console.log('🚪 User logging out, cleaning up...');
-    setAuthToken(null); // Bu localStorage ve headers'ı temizleyecek
-    dispatch({ type: AUTH_ACTIONS.LOGOUT });
-  };
+  }, []);
 
   // ✏️ Profil güncelleme - ENHANCED
-  const updateProfile = async (profileData) => {
+  const updateUser = useCallback((userData) => {
     try {
-      const response = await api.put('/auth/profile', profileData);
-      const updatedUser = response.data.data.user;
-      
-      // Updated user data'yı localStorage'a da kaydet
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      // Local storage'ı da güncelle
+      localStorage.setItem('user', JSON.stringify(userData));
       
       dispatch({ 
         type: AUTH_ACTIONS.UPDATE_PROFILE, 
-        payload: updatedUser 
+        payload: userData 
       });
       
-      console.log('✅ Profile updated and saved');
-      return { success: true, message: 'Profil güncellendi' };
+      console.log('✅ User profile updated successfully');
     } catch (error) {
-      console.error('❌ Update profile error:', error);
-      const errorMessage = error.response?.data?.message || 'Profil güncellenemedi';
-      return { success: false, message: errorMessage };
+      console.error('❌ Update user error:', error);
     }
-  };
+  }, []);
 
-  // 🔒 Şifre değiştirme
-  const changePassword = async (passwordData) => {
-    try {
-      const response = await api.put('/auth/change-password', passwordData);
-      return { success: true, message: response.data.message };
-    } catch (error) {
-      console.error('❌ Change password error:', error);
-      const errorMessage = error.response?.data?.message || 'Şifre değiştirilemedi';
-      return { success: false, message: errorMessage };
-    }
-  };
-
-  // 🧹 Hataları temizle
+  // 🧹 Hata temizleme
   const clearError = useCallback(() => {
     dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
   }, []);
 
-  // 🎯 Context value
-  const value = {
+  // 🎯 Context Value
+  const contextValue = {
     // State
-    user: state.user,
-    token: state.token,
-    isAuthenticated: state.isAuthenticated,
-    loading: state.loading,
-    error: state.error,
+    ...state,
     
     // Actions
     login,
-    register,
     logout,
     loadUser,
-    updateProfile,
-    changePassword,
-    clearError
+    updateUser,
+    clearError,
+    
+    // Computed Values
+    hasUser: Boolean(state.user),
+    isLoggedIn: state.isAuthenticated && Boolean(state.user),
+    hasError: Boolean(state.error)
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

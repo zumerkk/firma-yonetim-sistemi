@@ -7,12 +7,17 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
+const cron = require('node-cron');
 require('dotenv').config();
+
+// Models
+const Activity = require('./models/Activity');
 
 // Route import'ları
 const authRoutes = require('./routes/auth');
 const firmaRoutes = require('./routes/firma');
 const importRoutes = require('./routes/import');
+const activityRoutes = require('./routes/activity');
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -80,8 +85,8 @@ app.get('/', (req, res) => {
       'GET /api/health - Sistem durumu',
       'POST /api/auth/login - Kullanıcı girişi',
       'POST /api/auth/register - Kullanıcı kaydı',
-      'GET /api/firmalar - Firma listesi',
-      'POST /api/firmalar - Yeni firma ekleme'
+      'GET /api/firma - Firma listesi',
+'POST /api/firma - Yeni firma ekleme'
     ]
   });
 });
@@ -98,8 +103,10 @@ app.get('/api/health', (req, res) => {
 
 // 🛣️ API rotaları
 app.use('/api/auth', authRoutes);
-app.use('/api/firmalar', firmaRoutes);
+app.use('/api/firma', firmaRoutes);  // /api/firmalar → /api/firma
 app.use('/api/import', importRoutes);
+app.use('/api/activity', activityRoutes);
+app.use('/api/activities', activityRoutes); // Frontend compatibility
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
@@ -121,9 +128,35 @@ app.use((error, req, res, next) => {
   });
 });
 
+// 🧹 Activity Cleanup Cron Job - Her gece saat 02:00'da çalışır
+const setupCronJobs = () => {
+  // Her gece saat 02:00'da eski activity kayıtlarını temizle (30 günden eski)
+  cron.schedule('0 2 * * *', async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const result = await Activity.deleteMany({
+        createdAt: { $lt: thirtyDaysAgo }
+      });
+      
+      console.log(`🧹 [${new Date().toLocaleString('tr-TR')}] Activity Cleanup: ${result.deletedCount} eski kayıt temizlendi`);
+    } catch (error) {
+      console.error('🚨 Activity cleanup error:', error);
+    }
+  }, {
+    timezone: 'Europe/Istanbul'
+  });
+
+  console.log('⏰ Cron jobs configured - Activity cleanup scheduled for 02:00 daily');
+};
+
 // 🚀 Server'ı başlat
 const startServer = async () => {
   await connectDB();
+  
+  // Cron job'larını başlat
+  setupCronJobs();
   
   app.listen(PORT, () => {
     console.log(`\n🚀 Server çalışıyor: http://localhost:${PORT}`);

@@ -254,18 +254,6 @@ const Login = () => {
                 </Link>
               </Typography>
             </Box>
-
-            {/* ℹ️ Demo Bilgileri */}
-            <Box sx={{ mt: 4, p: 2, backgroundColor: 'success.light', borderRadius: 2 }}>
-              <Typography variant="body2" color="success.contrastText" sx={{ textAlign: 'center' }}>
-                <strong>✅ Sistem Hazır! Giriş Bilgileri:</strong><br/>
-                E-posta: admin@firma.com<br/>
-                Şifre: 123456<br/>
-                <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
-                  🔗 Backend: http://localhost:5001 | Frontend: http://localhost:3000
-                </Typography>
-              </Typography>
-            </Box>
           </CardContent>
         </Card>
 

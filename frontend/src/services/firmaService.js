@@ -48,7 +48,7 @@ const handleError = (error) => {
 export const getFirmalar = async (params = {}) => {
   try {
     const queryString = new URLSearchParams(params).toString();
-    const response = await api.get(`/firmalar?${queryString}`);
+    const response = await api.get(`/firma?${queryString}`);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -62,7 +62,7 @@ export const getFirma = async (id) => {
       throw new Error('Firma ID gereklidir');
     }
     
-    const response = await api.get(`/firmalar/${id}`);
+    const response = await api.get(`/firma/${id}`);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -89,7 +89,7 @@ export const createFirma = async (firmaData) => {
       throw new Error('En az bir yetkili kişi bilgisi gereklidir');
     }
     
-    const response = await api.post('/firmalar', firmaData);
+    const response = await api.post('/firma', firmaData);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -107,7 +107,7 @@ export const updateFirma = async (id, firmaData) => {
       throw new Error('Güncellenecek veriler gereklidir');
     }
     
-    const response = await api.put(`/firmalar/${id}`, firmaData);
+    const response = await api.put(`/firma/${id}`, firmaData);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -121,7 +121,7 @@ export const deleteFirma = async (id) => {
       throw new Error('Firma ID gereklidir');
     }
     
-    const response = await api.delete(`/firmalar/${id}`);
+    const response = await api.delete(`/firma/${id}`);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -135,7 +135,7 @@ export const searchFirmalar = async (searchTerm, field = null) => {
       throw new Error('Arama terimi en az 2 karakter olmalıdır');
     }
     
-    let url = `/firmalar/search?q=${encodeURIComponent(searchTerm)}`;
+    let url = `/firma/search?q=${encodeURIComponent(searchTerm)}`;
     if (field) {
       url += `&field=${field}`;
     }
@@ -159,7 +159,7 @@ export const searchByField = async (field, value) => {
       throw new Error('Geçersiz arama alanı');
     }
     
-    const response = await api.get(`/firmalar/search/${field}/${encodeURIComponent(value)}`);
+    const response = await api.get(`/firma/search/${field}/${encodeURIComponent(value)}`);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -169,7 +169,7 @@ export const searchByField = async (field, value) => {
 // 📊 Get Firma Statistics
 export const getFirmaStats = async () => {
   try {
-    const response = await api.get('/firmalar/stats');
+    const response = await api.get('/firma/stats');
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -179,7 +179,7 @@ export const getFirmaStats = async () => {
 // 📍 Get İl/İlçe/Faaliyet Lists
 export const getIlIlceListesi = async () => {
   try {
-    const response = await api.get('/firmalar/il-ilce');
+    const response = await api.get('/firma/il-ilce');
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -190,7 +190,7 @@ export const getIlIlceListesi = async () => {
 export const getExcelData = async (filter = {}) => {
   try {
     const queryString = new URLSearchParams(filter).toString();
-    const response = await api.get(`/firmalar/excel-data?${queryString}`);
+    const response = await api.get(`/firma/excel-data?${queryString}`);
     return handleResponse(response);
   } catch (error) {
     return handleError(error);
@@ -412,6 +412,27 @@ export const validateFirmaData = (firmaData) => {
   };
 };
 
+// 🆔 Sonraki Firma ID'yi al
+export const getNextFirmaId = async () => {
+  try {
+    const response = await api.get('/firma/next-id');
+    if (response.data.success) {
+      return {
+        success: true,
+        nextFirmaId: response.data.data.nextFirmaId,
+        lastFirmaId: response.data.data.lastFirmaId
+      };
+    }
+    throw new Error(response.data.message || 'Sonraki Firma ID alınamadı');
+  } catch (error) {
+    console.error('Next Firma ID service error:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Sonraki Firma ID alınırken hata oluştu'
+    };
+  }
+};
+
 // 🏢 Default Service Object
 const firmaService = {
   getFirmalar,
@@ -427,7 +448,8 @@ const firmaService = {
   downloadExcel,
   importExcel,
   downloadTemplate,
-  validateFirmaData
+  validateFirmaData,
+  getNextFirmaId
 };
 
 export default firmaService; 

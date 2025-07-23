@@ -22,6 +22,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import FirmaList from './pages/Firma/FirmaList';
 import FirmaDetail from './pages/Firma/FirmaDetail';
 import FirmaForm from './pages/Firma/FirmaForm';
+import ActivityList from './pages/Activities/ActivityList';
 import Profile from './pages/Profile/Profile';
 import Statistics from './pages/Statistics/Statistics';
 import Settings from './pages/Settings/Settings';
@@ -670,6 +671,9 @@ function AppLayout() {
           <Route path="/firmalar/yeni" element={<FirmaForm />} />
           <Route path="/firmalar/:id" element={<FirmaDetail />} />
           <Route path="/firmalar/:id/duzenle" element={<FirmaForm />} />
+          
+          {/* 📋 Son İşlemler */}
+          <Route path="/son-islemler" element={<ActivityList />} />
           
           {/* 📊 İstatistikler */}
           <Route path="/istatistikler" element={<Statistics />} />
