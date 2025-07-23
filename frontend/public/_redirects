@@ -1,0 +1,8 @@
+# React Router için tüm rotaları index.html'e yönlendir
+# Bu dosya Render.com ve Netlify gibi platformlarda SPA routing'i sağlar
+
+# API istekleri backend'e yönlendir
+/api/* https://cahit-firma-backend.onrender.com/api/:splat 200
+
+# Tüm diğer rotalar React Router'a bırak
+/* /index.html 200 
