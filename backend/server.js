@@ -23,8 +23,25 @@ const notificationRoutes = require('./routes/notification');
 const app = express();
 
 // 🌐 CORS ayarlarını EN BAŞTA tanımla (middleware order çok önemli)
+const allowedOrigins = [
+  'http://localhost:3000', // Development
+  'http://localhost:3001', // Development alternate
+  'https://cahit-firma-frontend.onrender.com', // Production frontend
+  process.env.FRONTEND_URL // Environment'tan gelen URL
+].filter(Boolean); // undefined değerleri filtrele
+
 app.use(cors({
-  origin: 'http://localhost:3000', // Development için sadece localhost
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('🚫 CORS blocked origin:', origin);
+      callback(new Error('CORS policy violation'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
@@ -48,18 +65,6 @@ const limiter = rateLimit({
 });
 // API rotaları için rate limit
 app.use('/api', limiter);
-
-// 🌐 CORS ayarları - Frontend ile haberleşme için
-// CORS middleware'ini en başta kullan!
-app.use(cors({
-  origin: 'http://localhost:3000', // Development için sadece bu origin
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Access-Control-Allow-Origin'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-}));
 
 // 📨 JSON ve URL parsing
 app.use(express.json({ limit: '50mb' }));
