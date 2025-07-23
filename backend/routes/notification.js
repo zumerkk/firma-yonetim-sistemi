@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, param, query } = require('express-validator');
-const auth = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const {
   getNotifications,
   getUnreadCount,
@@ -18,7 +18,7 @@ const {
 } = require('../controllers/notificationController');
 
 // 🔐 All routes require authentication
-router.use(auth);
+router.use(authenticate);
 
 // 📊 GET /api/notifications - Kullanıcının bildirimlerini getir (paginated & filtered)
 router.get('/', [
