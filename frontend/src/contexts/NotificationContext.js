@@ -58,6 +58,21 @@ export const NotificationProvider = ({ children }) => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const REFRESH_INTERVAL = 30000; // 30 seconds
 
+  // 🔔 Refresh unread count - MOVED TO TOP for hoisting
+  const refreshUnreadCount = useCallback(async () => {
+    try {
+      const result = await notificationService.getUnreadCount();
+      if (result.success) {
+        setState(prev => ({
+          ...prev,
+          unreadCount: result.count
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Okunmamış sayı yenileme hatası:', error);
+    }
+  }, []);
+
   // 🔄 Auto-refresh management  
   const startAutoRefresh = useCallback(() => {
     if (intervalRef.current) return;
@@ -143,21 +158,6 @@ export const NotificationProvider = ({ children }) => {
       }));
     }
   }, [state.filters]);
-
-  // 🔔 Refresh unread count
-  const refreshUnreadCount = useCallback(async () => {
-    try {
-      const result = await notificationService.getUnreadCount();
-      if (result.success) {
-        setState(prev => ({
-          ...prev,
-          unreadCount: result.count
-        }));
-      }
-    } catch (error) {
-      console.error('❌ Okunmamış sayı yenileme hatası:', error);
-    }
-  }, []);
 
   // 🔄 Load recent notifications (for header dropdown)
   const loadRecentNotifications = useCallback(async (limit = 5) => {
