@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
+  Container,
   Typography,
   Button,
   TextField,
@@ -51,6 +52,9 @@ import {
   CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+// 🎯 Layout Components Import
+import Header from '../../components/Layout/Header';
+import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import { TURKEY_CITIES } from '../../data/turkeyData';
 import ExcelJS from 'exceljs';
@@ -72,7 +76,9 @@ const FirmaList = () => {
     resetFilters
   } = useFirma();
 
-  // 🎯 State Management - Simplified
+  // 🎯 State Management - Simplified + Layout State
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [localLoading, setLocalLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
@@ -82,6 +88,19 @@ const FirmaList = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [importDialog, setImportDialog] = useState(false); // Import dialog state
   const [importLoading, setImportLoading] = useState(false); // Import loading state
+
+  // 📱 Responsive Handling
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 📊 Arama durumuna göre doğru veriyi seç
   const displayData = searchQuery.trim().length >= 2 ? (searchResults || []) : (firmalar || []);
@@ -508,8 +527,8 @@ const FirmaList = () => {
     },
     {
       field: 'etuysYetkiBitisTarihi',
-      headerName: 'ETYUS Bitiş',
-      width: 110,
+      headerName: 'ETUYS Bitiş',
+      width: 120,
       renderCell: (params) => {
         if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
         
@@ -519,16 +538,85 @@ const FirmaList = () => {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
         let color = 'default';
-        if (diffDays < 0) color = 'error';
-        else if (diffDays <= 30) color = 'warning';
-        else color = 'success';
+        let bgColor = 'transparent';
+        let textColor = 'inherit';
+        
+        if (diffDays < 0) {
+          color = 'error';
+          bgColor = '#ffebee';
+          textColor = '#c62828';
+        } else if (diffDays <= 30) {
+          color = 'warning';
+          bgColor = '#fff8e1';
+          textColor = '#f57c00';
+        } else {
+          color = 'success';
+          bgColor = '#e8f5e8';
+          textColor = '#2e7d32';
+        }
         
         return (
           <Chip
             label={date.toLocaleDateString('tr-TR')}
             size="small"
             color={color}
-            sx={{ fontSize: '0.7rem' }}
+            sx={{ 
+              fontSize: '0.7rem',
+              backgroundColor: bgColor,
+              color: textColor,
+              fontWeight: 600,
+              '& .MuiChip-label': {
+                px: 1
+              }
+            }}
+          />
+        );
+      }
+    },
+    {
+      field: 'dysYetkiBitisTarihi',
+      headerName: 'DYS Bitiş',
+      width: 120,
+      renderCell: (params) => {
+        if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
+        
+        const date = new Date(params.value);
+        const today = new Date();
+        const diffTime = date - today;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        let color = 'default';
+        let bgColor = 'transparent';
+        let textColor = 'inherit';
+        
+        if (diffDays < 0) {
+          color = 'error';
+          bgColor = '#ffebee';
+          textColor = '#c62828';
+        } else if (diffDays <= 30) {
+          color = 'warning';
+          bgColor = '#fff8e1';
+          textColor = '#f57c00';
+        } else {
+          color = 'success';
+          bgColor = '#e8f5e8';
+          textColor = '#2e7d32';
+        }
+        
+        return (
+          <Chip
+            label={date.toLocaleDateString('tr-TR')}
+            size="small"
+            color={color}
+            sx={{ 
+              fontSize: '0.7rem',
+              backgroundColor: bgColor,
+              color: textColor,
+              fontWeight: 600,
+              '& .MuiChip-label': {
+                px: 1
+              }
+            }}
           />
         );
       }
@@ -608,363 +696,396 @@ const FirmaList = () => {
 
   return (
     <Box sx={{ 
-      width: '100%', 
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
       height: '100vh',
-      p: { xs: 1.5, sm: 2 },
-      bgcolor: '#f8fafc'
+      backgroundColor: '#f8fafc'
     }}>
-      {/* 📋 Compact Header */}
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', md: 'row' },
-          justifyContent: 'space-between', 
-          alignItems: { xs: 'stretch', md: 'center' },
-          gap: 2
-        }}>
-          <Box>
-            <Typography variant="h5" sx={{ 
-              fontWeight: 700, 
-              color: '#1e293b',
-              fontSize: { xs: '1.25rem', md: '1.5rem' },
-              mb: 0.5
-            }}>
-              Firma Veri Yönetim Paneli
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-              Toplam {displayData?.length || 0} firma kayıtlı {searchQuery.trim().length >= 2 ? '(arama sonucu)' : ''}
-            </Typography>
-          </Box>
-          
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<AddIcon />}
-            onClick={() => navigate('/firmalar/yeni')}
-            size="medium"
-            sx={{ 
-              borderRadius: 2,
-              textTransform: 'none',
-              fontWeight: 600,
-              px: 2.5,
-              py: 1
-            }}
-          >
-            Yeni Firma Ekle
-          </Button>
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+      </Box>
+
+      {/* Sidebar */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
         </Box>
-      </Paper>
+      )}
 
-      {/* 🔍 Advanced Search & Filters */}
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={4}>
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Vergi No, Tam Ünvan veya Firma ID ile ara..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-                sx: { fontSize: '0.875rem' }
-              }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Durum</InputLabel>
-              <Select
-                value={filters.aktif || 'all'}
-                label="Durum"
-                onChange={(e) => setFilters({ ...filters, aktif: e.target.value })}
-                sx={{ fontSize: '0.875rem' }}
-              >
-                <MenuItem value="all">Tümü</MenuItem>
-                <MenuItem value="true">Aktif</MenuItem>
-                <MenuItem value="false">Pasif</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Yabancı Sermaye</InputLabel>
-              <Select
-                value={filters.yabanciSermayeli || 'all'}
-                label="Yabancı Sermaye"
-                onChange={(e) => setFilters({ ...filters, yabanciSermayeli: e.target.value })}
-                sx={{ fontSize: '0.875rem' }}
-              >
-                <MenuItem value="all">Tümü</MenuItem>
-                <MenuItem value="true">Evet</MenuItem>
-                <MenuItem value="false">Hayır</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={4}>
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                sx={{ borderRadius: 2, textTransform: 'none' }}
-              >
-                Gelişmiş Filtreler
-              </Button>
-              
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<RefreshIcon />}
-                onClick={handleRefresh}
-                disabled={localLoading}
-                sx={{ borderRadius: 2, textTransform: 'none' }}
-              >
-                Yenile
-              </Button>
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{ 
+        gridArea: 'content',
+        overflow: 'auto',
+        p: 3
+      }}>
+        <Container maxWidth="xl">
+          {/* 📋 Compact Header */}
+          <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: { xs: 'column', md: 'row' },
+              justifyContent: 'space-between', 
+              alignItems: { xs: 'stretch', md: 'center' },
+              gap: 2
+            }}>
+              <Box>
+                <Typography variant="h5" sx={{ 
+                  fontWeight: 700, 
+                  color: '#1e293b',
+                  fontSize: { xs: '1.25rem', md: '1.5rem' },
+                  mb: 0.5
+                }}>
+                  Firma Veri Yönetim Paneli
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                  Toplam {displayData?.length || 0} firma kayıtlı {searchQuery.trim().length >= 2 ? '(arama sonucu)' : ''}
+                </Typography>
+              </Box>
               
               <Button
                 variant="contained"
-                size="small"
-                startIcon={exportLoading ? <CircularProgress size={16} color="inherit" /> : <GetAppIcon />}
-                onClick={handleExcelExport}
-                disabled={exportLoading}
-                sx={{ borderRadius: 2, textTransform: 'none' }}
+                color="success"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/firmalar/yeni')}
+                size="medium"
+                sx={{ 
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 2.5,
+                  py: 1
+                }}
               >
-                Excel
+                Yeni Firma Ekle
               </Button>
+            </Box>
+          </Paper>
 
-              <Button
-                variant="contained"
-                size="small"
-                startIcon={<CloudUploadIcon />}
-                onClick={() => setImportDialog(true)}
-                sx={{ borderRadius: 2, textTransform: 'none', bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
-              >
-                İçe Aktar
-              </Button>
-            </Stack>
-          </Grid>
-        </Grid>
-
-        {/* Advanced Filters Collapse */}
-        <Collapse in={showAdvancedFilters}>
-          <Divider sx={{ my: 2 }} />
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>İl</InputLabel>
-                <Select
-                  value={filters.firmaIl || ''}
-                  label="İl"
-                  onChange={(e) => setFilters({ ...filters, firmaIl: e.target.value })}
-                  sx={{ fontSize: '0.875rem' }}
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  {TURKEY_CITIES.map((city) => (
-                    <MenuItem key={city} value={city}>{city}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} md={3}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Ana Faaliyet Konusu"
-                value={filters.anaFaaliyetKonusu || ''}
-                onChange={(e) => setFilters({ ...filters, anaFaaliyetKonusu: e.target.value })}
-                sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
+          {/* 🔍 Advanced Search & Filters */}
+          <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+            <Grid container spacing={2} alignItems="center">
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
                   size="small"
-                  startIcon={<ClearIcon />}
-                  onClick={() => {
-                    resetFilters();
-                    setSearchQuery('');
-                    clearSearchResults(); // Arama sonuçlarını da temizle
+                  placeholder="Vergi No, Tam Ünvan veya Firma ID ile ara..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                    sx: { fontSize: '0.875rem' }
                   }}
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
-                >
-                  Filtreleri Temizle
-                </Button>
-                
-                <Chip 
-                  label={`${selectedRows.length} firma seçili`}
-                  size="small"
-                  color={selectedRows.length > 0 ? 'primary' : 'default'}
-                  sx={{ ml: 'auto' }}
                 />
-              </Stack>
-            </Grid>
-          </Grid>
-        </Collapse>
-      </Paper>
-
-      {/* 📊 Compact DataGrid */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
-        <DataGrid
-          rows={displayData}
-          columns={columns}
-          getRowId={(row) => row._id}
-          loading={loading || localLoading}
-          checkboxSelection
-          disableRowSelectionOnClick
-          onRowSelectionModelChange={setSelectedRows}
-          slots={{ toolbar: CustomToolbar }}
-          sx={{
-            border: 'none',
-            '& .MuiDataGrid-root': {
-              fontSize: '0.875rem'
-            },
-            '& .MuiDataGrid-cell': {
-              borderBottom: '1px solid #f1f5f9',
-              fontSize: '0.875rem',
-              py: 0.5
-            },
-            '& .MuiDataGrid-columnHeader': {
-              backgroundColor: '#f8fafc',
-              borderBottom: '2px solid #e2e8f0',
-              fontSize: '0.8rem',
-              fontWeight: 600
-            },
-            '& .MuiDataGrid-row:hover': {
-              backgroundColor: '#f8fafc'
-            },
-            '& .MuiDataGrid-virtualScroller': {
-              height: 'calc(100vh - 320px) !important'
-            }
-          }}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 25 } }
-          }}
-          pageSizeOptions={[25, 50, 100]}
-        />
-      </Paper>
-
-      {/* 🗑️ Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' })}>
-        <DialogTitle>Firma Silme Onayı</DialogTitle>
-        <DialogContent>
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Bu işlem geri alınamaz!
-          </Alert>
-          <Typography>
-            <strong>{deleteDialog.firmaAdi}</strong> firmasını silmek istediğinizden emin misiniz?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' })}>
-            İptal
-          </Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
-            Sil
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 📥 Import Dialog */}
-      <Dialog open={importDialog} onClose={() => !importLoading && setImportDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CloudUploadIcon color="primary" />
-            <Typography variant="h6">Excel/CSV İçe Aktar</Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ my: 2 }}>
-            {!importLoading ? (
-              <>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Excel (.xlsx, .xls) veya CSV dosyası yükleyebilirsiniz. 
-                  Dosyanızdaki sütun başlıkları şablon ile uyumlu olmalıdır.
-                </Alert>
-                
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Durum</InputLabel>
+                  <Select
+                    value={filters.aktif || 'all'}
+                    label="Durum"
+                    onChange={(e) => setFilters({ ...filters, aktif: e.target.value })}
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    <MenuItem value="all">Tümü</MenuItem>
+                    <MenuItem value="true">Aktif</MenuItem>
+                    <MenuItem value="false">Pasif</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Yabancı Sermaye</InputLabel>
+                  <Select
+                    value={filters.yabanciSermayeli || 'all'}
+                    label="Yabancı Sermaye"
+                    onChange={(e) => setFilters({ ...filters, yabanciSermayeli: e.target.value })}
+                    sx={{ fontSize: '0.875rem' }}
+                  >
+                    <MenuItem value="all">Tümü</MenuItem>
+                    <MenuItem value="true">Evet</MenuItem>
+                    <MenuItem value="false">Hayır</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={4}>
+                <Stack direction="row" spacing={1}>
                   <Button
                     variant="outlined"
-                    startIcon={<GetAppIcon />}
-                    onClick={handleDownloadTemplate}
-                    fullWidth
+                    size="small"
+                    startIcon={showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    sx={{ borderRadius: 2, textTransform: 'none' }}
                   >
-                    Örnek Şablon İndir
+                    Gelişmiş Filtreler
                   </Button>
                   
-                  <input
-                    accept=".xlsx,.xls,.csv"
-                    style={{ display: 'none' }}
-                    id="file-input"
-                    type="file"
-                    onChange={handleFileImport}
-                    disabled={importLoading}
-                  />
-                  <label htmlFor="file-input">
-                    <Button
-                      variant="contained"
-                      component="span"
-                      startIcon={<CloudUploadIcon />}
-                      fullWidth
-                    >
-                      Dosya Seç ve Yükle
-                    </Button>
-                  </label>
-                </Box>
-              </>
-            ) : (
-              <Box sx={{ textAlign: 'center', py: 3 }}>
-                <CircularProgress size={60} sx={{ mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
-                  Veriler İşleniyor...
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Bu işlem dosya boyutuna göre birkaç dakika sürebilir.
-                  Lütfen sayfayı kapatmayın.
-                </Typography>
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  1185 firma kaydı işleniyor. Lütfen bekleyin...
-                </Alert>
-              </Box>
-            )}
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setImportDialog(false)} disabled={importLoading}>
-            {importLoading ? 'İşlem Devam Ediyor...' : 'İptal'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={handleRefresh}
+                    disabled={localLoading}
+                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                  >
+                    Yenile
+                  </Button>
+                  
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={exportLoading ? <CircularProgress size={16} color="inherit" /> : <GetAppIcon />}
+                    onClick={handleExcelExport}
+                    disabled={exportLoading}
+                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                  >
+                    Excel
+                  </Button>
 
-      {/* 📢 Notification Snackbar */}
-      <Snackbar
-        open={notification.open}
-        autoHideDuration={6000}
-        onClose={() => setNotification({ ...notification, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert 
-          onClose={() => setNotification({ ...notification, open: false })} 
-          severity={notification.severity}
-          variant="filled"
-        >
-          {notification.message}
-        </Alert>
-      </Snackbar>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<CloudUploadIcon />}
+                    onClick={() => setImportDialog(true)}
+                    sx={{ borderRadius: 2, textTransform: 'none', bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
+                  >
+                    İçe Aktar
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+
+            {/* Advanced Filters Collapse */}
+            <Collapse in={showAdvancedFilters}>
+              <Divider sx={{ my: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={3}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>İl</InputLabel>
+                    <Select
+                      value={filters.firmaIl || ''}
+                      label="İl"
+                      onChange={(e) => setFilters({ ...filters, firmaIl: e.target.value })}
+                      sx={{ fontSize: '0.875rem' }}
+                    >
+                      <MenuItem value="">Tümü</MenuItem>
+                      {TURKEY_CITIES.map((city) => (
+                        <MenuItem key={city} value={city}>{city}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+                
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="Ana Faaliyet Konusu"
+                    value={filters.anaFaaliyetKonusu || ''}
+                    onChange={(e) => setFilters({ ...filters, anaFaaliyetKonusu: e.target.value })}
+                    sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<ClearIcon />}
+                      onClick={() => {
+                        resetFilters();
+                        setSearchQuery('');
+                        clearSearchResults(); // Arama sonuçlarını da temizle
+                      }}
+                      sx={{ borderRadius: 2, textTransform: 'none' }}
+                    >
+                      Filtreleri Temizle
+                    </Button>
+                    
+                    <Chip 
+                      label={`${selectedRows.length} firma seçili`}
+                      size="small"
+                      color={selectedRows.length > 0 ? 'primary' : 'default'}
+                      sx={{ ml: 'auto' }}
+                    />
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Collapse>
+          </Paper>
+
+          {/* 📊 Compact DataGrid */}
+          <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            <DataGrid
+              rows={displayData}
+              columns={columns}
+              getRowId={(row) => row._id}
+              loading={loading || localLoading}
+              checkboxSelection
+              disableRowSelectionOnClick
+              onRowSelectionModelChange={setSelectedRows}
+              slots={{ toolbar: CustomToolbar }}
+              sx={{
+                border: 'none',
+                '& .MuiDataGrid-root': {
+                  fontSize: '0.875rem'
+                },
+                '& .MuiDataGrid-cell': {
+                  borderBottom: '1px solid #f1f5f9',
+                  fontSize: '0.875rem',
+                  py: 0.5
+                },
+                '& .MuiDataGrid-columnHeader': {
+                  backgroundColor: '#f8fafc',
+                  borderBottom: '2px solid #e2e8f0',
+                  fontSize: '0.8rem',
+                  fontWeight: 600
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: '#f8fafc'
+                },
+                '& .MuiDataGrid-virtualScroller': {
+                  height: 'calc(100vh - 320px) !important'
+                }
+              }}
+              initialState={{
+                pagination: { paginationModel: { pageSize: 25 } }
+              }}
+              pageSizeOptions={[25, 50, 100]}
+            />
+          </Paper>
+
+          {/* 🗑️ Delete Confirmation Dialog */}
+          <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' })}>
+            <DialogTitle>Firma Silme Onayı</DialogTitle>
+            <DialogContent>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Bu işlem geri alınamaz!
+              </Alert>
+              <Typography>
+                <strong>{deleteDialog.firmaAdi}</strong> firmasını silmek istediğinizden emin misiniz?
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' })}>
+                İptal
+              </Button>
+              <Button onClick={handleDelete} color="error" variant="contained">
+                Sil
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* 📥 Import Dialog */}
+          <Dialog open={importDialog} onClose={() => !importLoading && setImportDialog(false)} maxWidth="sm" fullWidth>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CloudUploadIcon color="primary" />
+                <Typography variant="h6">Excel/CSV İçe Aktar</Typography>
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ my: 2 }}>
+                {!importLoading ? (
+                  <>
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      Excel (.xlsx, .xls) veya CSV dosyası yükleyebilirsiniz. 
+                      Dosyanızdaki sütun başlıkları şablon ile uyumlu olmalıdır.
+                    </Alert>
+                    
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<GetAppIcon />}
+                        onClick={handleDownloadTemplate}
+                        fullWidth
+                      >
+                        Örnek Şablon İndir
+                      </Button>
+                      
+                      <input
+                        accept=".xlsx,.xls,.csv"
+                        style={{ display: 'none' }}
+                        id="file-input"
+                        type="file"
+                        onChange={handleFileImport}
+                        disabled={importLoading}
+                      />
+                      <label htmlFor="file-input">
+                        <Button
+                          variant="contained"
+                          component="span"
+                          startIcon={<CloudUploadIcon />}
+                          fullWidth
+                        >
+                          Dosya Seç ve Yükle
+                        </Button>
+                      </label>
+                    </Box>
+                  </>
+                ) : (
+                  <Box sx={{ textAlign: 'center', py: 3 }}>
+                    <CircularProgress size={60} sx={{ mb: 2 }} />
+                    <Typography variant="h6" gutterBottom>
+                      Veriler İşleniyor...
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Bu işlem dosya boyutuna göre birkaç dakika sürebilir.
+                      Lütfen sayfayı kapatmayın.
+                    </Typography>
+                    <Alert severity="warning" sx={{ mt: 2 }}>
+                      1185 firma kaydı işleniyor. Lütfen bekleyin...
+                    </Alert>
+                  </Box>
+                )}
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setImportDialog(false)} disabled={importLoading}>
+                {importLoading ? 'İşlem Devam Ediyor...' : 'İptal'}
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* 📢 Notification Snackbar */}
+          <Snackbar
+            open={notification.open}
+            autoHideDuration={6000}
+            onClose={() => setNotification({ ...notification, open: false })}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <Alert 
+              onClose={() => setNotification({ ...notification, open: false })} 
+              severity={notification.severity}
+              variant="filled"
+            >
+              {notification.message}
+            </Alert>
+          </Snackbar>
+        </Container>
+      </Box>
     </Box>
   );
 };
 
-export default FirmaList; 
+export default FirmaList;

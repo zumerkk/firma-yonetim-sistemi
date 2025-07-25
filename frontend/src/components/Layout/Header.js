@@ -20,7 +20,7 @@ import {
   AccountCircle as AccountCircleIcon,
   ExitToApp as LogoutIcon,
   Person as PersonIcon,
-  Business as BusinessIcon,
+  // Business as BusinessIcon, // unused
   Settings as SettingsIcon,
   Dashboard as DashboardIcon
 } from '@mui/icons-material';
@@ -57,98 +57,38 @@ const Header = ({ onSidebarToggle }) => {
       position="fixed" 
       elevation={0}
       sx={{ 
-        zIndex: (theme) => theme.zIndex.drawer + 1,
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(20px) saturate(180%)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '100%',
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%)',
-          pointerEvents: 'none'
-        }
+        backgroundColor: '#ffffff',
+        borderBottom: '1px solid #e5e7eb',
+        color: '#1f2937',
+        zIndex: 1400,
+        height: '64px',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
       }}
     >
       <Toolbar sx={{ 
-        justifyContent: 'space-between',
-        position: 'relative',
-        zIndex: 1,
-        px: 3,
-        py: 1.5
+        minHeight: '64px !important',
+        px: { xs: 2, sm: 3 },
+        gap: 2,
+        width: '100%',
+        maxWidth: '100vw',
+        overflow: 'hidden'
       }}>
-        {/* 🍔 Sol Taraf - Menu ve Logo */}
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <IconButton
-            color="primary"
-            aria-label="toggle sidebar"
-            onClick={onSidebarToggle}
-            edge="start"
-            sx={{ 
-              mr: 2,
-              width: 48,
-              height: 48,
-              background: 'rgba(59, 130, 246, 0.1)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'rgba(59, 130, 246, 0.2)',
-                transform: 'scale(1.05)',
-                boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)'
-              }
-            }}
-          >
-            <MenuIcon />
-          </IconButton>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Avatar sx={{ 
-              mr: 2, 
-              width: 40,
-              height: 40,
-              background: 'linear-gradient(135deg, #1976d2 0%, #1565c0 100%)',
-              boxShadow: '0 8px 25px rgba(25, 118, 210, 0.4)',
-              fontSize: '18px',
-              fontWeight: 900,
-              fontFamily: 'Arial, sans-serif'
-            }}>
-              GM
-            </Avatar>
-            
-            <Box>
-              <Typography 
-                variant="h6" 
-                component="div" 
-                sx={{ 
-                  fontWeight: 800,
-                  fontSize: '1.25rem',
-                  background: 'linear-gradient(135deg, #1e293b 0%, #1976d2 100%)',
-                  backgroundClip: 'text',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                GM Planlama Danışmanlık
-              </Typography>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: '#64748b',
-                  fontWeight: 500,
-                  fontSize: '0.75rem'
-                }}
-              >
-                Firma Yönetim Sistemi V2.0
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+                 {/* 🍔 Hamburger Menu */}
+         <IconButton
+           edge="start"
+           onClick={onSidebarToggle}
+           sx={{ 
+             color: '#4b5563',
+             mr: 1,
+             p: 1,
+             borderRadius: 2,
+             '&:hover': {
+               backgroundColor: '#f3f4f6',
+             }
+           }}
+         >
+           <MenuIcon />
+         </IconButton>
 
         {/* 🎯 Sağ Taraf - Bildirimler ve Profil */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

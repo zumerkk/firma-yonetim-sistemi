@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Backend API base URL - Environment variable ile production/development uyumlu
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 
 // Axios instance oluştur
 const api = axios.create({

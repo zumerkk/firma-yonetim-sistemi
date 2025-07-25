@@ -35,7 +35,8 @@ import {
   ListItemText,
   Switch,
   FormControlLabel,
-  Snackbar
+  Snackbar,
+  Container
 } from '@mui/material';
 import {
   Business as BusinessIcon,
@@ -59,6 +60,9 @@ import {
   ExpandLess as ExpandLessIcon,
   Download as DownloadIcon
 } from '@mui/icons-material';
+// 🎯 Layout Components Import
+import Header from '../../components/Layout/Header';
+import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import api from '../../utils/axios';
 
@@ -126,6 +130,10 @@ const ChartPlaceholder = ({ title, type, data, height = 300 }) => (
 const Statistics = () => {
   const { stats: firmaStats, fetchStats, loading } = useFirma();
   
+  // 🎯 Layout State Management
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  
   // 🎯 Enhanced State Management
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -148,6 +156,19 @@ const Statistics = () => {
     comparisons: [],
     alerts: []
   });
+
+  // 📱 Responsive Handling
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 📊 Real-time data loading
   const loadData = useCallback(async () => {
@@ -449,447 +470,479 @@ const Statistics = () => {
 
   return (
     <Box sx={{ 
-      width: '100%',
-      height: '100%',
-      padding: { xs: '20px', sm: '24px', md: '32px', lg: '40px' },
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-      overflow: 'auto'
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
+      height: '100vh',
+      backgroundColor: '#f8fafc'
     }}>
-      {/* 📱 Header Section */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Box>
-            <Typography variant="h4" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
-              📊 Gelişmiş İstatistikler
-          </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              Real-time analytics ve detaylı raporlama sistemi
-          </Typography>
-        </Box>
-        
-          <Stack direction="row" spacing={2} alignItems="center">
-            <FormControlLabel
-              control={
-                <Switch 
-                  checked={autoRefresh} 
-                  onChange={(e) => setAutoRefresh(e.target.checked)}
-                  color="primary"
-                />
-              }
-              label="Otomatik Yenile"
-            />
-            
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel>Süre</InputLabel>
-              <Select
-                value={refreshInterval}
-                label="Süre"
-                onChange={(e) => setRefreshInterval(e.target.value)}
-                disabled={!autoRefresh}
-              >
-                <MenuItem value={10}>10s</MenuItem>
-                <MenuItem value={30}>30s</MenuItem>
-                <MenuItem value={60}>1dk</MenuItem>
-                <MenuItem value={300}>5dk</MenuItem>
-              </Select>
-            </FormControl>
-            
-            <Button
-              variant="outlined"
-              startIcon={<ExportIcon />}
-              onClick={() => setExportDialog(true)}
-            >
-              Dışa Aktar
-            </Button>
-            
-            <Tooltip title="Verileri yenile">
-          <IconButton 
-            onClick={handleRefresh} 
-                disabled={refreshing}
-            sx={{ 
-              bgcolor: 'primary.main', 
-              color: 'white',
-              '&:hover': { bgcolor: 'primary.dark' },
-                  '&:disabled': { bgcolor: 'grey.300' }
-            }}
-          >
-            {refreshing ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
-          </IconButton>
-        </Tooltip>
-          </Stack>
-        </Box>
-
-        {/* 📊 Quick Filters */}
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Tarih Aralığı</InputLabel>
-            <Select
-              value={filters.dateRange}
-              label="Tarih Aralığı"
-              onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
-            >
-              <MenuItem value="7days">Son 7 gün</MenuItem>
-              <MenuItem value="30days">Son 30 gün</MenuItem>
-              <MenuItem value="90days">Son 3 ay</MenuItem>
-              <MenuItem value="1year">Son 1 yıl</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <FormControl size="small" sx={{ minWidth: 120 }}>
-            <InputLabel>Şehir</InputLabel>
-            <Select
-              value={filters.city}
-              label="Şehir"
-              onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-            >
-              <MenuItem value="all">Tümü</MenuItem>
-              <MenuItem value="istanbul">İstanbul</MenuItem>
-              <MenuItem value="ankara">Ankara</MenuItem>
-              <MenuItem value="izmir">İzmir</MenuItem>
-            </Select>
-          </FormControl>
-          
-          <Chip 
-            icon={<FilterIcon />}
-            label={`${Object.values(filters).filter(v => v !== 'all').length} Filtre Aktif`}
-            color="primary"
-            variant="outlined"
-          />
-        </Stack>
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
       </Box>
 
-      {/* 📑 Tab Navigation */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab icon={<DashboardIcon />} label="Genel Bakış" />
-          <Tab icon={<AnalyticsIcon />} label="Detaylı Analiz" />
-          <Tab icon={<AssessmentIcon />} label="Performans" />
-          <Tab icon={<TimelineIcon />} label="Trendler" />
-        </Tabs>
-      </Box>
-
-      {/* 📊 Loading State */}
-      {loading && !refreshing && (
-        <Box sx={{ mb: 3 }}>
-          <LinearProgress sx={{ borderRadius: 2, height: 6 }} />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
-            İstatistikler yükleniyor...
-          </Typography>
+      {/* Sidebar */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
         </Box>
       )}
 
-      {/* 📄 Tab Content */}
-      {activeTab === 0 && (
-        <>
-          {/* 📊 Enhanced Stat Cards */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            {enhancedStatCards.map((card, index) => (
-              <Grid item xs={12} sm={6} lg={4} key={index}>
-            <Card 
-              sx={{ 
-                height: '100%',
-                    background: card.gradient,
-                    color: 'white',
-                    position: 'relative',
-                    overflow: 'visible',
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                '&:hover': { 
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6
-                    }
-                  }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5, fontSize: '0.95rem' }}>
-                          {card.title}
-                        </Typography>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: '2.2rem' }}>
-                          {card.value}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.85rem' }}>
-                          {card.description}
-                        </Typography>
-                      </Box>
-                      
-                      <Avatar 
-                    sx={{
-                          bgcolor: 'rgba(255,255,255,0.2)', 
-                      color: 'white',
-                          width: 56,
-                          height: 56
-                    }}
-                  >
-                        {card.icon}
-                      </Avatar>
-                  </Box>
-                  
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Chip 
-                        label={card.change}
-                    size="small"
-                    sx={{
-                          bgcolor: 'rgba(255,255,255,0.2)', 
-                          color: 'white',
-                          fontWeight: 600
-                        }}
-                      />
-                      
-                      <IconButton 
-                        size="small"
-                        onClick={() => toggleCardExpansion(index)}
-                        sx={{ color: 'white' }}
-                      >
-                        {expandedCards[index] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                      </IconButton>
-                </Box>
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{ 
+        gridArea: 'content',
+        overflow: 'auto',
+        p: 3
+      }}>
+        <Container maxWidth="xl">
+          {/* 📱 Header Section */}
+          <Box sx={{ mb: 4 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box>
+                <Typography variant="h4" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
+                  📊 Gelişmiş İstatistikler
+              </Typography>
+                <Typography variant="subtitle1" color="text.secondary">
+                  Real-time analytics ve detaylı raporlama sistemi
+              </Typography>
+            </Box>
+            
+              <Stack direction="row" spacing={2} alignItems="center">
+                <FormControlLabel
+                  control={
+                    <Switch 
+                      checked={autoRefresh} 
+                      onChange={(e) => setAutoRefresh(e.target.checked)}
+                      color="primary"
+                    />
+                  }
+                  label="Otomatik Yenile"
+                />
                 
-                    <Collapse in={expandedCards[index]}>
-                      <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                        {card.details.map((detail, idx) => (
-                          <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                            <Typography variant="body2" sx={{ opacity: 0.8 }}>
-                              {detail.label}:
-                </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {detail.value}
-                </Typography>
+                <FormControl size="small" sx={{ minWidth: 100 }}>
+                  <InputLabel>Süre</InputLabel>
+                  <Select
+                    value={refreshInterval}
+                    label="Süre"
+                    onChange={(e) => setRefreshInterval(e.target.value)}
+                    disabled={!autoRefresh}
+                  >
+                    <MenuItem value={10}>10s</MenuItem>
+                    <MenuItem value={30}>30s</MenuItem>
+                    <MenuItem value={60}>1dk</MenuItem>
+                    <MenuItem value={300}>5dk</MenuItem>
+                  </Select>
+                </FormControl>
+                
+                <Button
+                  variant="outlined"
+                  startIcon={<ExportIcon />}
+                  onClick={() => setExportDialog(true)}
+                >
+                  Dışa Aktar
+                </Button>
+                
+                <Tooltip title="Verileri yenile">
+              <IconButton 
+                onClick={handleRefresh} 
+                    disabled={refreshing}
+                sx={{ 
+                  bgcolor: 'primary.main', 
+                  color: 'white',
+                  '&:hover': { bgcolor: 'primary.dark' },
+                      '&:disabled': { bgcolor: 'grey.300' }
+                }}
+              >
+                {refreshing ? <CircularProgress size={20} color="inherit" /> : <RefreshIcon />}
+              </IconButton>
+            </Tooltip>
+              </Stack>
+            </Box>
+
+            {/* 📊 Quick Filters */}
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Tarih Aralığı</InputLabel>
+                <Select
+                  value={filters.dateRange}
+                  label="Tarih Aralığı"
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                >
+                  <MenuItem value="7days">Son 7 gün</MenuItem>
+                  <MenuItem value="30days">Son 30 gün</MenuItem>
+                  <MenuItem value="90days">Son 3 ay</MenuItem>
+                  <MenuItem value="1year">Son 1 yıl</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <FormControl size="small" sx={{ minWidth: 120 }}>
+                <InputLabel>Şehir</InputLabel>
+                <Select
+                  value={filters.city}
+                  label="Şehir"
+                  onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
+                >
+                  <MenuItem value="all">Tümü</MenuItem>
+                  <MenuItem value="istanbul">İstanbul</MenuItem>
+                  <MenuItem value="ankara">Ankara</MenuItem>
+                  <MenuItem value="izmir">İzmir</MenuItem>
+                </Select>
+              </FormControl>
+              
+              <Chip 
+                icon={<FilterIcon />}
+                label={`${Object.values(filters).filter(v => v !== 'all').length} Filtre Aktif`}
+                color="primary"
+                variant="outlined"
+              />
+            </Stack>
+          </Box>
+
+          {/* 📑 Tab Navigation */}
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+            <Tabs value={activeTab} onChange={handleTabChange}>
+              <Tab icon={<DashboardIcon />} label="Genel Bakış" />
+              <Tab icon={<AnalyticsIcon />} label="Detaylı Analiz" />
+              <Tab icon={<AssessmentIcon />} label="Performans" />
+              <Tab icon={<TimelineIcon />} label="Trendler" />
+            </Tabs>
+          </Box>
+
+          {/* 📊 Loading State */}
+          {loading && !refreshing && (
+            <Box sx={{ mb: 3 }}>
+              <LinearProgress sx={{ borderRadius: 2, height: 6 }} />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
+                İstatistikler yükleniyor...
+              </Typography>
+            </Box>
+          )}
+
+          {/* 📄 Tab Content */}
+          {activeTab === 0 && (
+            <>
+              {/* 📊 Enhanced Stat Cards */}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                {enhancedStatCards.map((card, index) => (
+                  <Grid item xs={12} sm={6} lg={4} key={index}>
+                <Card 
+                  sx={{ 
+                    height: '100%',
+                        background: card.gradient,
+                        color: 'white',
+                        position: 'relative',
+                        overflow: 'visible',
+                        transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+                    '&:hover': { 
+                          transform: 'translateY(-4px)',
+                          boxShadow: 6
+                        }
+                      }}
+                    >
+                      <CardContent sx={{ p: 3 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                          <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5, fontSize: '0.95rem' }}>
+                              {card.title}
+                            </Typography>
+                            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: '2.2rem' }}>
+                              {card.value}
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.85rem' }}>
+                              {card.description}
+                            </Typography>
                           </Box>
-                        ))}
+                          
+                          <Avatar 
+                        sx={{
+                              bgcolor: 'rgba(255,255,255,0.2)', 
+                          color: 'white',
+                              width: 56,
+                              height: 56
+                        }}
+                      >
+                            {card.icon}
+                          </Avatar>
                       </Box>
-                    </Collapse>
-              </CardContent>
-            </Card>
+                      
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Chip 
+                            label={card.change}
+                        size="small"
+                        sx={{
+                              bgcolor: 'rgba(255,255,255,0.2)', 
+                              color: 'white',
+                              fontWeight: 600
+                            }}
+                          />
+                          
+                          <IconButton 
+                            size="small"
+                            onClick={() => toggleCardExpansion(index)}
+                            sx={{ color: 'white' }}
+                          >
+                            {expandedCards[index] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                    </Box>
+                    
+                        <Collapse in={expandedCards[index]}>
+                          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+                            {card.details.map((detail, idx) => (
+                              <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                <Typography variant="body2" sx={{ opacity: 0.8 }}>
+                                  {detail.label}:
+                    </Typography>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                  {detail.value}
+                    </Typography>
+                              </Box>
+                            ))}
+                          </Box>
+                        </Collapse>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
           </Grid>
-        ))}
-      </Grid>
 
-          {/* 📈 Charts Grid */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardHeader
-                  title="İl Bazında Dağılım"
-                  subheader="Top 10 şehir"
-                  action={
-                    <Tooltip title="Detayları görüntüle">
-                      <IconButton>
-                        <ViewIcon />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                />
-                <CardContent>
-                  <ChartPlaceholder 
-                    title="İl Dağılımı" 
-                    type="pie" 
-                    data={firmaStats?.illereBolum || []} 
-                    height={250}
-                  />
-            </CardContent>
-          </Card>
-        </Grid>
-
-            <Grid item xs={12} md={6}>
-              <Card>
-                <CardHeader
-                  title="Aylık Büyüme Trendi"
-                  subheader="Son 12 ay"
-                  action={
-                    <Tooltip title="Tüm ekranı görüntüle">
-                      <IconButton>
-                        <ViewIcon />
-                      </IconButton>
-                    </Tooltip>
-                  }
-                />
-                <CardContent>
-                  <ChartPlaceholder 
-                    title="Büyüme Trendi" 
-                    type="line" 
-                    data={firmaStats?.sonEklenenler || []} 
-                    height={250}
-                  />
+              {/* 📈 Charts Grid */}
+              <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardHeader
+                      title="İl Bazında Dağılım"
+                      subheader="Top 10 şehir"
+                      action={
+                        <Tooltip title="Detayları görüntüle">
+                          <IconButton>
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                    />
+                    <CardContent>
+                      <ChartPlaceholder 
+                        title="İl Dağılımı" 
+                        type="pie" 
+                        data={firmaStats?.illereBolum || []} 
+                        height={250}
+                      />
                 </CardContent>
               </Card>
             </Grid>
-          </Grid>
-        </>
-      )}
 
-      {/* 📊 Detailed Analysis Tab */}
-      {activeTab === 1 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Card>
-              <CardHeader title="Kategori Bazında Analiz" />
-              <CardContent>
-                <ChartPlaceholder 
-                  title="Faaliyet Konusu Dağılımı" 
-                  type="bar" 
-                  data={firmaStats?.faaliyetlereBolum || []} 
-                  height={400}
-                />
-            </CardContent>
-          </Card>
-        </Grid>
-
-          <Grid item xs={12} md={4}>
-            <Card sx={{ mb: 3 }}>
-              <CardHeader title="Yetki Durumu" />
-              <CardContent>
-                <ChartPlaceholder 
-                  title="ETUYS vs DYS" 
-                  type="pie" 
-                  data={[
-                    { _id: 'ETUYS', count: firmaStats?.etuysYetkili || 0 },
-                    { _id: 'DYS', count: firmaStats?.dysYetkili || 0 },
-                    { _id: 'Yetkisiz', count: (firmaStats?.aktifFirma || 0) - (firmaStats?.etuysYetkili || 0) - (firmaStats?.dysYetkili || 0) }
-                  ]}
-                  height={200}
-                />
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader title="Risk Analizi" />
-              <CardContent>
-                <List dense>
-                  <ListItem>
-                    <ListItemIcon>
-                      <WarningIcon color="warning" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Süresi Yakın"
-                      secondary={`${firmaStats?.etuysUyarilari?.count || 0} firma`}
+                <Grid item xs={12} md={6}>
+                  <Card>
+                    <CardHeader
+                      title="Aylık Büyüme Trendi"
+                      subheader="Son 12 ay"
+                      action={
+                        <Tooltip title="Tüm ekranı görüntüle">
+                          <IconButton>
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                      }
                     />
-                  </ListItem>
-                  <ListItem>
-                    <ListItemIcon>
-                      <CheckCircleIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Aktif Yetkiler"
-                      secondary={`${firmaStats?.etuysYetkili || 0} firma`}
-                    />
-                  </ListItem>
-                </List>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      )}
-
-      {/* 🎯 Performance Tab */}
-      {activeTab === 2 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card>
-              <CardHeader title="Sistem Performans Metrikleri" />
-              <CardContent>
-              <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <ChartPlaceholder 
-                      title="Yanıt Süreleri" 
-                      type="line" 
-                      data={analyticsData.trends || []} 
-                      height={300}
-                    />
-                </Grid>
-                  <Grid item xs={12} md={6}>
-                    <ChartPlaceholder 
-                      title="Kaynak Kullanımı" 
-                      type="bar" 
-                      data={analyticsData.comparisons || []} 
-                      height={300}
-                    />
+                    <CardContent>
+                      <ChartPlaceholder 
+                        title="Büyüme Trendi" 
+                        type="line" 
+                        data={firmaStats?.sonEklenenler || []} 
+                        height={250}
+                      />
+                    </CardContent>
+                  </Card>
                 </Grid>
               </Grid>
-            </CardContent>
-          </Card>
-          </Grid>
-        </Grid>
-      )}
+            </>
+          )}
 
-      {/* 📈 Trends Tab */}
-      {activeTab === 3 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12}>
-            <Card>
-              <CardHeader title="Zaman Serisi Analizi" />
-              <CardContent>
-                <ChartPlaceholder 
-                  title="Gelişim Trendi" 
-                  type="timeline" 
-                  data={firmaStats?.sonEklenenler || []} 
-                  height={400}
-                />
-              </CardContent>
-            </Card>
-          </Grid>
-          </Grid>
-        )}
+          {/* 📊 Detailed Analysis Tab */}
+          {activeTab === 1 && (
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={8}>
+                <Card>
+                  <CardHeader title="Kategori Bazında Analiz" />
+                  <CardContent>
+                    <ChartPlaceholder 
+                      title="Faaliyet Konusu Dağılımı" 
+                      type="bar" 
+                      data={firmaStats?.faaliyetlereBolum || []} 
+                      height={400}
+                    />
+                </CardContent>
+              </Card>
+            </Grid>
 
-      {/* 📤 Export Dialog */}
-      <Dialog open={exportDialog} onClose={() => setExportDialog(false)}>
-        <DialogTitle>📊 Premium İstatistik Raporları</DialogTitle>
-        <DialogContent>
-          <Typography sx={{ mb: 2 }}>
-            Hangi formatta premium istatistik raporu indirmek istiyorsunuz?
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            • PDF: Görsel grafikler ve analizlerle premium rapor<br/>
-            • Excel: 4 ayrı sayfa ile detaylı istatistik tabloları<br/>
-            • CSV: Firma listesi (basit format)
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExportDialog(false)}>
-            İptal
-          </Button>
-          <Button 
-            onClick={() => handleExport('pdf')} 
-            startIcon={<DownloadIcon />}
-            variant="outlined"
-            color="error"
-          >
-            📄 Premium PDF Raporu
-          </Button>
-          <Button 
-            onClick={() => handleExport('excel')} 
-            startIcon={<DownloadIcon />}
-            variant="outlined"
-            color="success"
-          >
-            📊 Premium Excel Raporu  
-          </Button>
-          <Button 
-            onClick={() => handleExport('csv')} 
-            startIcon={<DownloadIcon />}
-            variant="contained"
-          >
-            📈 Firma Listesi (CSV)
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <Grid item xs={12} md={4}>
+                <Card sx={{ mb: 3 }}>
+                  <CardHeader title="Yetki Durumu" />
+                  <CardContent>
+                    <ChartPlaceholder 
+                      title="ETUYS vs DYS" 
+                      type="pie" 
+                      data={[
+                        { _id: 'ETUYS', count: firmaStats?.etuysYetkili || 0 },
+                        { _id: 'DYS', count: firmaStats?.dysYetkili || 0 },
+                        { _id: 'Yetkisiz', count: (firmaStats?.aktifFirma || 0) - (firmaStats?.etuysYetkili || 0) - (firmaStats?.dysYetkili || 0) }
+                      ]}
+                      height={200}
+                    />
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader title="Risk Analizi" />
+                  <CardContent>
+                    <List dense>
+                      <ListItem>
+                        <ListItemIcon>
+                          <WarningIcon color="warning" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Süresi Yakın"
+                          secondary={`${firmaStats?.etuysUyarilari?.count || 0} firma`}
+                        />
+                      </ListItem>
+                      <ListItem>
+                        <ListItemIcon>
+                          <CheckCircleIcon color="success" />
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary="Aktif Yetkiler"
+                          secondary={`${firmaStats?.etuysYetkili || 0} firma`}
+                        />
+                      </ListItem>
+                    </List>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          )}
 
-      {/* 📢 Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+          {/* 🎯 Performance Tab */}
+          {activeTab === 2 && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Card>
+                  <CardHeader title="Sistem Performans Metrikleri" />
+                  <CardContent>
+                  <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <ChartPlaceholder 
+                          title="Yanıt Süreleri" 
+                          type="line" 
+                          data={analyticsData.trends || []} 
+                          height={300}
+                        />
+                    </Grid>
+                      <Grid item xs={12} md={6}>
+                        <ChartPlaceholder 
+                          title="Kaynak Kullanımı" 
+                          type="bar" 
+                          data={analyticsData.comparisons || []} 
+                          height={300}
+                        />
+                    </Grid>
+                  </Grid>
+                </CardContent>
+              </Card>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* 📈 Trends Tab */}
+          {activeTab === 3 && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Card>
+                  <CardHeader title="Zaman Serisi Analizi" />
+                  <CardContent>
+                    <ChartPlaceholder 
+                      title="Gelişim Trendi" 
+                      type="timeline" 
+                      data={firmaStats?.sonEklenenler || []} 
+                      height={400}
+                    />
+                  </CardContent>
+                </Card>
+              </Grid>
+              </Grid>
+            )}
+
+          {/* 📤 Export Dialog */}
+          <Dialog open={exportDialog} onClose={() => setExportDialog(false)}>
+            <DialogTitle>📊 Premium İstatistik Raporları</DialogTitle>
+            <DialogContent>
+              <Typography sx={{ mb: 2 }}>
+                Hangi formatta premium istatistik raporu indirmek istiyorsunuz?
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                • PDF: Görsel grafikler ve analizlerle premium rapor<br/>
+                • Excel: 4 ayrı sayfa ile detaylı istatistik tabloları<br/>
+                • CSV: Firma listesi (basit format)
+              </Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setExportDialog(false)}>
+                İptal
+              </Button>
+              <Button 
+                onClick={() => handleExport('pdf')} 
+                startIcon={<DownloadIcon />}
+                variant="outlined"
+                color="error"
+              >
+                📄 Premium PDF Raporu
+              </Button>
+              <Button 
+                onClick={() => handleExport('excel')} 
+                startIcon={<DownloadIcon />}
+                variant="outlined"
+                color="success"
+              >
+                📊 Premium Excel Raporu  
+              </Button>
+              <Button 
+                onClick={() => handleExport('csv')} 
+                startIcon={<DownloadIcon />}
+                variant="contained"
+              >
+                📈 Firma Listesi (CSV)
+              </Button>
+            </DialogActions>
+          </Dialog>
+
+          {/* 📢 Snackbar */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={4000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Alert
+              onClose={handleCloseSnackbar}
+              severity={snackbar.severity}
+              variant="filled"
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Container>
+      </Box>
     </Box>
   );
 };

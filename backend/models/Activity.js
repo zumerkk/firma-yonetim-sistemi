@@ -12,7 +12,7 @@ const activitySchema = new mongoose.Schema({
     required: [true, 'İşlem türü zorunludur'],
     enum: [
       'create', 'update', 'delete', 'view', 'export', 'import',
-      'restore', 'bulk_delete', 'bulk_update', 'search'
+      'restore', 'bulk_delete', 'bulk_update', 'search', 'generate'
     ],
     index: true
   },
@@ -21,7 +21,7 @@ const activitySchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Kategori zorunludur'],
-    enum: ['firma', 'user', 'system', 'auth'],
+    enum: ['firma', 'user', 'system', 'auth', 'tesvik'], // 🔧 tesvik eklendi
     default: 'firma',
     index: true
   },
@@ -55,7 +55,7 @@ const activitySchema = new mongoose.Schema({
     type: {
       type: String,
       required: true,
-      enum: ['firma', 'user', 'system'],
+      enum: ['firma', 'user', 'system', 'tesvik'], // 🔧 tesvik eklendi
       default: 'firma'
     },
     id: {
@@ -177,14 +177,14 @@ const activitySchema = new mongoose.Schema({
 });
 
 // 📊 İndeksler - Performance Optimized
-activitySchema.index({ createdAt: -1 });
+// 🔍 İndeksler - DUPLICATE'lar TEMİZLENDİ
+// Specific query indexes
 activitySchema.index({ 'user.id': 1, createdAt: -1 });
-activitySchema.index({ action: 1, category: 1 });
 activitySchema.index({ 'targetResource.type': 1, 'targetResource.id': 1 });
 activitySchema.index({ 'targetResource.firmaId': 1, createdAt: -1 });
 activitySchema.index({ status: 1, createdAt: -1 });
 
-// Compound index for common queries
+// Main compound index (action, category, status, createdAt zaten burada)
 activitySchema.index({ 
   category: 1, 
   action: 1, 

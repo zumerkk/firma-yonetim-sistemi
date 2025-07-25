@@ -2,7 +2,7 @@
 // Ultra-performance optimized with zero re-render issues
 // State-of-the-art React best practices implementation
 
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
@@ -34,24 +34,20 @@ import {
   ContactMail as ContactIcon
 } from '@mui/icons-material';
 
+// 🎯 Layout Components Import
+import Header from '../../components/Layout/Header';
+import Sidebar from '../../components/Layout/Sidebar';
 // Hooks & Services
 import { useFirma } from '../../contexts/FirmaContext';
 import { validateFirmaData, getNextFirmaId } from '../../services/firmaService';
-import { TURKEY_CITIES, CITY_DISTRICTS } from '../../data/turkeyData';
+// import { CITY_DISTRICTS } from '../../data/turkeyData'; // Not used
 
-// 🎯 Constants - Professional Categories
-const ANA_FAALIYET_KONULARI = [
-  'İNŞAAT VE MÜHENDİSLİK',
-  'BİLİŞİM VE YAZILIM', 
-  'DANIŞMANLIK HİZMETLERİ',
-  'GÜVENLIK HİZMETLERİ',
-  'TEMİZLİK HİZMETLERİ',
-  'GIDA VE İÇECEK',
-  'TEKSTİL VE KONFEKS.',
-  'OTOMOTİV VE YEDEK PARÇA',
-  'MAKİNE VE EKİPMAN',
-  'DİĞER'
-];
+// 🆕 Enhanced Components - CSV Integration
+import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
+
+
+// 🎯 Import yatırım konusu data from CSV
+import { YATIRIM_DATA } from '../../data/yatirimData';
 
 // 🎯 Default structures
 const createEmptyYetkiliKisi = () => ({
@@ -69,6 +65,8 @@ const createInitialFormData = () => ({
   adres: '',
   firmaIl: '',
   firmaIlce: '',
+  ilKod: '',
+  ilceKod: '',
   kepAdresi: '',
   firmaTelefon: '',
   firmaEmail: '',
@@ -319,6 +317,10 @@ const FirmaForm = () => {
     clearError,
     clearSearchResults
   } = useFirma();
+
+  // 🎯 Layout State Management
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   // 🎯 State Management - Optimized
   const [formData, setFormData] = useState(createInitialFormData);
@@ -616,455 +618,138 @@ const FirmaForm = () => {
     };
   }, [clearFirma, clearError, clearSearchResults]);
 
-  // Helper to get districts for selected city
-  const selectedIlceler = useMemo(() => {
-    if (formData.firmaIl && CITY_DISTRICTS[formData.firmaIl]) {
-      return CITY_DISTRICTS[formData.firmaIl];
-    }
-    return [];
-  }, [formData.firmaIl]);
+  // Helper to get districts for selected city - removed unused selectedIlceler
+
+  // 📱 Responsive Handling
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <Box sx={{ 
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-      py: 3,
-      px: 2
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
+      height: '100vh',
+      backgroundColor: '#f8fafc'
     }}>
-      <Container maxWidth="lg">
-        {/* 🎯 Professional Header */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          mb: 3
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton 
-              onClick={handleBack}
-              size="medium"
-              sx={{ 
-                bgcolor: 'white',
-                boxShadow: 2,
-                '&:hover': { 
-                  boxShadow: 4,
-                  transform: 'scale(1.05)'
-                }
-              }}
-            >
-              <RemoveIcon />
-            </IconButton>
-            <Box>
-              <Typography variant="h4" sx={{ 
-                fontWeight: 700, 
-                color: '#1e293b',
-                fontSize: '1.5rem',
-                mb: 0.5
-              }}>
-                {isEdit ? 'Firma Güncelle' : 'Yeni Firma Ekle'}
-              </Typography>
-              <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1rem' }}>
-                Profesyonel firma kayıt sistemi - Enterprise Edition
-              </Typography>
-            </Box>
-          </Box>
-          
-          {formData.firmaId && (
-            <Chip 
-              label={`ID: ${formData.firmaId}`}
-              color="primary"
-              size="medium"
-              sx={{ fontWeight: 600, fontSize: '0.9rem' }}
-            />
-          )}
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+      </Box>
+
+      {/* Sidebar */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
         </Box>
+      )}
 
-        {/* 🔍 Advanced Search Section - Only for new records */}
-        {!isEdit && (
-          <Card sx={{ 
-            mb: 3,
-            borderRadius: 3,
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{ 
+        gridArea: 'content',
+        overflow: 'auto',
+        p: 3
+      }}>
+        <Container maxWidth="lg">
+          {/* 🎯 Professional Header */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            mb: 3
           }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ 
-                mb: 2, 
-                fontWeight: 600,
-                fontSize: '1.1rem',
-                color: '#374151',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-              }}>
-                <SearchIcon sx={{ fontSize: 22 }} />
-                Mevcut Firma Kontrolü
-              </Typography>
-              
-              <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={8}>
-                  <MemoizedTextField
-                    fullWidth
-                    size="medium"
-                    label="Vergi No/TC No veya Firma Ünvanı"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Arama yapmak için en az 2 karakter giriniz"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={4}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    onClick={handleSearch}
-                    disabled={loading || searchTerm.length < 2}
-                    startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
-                    sx={{
-                      py: 1.5,
-                      background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-                      fontSize: '1rem',
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)'
-                      }
-                    }}
-                  >
-                    {loading ? 'Aranıyor...' : 'Ara'}
-                  </Button>
-                </Grid>
-              </Grid>
-              
-              {/* Enhanced Search Results */}
-              {searchResults.length > 0 && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="body1" sx={{ mb: 2, fontWeight: 600, color: '#6b7280' }}>
-                    {searchResults.length} firma bulundu
-                  </Typography>
-                  <Stack spacing={2}>
-                    {searchResults.slice(0, 3).map((firma) => (
-                      <Paper 
-                        key={firma._id}
-                        sx={{ 
-                          p: 2.5, 
-                          cursor: 'pointer',
-                          transition: 'all 0.3s ease',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: 2,
-                          '&:hover': { 
-                            bgcolor: '#f9fafb',
-                            borderColor: '#3b82f6',
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 8px 24px rgba(0,0,0,0.1)'
-                          }
-                        }}
-                        onClick={() => loadFirmaToForm(firma)}
-                      >
-                        <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                          <Chip 
-                            label={firma.firmaId} 
-                            color="primary" 
-                            size="medium" 
-                            sx={{ fontSize: '0.8rem', fontWeight: 600 }} 
-                          />
-                          <Typography variant="h6" sx={{ 
-                            fontWeight: 600, 
-                            flexGrow: 1, 
-                            fontSize: '1rem',
-                            color: '#1e293b'
-                          }}>
-                            {firma.tamUnvan}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
-                            {firma.firmaIl}
-                          </Typography>
-                        </Stack>
-                      </Paper>
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 📝 Main Form Card */}
-        <Card sx={{ 
-          borderRadius: 3,
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
-        }}>
-          {/* 📋 Form Header */}
-          <CardHeader 
-            title={
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box sx={{ 
-                    backgroundColor: '#3b82f6', 
-                    borderRadius: '8px', 
-                    p: 1, 
-                    mr: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Typography sx={{ color: 'white', fontSize: '1.2rem' }}>
-                      {isEdit ? '✏️' : '➕'}
-                    </Typography>
-                  </Box>
-                  <Typography variant="h5" sx={{ fontWeight: 600, color: '#1e293b' }}>
-                    {isEdit ? 'Firma Güncelle' : 'Yeni Firma Ekle'}
-                  </Typography>
-                </Box>
-                
-                {/* Form Tamamlanma Durumu */}
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    label={
-                      (() => {
-                        const requiredFields = [
-                          formData.vergiNoTC,
-                          formData.tamUnvan,
-                          formData.adres,
-                          formData.firmaIl,
-                          formData.ilkIrtibatKisi,
-                          formData.yetkiliKisiler?.[0]?.adSoyad,
-                          formData.yetkiliKisiler?.[0]?.telefon1,
-                          formData.yetkiliKisiler?.[0]?.eposta1
-                        ].filter(Boolean);
-                        
-                        const totalRequired = 8;
-                        const completed = requiredFields.length;
-                        const percentage = Math.round((completed / totalRequired) * 100);
-                        
-                        return `${completed}/${totalRequired} Zorunlu Alan (${percentage}%)`;
-                      })()
-                    }
-                    color={
-                      (() => {
-                        const requiredFields = [
-                          formData.vergiNoTC,
-                          formData.tamUnvan,
-                          formData.adres,
-                          formData.firmaIl,
-                          formData.ilkIrtibatKisi,
-                          formData.yetkiliKisiler?.[0]?.adSoyad,
-                          formData.yetkiliKisiler?.[0]?.telefon1,
-                          formData.yetkiliKisiler?.[0]?.eposta1
-                        ].filter(Boolean);
-                        
-                        if (requiredFields.length === 8) return 'success';
-                        if (requiredFields.length >= 6) return 'warning';
-                        return 'error';
-                      })()
-                    }
-                    size="small"
-                    sx={{ fontWeight: 600 }}
-                  />
-                </Box>
-              </Box>
-            }
-            subheader={
-              <Typography variant="body2" sx={{ color: '#64748b', mt: 1 }}>
-                📝 Firma bilgilerini eksiksiz doldurunuz. (*) ile işaretli alanlar zorunludur.
-                {validationErrors.length > 0 && (
-                  <Typography component="span" sx={{ color: '#dc2626', fontWeight: 600, ml: 1 }}>
-                    ⚠️ {validationErrors.length} alan düzeltilmeyi bekliyor.
-                  </Typography>
-                )}
-              </Typography>
-            }
-            sx={{ pb: 2 }}
-          />
-          <form onSubmit={handleSubmit}>
-            <CardContent sx={{ p: 4 }}>
-              {/* 🚨 Validation Errors - Kullanıcı Dostu Hata Gösterimi */}
-              {validationErrors.length > 0 && (
-                <Paper 
-                  elevation={2} 
-                  sx={{ 
-                    p: 2, 
-                    mb: 3, 
-                    backgroundColor: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    borderRadius: 2
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Box
-                      sx={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: '50%',
-                        backgroundColor: '#ef4444',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        mr: 1
-                      }}
-                    >
-                      <Typography sx={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
-                        !
-                      </Typography>
-                    </Box>
-                    <Typography variant="subtitle2" sx={{ color: '#dc2626', fontWeight: 600 }}>
-                      {validationErrors.length === 1 
-                        ? 'Düzeltilmesi gereken 1 alan var:' 
-                        : `Düzeltilmesi gereken ${validationErrors.length} alan var:`
-                      }
-                    </Typography>
-                  </Box>
-                  
-                  <Box component="ul" sx={{ m: 0, pl: 3, color: '#dc2626' }}>
-                    {validationErrors.map((error, index) => (
-                      <Box component="li" key={index} sx={{ mb: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#dc2626' }}>
-                          {error}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                  
-                  <Typography variant="caption" sx={{ color: '#991b1b', mt: 1, display: 'block' }}>
-                    💡 Lütfen yukarıdaki alanları kontrol edip gerekli düzeltmeleri yapın.
-                  </Typography>
-                </Paper>
-              )}
-
-              {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-              
-              {/* 🏢 Temel Firma Bilgileri */}
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h5" sx={{ 
-                  mb: 3, 
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <IconButton 
+                onClick={handleBack}
+                size="medium"
+                sx={{ 
+                  bgcolor: 'white',
+                  boxShadow: 2,
+                  '&:hover': { 
+                    boxShadow: 4,
+                    transform: 'scale(1.05)'
+                  }
+                }}
+              >
+                <RemoveIcon />
+              </IconButton>
+              <Box>
+                <Typography variant="h4" sx={{ 
                   fontWeight: 700, 
-                  color: '#1e40af',
-                  fontSize: '1.3rem',
+                  color: '#1e293b',
+                  fontSize: '1.5rem',
+                  mb: 0.5
+                }}>
+                  {isEdit ? 'Firma Güncelle' : 'Yeni Firma Ekle'}
+                </Typography>
+                <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1rem' }}>
+                  Profesyonel firma kayıt sistemi - Enterprise Edition
+                </Typography>
+              </Box>
+            </Box>
+            
+            {formData.firmaId && (
+              <Chip 
+                label={`ID: ${formData.firmaId}`}
+                color="primary"
+                size="medium"
+                sx={{ fontWeight: 600, fontSize: '0.9rem' }}
+              />
+            )}
+          </Box>
+
+          {/* 🔍 Advanced Search Section - Only for new records */}
+          {!isEdit && (
+            <Card sx={{ 
+              mb: 3,
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+            }}>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ 
+                  mb: 2, 
+                  fontWeight: 600,
+                  fontSize: '1.1rem',
+                  color: '#374151',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1,
-                  borderBottom: '2px solid #e5e7eb',
-                  pb: 2
+                  gap: 1
                 }}>
-                  <Box sx={{ 
-                    backgroundColor: '#3b82f6', 
-                    borderRadius: '8px', 
-                    p: 1, 
-                    mr: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <Typography sx={{ color: 'white', fontSize: '1.2rem' }}>
-                      🏢
-                    </Typography>
-                  </Box>
-                  Firma Ekle / Güncelle / Ara
+                  <SearchIcon sx={{ fontSize: 22 }} />
+                  Mevcut Firma Kontrolü
                 </Typography>
                 
-                <Grid container spacing={3}>
-                  {/* İlk satır - Arama */}
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      fullWidth
-                      label="Vergi No/TC No *"
-                      name="vergiNoTC"
-                      value={formData.vergiNoTC}
-                      onChange={handleBasicFieldChange('vergiNoTC')}
-                      placeholder="10 haneli Vergi No veya 11 haneli TC No"
-                      helperText={
-                        formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                          ? "❌ Vergi No (10 hane) veya TC No (11 hane) formatında olmalıdır"
-                          : formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                          ? "✅ Format geçerli"
-                          : "Sadece rakam giriniz (örn: 1234567890)"
-                      }
-                      error={Boolean(formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/))}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Box sx={{ 
-                              color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/) 
-                                ? 'success.main' 
-                                : 'text.secondary' 
-                            }}>
-                              🏢
-                            </Box>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        '& .MuiFormHelperText-root': {
-                          color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                            ? 'success.main'
-                            : formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                            ? 'error.main'
-                            : 'text.secondary'
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-error': { 
-                            backgroundColor: '#fef2f2',
-                            '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                          }
-                        }
-                      }}
-                    />
-                  </Grid>
-                  
+                <Grid container spacing={2} alignItems="center">
                   <Grid item xs={12} md={8}>
-                    <TextField
+                    <MemoizedTextField
                       fullWidth
-                      label="Tam Ünvan *"
-                      name="tamUnvan"
-                      value={formData.tamUnvan}
-                      onChange={handleBasicFieldChange('tamUnvan')}
-                      placeholder="Şirket tam ünvanını giriniz..."
-                      helperText={
-                        formData.tamUnvan && formData.tamUnvan.length < 3
-                          ? "❌ En az 3 karakter olmalıdır"
-                          : formData.tamUnvan && formData.tamUnvan.length > 500
-                          ? "❌ 500 karakterden fazla olamaz"
-                          : formData.tamUnvan && formData.tamUnvan.length >= 3
-                          ? `✅ Geçerli (${formData.tamUnvan.length}/500 karakter)`
-                          : "Şirketin resmi ünvanını tam olarak giriniz"
-                      }
-                      error={Boolean(
-                        (formData.tamUnvan && formData.tamUnvan.length < 3) ||
-                        (formData.tamUnvan && formData.tamUnvan.length > 500)
-                      )}
-                      InputProps={{
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Box sx={{ 
-                              color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
-                                ? 'success.main' 
-                                : 'text.secondary' 
-                            }}>
-                              🏛️
-                            </Box>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        '& .MuiFormHelperText-root': {
-                          color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
-                            ? 'success.main'
-                            : formData.tamUnvan && (formData.tamUnvan.length < 3 || formData.tamUnvan.length > 500)
-                            ? 'error.main'
-                            : 'text.secondary'
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-error': { 
-                            backgroundColor: '#fef2f2',
-                            '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                          }
-                        }
-                      }}
+                      size="medium"
+                      label="Vergi No/TC No veya Firma Ünvanı"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Arama yapmak için en az 2 karakter giriniz"
+                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                     />
                   </Grid>
                   
@@ -1074,412 +759,110 @@ const FirmaForm = () => {
                       variant="contained"
                       size="large"
                       onClick={handleSearch}
-                      disabled={loading || (!formData.vergiNoTC && !formData.tamUnvan)}
+                      disabled={loading || searchTerm.length < 2}
                       startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
                       sx={{
-                        height: '56px',
+                        py: 1.5,
+                        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
                         fontSize: '1rem',
-                        fontWeight: 600,
-                        background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                        }
-                      }}
-                    >
-                      🔍 Kayıt Arama
-                    </Button>
-                  </Grid>
-                  
-                  {/* İkinci satır */}
-                  <Grid item xs={12} md={6}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="Firma ID"
-                      value={formData.firmaId}
-                      InputProps={{ readOnly: true }}
-                      sx={{ 
-                        backgroundColor: '#f1f5f9',
-                        '& .MuiInputBase-input': { fontWeight: 600 }
-                      }}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6} />
-                  
-                  {/* Üçüncü satır - Adres */}
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      label="Adres *"
-                      value={formData.adres}
-                      onChange={handleBasicFieldChange('adres')}
-                      required
-                      multiline
-                      rows={3}
-                      placeholder="Tam adres bilgisi..."
-                      error={Boolean(!formData.adres || formData.adres.length < 10)}
-                      helperText={
-                        !formData.adres 
-                          ? "❌ Adres zorunludur"
-                          : formData.adres.length < 10
-                          ? "❌ En az 10 karakter olmalıdır"
-                          : `✅ Geçerli (${formData.adres.length} karakter)`
-                      }
-                      sx={{
-                        '& .MuiFormHelperText-root': {
-                          color: formData.adres && formData.adres.length >= 10
-                            ? 'success.main'
-                            : 'error.main'
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-error': { 
-                            backgroundColor: '#fef2f2',
-                            '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                          }
-                        }
-                      }}
-                    />
-                  </Grid>
-                  
-                  {/* Dördüncü satır */}
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="Firma İli *"
-                      value={formData.firmaIl}
-                      onChange={handleBasicFieldChange('firmaIl')}
-                      required
-                      error={Boolean(!formData.firmaIl)}
-                      helperText={
-                        !formData.firmaIl
-                          ? "❌ Firma ili seçilmelidir"
-                          : "✅ Seçildi"
-                      }
-                      sx={{
-                        backgroundColor: 'white',
-                        '& .MuiFormHelperText-root': {
-                          color: formData.firmaIl ? 'success.main' : 'error.main'
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-error': { 
-                            backgroundColor: '#fef2f2',
-                            '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                          }
-                        }
-                      }}
-                    >
-                      {TURKEY_CITIES.map((il) => (
-                        <MenuItem key={il} value={il}>{il}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="Firma İlçesi"
-                      value={formData.firmaIlce}
-                      onChange={handleBasicFieldChange('firmaIlce')}
-                      disabled={!selectedIlceler.length}
-                      sx={{ backgroundColor: 'white' }}
-                    >
-                      {selectedIlceler.map((ilce) => (
-                        <MenuItem key={ilce} value={ilce}>{ilce}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="KEP Adresi"
-                      type="email"
-                      value={formData.kepAdresi}
-                      onChange={handleBasicFieldChange('kepAdresi')}
-                      placeholder="ornek@hs01.kep.tr"
-                    />
-                  </Grid>
-                  
-                  {/* Beşinci satır */}
-                  <Grid item xs={12} md={4}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={formData.yabanciSermayeli}
-                          onChange={handleBasicFieldChange('yabanciSermayeli')}
-                          size="medium"
-                          color="primary"
-                        />
-                      }
-                      label="Yabancı Sermayeli mi?"
-                      sx={{ 
-                        '& .MuiFormControlLabel-label': { 
-                          fontSize: '1rem',
-                          fontWeight: 500 
-                        } 
-                      }}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="Ana Faaliyet Konusu *"
-                      value={formData.anaFaaliyetKonusu}
-                      onChange={handleBasicFieldChange('anaFaaliyetKonusu')}
-                      required
-                      sx={{ backgroundColor: 'white' }}
-                    >
-                      {ANA_FAALIYET_KONULARI.map((faaliyet) => (
-                        <MenuItem key={faaliyet} value={faaliyet}>{faaliyet}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="ETUYS Yetki Bitiş Tarihi"
-                      type="date"
-                      value={formData.etuysYetkiBitisTarihi}
-                      onChange={handleBasicFieldChange('etuysYetkiBitisTarihi')}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-
-              {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-              
-              {/* 🏢 İletişim & Lokasyon */}
-              <Box sx={{ mt: 4, mb: 4 }}>
-                <Typography variant="h5" sx={{ 
-                  mb: 3, 
-                  fontWeight: 700, 
-                  color: '#1e40af',
-                  fontSize: '1.3rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  borderBottom: '2px solid #e5e7eb',
-                  pb: 2
-                }}>
-                  <ContactIcon sx={{ fontSize: 28 }} /> İletişim & Lokasyon
-                </Typography>
-                
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="Firma Telefonu"
-                      value={formData.firmaTelefon}
-                      onChange={handleBasicFieldChange('firmaTelefon')}
-                      placeholder="0212 000 00 00"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="Firma E-postası"
-                      type="email"
-                      value={formData.firmaEmail}
-                      onChange={handleBasicFieldChange('firmaEmail')}
-                      placeholder="info@firma.com"
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="Website"
-                      value={formData.firmaWebsite}
-                      onChange={handleBasicFieldChange('firmaWebsite')}
-                      placeholder="https://www.firma.com"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      select
-                      fullWidth
-                      label="İlk İrtibat Kişisi *"
-                      value={formData.ilkIrtibatKisi}
-                      onChange={handleBasicFieldChange('ilkIrtibatKisi')}
-                      required
-                      error={Boolean(!formData.ilkIrtibatKisi)}
-                      helperText={
-                        !formData.ilkIrtibatKisi
-                          ? "❌ İrtibat kişisi seçilmelidir"
-                          : "✅ Seçildi"
-                      }
-                      sx={{
-                        '& .MuiFormHelperText-root': {
-                          color: formData.ilkIrtibatKisi ? 'success.main' : 'error.main'
-                        },
-                        '& .MuiOutlinedInput-root': {
-                          '&.Mui-error': { 
-                            backgroundColor: '#fef2f2',
-                            '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                          }
-                        }
-                      }}
-                    >
-                      {[
-                        { name: 'Merve Koç', email: 'merve@gmplanlama.com' },
-                        { name: 'Selin Nergiz', email: 'selin@gmplanlama.com' },
-                        { name: 'Seda Durak', email: 'seda@gmplanlama.com' },
-                        { name: 'Ayşegül Gezer', email: 'aysegul@gmplanlama.com' },
-                        { name: 'Hüseyin Cahit Ağır', email: 'cahit@gmplanlama.com' }
-                      ].map((person) => (
-                        <MenuItem key={person.email} value={`${person.name} ${person.email}`}>
-                          {person.name} - {person.email}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="DYS Yetki Bitiş Tarihi"
-                      type="date"
-                      value={formData.dysYetkiBitisTarihi}
-                      onChange={handleBasicFieldChange('dysYetkiBitisTarihi')}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Grid>
-                </Grid>
-              </Box>
-
-              {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-              
-              {/* �� Yetkili Kişiler */}
-              <Box sx={{ mt: 4, mb: 4 }}>
-                <Typography variant="h5" sx={{ 
-                  mb: 3, 
-                  fontWeight: 700, 
-                  color: '#1e40af',
-                  fontSize: '1.3rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  borderBottom: '2px solid #e5e7eb',
-                  pb: 2
-                }}>
-                  <PersonIcon sx={{ fontSize: 28 }} /> Yetkili Kişiler
-                </Typography>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'space-between', 
-                  mb: 3 
-                }}>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    color: '#1e40af',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    <PersonIcon sx={{ fontSize: 20 }} />
-                    Ana Yetkili Kişi
-                  </Typography>
-                  
-                  {formData.yetkiliKisiler.length < 2 && (
-                    <Button
-                      variant="contained"
-                      size="medium"
-                      startIcon={<AddIcon />}
-                      onClick={addYetkiliKisi}
-                      sx={{ 
                         textTransform: 'none',
-                        fontSize: '1rem',
                         fontWeight: 600,
-                        px: 3,
-                        background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
-                          transform: 'translateY(-1px)'
+                          background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)'
                         }
                       }}
                     >
-                      Yetkili Ekle
+                      {loading ? 'Aranıyor...' : 'Ara'}
                     </Button>
-                  )}
-                </Box>
+                  </Grid>
+                </Grid>
                 
-                <Stack spacing={3}>
-                  {formData.yetkiliKisiler.map((yetkili, index) => (
-                    <YetkiliKisiForm
-                      key={index}
-                      yetkili={yetkili}
-                      index={index}
-                      onChange={handleYetkiliChange}
-                      onRemove={removeYetkiliKisi}
-                      canRemove={formData.yetkiliKisiler.length > 1 && index > 0}
-                    />
-                  ))}
-                </Stack>
+                {/* Enhanced Search Results */}
+                {searchResults.length > 0 && (
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="body1" sx={{ mb: 2, fontWeight: 600, color: '#6b7280' }}>
+                      {searchResults.length} firma bulundu
+                    </Typography>
+                    <Stack spacing={2}>
+                      {searchResults.slice(0, 3).map((firma) => (
+                        <Paper 
+                          key={firma._id}
+                          sx={{ 
+                            p: 2.5, 
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: 2,
+                            '&:hover': { 
+                              bgcolor: '#f9fafb',
+                              borderColor: '#3b82f6',
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.1)'
+                            }
+                          }}
+                          onClick={() => loadFirmaToForm(firma)}
+                        >
+                          <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                            <Chip 
+                              label={firma.firmaId} 
+                              color="primary" 
+                              size="medium" 
+                              sx={{ fontSize: '0.8rem', fontWeight: 600 }} 
+                            />
+                            <Typography variant="h6" sx={{ 
+                              fontWeight: 600, 
+                              flexGrow: 1, 
+                              fontSize: '1rem',
+                              color: '#1e293b'
+                            }}>
+                              {firma.tamUnvan}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem' }}>
+                              {firma.firmaIl}
+                            </Typography>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
-                {/* Notlar */}
-                <Box sx={{ mt: 4 }}>
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
-                    Ek Notlar
-                  </Typography>
-                  <MemoizedTextField
-                    fullWidth
-                    size="medium"
-                    label="Notlar"
-                    value={formData.notlar}
-                    onChange={handleBasicFieldChange('notlar')}
-                    multiline
-                    rows={4}
-                    placeholder="Ek bilgiler, özel notlar ve açıklamalar..."
-                  />
-                </Box>
-              </Box>
-
-              {/* 🎯 Action Buttons - Excel Style */}
-                {/* 💾 Submit Buttons */}
-                <Box sx={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  mt: 4,
-                  pt: 3,
-                  borderTop: '2px solid #f1f5f9'
-                }}>
-                  <Button
-                    variant="outlined"
-                    size="large"
-                    onClick={handleBack}
-                    disabled={loading}
-                    sx={{ 
-                      px: 4,
-                      py: 1.5,
-                      fontWeight: 600,
-                      borderWidth: 2,
-                      '&:hover': { borderWidth: 2 }
-                    }}
-                  >
-                    ← Geri Dön
-                  </Button>
+          {/* 📝 Main Form Card */}
+          <Card sx={{ 
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+          }}>
+            {/* 📋 Form Header */}
+            <CardHeader 
+              title={
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <Box sx={{ 
+                      backgroundColor: '#3b82f6', 
+                      borderRadius: '8px', 
+                      p: 1, 
+                      mr: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Typography sx={{ color: 'white', fontSize: '1.2rem' }}>
+                        {isEdit ? '✏️' : '➕'}
+                      </Typography>
+                    </Box>
+                    <Typography variant="h5" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                      {isEdit ? 'Firma Güncelle' : 'Yeni Firma Ekle'}
+                    </Typography>
+                  </Box>
                   
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    {/* Form Durumu Chip'i */}
+                  {/* Form Tamamlanma Durumu */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
                       label={
                         (() => {
@@ -1494,12 +877,11 @@ const FirmaForm = () => {
                             formData.yetkiliKisiler?.[0]?.eposta1
                           ].filter(Boolean);
                           
-                          const isComplete = requiredFields.length === 8;
-                          const hasValidationErrors = validationErrors.length > 0;
+                          const totalRequired = 8;
+                          const completed = requiredFields.length;
+                          const percentage = Math.round((completed / totalRequired) * 100);
                           
-                          if (hasValidationErrors) return '❌ Hatalar var';
-                          if (isComplete) return '✅ Form hazır';
-                          return `⏳ ${8 - requiredFields.length} alan eksik`;
+                          return `${completed}/${totalRequired} Zorunlu Alan (${percentage}%)`;
                         })()
                       }
                       color={
@@ -1515,96 +897,734 @@ const FirmaForm = () => {
                             formData.yetkiliKisiler?.[0]?.eposta1
                           ].filter(Boolean);
                           
-                          if (validationErrors.length > 0) return 'error';
                           if (requiredFields.length === 8) return 'success';
-                          return 'warning';
+                          if (requiredFields.length >= 6) return 'warning';
+                          return 'error';
                         })()
                       }
-                      size="medium"
+                      size="small"
                       sx={{ fontWeight: 600 }}
                     />
-                    
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      size="large"
-                      disabled={
-                        loading || 
-                        validationErrors.length > 0 ||
-                        !formData.vergiNoTC ||
-                        !formData.tamUnvan ||
-                        !formData.adres ||
-                        !formData.firmaIl ||
-                        !formData.ilkIrtibatKisi ||
-                        !formData.yetkiliKisiler?.[0]?.adSoyad ||
-                        !formData.yetkiliKisiler?.[0]?.telefon1 ||
-                        !formData.yetkiliKisiler?.[0]?.eposta1
-                      }
-                      startIcon={
-                        loading ? (
-                          <CircularProgress size={20} color="inherit" />
-                        ) : isEdit ? (
-                          <Typography>💾</Typography>
-                        ) : (
-                          <Typography>✅</Typography>
-                        )
-                      }
-                      sx={{
-                        px: 4,
-                        py: 1.5,
-                        fontSize: '1.1rem',
-                        fontWeight: 600,
-                        background: loading 
-                          ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                          : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                        '&:hover': {
-                          background: loading 
-                            ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                            : 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
-                        },
-                        '&:disabled': {
-                          background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
-                          color: '#6b7280'
-                        }
-                      }}
-                    >
-                      {loading 
-                        ? 'İşleniyor...' 
-                        : isEdit 
-                        ? 'Firma Güncelle' 
-                        : 'Firma Kaydet'
-                      }
-                    </Button>
                   </Box>
                 </Box>
-            </CardContent>
-          </form>
-        </Card>
-      </Container>
+              }
+              subheader={
+                <Typography variant="body2" sx={{ color: '#64748b', mt: 1 }}>
+                  📝 Firma bilgilerini eksiksiz doldurunuz. (*) ile işaretli alanlar zorunludur.
+                  {validationErrors.length > 0 && (
+                    <Typography component="span" sx={{ color: '#dc2626', fontWeight: 600, ml: 1 }}>
+                      ⚠️ {validationErrors.length} alan düzeltilmeyi bekliyor.
+                    </Typography>
+                  )}
+                </Typography>
+              }
+              sx={{ pb: 2 }}
+            />
+            <form onSubmit={handleSubmit}>
+              <CardContent sx={{ p: 4 }}>
+                {/* 🚨 Validation Errors - Kullanıcı Dostu Hata Gösterimi */}
+                {validationErrors.length > 0 && (
+                  <Paper 
+                    elevation={2} 
+                    sx={{ 
+                      p: 2, 
+                      mb: 3, 
+                      backgroundColor: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      borderRadius: 2
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                      <Box
+                        sx={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: '50%',
+                          backgroundColor: '#ef4444',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          mr: 1
+                        }}
+                      >
+                        <Typography sx={{ color: 'white', fontSize: '12px', fontWeight: 'bold' }}>
+                          !
+                        </Typography>
+                      </Box>
+                      <Typography variant="subtitle2" sx={{ color: '#dc2626', fontWeight: 600 }}>
+                        {validationErrors.length === 1 
+                          ? 'Düzeltilmesi gereken 1 alan var:' 
+                          : `Düzeltilmesi gereken ${validationErrors.length} alan var:`
+                        }
+                      </Typography>
+                    </Box>
+                    
+                    <Box component="ul" sx={{ m: 0, pl: 3, color: '#dc2626' }}>
+                      {validationErrors.map((error, index) => (
+                        <Box component="li" key={index} sx={{ mb: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: '#dc2626' }}>
+                            {error}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                    
+                    <Typography variant="caption" sx={{ color: '#991b1b', mt: 1, display: 'block' }}>
+                      💡 Lütfen yukarıdaki alanları kontrol edip gerekli düzeltmeleri yapın.
+                    </Typography>
+                  </Paper>
+                )}
 
-      {/* 📱 Enhanced Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert 
-          onClose={handleCloseSnackbar} 
-          severity={snackbar.severity}
-          sx={{ 
-            fontSize: '1rem',
-            fontWeight: 500,
-            '& .MuiAlert-icon': {
-              fontSize: '1.5rem'
-            }
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+                {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
+                
+                {/* 🏢 Temel Firma Bilgileri */}
+                <Box sx={{ mb: 4 }}>
+                  <Typography variant="h5" sx={{ 
+                    mb: 3, 
+                    fontWeight: 700, 
+                    color: '#1e40af',
+                    fontSize: '1.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    borderBottom: '2px solid #e5e7eb',
+                    pb: 2
+                  }}>
+                    <Box sx={{ 
+                      backgroundColor: '#3b82f6', 
+                      borderRadius: '8px', 
+                      p: 1, 
+                      mr: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Typography sx={{ color: 'white', fontSize: '1.2rem' }}>
+                        🏢
+                      </Typography>
+                    </Box>
+                    Firma Ekle / Güncelle / Ara
+                  </Typography>
+                  
+                  <Grid container spacing={3}>
+                    {/* İlk satır - Arama */}
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Vergi No/TC No *"
+                        name="vergiNoTC"
+                        value={formData.vergiNoTC}
+                        onChange={handleBasicFieldChange('vergiNoTC')}
+                        placeholder="10 haneli Vergi No veya 11 haneli TC No"
+                        helperText={
+                          formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
+                            ? "❌ Vergi No (10 hane) veya TC No (11 hane) formatında olmalıdır"
+                            : formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
+                            ? "✅ Format geçerli"
+                            : "Sadece rakam giriniz (örn: 1234567890)"
+                        }
+                        error={Boolean(formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/))}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Box sx={{ 
+                                color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/) 
+                                  ? 'success.main' 
+                                  : 'text.secondary' 
+                              }}>
+                                🏢
+                              </Box>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiFormHelperText-root': {
+                            color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
+                              ? 'success.main'
+                              : formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
+                              ? 'error.main'
+                              : 'text.secondary'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '&.Mui-error': { 
+                              backgroundColor: '#fef2f2',
+                              '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={8}>
+                      <TextField
+                        fullWidth
+                        label="Tam Ünvan *"
+                        name="tamUnvan"
+                        value={formData.tamUnvan}
+                        onChange={handleBasicFieldChange('tamUnvan')}
+                        placeholder="Şirket tam ünvanını giriniz..."
+                        helperText={
+                          formData.tamUnvan && formData.tamUnvan.length < 3
+                            ? "❌ En az 3 karakter olmalıdır"
+                            : formData.tamUnvan && formData.tamUnvan.length > 500
+                            ? "❌ 500 karakterden fazla olamaz"
+                            : formData.tamUnvan && formData.tamUnvan.length >= 3
+                            ? `✅ Geçerli (${formData.tamUnvan.length}/500 karakter)`
+                            : "Şirketin resmi ünvanını tam olarak giriniz"
+                        }
+                        error={Boolean(
+                          (formData.tamUnvan && formData.tamUnvan.length < 3) ||
+                          (formData.tamUnvan && formData.tamUnvan.length > 500)
+                        )}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Box sx={{ 
+                                color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
+                                  ? 'success.main' 
+                                  : 'text.secondary' 
+                              }}>
+                                🏛️
+                              </Box>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiFormHelperText-root': {
+                            color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
+                              ? 'success.main'
+                              : formData.tamUnvan && (formData.tamUnvan.length < 3 || formData.tamUnvan.length > 500)
+                              ? 'error.main'
+                              : 'text.secondary'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '&.Mui-error': { 
+                              backgroundColor: '#fef2f2',
+                              '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        size="large"
+                        onClick={handleSearch}
+                        disabled={loading || (!formData.vergiNoTC && !formData.tamUnvan)}
+                        startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
+                        sx={{
+                          height: '56px',
+                          fontSize: '1rem',
+                          fontWeight: 600,
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                          }
+                        }}
+                      >
+                        🔍 Kayıt Arama
+                      </Button>
+                    </Grid>
+                    
+                    {/* İkinci satır */}
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="Firma ID"
+                        value={formData.firmaId}
+                        InputProps={{ readOnly: true }}
+                        sx={{ 
+                          backgroundColor: '#f1f5f9',
+                          '& .MuiInputBase-input': { fontWeight: 600 }
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={6} />
+                    
+                    {/* Üçüncü satır - Adres */}
+                    <Grid item xs={12}>
+                      <TextField
+                        fullWidth
+                        label="Adres *"
+                        value={formData.adres}
+                        onChange={handleBasicFieldChange('adres')}
+                        required
+                        multiline
+                        rows={3}
+                        placeholder="Tam adres bilgisi..."
+                        error={Boolean(!formData.adres || formData.adres.length < 10)}
+                        helperText={
+                          !formData.adres 
+                            ? "❌ Adres zorunludur"
+                            : formData.adres.length < 10
+                            ? "❌ En az 10 karakter olmalıdır"
+                            : `✅ Geçerli (${formData.adres.length} karakter)`
+                        }
+                        sx={{
+                          '& .MuiFormHelperText-root': {
+                            color: formData.adres && formData.adres.length >= 10
+                              ? 'success.main'
+                              : 'error.main'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '&.Mui-error': { 
+                              backgroundColor: '#fef2f2',
+                              '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
+                            }
+                          }
+                        }}
+                      />
+                    </Grid>
+                    
+                    {/* Dördüncü satır */}
+                    <Grid item xs={12} md={8}>
+                      <EnhancedCitySelector
+                        selectedCity={formData.firmaIl}
+                        selectedDistrict={formData.firmaIlce}
+                        onCityChange={(city, cityCode) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            firmaIl: city,
+                            ilKod: cityCode || '',
+                            firmaIlce: '', // İl değiştiğinde ilçeyi sıfırla
+                            ilceKod: ''
+                          }));
+                        }}
+                        onDistrictChange={(district, districtCode) => {
+                          setFormData(prev => ({
+                            ...prev,
+                            firmaIlce: district,
+                            ilceKod: districtCode || ''
+                          }));
+                        }}
+                        required={true}
+                        showCodes={true}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="KEP Adresi"
+                        type="email"
+                        value={formData.kepAdresi}
+                        onChange={handleBasicFieldChange('kepAdresi')}
+                        placeholder="ornek@hs01.kep.tr"
+                      />
+                    </Grid>
+                    
+                    {/* Beşinci satır */}
+                    <Grid item xs={12} md={4}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formData.yabanciSermayeli}
+                            onChange={handleBasicFieldChange('yabanciSermayeli')}
+                            size="medium"
+                            color="primary"
+                          />
+                        }
+                        label="Yabancı Sermayeli mi?"
+                        sx={{ 
+                          '& .MuiFormControlLabel-label': { 
+                            fontSize: '1rem',
+                            fontWeight: 500 
+                          } 
+                        }}
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="Ana Faaliyet Konusu *"
+                        value={formData.anaFaaliyetKonusu}
+                        onChange={handleBasicFieldChange('anaFaaliyetKonusu')}
+                        required
+                        sx={{ backgroundColor: 'white' }}
+                      >
+                        {YATIRIM_DATA.YATIRIM_KONULARI.map((yatirimKonusu) => (
+                          <MenuItem key={yatirimKonusu} value={yatirimKonusu}>
+                            {yatirimKonusu}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+                    
+                    <Grid item xs={12} md={4}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="ETUYS Yetki Bitiş Tarihi"
+                        type="date"
+                        value={formData.etuysYetkiBitisTarihi}
+                        onChange={handleBasicFieldChange('etuysYetkiBitisTarihi')}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                    
+
+                  </Grid>
+                </Box>
+
+                {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
+                
+                {/* 🏢 İletişim & Lokasyon */}
+                <Box sx={{ mt: 4, mb: 4 }}>
+                  <Typography variant="h5" sx={{ 
+                    mb: 3, 
+                    fontWeight: 700, 
+                    color: '#1e40af',
+                    fontSize: '1.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    borderBottom: '2px solid #e5e7eb',
+                    pb: 2
+                  }}>
+                    <ContactIcon sx={{ fontSize: 28 }} /> İletişim & Lokasyon
+                  </Typography>
+                  
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="Firma Telefonu"
+                        value={formData.firmaTelefon}
+                        onChange={handleBasicFieldChange('firmaTelefon')}
+                        placeholder="0212 000 00 00"
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="Firma E-postası"
+                        type="email"
+                        value={formData.firmaEmail}
+                        onChange={handleBasicFieldChange('firmaEmail')}
+                        placeholder="info@firma.com"
+                      />
+                    </Grid>
+                    
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="Website"
+                        value={formData.firmaWebsite}
+                        onChange={handleBasicFieldChange('firmaWebsite')}
+                        placeholder="https://www.firma.com"
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <TextField
+                        select
+                        fullWidth
+                        label="İlk İrtibat Kişisi *"
+                        value={formData.ilkIrtibatKisi}
+                        onChange={handleBasicFieldChange('ilkIrtibatKisi')}
+                        required
+                        error={Boolean(!formData.ilkIrtibatKisi)}
+                        helperText={
+                          !formData.ilkIrtibatKisi
+                            ? "❌ İrtibat kişisi seçilmelidir"
+                            : "✅ Seçildi"
+                        }
+                        sx={{
+                          '& .MuiFormHelperText-root': {
+                            color: formData.ilkIrtibatKisi ? 'success.main' : 'error.main'
+                          },
+                          '& .MuiOutlinedInput-root': {
+                            '&.Mui-error': { 
+                              backgroundColor: '#fef2f2',
+                              '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
+                            }
+                          }
+                        }}
+                      >
+                        {[
+                          { name: 'Merve Koç', email: 'merve@gmplanlama.com' },
+                          { name: 'Selin Nergiz', email: 'selin@gmplanlama.com' },
+                          { name: 'Seda Durak', email: 'seda@gmplanlama.com' },
+                          { name: 'Ayşegül Gezer', email: 'aysegul@gmplanlama.com' },
+                          { name: 'Hüseyin Cahit Ağır', email: 'cahit@gmplanlama.com' }
+                        ].map((person) => (
+                          <MenuItem key={person.email} value={`${person.name} ${person.email}`}>
+                            {person.name} - {person.email}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        size="medium"
+                        label="DYS Yetki Bitiş Tarihi"
+                        type="date"
+                        value={formData.dysYetkiBitisTarihi}
+                        onChange={handleBasicFieldChange('dysYetkiBitisTarihi')}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+                  </Grid>
+                </Box>
+
+                {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
+                
+                {/* 👥 Yetkili Kişiler */}
+                <Box sx={{ mt: 4, mb: 4 }}>
+                  <Typography variant="h5" sx={{ 
+                    mb: 3, 
+                    fontWeight: 700, 
+                    color: '#1e40af',
+                    fontSize: '1.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    borderBottom: '2px solid #e5e7eb',
+                    pb: 2
+                  }}>
+                    <PersonIcon sx={{ fontSize: 28 }} /> Yetkili Kişiler
+                  </Typography>
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    mb: 3 
+                  }}>
+                    <Typography variant="h6" sx={{ 
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      color: '#1e40af',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 1
+                    }}>
+                      <PersonIcon sx={{ fontSize: 20 }} />
+                      Ana Yetkili Kişi
+                    </Typography>
+                    
+                    {formData.yetkiliKisiler.length < 2 && (
+                      <Button
+                        variant="contained"
+                        size="medium"
+                        startIcon={<AddIcon />}
+                        onClick={addYetkiliKisi}
+                        sx={{ 
+                          textTransform: 'none',
+                          fontSize: '1rem',
+                          fontWeight: 600,
+                          px: 3,
+                          background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                          '&:hover': {
+                            background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                            transform: 'translateY(-1px)'
+                          }
+                        }}
+                      >
+                        Yetkili Ekle
+                      </Button>
+                    )}
+                  </Box>
+                  
+                  <Stack spacing={3}>
+                    {formData.yetkiliKisiler.map((yetkili, index) => (
+                      <YetkiliKisiForm
+                        key={index}
+                        yetkili={yetkili}
+                        index={index}
+                        onChange={handleYetkiliChange}
+                        onRemove={removeYetkiliKisi}
+                        canRemove={formData.yetkiliKisiler.length > 1 && index > 0}
+                      />
+                    ))}
+                  </Stack>
+
+                  {/* Notlar */}
+                  <Box sx={{ mt: 4 }}>
+                    <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
+                      Ek Notlar
+                    </Typography>
+                    <MemoizedTextField
+                      fullWidth
+                      size="medium"
+                      label="Notlar"
+                      value={formData.notlar}
+                      onChange={handleBasicFieldChange('notlar')}
+                      multiline
+                      rows={4}
+                      placeholder="Ek bilgiler, özel notlar ve açıklamalar..."
+                    />
+                  </Box>
+                </Box>
+
+                {/* 🎯 Action Buttons - Excel Style */}
+                  {/* 💾 Submit Buttons */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    mt: 4,
+                    pt: 3,
+                    borderTop: '2px solid #f1f5f9'
+                  }}>
+                    <Button
+                      variant="outlined"
+                      size="large"
+                      onClick={handleBack}
+                      disabled={loading}
+                      sx={{ 
+                        px: 4,
+                        py: 1.5,
+                        fontWeight: 600,
+                        borderWidth: 2,
+                        '&:hover': { borderWidth: 2 }
+                      }}
+                    >
+                      ← Geri Dön
+                    </Button>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {/* Form Durumu Chip'i */}
+                      <Chip
+                        label={
+                          (() => {
+                            const requiredFields = [
+                              formData.vergiNoTC,
+                              formData.tamUnvan,
+                              formData.adres,
+                              formData.firmaIl,
+                              formData.ilkIrtibatKisi,
+                              formData.yetkiliKisiler?.[0]?.adSoyad,
+                              formData.yetkiliKisiler?.[0]?.telefon1,
+                              formData.yetkiliKisiler?.[0]?.eposta1
+                            ].filter(Boolean);
+                            
+                            const isComplete = requiredFields.length === 8;
+                            const hasValidationErrors = validationErrors.length > 0;
+                            
+                            if (hasValidationErrors) return '❌ Hatalar var';
+                            if (isComplete) return '✅ Form hazır';
+                            return `⏳ ${8 - requiredFields.length} alan eksik`;
+                          })()
+                        }
+                        color={
+                          (() => {
+                            const requiredFields = [
+                              formData.vergiNoTC,
+                              formData.tamUnvan,
+                              formData.adres,
+                              formData.firmaIl,
+                              formData.ilkIrtibatKisi,
+                              formData.yetkiliKisiler?.[0]?.adSoyad,
+                              formData.yetkiliKisiler?.[0]?.telefon1,
+                              formData.yetkiliKisiler?.[0]?.eposta1
+                            ].filter(Boolean);
+                            
+                            if (validationErrors.length > 0) return 'error';
+                            if (requiredFields.length === 8) return 'success';
+                            return 'warning';
+                          })()
+                        }
+                        size="medium"
+                        sx={{ fontWeight: 600 }}
+                      />
+                      
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        size="large"
+                        disabled={
+                          loading || 
+                          validationErrors.length > 0 ||
+                          !formData.vergiNoTC ||
+                          !formData.tamUnvan ||
+                          !formData.adres ||
+                          !formData.firmaIl ||
+                          !formData.ilkIrtibatKisi ||
+                          !formData.yetkiliKisiler?.[0]?.adSoyad ||
+                          !formData.yetkiliKisiler?.[0]?.telefon1 ||
+                          !formData.yetkiliKisiler?.[0]?.eposta1
+                        }
+                        startIcon={
+                          loading ? (
+                            <CircularProgress size={20} color="inherit" />
+                          ) : isEdit ? (
+                            <Typography>💾</Typography>
+                          ) : (
+                            <Typography>✅</Typography>
+                          )
+                        }
+                        sx={{
+                          px: 4,
+                          py: 1.5,
+                          fontSize: '1.1rem',
+                          fontWeight: 600,
+                          background: loading 
+                            ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
+                            : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                          '&:hover': {
+                            background: loading 
+                              ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
+                              : 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                          },
+                          '&:disabled': {
+                            background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
+                            color: '#6b7280'
+                          }
+                        }}
+                      >
+                        {loading 
+                          ? 'İşleniyor...' 
+                          : isEdit 
+                          ? 'Firma Güncelle' 
+                          : 'Firma Kaydet'
+                        }
+                      </Button>
+                    </Box>
+                  </Box>
+              </CardContent>
+            </form>
+          </Card>
+
+          {/* 📱 Enhanced Snackbar */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={4000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          >
+            <Alert 
+              onClose={handleCloseSnackbar} 
+              severity={snackbar.severity}
+              sx={{ 
+                fontSize: '1rem',
+                fontWeight: 500,
+                '& .MuiAlert-icon': {
+                  fontSize: '1.5rem'
+                }
+              }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Container>
+      </Box>
     </Box>
   );
 };
 
-export default FirmaForm; 
+export default FirmaForm;

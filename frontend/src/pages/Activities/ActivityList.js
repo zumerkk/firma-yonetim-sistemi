@@ -21,7 +21,8 @@ import {
   LinearProgress,
   Stack,
   Avatar,
-  Pagination
+  Pagination,
+  Container
 } from '@mui/material';
 import {
   History as HistoryIcon,
@@ -33,9 +34,16 @@ import {
   Sort as SortIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
+// 🎯 Layout Components Import
+import Header from '../../components/Layout/Header';
+import Sidebar from '../../components/Layout/Sidebar';
 import activityService from '../../services/activityService';
 
 const ActivityList = () => {
+  // 🎯 Layout State Management
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -61,6 +69,19 @@ const ActivityList = () => {
     actions: [],
     users: []
   });
+
+  // 📱 Responsive Handling
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // 📢 Snackbar helper
   const showSnackbar = useCallback((message, severity = 'success') => {
@@ -143,6 +164,33 @@ const ActivityList = () => {
     setPagination(prev => ({ ...prev, page: value }));
   };
 
+  // 🔤 Türkçe çeviriler
+  const getCategoryLabel = (category) => {
+    const labels = {
+      'system': 'Sistem',
+      'firma': 'Firma',
+      'user': 'Kullanıcı',
+      'tesvik': 'Teşvik',
+      'auth': 'Kimlik Doğrulama',
+      'certificate': 'Belge'
+    };
+    return labels[category] || category;
+  };
+
+  const getActionLabel = (action) => {
+    const labels = {
+      'create': 'Oluştur',
+      'update': 'Güncelle', 
+      'delete': 'Sil',
+      'view': 'Görüntüle',
+      'export': 'Dışa Aktar',
+      'import': 'İçe Aktar',
+      'generate': 'Oluştur',
+      'restore': 'Geri Yükle'
+    };
+    return labels[action] || action;
+  };
+
   const handleClearFilters = () => {
     setFilters({
       kategori: '',
@@ -156,227 +204,261 @@ const ActivityList = () => {
 
   // 🔍 Activity detail view
   const handleViewDetail = (activity) => {
-    showSnackbar(`Aktivite detayı: ${activity.aksiyon}`, 'info');
+    showSnackbar(`Aktivite detayı: ${activity.title}`, 'info');
   };
 
   return (
     <Box sx={{ 
-      p: 3,
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-      minHeight: '100vh'
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
+      height: '100vh',
+      backgroundColor: '#f8fafc'
     }}>
-      {/* 📱 Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
-          📋 Aktivite Geçmişi
-            </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Sistem üzerindeki tüm işlemler ve değişiklikler
-            </Typography>
-          </Box>
-          
-      {/* 🔍 Search & Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2}>
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-                placeholder="Arama yapın..."
-              value={searchQuery}
-                onChange={handleSearchChange}
-              InputProps={{
-                  startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
-              }}
-            />
-          </Grid>
-          
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Kategori</InputLabel>
-              <Select
-                value={filters.kategori}
-                label="Kategori"
-                onChange={(e) => handleFilterChange({ ...filters, kategori: e.target.value })}
-              >
-                <MenuItem value="">Tümü</MenuItem>
-                {filterOptions.categories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={2}>
-            <FormControl fullWidth size="small">
-              <InputLabel>İşlem</InputLabel>
-              <Select
-                value={filters.aksiyon}
-                label="İşlem"
-                onChange={(e) => handleFilterChange({ ...filters, aksiyon: e.target.value })}
-              >
-                <MenuItem value="">Tümü</MenuItem>
-                {filterOptions.actions.map((action) => (
-                    <MenuItem key={action} value={action}>{action}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          
-          <Grid item xs={12} md={3}>
-            <Stack direction="row" spacing={1}>
-              <Button
-                variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={loadActivities}
-                  disabled={loading}
-                >
-                  Yenile
-              </Button>
-              <Button
-                variant="outlined"
-                  startIcon={<SortIcon />}
-                  onClick={handleClearFilters}
-              >
-                Temizle
-              </Button>
-            </Stack>
-          </Grid>
-        </Grid>
-        </CardContent>
-      </Card>
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+      </Box>
 
-      {/* 📊 Activities List */}
-      {loading ? (
-        <Card>
-          <CardContent>
-            <LinearProgress sx={{ mb: 2 }} />
-            <Typography variant="body2" color="text.secondary" textAlign="center">
-              Aktiviteler yükleniyor...
-            </Typography>
-          </CardContent>
-        </Card>
-      ) : error ? (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {error}
-        </Alert>
-      ) : activities.length > 0 ? (
-        <>
-          <Stack spacing={2}>
-            {activities.map((activity, index) => (
-              <Card key={activity._id} sx={{ border: '1px solid rgba(25, 118, 210, 0.1)' }}>
-                <CardContent sx={{ py: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
-                      <HistoryIcon />
-                    </Avatar>
-                    
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
-                          {activity.aksiyon}
-                  </Typography>
-                  <Chip
-                          label={activity.kategori} 
-                    size="small"
-                          color="primary" 
-                          variant="outlined" 
-                        />
-                      </Box>
-                      
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        {activity.mesaj}
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <ScheduleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                          <Typography variant="caption" color="text.secondary">
-                            {new Date(activity.createdAt).toLocaleString('tr-TR')}
-                          </Typography>
-                        </Box>
-                        
-                        {activity.kullanici && (
-                          <>
-                            <Typography variant="caption" color="text.secondary">•</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary">
-                                {activity.kullanici.adSoyad || activity.kullanici.email}
-                              </Typography>
-                            </Box>
-                          </>
-                        )}
-                        
-                        {activity.firmaId && (
-                          <>
-                            <Typography variant="caption" color="text.secondary">•</Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <BusinessIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                              <Typography variant="caption" color="text.secondary">
-                                {activity.firmaId}
-                              </Typography>
-                            </Box>
-                          </>
-                        )}
-                      </Box>
-                    </Box>
-                    
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => handleViewDetail(activity)}
-                      startIcon={<InfoIcon />}
-                    >
-                      Detay
-                    </Button>
-                  </Box>
-                </CardContent>
-              </Card>
-            ))}
-          </Stack>
-          
-          {/* 📄 Pagination */}
-          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-            <Pagination
-              count={Math.ceil(pagination.total / pagination.limit)}
-              page={pagination.page}
-              onChange={handlePageChange}
-              color="primary"
-              showFirstButton 
-              showLastButton
-            />
-            </Box>
-        </>
-      ) : (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <HistoryIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">
-            Aktivite bulunamadı
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Arama kriterlerinizi değiştirmeyi deneyin
-          </Typography>
-        </Paper>
+      {/* Sidebar */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
+        </Box>
       )}
 
-      {/* 📢 Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <Alert 
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          variant="filled"
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{ 
+        gridArea: 'content',
+        overflow: 'auto',
+        p: 3
+      }}>
+        <Container maxWidth="xl">
+          {/* 📱 Header */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
+              📋 Aktivite Geçmişi
+                </Typography>
+            <Typography variant="subtitle1" color="text.secondary">
+              Sistem üzerindeki tüm işlemler ve değişiklikler
+                </Typography>
+              </Box>
+              
+          {/* 🔍 Search & Filters */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Grid container spacing={2}>
+              <Grid item xs={12} md={3}>
+                <TextField
+                  fullWidth
+                  size="small"
+                    placeholder="Arama yapın..."
+                  value={searchQuery}
+                    onChange={handleSearchChange}
+                  InputProps={{
+                      startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  }}
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Kategori</InputLabel>
+                  <Select
+                    value={filters.kategori}
+                    label="Kategori"
+                    onChange={(e) => handleFilterChange({ ...filters, kategori: e.target.value })}
+                  >
+                    <MenuItem value="">Tümü</MenuItem>
+                    {filterOptions.categories.map((cat) => (
+                        <MenuItem key={cat} value={cat}>{getCategoryLabel(cat)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={2}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>İşlem</InputLabel>
+                  <Select
+                    value={filters.aksiyon}
+                    label="İşlem"
+                    onChange={(e) => handleFilterChange({ ...filters, aksiyon: e.target.value })}
+                  >
+                    <MenuItem value="">Tümü</MenuItem>
+                    {filterOptions.actions.map((action) => (
+                        <MenuItem key={action} value={action}>{getActionLabel(action)}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={3}>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    variant="outlined"
+                      startIcon={<RefreshIcon />}
+                      onClick={loadActivities}
+                      disabled={loading}
+                    >
+                      Yenile
+                  </Button>
+                  <Button
+                    variant="outlined"
+                      startIcon={<SortIcon />}
+                      onClick={handleClearFilters}
+                  >
+                    Temizle
+                  </Button>
+                </Stack>
+              </Grid>
+            </Grid>
+            </CardContent>
+          </Card>
+
+          {/* 📊 Activities List */}
+          {loading ? (
+            <Card>
+              <CardContent>
+                <LinearProgress sx={{ mb: 2 }} />
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  Aktiviteler yükleniyor...
+                </Typography>
+              </CardContent>
+            </Card>
+          ) : error ? (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          ) : activities.length > 0 ? (
+            <>
+              <Stack spacing={2}>
+                {activities.map((activity, index) => (
+                  <Card key={activity._id} sx={{ border: '1px solid rgba(25, 118, 210, 0.1)' }}>
+                    <CardContent sx={{ py: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main', width: 40, height: 40 }}>
+                          <HistoryIcon />
+                        </Avatar>
+                        
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                            <Typography variant="h6" sx={{ fontSize: '1rem', fontWeight: 600 }}>
+                              {activity.title || getActionLabel(activity.action)}
+                      </Typography>
+                      <Chip
+                              label={getCategoryLabel(activity.category)} 
+                        size="small"
+                              color="primary" 
+                              variant="outlined" 
+                            />
+                          </Box>
+                          
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                            {activity.description}
+                          </Typography>
+                          
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <ScheduleIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                              <Typography variant="caption" color="text.secondary">
+                                {new Date(activity.createdAt).toLocaleString('tr-TR')}
+                              </Typography>
+                            </Box>
+                            
+                            {activity.user && (
+                              <>
+                                <Typography variant="caption" color="text.secondary">•</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <PersonIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {activity.user.name || activity.user.email}
+                                  </Typography>
+                                </Box>
+                              </>
+                            )}
+                            
+                            {activity.targetResource?.firmaId && (
+                              <>
+                                <Typography variant="caption" color="text.secondary">•</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <BusinessIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                  <Typography variant="caption" color="text.secondary">
+                                    {activity.targetResource.name || activity.targetResource.firmaId}
+                                  </Typography>
+                                </Box>
+                              </>
+                            )}
+                          </Box>
+                        </Box>
+                        
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          onClick={() => handleViewDetail(activity)}
+                          startIcon={<InfoIcon />}
+                        >
+                          Detay
+                        </Button>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+              
+              {/* 📄 Pagination */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                <Pagination
+                  count={Math.ceil(pagination.total / pagination.limit)}
+                  page={pagination.page}
+                  onChange={handlePageChange}
+                  color="primary"
+                  showFirstButton 
+                  showLastButton
+                />
+                </Box>
+            </>
+          ) : (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <HistoryIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary">
+                Aktivite bulunamadı
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Arama kriterlerinizi değiştirmeyi deneyin
+              </Typography>
+            </Paper>
+          )}
+
+          {/* 📢 Snackbar */}
+          <Snackbar
+            open={snackbar.open}
+            autoHideDuration={4000}
+            onClose={handleCloseSnackbar}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Alert 
+              onClose={handleCloseSnackbar}
+              severity={snackbar.severity}
+              variant="filled"
+              sx={{ width: '100%' }}
+            >
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </Container>
+      </Box>
     </Box>
   );
 };

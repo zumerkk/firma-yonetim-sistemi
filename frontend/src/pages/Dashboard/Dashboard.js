@@ -29,12 +29,19 @@ import {
 } from '@mui/icons-material';
 import { useFirma } from '../../contexts/FirmaContext';
 import activityService from '../../services/activityService';
+import Header from '../../components/Layout/Header';
+import Sidebar from '../../components/Layout/Sidebar';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { firmalar, loading, stats, fetchFirmalar, fetchStats } = useFirma();
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivities, setRecentActivities] = useState([]);
+  const [criticalAlerts, setCriticalAlerts] = useState([]);
+  
+  // 📊 Sidebar Management
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   // 📋 Load Recent Activities
   const loadRecentActivities = useCallback(async () => {
@@ -48,6 +55,107 @@ const Dashboard = () => {
     }
   }, []);
 
+  // 🚨 Calculate Critical Alerts
+  const calculateCriticalAlerts = useCallback(() => {
+    if (!firmalar || firmalar.length === 0) {
+      setCriticalAlerts([]);
+      return;
+    }
+
+    const today = new Date();
+    const alerts = [];
+
+    // ETUYS yetki süresi kontrolü
+    const etuysExpired = firmalar.filter(firma => {
+      if (!firma.etuysYetkiBitisTarihi || firma.aktif === false) return false;
+      const expiryDate = new Date(firma.etuysYetkiBitisTarihi);
+      return expiryDate < today;
+    });
+
+    const etuysExpiringSoon = firmalar.filter(firma => {
+      if (!firma.etuysYetkiBitisTarihi || firma.aktif === false) return false;
+      const expiryDate = new Date(firma.etuysYetkiBitisTarihi);
+      const diffTime = expiryDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 30;
+    });
+
+    // DYS yetki süresi kontrolü
+    const dysExpired = firmalar.filter(firma => {
+      if (!firma.dysYetkiBitisTarihi || firma.aktif === false) return false;
+      const expiryDate = new Date(firma.dysYetkiBitisTarihi);
+      return expiryDate < today;
+    });
+
+    const dysExpiringSoon = firmalar.filter(firma => {
+      if (!firma.dysYetkiBitisTarihi || firma.aktif === false) return false;
+      const expiryDate = new Date(firma.dysYetkiBitisTarihi);
+      const diffTime = expiryDate - today;
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays >= 0 && diffDays <= 30;
+    });
+
+    // Kritik uyarıları oluştur
+    if (etuysExpired.length > 0) {
+      alerts.push({
+        type: 'error',
+        title: 'ETUYS Yetki Süresi Geçmiş',
+        count: etuysExpired.length,
+        message: `${etuysExpired.length} firmanın ETUYS yetki süresi geçmiş`,
+        firms: etuysExpired.slice(0, 3),
+        action: () => navigate('/firmalar?etuysGecmis=true')
+      });
+    }
+
+    if (dysExpired.length > 0) {
+      alerts.push({
+        type: 'error',
+        title: 'DYS Yetki Süresi Geçmiş',
+        count: dysExpired.length,
+        message: `${dysExpired.length} firmanın DYS yetki süresi geçmiş`,
+        firms: dysExpired.slice(0, 3),
+        action: () => navigate('/firmalar?dysGecmis=true')
+      });
+    }
+
+    if (etuysExpiringSoon.length > 0) {
+      alerts.push({
+        type: 'warning',
+        title: 'ETUYS Yetki Süresi Yaklaşıyor',
+        count: etuysExpiringSoon.length,
+        message: `${etuysExpiringSoon.length} firmanın ETUYS yetki süresi 30 gün içinde bitiyor`,
+        firms: etuysExpiringSoon.slice(0, 3),
+        action: () => navigate('/firmalar?etuysUyari=true')
+      });
+    }
+
+    if (dysExpiringSoon.length > 0) {
+      alerts.push({
+        type: 'warning',
+        title: 'DYS Yetki Süresi Yaklaşıyor',
+        count: dysExpiringSoon.length,
+        message: `${dysExpiringSoon.length} firmanın DYS yetki süresi 30 gün içinde bitiyor`,
+        firms: dysExpiringSoon.slice(0, 3),
+        action: () => navigate('/firmalar?dysUyari=true')
+      });
+    }
+
+    setCriticalAlerts(alerts);
+  }, [firmalar, navigate]);
+
+  // 📱 Responsive Handling
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // 🔄 Data Loading
   useEffect(() => {
     const loadData = async () => {
@@ -59,6 +167,11 @@ const Dashboard = () => {
     };
     loadData();
   }, [fetchFirmalar, fetchStats, loadRecentActivities]);
+
+  // 🚨 Calculate Critical Alerts when firmalar changes
+  useEffect(() => {
+    calculateCriticalAlerts();
+  }, [calculateCriticalAlerts]);
 
   // 🔄 Manual Refresh
   const handleRefresh = async () => {
@@ -151,15 +264,43 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ 
-      width: '100%',
-      height: '100%',
-      p: { xs: 2, sm: 2.5, md: 3 },
-      boxSizing: 'border-box',
-      bgcolor: '#f8fafc',
-      overflow: 'auto',
-      display: 'flex',
-      flexDirection: 'column',
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
+      height: '100vh',
+      backgroundColor: '#f8fafc'
     }}>
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+      </Box>
+
+      {/* Sidebar */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
+        </Box>
+      )}
+
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{ 
+        gridArea: 'content',
+        overflow: 'auto',
+        p: { xs: 2, sm: 2.5, md: 3 },
+        display: 'flex',
+        flexDirection: 'column'
+      }}>
       {/* 👋 Compact Welcome Section */}
       <Box sx={{ mb: 2.5, position: 'relative' }}>
         <Box sx={{ 
@@ -244,6 +385,101 @@ const Dashboard = () => {
 
       {/* Loading Bar */}
       {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
+
+      {/* 🚨 Critical Alerts Section */}
+      {criticalAlerts.length > 0 && (
+        <Card sx={{ 
+          mb: 3,
+          borderRadius: 2,
+          border: '2px solid #ef4444',
+          background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)'
+        }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <WarningIcon sx={{ color: '#dc2626', mr: 1, fontSize: 24 }} />
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '1.1rem' }}>
+                🚨 Kritik Durumlar
+              </Typography>
+              <Chip 
+                label={`${criticalAlerts.length} Uyarı`}
+                size="small"
+                color="error"
+                sx={{ ml: 2, fontWeight: 600 }}
+              />
+            </Box>
+            
+            <Grid container spacing={2}>
+              {criticalAlerts.map((alert, index) => (
+                <Grid item xs={12} md={6} key={index}>
+                  <Card 
+                    onClick={alert.action}
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: alert.type === 'error' ? '1px solid #fca5a5' : '1px solid #fcd34d',
+                      background: alert.type === 'error' ? '#fef2f2' : '#fffbeb',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                      }
+                    }}
+                  >
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                        <Typography variant="subtitle1" sx={{ 
+                          fontWeight: 700, 
+                          color: alert.type === 'error' ? '#dc2626' : '#d97706',
+                          fontSize: '0.9rem'
+                        }}>
+                          {alert.title}
+                        </Typography>
+                        <Chip 
+                          label={alert.count}
+                          size="small"
+                          color={alert.type === 'error' ? 'error' : 'warning'}
+                          sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                        />
+                      </Box>
+                      
+                      <Typography variant="body2" sx={{ 
+                        color: alert.type === 'error' ? '#991b1b' : '#92400e',
+                        mb: 1.5,
+                        fontSize: '0.8rem'
+                      }}>
+                        {alert.message}
+                      </Typography>
+                      
+                      {alert.firms && alert.firms.length > 0 && (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {alert.firms.map((firma, firmIndex) => (
+                            <Typography key={firmIndex} variant="caption" sx={{ 
+                              color: '#6b7280',
+                              fontSize: '0.7rem',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}>
+                              • {firma.tamUnvan} ({firma.firmaId})
+                            </Typography>
+                          ))}
+                          {alert.count > 3 && (
+                            <Typography variant="caption" sx={{ 
+                              color: '#6b7280',
+                              fontSize: '0.7rem',
+                              fontStyle: 'italic'
+                            }}>
+                              ... ve {alert.count - 3} firma daha
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
       {/* 📊 Compact Dashboard Stats Cards - CLICKABLE */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -570,8 +806,9 @@ const Dashboard = () => {
           </Card>
         </Grid>
       </Grid>
+      </Box>
     </Box>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

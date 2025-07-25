@@ -114,7 +114,7 @@ const validateCreateFirma = [
     .trim(),
     
   body('firmaIlce')
-    .optional()
+    .optional({ checkFalsy: true })
     .isLength({ min: 2, max: 50 })
     .withMessage('Firma ilçesi 2-50 karakter arasında olmalıdır')
     .trim(),
@@ -139,23 +139,35 @@ const validateCreateFirma = [
     
   // Yetki bitiş tarihleri
   body('etuysYetkiBitisTarihi')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
     .custom((value) => {
-      if (value && new Date(value) <= new Date()) {
-        throw new Error('ETUYS yetki bitiş tarihi gelecek bir tarih olmalıdır');
+      if (value && value.trim() !== '') {
+        const inputDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
+        
+        if (inputDate < today) {
+          throw new Error('ETUYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
+        }
       }
       return true;
     }),
     
   body('dysYetkiBitisTarihi')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
     .custom((value) => {
-      if (value && new Date(value) <= new Date()) {
-        throw new Error('DYS yetki bitiş tarihi gelecek bir tarih olmalıdır');
+      if (value && value.trim() !== '') {
+        const inputDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
+        
+        if (inputDate < today) {
+          throw new Error('DYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
+        }
       }
       return true;
     }),
@@ -181,8 +193,17 @@ const validateCreateFirma = [
     .normalizeEmail(),
     
   body('firmaWebsite')
-    .optional()
-    .isURL()
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        // URL validation - http:// veya https:// ile başlamalı
+        const urlPattern = /^https?:\/\/.+/;
+        if (!urlPattern.test(value)) {
+          throw new Error('Website adresi http:// veya https:// ile başlamalıdır');
+        }
+      }
+      return true;
+    })
     .withMessage('Geçerli bir website adresi giriniz'),
     
   body('notlar')
@@ -287,7 +308,7 @@ const validateUpdateFirma = [
     .trim(),
     
   body('firmaIlce')
-    .optional()
+    .optional({ checkFalsy: true })
     .isLength({ min: 2, max: 50 })
     .withMessage('Firma ilçesi 2-50 karakter arasında olmalıdır')
     .trim(),
@@ -310,23 +331,35 @@ const validateUpdateFirma = [
     .trim(),
     
   body('etuysYetkiBitisTarihi')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
     .custom((value) => {
-      if (value && new Date(value) <= new Date()) {
-        throw new Error('ETUYS yetki bitiş tarihi gelecek bir tarih olmalıdır');
+      if (value && value.trim() !== '') {
+        const inputDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
+        
+        if (inputDate < today) {
+          throw new Error('ETUYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
+        }
       }
       return true;
     }),
     
   body('dysYetkiBitisTarihi')
-    .optional()
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
     .custom((value) => {
-      if (value && new Date(value) <= new Date()) {
-        throw new Error('DYS yetki bitiş tarihi gelecek bir tarih olmalıdır');
+      if (value && value.trim() !== '') {
+        const inputDate = new Date(value);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
+        
+        if (inputDate < today) {
+          throw new Error('DYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
+        }
       }
       return true;
     }),
@@ -349,8 +382,17 @@ const validateUpdateFirma = [
     .normalizeEmail(),
     
   body('firmaWebsite')
-    .optional()
-    .isURL()
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        // URL validation - http:// veya https:// ile başlamalı
+        const urlPattern = /^https?:\/\/.+/;
+        if (!urlPattern.test(value)) {
+          throw new Error('Website adresi http:// veya https:// ile başlamalıdır');
+        }
+      }
+      return true;
+    })
     .withMessage('Geçerli bir website adresi giriniz'),
     
   body('notlar')
@@ -394,6 +436,84 @@ const validateUpdateFirma = [
     .normalizeEmail()
 ];
 
+// 🏆 TEŞVİK VALİDASYONLARI - ENTERPRISE EDITION
+const validateCreateTesvik = [
+  body('gmId')
+    .notEmpty()
+    .withMessage('GM ID zorunludur')
+    .trim()
+    .isLength({ min: 3, max: 50 })
+    .withMessage('GM ID 3-50 karakter arasında olmalıdır'),
+    
+  body('firma')
+    .notEmpty()
+    .withMessage('Firma seçimi zorunludur')
+    .isMongoId()
+    .withMessage('Geçersiz firma ID'),
+    
+  body('yatirimciUnvan')
+    .notEmpty()
+    .withMessage('Yatırımcı ünvanı zorunludur')
+    .trim()
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Yatırımcı ünvanı 3-500 karakter arasında olmalıdır'),
+    
+  body('yatirimBilgileri.yatirimKonusu')
+    .notEmpty()
+    .withMessage('Yatırım konusu zorunludur')
+    .trim()
+    .isLength({ min: 3, max: 200 })
+    .withMessage('Yatırım konusu 3-200 karakter arasında olmalıdır'),
+    
+  body('yatirimBilgileri.destekSinifi')
+    .notEmpty()
+    .withMessage('Destek sınıfı zorunludur')
+    .trim(),
+    
+  body('yatirimBilgileri.yerinIl')
+    .notEmpty()
+    .withMessage('Yatırım yeri ili zorunludur')
+    .trim(),
+    
+  body('belgeYonetimi.belgeNo')
+    .notEmpty()
+    .withMessage('Belge numarası zorunludur')
+    .trim(),
+    
+  body('belgeYonetimi.belgeTarihi')
+    .notEmpty()
+    .withMessage('Belge tarihi zorunludur')
+    .isISO8601()
+    .withMessage('Geçerli bir tarih giriniz'),
+];
+
+const validateUpdateTesvik = [
+  body('yatirimciUnvan')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 500 })
+    .withMessage('Yatırımcı ünvanı 3-500 karakter arasında olmalıdır'),
+    
+  body('durumBilgileri.genelDurum')
+    .optional()
+    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'])
+    .withMessage('Geçersiz durum'),
+];
+
+const validateDurumUpdate = [
+  body('yeniDurum')
+    .notEmpty()
+    .withMessage('Yeni durum zorunludur')
+    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'])
+    .withMessage('Geçersiz durum'),
+    
+  body('aciklama')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Açıklama 500 karakterden fazla olamaz'),
+];
+
 module.exports = {
   // Auth validations
   validateRegister,
@@ -403,5 +523,10 @@ module.exports = {
   
   // Firma validations - Excel formatına uygun
   validateCreateFirma,
-  validateUpdateFirma
-}; 
+  validateUpdateFirma,
+  
+  // 🏆 Teşvik validations
+  validateCreateTesvik,
+  validateUpdateTesvik,
+  validateDurumUpdate
+};

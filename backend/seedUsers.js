@@ -15,7 +15,18 @@ const users = [
     sifre: 'admin123',
     telefon: '+90 555 123 4567',
     rol: 'admin',
-    aktif: true
+    aktif: true,
+    // 🔧 Admin'e tüm yetkiler
+    yetkiler: {
+      firmaEkle: true,
+      firmaDuzenle: true,
+      firmaSil: true,
+      belgeEkle: true,
+      belgeDuzenle: true,
+      belgeSil: true, // 🗑️ Silme yetkisi eklendi
+      raporGoruntule: true,
+      yonetimPaneli: true
+    }
   },
   {
     adSoyad: 'Merve Koç',

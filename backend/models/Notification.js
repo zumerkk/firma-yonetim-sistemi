@@ -27,7 +27,7 @@ const notificationSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['firma', 'user', 'system', 'security', 'etuys', 'general'],
+    enum: ['firma', 'user', 'system', 'security', 'etuys', 'general', 'tesvik'], // 🔧 tesvik eklendi
     default: 'general',
     required: true
   },
@@ -72,7 +72,7 @@ const notificationSchema = new mongoose.Schema({
   relatedEntity: {
     entityType: {
       type: String,
-      enum: ['firma', 'user', 'activity', 'system'],
+      enum: ['firma', 'user', 'activity', 'system', 'tesvik'], // 🔧 tesvik eklendi
       default: null
     },
     entityId: {
@@ -106,7 +106,7 @@ const notificationSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     default: () => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 gün
-    index: true
+    // index: true - KALDIRILDI: TTL index zaten var
   },
   
   // 🔄 Delivery Status

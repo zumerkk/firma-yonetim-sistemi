@@ -26,18 +26,24 @@ import {
   ExpandMore,
   TrendingUp as TrendingUpIcon,
   Assessment as AssessmentIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  EmojiEvents as EmojiEventsIcon, // 🏆 Teşvik sistemi ikonu
+  AdminPanelSettings as AdminPanelSettingsIcon, // 🔐 Admin Panel ikonu
+  Folder as FolderIcon, // 📁 File Manager ikonu
+  BugReport as BugReportIcon // 🧪 Test sistemi ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
-const SIDEBAR_WIDTH = 280;
+// const SIDEBAR_WIDTH = 280; // unused
 
 const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const [firmaMenuOpen, setFirmaMenuOpen] = React.useState(true);
+  const [tesvikMenuOpen, setTesvikMenuOpen] = React.useState(true);
+  const [testMenuOpen, setTestMenuOpen] = React.useState(true);
 
   // 🎯 Corporate Professional Menu Items
   const menuItems = [
@@ -48,6 +54,35 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#1e40af',
       gradient: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
       description: 'Ana kontrol paneli'
+    }
+  ];
+  
+  // 🏆 Belge Teşvik Sistemi Menu Items
+  const tesvikMenuItems = [
+    {
+      text: 'Teşvik Dashboard',
+      icon: <DashboardIcon />,
+      path: '/tesvik',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      description: 'Teşvik kontrol paneli'
+    },
+    {
+      text: 'Teşvik Listesi',
+      icon: <ListIcon />,
+      path: '/tesvik/liste',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      description: 'Tüm teşvikleri görüntüle'
+    },
+    {
+      text: 'Yeni Teşvik Ekle',
+      icon: <AddIcon />,
+      path: '/tesvik/yeni',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      permission: 'belgeEkle',
+      description: 'Yeni teşvik belgesi'
     }
   ];
 
@@ -72,6 +107,39 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
     }
   ];
 
+  // 🧪 TEST (Geliştiriliyor) Menu Items
+  const testMenuItems = [
+    {
+      text: 'Admin Panel',
+      icon: <AdminPanelSettingsIcon />,
+      path: '/admin',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #991b1b, #dc2626)',
+      permission: 'yonetimPaneli',
+      description: 'Sistem yönetimi',
+      isNew: true
+    },
+    {
+      text: 'Dosya Yöneticisi',
+      icon: <FolderIcon />,
+      path: '/dosyalar',
+      color: '#f59e0b',
+      gradient: 'linear-gradient(135deg, #d97706, #f59e0b)',
+      description: 'Belge yükleme & yönetim',
+      isNew: true
+    },
+    {
+      text: 'Rapor Merkezi',
+      icon: <AssessmentIcon />,
+      path: '/raporlar',
+      color: '#0891b2',
+      gradient: 'linear-gradient(135deg, #0e7490, #0891b2)',
+      permission: 'raporGoruntule',
+      description: 'PDF/Excel raporlar',
+      isNew: true
+    }
+  ];
+
   // Corporate Bottom Menu Items
   const bottomMenuItems = [
     {
@@ -84,11 +152,11 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
     },
     {
       text: 'İstatistikler',
-      icon: <AssessmentIcon />,
+      icon: <TrendingUpIcon />,
       path: '/istatistikler',
       color: '#7c3aed',
       gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
-      description: 'Detaylı raporlar'
+      description: 'Detaylı analiz'
     },
     {
       text: 'Ayarlar',
@@ -191,15 +259,34 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </ListItemIcon>
           <ListItemText 
             primary={
-              <Typography variant="body2" sx={{
-                fontSize: '0.875rem',
-                fontWeight: active ? 600 : 500,
-                color: active ? '#1e293b' : '#374151',
-                transition: 'all 0.25s ease',
-                lineHeight: 1.2
-              }}>
-                {item.text}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="body2" sx={{
+                  fontSize: '0.875rem',
+                  fontWeight: active ? 600 : 500,
+                  color: active ? '#1e293b' : '#374151',
+                  transition: 'all 0.25s ease',
+                  lineHeight: 1.2
+                }}>
+                  {item.text}
+                </Typography>
+                {item.isNew && (
+                  <Chip
+                    label="YENİ"
+                    size="small"
+                    sx={{
+                      height: 18,
+                      fontSize: '0.625rem',
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      color: 'white',
+                      border: 'none',
+                      '& .MuiChip-label': {
+                        px: 0.5
+                      }
+                    }}
+                  />
+                )}
+              </Box>
             }
             secondary={
               <Typography variant="caption" sx={{
@@ -379,6 +466,224 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           height: 1
         }} />
 
+        {/* 🏆 Belge Teşvik Sistemi - BRAND NEW */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography 
+            variant="overline" 
+            sx={{ 
+              px: 3, 
+              mb: 1,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.08em',
+              display: 'block'
+            }}
+          >
+            Belge Teşvik Sistemi
+            <Chip
+              label="YENİ"
+              size="small"
+              sx={{
+                ml: 1,
+                height: 16,
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: 'white',
+                border: 'none',
+                '& .MuiChip-label': {
+                  px: 0.5
+                }
+              }}
+            />
+          </Typography>
+          <List sx={{ px: 0, py: 0 }}>
+            <ListItem disablePadding sx={{ mb: 0.75, px: 2 }}>
+              <ListItemButton
+                onClick={() => setTesvikMenuOpen(!tesvikMenuOpen)}
+                sx={{
+                  borderRadius: 2,
+                  background: 'rgba(220, 38, 38, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(220, 38, 38, 0.12)',
+                  transition: 'all 0.25s ease',
+                  py: 1.25,
+                  px: 1.5,
+                  minHeight: 56,
+                  '&:hover': {
+                    background: 'rgba(220, 38, 38, 0.08)',
+                    transform: 'translateX(1px)',
+                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.1)'
+                  }
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 42, mr: 1 }}>
+                  <Avatar sx={{
+                    width: 32,
+                    height: 32,
+                    background: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)'
+                  }}>
+                    <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
+                  </Avatar>
+                </ListItemIcon>
+                <ListItemText 
+                  primary={
+                    <Typography variant="body2" sx={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#1e293b',
+                      lineHeight: 1.2
+                    }}>
+                      Belge Teşvik Sistemi
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption" sx={{
+                      fontSize: '0.7rem',
+                      color: '#64748b',
+                      lineHeight: 1.1
+                    }}>
+                      Teşvik belge yönetimi
+                    </Typography>
+                  }
+                />
+                <Avatar sx={{
+                  width: 18,
+                  height: 18,
+                  background: 'rgba(220, 38, 38, 0.12)',
+                  color: '#dc2626'
+                }}>
+                  {tesvikMenuOpen ? <ExpandLess sx={{ fontSize: 12 }} /> : <ExpandMore sx={{ fontSize: 12 }} />}
+                </Avatar>
+              </ListItemButton>
+            </ListItem>
+            
+            <Collapse in={tesvikMenuOpen} timeout="auto" unmountOnExit>
+              <Box sx={{ pl: 1.5 }}>
+                {tesvikMenuItems.map(renderMenuItem)}
+              </Box>
+            </Collapse>
+          </List>
+        </Box>
+
+        <Divider sx={{ 
+          mx: 3, 
+          my: 1.5,
+          background: 'rgba(226, 232, 240, 0.5)',
+          height: 1
+        }} />
+
+        {/* 🧪 TEST (Geliştiriliyor) - DEVELOPMENT FEATURES */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography 
+            variant="overline" 
+            sx={{ 
+              px: 3, 
+              mb: 1,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.08em',
+              display: 'block'
+            }}
+          >
+            TEST (Geliştiriliyor)
+            <Chip
+              label="BETA"
+              size="small"
+              sx={{
+                ml: 1,
+                height: 16,
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: 'white',
+                border: 'none',
+                '& .MuiChip-label': {
+                  px: 0.5
+                }
+              }}
+            />
+          </Typography>
+          <List sx={{ px: 0, py: 0 }}>
+            <ListItem disablePadding sx={{ mb: 0.75, px: 2 }}>
+              <ListItemButton
+                onClick={() => setTestMenuOpen(!testMenuOpen)}
+                sx={{
+                  borderRadius: 2,
+                  background: 'rgba(245, 158, 11, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(245, 158, 11, 0.12)',
+                  transition: 'all 0.25s ease',
+                  py: 1.25,
+                  px: 1.5,
+                  minHeight: 56,
+                  '&:hover': {
+                    background: 'rgba(245, 158, 11, 0.08)',
+                    transform: 'translateX(1px)',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.1)'
+                  }
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 42, mr: 1 }}>
+                  <Avatar sx={{
+                    width: 32,
+                    height: 32,
+                    background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)'
+                  }}>
+                    <BugReportIcon sx={{ fontSize: 16, color: 'white' }} />
+                  </Avatar>
+                </ListItemIcon>
+                <ListItemText 
+                  primary={
+                    <Typography variant="body2" sx={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#1e293b',
+                      lineHeight: 1.2
+                    }}>
+                      TEST (Geliştiriliyor)
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption" sx={{
+                      fontSize: '0.7rem',
+                      color: '#64748b',
+                      lineHeight: 1.1
+                    }}>
+                      Geliştirme özellikleri
+                    </Typography>
+                  }
+                />
+                <Avatar sx={{
+                  width: 18,
+                  height: 18,
+                  background: 'rgba(245, 158, 11, 0.12)',
+                  color: '#f59e0b'
+                }}>
+                  {testMenuOpen ? <ExpandLess sx={{ fontSize: 12 }} /> : <ExpandMore sx={{ fontSize: 12 }} />}
+                </Avatar>
+              </ListItemButton>
+            </ListItem>
+            
+            <Collapse in={testMenuOpen} timeout="auto" unmountOnExit>
+              <Box sx={{ pl: 1.5 }}>
+                {testMenuItems.map(renderMenuItem)}
+              </Box>
+            </Collapse>
+          </List>
+        </Box>
+
+        <Divider sx={{ 
+          mx: 3, 
+          my: 1.5,
+          background: 'rgba(226, 232, 240, 0.5)',
+          height: 1
+        }} />
+
         {/* 📊 Corporate Reports & Settings */}
         <Box sx={{ mb: 2 }}>
           <Typography 
@@ -393,7 +698,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               display: 'block'
             }}
           >
-            Raporlar & Ayarlar
+            Sistem & Analiz
           </Typography>
           <List sx={{ px: 0, py: 0 }}>
             {bottomMenuItems.map(renderMenuItem)}
@@ -507,10 +812,29 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   );
 
   // 🎯 GRID SYSTEM COMPATIBLE DRAWER CONFIGURATION
-  if (variant === 'temporary') {
-    return (
+  // 🔧 RESPONSIVE SIDEBAR FIXES - Layout problemleri çözümlendi
+  return (
+    <>
+      {/* Mobile Overlay */}
+      {/* isMobile is not defined in this component, assuming it's a placeholder for a context or prop */}
+      {/* For now, I'll keep the original logic for variant */}
+      {variant === 'temporary' && open && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 1200,
+          }}
+          onClick={() => onClose()}
+        />
+      )}
+      
       <Drawer
-        variant="temporary"
+        variant={variant === 'temporary' ? 'temporary' : 'persistent'}
         anchor="left"
         open={open}
         onClose={onClose}
@@ -518,65 +842,34 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           keepMounted: true, // Better mobile performance
         }}
         sx={{
+          width: 280,
+          flexShrink: 0,
+          zIndex: variant === 'temporary' ? 1300 : 1100,
           '& .MuiDrawer-paper': {
-            width: SIDEBAR_WIDTH,
+            width: 280,
             boxSizing: 'border-box',
-            top: 64, // Header height
-            height: 'calc(100vh - 64px)',
-            border: 'none',
-            background: 'transparent',
-            position: 'fixed',
-            zIndex: 1300,
-            overflowY: 'auto',
+            background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+            color: 'white',
+            borderRight: 'none',
+            boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
+            position: variant === 'temporary' ? 'fixed' : 'fixed', // Always fixed to prevent layout shift
+            top: 0,
+            left: 0,
+            height: '100vh',
             overflowX: 'hidden',
-            // Corporate scrollbar
-            '&::-webkit-scrollbar': {
-              width: '3px',
-            },
-            '&::-webkit-scrollbar-track': {
-              background: 'transparent',
-            },
-            '&::-webkit-scrollbar-thumb': {
-              background: 'rgba(30, 64, 175, 0.15)',
-              borderRadius: '2px',
-            },
-            '&::-webkit-scrollbar-thumb:hover': {
-              background: 'rgba(30, 64, 175, 0.25)',
-            },
-          },
+            overflowY: 'auto',
+            transition: 'transform 0.3s ease-in-out',
+            transform: open ? 'translateX(0)' : 'translateX(-100%)',
+            // 🔧 Responsive improvements
+            '@media (max-width: 1024px)': {
+              transform: open ? 'translateX(0)' : 'translateX(-100%)',
+            }
+          }
         }}
       >
         {drawerContent}
       </Drawer>
-    );
-  }
-
-  // PERSISTENT VARIANT - FOR GRID SYSTEM
-  return (
-    <Box
-      sx={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-        // Corporate scrollbar
-        '&::-webkit-scrollbar': {
-          width: '3px',
-        },
-        '&::-webkit-scrollbar-track': {
-          background: 'transparent',
-        },
-        '&::-webkit-scrollbar-thumb': {
-          background: 'rgba(30, 64, 175, 0.15)',
-          borderRadius: '2px',
-        },
-        '&::-webkit-scrollbar-thumb:hover': {
-          background: 'rgba(30, 64, 175, 0.25)',
-        },
-      }}
-    >
-      {drawerContent}
-    </Box>
+    </>
   );
 };
 

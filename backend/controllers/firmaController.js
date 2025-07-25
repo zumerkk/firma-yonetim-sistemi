@@ -450,25 +450,22 @@ const deleteFirma = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const firma = await Firma.findByIdAndUpdate(
-      id,
-      { 
-        aktif: false, 
-        sonGuncelleyen: req.user._id 
-      },
-      { new: true }
-    );
-
+    // Önce firmayı bul (activity log için bilgileri kaydet)
+    const firma = await Firma.findById(id);
+    
     if (!firma) {
       return sendError(res, 'Firma bulunamadı', 404);
     }
+
+    // Firmayı kalıcı olarak sil
+    await Firma.findByIdAndDelete(id);
 
     // 📋 Activity Log - Firma Silme
     await logActivity({
       action: 'delete',
       category: 'firma',
-      title: 'Firma Silindi',
-      description: `${firma.tamUnvan} firması sistemden silindi (soft delete)`,
+      title: 'Firma Kalıcı Olarak Silindi',
+      description: `${firma.tamUnvan} firması veritabanından kalıcı olarak silindi`,
       status: 'success',
       targetResource: {
         type: 'firma',
@@ -477,15 +474,15 @@ const deleteFirma = async (req, res) => {
         firmaId: firma.firmaId
       },
       changes: {
-        before: { aktif: true },
-        after: { aktif: false }
+        before: { exists: true },
+        after: { exists: false }
       },
-      tags: ['firma-sil', 'soft-delete']
+      tags: ['firma-sil', 'hard-delete', 'kalici-silme']
     }, req);
 
     sendSuccess(res, 
       { firma: { _id: firma._id, firmaId: firma.firmaId } }, 
-      `Firma başarıyla silindi (${firma.firmaId})`
+      `Firma kalıcı olarak silindi (${firma.firmaId})`
     );
 
   } catch (error) {
@@ -1471,4 +1468,4 @@ module.exports = {
   exportPDF,
   exportStatsExcel,
   getNextFirmaId
-}; 
+};

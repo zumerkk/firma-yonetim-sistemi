@@ -19,6 +19,10 @@ const firmaRoutes = require('./routes/firma');
 const importRoutes = require('./routes/import');
 const activityRoutes = require('./routes/activity');
 const notificationRoutes = require('./routes/notification');
+const tesvikRoutes = require('./routes/tesvik'); // 🏆 Teşvik sistemi routes
+const adminRoutes = require('./routes/admin'); // 🔐 Admin panel routes
+const reportRoutes = require('./routes/reports'); // 📊 Report system routes
+const fileRoutes = require('./routes/files'); // 📁 File management routes
 
 const app = express();
 
@@ -115,6 +119,10 @@ app.use('/api/import', importRoutes);
 app.use('/api/activity', activityRoutes);
 app.use('/api/activities', activityRoutes); // Frontend compatibility
 app.use('/api/notifications', notificationRoutes); // Bildirim sistemi
+app.use('/api/tesvik', tesvikRoutes); // 🏆 Teşvik Belge Sistemi
+app.use('/api/admin', adminRoutes); // 🔐 Admin Panel Sistemi
+app.use('/api/reports', reportRoutes); // 📊 Report Sistemi
+app.use('/api/files', fileRoutes); // 📁 File Management Sistemi
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
