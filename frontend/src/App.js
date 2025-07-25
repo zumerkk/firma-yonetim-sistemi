@@ -10,6 +10,7 @@ import { createTheme } from '@mui/material/styles';
 import { AuthProvider } from './contexts/AuthContext';
 import { FirmaProvider } from './contexts/FirmaContext'; 
 import { NotificationProvider } from './contexts/NotificationContext';
+import { TesvikProvider } from './contexts/TesvikContext';
 
 // 🛡️ Protected Route
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -107,7 +108,8 @@ function App() {
       <AuthProvider>
         <FirmaProvider>
           <NotificationProvider>
-            <Router>
+            <TesvikProvider>
+              <Router>
               <Routes>
                 {/* 🔑 Giriş Sayfası */}
                 <Route path="/login" element={<Login />} />
@@ -237,7 +239,8 @@ function App() {
                 {/* 🚫 Catch-all route */}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
-            </Router>
+              </Router>
+            </TesvikProvider>
           </NotificationProvider>
         </FirmaProvider>
       </AuthProvider>

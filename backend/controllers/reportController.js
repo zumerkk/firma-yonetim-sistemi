@@ -27,16 +27,23 @@ const getReportAnalytics = async (req, res) => {
   try {
     console.log('📊 Report analytics istendi');
 
-    // TODO: Real analytics from database
-    // For now, simulate analytics data
+    // Get real analytics from database
+    const [firmalarCount, tesviklerCount, activitiesCount] = await Promise.all([
+      Firma.countDocuments({ aktif: { $ne: false } }),
+      Tesvik.countDocuments({ aktif: true }),
+      Activity.countDocuments({
+        createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+      })
+    ]);
+
     const analytics = {
-      totalReports: Math.floor(Math.random() * 500) + 100,
-      monthlyReports: Math.floor(Math.random() * 50) + 10,
+      totalReports: firmalarCount + tesviklerCount,
+      monthlyReports: activitiesCount,
       mostUsedFormat: 'PDF',
       averageGenerationTime: '2.3s'
     };
 
-    console.log('✅ Report analytics hazırlandı');
+    console.log('✅ Report analytics hazırlandı:', analytics);
 
     res.status(200).json({
       success: true,
@@ -253,30 +260,58 @@ const downloadReport = async (req, res) => {
 
     console.log('📥 Report download:', filename);
 
-    res.download(filePath, filename, (err) => {
-      if (err) {
-        console.error('Download error:', err);
-        return res.status(500).json({
-          success: false,
-          message: 'Dosya indirilemedi'
-        });
-      }
+    // Set proper headers for file download
+    const fileExtension = path.extname(filename).toLowerCase();
+    let contentType = 'application/octet-stream';
+    
+    if (fileExtension === '.pdf') {
+      contentType = 'application/pdf';
+    } else if (fileExtension === '.xlsx') {
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    } else if (fileExtension === '.csv') {
+      contentType = 'text/csv';
+    }
 
-      // Clean up file after download (optional)
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+
+    fileStream.on('end', () => {
+      console.log('✅ File download completed:', filename);
+      
+      // Clean up file after download
       setTimeout(() => {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
+          console.log('🗑️ Temporary file deleted:', filename);
         }
-      }, 60000); // Delete after 1 minute
+      }, 30000); // Delete after 30 seconds
+    });
+
+    fileStream.on('error', (err) => {
+      console.error('File stream error:', err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Dosya okuma hatası'
+        });
+      }
     });
 
   } catch (error) {
     console.error('🚨 Download hatası:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Dosya indirilemedi',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Dosya indirilemedi',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      });
+    }
   }
 };
 
@@ -425,72 +460,169 @@ const generatePDFReport = async (reportData, fileName, type) => {
       }
 
       const filePath = path.join(reportsDir, fileName);
-      const doc = new PDFDocument();
+      const doc = new PDFDocument({ bufferPages: true });
       const stream = fs.createWriteStream(filePath);
       
       doc.pipe(stream);
 
-      // PDF Header
-      doc.fontSize(20).text(reportData.title, 50, 50);
-      doc.fontSize(12).text(reportData.subtitle, 50, 80);
-      doc.text(`Oluşturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 50, 100);
+      // PDF Header with better formatting
+      doc.fontSize(20).text(reportData.title || 'Rapor', 50, 50, { align: 'center' });
+      doc.fontSize(12).text(reportData.subtitle || '', 50, 80, { align: 'center' });
+      doc.text(`Oluşturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`, 50, 100, { align: 'center' });
+      
+      // Add a line separator
+      doc.moveTo(50, 120).lineTo(550, 120).stroke();
       
       let y = 140;
 
       // Summary Section
       if (reportData.summary) {
-        doc.fontSize(14).text('Özet Bilgiler:', 50, y);
-        y += 20;
+        doc.fontSize(14).text('📊 Özet Bilgiler', 50, y, { underline: true });
+        y += 25;
         
         Object.entries(reportData.summary).forEach(([key, value]) => {
-          doc.fontSize(10).text(`${key}: ${value}`, 70, y);
+          const displayKey = translateKey(key);
+          const displayValue = typeof value === 'number' ? value.toLocaleString('tr-TR') : value;
+          doc.fontSize(10).text(`• ${displayKey}: ${displayValue}`, 70, y);
           y += 15;
         });
-        y += 10;
+        y += 15;
       }
 
       // Data Table
-      doc.fontSize(14).text('Detay Veriler:', 50, y);
-      y += 20;
-
       if (reportData.data && reportData.data.length > 0) {
-        const sample = reportData.data[0];
-        const headers = Object.keys(sample).slice(0, 5); // First 5 columns
-        
-        // Table headers
-        doc.fontSize(8);
-        headers.forEach((header, index) => {
-          doc.text(header, 50 + (index * 100), y);
-        });
-        y += 15;
+        doc.fontSize(14).text('📋 Detay Veriler', 50, y, { underline: true });
+        y += 25;
 
-        // Table data (first 20 rows)
-        reportData.data.slice(0, 20).forEach((row) => {
-          headers.forEach((header, index) => {
-            const value = row[header] || '';
-            doc.text(String(value).substring(0, 20), 50 + (index * 100), y);
-          });
-          y += 12;
-          
-          if (y > 700) { // New page
+        const sample = reportData.data[0];
+        const headers = Object.keys(sample).slice(0, 4); // First 4 columns for better fit
+        
+        // Table headers with background
+        doc.fontSize(9);
+        headers.forEach((header, index) => {
+          const translatedHeader = translateKey(header);
+          doc.text(translatedHeader, 50 + (index * 120), y, { width: 115 });
+        });
+        y += 20;
+        
+        // Add header separator line
+        doc.moveTo(50, y - 5).lineTo(530, y - 5).stroke();
+
+        // Table data (first 25 rows)
+        reportData.data.slice(0, 25).forEach((row, rowIndex) => {
+          if (y > 720) { // New page
             doc.addPage();
             y = 50;
+            
+            // Repeat headers on new page
+            doc.fontSize(9);
+            headers.forEach((header, index) => {
+              const translatedHeader = translateKey(header);
+              doc.text(translatedHeader, 50 + (index * 120), y, { width: 115 });
+            });
+            y += 20;
+            doc.moveTo(50, y - 5).lineTo(530, y - 5).stroke();
+          }
+          
+          headers.forEach((header, index) => {
+            let value = row[header] || '';
+            
+            // Format different data types
+            if (typeof value === 'object' && value !== null) {
+              if (value.tamUnvan) value = value.tamUnvan;
+              else if (value.adSoyad) value = value.adSoyad;
+              else value = JSON.stringify(value);
+            }
+            
+            if (typeof value === 'number') {
+              value = value.toLocaleString('tr-TR');
+            }
+            
+            if (typeof value === 'string' && value.length > 25) {
+              value = value.substring(0, 22) + '...';
+            }
+            
+            doc.fontSize(8).text(String(value), 50 + (index * 120), y, { width: 115 });
+          });
+          y += 15;
+          
+          // Add subtle row separator every 5 rows
+          if ((rowIndex + 1) % 5 === 0) {
+            doc.moveTo(50, y - 2).lineTo(530, y - 2).stroke({ opacity: 0.3 });
           }
         });
+        
+        // Add total count if more data exists
+        if (reportData.data.length > 25) {
+          y += 10;
+          doc.fontSize(10).text(`... ve ${reportData.data.length - 25} kayıt daha`, 50, y, { align: 'center' });
+        }
+      }
+
+      // Add footer
+      const pageCount = doc.bufferedPageRange().count;
+      for (let i = 0; i < pageCount; i++) {
+        doc.switchToPage(i);
+        doc.fontSize(8).text(
+          `Sayfa ${i + 1} / ${pageCount} - Cahit Şirket Yönetim Sistemi`,
+          50, 750,
+          { align: 'center' }
+        );
       }
 
       doc.end();
 
       stream.on('finish', () => {
+        console.log('✅ PDF oluşturuldu:', fileName);
         resolve(filePath);
       });
 
-      stream.on('error', reject);
+      stream.on('error', (error) => {
+        console.error('❌ PDF oluşturma hatası:', error);
+        reject(error);
+      });
 
     } catch (error) {
+      console.error('❌ PDF generation error:', error);
       reject(error);
     }
   });
+};
+
+// Helper function to translate keys to Turkish
+const translateKey = (key) => {
+  const translations = {
+    'total': 'Toplam',
+    'active': 'Aktif',
+    'inactive': 'Pasif',
+    'cities': 'Şehir Sayısı',
+    'approved': 'Onaylı',
+    'pending': 'Beklemede',
+    'totalInvestment': 'Toplam Yatırım',
+    'users': 'Kullanıcı Sayısı',
+    'categories': 'Kategori Sayısı',
+    'dailyAverage': 'Günlük Ortalama',
+    'admins': 'Admin Sayısı',
+    'totalActivities': 'Toplam Aktivite',
+    'totalIncentive': 'Toplam Teşvik',
+    'averageRatio': 'Ortalama Oran',
+    'count': 'Adet',
+    'firmaId': 'Firma ID',
+    'tamUnvan': 'Firma Unvanı',
+    'firmaIl': 'İl',
+    'firmaIlce': 'İlçe',
+    'aktif': 'Durum',
+    'createdAt': 'Oluşturma Tarihi',
+    'tesvikId': 'Teşvik ID',
+    'yatirimciUnvan': 'Yatırımcı Unvanı',
+    'adSoyad': 'Ad Soyad',
+    'email': 'E-posta',
+    'rol': 'Rol',
+    'sonGiris': 'Son Giriş',
+    'activityCount': 'Aktivite Sayısı'
+  };
+  
+  return translations[key] || key;
 };
 
 const generateExcelReport = async (reportData, fileName, type) => {
@@ -502,75 +634,188 @@ const generateExcelReport = async (reportData, fileName, type) => {
 
     const filePath = path.join(reportsDir, fileName);
     const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet(reportData.title);
+    
+    // Set workbook properties
+    workbook.creator = 'Cahit Şirket Yönetim Sistemi';
+    workbook.created = new Date();
+    
+    const worksheet = workbook.addWorksheet(reportData.title || 'Rapor');
 
-    // Header
-    worksheet.mergeCells('A1:F1');
-    worksheet.getCell('A1').value = reportData.title;
-    worksheet.getCell('A1').font = { size: 16, bold: true };
-    worksheet.getCell('A1').alignment = { horizontal: 'center' };
+    // Header with better styling
+    worksheet.mergeCells('A1:H1');
+    const titleCell = worksheet.getCell('A1');
+    titleCell.value = reportData.title || 'Rapor';
+    titleCell.font = { size: 18, bold: true, color: { argb: 'FF2E4057' } };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFF8F9FA' }
+    };
+    worksheet.getRow(1).height = 30;
 
-    worksheet.mergeCells('A2:F2');
-    worksheet.getCell('A2').value = reportData.subtitle;
-    worksheet.getCell('A2').font = { size: 12 };
-    worksheet.getCell('A2').alignment = { horizontal: 'center' };
+    worksheet.mergeCells('A2:H2');
+    const subtitleCell = worksheet.getCell('A2');
+    subtitleCell.value = reportData.subtitle || '';
+    subtitleCell.font = { size: 12, italic: true };
+    subtitleCell.alignment = { horizontal: 'center' };
 
-    let currentRow = 4;
+    worksheet.mergeCells('A3:H3');
+    const dateCell = worksheet.getCell('A3');
+    dateCell.value = `Oluşturma Tarihi: ${new Date().toLocaleDateString('tr-TR')}`;
+    dateCell.font = { size: 10 };
+    dateCell.alignment = { horizontal: 'center' };
 
-    // Summary
+    let currentRow = 5;
+
+    // Summary with better formatting
     if (reportData.summary) {
-      worksheet.getCell(`A${currentRow}`).value = 'Özet Bilgiler';
-      worksheet.getCell(`A${currentRow}`).font = { bold: true };
+      const summaryHeaderCell = worksheet.getCell(`A${currentRow}`);
+      summaryHeaderCell.value = '📊 Özet Bilgiler';
+      summaryHeaderCell.font = { bold: true, size: 14, color: { argb: 'FF2E4057' } };
+      summaryHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE3F2FD' }
+      };
       currentRow++;
 
       Object.entries(reportData.summary).forEach(([key, value]) => {
-        worksheet.getCell(`A${currentRow}`).value = key;
-        worksheet.getCell(`B${currentRow}`).value = value;
+        const keyCell = worksheet.getCell(`A${currentRow}`);
+        const valueCell = worksheet.getCell(`B${currentRow}`);
+        
+        keyCell.value = translateKey(key);
+        keyCell.font = { bold: true };
+        
+        if (typeof value === 'number') {
+          valueCell.value = value;
+          valueCell.numFmt = '#,##0';
+        } else {
+          valueCell.value = value;
+        }
+        
         currentRow++;
       });
-      currentRow++;
+      currentRow += 2;
     }
 
-    // Data
+    // Data with enhanced formatting
     if (reportData.data && reportData.data.length > 0) {
-      worksheet.getCell(`A${currentRow}`).value = 'Detay Veriler';
-      worksheet.getCell(`A${currentRow}`).font = { bold: true };
-      currentRow++;
+      const dataHeaderCell = worksheet.getCell(`A${currentRow}`);
+      dataHeaderCell.value = '📋 Detay Veriler';
+      dataHeaderCell.font = { bold: true, size: 14, color: { argb: 'FF2E4057' } };
+      dataHeaderCell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFE8F5E8' }
+      };
+      currentRow += 2;
 
       const sample = reportData.data[0];
       const headers = Object.keys(sample);
 
-      // Headers
+      // Headers with styling
       headers.forEach((header, index) => {
         const cell = worksheet.getCell(currentRow, index + 1);
-        cell.value = header;
-        cell.font = { bold: true };
+        cell.value = translateKey(header);
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
         cell.fill = {
           type: 'pattern',
           pattern: 'solid',
-          fgColor: { argb: 'FFE6E6FA' }
+          fgColor: { argb: 'FF4A90E2' }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
         };
       });
+      worksheet.getRow(currentRow).height = 25;
       currentRow++;
 
-      // Data rows
-      reportData.data.forEach((row) => {
+      // Data rows with alternating colors
+      reportData.data.forEach((row, rowIndex) => {
         headers.forEach((header, index) => {
-          worksheet.getCell(currentRow, index + 1).value = row[header] || '';
+          const cell = worksheet.getCell(currentRow, index + 1);
+          let value = row[header];
+          
+          // Handle different data types
+          if (typeof value === 'object' && value !== null) {
+            if (value.tamUnvan) value = value.tamUnvan;
+            else if (value.adSoyad) value = value.adSoyad;
+            else if (value instanceof Date) value = value.toLocaleDateString('tr-TR');
+            else value = JSON.stringify(value);
+          }
+          
+          if (value instanceof Date) {
+            cell.value = value;
+            cell.numFmt = 'dd/mm/yyyy';
+          } else if (typeof value === 'number') {
+            cell.value = value;
+            cell.numFmt = '#,##0';
+          } else {
+            cell.value = value || '';
+          }
+          
+          // Alternating row colors
+          if (rowIndex % 2 === 0) {
+            cell.fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF8F9FA' }
+            };
+          }
+          
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            left: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE0E0E0' } },
+            right: { style: 'thin', color: { argb: 'FFE0E0E0' } }
+          };
+          
+          cell.alignment = { vertical: 'middle' };
         });
         currentRow++;
       });
 
-      // Auto-fit columns
-      worksheet.columns.forEach((column) => {
-        column.width = 15;
+      // Auto-fit columns with limits
+      worksheet.columns.forEach((column, index) => {
+        let maxLength = 10;
+        
+        // Calculate optimal width based on content
+        if (headers[index]) {
+          const headerLength = translateKey(headers[index]).length;
+          maxLength = Math.max(maxLength, headerLength + 2);
+          
+          reportData.data.slice(0, 100).forEach(row => {
+            const value = row[headers[index]];
+            if (value) {
+              const valueLength = String(value).length;
+              maxLength = Math.max(maxLength, Math.min(valueLength + 2, 50));
+            }
+          });
+        }
+        
+        column.width = Math.min(maxLength, 30);
       });
     }
 
+    // Add footer
+    const footerRow = currentRow + 2;
+    worksheet.mergeCells(`A${footerRow}:H${footerRow}`);
+    const footerCell = worksheet.getCell(`A${footerRow}`);
+    footerCell.value = 'Cahit Şirket Yönetim Sistemi tarafından oluşturulmuştur.';
+    footerCell.font = { size: 9, italic: true };
+    footerCell.alignment = { horizontal: 'center' };
+
     await workbook.xlsx.writeFile(filePath);
+    console.log('✅ Excel oluşturuldu:', fileName);
     return filePath;
 
   } catch (error) {
+    console.error('❌ Excel generation error:', error);
     throw error;
   }
 };
@@ -614,4 +859,4 @@ module.exports = {
   saveReportTemplate,
   generateReport,
   downloadReport
-}; 
+};

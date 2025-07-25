@@ -47,6 +47,7 @@ import {
 import { useDropzone } from 'react-dropzone';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
+import FileUpload from '../../components/Files/FileUpload';
 // import { useAuth } from '../../contexts/AuthContext'; // Future use
 import api from '../../utils/axios';
 
@@ -63,7 +64,7 @@ const FileManager = () => {
   // const [selectedItems, setSelectedItems] = useState([]); // Future use
   
   // 📋 DIALOGS STATE
-  const [, setUploadDialog] = useState(false); // uploadDialog not used yet
+  const [uploadDialog, setUploadDialog] = useState(false);
   const setFileDialog = () => {}; // Placeholder  
   const setShareDialog = () => {}; // Placeholder
   
@@ -663,6 +664,17 @@ const FileManager = () => {
           autoHideDuration={6000}
           onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           message={snackbar.message}
+        />
+
+        {/* File Upload Dialog */}
+        <FileUpload
+          open={uploadDialog}
+          onClose={() => setUploadDialog(false)}
+          onUploadComplete={(uploadedFiles) => {
+            showSnackbar(`${uploadedFiles.length} dosya başarıyla yüklendi`, 'success');
+            loadFileSystem();
+          }}
+          currentPath={currentPath.join('/')}
         />
       </Box>
     </Box>

@@ -23,6 +23,6 @@ router.post('/templates', authenticate, saveReportTemplate);
 router.post('/generate', authenticate, generateReport);
 
 // 📥 DOWNLOAD ROUTES
-router.get('/download/:filename', authenticate, downloadReport);
+router.get('/download/:filename', downloadReport);
 
-module.exports = router; 
+module.exports = router;

@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, param, query } = require('express-validator');
-const { authenticate } = require('../middleware/auth');
+const { authenticate, adminAuth } = require('../middleware/auth');
 const {
   getNotifications,
   getUnreadCount,
@@ -13,9 +13,9 @@ const {
   markAllAsRead,
   deleteNotification,
   bulkDeleteNotifications,
-  createNotification,
-  cleanupExpired
+  createNotification
 } = require('../controllers/notificationController');
+const notificationService = require('../services/notificationService');
 
 // 🔐 All routes require authentication
 router.use(authenticate);
@@ -159,7 +159,168 @@ router.post('/', [
 ], createNotification);
 
 // 🧹 DELETE /api/notifications/cleanup-expired - Süresi geçmiş bildirimleri temizle (Admin only)
-router.delete('/cleanup-expired', cleanupExpired);
+router.delete('/cleanup-expired', adminAuth, async (req, res) => {
+  try {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const result = await require('../models/Notification').deleteMany({
+      createdAt: { $lt: thirtyDaysAgo }
+    });
+    
+    res.json({
+      success: true,
+      message: `${result.deletedCount} eski bildirim temizlendi`,
+      data: { deletedCount: result.deletedCount }
+    });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Temizleme işlemi başarısız'
+    });
+  }
+});
+
+// 🔔 ADVANCED NOTIFICATION ENDPOINTS
+
+// Send bulk notification (admin only)
+router.post('/send', adminAuth, async (req, res) => {
+  try {
+    const {
+      type,
+      recipients,
+      subject,
+      message,
+      template,
+      priority = 'normal',
+      scheduled = false,
+      scheduleDate = null
+    } = req.body;
+
+    if (!recipients || !recipients.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'En az bir alıcı seçmelisiniz'
+      });
+    }
+
+    if (!subject || !message) {
+      return res.status(400).json({
+        success: false,
+        message: 'Konu ve mesaj alanları zorunludur'
+      });
+    }
+
+    const result = await notificationService.sendBulkNotification({
+      type,
+      recipients,
+      subject,
+      message,
+      template,
+      priority,
+      scheduled,
+      scheduleDate
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: result.message
+    });
+  } catch (error) {
+    console.error('Send notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Bildirim gönderilirken hata oluştu'
+    });
+  }
+});
+
+// Send email notification
+router.post('/email', adminAuth, async (req, res) => {
+  try {
+    const { to, subject, message, priority = 'normal' } = req.body;
+
+    const result = await notificationService.sendEmail({
+      to,
+      subject,
+      html: notificationService.generateEmailHTML(subject, message),
+      priority
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: `E-posta ${result.recipients} alıcıya gönderildi`
+    });
+  } catch (error) {
+    console.error('Email send error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'E-posta gönderilirken hata oluştu'
+    });
+  }
+});
+
+// Send SMS notification
+router.post('/sms', adminAuth, async (req, res) => {
+  try {
+    const { to, message, priority = 'normal' } = req.body;
+
+    const result = await notificationService.sendSMS({
+      to,
+      message,
+      priority
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: `SMS ${result.recipients} alıcıya gönderildi`
+    });
+  } catch (error) {
+    console.error('SMS send error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'SMS gönderilirken hata oluştu'
+    });
+  }
+});
+
+// Test notification service
+router.post('/test', adminAuth, async (req, res) => {
+  try {
+    const { type = 'email', recipient } = req.body;
+    
+    if (type === 'email') {
+      await notificationService.sendEmail({
+        to: recipient,
+        subject: 'Test E-posta',
+        html: notificationService.generateEmailHTML(
+          'Test E-posta',
+          'Bu bir test e-postasıdır. Sistem düzgün çalışıyor.'
+        )
+      });
+    } else if (type === 'sms') {
+      await notificationService.sendSMS({
+        to: recipient,
+        message: 'Bu bir test SMS mesajıdır. Sistem düzgün çalışıyor.'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Test ${type} başarıyla gönderildi`
+    });
+  } catch (error) {
+    console.error('Test notification error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Test bildirimi gönderilirken hata oluştu'
+    });
+  }
+});
 
 // 🎯 ADVANCED ENDPOINTS - Enterprise Features
 
@@ -277,4 +438,4 @@ router.get('/recent', [
   }
 });
 
-module.exports = router; 
+module.exports = router;

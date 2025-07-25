@@ -189,10 +189,30 @@ const optionalAuth = async (req, res, next) => {
   }
 };
 
+// 🔐 Admin Only Middleware
+const adminAuth = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: 'Önce giriş yapmalısınız.'
+    });
+  }
+  
+  if (req.user.rol !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Bu işlem için admin yetkisi gereklidir.'
+    });
+  }
+  
+  next();
+};
+
 module.exports = {
   authenticate,
   authorize,
   checkPermission,
   checkOwnership,
-  optionalAuth
-}; 
+  optionalAuth,
+  adminAuth
+};

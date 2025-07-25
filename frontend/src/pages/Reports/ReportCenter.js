@@ -147,33 +147,71 @@ const ReportCenter = () => {
       
       console.log('📊 Rapor oluşturuluyor:', reportConfig);
       
+      // Determine format from reportConfig or use default
+      const format = reportConfig.format || filters.format || 'pdf';
+      
       const response = await api.post('/reports/generate', {
         type: reportConfig.reportType,
-        filters: filters,
-        format: filters.format,
+        filters: {
+          ...filters,
+          dateFrom: filters.dateFrom || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          dateTo: filters.dateTo || new Date().toISOString().split('T')[0]
+        },
+        format: format,
         config: reportConfig
       });
 
       if (response.data.success) {
         const { downloadUrl, fileName } = response.data.data;
         
-        // Download file
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        // Create full download URL - remove /api prefix from downloadUrl since axios baseURL already includes it
+        let cleanDownloadUrl = downloadUrl;
+        if (downloadUrl.startsWith('/api/')) {
+          cleanDownloadUrl = downloadUrl.substring(4); // Remove '/api' prefix
+        }
         
-        showSnackbar(`Rapor başarıyla oluşturuldu: ${fileName}`, 'success');
+        const fullDownloadUrl = cleanDownloadUrl.startsWith('http') 
+          ? cleanDownloadUrl 
+          : `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${cleanDownloadUrl}`;
+        
+        // Download file
+        try {
+          const downloadResponse = await fetch(fullDownloadUrl, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+          });
+          
+          if (downloadResponse.ok) {
+            const blob = await downloadResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            showSnackbar(`Rapor başarıyla oluşturuldu: ${fileName}`, 'success');
+          } else {
+            throw new Error('Dosya indirilemedi');
+          }
+        } catch (downloadError) {
+          console.error('Download error:', downloadError);
+          showSnackbar('Dosya indirilemedi', 'error');
+        }
         
         // Refresh analytics
         loadReportData();
+      } else {
+        showSnackbar(response.data.message || 'Rapor oluşturulamadı', 'error');
       }
       
     } catch (error) {
       console.error('Report generation error:', error);
-      showSnackbar('Rapor oluşturulurken hata oluştu', 'error');
+      const errorMessage = error.response?.data?.message || 'Rapor oluşturulurken hata oluştu';
+      showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
     }
@@ -653,4 +691,4 @@ const ReportCenter = () => {
   );
 };
 
-export default ReportCenter; 
+export default ReportCenter;

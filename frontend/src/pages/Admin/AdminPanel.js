@@ -42,10 +42,12 @@ import {
   Backup as BackupIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Notifications as NotificationIcon
 } from '@mui/icons-material';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
+import NotificationManager from '../../components/Notifications/NotificationManager';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../utils/axios';
 
@@ -68,6 +70,7 @@ const AdminPanel = () => {
   const [users, setUsers] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [userDialog, setUserDialog] = useState({ open: false, mode: 'add', user: null });
+  const [notificationManager, setNotificationManager] = useState({ open: false });
 
   // 📱 Responsive handling
   useEffect(() => {
@@ -309,9 +312,19 @@ const AdminPanel = () => {
   // ⚙️ SYSTEM SETTINGS TAB
   const renderSystemSettings = () => (
     <Box>
-      <Typography variant="h6" sx={{ mb: 3, fontWeight: 600 }}>
-        ⚙️ Sistem Ayarları
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600 }}>
+          ⚙️ Sistem Ayarları
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<NotificationIcon />}
+          onClick={() => setNotificationManager({ open: true })}
+          sx={{ fontWeight: 600 }}
+        >
+          Bildirim Yöneticisi
+        </Button>
+      </Box>
       
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
@@ -537,9 +550,15 @@ const AdminPanel = () => {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        {/* Notification Manager */}
+        <NotificationManager
+          open={notificationManager.open}
+          onClose={() => setNotificationManager({ open: false })}
+        />
       </Box>
     </Box>
   );
 };
 
-export default AdminPanel; 
+export default AdminPanel;

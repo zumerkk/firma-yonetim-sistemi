@@ -13,6 +13,9 @@ require('dotenv').config();
 // Models
 const Activity = require('./models/Activity');
 
+// Services
+const notificationService = require('./services/notificationService');
+
 // Route import'ları
 const authRoutes = require('./routes/auth');
 const firmaRoutes = require('./routes/firma');
@@ -73,6 +76,9 @@ app.use('/api', limiter);
 // 📨 JSON ve URL parsing
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// 📁 Static file serving for uploads
+app.use('/uploads', express.static('uploads'));
 
 // 🗄️ MongoDB bağlantısı
 const connectDB = async () => {
@@ -193,4 +199,4 @@ process.on('unhandledRejection', (err) => {
   process.exit(1);
 });
 
-startServer(); 
+startServer();
