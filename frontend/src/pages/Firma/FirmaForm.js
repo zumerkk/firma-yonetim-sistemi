@@ -573,7 +573,7 @@ const FirmaForm = () => {
           });
           
           setValidationErrors(backendErrors);
-          showSnackbar(`${backendErrors.length} alanda hata bulundu`, 'error');
+          showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
         } else {
           // Genel hata mesajı
           const errorMessage = result.message || 'İşlem başarısız';
@@ -593,11 +593,32 @@ const FirmaForm = () => {
       if (error.response && error.response.data) {
         const errorData = error.response.data;
         
+        // Backend'den gelen validation errors (express-validator format)
         if (errorData.errors && Array.isArray(errorData.errors)) {
-          const backendErrors = errorData.errors.map(err => err.msg || err.message || 'Bilinmeyen hata');
+          const backendErrors = errorData.errors.map(error => {
+            // express-validator error format: { param, msg, value, location }
+            if (error.param) {
+              const fieldNames = {
+                vergiNoTC: 'Vergi No/TC',
+                tamUnvan: 'Tam Ünvan',
+                adres: 'Adres',
+                firmaIl: 'Firma İli',
+                firmaIlce: 'Firma İlçesi',
+                ilkIrtibatKisi: 'İlk İrtibat Kişisi',
+                'yetkiliKisiler[0].adSoyad': '1. Yetkili Kişi - Ad Soyad',
+                'yetkiliKisiler[0].telefon1': '1. Yetkili Kişi - Telefon 1',
+                'yetkiliKisiler[0].eposta1': '1. Yetkili Kişi - E-posta 1'
+              };
+              const fieldName = fieldNames[error.param] || error.param;
+              return `${fieldName}: ${error.msg}`;
+            }
+            return error.msg || error.message || 'Bilinmeyen hata';
+          });
+          
           setValidationErrors(backendErrors);
-          showSnackbar(`Form hatası: ${backendErrors.length} alan düzeltilmeli`, 'error');
+          showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
         } else {
+          // Genel backend error mesajı
           const errorMessage = errorData.message || 'Sunucu hatası oluştu';
           setValidationErrors([errorMessage]);
           showSnackbar('Hata: ' + errorMessage, 'error');

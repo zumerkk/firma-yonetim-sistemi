@@ -121,18 +121,18 @@ const validateCreateFirma = [
     
   // Excel'deki ek alanlar
   body('kepAdresi')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isEmail()
     .withMessage('Geçerli bir KEP adresi giriniz')
     .normalizeEmail(),
     
   body('yabanciSermayeli')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isBoolean()
     .withMessage('Yabancı sermayeli alanı true/false olmalıdır'),
     
   body('anaFaaliyetKonusu')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isLength({ max: 200 })
     .withMessage('Ana faaliyet konusu 200 karakterden fazla olamaz')
     .trim(),
@@ -182,12 +182,12 @@ const validateCreateFirma = [
     
   // Modern eklentiler (fazlası)
   body('firmaTelefon')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .matches(/^[0-9+\s-()]{10,20}$/)
     .withMessage('Geçerli bir firma telefon numarası giriniz'),
     
   body('firmaEmail')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isEmail()
     .withMessage('Geçerli bir firma e-posta adresi giriniz')
     .normalizeEmail(),
@@ -207,7 +207,7 @@ const validateCreateFirma = [
     .withMessage('Geçerli bir website adresi giriniz'),
     
   body('notlar')
-    .optional()
+    .optional({ checkFalsy: true })  // Boş string'i de kabul et
     .isLength({ max: 2000 })
     .withMessage('Notlar 2000 karakterden fazla olamaz')
     .trim(),

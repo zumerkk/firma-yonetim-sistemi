@@ -22,11 +22,14 @@ const handleError = (error) => {
   
   if (error.response) {
     // Server responded with error status
+    const errorData = error.response.data;
     return {
       success: false,
-      message: error.response.data?.message || 'Sunucu hatası',
-      errors: error.response.data?.errors || null,
-      status: error.response.status
+      message: errorData?.message || 'Sunucu hatası',
+      errors: errorData?.errors || null,
+      status: error.response.status,
+      // Backend'den gelen tam error response'unu da ekle
+      response: errorData
     };
   } else if (error.request) {
     // Request was made but no response received
@@ -452,4 +455,4 @@ const firmaService = {
   getNextFirmaId
 };
 
-export default firmaService; 
+export default firmaService;
