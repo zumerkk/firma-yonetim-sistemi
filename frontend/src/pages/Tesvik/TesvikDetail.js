@@ -23,9 +23,16 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  TableHead,
   TableRow,
   LinearProgress,
-  Skeleton
+  Skeleton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Stack
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -34,7 +41,14 @@ import {
   AttachMoney as AttachMoneyIcon,
   Print as PrintIcon,
   LocationOn as LocationOnIcon,
-  DateRange as DateRangeIcon
+  DateRange as DateRangeIcon,
+  History as HistoryIcon,
+  Add as AddIcon,
+  Update as UpdateIcon,
+  Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
+  Close as CloseIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -53,6 +67,10 @@ const TesvikDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tesvik, setTesvik] = useState(null);
+  const [activities, setActivities] = useState([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [activityModalOpen, setActivityModalOpen] = useState(false);
 
   // 🎨 Durum Renk Haritası
   const getDurumColor = (durum) => {
@@ -92,6 +110,7 @@ const TesvikDetail = () => {
         const response = await axios.get(`/tesvik/${id}`);
         
         if (response.data.success) {
+
           setTesvik(response.data.data);
         } else {
           setError('Teşvik bulunamadı');
@@ -108,6 +127,35 @@ const TesvikDetail = () => {
       loadTesvik();
     }
   }, [id]);
+
+  // 📋 Belge İşlemlerini Yükle
+  useEffect(() => {
+    const loadActivities = async () => {
+      if (!tesvik) return;
+      
+      try {
+        setActivitiesLoading(true);
+        const response = await axios.get('/activities', {
+          params: {
+            kategori: 'tesvik',
+            targetId: tesvik._id,
+            limit: 10,
+            sayfa: 1
+          }
+        });
+        
+        if (response.data.success) {
+          setActivities(response.data.data.activities || []);
+        }
+      } catch (error) {
+        console.error('🚨 Aktivite yükleme hatası:', error);
+      } finally {
+        setActivitiesLoading(false);
+      }
+    };
+
+    loadActivities();
+  }, [tesvik]);
 
   const formatDate = (date) => {
     if (!date) return '-';
@@ -134,6 +182,128 @@ const TesvikDetail = () => {
       'iptal_edildi': 0
     };
     return progressMap[durum] || 0;
+  };
+
+  // 🎨 Aktivite İkon ve Renk Haritası
+  const getActivityIcon = (action) => {
+    const iconMap = {
+      'create': <AddIcon />,
+      'update': <UpdateIcon />,
+      'delete': <DeleteIcon />,
+      'view': <VisibilityIcon />,
+      'export': <PrintIcon />
+    };
+    return iconMap[action] || <InfoIcon />;
+  };
+
+  const getActivityColor = (action) => {
+    const colorMap = {
+      'create': '#10B981',
+      'update': '#F59E0B',
+      'delete': '#EF4444',
+      'view': '#3B82F6',
+      'export': '#8B5CF6'
+    };
+    return colorMap[action] || '#6B7280';
+  };
+
+  const handleActivityClick = (activity) => {
+    setSelectedActivity(activity);
+    setActivityModalOpen(true);
+  };
+
+  const handleCloseActivityModal = () => {
+    setActivityModalOpen(false);
+    setSelectedActivity(null);
+  };
+
+  // 🏷️ Alan Adlarını Türkçe'ye Çevir
+  const getFieldDisplayName = (fieldName) => {
+    const fieldMap = {
+      // Temel Bilgiler
+      'firmaAdi': 'Firma Adı',
+      'vergiNo': 'Vergi Numarası',
+      'ticariSicilNo': 'Ticari Sicil No',
+      'kurulusTarihi': 'Kuruluş Tarihi',
+      'faaliyet': 'Faaliyet Konusu',
+      'adres': 'Adres',
+      'telefon': 'Telefon',
+      'email': 'E-posta',
+      'yetkiliKisi': 'Yetkili Kişi',
+      
+      // Yatırım Bilgileri
+      'yatirimKonusu': 'Yatırım Konusu',
+      'yatirimTutari': 'Yatırım Tutarı',
+      'baslangicTarihi': 'Başlangıç Tarihi',
+      'bitisTarihi': 'Bitiş Tarihi',
+      'il': 'İl',
+      'ilce': 'İlçe',
+      'mahalle': 'Mahalle',
+      
+      // Belge Bilgileri
+      'belgeNo': 'Belge Numarası',
+      'belgeTarihi': 'Belge Tarihi',
+      'gecerlilikTarihi': 'Geçerlilik Tarihi',
+      'durum': 'Durum',
+      
+      // Mali Bilgiler
+      'toplamYatirim': 'Toplam Yatırım',
+      'destekTutari': 'Destek Tutarı',
+      'destekOrani': 'Destek Oranı',
+      
+      // Diğer
+      'notlar': 'Notlar',
+      'aciklama': 'Açıklama'
+    };
+    
+    return fieldMap[fieldName] || fieldName;
+  };
+
+  // 💰 Değerleri Formatla
+  const formatFieldValue = (fieldName, value) => {
+    if (value === null || value === undefined || value === '') {
+      return '-';
+    }
+    
+    // Para birimi alanları
+    const moneyFields = ['yatirimTutari', 'toplamYatirim', 'destekTutari'];
+    if (moneyFields.includes(fieldName)) {
+      return new Intl.NumberFormat('tr-TR', {
+        style: 'currency',
+        currency: 'TRY'
+      }).format(value);
+    }
+    
+    // Yüzde alanları
+    const percentFields = ['destekOrani'];
+    if (percentFields.includes(fieldName)) {
+      return `%${value}`;
+    }
+    
+    // Tarih alanları
+    const dateFields = ['kurulusTarihi', 'baslangicTarihi', 'bitisTarihi', 'belgeTarihi', 'gecerlilikTarihi'];
+    if (dateFields.includes(fieldName)) {
+      return formatDate(value);
+    }
+    
+    // Durum alanları
+    if (fieldName === 'durum') {
+      const durumMap = {
+        'taslak': 'Taslak',
+        'hazirlaniyor': 'Hazırlanıyor',
+        'başvuru_yapildi': 'Başvuru Yapıldı',
+        'inceleniyor': 'İnceleniyor',
+        'ek_belge_istendi': 'Ek Belge İstendi',
+        'revize_talep_edildi': 'Revize Talep Edildi',
+        'onay_bekliyor': 'Onay Bekliyor',
+        'onaylandi': 'Onaylandı',
+        'reddedildi': 'Reddedildi',
+        'iptal_edildi': 'İptal Edildi'
+      };
+      return durumMap[value] || value;
+    }
+    
+    return String(value);
   };
 
   if (loading) {
@@ -556,6 +726,100 @@ const TesvikDetail = () => {
               </Card>
             </Grid>
 
+            {/* 📋 Son Belge İşlemleri */}
+            <Grid item xs={12} md={6}>
+              <Card>
+                <CardContent>
+                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <HistoryIcon />
+                    Son Belge İşlemleri
+                  </Typography>
+                  
+                  {activitiesLoading ? (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {[1, 2, 3].map(i => (
+                        <Skeleton key={i} variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
+                      ))}
+                    </Box>
+                  ) : activities.length > 0 ? (
+                     <Stack spacing={1}>
+                       {activities.slice(0, 5).map((activity, index) => (
+                         <Paper 
+                           key={activity._id}
+                           variant="outlined"
+                           sx={{ 
+                             p: 2,
+                             cursor: 'pointer',
+                             '&:hover': { backgroundColor: '#f5f5f5' },
+                             transition: 'background-color 0.2s',
+                             borderLeft: `4px solid ${getActivityColor(activity.action)}`
+                           }}
+                           onClick={() => handleActivityClick(activity)}
+                         >
+                           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                             <Avatar sx={{ 
+                               backgroundColor: getActivityColor(activity.action),
+                               color: 'white',
+                               width: 32,
+                               height: 32
+                             }}>
+                               {getActivityIcon(activity.action)}
+                             </Avatar>
+                             <Box sx={{ flex: 1 }}>
+                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                   {activity.title}
+                                 </Typography>
+                                 <Typography variant="caption" color="text.secondary">
+                                   {formatDate(activity.createdAt)}
+                                 </Typography>
+                               </Box>
+                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                 {activity.description}
+                               </Typography>
+                               {activity.changes && activity.changes.length > 0 && (
+                                 <Chip 
+                                   label={`${activity.changes.length} alan güncellendi`}
+                                   size="small"
+                                   sx={{ 
+                                     backgroundColor: '#FEF3C7',
+                                     color: '#D97706',
+                                     fontSize: '0.65rem',
+                                     height: 20
+                                   }}
+                                 />
+                               )}
+                             </Box>
+                           </Box>
+                         </Paper>
+                       ))}
+                     </Stack>
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 3 }}>
+                      <Typography variant="body2" color="text.secondary">
+                        Henüz işlem kaydı bulunmuyor
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {activities.length > 5 && (
+                    <Box sx={{ textAlign: 'center', mt: 2 }}>
+                      <Button 
+                        size="small" 
+                        variant="outlined"
+                        onClick={() => {
+                          // Tüm işlemleri göster modalı açılabilir
+                          console.log('Tüm işlemleri göster');
+                        }}
+                      >
+                        Tüm İşlemleri Göster ({activities.length})
+                      </Button>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+
             {/* Ek Bilgiler */}
             {tesvik.notlar?.dahiliNotlar && (
               <Grid item xs={12}>
@@ -574,8 +838,155 @@ const TesvikDetail = () => {
           </Grid>
         </Container>
       </Box>
+
+      {/* 📋 İşlem Detayı Modal */}
+      <Dialog 
+        open={activityModalOpen} 
+        onClose={handleCloseActivityModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">İşlem Detayları</Typography>
+          <IconButton onClick={handleCloseActivityModal}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          {selectedActivity && (
+            <Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" color="text.secondary">İşlem Türü</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                    <Avatar sx={{ 
+                      backgroundColor: getActivityColor(selectedActivity.action),
+                      width: 24,
+                      height: 24
+                    }}>
+                      {getActivityIcon(selectedActivity.action)}
+                    </Avatar>
+                    <Typography variant="body1">{selectedActivity.title}</Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" color="text.secondary">Tarih</Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    {formatDate(selectedActivity.createdAt)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="text.secondary">Açıklama</Typography>
+                  <Typography variant="body1" sx={{ mb: 2 }}>
+                    {selectedActivity.description}
+                  </Typography>
+                </Grid>
+                {selectedActivity.user && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">İşlemi Yapan</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                      <Typography variant="body1">{selectedActivity.user.name}</Typography>
+                      {selectedActivity.user.role && (
+                        <Chip 
+                          label={selectedActivity.user.role} 
+                          size="small" 
+                          variant="outlined"
+                        />
+                      )}
+                    </Box>
+                  </Grid>
+                )}
+                {selectedActivity.changes && selectedActivity.changes.length > 0 && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                      Değişiklikler ({selectedActivity.changes.length} alan güncellendi)
+                    </Typography>
+                    <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
+                      <Table size="small" stickyHeader>
+                         <TableHead>
+                           <TableRow sx={{ backgroundColor: '#f8fafc' }}>
+                            <TableCell sx={{ 
+                              fontWeight: 700, 
+                              backgroundColor: '#f1f5f9',
+                              borderRight: '1px solid #e5e7eb',
+                              width: '30%'
+                            }}>
+                              Alan
+                            </TableCell>
+                            <TableCell sx={{ 
+                              fontWeight: 700, 
+                              backgroundColor: '#fef2f2',
+                              borderRight: '1px solid #e5e7eb',
+                              color: '#dc2626'
+                            }}>
+                              Önceki Değer
+                            </TableCell>
+                            <TableCell sx={{ 
+                              fontWeight: 700, 
+                              backgroundColor: '#f0fdf4',
+                              color: '#059669'
+                            }}>
+                              Yeni Değer
+                            </TableCell>
+                          </TableRow>
+                         </TableHead>
+                        <TableBody>
+                          {selectedActivity.changes.map((change, index) => (
+                            <TableRow key={index} sx={{ '&:nth-of-type(odd)': { backgroundColor: '#f9fafb' } }}>
+                              <TableCell sx={{ fontWeight: 600, width: '30%', borderRight: '1px solid #e5e7eb' }}>
+                                {getFieldDisplayName(change.field)}
+                              </TableCell>
+                              <TableCell sx={{ 
+                                color: '#dc2626', 
+                                backgroundColor: '#fef2f2',
+                                borderRight: '1px solid #e5e7eb',
+                                fontFamily: 'monospace',
+                                fontSize: '0.875rem'
+                              }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600 }}>ESKİ:</Typography>
+                                  <Typography variant="body2">{formatFieldValue(change.field, change.oldValue)}</Typography>
+                                </Box>
+                              </TableCell>
+                              <TableCell sx={{ 
+                                color: '#059669', 
+                                backgroundColor: '#f0fdf4',
+                                fontFamily: 'monospace',
+                                fontSize: '0.875rem'
+                              }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600 }}>YENİ:</Typography>
+                                  <Typography variant="body2">{formatFieldValue(change.field, change.newValue)}</Typography>
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
+                )}
+                {selectedActivity.metadata && (
+                  <Grid item xs={12}>
+                    <Typography variant="subtitle2" color="text.secondary">Ek Bilgiler</Typography>
+                    <Paper sx={{ p: 2, backgroundColor: '#f8fafc', mt: 1 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        IP: {selectedActivity.metadata.ip || '-'} | 
+                        Tarayıcı: {selectedActivity.metadata.userAgent?.substring(0, 50) || '-'}...
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseActivityModal}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
 
-export default TesvikDetail; 
+export default TesvikDetail;

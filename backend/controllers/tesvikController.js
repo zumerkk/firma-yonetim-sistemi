@@ -200,6 +200,7 @@ const getTesvikler = async (req, res) => {
 const getTesvik = async (req, res) => {
   try {
     const { id } = req.params;
+
     
     // ID veya TesvikId ile arama
     let tesvik;
@@ -223,6 +224,8 @@ const getTesvik = async (req, res) => {
     await tesvik.populate('olusturanKullanici', 'adSoyad email rol');
     await tesvik.populate('sonGuncelleyen', 'adSoyad email');
     await tesvik.populate('revizyonlar.yapanKullanici', 'adSoyad email');
+    
+
 
     // Activity log
     await Activity.logActivity({
@@ -287,8 +290,18 @@ const updateTesvik = async (req, res) => {
     // Değişiklikleri kaydet (revizyon için)
     const eskiVeri = tesvik.toSafeJSON();
     
-    // Güncelleme verisini uygula
-    Object.assign(tesvik, updateData);
+    // Güncelleme verisini uygula - null/undefined alanları filtrele
+    const filteredUpdateData = Object.fromEntries(
+      Object.entries(updateData).filter(([key, value]) => {
+        // firma alanı null ise güncelleme
+        if (key === 'firma' && (value === null || value === undefined || value === '')) {
+          return false;
+        }
+        return value !== null && value !== undefined;
+      })
+    );
+    
+    Object.assign(tesvik, filteredUpdateData);
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = updateData.guncellemeNotu || '';
 
@@ -1652,4 +1665,4 @@ module.exports = {
   getNextGmId: getNextGmId,
   addNewOption: addNewOption,
   getOptionsForType: getOptionsForType
-}; 
+};
