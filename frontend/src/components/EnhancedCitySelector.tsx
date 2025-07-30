@@ -1,7 +1,7 @@
 // 🏙️ Gelişmiş İl-İlçe Seçici Bileşeni
 // CSV verilerinden 81 il ve tüm ilçeleri içeren modern seçici
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -15,10 +15,9 @@ import {
 import {
   LocationOn,
   Clear,
-  ExpandMore,
   Search
 } from '@mui/icons-material';
-import cityDataComplete, {
+import {
   REGIONAL_GROUPS,
   getCityCode,
   getDistrictCode,
@@ -46,6 +45,22 @@ interface EnhancedCitySelectorProps {
   className?: string;
   required?: boolean;
   showCodes?: boolean;
+  // Z-index ve görünüm sorunlarını çözmek için eklenen yeni özellikler
+  popperProps?: any;
+  paperProps?: any;
+}
+
+// City ve District tipi için interface tanımlayalım
+interface CityType {
+  kod: number;
+  ad: string;
+  value: string;
+  label: string;
+}
+
+interface DistrictType {
+  kod: number;
+  ad: string;
 }
 
 const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
@@ -55,16 +70,15 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
   onDistrictChange,
   className = '',
   required = false,
-  showCodes = true
+  showCodes = true,
+  popperProps = {},
+  paperProps = {}
 }) => {
   const [citySearchTerm, setCitySearchTerm] = useState('');
   const [districtSearchTerm, setDistrictSearchTerm] = useState('');
-  const [cityOptions, setCityOptions] = useState(TURKEY_CITIES_WITH_CODES);
-  const [districtOptions, setDistrictOptions] = useState([]);
-
-  const cityInputRef = useRef<HTMLInputElement>(null);
-  const districtInputRef = useRef<HTMLInputElement>(null);
-
+  const [cityOptions, setCityOptions] = useState<CityType[]>(TURKEY_CITIES_WITH_CODES);
+  const [districtOptions, setDistrictOptions] = useState<DistrictType[]>([]);
+  
   // İl seçeneklerini güncelle
   useEffect(() => {
     if (citySearchTerm) {
@@ -90,33 +104,86 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
     }
   }, [selectedCity, districtSearchTerm]);
 
-  const handleCityChange = (event: any, newValue: any) => {
+  const handleCityChange = useCallback((event: any, newValue: any) => {
     const cityName = newValue ? newValue.ad : '';
     onCityChange?.(cityName);
     setCitySearchTerm('');
     setDistrictSearchTerm('');
     onDistrictChange?.('');
-  };
+  }, [onCityChange, onDistrictChange]);
 
-  const handleDistrictChange = (event: any, newValue: any) => {
+  const handleDistrictChange = useCallback((event: any, newValue: any) => {
     const districtName = newValue ? newValue.ad : '';
     onDistrictChange?.(districtName);
     setDistrictSearchTerm('');
-  };
+  }, [onDistrictChange]);
 
-  const handleClearCity = () => {
+  const handleClearCity = useCallback(() => {
     onCityChange?.('');
     setCitySearchTerm('');
     setDistrictSearchTerm('');
     onDistrictChange?.('');
-  };
+  }, [onCityChange, onDistrictChange]);
 
-  const handleClearDistrict = () => {
+  const handleClearDistrict = useCallback(() => {
     onDistrictChange?.('');
     setDistrictSearchTerm('');
-  };
+  }, [onDistrictChange]);
 
+  // Autocomplete ayarları - önceden tanımla
+  const cityAutocompleteProps = useMemo(() => ({
+    PopperProps: {
+      style: { zIndex: 9999 }
+    },
+    renderOption: (props: any, option: CityType) => {
+      const { key, ...otherProps } = props;
+      return (
+        <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {option.ad}
+            </Typography>
+            <Chip 
+              label={getCityRegion(option.ad)} 
+              size="small" 
+              variant="outlined"
+              sx={{ fontSize: '0.7rem', height: 20 }}
+            />
+          </Box>
+          {showCodes && (
+            <Chip 
+              label={option.kod} 
+              size="small" 
+              sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
+            />
+          )}
+        </Box>
+      );
+    }
+  }), [showCodes]);
 
+  const districtAutocompleteProps = useMemo(() => ({
+    PopperProps: {
+      style: { zIndex: 9999 }
+    },
+    renderOption: (props: any, option: DistrictType) => {
+      const { key, ...otherProps } = props;
+      return (
+        <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {option.ad}
+          </Typography>
+          {showCodes && (
+            <Chip 
+              label={option.kod} 
+              size="small" 
+              sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
+            />
+          )}
+        </Box>
+      );
+    }
+  }), [showCodes]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -138,32 +205,13 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
         </Typography>
         
         <Autocomplete
+          id="city-selector"
           value={selectedCity ? cityOptions.find(city => city.ad === selectedCity) || null : null}
           onChange={handleCityChange}
           options={cityOptions}
           getOptionLabel={(option) => option.ad || ''}
-          renderOption={(props, option) => (
-            <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {option.ad}
-                </Typography>
-                <Chip 
-                  label={getCityRegion(option.ad)} 
-                  size="small" 
-                  variant="outlined"
-                  sx={{ fontSize: '0.7rem', height: 20 }}
-                />
-              </Box>
-              {showCodes && (
-                <Chip 
-                  label={option.kod} 
-                  size="small" 
-                  sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
-                />
-              )}
-            </Box>
-          )}
+          isOptionEqualToValue={(option, value) => option.ad === value.ad}
+          {...cityAutocompleteProps}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -205,10 +253,17 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
               }}
             />
           )}
-          PaperComponent={({ children, ...props }) => (
-            <Paper {...props} sx={{ mt: 1, boxShadow: 3 }}>
-              {children}
-            </Paper>
+          PaperComponent={(props) => (
+            <Paper 
+              {...props} 
+              elevation={8}
+              sx={{ 
+                mt: 1, 
+                maxHeight: '300px',
+                overflow: 'auto',
+                zIndex: 9999
+              }}
+            />
           )}
           noOptionsText="İl bulunamadı"
           loadingText="Yükleniyor..."
@@ -236,25 +291,14 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
         </Typography>
         
         <Autocomplete
+          id="district-selector"
           value={selectedDistrict ? districtOptions.find(district => district.ad === selectedDistrict) || null : null}
           onChange={handleDistrictChange}
           options={districtOptions}
           getOptionLabel={(option) => option.ad || ''}
           disabled={!selectedCity}
-          renderOption={(props, option) => (
-            <Box component="li" {...props} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                {option.ad}
-              </Typography>
-              {showCodes && (
-                <Chip 
-                  label={option.kod} 
-                  size="small" 
-                  sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
-                />
-              )}
-            </Box>
-          )}
+          isOptionEqualToValue={(option, value) => option.ad === value.ad}
+          {...districtAutocompleteProps}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -299,10 +343,17 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
               }}
             />
           )}
-          PaperComponent={({ children, ...props }) => (
-            <Paper {...props} sx={{ mt: 1, boxShadow: 3 }}>
-              {children}
-            </Paper>
+          PaperComponent={(props) => (
+            <Paper 
+              {...props} 
+              elevation={8}
+              sx={{ 
+                mt: 1, 
+                maxHeight: '300px',
+                overflow: 'auto',
+                zIndex: 9999
+              }}
+            />
           )}
           noOptionsText="İlçe bulunamadı"
           loadingText="Yükleniyor..."
@@ -351,10 +402,10 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
       )}
       
       {/* Hidden inputs for form submission */}
-      <input type="hidden" name="il" value={selectedCity} />
-      <input type="hidden" name="ilce" value={selectedDistrict} />
-      <input type="hidden" name="ilKod" value={selectedCity ? getCityCode(selectedCity) || '' : ''} />
-      <input type="hidden" name="ilceKod" value={selectedDistrict && selectedCity ? getDistrictCode(selectedCity, selectedDistrict) || '' : ''} />
+      <input type="hidden" name="il" value={selectedCity} id="hidden-il" />
+      <input type="hidden" name="ilce" value={selectedDistrict} id="hidden-ilce" />
+      <input type="hidden" name="ilKod" value={selectedCity ? getCityCode(selectedCity)?.toString() || '' : ''} id="hidden-il-kod" />
+      <input type="hidden" name="ilceKod" value={selectedDistrict && selectedCity ? getDistrictCode(selectedCity, selectedDistrict)?.toString() || '' : ''} id="hidden-ilce-kod" />
     </Box>
   );
 };

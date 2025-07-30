@@ -2,7 +2,7 @@
 // Excel şablonu 1:1 aynısı - GM ID otomatik, tüm firmalar, U$97 kodları
 // Mali hesaplamalar + ürün bilgileri + destek unsurları + özel şartlar
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
   Paper,
@@ -34,7 +34,11 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  IconButton
+  IconButton,
+  Avatar,
+  Tooltip,
+  LinearProgress,
+  CircularProgress
 } from '@mui/material';
 import {
   Save as SaveIcon,
@@ -44,12 +48,22 @@ import {
   Settings as SettingsIcon,
   EmojiEvents as EmojiEventsIcon,
   Add as AddIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  SaveAlt as SaveAltIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  ArrowBack as ArrowBackIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  AttachMoney as AttachMoneyIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import axios from '../../utils/axios';
+import { useAuth } from '../../contexts/AuthContext';
+// 🏙️ İl İlçe Seçici Import
+import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 
 // 🆕 Enhanced Components - CSV Integration (imports removed - not used in this form)
 
@@ -1219,30 +1233,48 @@ const TesvikForm = () => {
           
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Yeri İl</InputLabel>
-                <Select
-                  value={formData.yatirimBilgileri2.yerinIl}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIl', e.target.value)}
-                  label="Yeri İl"
-                >
-                  {templateData.iller?.map((il) => (
-                    <MenuItem key={il} value={il}>
-                      {il}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-      </Grid>
-      
-      <Grid item xs={12} md={6}>
-        <TextField
-          fullWidth
-                label="Yeri İlçe"
-                value={formData.yatirimBilgileri2.yerinIlce}
-                onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIlce', e.target.value)}
-        />
-      </Grid>
+              {/* İl-İlçe Seçimi - EnhancedCitySelector Bileşeni ile */}
+              <EnhancedCitySelector
+                selectedCity={formData.yatirimBilgileri2.yerinIl || ''}
+                selectedDistrict={formData.yatirimBilgileri2.yerinIlce || ''}
+                onCityChange={(city) => {
+                  handleFieldChange('yatirimBilgileri2.yerinIl', city);
+                  // İl değişince ilçeyi sıfırla
+                  handleFieldChange('yatirimBilgileri2.yerinIlce', '');
+                }}
+                onDistrictChange={(district) => {
+                  handleFieldChange('yatirimBilgileri2.yerinIlce', district);
+                }}
+                required={true}
+                showCodes={true}
+                // Z-index sorununu çözmek için özel stiller
+                popperProps={{
+                  style: {
+                    zIndex: 9999,
+                    position: 'absolute'
+                  }
+                }}
+                paperProps={{
+                  elevation: 8,
+                  style: {
+                    maxHeight: '300px', 
+                    overflow: 'auto'
+                  }
+                }}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Typography variant="subtitle2" gutterBottom>
+                ℹ️ İl-İlçe Seçimi Hakkında
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="caption">
+                  Türkiye'nin tüm il ve ilçelerini içeren gelişmiş seçici kullanılmaktadır. 
+                  Önce il sonra ilçe seçilmelidir.
+                </Typography>
+              </Alert>
+            </Grid>
 
             <Grid item xs={12} md={4}>
               <TextField

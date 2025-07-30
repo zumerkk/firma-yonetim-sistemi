@@ -1502,23 +1502,34 @@ const FirmaForm = () => {
                       <Chip
                         label={
                           (() => {
-                            const requiredFields = [
-                              formData.vergiNoTC,
-                              formData.tamUnvan,
-                              formData.adres,
-                              formData.firmaIl,
-                              formData.ilkIrtibatKisi,
-                              formData.yetkiliKisiler?.[0]?.adSoyad,
-                              formData.yetkiliKisiler?.[0]?.telefon1,
-                              formData.yetkiliKisiler?.[0]?.eposta1
-                            ].filter(Boolean);
+                            const requiredFieldsData = [
+                              { value: formData.vergiNoTC, name: 'Vergi No/TC' },
+                              { value: formData.tamUnvan, name: 'Tam Ünvan' },
+                              { value: formData.adres, name: 'Adres' },
+                              { value: formData.firmaIl, name: 'İl' },
+                              { value: formData.ilkIrtibatKisi, name: 'İlk İrtibat Kişisi' },
+                              { value: formData.yetkiliKisiler?.[0]?.adSoyad, name: 'Yetkili Ad Soyad' },
+                              { value: formData.yetkiliKisiler?.[0]?.telefon1, name: 'Yetkili Telefon' },
+                              { value: formData.yetkiliKisiler?.[0]?.eposta1, name: 'Yetkili E-posta' }
+                            ];
                             
-                            const isComplete = requiredFields.length === 8;
+                            const filledFields = requiredFieldsData.filter(field => field.value);
+                            const emptyFields = requiredFieldsData.filter(field => !field.value);
+                            
+                            const isComplete = filledFields.length === 8;
                             const hasValidationErrors = validationErrors.length > 0;
                             
                             if (hasValidationErrors) return '❌ Hatalar var';
                             if (isComplete) return '✅ Form hazır';
-                            return `⏳ ${8 - requiredFields.length} alan eksik`;
+                            
+                            const emptyFieldNames = emptyFields.map(field => field.name).slice(0, 2).join(', ');
+                            const remainingCount = emptyFields.length - 2;
+                            
+                            if (emptyFields.length <= 2) {
+                              return `⏳ Eksik: ${emptyFieldNames}`;
+                            } else {
+                              return `⏳ Eksik: ${emptyFieldNames} +${remainingCount} alan`;
+                            }
                           })()
                         }
                         color={
@@ -1540,7 +1551,7 @@ const FirmaForm = () => {
                           })()
                         }
                         size="medium"
-                        sx={{ fontWeight: 600 }}
+                        sx={{ fontWeight: 600, maxWidth: '300px' }}
                       />
                       
                       <Button
