@@ -40,7 +40,9 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   EmojiEvents as EmojiEventsIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  GetApp as GetAppIcon,
+  TableView as TableViewIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -198,6 +200,45 @@ const TesvikList = () => {
     loadTesvikler(newPage);
   };
 
+  // 🔧 YENİ EKLENDİ - Toplu Excel Export Handler
+  const handleBulkExcelExport = async () => {
+    try {
+      setLoading(true);
+      console.log('📊 Toplu Excel export başlatılıyor...');
+      
+      const response = await axios.get('/tesvik/bulk-excel-export', {
+        responseType: 'blob',
+        params: {
+          durum: filters.durum,
+          il: filters.il,
+          search: filters.search
+        }
+      });
+      
+      // Dosya indirme
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tesvikler_toplu_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Toplu Excel dosyası indirildi');
+      
+    } catch (error) {
+      console.error('🚨 Toplu Excel export hatası:', error);
+      setError('Excel çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formatDate = (date) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('tr-TR');
@@ -261,17 +302,37 @@ const TesvikList = () => {
               </Typography>
             </Box>
             
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/tesvik/yeni')}
-              sx={{
-                background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-                fontWeight: 600
-              }}
-            >
-              Yeni Teşvik
-            </Button>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<TableViewIcon />}
+                onClick={handleBulkExcelExport}
+                disabled={loading}
+                sx={{
+                  color: '#16a34a',
+                  borderColor: '#16a34a',
+                  fontWeight: 600,
+                  '&:hover': {
+                    backgroundColor: '#f0fdf4',
+                    borderColor: '#16a34a'
+                  }
+                }}
+              >
+                📊 Excel Export
+              </Button>
+              
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/tesvik/yeni')}
+                sx={{
+                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
+                  fontWeight: 600
+                }}
+              >
+                Yeni Teşvik
+              </Button>
+            </Box>
           </Box>
 
           {error && (
@@ -313,7 +374,7 @@ const TesvikList = () => {
                     value={filters.durum}
                     onChange={(e) => handleFilterChange('durum', e.target.value)}
                   >
-                    <MenuItem value="">Tümü</MenuItem>
+                    <MenuItem key="empty-all" value="">Tümü</MenuItem>
                     <MenuItem value="taslak">Taslak</MenuItem>
                     <MenuItem value="hazirlaniyor">Hazırlanıyor</MenuItem>
                     <MenuItem value="başvuru_yapildi">Başvuru Yapıldı</MenuItem>
@@ -564,4 +625,4 @@ const TesvikList = () => {
   );
 };
 
-export default TesvikList; 
+export default TesvikList;

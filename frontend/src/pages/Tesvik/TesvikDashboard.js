@@ -363,29 +363,39 @@ const TesvikDashboard = () => {
                               </Box>
                             }
                             secondary={
-                              <Box component="span">
-                                <Typography component="span" variant="body2" color="text.secondary" sx={{ display: 'block' }}>
+                              <span>
+                                <span style={{ color: '#6b7280', fontSize: '0.875rem', lineHeight: 1.43, display: 'block' }}>
                                   {tesvik.yatirimciUnvan}
-                                </Typography>
+                                </span>
                                 {/* 👤 Ekleyen kullanıcı bilgisi */}
-                                <Typography component="span" variant="caption" color="text.secondary" sx={{ 
+                                <span style={{ 
                                   display: 'flex', 
                                   alignItems: 'center', 
-                                  gap: 0.5,
-                                  mt: 0.5 
+                                  gap: '4px',
+                                  marginTop: '4px',
+                                  color: '#6b7280',
+                                  fontSize: '0.75rem'
                                 }}>
-                                  👤 {tesvik.olusturanKullanici?.adSoyad || 'Bilinmiyor'} 
+                                  <span>👤 {tesvik.olusturanKullanici?.adSoyad || 'Bilinmiyor'}</span>
                                   {tesvik.olusturanKullanici?.rol && (
-                                    <Chip 
-                                      label={tesvik.olusturanKullanici.rol} 
-                                      size="small" 
-                                      variant="outlined"
-                                      sx={{ height: 16, fontSize: '0.6rem' }}
-                                    />
+                                    <span 
+                                      style={{
+                                        display: 'inline-block',
+                                        padding: '2px 6px',
+                                        border: '1px solid #d1d5db',
+                                        borderRadius: '4px',
+                                        fontSize: '0.6rem',
+                                        height: '16px',
+                                        lineHeight: '12px',
+                                        color: '#6b7280'
+                                      }}
+                                    >
+                                      {tesvik.olusturanKullanici.rol}
+                                    </span>
                                   )}
-                                  • {new Date(tesvik.createdAt).toLocaleDateString('tr-TR')}
-                                </Typography>
-                              </Box>
+                                  <span>• {new Date(tesvik.createdAt).toLocaleDateString('tr-TR')}</span>
+                                </span>
+                              </span>
                             }
                           />
                           <IconButton 
@@ -501,4 +511,4 @@ const TesvikDashboard = () => {
   );
 };
 
-export default TesvikDashboard; 
+export default TesvikDashboard;

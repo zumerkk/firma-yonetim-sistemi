@@ -55,6 +55,158 @@ router.get('/stats', authenticate, getTesvikStats);
 // 📈 GET /api/tesvik/analytics - Detaylı Teşvik Analitiği (Admin)
 router.get('/analytics', authenticate, authorize('admin'), getTesvikAnalytics);
 
+// 📊 GET /api/tesvik/dashboard - Dashboard Verileri (Excel Benzeri Özet Tablolar)
+router.get('/dashboard', authenticate, async (req, res) => {
+  try {
+    const { period = '2024' } = req.query;
+    const Tesvik = require('../models/Tesvik');
+    
+    // Tarih filtresi
+    let dateFilter = {};
+    if (period !== 'all') {
+      const year = parseInt(period);
+      dateFilter = {
+        olusturmaTarihi: {
+          $gte: new Date(`${year}-01-01`),
+          $lte: new Date(`${year}-12-31`)
+        }
+      };
+    }
+    
+    // Temel istatistikler
+    const totalIncentives = await Tesvik.countDocuments({ aktif: true, ...dateFilter });
+    const activeIncentives = await Tesvik.countDocuments({ 
+      aktif: true, 
+      'durumBilgileri.durum': { $in: ['onaylandi', 'inceleniyor'] },
+      ...dateFilter 
+    });
+    
+    // Toplam tutar hesaplama
+    const totalAmountResult = await Tesvik.aggregate([
+      { $match: { aktif: true, ...dateFilter } },
+      { $group: { _id: null, total: { $sum: '$kunyeBilgileri.tesvikMiktari' } } }
+    ]);
+    const totalAmount = totalAmountResult[0]?.total || 0;
+    
+    // Onay oranı
+    const approvedCount = await Tesvik.countDocuments({ 
+      aktif: true, 
+      'durumBilgileri.durum': 'onaylandi',
+      ...dateFilter 
+    });
+    const approvalRate = totalIncentives > 0 ? ((approvedCount / totalIncentives) * 100).toFixed(1) : 0;
+    
+    // Durum dağılımı
+    const statusDistribution = await Tesvik.aggregate([
+      { $match: { aktif: true, ...dateFilter } },
+      { $group: { _id: '$durumBilgileri.durum', count: { $sum: 1 } } },
+      { $project: { name: '$_id', value: '$count', _id: 0 } }
+    ]);
+    
+    // Aylık trend
+    const monthlyTrends = await Tesvik.aggregate([
+      { $match: { aktif: true, ...dateFilter } },
+      {
+        $group: {
+          _id: { $month: '$olusturmaTarihi' },
+          count: { $sum: 1 },
+          amount: { $sum: '$kunyeBilgileri.tesvikMiktari' }
+        }
+      },
+      {
+        $project: {
+          month: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$_id', 1] }, then: 'Ocak' },
+                { case: { $eq: ['$_id', 2] }, then: 'Şubat' },
+                { case: { $eq: ['$_id', 3] }, then: 'Mart' },
+                { case: { $eq: ['$_id', 4] }, then: 'Nisan' },
+                { case: { $eq: ['$_id', 5] }, then: 'Mayıs' },
+                { case: { $eq: ['$_id', 6] }, then: 'Haziran' },
+                { case: { $eq: ['$_id', 7] }, then: 'Temmuz' },
+                { case: { $eq: ['$_id', 8] }, then: 'Ağustos' },
+                { case: { $eq: ['$_id', 9] }, then: 'Eylül' },
+                { case: { $eq: ['$_id', 10] }, then: 'Ekim' },
+                { case: { $eq: ['$_id', 11] }, then: 'Kasım' },
+                { case: { $eq: ['$_id', 12] }, then: 'Aralık' }
+              ],
+              default: 'Bilinmeyen'
+            }
+          },
+          count: 1,
+          amount: 1,
+          _id: 0
+        }
+      },
+      { $sort: { '_id': 1 } }
+    ]);
+    
+    // En çok teşvik alan firmalar
+    const topCompanies = await Tesvik.aggregate([
+      { $match: { aktif: true, ...dateFilter } },
+      { $lookup: { from: 'firmas', localField: 'firma', foreignField: '_id', as: 'firmaInfo' } },
+      { $unwind: '$firmaInfo' },
+      {
+        $group: {
+          _id: '$firma',
+          name: { $first: '$firmaInfo.unvan' },
+          count: { $sum: 1 },
+          amount: { $sum: '$kunyeBilgileri.tesvikMiktari' }
+        }
+      },
+      { $sort: { amount: -1 } },
+      { $limit: 10 },
+      { $project: { name: 1, count: 1, amount: 1, _id: 0 } }
+    ]);
+    
+    // Kategori dağılımı (destek sınıfına göre)
+    const categoryBreakdown = await Tesvik.aggregate([
+      { $match: { aktif: true, ...dateFilter } },
+      { $group: { _id: '$yatirimBilgileri1.destekSinifi', count: { $sum: 1 } } },
+      { $project: { category: '$_id', count: 1, _id: 0 } },
+      { $sort: { count: -1 } }
+    ]);
+    
+    // Son aktiviteler
+    const recentActivities = await Tesvik.find({ aktif: true, ...dateFilter })
+      .populate('firma', 'unvan')
+      .sort({ guncellenmeTarihi: -1 })
+      .limit(10)
+      .select('gmId tesvikId firma durumBilgileri kunyeBilgileri guncellenmeTarihi')
+      .lean();
+    
+    const formattedActivities = recentActivities.map(activity => ({
+      date: activity.guncellenmeTarihi,
+      company: activity.firma?.unvan || 'Bilinmeyen',
+      action: 'Teşvik Güncellendi',
+      status: activity.durumBilgileri?.durum || 'taslak',
+      amount: activity.kunyeBilgileri?.tesvikMiktari || 0
+    }));
+    
+    res.json({
+      success: true,
+      data: {
+        summary: {
+          totalIncentives,
+          totalAmount,
+          activeIncentives,
+          approvalRate
+        },
+        statusDistribution,
+        monthlyTrends,
+        topCompanies,
+        categoryBreakdown,
+        recentActivities: formattedActivities
+      }
+    });
+    
+  } catch (error) {
+    console.error('Dashboard veri hatası:', error);
+    res.status(500).json({ success: false, message: 'Dashboard verileri alınırken hata oluştu' });
+  }
+});
+
 // 🎨 GET /api/tesvik/durum-renkleri - Excel Renk Kodlama Sistemi
 router.get('/durum-renkleri', authenticate, getDurumRenkleri);
 
@@ -65,12 +217,202 @@ router.get('/destek-unsurlari', authenticate, getDestekUnsurlari);
 // Body: { sl, sm, et, eu, ev, ew, ex, ey, fb, fc, fe, ff, fh, fi }
 router.post('/hesapla-mali', authenticate, calculateMaliHesaplamalar);
 
-// 📤 GET /api/tesvik/excel-export - Excel Export (Filtrelenebilir)
-// Query params: durum, il, firma, tarihBaslangic, tarihBitis
-router.get('/excel-export', authenticate, checkPermission('raporGoruntule'), exportTesvikExcel);
+// 📤 GET /api/tesvik/:id/excel-export - Tekil Teşvik Excel Export
+// Query params: format (xlsx/csv), includeColors (true/false)
+router.get('/:id/excel-export', authenticate, checkPermission('raporGoruntule'), exportTesvikExcel);
 
-// 📄 GET /api/tesvik/pdf-export/:id - Tekil Teşvik PDF Export
-router.get('/pdf-export/:id', authenticate, exportTesvikPDF);
+// 📄 GET /api/tesvik/:id/pdf-export - Tekil Teşvik PDF Export
+// Query params: includeColors (true/false)
+router.get('/:id/pdf-export', authenticate, exportTesvikPDF);
+
+// 📊 GET /api/tesvik/bulk-excel-export - Toplu Excel Export (Filtrelenebilir, Renk Kodlamalı)
+// Query params: durum, il, firma, tarihBaslangic, tarihBitis
+router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule'), async (req, res) => {
+  try {
+    const { durum, il, firma, tarihBaslangic, tarihBitis, search } = req.query;
+    
+    // Filtreleme kriterlerini oluştur
+    let filter = { aktif: true };
+    
+    if (durum) filter['durumBilgileri.durum'] = durum;
+    if (il) filter['firma.il'] = il;
+    if (firma) filter.firma = firma;
+    if (search) {
+      filter.$or = [
+        { gmId: { $regex: search, $options: 'i' } },
+        { tesvikId: { $regex: search, $options: 'i' } }
+      ];
+    }
+    if (tarihBaslangic || tarihBitis) {
+      filter.olusturmaTarihi = {};
+      if (tarihBaslangic) filter.olusturmaTarihi.$gte = new Date(tarihBaslangic);
+      if (tarihBitis) filter.olusturmaTarihi.$lte = new Date(tarihBitis);
+    }
+    
+    const Tesvik = require('../models/Tesvik');
+    const ExcelJS = require('exceljs');
+    
+    // Filtrelenmiş teşvikleri getir
+    const tesvikler = await Tesvik.find(filter)
+      .populate('firma', 'unvan vergiNo il')
+      .lean()
+      .limit(1000); // Performans için limit
+    
+    if (tesvikler.length === 0) {
+      return res.status(404).json({ success: false, message: 'Filtreye uygun teşvik bulunamadı' });
+    }
+    
+    // ExcelJS workbook oluştur
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Teşvik Listesi');
+    
+    // Stil tanımlamaları
+    const headerStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    const subHeaderStyle = {
+      font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    const dataStyle = {
+      font: { color: { argb: 'FF000000' }, size: 11 },
+      alignment: { horizontal: 'left', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    // Durum renk kodlaması
+    const durumRenkleri = {
+      'taslak': 'FFFFD700',        // Altın
+      'hazirlaniyor': 'FFFF8C00',  // Turuncu
+      'inceleniyor': 'FF4169E1',   // Mavi
+      'onaylandi': 'FF32CD32',     // Yeşil
+      'reddedildi': 'FFDC143C',    // Kırmızı
+      'beklemede': 'FF9370DB',     // Mor
+      'tamamlandi': 'FF228B22'     // Koyu yeşil
+    };
+    
+    // Ana başlık
+    worksheet.mergeCells('A1:H1');
+    worksheet.getCell('A1').value = 'TEŞVİK LİSTESİ ÖZET RAPORU';
+    worksheet.getCell('A1').style = headerStyle;
+    
+    // Özet bilgiler
+    worksheet.getCell('A3').value = 'Toplam Kayıt:';
+    worksheet.getCell('A3').style = subHeaderStyle;
+    worksheet.getCell('B3').value = tesvikler.length;
+    worksheet.getCell('B3').style = dataStyle;
+    
+    worksheet.getCell('D3').value = 'Rapor Tarihi:';
+    worksheet.getCell('D3').style = subHeaderStyle;
+    worksheet.getCell('E3').value = new Date().toLocaleDateString('tr-TR');
+    worksheet.getCell('E3').style = dataStyle;
+    
+    // Tablo başlıkları
+    const headers = ['GM ID', 'Teşvik ID', 'Firma', 'Durum', 'İl', 'Proje Bedeli', 'Teşvik Miktarı', 'Oluşturma Tarihi'];
+    headers.forEach((header, index) => {
+      const cell = worksheet.getCell(5, index + 1);
+      cell.value = header;
+      cell.style = subHeaderStyle;
+    });
+    
+    // Veri satırları
+    tesvikler.forEach((tesvik, index) => {
+      const rowIndex = index + 6;
+      const durum = tesvik.durumBilgileri?.durum || 'taslak';
+      
+      const rowData = [
+        tesvik.gmId || '',
+        tesvik.tesvikId || '',
+        tesvik.firma?.unvan || '',
+        durum,
+        tesvik.firma?.il || '',
+        tesvik.kunyeBilgileri?.projeBedeli || 0,
+        tesvik.kunyeBilgileri?.tesvikMiktari || 0,
+        tesvik.olusturmaTarihi ? new Date(tesvik.olusturmaTarihi).toLocaleDateString('tr-TR') : ''
+      ];
+      
+      rowData.forEach((value, colIndex) => {
+        const cell = worksheet.getCell(rowIndex, colIndex + 1);
+        cell.value = value;
+        
+        // Durum sütunu için renk kodlaması
+        if (colIndex === 3) { // Durum sütunu
+          cell.style = {
+            ...dataStyle,
+            fill: { 
+              type: 'pattern', 
+              pattern: 'solid', 
+              fgColor: { argb: durumRenkleri[durum] || 'FFFFFFFF' } 
+            },
+            font: { 
+              ...dataStyle.font,
+              bold: true,
+              color: { argb: durum === 'onaylandi' || durum === 'tamamlandi' ? 'FFFFFFFF' : 'FF000000' }
+            }
+          };
+        } else {
+          cell.style = dataStyle;
+        }
+      });
+    });
+    
+    // Sütun genişlikleri
+    worksheet.columns = [
+      { width: 15 }, // GM ID
+      { width: 15 }, // Teşvik ID
+      { width: 40 }, // Firma
+      { width: 15 }, // Durum
+      { width: 12 }, // İl
+      { width: 15 }, // Proje Bedeli
+      { width: 15 }, // Teşvik Miktarı
+      { width: 15 }  // Oluşturma Tarihi
+    ];
+    
+    // Excel dosyasını buffer olarak oluştur
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    
+    // Response headers ayarla
+    const fileName = `tesvik_listesi_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Length', excelBuffer.length);
+    
+    // Excel dosyasını gönder
+    res.send(excelBuffer);
+    
+    console.log(`✅ Toplu Excel export tamamlandı: ${fileName}`);
+    
+  } catch (error) {
+    console.error('❌ Toplu Excel export hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Toplu Excel export sırasında hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+});
 
 // 🏢 GET /api/tesvik/firma/:firmaId - Firmaya Ait Teşvikler
 router.get('/firma/:firmaId', authenticate, getTesvikByFirma);
@@ -325,4 +667,4 @@ router.get('/alerts/suresi-dolacaklar', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router; 
+module.exports = router;

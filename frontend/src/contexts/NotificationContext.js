@@ -60,6 +60,11 @@ export const NotificationProvider = ({ children }) => {
 
   // 🔔 Refresh unread count - MOVED TO TOP for hoisting
   const refreshUnreadCount = useCallback(async () => {
+    // Kullanıcı giriş yapmamışsa API çağrısı yapma
+    if (!user) {
+      return;
+    }
+    
     try {
       const result = await notificationService.getUnreadCount();
       if (result.success) {
@@ -71,7 +76,7 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.error('❌ Okunmamış sayı yenileme hatası:', error);
     }
-  }, []);
+  }, [user]);
 
   // 🔄 Auto-refresh management  
   const startAutoRefresh = useCallback(() => {
@@ -91,6 +96,12 @@ export const NotificationProvider = ({ children }) => {
 
   // 🏗️ Initialize notifications
   const initializeNotifications = useCallback(async () => {
+    // Kullanıcı giriş yapmamışsa initialization yapma
+    if (!user) {
+      setState(prev => ({ ...prev, loading: false }));
+      return;
+    }
+    
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
@@ -119,7 +130,7 @@ export const NotificationProvider = ({ children }) => {
         error: 'Bildirim sistemi başlatılamadı'
       }));
     }
-  }, []);
+  }, [user]);
 
   // 📊 Load notifications with filters
   const loadNotifications = useCallback(async (options = {}) => {
@@ -408,4 +419,4 @@ export const NotificationProvider = ({ children }) => {
   );
 };
 
-export default NotificationContext; 
+export default NotificationContext;

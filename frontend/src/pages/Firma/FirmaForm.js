@@ -339,7 +339,16 @@ const FirmaForm = () => {
 
   // 🚀 ULTRA-OPTIMIZED Form Data Management
   const handleBasicFieldChange = useCallback((field) => (event) => {
-    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    
+    // 🌐 Website alanı için otomatik https:// ekleme
+    if (field === 'firmaWebsite' && value && value.trim() !== '') {
+      const trimmedValue = value.trim();
+      // Eğer http:// veya https:// ile başlamıyorsa, otomatik https:// ekle
+      if (!trimmedValue.startsWith('http://') && !trimmedValue.startsWith('https://')) {
+        value = 'https://' + trimmedValue;
+      }
+    }
     
     setFormData(prevData => ({
       ...prevData,

@@ -315,12 +315,69 @@ const updateTesvik = async (req, res) => {
 
     await tesvik.save();
 
+    // Değişen alanları tespit et
+    const changedFields = [];
+    const fieldLabels = {
+      'yatirimciUnvan': 'Yatırımcı Ünvanı',
+      'yatirimciAdres': 'Yatırımcı Adresi',
+      'yatirimciTelefon': 'Telefon',
+      'yatirimciEmail': 'E-posta',
+      'yatirimTutari': 'Yatırım Tutarı',
+      'istihdam.mevcutKisi': 'Mevcut Kişi Sayısı',
+      'istihdam.yeniKisi': 'Yeni Kişi Sayısı',
+      'durumBilgileri.genelDurum': 'Genel Durum',
+      'durumBilgileri.durumAciklamasi': 'Durum Açıklaması',
+      'maliHesaplamalar.toplamYatirim': 'Toplam Yatırım',
+      'maliHesaplamalar.tesvikTutari': 'Teşvik Tutarı',
+      'notlar.dahiliNotlar': 'Dahili Notlar',
+      'notlar.resmiAciklamalar': 'Resmi Açıklamalar'
+    };
+
+    // Nested object değişikliklerini kontrol et
+    const checkNestedChanges = (oldObj, newObj, prefix = '') => {
+      if (!oldObj || !newObj) return;
+      
+      Object.keys(newObj).forEach(key => {
+        const fullKey = prefix ? `${prefix}.${key}` : key;
+        const oldValue = oldObj[key];
+        const newValue = newObj[key];
+        
+        if (typeof newValue === 'object' && newValue !== null && !Array.isArray(newValue)) {
+          checkNestedChanges(oldValue, newValue, fullKey);
+        } else if (oldValue !== newValue && fieldLabels[fullKey]) {
+          changedFields.push({
+            field: fieldLabels[fullKey],
+            oldValue: oldValue || '-',
+            newValue: newValue || '-'
+          });
+        }
+      });
+    };
+
+    // Ana alanları kontrol et
+    Object.keys(updateData).forEach(key => {
+      if (key === 'guncellemeNotu') return; // Skip update note
+      
+      const oldValue = eskiVeri[key];
+      const newValue = updateData[key];
+      
+      if (typeof newValue === 'object' && newValue !== null && !Array.isArray(newValue)) {
+        checkNestedChanges(oldValue, newValue, key);
+      } else if (oldValue !== newValue && fieldLabels[key]) {
+        changedFields.push({
+          field: fieldLabels[key],
+          oldValue: oldValue || '-',
+          newValue: newValue || '-'
+        });
+      }
+    });
+
     // Activity log
     await Activity.logActivity({
       action: 'update',
       category: 'tesvik',
       title: 'Teşvik Güncellendi',
-      description: `${tesvik.tesvikId} numaralı teşvik güncellendi`,
+      description: `${tesvik.tesvikId} numaralı teşvik güncellendi (${changedFields.length} alan değiştirildi)`,
       targetResource: {
         type: 'tesvik',
         id: tesvik._id,
@@ -335,7 +392,13 @@ const updateTesvik = async (req, res) => {
       },
       changes: {
         before: eskiVeri,
-        after: tesvik.toSafeJSON()
+        after: tesvik.toSafeJSON(),
+        fields: changedFields
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        source: 'web'
       }
     });
 
@@ -691,6 +754,17 @@ const deleteTesvik = async (req, res) => {
       });
     }
 
+    // Silme öncesi mevcut durumu kaydet
+    const beforeState = {
+      aktif: tesvik.aktif,
+      tesvikId: tesvik.tesvikId,
+      yatirimciUnvan: tesvik.yatirimciUnvan,
+      gmId: tesvik.gmId,
+      durumBilgileri: tesvik.durumBilgileri,
+      sonGuncelleyen: tesvik.sonGuncelleyen,
+      sonGuncellemeNotlari: tesvik.sonGuncellemeNotlari
+    };
+
     // Soft delete
     tesvik.aktif = false;
     tesvik.sonGuncelleyen = req.user._id;
@@ -698,12 +772,50 @@ const deleteTesvik = async (req, res) => {
     
     await tesvik.save();
 
-    // Activity log
+    // Silme sonrası durumu kaydet
+    const afterState = {
+      aktif: tesvik.aktif,
+      tesvikId: tesvik.tesvikId,
+      yatirimciUnvan: tesvik.yatirimciUnvan,
+      gmId: tesvik.gmId,
+      durumBilgileri: tesvik.durumBilgileri,
+      sonGuncelleyen: tesvik.sonGuncelleyen,
+      sonGuncellemeNotlari: tesvik.sonGuncellemeNotlari
+    };
+
+    // Silinen alanları tespit et
+    const deletedFields = [
+      {
+        field: 'aktif',
+        fieldName: 'Aktiflik Durumu',
+        oldValue: beforeState.aktif,
+        newValue: afterState.aktif
+      },
+      {
+        field: 'sonGuncellemeNotlari',
+        fieldName: 'Son Güncelleme Notları',
+        oldValue: beforeState.sonGuncellemeNotlari,
+        newValue: afterState.sonGuncellemeNotlari
+      }
+    ];
+
+    // IP ve User Agent bilgilerini al
+    const clientIp = req.headers['x-forwarded-for'] || 
+                     req.headers['x-real-ip'] || 
+                     req.connection.remoteAddress || 
+                     req.socket.remoteAddress || 
+                     (req.connection.socket ? req.connection.socket.remoteAddress : null) || 
+                     req.ip || 
+                     'Bilinmiyor';
+    
+    const userAgent = req.headers['user-agent'] || 'Bilinmiyor';
+
+    // Detaylı activity log
     await Activity.logActivity({
       action: 'delete',
       category: 'tesvik',
       title: 'Teşvik Silindi',
-      description: `${tesvik.tesvikId} numaralı teşvik silindi`,
+      description: `${tesvik.tesvikId} numaralı teşvik silindi (soft delete)`,
       targetResource: {
         type: 'tesvik',
         id: tesvik._id,
@@ -715,6 +827,18 @@ const deleteTesvik = async (req, res) => {
         name: req.user.adSoyad,
         email: req.user.email,
         role: req.user.rol
+      },
+      changes: {
+        before: beforeState,
+        after: afterState,
+        fields: deletedFields
+      },
+      metadata: {
+        ip: clientIp,
+        userAgent: userAgent,
+        source: 'web_interface',
+        timestamp: new Date(),
+        operationType: 'soft_delete'
       }
     });
 
@@ -1645,15 +1769,480 @@ module.exports = {
   getNextTesvikId,
   bulkUpdateDurum,
   
-  // TODO: Implement remaining functions
-  exportTesvikExcel: (req, res) => {
-    res.status(501).json({ success: false, message: 'Excel export yakında gelecek' });
+  // 📄 EXCEL EXPORT - Excel benzeri renk kodlamalı çıktı (ExcelJS ile)
+  exportTesvikExcel: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { format = 'xlsx', includeColors = true } = req.query;
+      
+      console.log(`📊 Excel export başlatılıyor: ${id}`);
+      
+      // Teşvik verisini getir
+      const tesvik = await Tesvik.findById(id)
+        .populate('firma', 'unvan vergiNo')
+        .lean();
+        
+      if (!tesvik) {
+        return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      }
+      
+      // ExcelJS workbook oluştur
+      const ExcelJS = require('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      
+      // Ana sayfa - Teşvik Detayları
+      const mainSheet = workbook.addWorksheet('Teşvik Detayları');
+      
+      // Başlık stilleri
+      const headerStyle = {
+        font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F81BD' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+      };
+      
+      const subHeaderStyle = {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } },
+        alignment: { horizontal: 'left', vertical: 'middle' }
+      };
+      
+      const dataStyle = {
+        font: { color: { argb: 'FF000000' }, size: 11 },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        }
+      };
+      
+      // Ana başlık
+      mainSheet.mergeCells('A1:G1');
+      mainSheet.getCell('A1').value = 'TEŞVİK BELGESI';
+      mainSheet.getCell('A1').style = headerStyle;
+      
+      // Temel bilgiler
+      let row = 3;
+      mainSheet.getCell(`A${row}`).value = 'GM ID:';
+      mainSheet.getCell(`A${row}`).style = subHeaderStyle;
+      mainSheet.getCell(`B${row}`).value = tesvik.gmId || '';
+      mainSheet.getCell(`B${row}`).style = dataStyle;
+      mainSheet.getCell(`D${row}`).value = 'Teşvik ID:';
+      mainSheet.getCell(`D${row}`).style = subHeaderStyle;
+      mainSheet.getCell(`E${row}`).value = tesvik.tesvikId || '';
+      mainSheet.getCell(`E${row}`).style = dataStyle;
+      
+      row++;
+      mainSheet.getCell(`A${row}`).value = 'Firma:';
+      mainSheet.getCell(`A${row}`).style = subHeaderStyle;
+      mainSheet.getCell(`B${row}`).value = tesvik.firma?.unvan || '';
+      mainSheet.getCell(`B${row}`).style = dataStyle;
+      mainSheet.getCell(`D${row}`).value = 'Vergi No:';
+      mainSheet.getCell(`D${row}`).style = subHeaderStyle;
+      mainSheet.getCell(`E${row}`).value = tesvik.firma?.vergiNo || '';
+      mainSheet.getCell(`E${row}`).style = dataStyle;
+      
+      // Künye bilgileri bölümü
+      row += 2;
+      mainSheet.mergeCells(`A${row}:G${row}`);
+      mainSheet.getCell(`A${row}`).value = 'KÜNYE BİLGİLERİ';
+      mainSheet.getCell(`A${row}`).style = headerStyle;
+      
+      row++;
+      const kunyeFields = [
+        ['Karar Tarihi:', tesvik.kunyeBilgileri?.kararTarihi || '', 'Karar Sayısı:', tesvik.kunyeBilgileri?.kararSayisi || ''],
+        ['Başvuru Tarihi:', tesvik.kunyeBilgileri?.basvuruTarihi || '', 'Dosya No:', tesvik.kunyeBilgileri?.dosyaNo || ''],
+        ['Proje Bedeli:', tesvik.kunyeBilgileri?.projeBedeli || 0, 'Teşvik Miktarı:', tesvik.kunyeBilgileri?.tesvikMiktari || 0]
+      ];
+      
+      kunyeFields.forEach(fieldRow => {
+        mainSheet.getCell(`A${row}`).value = fieldRow[0];
+        mainSheet.getCell(`A${row}`).style = subHeaderStyle;
+        mainSheet.getCell(`B${row}`).value = fieldRow[1];
+        mainSheet.getCell(`B${row}`).style = dataStyle;
+        mainSheet.getCell(`D${row}`).value = fieldRow[2];
+        mainSheet.getCell(`D${row}`).style = subHeaderStyle;
+        mainSheet.getCell(`E${row}`).value = fieldRow[3];
+        mainSheet.getCell(`E${row}`).style = dataStyle;
+        row++;
+      });
+      
+      // Finansal bilgiler bölümü
+      row++;
+      mainSheet.mergeCells(`A${row}:G${row}`);
+      mainSheet.getCell(`A${row}`).value = 'FİNANSAL BİLGİLER';
+      mainSheet.getCell(`A${row}`).style = headerStyle;
+      
+      row++;
+      const finansalFields = [
+        ['Toplam Sabit Yatırım:', tesvik.finansalBilgiler?.toplamSabitYatirimTutari || 0],
+        ['Arazi/Arsa Bedeli:', tesvik.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0],
+        ['Yerli Makine (TL):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli || 0],
+        ['İthal Makine (TL):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal || 0],
+        ['İthal Makine (USD):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine || 0]
+      ];
+      
+      finansalFields.forEach(fieldRow => {
+        mainSheet.getCell(`A${row}`).value = fieldRow[0];
+        mainSheet.getCell(`A${row}`).style = subHeaderStyle;
+        mainSheet.getCell(`B${row}`).value = fieldRow[1];
+        mainSheet.getCell(`B${row}`).style = dataStyle;
+        row++;
+      });
+      
+      // Sütun genişlikleri
+      mainSheet.columns = [
+        { width: 25 }, { width: 20 }, { width: 5 }, { width: 20 }, { width: 20 }, { width: 10 }, { width: 10 }
+      ];
+      
+      // Ürün bilgileri sayfası
+      const urunSheet = workbook.addWorksheet('Ürün Bilgileri');
+      
+      // Ürün sayfası başlığı
+      urunSheet.mergeCells('A1:G1');
+      urunSheet.getCell('A1').value = 'ÜRÜN BİLGİLERİ (U$97 KODLARI)';
+      urunSheet.getCell('A1').style = headerStyle;
+      
+      // Ürün tablosu başlıkları
+      const urunHeaders = ['Kod', 'Açıklama', 'Mevcut', 'İlave', 'Toplam', 'Kapasite', 'Birim'];
+      urunHeaders.forEach((header, index) => {
+        const cell = urunSheet.getCell(3, index + 1);
+        cell.value = header;
+        cell.style = subHeaderStyle;
+      });
+      
+      // Ürün verileri
+      if (tesvik.urunBilgileri && tesvik.urunBilgileri.length > 0) {
+        tesvik.urunBilgileri.forEach((urun, index) => {
+          const rowIndex = index + 4;
+          const urunData = [
+            urun.kod || '',
+            urun.aciklama || '',
+            urun.mevcut || 0,
+            urun.ilave || 0,
+            urun.toplam || 0,
+            urun.kapsite || 0,
+            urun.kapasite_birimi || ''
+          ];
+          
+          urunData.forEach((value, colIndex) => {
+            const cell = urunSheet.getCell(rowIndex, colIndex + 1);
+            cell.value = value;
+            cell.style = dataStyle;
+          });
+        });
+      }
+      
+      // Ürün sayfası sütun genişlikleri
+      urunSheet.columns = [
+        { width: 15 }, { width: 40 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 12 }
+      ];
+      
+      // Destek unsurları sayfası
+      const destekSheet = workbook.addWorksheet('Destek Unsurları');
+      
+      // Destek sayfası başlığı
+      destekSheet.mergeCells('A1:D1');
+      destekSheet.getCell('A1').value = 'DESTEK UNSURLARI';
+      destekSheet.getCell('A1').style = headerStyle;
+      
+      // Destek tablosu başlıkları
+      const destekHeaders = ['Sıra', 'Destek Unsuru', 'Şartları', 'Açıklama'];
+      destekHeaders.forEach((header, index) => {
+        const cell = destekSheet.getCell(3, index + 1);
+        cell.value = header;
+        cell.style = subHeaderStyle;
+      });
+      
+      // Destek verileri
+      if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
+        tesvik.destekUnsurlari.forEach((destek, index) => {
+          const rowIndex = index + 4;
+          const destekData = [
+            index + 1,
+            destek.destekUnsuru || '',
+            destek.sarti || '',
+            destek.aciklama || ''
+          ];
+          
+          destekData.forEach((value, colIndex) => {
+            const cell = destekSheet.getCell(rowIndex, colIndex + 1);
+            cell.value = value;
+            cell.style = dataStyle;
+          });
+        });
+      }
+      
+      // Destek sayfası sütun genişlikleri
+      destekSheet.columns = [
+        { width: 8 }, { width: 50 }, { width: 40 }, { width: 40 }
+      ];
+      
+      // Excel dosyasını buffer olarak oluştur
+      const excelBuffer = await workbook.xlsx.writeBuffer();
+      
+      // Response headers ayarla
+      const fileName = `tesvik_${tesvik.gmId || tesvik.tesvikId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', excelBuffer.length);
+      
+      // Excel dosyasını gönder
+      res.send(excelBuffer);
+      
+      console.log(`✅ Excel export tamamlandı: ${fileName}`);
+      
+    } catch (error) {
+      console.error('❌ Excel export hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Excel export sırasında hata oluştu',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
   },
-  exportTesvikPDF: (req, res) => {
-    res.status(501).json({ success: false, message: 'PDF export yakında gelecek' });
+  
+  // 📄 PDF EXPORT - Excel benzeri görsel PDF çıktı
+  exportTesvikPDF: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { includeColors = true } = req.query;
+      
+      console.log(`📄 PDF export başlatılıyor: ${id}`);
+      
+      // Teşvik verisini getir
+      const tesvik = await Tesvik.findById(id)
+        .populate('firma', 'unvan vergiNo')
+        .lean();
+        
+      if (!tesvik) {
+        return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      }
+      
+      // PDF document oluştur
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      
+      // Response headers ayarla
+      const fileName = `tesvik_${tesvik.gmId || tesvik.tesvikId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      
+      // PDF stream'i response'a pipe et
+      doc.pipe(res);
+      
+      // Başlık
+      doc.fontSize(20).font('Helvetica-Bold').text('TEŞVİK BELGESI', { align: 'center' });
+      doc.moveDown(2);
+      
+      // Temel bilgiler
+      doc.fontSize(12).font('Helvetica-Bold').text('TEMEL BİLGİLER', { underline: true });
+      doc.moveDown(0.5);
+      doc.font('Helvetica');
+      doc.text(`GM ID: ${tesvik.gmId || 'Belirtilmemiş'}`);
+      doc.text(`Teşvik ID: ${tesvik.tesvikId || 'Belirtilmemiş'}`);
+      doc.text(`Firma: ${tesvik.firma?.unvan || 'Belirtilmemiş'}`);
+      doc.text(`Vergi No: ${tesvik.firma?.vergiNo || 'Belirtilmemiş'}`);
+      doc.moveDown(1);
+      
+      // Künye bilgileri
+      doc.font('Helvetica-Bold').text('KÜNYE BİLGİLERİ', { underline: true });
+      doc.moveDown(0.5);
+      doc.font('Helvetica');
+      doc.text(`Karar Tarihi: ${tesvik.kunyeBilgileri?.kararTarihi || 'Belirtilmemiş'}`);
+      doc.text(`Karar Sayısı: ${tesvik.kunyeBilgileri?.kararSayisi || 'Belirtilmemiş'}`);
+      doc.text(`Başvuru Tarihi: ${tesvik.kunyeBilgileri?.basvuruTarihi || 'Belirtilmemiş'}`);
+      doc.text(`Dosya No: ${tesvik.kunyeBilgileri?.dosyaNo || 'Belirtilmemiş'}`);
+      doc.text(`Proje Bedeli: ${tesvik.kunyeBilgileri?.projeBedeli || 0} TL`);
+      doc.text(`Teşvik Miktarı: ${tesvik.kunyeBilgileri?.tesvikMiktari || 0} TL`);
+      doc.moveDown(1);
+      
+      // Finansal bilgiler
+      doc.font('Helvetica-Bold').text('FİNANSAL BİLGİLER', { underline: true });
+      doc.moveDown(0.5);
+      doc.font('Helvetica');
+      doc.text(`Toplam Sabit Yatırım: ${tesvik.finansalBilgiler?.toplamSabitYatirimTutari || 0} TL`);
+      doc.text(`Arazi/Arsa Bedeli: ${tesvik.finansalBilgiler?.araziArsaBedeli || 0} TL`);
+      doc.moveDown(0.5);
+      
+      // Makine teçhizat TL
+      doc.text(`Yerli Makine: ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerliMakine || 0} TL`);
+      doc.text(`İthal Makine: ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithalMakine || 0} TL`);
+      doc.text(`Toplam Makine (TL): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.toplamMakineTeç || 0} TL`);
+      doc.moveDown(0.5);
+      
+      // Makine teçhizat USD
+      doc.text(`İthal Makine (USD): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine || 0} USD`);
+      doc.text(`Toplam İthal (USD): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.toplamIthalMakine || 0} USD`);
+      doc.moveDown(1);
+      
+      // Yeni sayfa - Ürün bilgileri
+      doc.addPage();
+      doc.fontSize(16).font('Helvetica-Bold').text('ÜRÜN BİLGİLERİ (U$97 KODLARI)', { align: 'center' });
+      doc.moveDown(1);
+      
+      if (tesvik.urunBilgileri && tesvik.urunBilgileri.length > 0) {
+        // Tablo başlıkları
+        doc.fontSize(10).font('Helvetica-Bold');
+        const tableTop = doc.y;
+        const colWidths = [60, 150, 60, 60, 60, 80, 60];
+        let currentX = 50;
+        
+        ['Kod', 'Açıklama', 'Mevcut', 'İlave', 'Toplam', 'Kapasite', 'Birim'].forEach((header, i) => {
+          doc.text(header, currentX, tableTop, { width: colWidths[i], align: 'center' });
+          currentX += colWidths[i];
+        });
+        
+        doc.moveDown(0.5);
+        
+        // Tablo verileri
+        doc.font('Helvetica');
+        tesvik.urunBilgileri.forEach((urun, index) => {
+          if (doc.y > 700) { // Sayfa sonu kontrolü
+            doc.addPage();
+          }
+          
+          currentX = 50;
+          const rowY = doc.y;
+          
+          [
+            urun.kod || '',
+            urun.aciklama || '',
+            urun.mevcut || 0,
+            urun.ilave || 0,
+            urun.toplam || 0,
+            urun.kapsite || 0,
+            urun.kapasite_birimi || ''
+          ].forEach((value, i) => {
+            doc.text(String(value), currentX, rowY, { width: colWidths[i], align: 'center' });
+            currentX += colWidths[i];
+          });
+          
+          doc.moveDown(0.3);
+        });
+      }
+      
+      // Yeni sayfa - Destek unsurları
+      doc.addPage();
+      doc.fontSize(16).font('Helvetica-Bold').text('DESTEK UNSURLARI', { align: 'center' });
+      doc.moveDown(1);
+      
+      if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
+        tesvik.destekUnsurlari.forEach((destek, index) => {
+          if (doc.y > 700) { // Sayfa sonu kontrolü
+            doc.addPage();
+          }
+          
+          doc.fontSize(12).font('Helvetica-Bold').text(`${index + 1}. ${destek.destekUnsuru || 'Belirtilmemiş'}`);
+          doc.fontSize(10).font('Helvetica');
+          doc.text(`Şartları: ${destek.sarti || 'Belirtilmemiş'}`);
+          if (destek.aciklama) {
+            doc.text(`Açıklama: ${destek.aciklama}`);
+          }
+          doc.moveDown(0.5);
+        });
+      }
+      
+      // PDF'i sonlandır
+      doc.end();
+      
+      console.log(`✅ PDF export tamamlandı: ${fileName}`);
+      
+    } catch (error) {
+      console.error('❌ PDF export hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'PDF export sırasında hata oluştu',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+      });
+    }
   },
-  getTesvikTimeline: (req, res) => {
-    res.status(501).json({ success: false, message: 'Timeline yakında gelecek' });
+  getTesvikTimeline: async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      // Teşvik kaydını bul
+      const tesvik = await Tesvik.findById(id).populate('revizyonlar.user', 'name email');
+      
+      if (!tesvik) {
+        return res.status(404).json({
+          success: false,
+          message: 'Teşvik kaydı bulunamadı'
+        });
+      }
+      
+      // Revizyon geçmişini hazırla
+      const timeline = [];
+      
+      // İlk oluşturma kaydı
+      timeline.push({
+        _id: 'created',
+        type: 'created',
+        title: 'Teşvik Kaydı Oluşturuldu',
+        description: `${tesvik.tesvikId} numaralı teşvik kaydı oluşturuldu`,
+        user: tesvik.olusturan,
+        createdAt: tesvik.createdAt,
+        changes: []
+      });
+      
+      // Revizyonları ekle
+      if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
+        tesvik.revizyonlar.forEach(revizyon => {
+          timeline.push({
+            _id: revizyon._id,
+            type: revizyon.type || 'updated',
+            title: revizyon.baslik || 'Revizyon',
+            description: revizyon.aciklama,
+            reason: revizyon.sebep,
+            notes: revizyon.notlar,
+            user: revizyon.user,
+            createdAt: revizyon.tarih,
+            changes: revizyon.degisikenAlanlar || []
+          });
+        });
+      }
+      
+      // Durum değişikliklerini ekle
+      if (tesvik.durumGecmisi && tesvik.durumGecmisi.length > 0) {
+        tesvik.durumGecmisi.forEach(durum => {
+          timeline.push({
+            _id: `status_${durum._id}`,
+            type: 'status_changed',
+            title: 'Durum Değişikliği',
+            description: `Durum "${durum.eskiDurum}" den "${durum.yeniDurum}" e değiştirildi`,
+            reason: durum.sebep,
+            user: durum.degistiren,
+            createdAt: durum.tarih,
+            changes: [{
+              field: 'Durum',
+              oldValue: durum.eskiDurum,
+              newValue: durum.yeniDurum
+            }]
+          });
+        });
+      }
+      
+      // Tarihe göre sırala (en yeni en üstte)
+      timeline.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      res.json({
+        success: true,
+        data: timeline
+      });
+      
+    } catch (error) {
+      console.error('🚨 Timeline hatası:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Timeline yüklenirken hata oluştu'
+      });
+    }
   },
   getDestekUnsurlari: (req, res) => {
     res.status(501).json({ success: false, message: 'Destek unsurları yakında gelecek' });

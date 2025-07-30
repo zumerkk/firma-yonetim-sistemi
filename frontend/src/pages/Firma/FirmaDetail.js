@@ -286,9 +286,9 @@ const FirmaDetail = () => {
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, group: 'hover' }}>
-        <Typography variant="body2">
+        <Box component="span" sx={{ flex: 1 }}>
           {value || 'Belirtilmemiş'}
-        </Typography>
+        </Box>
         <Tooltip title={`${label} düzenle`}>
           <IconButton 
             size="small" 
@@ -963,4 +963,4 @@ const FirmaDetail = () => {
   );
 };
 
-export default FirmaDetail; 
+export default FirmaDetail;

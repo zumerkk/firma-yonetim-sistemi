@@ -55,7 +55,11 @@ import {
   ArrowBack as ArrowBackIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
-  AttachMoney as AttachMoneyIcon
+  AttachMoney as AttachMoneyIcon,
+  TableView as TableViewIcon,
+  PictureAsPdf as PictureAsPdfIcon,
+  Download as DownloadIcon,
+  ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -64,6 +68,8 @@ import axios from '../../utils/axios';
 import { useAuth } from '../../contexts/AuthContext';
 // 🏙️ İl İlçe Seçici Import
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
+// 🔄 Revizyon Timeline Import
+import RevisionTimeline from '../../components/RevisionTimeline';
 
 // 🆕 Enhanced Components - CSV Integration (imports removed - not used in this form)
 
@@ -300,14 +306,15 @@ const TesvikForm = () => {
 
   const [activeStep, setActiveStep] = useState(0);
 
-  // Adım isimleri - Excel yapısına uygun
+  // Adım isimleri - Yeniden düzenlenmiş profesyonel yapı
   const stepLabels = [
-    '📋 Temel Bilgiler',
-    '🏢 Yatırım & Belge', 
-    '📦 Ürün Bilgileri',
-    '🎯 Destek & Şartlar',
-    '💰 Finansal Bilgiler',
-    '📊 Özet & Kaydet'
+    '📋 KÜNYE BİLGİLERİ',
+    '🏢 YATIRIM İLE İLGİLİ BİLGİLER',
+    '📦 ÜRÜN BİLGİLERİ',
+    '🎯 DESTEK UNSURLARI',
+    '⚖️ ÖZEL ŞARTLAR',
+    '💰 FİNANSAL BİLGİLER',
+    '📈 REVİZYON GEÇMİŞİ'
   ];
 
   // Klavye kısayolları handler
@@ -695,6 +702,91 @@ const TesvikForm = () => {
     });
   };
 
+  // 🔧 YENİ EKLENDİ - Excel Benzeri Copy-Paste Özelliği
+  const handleTablePaste = (e) => {
+    e.preventDefault();
+    const pasteData = e.clipboardData.getData('text');
+    
+    if (!pasteData) return;
+    
+    // Excel/CSV formatında veriyi parse et
+    const rows = pasteData.split('\n').filter(row => row.trim());
+    const parsedData = rows.map(row => {
+      const cells = row.split('\t'); // Tab ile ayrılmış
+      return {
+        kod: cells[0] || '',
+        aciklama: cells[1] || '',
+        mevcut: parseFloat(cells[2]) || 0,
+        ilave: parseFloat(cells[3]) || 0,
+        kapsite: parseFloat(cells[5]) || 0,
+        kapasite_birimi: cells[6] || ''
+      };
+    });
+    
+    // Mevcut ürün bilgilerine ekle
+    setFormData(prev => {
+      const newData = { ...prev };
+      
+      // Yeni satırları ekle
+      parsedData.forEach((newUrun, index) => {
+        const targetIndex = newData.urunBilgileri.length;
+        newData.urunBilgileri.push({
+          ...newUrun,
+          toplam: newUrun.mevcut + newUrun.ilave
+        });
+      });
+      
+      return newData;
+    });
+    
+    setSuccess(`${parsedData.length} satır başarıyla yapıştırıldı!`);
+  };
+
+  // 🔧 YENİ EKLENDİ - Toplu Veri Temizleme
+  const handleClearAllUrunData = () => {
+    if (window.confirm('Tüm ürün verilerini temizlemek istediğinizden emin misiniz?')) {
+      setFormData(prev => ({
+        ...prev,
+        urunBilgileri: Array.from({ length: 10 }, (_, i) => ({
+          kod: '',
+          aciklama: '',
+          mevcut: 0,
+          ilave: 0,
+          toplam: 0,
+          kapsite: 0,
+          kapasite_birimi: ''
+        }))
+      }));
+      setSuccess('Tüm ürün verileri temizlendi!');
+    }
+  };
+
+  // 🔧 YENİ EKLENDİ - Excel Formatında Veri Kopyalama
+  const handleCopyTableData = () => {
+    const headers = ['Kod', 'Açıklama', 'Mevcut', 'İlave', 'Toplam', 'Kapasite', 'Birim'];
+    const rows = formData.urunBilgileri
+      .filter(urun => urun.kod || urun.aciklama) // Sadece dolu satırları al
+      .map(urun => [
+        urun.kod,
+        urun.aciklama,
+        urun.mevcut,
+        urun.ilave,
+        urun.toplam,
+        urun.kapsite,
+        urun.kapasite_birimi
+      ]);
+    
+    const csvContent = [headers, ...rows]
+      .map(row => row.join('\t'))
+      .join('\n');
+    
+    navigator.clipboard.writeText(csvContent).then(() => {
+      setSuccess('Tablo verileri panoya kopyalandı! Excel\'e yapıştırabilirsiniz.');
+    }).catch(() => {
+      setError('Kopyalama işlemi başarısız oldu.');
+    });
+  };
+
   // Destek unsurları handler - Excel yapısına uygun
   const handleDestekChange = (index, field, value) => {
     setFormData(prev => {
@@ -786,25 +878,84 @@ const TesvikForm = () => {
     }
   };
 
-  // 🔧 YENİ EKLENDİ - Excel Benzeri PDF Çıktı Handler
-  const handlePrintExcelFormat = async () => {
+  // 🔧 YENİ EKLENDİ - Excel Export Handler
+  const handleExcelExport = async (format = 'xlsx') => {
+    try {
+      if (!formData.gmId || !formData.tesvikId) {
+        setError('Excel çıktı alabilmek için teşvik kaydedilmiş olmalıdır.');
+        return;
+      }
+
+      console.log('📊 Excel çıktı hazırlanıyor...', format);
+      setLoading(true);
+      
+      const response = await axios.get(`/tesvik/${id}/excel-export`, {
+        responseType: 'blob',
+        params: { format }
+      });
+      
+      // Dosya indirme
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tesvik_${formData.gmId || formData.tesvikId}_${new Date().toISOString().split('T')[0]}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('Excel dosyası başarıyla indirildi!');
+      console.log('✅ Excel dosyası indirildi');
+      
+    } catch (error) {
+      console.error('🚨 Excel export hatası:', error);
+      setError('Excel çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 🔧 YENİ EKLENDİ - PDF Export Handler
+  const handlePDFExport = async () => {
     try {
       if (!formData.gmId || !formData.tesvikId) {
         setError('PDF çıktı alabilmek için teşvik kaydedilmiş olmalıdır.');
         return;
       }
 
-      console.log('📄 Excel formatında PDF çıktı hazırlanıyor...');
+      console.log('📄 PDF çıktı hazırlanıyor...');
+      setLoading(true);
       
-      // Yeni pencerede PDF preview sayfası aç
-      const pdfUrl = `/tesvik/${id}/pdf-excel-format`;
-      window.open(pdfUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+      const response = await axios.get(`/tesvik/${id}/pdf-export`, {
+        responseType: 'blob'
+      });
       
-      console.log('✅ PDF sayfası açıldı:', pdfUrl);
+      // Dosya indirme
+      const blob = new Blob([response.data], {
+        type: 'application/pdf'
+      });
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `tesvik_${formData.gmId || formData.tesvikId}_${new Date().toISOString().split('T')[0]}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setSuccess('PDF dosyası başarıyla indirildi!');
+      console.log('✅ PDF dosyası indirildi');
       
     } catch (error) {
-      console.error('🚨 PDF çıktı hatası:', error);
-      setError('PDF çıktı alınırken hata oluştu: ' + (error.message || 'Bilinmeyen hata'));
+      console.error('🚨 PDF export hatası:', error);
+      setError('PDF çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -920,18 +1071,20 @@ const TesvikForm = () => {
     }
   };
 
-  // 🆔 1. TEMEL BİLGİLER - GM ID Otomatik
-  const renderTemelBilgiler = () => (
-    <Grid container spacing={3}>
+  // 🆔 1. KÜNYE BİLGİLERİ - Yatırımcı ve Belge Bilgileri Birleşik
+  const renderKunyeBilgileri = () => (
+    <Grid container spacing={4}>
+      {/* Yatırımcı Bilgileri Bölümü */}
       <Grid item xs={12}>
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="subtitle2">
-            <AutoFixHighIcon sx={{ fontSize: 16, mr: 1 }} />
-            GM ID ve Teşvik ID otomatik olarak atanmıştır
+        <Paper sx={{ p: 3, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+          <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, display: 'flex', alignItems: 'center', color: '#1e40af' }}>
+            <BusinessIcon sx={{ mr: 1 }} />
+            YATIRIMCI BİLGİLERİ
           </Typography>
-        </Alert>
-      </Grid>
+          
+          <Grid container spacing={3}>
       
+      {/* GM ID */}
       <Grid item xs={12} md={6}>
         <TextField
           fullWidth
@@ -945,16 +1098,51 @@ const TesvikForm = () => {
         />
       </Grid>
       
+      {/* TALEP/SONUÇ */}
       <Grid item xs={12} md={6}>
         <TextField
           fullWidth
-          label="Teşvik ID 🏆"
-          value={formData.tesvikId}
-          InputProps={{ 
-            readOnly: true,
-            style: { backgroundColor: '#e5f3ff', fontWeight: 600 }
-          }}
-          helperText="Otomatik atanan Teşvik ID (Değiştirilemez)"
+          label="TALEP/SONUÇ"
+          value={formData.kunyeBilgileri?.talepSonuc || ''}
+          onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
+          placeholder="Talep sonucu giriniz..."
+        />
+      </Grid>
+      
+      {/* REVIZE ID */}
+      <Grid item xs={12} md={6}>
+        <TextField
+          fullWidth
+          label="REVIZE ID"
+          value={formData.kunyeBilgileri?.revizeId || ''}
+          onChange={(e) => handleFieldChange('kunyeBilgileri.revizeId', e.target.value)}
+          placeholder="Revize ID giriniz..."
+        />
+      </Grid>
+      
+      {/* FIRMA ID */}
+       <Grid item xs={12} md={6}>
+         <TextField
+           fullWidth
+           label="FIRMA ID"
+           value={formData.firma || ''}
+           InputProps={{ 
+             readOnly: true,
+             style: { backgroundColor: '#f5f5f5' }
+           }}
+           helperText="Firma seçiminden otomatik doldurulur"
+         />
+       </Grid>
+      
+      {/* YATIRIMCI UNVAN */}
+      <Grid item xs={12}>
+        <TextField
+          fullWidth
+          label="YATIRIMCI UNVAN 🏭"
+          value={formData.yatirimciUnvan}
+          onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
+          required
+          helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
         />
       </Grid>
       
@@ -1060,28 +1248,138 @@ const TesvikForm = () => {
         </Typography>
       </Grid>
       
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Yatırımcı Ünvanı 🏭"
+                value={formData.yatirimciUnvan}
+                onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
+                required
+                helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+      
+      {/* Belge Bilgileri Bölümü */}
       <Grid item xs={12}>
-        <TextField
-          fullWidth
-          label="Yatırımcı Ünvanı 🏭"
-          value={formData.yatirimciUnvan}
-          onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
-          required
-          helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
-        />
+        <Paper sx={{ p: 3, backgroundColor: '#fef9e7', border: '1px solid #f59e0b' }}>
+          <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, display: 'flex', alignItems: 'center', color: '#d97706' }}>
+            <BusinessIcon sx={{ mr: 1 }} />
+            BELGE BİLGİLERİ
+          </Typography>
+          
+          <Grid container spacing={3}>
+            {/* Teşvik ID */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Teşvik ID 📋"
+                value={formData.tesvikId}
+                InputProps={{ 
+                  readOnly: true,
+                  style: { backgroundColor: '#fef3c7', fontWeight: 600 }
+                }}
+                helperText="Otomatik atanan Teşvik ID (Değiştirilemez)"
+              />
+            </Grid>
+            
+            {/* Belge No */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE NO"
+                value={formData.belgeYonetimi.belgeNo}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeNo', e.target.value)}
+                required
+              />
+            </Grid>
+            
+            {/* Belge Tarihi */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            
+            {/* Belge Müracaat Tarihi */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE MÜRACAAT TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeMuracaatTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            {/* Dayandığı Kanun */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>DAYANDIĞI KANUN</InputLabel>
+                <Select
+                  value={formData.belgeYonetimi.dayandigiKanun}
+                  onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
+                  label="DAYANDIĞI KANUN"
+                >
+                  {templateData.dayandigiKanunlar?.map((kanun) => (
+                    <MenuItem key={kanun.value} value={kanun.value}>
+                      {kanun.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            {/* Belge Durumu */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>BELGE DURUMU</InputLabel>
+                <Select
+                  value={formData.belgeYonetimi.belgeDurumu}
+                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeDurumu', e.target.value)}
+                  label="BELGE DURUMU"
+                >
+                  {templateData.belgeDurumlari?.map((durum) => (
+                    <MenuItem key={durum.value} value={durum.value}>
+                      {durum.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
       </Grid>
     </Grid>
   );
 
-  // 💼 2. YATIRIM & BELGE BİLGİLERİ  
-  const renderYatirimVeBelge = () => (
+  // 📄 2. BELGE BİLGİLERİ  
+  const renderBelgeBilgileri = () => (
     <Grid container spacing={3}>
-      {/* Yatırım Bilgileri */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="subtitle2">
+            <BusinessIcon sx={{ fontSize: 16, mr: 1 }} />
+            BELGE BİLGİLERİ - Teşvik belgesi ile ilgili tüm bilgiler
+          </Typography>
+        </Alert>
+      </Grid>
+      
+      {/* Belge Temel Bilgileri */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#fef9e7' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            <EngineeringIcon sx={{ mr: 1 }} />
-            Yatırım İle İlgili Bilgiler - 1
+            <BusinessIcon sx={{ mr: 1 }} />
+            Belge Temel Bilgileri
           </Typography>
           
           <Grid container spacing={2}>
@@ -1351,44 +1649,122 @@ const TesvikForm = () => {
           
           {/* İlk Satır Belge Bilgileri */}
           <Grid container spacing={2}>
+            {/* BELGE ID */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Belge ID"
+                label="BELGE ID"
                 value={formData.belgeYonetimi.belgeId}
                 onChange={(e) => handleFieldChange('belgeYonetimi.belgeId', e.target.value)}
+                required
               />
             </Grid>
             
-      <Grid item xs={12} md={6}>
-        <TextField
-          fullWidth
-          label="Belge No"
-          value={formData.belgeYonetimi.belgeNo}
-          onChange={(e) => handleFieldChange('belgeYonetimi.belgeNo', e.target.value)}
-          required
-        />
-      </Grid>
+            {/* BELGE NO */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE NO"
+                value={formData.belgeYonetimi.belgeNo}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeNo', e.target.value)}
+                required
+              />
+            </Grid>
+            
+            {/* BELGE TARIHI */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                required
+              />
+            </Grid>
+            
+            {/* BELGE MURACAAT TARIHI */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE MURACAAT TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeMuracaatTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            {/* MÜRACAAT SAYISI */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="MÜRACAAT SAYISI"
+                value={formData.belgeYonetimi.belgeMuracaatNo}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatNo', e.target.value)}
+              />
+            </Grid>
+            
+            {/* BELGE BASLAMA TARIHI */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE BASLAMA TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeBaslamaTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
       
-      <Grid item xs={12} md={6}>
-        <TextField
-          fullWidth
-          label="Belge Tarihi"
-          type="date"
-          value={formData.belgeYonetimi.belgeTarihi}
-          onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
-          InputLabelProps={{ shrink: true }}
-          required
-        />
-      </Grid>
-      
+            {/* BELGE BITIS TARIHI */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="BELGE BITIS TARIHI"
+                type="date"
+                value={formData.belgeYonetimi.belgeBitisTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            {/* SÜRE UZATIM TARİHİ */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="SÜRE UZATIM TARİHİ"
+                type="date"
+                value={formData.belgeYonetimi.uzatimTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            
+            {/* ÖZELLİKLİ YATIRIM İSE */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Dayandığı Kanun</InputLabel>
+                <InputLabel>ÖZELLİKLİ YATIRIM İSE</InputLabel>
                 <Select
-          value={formData.belgeYonetimi.dayandigiKanun}
-          onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
-                  label="Dayandığı Kanun"
+                  value={formData.belgeYonetimi.ozellikliYatirim || ''}
+                  onChange={(e) => handleFieldChange('belgeYonetimi.ozellikliYatirim', e.target.value)}
+                  label="ÖZELLİKLİ YATIRIM İSE"
+                >
+                  <MenuItem key="evet" value="evet">Evet</MenuItem>
+                  <MenuItem key="hayir" value="hayir">Hayır</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            {/* DAYANDIĞI KANUN */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>DAYANDIĞI KANUN</InputLabel>
+                <Select
+                  value={formData.belgeYonetimi.dayandigiKanun}
+                  onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
+                  label="DAYANDIĞI KANUN"
                 >
                   {templateData.dayandigiKanunlar?.map((kanun) => (
                     <MenuItem key={kanun.value} value={kanun.value}>
@@ -1404,7 +1780,6 @@ const TesvikForm = () => {
                   ))}
                 </Select>
               </FormControl>
-              {/* 🆕 Yeni Kanun Ekle Butonu */}
               <Button
                 size="small"
                 startIcon={<AddIcon />}
@@ -1417,22 +1792,14 @@ const TesvikForm = () => {
               </Button>
             </Grid>
             
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Belge Müracaat No"
-                value={formData.belgeYonetimi.belgeMuracaatNo}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatNo', e.target.value)}
-        />
-      </Grid>
-            
+            {/* BELGE DURUMU */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Belge Durumu</InputLabel>
+                <InputLabel>BELGE DURUMU</InputLabel>
                 <Select
                   value={formData.belgeYonetimi.belgeDurumu}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeDurumu', e.target.value)}
-                  label="Belge Durumu"
+                  label="BELGE DURUMU"
                   sx={{
                     '& .MuiSelect-select': {
                       display: 'flex',
@@ -1455,228 +1822,197 @@ const TesvikForm = () => {
                   ))}
                 </Select>
               </FormControl>
-    </Grid>
+            </Grid>
       </Grid>
-      
-          {/* İkinci Satır - Tarih Bilgileri */}
-          <Divider sx={{ my: 3 }} />
-          <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>
-            📅 Tarih Bilgileri
-        </Typography>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Belge Müracaat Tarihi"
-                type="date"
-                value={formData.belgeYonetimi.belgeMuracaatTarihi}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-      </Grid>
-      
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Belge Başlama Tarihi"
-                type="date"
-                value={formData.belgeYonetimi.belgeBaslamaTarihi}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Belge Bitiş Tarihi"
-                type="date"
-                value={formData.belgeYonetimi.belgeBitisTarihi}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Uzatım Tarihi"
-                type="date"
-                value={formData.belgeYonetimi.uzatimTarihi}
-                onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Mücbir Uzatım Tarihi"
-                type="date"
-                value={formData.belgeYonetimi.mucbirUzatimTarihi}
-                onChange={(e) => handleFieldChange('belgeYonetimi.mucbirUzatimTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-          </Grid>
         </Paper>
       </Grid>
 
-      {/* Künye Bilgileri */}
+      {/* Yatırım İle İlgili Bilgiler - 1 */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 3, backgroundColor: '#f0f9ff' }}>
+        <Paper sx={{ p: 3, backgroundColor: '#f8fafc' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
-            <SettingsIcon sx={{ mr: 1 }} />
-            Künye Bilgileri
+            <EngineeringIcon sx={{ mr: 1 }} />
+            Yatırım İle İlgili Bilgiler - 1
           </Typography>
           
           <Grid container spacing={2}>
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Talep Sonuç"
-                value={formData.kunyeBilgileri.talepSonuc}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
-                placeholder="Talep sonucu giriniz..."
+                label="Yatırım Konusu"
+                value={formData.yatirimBilgileri1.yatirimKonusu}
+                onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
+                placeholder="Yatırım konusunu giriniz..."
               />
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(1)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins1}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins1', e.target.value)}
+                  label="Cinsi(1)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins1-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(2)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins2}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins2', e.target.value)}
+                  label="Cinsi(2)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins2-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(3)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins3}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins3', e.target.value)}
+                  label="Cinsi(3)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins3-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(4)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins4}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins4', e.target.value)}
+                  label="Cinsi(4)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins4-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
             
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Sorgu Bağlantısı"
-                value={formData.kunyeBilgileri.sorguBaglantisi}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.sorguBaglantisi', e.target.value)}
-                placeholder="URL veya bağlantı bilgisi..."
-              />
+              <FormControl fullWidth>
+                <InputLabel>Destek Sınıfı</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.destekSinifi}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
+                  label="Destek Sınıfı"
+                >
+                  {templateData.destekSiniflari?.map((sinif) => (
+                    <MenuItem key={sinif.value} value={sinif.value}>
+                      {sinif.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Grid>
-            
-            {/* 🔧 YENİ EKLENDİ - Excel detayları */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Karar Tarihi"
-                type="date"
-                value={formData.kunyeBilgileri.kararTarihi}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.kararTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Karar Sayısı"
-                value={formData.kunyeBilgileri.kararSayisi}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.kararSayisi', e.target.value)}
-                placeholder="Karar sayısını giriniz..."
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Yönetmelik Maddesi"
-                value={formData.kunyeBilgileri.yonetmelikMaddesi}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.yonetmelikMaddesi', e.target.value)}
-                placeholder="Hangi madde kapsamında..."
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Başvuru Tarihi"
-                type="date"
-                value={formData.kunyeBilgileri.basvuruTarihi}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.basvuruTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Dosya No"
-                value={formData.kunyeBilgileri.dosyaNo}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.dosyaNo', e.target.value)}
-                placeholder="Dosya numarası..."
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Proje Bedeli (₺)"
-                type="number"
-                value={formData.kunyeBilgileri.projeBedeli}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.projeBedeli', parseFloat(e.target.value) || 0)}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Teşvik Miktarı (₺)"
-                type="number"
-                value={formData.kunyeBilgileri.tesvikMiktari}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.tesvikMiktari', parseFloat(e.target.value) || 0)}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            
-            {/* Teşvik Oranı - Otomatik hesaplama */}
-            <Grid item xs={12}>
-              <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
-                  📊 Teşvik Oranı Hesaplama:
-                </Typography>
-                <Typography variant="body1" sx={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#1976d2' }}>
-                  {formData.kunyeBilgileri.projeBedeli > 0 
-                    ? `% ${((formData.kunyeBilgileri.tesvikMiktari / formData.kunyeBilgileri.projeBedeli) * 100).toFixed(2)}`
-                    : '% 0.00'
-                  }
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  (Teşvik Miktarı ÷ Proje Bedeli) × 100
-                </Typography>
-              </Box>
           </Grid>
-          </Grid>
+        </Paper>
+      </Grid>
+      
+      {/* Yatırım İle İlgili Bilgiler - 2 */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#f0f9ff' }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            📍 Yatırım Yeri Bilgileri
+          </Typography>
           
-          {/* Firma Arama Butonları */}
-          <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Button
-              variant="outlined"
-              startIcon={<BusinessIcon />}
-              onClick={() => {
-                // Ünvan bul işlemi
-                const selectedFirma = templateData.firmalar.find(f => f._id === formData.firma);
-                if (selectedFirma) {
-                  handleFieldChange('kunyeBilgileri.yatirimciUnvan', selectedFirma.tamUnvan);
-                }
-              }}
-              disabled={!formData.firma}
-            >
-              Ünvan Bul
-            </Button>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırımın Yapılacağı İl"
+                value={formData.yatirimBilgileri2.yerinIl}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIl', e.target.value)}
+              />
+            </Grid>
             
-            <Button
-              variant="outlined"
-              startIcon={<AutoFixHighIcon />}
-              onClick={() => {
-                // Firma ID bul işlemi
-                const selectedFirma = templateData.firmalar.find(f => f._id === formData.firma);
-                if (selectedFirma) {
-                  handleFieldChange('kunyeBilgileri.yatirimci', selectedFirma.firmaId);
-                }
-              }}
-              disabled={!formData.firma}
-            >
-              Firma ID Bul
-            </Button>
-          </Box>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırımın Yapılacağı İlçe"
+                value={formData.yatirimBilgileri2.yerinIlce}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIlce', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (1)"
+                value={formData.yatirimBilgileri2.yatirimAdresi1}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi1', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (2)"
+                value={formData.yatirimBilgileri2.yatirimAdresi2}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi2', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (3)"
+                value={formData.yatirimBilgileri2.yatirimAdresi3}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi3', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>OSB Müdürlük</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri2.osbMudurluk}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri2.osbMudurluk', e.target.value)}
+                  label="OSB Müdürlük"
+                >
+                  {templateData.osbOptions?.map((osb) => (
+                    <MenuItem key={osb.value} value={osb.value}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {osb.label}
+                        </Typography>
+                        {osb.sehir && (
+                          <Typography variant="caption" color="text.secondary">
+                            {osb.sehir}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
         </Paper>
       </Grid>
       
@@ -1721,7 +2057,240 @@ const TesvikForm = () => {
     </Grid>
   );
 
-  // 📦 3. ÜRÜN BİLGİLERİ (U$97 Kodları) - Excel Benzeri
+  // 🏢 2. YATIRIM İLE İLGİLİ BİLGİLER - Yatırım Konusu, Cinsi, Destek Sınıfı, Yer Bilgileri ve İstihdam
+  const renderYatirimBilgileri = () => (
+    <Grid container spacing={3}>
+      {/* Yatırım İle İlgili Bilgiler - 1 */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#f8fafc' }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center' }}>
+            <EngineeringIcon sx={{ mr: 1 }} />
+            Yatırım İle İlgili Bilgiler - 1
+          </Typography>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Yatırım Konusu"
+                value={formData.yatirimBilgileri1.yatirimKonusu}
+                onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
+                placeholder="Yatırım konusunu giriniz..."
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(1)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins1}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins1', e.target.value)}
+                  label="Cinsi(1)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins1-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(2)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins2}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins2', e.target.value)}
+                  label="Cinsi(2)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins2-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(3)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins3}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins3', e.target.value)}
+                  label="Cinsi(3)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins3-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={3}>
+              <FormControl fullWidth>
+                <InputLabel>Cinsi(4)</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.cins4}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cins4', e.target.value)}
+                  label="Cinsi(4)"
+                >
+                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    <MenuItem key={`cins4-${tip.value}-${tipIndex}`} value={tip.value}>
+                      {tip.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Destek Sınıfı</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri1.destekSinifi}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
+                  label="Destek Sınıfı"
+                >
+                  {templateData.destekSiniflari?.map((sinif) => (
+                    <MenuItem key={sinif.value} value={sinif.value}>
+                      {sinif.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+      
+      {/* Yatırım İle İlgili Bilgiler - 2 */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#f0f9ff' }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            📍 Yatırım Yeri Bilgileri
+          </Typography>
+          
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırımın Yapılacağı İl"
+                value={formData.yatirimBilgileri2.yerinIl}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIl', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırımın Yapılacağı İlçe"
+                value={formData.yatirimBilgileri2.yerinIlce}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yerinIlce', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (1)"
+                value={formData.yatirimBilgileri2.yatirimAdresi1}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi1', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (2)"
+                value={formData.yatirimBilgileri2.yatirimAdresi2}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi2', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Yatırım Adresi (3)"
+                value={formData.yatirimBilgileri2.yatirimAdresi3}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi3', e.target.value)}
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>OSB Müdürlük</InputLabel>
+                <Select
+                  value={formData.yatirimBilgileri2.osbMudurluk || ''}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri2.osbMudurluk', e.target.value)}
+                  label="OSB Müdürlük"
+                >
+                  {templateData.osbOptions?.map((osb) => (
+                    <MenuItem key={osb.value} value={osb.value}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {osb.label}
+                        </Typography>
+                        {osb.sehir && (
+                          <Typography variant="caption" color="text.secondary">
+                            {osb.sehir}
+                          </Typography>
+                        )}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+      
+      {/* İstihdam */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#f0fdf4' }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+            👥 İstihdam Bilgileri
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Mevcut Kişi"
+                type="number"
+                value={formData.istihdam.mevcutKisi}
+                onChange={(e) => handleFieldChange('istihdam.mevcutKisi', parseInt(e.target.value) || 0)}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="İlave Kişi"
+                type="number"
+                value={formData.istihdam.ilaveKisi}
+                onChange={(e) => handleFieldChange('istihdam.ilaveKisi', parseInt(e.target.value) || 0)}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Toplam Kişi"
+                type="number"
+                value={formData.istihdam.toplamKisi}
+                InputProps={{ readOnly: true }}
+                sx={{ backgroundColor: '#dcfce7' }}
+              />
+            </Grid>
+          </Grid>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+
+  // 📦 4. ÜRÜN BİLGİLERİ (U$97 Kodları) - Excel Benzeri
   const renderUrunBilgileri = () => (
     <Grid container spacing={3}>
       <Grid item xs={12}>
@@ -1749,8 +2318,43 @@ const TesvikForm = () => {
         </Box>
       </Grid>
       
+      {/* 🔧 Excel Benzeri Araç Çubuğu */}
       <Grid item xs={12}>
-        <TableContainer component={Paper}>
+        <Box sx={{ display: 'flex', gap: 2, mb: 2, p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
+          <Button
+            size="small"
+            startIcon={<ContentCopyIcon />}
+            onClick={handleCopyTableData}
+            variant="outlined"
+            color="primary"
+          >
+            📋 Tabloyu Kopyala
+          </Button>
+          <Button
+            size="small"
+            startIcon={<DeleteIcon />}
+            onClick={handleClearAllUrunData}
+            variant="outlined"
+            color="error"
+          >
+            🗑️ Tümünü Temizle
+          </Button>
+          <Typography variant="body2" sx={{ ml: 'auto', alignSelf: 'center', color: '#6b7280' }}>
+            💡 Excel'den kopyalayıp tabloya yapıştırabilirsiniz (Ctrl+V)
+          </Typography>
+        </Box>
+      </Grid>
+      
+      <Grid item xs={12}>
+        <TableContainer 
+          component={Paper}
+          onPaste={handleTablePaste}
+          tabIndex={0}
+          sx={{ 
+            '&:focus': { outline: '2px solid #3b82f6', outlineOffset: '2px' },
+            cursor: 'text'
+          }}
+        >
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f3f4f6' }}>
@@ -1780,7 +2384,7 @@ const TesvikForm = () => {
                         displayEmpty
                         size="small"
                       >
-                        <MenuItem value={urun.kod}>
+                        <MenuItem key={`urun-${urun.kod}`} value={urun.kod}>
                           <Chip 
                             label={urun.kod} 
                             size="small" 
@@ -1862,7 +2466,7 @@ const TesvikForm = () => {
                         onChange={(e) => handleUrunChange(index, 'kapasite_birimi', e.target.value)}
                         displayEmpty
                       >
-                        <MenuItem value="">
+                        <MenuItem key="empty-kapasite" value="">
                           <em>Seçiniz</em>
                         </MenuItem>
                         {templateData.kapasiteBirimleri?.map((birim) => (
@@ -1904,8 +2508,8 @@ const TesvikForm = () => {
     </Grid>
   );
 
-  // 🎯 4. DESTEK UNSURLARI - Excel Benzeri Grid Yapısı
-  const renderDestekVeŞartlar = () => (
+  // 🎯 3. DESTEK UNSURLARI - Excel Benzeri Grid Yapısı
+  const renderDestekUnsurlari = () => (
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -1955,7 +2559,7 @@ const TesvikForm = () => {
                       onChange={(e) => handleDestekChange(col, 'destekUnsuru', e.target.value)}
                       displayEmpty
                     >
-                      <MenuItem value="">
+                      <MenuItem key="empty-destek-1" value="">
                         <em>Seçiniz</em>
                       </MenuItem>
                       {templateData.destekUnsurlariOptions?.map((destek, destekIndex) => (
@@ -1982,7 +2586,7 @@ const TesvikForm = () => {
                       onChange={(e) => handleDestekChange(col, 'sartlari', e.target.value)}
                       displayEmpty
                     >
-                      <MenuItem value="">
+                      <MenuItem key="empty-destek-sart-1" value="">
                         <em>Seçiniz</em>
                       </MenuItem>
                       {templateData.destekSartlariOptions?.map((sart, sartIndex) => (
@@ -2018,7 +2622,7 @@ const TesvikForm = () => {
                       onChange={(e) => handleDestekChange(col, 'destekUnsuru', e.target.value)}
                       displayEmpty
                     >
-                      <MenuItem value="">
+                      <MenuItem key={`empty-destek-${col}`} value="">
                         <em>Seçiniz</em>
                       </MenuItem>
                       {templateData.destekUnsurlariOptions?.map((destek, destekIndex) => (
@@ -2045,7 +2649,7 @@ const TesvikForm = () => {
                       onChange={(e) => handleDestekChange(col, 'sartlari', e.target.value)}
                       displayEmpty
                     >
-                      <MenuItem value="">
+                      <MenuItem key={`empty-sart-${col}`} value="">
                         <em>Seçiniz</em>
                       </MenuItem>
                       {templateData.destekSartlariOptions?.map((sart, sartIndex) => (
@@ -2168,7 +2772,12 @@ const TesvikForm = () => {
           </Typography>
         </Box>
       </Grid>
+    </Grid>
+  );
 
+  // 🏷️ 4. ÖZEL ŞARTLAR - Excel Benzeri 7 Alan
+  const renderOzelSartlar = () => (
+    <Grid container spacing={3}>
       {/* Özel Şartlar - Excel Benzeri 7 Alan */}
       <Grid item xs={12}>
         <Paper sx={{ p: 3, backgroundColor: '#fff7ed' }}>
@@ -2365,6 +2974,11 @@ const TesvikForm = () => {
       
       return newData;
     });
+     
+    // 🔧 Finansal değişiklikten sonra hesaplamaları tetikle
+    setTimeout(() => {
+      calculateFinansalTotals();
+    }, 0);
   };
 
   // 🔧 Finansal otomatik hesaplamalar - TAMAMEN DÜZELTİLDİ
@@ -2474,15 +3088,9 @@ const TesvikForm = () => {
         toplamSabitYatirimTutari: toplamSabitYatirim
       }
     }));
-  }, [formData.finansalBilgiler]); // 🔧 Dependency eklendi - Real-time hesaplama
+  }, []); // 🔧 Dependency kaldırıldı - Infinite loop önlendi
 
-  // 🔧 Finansal hesaplamalar otomatik tetikleme - DAHA AKILLI
-  useEffect(() => {
-    if (formData.finansalBilgiler) {
-      console.log('🎯 Finansal bilgiler değişti, hesaplama tetikleniyor...');
-      calculateFinansalTotals();
-    }
-  }, [formData.finansalBilgiler, calculateFinansalTotals]); // 🎯 Her iki dependency'i dinle
+  // 🔧 Finansal hesaplamalar artık handleFinansalChange içinde tetikleniyor - useEffect kaldırıldı
 
   // 💰 5. FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Tablo
   const renderFinansalBilgiler = () => (
@@ -2950,12 +3558,14 @@ const TesvikForm = () => {
 
   const renderStepContent = () => {
     switch (activeStep) {
-      case 0: return renderTemelBilgiler();
-      case 1: return renderYatirimVeBelge();
+      case 0: return renderKunyeBilgileri(); // Künye + Belge Bilgileri birleşik
+      case 1: return renderYatirimBilgileri(); // Yatırım + İstihdam Bilgileri birleşik
       case 2: return renderUrunBilgileri();
-      case 3: return renderDestekVeŞartlar();
-      case 4: return renderFinansalBilgiler();
-      default: return renderTemelBilgiler();
+      case 3: return renderDestekUnsurlari();
+      case 4: return renderOzelSartlar();
+      case 5: return renderFinansalBilgiler();
+      case 6: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
+      default: return renderKunyeBilgileri();
     }
   };
 
@@ -3081,25 +3691,45 @@ const TesvikForm = () => {
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   {activeStep === stepLabels.length - 1 ? (
                     <>
-                      {/* 🔧 YENİ EKLENDİ - Excel Benzeri PDF Çıktı */}
+                      {/* 🔧 YENİ EKLENDİ - Excel Export Butonları */}
                       <Button
                         variant="outlined"
-                        onClick={handlePrintExcelFormat}
+                        onClick={() => handleExcelExport('xlsx')}
                         disabled={!formData.gmId || !formData.tesvikId}
-                        startIcon={<EmojiEventsIcon />}
+                        startIcon={<TableViewIcon />}
                         size="large"
                         sx={{ 
-                          color: '#7c3aed',
-                          borderColor: '#7c3aed',
+                          color: '#16a34a',
+                          borderColor: '#16a34a',
                           fontWeight: 600,
                           px: 3,
                           '&:hover': {
-                            backgroundColor: '#f3e8ff',
-                            borderColor: '#7c3aed'
+                            backgroundColor: '#f0fdf4',
+                            borderColor: '#16a34a'
                           }
                         }}
                       >
-                        📄 Excel PDF Çıktı
+                        📊 Excel Çıktı
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        onClick={() => handlePDFExport()}
+                        disabled={!formData.gmId || !formData.tesvikId}
+                        startIcon={<PictureAsPdfIcon />}
+                        size="large"
+                        sx={{ 
+                          color: '#dc2626',
+                          borderColor: '#dc2626',
+                          fontWeight: 600,
+                          px: 3,
+                          '&:hover': {
+                            backgroundColor: '#fef2f2',
+                            borderColor: '#dc2626'
+                          }
+                        }}
+                      >
+                        📄 PDF Çıktı
                       </Button>
                       
                     <Button

@@ -33,6 +33,9 @@ import TesvikList from './pages/Tesvik/TesvikList';
 import TesvikForm from './pages/Tesvik/TesvikForm';
 import TesvikDetail from './pages/Tesvik/TesvikDetail';
 
+// 📊 Dashboard Bileşenleri
+import TesvikAnalyticsDashboard from './components/Dashboard/TesvikDashboard';
+
 // 🔐 Admin Panel
 import AdminPanel from './pages/Admin/AdminPanel';
 
@@ -109,7 +112,10 @@ function App() {
         <FirmaProvider>
           <NotificationProvider>
             <TesvikProvider>
-              <Router>
+              <Router future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true
+              }}>
               <Routes>
                 {/* 🔑 Giriş Sayfası */}
                 <Route path="/login" element={<Login />} />
@@ -157,6 +163,13 @@ function App() {
                 <Route path="/tesvik" element={
                   <ProtectedRoute>
                     <TesvikDashboard />
+                  </ProtectedRoute>
+                } />
+                
+                {/* 📊 Teşvik Analytics Dashboard */}
+                <Route path="/tesvik/dashboard" element={
+                  <ProtectedRoute>
+                    <TesvikAnalyticsDashboard />
                   </ProtectedRoute>
                 } />
                 
