@@ -404,13 +404,12 @@ export const validateFirmaData = (firmaData) => {
     if (!birincYetkili.adSoyad) {
       errors.push('Birinci yetkili kişi ad soyad zorunludur');
     }
-    if (!birincYetkili.telefon1) {
-      errors.push('Birinci yetkili kişi telefon 1 zorunludur');
+    // Telefon1 ve eposta1 artık opsiyonel - sadece format kontrolü
+    if (birincYetkili.telefon1 && !/^[0-9+\s\-()]{10,20}$/.test(birincYetkili.telefon1)) {
+      errors.push('Geçerli bir telefon numarası giriniz (Telefon 1)');
     }
-    if (!birincYetkili.eposta1) {
-      errors.push('Birinci yetkili kişi e-posta 1 zorunludur');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(birincYetkili.eposta1)) {
-      errors.push('Geçerli bir e-posta adresi giriniz');
+    if (birincYetkili.eposta1 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(birincYetkili.eposta1)) {
+      errors.push('Geçerli bir e-posta adresi giriniz (E-posta 1)');
     }
   }
   

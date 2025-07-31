@@ -226,14 +226,12 @@ const validateCreateFirma = [
     .trim(),
     
   body('yetkiliKisiler.0.telefon1')
-    .notEmpty()
-    .withMessage('Birinci yetkili kişi telefon 1 zorunludur')
+    .optional({ checkFalsy: true })
     .matches(/^[0-9+\s-()]{10,20}$/)
     .withMessage('Geçerli bir telefon numarası giriniz (Telefon 1)'),
     
   body('yetkiliKisiler.0.eposta1')
-    .notEmpty()
-    .withMessage('Birinci yetkili kişi e-posta 1 zorunludur')
+    .optional({ checkFalsy: true })
     .isEmail()
     .withMessage('Geçerli bir e-posta adresi giriniz (E-posta 1)')
     .normalizeEmail(),

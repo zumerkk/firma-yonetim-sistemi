@@ -309,8 +309,8 @@ const FirmaForm = () => {
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
-    if (typeof value === 'string') {
+    // 🔤 Otomatik büyük harf dönüştürme (İlk İrtibat Kişisi hariç)
+    if (typeof value === 'string' && field !== 'ilkIrtibatKisi') {
       value = value.toUpperCase();
     }
     
@@ -1410,7 +1410,7 @@ const FirmaForm = () => {
                           { name: 'Ayşegül Gezer', email: 'aysegul@gmplanlama.com' },
                           { name: 'Hüseyin Cahit Ağır', email: 'cahit@gmplanlama.com' }
                         ].map((person) => (
-                          <MenuItem key={person.email} value={person.name}>
+                          <MenuItem key={person.email} value={`${person.name} - ${person.email}`}>
                             {person.name} - {person.email}
                           </MenuItem>
                         ))}
