@@ -2,6 +2,7 @@
 // Excel sisteminin modern API karşılığı
 // Otomatik firma ID, gelişmiş arama, tam Excel uyumu
 
+const mongoose = require('mongoose');
 const Firma = require('../models/Firma');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
@@ -154,13 +155,11 @@ const createFirma = async (req, res) => {
     const birincYetkili = yetkiliKisiler[0];
     console.log('👤 First Yetkili:', birincYetkili);
     
-    if (!birincYetkili.adSoyad || !birincYetkili.telefon1 || !birincYetkili.eposta1) {
+    if (!birincYetkili.adSoyad) {
       console.log('❌ YETKILI VALIDATION FAILED:', {
-        adSoyad: birincYetkili.adSoyad,
-        telefon1: birincYetkili.telefon1,
-        eposta1: birincYetkili.eposta1
+        adSoyad: birincYetkili.adSoyad
       });
-      return sendError(res, 'Birinci yetkili kişinin Ad Soyad, Telefon 1 ve E-posta 1 alanları zorunludur', 400);
+      return sendError(res, 'Birinci yetkili kişinin Ad Soyad alanı zorunludur', 400);
     }
 
     console.log('✅ All validations passed, creating firma...');
@@ -314,11 +313,22 @@ const getFirmalar = async (req, res) => {
 const getFirma = async (req, res) => {
   try {
     const { id } = req.params;
+    let firma;
 
-    const firma = await Firma.findById(id)
-      .populate('olusturanKullanici', 'adSoyad email')
-      .populate('sonGuncelleyen', 'adSoyad email')
-      .lean();
+    // MongoDB ObjectId formatında mı kontrol et
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      // MongoDB ObjectId ile arama
+      firma = await Firma.findById(id)
+        .populate('olusturanKullanici', 'adSoyad email')
+        .populate('sonGuncelleyen', 'adSoyad email')
+        .lean();
+    } else {
+      // Custom firmaId ile arama (A001191 gibi)
+      firma = await Firma.findOne({ firmaId: id })
+        .populate('olusturanKullanici', 'adSoyad email')
+        .populate('sonGuncelleyen', 'adSoyad email')
+        .lean();
+    }
 
     if (!firma) {
       return sendError(res, 'Firma bulunamadı', 404);
@@ -328,11 +338,6 @@ const getFirma = async (req, res) => {
 
   } catch (error) {
     console.error('🚨 Get Firma Hatası:', error);
-    
-    if (error.name === 'CastError') {
-      return sendError(res, 'Geçersiz firma ID formatı', 400);
-    }
-    
     sendError(res, 'Firma detayı alınırken hata oluştu', 500);
   }
 };
@@ -349,7 +354,13 @@ const updateFirma = async (req, res) => {
     const updateData = { ...req.body };
 
     // Önceki durumu kaydet (activity log için)
-    const oldFirma = await Firma.findById(id).lean();
+    let oldFirma;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      oldFirma = await Firma.findById(id).lean();
+    } else {
+      oldFirma = await Firma.findOne({ firmaId: id }).lean();
+    }
+    
     if (!oldFirma) {
       return sendError(res, 'Firma bulunamadı', 404);
     }
@@ -382,11 +393,20 @@ const updateFirma = async (req, res) => {
       }));
     }
 
-    const firma = await Firma.findByIdAndUpdate(
-      id,
-      updateData,
-      { new: true, runValidators: true }
-    ).populate('olusturanKullanici sonGuncelleyen', 'adSoyad email');
+    let firma;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      firma = await Firma.findByIdAndUpdate(
+        id,
+        updateData,
+        { new: true, runValidators: true }
+      ).populate('olusturanKullanici sonGuncelleyen', 'adSoyad email');
+    } else {
+      firma = await Firma.findOneAndUpdate(
+        { firmaId: id },
+        updateData,
+        { new: true, runValidators: true }
+      ).populate('olusturanKullanici sonGuncelleyen', 'adSoyad email');
+    }
 
     if (!firma) {
       return sendError(res, 'Firma bulunamadı', 404);
@@ -419,10 +439,6 @@ const updateFirma = async (req, res) => {
 
   } catch (error) {
     console.error('🚨 Update Firma Hatası:', error);
-
-    if (error.name === 'CastError') {
-      return sendError(res, 'Geçersiz firma ID formatı', 400);
-    }
     
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
@@ -451,14 +467,23 @@ const deleteFirma = async (req, res) => {
     const { id } = req.params;
 
     // Önce firmayı bul (activity log için bilgileri kaydet)
-    const firma = await Firma.findById(id);
+    let firma;
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      firma = await Firma.findById(id);
+    } else {
+      firma = await Firma.findOne({ firmaId: id });
+    }
     
     if (!firma) {
       return sendError(res, 'Firma bulunamadı', 404);
     }
 
     // Firmayı kalıcı olarak sil
-    await Firma.findByIdAndDelete(id);
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      await Firma.findByIdAndDelete(id);
+    } else {
+      await Firma.findOneAndDelete({ firmaId: id });
+    }
 
     // 📋 Activity Log - Firma Silme
     await logActivity({
@@ -487,11 +512,6 @@ const deleteFirma = async (req, res) => {
 
   } catch (error) {
     console.error('🚨 Delete Firma Hatası:', error);
-    
-    if (error.name === 'CastError') {
-      return sendError(res, 'Geçersiz firma ID formatı', 400);
-    }
-    
     sendError(res, 'Firma silinirken hata oluştu', 500);
   }
 };

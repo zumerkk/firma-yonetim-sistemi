@@ -131,21 +131,45 @@ export const deleteFirma = async (id) => {
   }
 };
 
-// 🔍 Search Firmalar - General Search
+// 🔍 Search Firmalar - Enhanced General Search
 export const searchFirmalar = async (searchTerm, field = null) => {
   try {
-    if (!searchTerm || searchTerm.length < 2) {
-      throw new Error('Arama terimi en az 2 karakter olmalıdır');
+    const trimmedSearchTerm = searchTerm?.trim();
+    
+    if (!trimmedSearchTerm || trimmedSearchTerm.length < 2) {
+      return {
+        success: false,
+        message: 'Arama için en az 2 karakter giriniz',
+        data: []
+      };
     }
     
-    let url = `/firma/search?q=${encodeURIComponent(searchTerm)}`;
+    let url = `/firma/search?q=${encodeURIComponent(trimmedSearchTerm)}`;
     if (field) {
       url += `&field=${field}`;
     }
     
+    console.log('🔍 API Search URL:', url);
     const response = await api.get(url);
-    return handleResponse(response);
+    
+    // Enhanced response handling for search
+    if (response?.data?.success) {
+      const firmalar = response.data.data?.firmalar || [];
+      return {
+        success: true,
+        data: firmalar,
+        message: response.data.message,
+        count: firmalar.length
+      };
+    } else {
+      return {
+        success: false,
+        message: response?.data?.message || 'Arama sonucu bulunamadı',
+        data: []
+      };
+    }
   } catch (error) {
+    console.error('🚨 Search Error:', error);
     return handleError(error);
   }
 };

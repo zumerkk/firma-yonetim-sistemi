@@ -64,6 +64,13 @@ const getNotifications = async (req, res) => {
 // 🔔 Okunmamış bildirim sayısını getir
 const getUnreadCount = async (req, res) => {
   try {
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'Kullanıcı bilgisi bulunamadı'
+      });
+    }
+
     const userId = req.user.id;
     const count = await Notification.getUnreadCount(userId);
 
@@ -465,4 +472,4 @@ module.exports = {
   // Helper functions
   createSystemNotification,
   createFirmaNotification
-}; 
+};

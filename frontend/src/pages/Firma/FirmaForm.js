@@ -46,8 +46,8 @@ import { validateFirmaData, getNextFirmaId } from '../../services/firmaService';
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 
 
-// 🎯 Import yatırım konusu data from CSV
-import { YATIRIM_DATA } from '../../data/yatirimData';
+// 🎯 Import activity selector component
+import ActivitySelector from '../../components/ActivitySelector';
 
 // 🎯 Default structures
 const createEmptyYetkiliKisi = () => ({
@@ -112,7 +112,14 @@ const YetkiliKisiForm = memo(({
 }) => {
   // Optimized change handlers
   const handleFieldChange = useCallback((field) => (event) => {
-    onChange(index, field, event.target.value);
+    let value = event.target.value;
+    
+    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
+    if (typeof value === 'string') {
+      value = value.toUpperCase();
+    }
+    
+    onChange(index, field, value);
   }, [index, onChange]);
 
   return (
@@ -169,6 +176,8 @@ const YetkiliKisiForm = memo(({
         <Grid item xs={12} md={6}>
           <TextField
             fullWidth
+            id={`yetkili-ad-soyad-${index}`}
+            name={`yetkiliKisiler[${index}].adSoyad`}
             size="small"
             label="Ad Soyad *"
             value={yetkili.adSoyad}
@@ -202,43 +211,23 @@ const YetkiliKisiForm = memo(({
         </Grid>
         
         <Grid item xs={12} md={6}>
-          <TextField
+          <MemoizedTextField
             fullWidth
+            id={`yetkili-telefon1-${index}`}
+            name={`yetkiliKisiler[${index}].telefon1`}
             size="small"
-            label="Telefon 1 *"
+            label="Telefon 1"
             value={yetkili.telefon1}
             onChange={handleFieldChange('telefon1')}
-            required
             placeholder="0532 000 00 00"
-            error={Boolean(index === 0 && !yetkili.telefon1)}
-            helperText={
-              index === 0 && !yetkili.telefon1
-                ? "❌ Telefon 1 zorunludur"
-                : yetkili.telefon1
-                ? "✅ Geçerli"
-                : ""
-            }
-            sx={{
-              '& .MuiFormHelperText-root': {
-                color: (index === 0 && !yetkili.telefon1)
-                  ? 'error.main'
-                  : yetkili.telefon1
-                  ? 'success.main'
-                  : 'text.secondary'
-              },
-              '& .MuiOutlinedInput-root': {
-                '&.Mui-error': { 
-                  backgroundColor: '#fef2f2',
-                  '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                }
-              }
-            }}
           />
         </Grid>
         
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
+            id={`yetkili-telefon2-${index}`}
+            name={`yetkiliKisiler[${index}].telefon2`}
             size="small"
             label="Telefon 2"
             value={yetkili.telefon2}
@@ -248,44 +237,24 @@ const YetkiliKisiForm = memo(({
         </Grid>
         
         <Grid item xs={12} md={6}>
-          <TextField
+          <MemoizedTextField
             fullWidth
+            id={`yetkili-eposta1-${index}`}
+            name={`yetkiliKisiler[${index}].eposta1`}
             size="small"
-            label="E-posta 1 *"
+            label="E-posta 1"
             type="email"
             value={yetkili.eposta1}
             onChange={handleFieldChange('eposta1')}
-            required
             placeholder="yetkili@firma.com"
-            error={Boolean(index === 0 && !yetkili.eposta1)}
-            helperText={
-              index === 0 && !yetkili.eposta1
-                ? "❌ E-posta 1 zorunludur"
-                : yetkili.eposta1
-                ? "✅ Geçerli"
-                : ""
-            }
-            sx={{
-              '& .MuiFormHelperText-root': {
-                color: (index === 0 && !yetkili.eposta1)
-                  ? 'error.main'
-                  : yetkili.eposta1
-                  ? 'success.main'
-                  : 'text.secondary'
-              },
-              '& .MuiOutlinedInput-root': {
-                '&.Mui-error': { 
-                  backgroundColor: '#fef2f2',
-                  '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
-                }
-              }
-            }}
           />
         </Grid>
         
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
+            id={`yetkili-eposta2-${index}`}
+            name={`yetkiliKisiler[${index}].eposta2`}
             size="small"
             label="E-posta 2"
             type="email"
@@ -306,7 +275,7 @@ const FirmaForm = () => {
 
   // Context & State
   const {
-    selectedFirma,
+    firma: selectedFirma,
     loading,
     searchResults,
     fetchFirma,
@@ -326,7 +295,6 @@ const FirmaForm = () => {
   const [formData, setFormData] = useState(createInitialFormData);
   const [validationErrors, setValidationErrors] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [searchTerm, setSearchTerm] = useState('');
 
   // Optimized Snackbar Handler
   const showSnackbar = useCallback((message, severity = 'info') => {
@@ -341,12 +309,26 @@ const FirmaForm = () => {
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     
-    // 🌐 Website alanı için otomatik https:// ekleme
+    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
+    if (typeof value === 'string') {
+      value = value.toUpperCase();
+    }
+    
+    // 🌐 Website alanı için otomatik https:// ekleme (sadece kullanıcı protokol yazmadığında)
     if (field === 'firmaWebsite' && value && value.trim() !== '') {
       const trimmedValue = value.trim();
-      // Eğer http:// veya https:// ile başlamıyorsa, otomatik https:// ekle
-      if (!trimmedValue.startsWith('http://') && !trimmedValue.startsWith('https://')) {
-        value = 'https://' + trimmedValue;
+      // Eğer kullanıcı zaten https:// yazmışsa, tekrar ekleme
+      if (!trimmedValue.startsWith('http://') && !trimmedValue.startsWith('https://') && !trimmedValue.includes('://')) {
+        // Sadece domain adı yazıldıysa https:// ekle
+        if (trimmedValue.includes('.') && !trimmedValue.startsWith('www.')) {
+          value = 'https://' + trimmedValue;
+        } else if (trimmedValue.startsWith('www.')) {
+          value = 'https://' + trimmedValue;
+        } else {
+          value = trimmedValue; // Protokol ekleme
+        }
+      } else {
+        value = trimmedValue; // Kullanıcı zaten protokol yazmış
       }
     }
     
@@ -365,6 +347,11 @@ const FirmaForm = () => {
 
   // 🎯 Ultra-optimized Yetkili Kisi Management
   const handleYetkiliChange = useCallback((index, field, value) => {
+    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
+    if (typeof value === 'string') {
+      value = value.toUpperCase();
+    }
+    
     setFormData(prevData => {
       const newYetkiliKisiler = [...prevData.yetkiliKisiler];
       newYetkiliKisiler[index] = {
@@ -399,12 +386,14 @@ const FirmaForm = () => {
   // Load data for edit mode
   useEffect(() => {
     if (isEdit && id) {
+      console.log('🔄 Loading firma for edit, ID:', id);
       fetchFirma(id);
     }
   }, [isEdit, id, fetchFirma]);
 
   useEffect(() => {
-    if (isEdit && selectedFirma) {
+    if (isEdit && selectedFirma && selectedFirma._id) {
+      console.log('📝 Setting form data for edit:', selectedFirma);
       setFormData({
         ...selectedFirma,
         etuysYetkiBitisTarihi: selectedFirma.etuysYetkiBitisTarihi 
@@ -417,8 +406,9 @@ const FirmaForm = () => {
           ? selectedFirma.yetkiliKisiler 
           : [createEmptyYetkiliKisi()]
       });
+      showSnackbar('Firma bilgileri yüklendi', 'success');
     }
-  }, [isEdit, selectedFirma]);
+  }, [isEdit, selectedFirma, showSnackbar]);
 
   // 🆔 Load next Firma ID on component mount
   useEffect(() => {
@@ -442,43 +432,99 @@ const FirmaForm = () => {
     loadNextFirmaId();
   }, [isEdit]);
 
-  // 🔍 Search handling
+  // 🔍 Enhanced Search handling
   const handleSearch = useCallback(async () => {
-    if (!searchTerm || searchTerm.length < 2) {
-      showSnackbar('En az 2 karakter giriniz', 'warning');
+    // Form verilerinden arama terimini al
+    const searchTermFromForm = formData.vergiNoTC?.trim() || formData.tamUnvan?.trim() || '';
+    
+    if (!searchTermFromForm || searchTermFromForm.length < 2) {
+      showSnackbar('Arama için Vergi No/TC veya Tam Ünvan alanına en az 2 karakter giriniz', 'warning');
       return;
     }
 
     try {
-      const results = await searchFirmalar(searchTerm);
-      if (results.length > 0) {
-        showSnackbar(`${results.length} firma bulundu`, 'info');
+      console.log('🔍 Searching for:', searchTermFromForm);
+      const results = await searchFirmalar(searchTermFromForm);
+      
+      if (results && results.length > 0) {
+        showSnackbar(`✅ ${results.length} firma bulundu`, 'success');
       } else {
-        showSnackbar('Eşleşen firma bulunamadı', 'info');
+        showSnackbar('❌ Eşleşen firma bulunamadı', 'info');
       }
     } catch (error) {
-      showSnackbar('Arama sırasında hata oluştu', 'error');
+      console.error('Search error:', error);
+      showSnackbar('Arama sırasında hata oluştu: ' + (error.message || 'Bilinmeyen hata'), 'error');
     }
-  }, [searchTerm, searchFirmalar, showSnackbar]);
+  }, [formData.vergiNoTC, formData.tamUnvan, searchFirmalar, showSnackbar]);
 
   const loadFirmaToForm = useCallback((firma) => {
-    setFormData({
-      ...firma,
+    console.log('🔍 loadFirmaToForm çağrıldı, gelen firma verisi:', firma);
+    
+    // Firma seçildiğinde detay sayfasına yönlendir
+    if (firma.firmaId) {
+      showSnackbar(`✅ ${firma.tamUnvan} firma detayına yönlendiriliyor...`, 'success');
+      navigate(`/firmalar/${firma.firmaId}`);
+      return;
+    }
+    
+    // Eğer firmaId yoksa (eski kod uyumluluğu için) form verilerini doldur
+    const processedData = {
+      // Temel bilgiler
+      firmaId: firma.firmaId || '',
+      vergiNoTC: firma.vergiNoTC || '',
+      tamUnvan: firma.tamUnvan || '',
+      adres: firma.adres || '',
+      firmaIl: firma.firmaIl || '',
+      firmaIlce: firma.firmaIlce || '',
+      ilKod: firma.ilKod || '',
+      ilceKod: firma.ilceKod || '',
+      
+      // İletişim bilgileri
+      kepAdresi: firma.kepAdresi || '',
+      firmaTelefon: firma.firmaTelefon || '',
+      firmaEmail: firma.firmaEmail || '',
+      firmaWebsite: firma.firmaWebsite || '',
+      
+      // Diğer bilgiler
+      yabanciSermayeli: Boolean(firma.yabanciSermayeli),
+      anaFaaliyetKonusu: firma.anaFaaliyetKonusu || '',
+      ilkIrtibatKisi: firma.ilkIrtibatKisi || '',
+      notlar: firma.notlar || '',
+      
+      // Tarih alanları - ISO formatına çevir
       etuysYetkiBitisTarihi: firma.etuysYetkiBitisTarihi 
         ? new Date(firma.etuysYetkiBitisTarihi).toISOString().split('T')[0] 
         : '',
       dysYetkiBitisTarihi: firma.dysYetkiBitisTarihi 
         ? new Date(firma.dysYetkiBitisTarihi).toISOString().split('T')[0] 
         : '',
+      
+      // Yetkili kişiler - en az bir tane olmalı
       yetkiliKisiler: firma.yetkiliKisiler?.length > 0 
-        ? firma.yetkiliKisiler 
+        ? firma.yetkiliKisiler.map(kisi => ({
+            adSoyad: kisi.adSoyad || '',
+            telefon1: kisi.telefon1 || '',
+            telefon2: kisi.telefon2 || '',
+            eposta1: kisi.eposta1 || '',
+            eposta2: kisi.eposta2 || ''
+          }))
         : [createEmptyYetkiliKisi()]
-    });
+    };
     
+    console.log('📝 İşlenmiş form verisi:', processedData);
+    
+    // Form verilerini güncelle
+    setFormData(processedData);
+    
+    // Arama sonuçlarını temizle
     clearSearchResults();
-    setSearchTerm('');
-    showSnackbar('Firma bilgileri yüklendi', 'info');
-  }, [clearSearchResults, showSnackbar]);
+    
+    // Validation hatalarını temizle
+    setValidationErrors([]);
+    
+    // Başarı mesajı göster
+    showSnackbar(`✅ ${firma.tamUnvan} firma bilgileri yüklendi`, 'success');
+  }, [clearSearchResults, showSnackbar, setValidationErrors, navigate]);
 
   // 📝 Form Validation
   const validateForm = useCallback(async () => {
@@ -491,14 +537,13 @@ const FirmaForm = () => {
     if (!formData.firmaIl) errors.push('Firma İli zorunludur');
     if (!formData.ilkIrtibatKisi) errors.push('İlk İrtibat Kişisi zorunludur');
 
-    // Yetkili kişi validations
+    // Yetkili kişi validations - Updated to make phone and email optional
     if (!formData.yetkiliKisiler || formData.yetkiliKisiler.length === 0) {
       errors.push('En az bir yetkili kişi bilgisi gereklidir');
     } else {
       formData.yetkiliKisiler.forEach((kisi, index) => {
         if (!kisi.adSoyad) errors.push(`${index + 1}. Yetkili Kişi: Ad Soyad zorunludur`);
-        if (!kisi.telefon1) errors.push(`${index + 1}. Yetkili Kişi: Telefon 1 zorunludur`);
-        if (!kisi.eposta1) errors.push(`${index + 1}. Yetkili Kişi: E-posta 1 zorunludur`);
+        // Phone and email are now optional - removed validation
       });
     }
 
@@ -770,44 +815,17 @@ const FirmaForm = () => {
                   Mevcut Firma Kontrolü
                 </Typography>
                 
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} md={8}>
-                    <MemoizedTextField
-                      fullWidth
-                      size="medium"
-                      label="Vergi No/TC No veya Firma Ünvanı"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      placeholder="Arama yapmak için en az 2 karakter giriniz"
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} md={4}>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      size="large"
-                      onClick={handleSearch}
-                      disabled={loading || searchTerm.length < 2}
-                      startIcon={loading ? <CircularProgress size={20} /> : <SearchIcon />}
-                      sx={{
-                        py: 1.5,
-                        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-                        fontSize: '1rem',
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%)',
-                          transform: 'translateY(-1px)',
-                          boxShadow: '0 6px 20px rgba(59, 130, 246, 0.4)'
-                        }
-                      }}
-                    >
-                      {loading ? 'Aranıyor...' : 'Ara'}
-                    </Button>
-                  </Grid>
-                </Grid>
+                <Typography variant="body2" sx={{ 
+                  color: '#64748b', 
+                  fontStyle: 'italic',
+                  textAlign: 'center',
+                  py: 2,
+                  backgroundColor: '#f8fafc',
+                  borderRadius: 2,
+                  border: '1px dashed #cbd5e1'
+                }}>
+                  💡 Mevcut firma kontrolü için yukarıdaki "Vergi No/TC" veya "Tam Ünvan" alanlarını doldurup "🔍 Kayıt Arama" butonuna tıklayın.
+                </Typography>
                 
                 {/* Enhanced Search Results */}
                 {searchResults.length > 0 && (
@@ -902,9 +920,7 @@ const FirmaForm = () => {
                             formData.adres,
                             formData.firmaIl,
                             formData.ilkIrtibatKisi,
-                            formData.yetkiliKisiler?.[0]?.adSoyad,
-                            formData.yetkiliKisiler?.[0]?.telefon1,
-                            formData.yetkiliKisiler?.[0]?.eposta1
+                            formData.yetkiliKisiler?.[0]?.adSoyad
                           ].filter(Boolean);
                           
                           const totalRequired = 8;
@@ -927,8 +943,8 @@ const FirmaForm = () => {
                             formData.yetkiliKisiler?.[0]?.eposta1
                           ].filter(Boolean);
                           
-                          if (requiredFields.length === 8) return 'success';
-                          if (requiredFields.length >= 6) return 'warning';
+                          if (requiredFields.length === 6) return 'success';
+                          if (requiredFields.length >= 4) return 'warning';
                           return 'error';
                         })()
                       }
@@ -1041,6 +1057,7 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={4}>
                       <TextField
                         fullWidth
+                        id="vergi-no-tc"
                         label="Vergi No/TC No *"
                         name="vergiNoTC"
                         value={formData.vergiNoTC}
@@ -1088,6 +1105,7 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={8}>
                       <TextField
                         fullWidth
+                        id="tam-unvan"
                         label="Tam Ünvan *"
                         name="tamUnvan"
                         value={formData.tamUnvan}
@@ -1163,6 +1181,8 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
+                        id="firma-id"
+                        name="firmaId"
                         size="medium"
                         label="Firma ID"
                         value={formData.firmaId}
@@ -1180,6 +1200,8 @@ const FirmaForm = () => {
                     <Grid item xs={12}>
                       <TextField
                         fullWidth
+                        id="adres"
+                        name="adres"
                         label="Adres *"
                         value={formData.adres}
                         onChange={handleBasicFieldChange('adres')}
@@ -1240,6 +1262,8 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={4}>
                       <MemoizedTextField
                         fullWidth
+                        id="kep-adresi"
+                        name="kepAdresi"
                         size="medium"
                         label="KEP Adresi"
                         type="email"
@@ -1254,7 +1278,9 @@ const FirmaForm = () => {
                       <FormControlLabel
                         control={
                           <Switch
-                            checked={formData.yabanciSermayeli}
+                            id="yabanci-sermayeli"
+                            name="yabanciSermayeli"
+                            checked={Boolean(formData.yabanciSermayeli)}
                             onChange={handleBasicFieldChange('yabanciSermayeli')}
                             size="medium"
                             color="primary"
@@ -1271,36 +1297,19 @@ const FirmaForm = () => {
                     </Grid>
                     
                     <Grid item xs={12} md={4}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Ana Faaliyet Konusu *"
+                      <ActivitySelector
                         value={formData.anaFaaliyetKonusu}
-                        onChange={handleBasicFieldChange('anaFaaliyetKonusu')}
+                        onChange={(value) => setFormData(prev => ({ ...prev, anaFaaliyetKonusu: value }))}
                         required
-                        sx={{ backgroundColor: 'white' }}
-                      >
-                        {YATIRIM_DATA.YATIRIM_KONULARI.map((yatirimKonusu) => (
-                          <MenuItem key={yatirimKonusu} value={yatirimKonusu}>
-                            {yatirimKonusu}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                    
-                    <Grid item xs={12} md={4}>
-                      <MemoizedTextField
-                        fullWidth
-                        size="medium"
-                        label="ETUYS Yetki Bitiş Tarihi"
-                        type="date"
-                        value={formData.etuysYetkiBitisTarihi}
-                        onChange={handleBasicFieldChange('etuysYetkiBitisTarihi')}
-                        InputLabelProps={{ shrink: true }}
+                        error={Boolean(!formData.anaFaaliyetKonusu)}
+                        helperText={
+                          !formData.anaFaaliyetKonusu
+                            ? "❌ Ana faaliyet konusu seçilmelidir"
+                            : "✅ Seçildi"
+                        }
                       />
                     </Grid>
                     
-
                   </Grid>
                 </Box>
 
@@ -1326,6 +1335,8 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
+                        id="firma-telefonu"
+                        name="firmaTelefon"
                         size="medium"
                         label="Firma Telefonu"
                         value={formData.firmaTelefon}
@@ -1337,6 +1348,8 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
+                        id="firma-email"
+                        name="firmaEmail"
                         size="medium"
                         label="Firma E-postası"
                         type="email"
@@ -1349,6 +1362,8 @@ const FirmaForm = () => {
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
+                        id="firma-website"
+                        name="firmaWebsite"
                         size="medium"
                         label="Website"
                         value={formData.firmaWebsite}
@@ -1361,8 +1376,10 @@ const FirmaForm = () => {
                       <TextField
                         select
                         fullWidth
+                        id="ilk-irtibat-kisi"
+                        name="ilkIrtibatKisi"
                         label="İlk İrtibat Kişisi *"
-                        value={formData.ilkIrtibatKisi}
+                        value={formData.ilkIrtibatKisi || ''}
                         onChange={handleBasicFieldChange('ilkIrtibatKisi')}
                         required
                         error={Boolean(!formData.ilkIrtibatKisi)}
@@ -1383,6 +1400,9 @@ const FirmaForm = () => {
                           }
                         }}
                       >
+                        <MenuItem value="">
+                          <em>İrtibat Kişisi Seçiniz</em>
+                        </MenuItem>
                         {[
                           { name: 'Merve Koç', email: 'merve@gmplanlama.com' },
                           { name: 'Selin Nergiz', email: 'selin@gmplanlama.com' },
@@ -1390,16 +1410,33 @@ const FirmaForm = () => {
                           { name: 'Ayşegül Gezer', email: 'aysegul@gmplanlama.com' },
                           { name: 'Hüseyin Cahit Ağır', email: 'cahit@gmplanlama.com' }
                         ].map((person) => (
-                          <MenuItem key={person.email} value={`${person.name} ${person.email}`}>
+                          <MenuItem key={person.email} value={person.name}>
                             {person.name} - {person.email}
                           </MenuItem>
                         ))}
                       </TextField>
                     </Grid>
 
+                    {/* ETUYS ve DYS Yetki Bitiş Tarihleri yan yana */}
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
+                        id="etuys-yetki-bitis-tarihi"
+                        name="etuysYetkiBitisTarihi"
+                        size="medium"
+                        label="ETUYS Yetki Bitiş Tarihi"
+                        type="date"
+                        value={formData.etuysYetkiBitisTarihi}
+                        onChange={handleBasicFieldChange('etuysYetkiBitisTarihi')}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <MemoizedTextField
+                        fullWidth
+                        id="dys-yetki-bitis-tarihi"
+                        name="dysYetkiBitisTarihi"
                         size="medium"
                         label="DYS Yetki Bitiş Tarihi"
                         type="date"
@@ -1490,6 +1527,8 @@ const FirmaForm = () => {
                     </Typography>
                     <MemoizedTextField
                       fullWidth
+                      id="notlar"
+                      name="notlar"
                       size="medium"
                       label="Notlar"
                       value={formData.notlar}
@@ -1538,15 +1577,13 @@ const FirmaForm = () => {
                               { value: formData.adres, name: 'Adres' },
                               { value: formData.firmaIl, name: 'İl' },
                               { value: formData.ilkIrtibatKisi, name: 'İlk İrtibat Kişisi' },
-                              { value: formData.yetkiliKisiler?.[0]?.adSoyad, name: 'Yetkili Ad Soyad' },
-                              { value: formData.yetkiliKisiler?.[0]?.telefon1, name: 'Yetkili Telefon' },
-                              { value: formData.yetkiliKisiler?.[0]?.eposta1, name: 'Yetkili E-posta' }
+                              { value: formData.yetkiliKisiler?.[0]?.adSoyad, name: 'Yetkili Ad Soyad' }
                             ];
                             
                             const filledFields = requiredFieldsData.filter(field => field.value);
                             const emptyFields = requiredFieldsData.filter(field => !field.value);
                             
-                            const isComplete = filledFields.length === 8;
+                            const isComplete = filledFields.length === 6;
                             const hasValidationErrors = validationErrors.length > 0;
                             
                             if (hasValidationErrors) return '❌ Hatalar var';
@@ -1570,13 +1607,11 @@ const FirmaForm = () => {
                               formData.adres,
                               formData.firmaIl,
                               formData.ilkIrtibatKisi,
-                              formData.yetkiliKisiler?.[0]?.adSoyad,
-                              formData.yetkiliKisiler?.[0]?.telefon1,
-                              formData.yetkiliKisiler?.[0]?.eposta1
+                              formData.yetkiliKisiler?.[0]?.adSoyad
                             ].filter(Boolean);
                             
                             if (validationErrors.length > 0) return 'error';
-                            if (requiredFields.length === 8) return 'success';
+                            if (requiredFields.length === 6) return 'success';
                             return 'warning';
                           })()
                         }
@@ -1596,9 +1631,7 @@ const FirmaForm = () => {
                           !formData.adres ||
                           !formData.firmaIl ||
                           !formData.ilkIrtibatKisi ||
-                          !formData.yetkiliKisiler?.[0]?.adSoyad ||
-                          !formData.yetkiliKisiler?.[0]?.telefon1 ||
-                          !formData.yetkiliKisiler?.[0]?.eposta1
+                          !formData.yetkiliKisiler?.[0]?.adSoyad
                         }
                         startIcon={
                           loading ? (

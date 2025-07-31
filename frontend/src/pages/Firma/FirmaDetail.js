@@ -286,9 +286,9 @@ const FirmaDetail = () => {
 
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, group: 'hover' }}>
-        <Box component="span" sx={{ flex: 1 }}>
+        <Typography component="span" variant="body2" sx={{ flex: 1 }}>
           {value || 'Belirtilmemiş'}
-        </Box>
+        </Typography>
         <Tooltip title={`${label} düzenle`}>
           <IconButton 
             size="small" 
@@ -491,46 +491,52 @@ const FirmaDetail = () => {
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <AssignmentIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="Vergi No / TC"
-                                  secondary={<EditableField field="vergiNoTC" value={firma.vergiNoTC} label="Vergi No/TC" />}
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    Vergi No / TC
+                                  </Typography>
+                                  <EditableField field="vergiNoTC" value={firma.vergiNoTC} label="Vergi No/TC" />
+                                </Box>
                               </ListItem>
 
                               <ListItem sx={{ px: 0, py: 1 }}>
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <BusinessIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="Tam Ünvan"
-                                  secondary={<EditableField field="tamUnvan" value={firma.tamUnvan} label="Tam Ünvan" />}
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    Tam Ünvan
+                                  </Typography>
+                                  <EditableField field="tamUnvan" value={firma.tamUnvan} label="Tam Ünvan" />
+                                </Box>
                               </ListItem>
 
                               <ListItem sx={{ px: 0, py: 1 }}>
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <GlobalIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="Yabancı Sermayeli"
-                                  secondary={
-                                    <Chip
-                                      label={firma.yabanciSermayeli ? 'Evet' : 'Hayır'}
-                                      color={firma.yabanciSermayeli ? 'warning' : 'default'}
-                                      size="small"
-                                    />
-                                  }
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    Yabancı Sermayeli
+                                  </Typography>
+                                  <Chip
+                                    label={firma.yabanciSermayeli ? 'Evet' : 'Hayır'}
+                                    color={firma.yabanciSermayeli ? 'warning' : 'default'}
+                                    size="small"
+                                  />
+                                </Box>
                               </ListItem>
 
                               <ListItem sx={{ px: 0, py: 1 }}>
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <InfoIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="Ana Faaliyet Konusu"
-                                  secondary={<EditableField field="anaFaaliyetKonusu" value={firma.anaFaaliyetKonusu} label="Ana Faaliyet Konusu" />}
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    Ana Faaliyet Konusu
+                                  </Typography>
+                                  <EditableField field="anaFaaliyetKonusu" value={firma.anaFaaliyetKonusu} label="Ana Faaliyet Konusu" />
+                                </Box>
                               </ListItem>
                             </List>
                           </CardContent>
@@ -551,10 +557,12 @@ const FirmaDetail = () => {
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <LocationIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="Adres"
-                                  secondary={<EditableField field="adres" value={firma.adres} label="Adres" multiline />}
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    Adres
+                                  </Typography>
+                                  <EditableField field="adres" value={firma.adres} label="Adres" multiline />
+                                </Box>
                               </ListItem>
 
                               <ListItem sx={{ px: 0, py: 1 }}>
@@ -574,13 +582,17 @@ const FirmaDetail = () => {
                                 <ListItemText
                                   primary="KEP Adresi"
                                   secondary={
-                                    firma.kepAdresi ? (
-                                      <Link href={`mailto:${firma.kepAdresi}`} color="primary">
-                                        {firma.kepAdresi}
-                                      </Link>
-                                    ) : <EditableField field="kepAdresi" value={firma.kepAdresi} label="KEP Adresi" />
+                                    firma.kepAdresi ? firma.kepAdresi : "Belirtilmemiş"
                                   }
                                 />
+                                {firma.kepAdresi && (
+                                  <Link href={`mailto:${firma.kepAdresi}`} color="primary" sx={{ ml: 1 }}>
+                                    {firma.kepAdresi}
+                                  </Link>
+                                )}
+                                {!firma.kepAdresi && (
+                                  <EditableField field="kepAdresi" value={firma.kepAdresi} label="KEP Adresi" />
+                                )}
                               </ListItem>
 
                               {firma.firmaTelefon && (
@@ -590,12 +602,11 @@ const FirmaDetail = () => {
                                   </ListItemIcon>
                                   <ListItemText
                                     primary="Firma Telefon"
-                                    secondary={
-                                      <Link href={`tel:${firma.firmaTelefon}`} color="primary">
-                                        {firma.firmaTelefon}
-                                      </Link>
-                                    }
+                                    secondary={firma.firmaTelefon}
                                   />
+                                  <Link href={`tel:${firma.firmaTelefon}`} color="primary" sx={{ ml: 1 }}>
+                                    {firma.firmaTelefon}
+                                  </Link>
                                 </ListItem>
                               )}
                             </List>
@@ -617,52 +628,48 @@ const FirmaDetail = () => {
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <CalendarIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="ETUYS Yetki Bitiş"
-                                  secondary={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography variant="body2">
-                                        {formatDate(firma.etuysYetkiBitisTarihi)}
-                                      </Typography>
-                                      <Chip
-                                        label={etuysStatus.label}
-                                        color={etuysStatus.color}
-                                        size="small"
-                                        icon={
-                                          etuysStatus.status === 'expired' ? <ErrorIcon /> :
-                                          etuysStatus.status === 'expiring' ? <WarningIcon /> :
-                                          etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                                        }
-                                      />
-                                    </Box>
-                                  }
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    ETUYS Yetki Bitiş
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ mb: 1 }}>
+                                    {formatDate(firma.etuysYetkiBitisTarihi)}
+                                  </Typography>
+                                  <Chip
+                                    label={etuysStatus.label}
+                                    color={etuysStatus.color}
+                                    size="small"
+                                    icon={
+                                      etuysStatus.status === 'expired' ? <ErrorIcon /> :
+                                      etuysStatus.status === 'expiring' ? <WarningIcon /> :
+                                      etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                                    }
+                                  />
+                                </Box>
                               </ListItem>
 
                               <ListItem sx={{ px: 0, py: 1 }}>
                                 <ListItemIcon sx={{ minWidth: 40 }}>
                                   <CalendarIcon color="primary" />
                                 </ListItemIcon>
-                                <ListItemText
-                                  primary="DYS Yetki Bitiş"
-                                  secondary={
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <Typography variant="body2">
-                                        {formatDate(firma.dysYetkiBitisTarihi)}
-                                      </Typography>
-                                      <Chip
-                                        label={dysStatus.label}
-                                        color={dysStatus.color}
-                                        size="small"
-                                        icon={
-                                          dysStatus.status === 'expired' ? <ErrorIcon /> :
-                                          dysStatus.status === 'expiring' ? <WarningIcon /> :
-                                          dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                                        }
-                                      />
-                                    </Box>
-                                  }
-                                />
+                                <Box sx={{ flex: 1 }}>
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    DYS Yetki Bitiş
+                                  </Typography>
+                                  <Typography variant="body2" sx={{ mb: 1 }}>
+                                    {formatDate(firma.dysYetkiBitisTarihi)}
+                                  </Typography>
+                                  <Chip
+                                    label={dysStatus.label}
+                                    color={dysStatus.color}
+                                    size="small"
+                                    icon={
+                                      dysStatus.status === 'expired' ? <ErrorIcon /> :
+                                      dysStatus.status === 'expiring' ? <WarningIcon /> :
+                                      dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                                    }
+                                  />
+                                </Box>
                               </ListItem>
                             </List>
                           </CardContent>

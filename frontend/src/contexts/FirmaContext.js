@@ -308,28 +308,36 @@ export const FirmaProvider = ({ children }) => {
     }
   }, [state.filters, state.pagination.mevcutSayfa, state.pagination.sayfaBasinaLimit]);
 
-  // 👁️ Fetch Single Firma
+  // 👁️ Enhanced Fetch Single Firma
   const fetchFirma = useCallback(async (id) => {
     if (!id) {
       setError('Firma ID gereklidir');
       return { success: false, message: 'Firma ID gereklidir' };
     }
 
+    console.log('🔄 Fetching firma with ID:', id);
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
     try {
       const result = await firmaService.getFirma(id);
       
-      if (result.success) {
+      console.log('📥 Fetch Firma Result:', result);
+      
+      if (result.success && result.data && result.data.firma) {
+        const firma = result.data.firma;
+        console.log('✅ Setting firma data:', firma);
+        
         dispatch({
           type: ACTION_TYPES.SET_FIRMA,
-          payload: result.data.firma
+          payload: firma
         });
-        return { success: true, data: result.data.firma };
+        return { success: true, data: firma };
       } else {
-        throw new Error(result.message);
+        console.error('❌ No firma data in response:', result);
+        throw new Error(result.message || 'Firma verisi bulunamadı');
       }
     } catch (error) {
+      console.error('🚨 Fetch Firma Error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Firma detayı yüklenemedi';
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
       return { success: false, message: errorMessage };
@@ -422,31 +430,41 @@ export const FirmaProvider = ({ children }) => {
     }
   }, [setError]);
 
-  // 🔍 Search Firmalar
+  // 🔍 Enhanced Search Firmalar
   const searchFirmalar = useCallback(async (searchTerm, field = null) => {
-    if (!searchTerm || searchTerm.length < 2) {
-      setError('Arama terimi en az 2 karakter olmalıdır');
-      return { success: false, message: 'Arama terimi en az 2 karakter olmalıdır' };
+    const trimmedSearchTerm = searchTerm?.trim();
+    
+    if (!trimmedSearchTerm || trimmedSearchTerm.length < 2) {
+      setError('Arama için en az 2 karakter giriniz');
+      return [];
     }
 
     dispatch({ type: ACTION_TYPES.SET_SEARCH_LOADING, payload: true });
     
     try {
-      const result = await firmaService.searchFirmalar(searchTerm, field);
+      const result = await firmaService.searchFirmalar(trimmedSearchTerm, field);
+      
+      console.log('🔍 Context Search Result:', result);
       
       if (result.success) {
+        const firmalar = result.data || [];
         dispatch({
           type: ACTION_TYPES.SET_SEARCH_RESULTS,
-          payload: result.data.firmalar
+          payload: firmalar
         });
-        return { success: true, data: result.data };
+        return firmalar;
       } else {
-        throw new Error(result.message);
+        dispatch({
+          type: ACTION_TYPES.SET_SEARCH_RESULTS,
+          payload: []
+        });
+        return [];
       }
     } catch (error) {
+      console.error('🚨 Context Search Error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Arama yapılamadı';
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
-      return { success: false, message: errorMessage };
+      return [];
     }
   }, [setError]);
 
@@ -595,4 +613,4 @@ export const FirmaProvider = ({ children }) => {
   );
 };
 
-export default FirmaContext; 
+export default FirmaContext;

@@ -662,7 +662,7 @@ const FirmaList = () => {
           <Tooltip title="Düzenle">
             <IconButton 
               size="small" 
-              onClick={() => navigate(`/firmalar/duzenle/${params.row._id}`)}
+              onClick={() => navigate(`/firmalar/${params.row._id}/duzenle`)}
             >
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>

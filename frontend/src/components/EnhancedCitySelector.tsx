@@ -1,7 +1,7 @@
 // 🏙️ Gelişmiş İl-İlçe Seçici Bileşeni
 // CSV verilerinden 81 il ve tüm ilçeleri içeren modern seçici
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   TextField,
@@ -45,9 +45,6 @@ interface EnhancedCitySelectorProps {
   className?: string;
   required?: boolean;
   showCodes?: boolean;
-  // Z-index ve görünüm sorunlarını çözmek için eklenen yeni özellikler
-  popperProps?: any;
-  paperProps?: any;
 }
 
 // City ve District tipi için interface tanımlayalım
@@ -70,9 +67,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
   onDistrictChange,
   className = '',
   required = false,
-  showCodes = true,
-  popperProps = {},
-  paperProps = {}
+  showCodes = true
 }) => {
   const [citySearchTerm, setCitySearchTerm] = useState('');
   const [districtSearchTerm, setDistrictSearchTerm] = useState('');
@@ -130,66 +125,58 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
     setDistrictSearchTerm('');
   }, [onDistrictChange]);
 
-  // Autocomplete ayarları - önceden tanımla
-  const cityAutocompleteProps = useMemo(() => ({
-    PopperProps: {
-      style: { zIndex: 9999 }
-    },
-    renderOption: (props: any, option: CityType) => {
-      const { key, ...otherProps } = props;
-      return (
-        <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 500 }}>
-              {option.ad}
-            </Typography>
-            <Chip 
-              label={getCityRegion(option.ad)} 
-              size="small" 
-              variant="outlined"
-              sx={{ fontSize: '0.7rem', height: 20 }}
-            />
-          </Box>
-          {showCodes && (
-            <Chip 
-              label={option.kod} 
-              size="small" 
-              sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
-            />
-          )}
-        </Box>
-      );
-    }
-  }), [showCodes]);
-
-  const districtAutocompleteProps = useMemo(() => ({
-    PopperProps: {
-      style: { zIndex: 9999 }
-    },
-    renderOption: (props: any, option: DistrictType) => {
-      const { key, ...otherProps } = props;
-      return (
-        <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+  // Render functions for options
+  const renderCityOption = useCallback((props: any, option: CityType) => {
+    const { key, ...otherProps } = props;
+    return (
+      <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
             {option.ad}
           </Typography>
-          {showCodes && (
-            <Chip 
-              label={option.kod} 
-              size="small" 
-              sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
-            />
-          )}
+          <Chip 
+            label={getCityRegion(option.ad)} 
+            size="small" 
+            variant="outlined"
+            sx={{ fontSize: '0.7rem', height: 20 }}
+          />
         </Box>
-      );
-    }
-  }), [showCodes]);
+        {showCodes && (
+          <Chip 
+            label={option.kod} 
+            size="small" 
+            sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
+          />
+        )}
+      </Box>
+    );
+  }, [showCodes]);
+
+  const renderDistrictOption = useCallback((props: any, option: DistrictType) => {
+    const { key, ...otherProps } = props;
+    return (
+      <Box component="li" key={key} {...otherProps} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+          {option.ad}
+        </Typography>
+        {showCodes && (
+          <Chip 
+            label={option.kod} 
+            size="small" 
+            sx={{ fontSize: '0.7rem', height: 20, fontFamily: 'monospace' }}
+          />
+        )}
+      </Box>
+    );
+  }, [showCodes]);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {/* İl Seçimi */}
       <Box>
         <Typography 
+          component="label"
+          htmlFor="city-autocomplete-input"
           variant="subtitle2" 
           sx={{ 
             mb: 1, 
@@ -197,7 +184,8 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
             color: 'text.primary',
             display: 'flex',
             alignItems: 'center',
-            gap: 0.5
+            gap: 0.5,
+            cursor: 'pointer'
           }}
         >
           <LocationOn sx={{ fontSize: 16 }} />
@@ -211,13 +199,24 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           options={cityOptions}
           getOptionLabel={(option) => option.ad || ''}
           isOptionEqualToValue={(option, value) => option.ad === value.ad}
-          {...cityAutocompleteProps}
+          renderOption={renderCityOption}
+          slotProps={{
+            popper: {
+              style: { zIndex: 9999 }
+            }
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
+              id="city-autocomplete-input"
+              name="firmaIl"
               placeholder="İl seçin..."
               variant="outlined"
               size="medium"
+              inputProps={{
+                ...params.inputProps,
+                'aria-label': 'İl seçin'
+              }}
               InputProps={{
                 ...params.InputProps,
                 startAdornment: (
@@ -276,6 +275,8 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
       {/* İlçe Seçimi */}
       <Box>
         <Typography 
+          component="label"
+          htmlFor="district-autocomplete-input"
           variant="subtitle2" 
           sx={{ 
             mb: 1, 
@@ -283,7 +284,8 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
             color: selectedCity ? 'text.primary' : 'text.disabled',
             display: 'flex',
             alignItems: 'center',
-            gap: 0.5
+            gap: 0.5,
+            cursor: selectedCity ? 'pointer' : 'default'
           }}
         >
           <LocationOn sx={{ fontSize: 16 }} />
@@ -298,13 +300,24 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           getOptionLabel={(option) => option.ad || ''}
           disabled={!selectedCity}
           isOptionEqualToValue={(option, value) => option.ad === value.ad}
-          {...districtAutocompleteProps}
+          renderOption={renderDistrictOption}
+          slotProps={{
+            popper: {
+              style: { zIndex: 9999 }
+            }
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
+              id="district-autocomplete-input"
+              name="firmaIlce"
               placeholder={selectedCity ? "İlçe seçin..." : "Önce il seçin"}
               variant="outlined"
               size="medium"
+              inputProps={{
+                ...params.inputProps,
+                'aria-label': 'İlçe seçin'
+              }}
               InputProps={{
                 ...params.InputProps,
                 startAdornment: (

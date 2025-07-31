@@ -281,4 +281,4 @@ notificationSchema.statics.getUserStats = async function(userId) {
   return stats || { total: 0, unread: 0, byType: [], byPriority: [] };
 };
 
-module.exports = mongoose.model('Notification', notificationSchema); 
+module.exports = mongoose.model('Notification', notificationSchema);

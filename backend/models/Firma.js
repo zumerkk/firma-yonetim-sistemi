@@ -10,11 +10,11 @@ const yetkiliKisiSchema = new mongoose.Schema({
   },
   telefon1: {
     type: String,
-    required: [true, 'Birinci telefon zorunludur'],
     trim: true,
+    default: '',
     validate: {
       validator: function(v) {
-        return /^[0-9+\s\-\(\)]{10,20}$/.test(v);
+        return !v || /^[0-9+\s\-\(\)]{10,20}$/.test(v);
       },
       message: 'Geçerli bir telefon numarası giriniz'
     }
@@ -32,12 +32,12 @@ const yetkiliKisiSchema = new mongoose.Schema({
   },
   eposta1: {
     type: String,
-    required: [true, 'Birinci e-posta zorunludur'],
     trim: true,
     lowercase: true,
+    default: '',
     validate: {
       validator: function(v) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+        return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
       },
       message: 'Geçerli bir e-posta adresi giriniz'
     }
@@ -364,4 +364,4 @@ firmaSchema.statics.getStatistics = async function() {
   };
 };
 
-module.exports = mongoose.model('Firma', firmaSchema); 
+module.exports = mongoose.model('Firma', firmaSchema);
