@@ -312,10 +312,16 @@ const validateUpdateFirma = [
     .trim(),
     
   body('kepAdresi')
-    .optional()
-    .isEmail()
-    .withMessage('Geçerli bir KEP adresi giriniz')
-    .normalizeEmail(),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(value)) {
+          throw new Error('Geçerli bir KEP adresi giriniz');
+        }
+      }
+      return true;
+    }),
     
   body('yabanciSermayeli')
     .optional()
@@ -369,15 +375,28 @@ const validateUpdateFirma = [
     .trim(),
     
   body('firmaTelefon')
-    .optional()
-    .matches(/^[0-9+\s-()]{10,20}$/)
-    .withMessage('Geçerli bir firma telefon numarası giriniz'),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const phonePattern = /^[0-9+\s-()]{10,20}$/;
+        if (!phonePattern.test(value)) {
+          throw new Error('Geçerli bir firma telefon numarası giriniz');
+        }
+      }
+      return true;
+    }),
     
   body('firmaEmail')
-    .optional()
-    .isEmail()
-    .withMessage('Geçerli bir firma e-posta adresi giriniz')
-    .normalizeEmail(),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(value)) {
+          throw new Error('Geçerli bir firma e-posta adresi giriniz');
+        }
+      }
+      return true;
+    }),
     
   body('firmaWebsite')
     .optional({ checkFalsy: true })
@@ -412,26 +431,52 @@ const validateUpdateFirma = [
     .trim(),
     
   body('yetkiliKisiler.*.telefon1')
-    .optional()
-    .matches(/^[0-9+\s-()]{10,20}$/)
-    .withMessage('Geçerli bir telefon numarası giriniz (Telefon 1)'),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const phonePattern = /^[0-9+\s-()]{10,20}$/;
+        if (!phonePattern.test(value)) {
+          throw new Error('Geçerli bir telefon numarası giriniz (Telefon 1)');
+        }
+      }
+      return true;
+    }),
     
   body('yetkiliKisiler.*.telefon2')
-    .optional()
-    .matches(/^[0-9+\s-()]{10,20}$/)
-    .withMessage('Geçerli bir telefon numarası giriniz (Telefon 2)'),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const phonePattern = /^[0-9+\s-()]{10,20}$/;
+        if (!phonePattern.test(value)) {
+          throw new Error('Geçerli bir telefon numarası giriniz (Telefon 2)');
+        }
+      }
+      return true;
+    }),
     
   body('yetkiliKisiler.*.eposta1')
-    .optional()
-    .isEmail()
-    .withMessage('Geçerli bir e-posta adresi giriniz (E-posta 1)')
-    .normalizeEmail(),
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(value)) {
+          throw new Error('Geçerli bir e-posta adresi giriniz (E-posta 1)');
+        }
+      }
+      return true;
+    }),
     
   body('yetkiliKisiler.*.eposta2')
-    .optional()
-    .isEmail()
-    .withMessage('Geçerli bir e-posta adresi giriniz (E-posta 2)')
-    .normalizeEmail()
+    .optional({ checkFalsy: true })
+    .custom((value) => {
+      if (value && value.trim() !== '') {
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailPattern.test(value)) {
+          throw new Error('Geçerli bir e-posta adresi giriniz (E-posta 2)');
+        }
+      }
+      return true;
+    })
 ];
 
 // 🏆 TEŞVİK VALİDASYONLARI - ENTERPRISE EDITION
