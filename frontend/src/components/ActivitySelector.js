@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   TextField,
   Box,
@@ -9,17 +9,21 @@ import {
   Chip,
   Paper,
   InputAdornment,
-  IconButton
+  IconButton,
+  CircularProgress,
+  ListSubheader
 } from '@mui/material';
 import {
   Search,
   Clear,
   Business,
-  Code
+  Code,
+  CheckCircle
 } from '@mui/icons-material';
+import { FixedSizeList as List } from 'react-window';
 import { YATIRIM_DATA } from '../data/yatirimData';
 
-// NACE kodlarını parse etme fonksiyonu
+// NACE kodlarını parse etme fonksiyonu - Geliştirilmiş CSV parsing
 const parseNaceCodes = (csvContent) => {
   const lines = csvContent.split('\n');
   const codes = [];
@@ -27,16 +31,22 @@ const parseNaceCodes = (csvContent) => {
   for (let i = 1; i < lines.length; i++) { // İlk satır başlık
     const line = lines[i].trim();
     if (line) {
-      // CSV'de virgül ile ayrılmış değerleri parse et
-      const commaIndex = line.indexOf(',');
-      if (commaIndex > 0) {
-        const kod = line.substring(0, commaIndex).trim();
-        const tanim = line.substring(commaIndex + 1).replace(/^"|"$/g, '').trim();
+      // CSV parsing - tırnak işaretlerini ve virgülleri doğru şekilde handle et
+      const match = line.match(/^([^,]+),(.*)$/);
+      if (match) {
+        const kod = match[1].trim();
+        let tanim = match[2].trim();
+        
+        // Tırnak işaretlerini temizle
+        if (tanim.startsWith('"') && tanim.endsWith('"')) {
+          tanim = tanim.slice(1, -1);
+        }
         
         if (kod && tanim) {
           codes.push({
             kod,
-            tanim
+            tanim,
+            searchText: `${kod} ${tanim}`.toLowerCase()
           });
         }
       }
@@ -46,26 +56,40 @@ const parseNaceCodes = (csvContent) => {
   return codes;
 };
 
+// Virtualized List Item Component
+const VirtualizedListItem = ({ index, style, data }) => {
+  const { options, getOptionLabel, renderOption, onSelect } = data;
+  const option = options[index];
+  
+  return (
+    <div style={style}>
+      <div
+        onClick={() => onSelect(option)}
+        style={{
+          padding: '8px 16px',
+          cursor: 'pointer',
+          borderBottom: '1px solid #f0f0f0',
+          ':hover': {
+            backgroundColor: '#f5f5f5'
+          }
+        }}
+        onMouseEnter={(e) => {
+          e.target.style.backgroundColor = '#f5f5f5';
+        }}
+        onMouseLeave={(e) => {
+          e.target.style.backgroundColor = 'transparent';
+        }}
+      >
+        {renderOption({ key: index }, option)}
+      </div>
+    </div>
+  );
+};
+
 // Mock NACE kodları (gerçek CSV'den yüklenecek)
 const mockNaceCodes = [
-  { kod: 'A', tanim: 'TARIM, ORMANCILIK VE BALIKÇILIK' },
-  { kod: '01', tanim: 'Bitkisel ve hayvansal üretim ile avcılık ve ilgili hizmet faaliyetleri' },
-  { kod: '01.1', tanim: 'Tek yıllık (uzun ömürlü olmayan) bitkisel ürünlerin yetiştirilmesi' },
-  { kod: '01.11', tanim: 'Tahılların (pirinç hariç), baklagillerin ve yağlı tohumların yetiştirilmesi' },
-  { kod: '01.11.07', tanim: 'Baklagillerin yetiştirilmesi' },
-  { kod: '01.11.12', tanim: 'Tahıl yetiştiriciliği' },
-  { kod: '01.11.14', tanim: 'Yağlı tohum yetiştiriciliği' },
-  { kod: '01.12', tanim: 'Çeltik (kabuklu pirinç) yetiştirilmesi' },
-  { kod: '01.12.14', tanim: 'Çeltik (kabuklu pirinç) yetiştirilmesi' },
-  { kod: '01.13', tanim: 'Sebze, kavun-karpuz, kök ve yumru sebzelerin yetiştirilmesi' },
-  { kod: 'B', tanim: 'MADENCİLİK VE TAŞ OCAKÇILIĞI' },
-  { kod: '05', tanim: 'Kömür ve linyit çıkartılması' },
-  { kod: '05.1', tanim: 'Taş kömürü madenciliği' },
-  { kod: '05.10', tanim: 'Taş kömürü madenciliği' },
-  { kod: '05.10.01', tanim: 'Taş kömürü madenciliği' },
-  { kod: 'C', tanim: 'İMALAT' },
-  { kod: '10', tanim: 'Gıda ürünlerinin imalatı' },
-  { kod: '10.1', tanim: 'Etin işlenmesi ve saklanması ile et ürünlerinin imalatı' }
+  { kod: 'A', tanim: 'TARIM, ORMANCILIK VE BALIKÇILIK', searchText: 'a tarim ormancilik ve balikçilik' },
+  { kod: '01', tanim: 'Bitkisel ve hayvansal üretim ile avcılık ve ilgili hizmet faaliyetleri', searchText: '01 bitkisel ve hayvansal üretim ile avcılık ve ilgili hizmet faaliyetleri' }
 ];
 
 const ActivitySelector = ({
@@ -77,31 +101,50 @@ const ActivitySelector = ({
 }) => {
   const [codeSystem, setCodeSystem] = useState('old');
   const [searchTerm, setSearchTerm] = useState('');
-  const [naceCodes, setNaceCodes] = useState(mockNaceCodes);
-  const [isLoading, setIsLoading] = useState(false);
+  const [naceCodes, setNaceCodes] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [totalCodes, setTotalCodes] = useState(0);
 
-  // NACE CSV dosyasını yükle
+  // NACE CSV dosyasını yükle - Geliştirilmiş loading ve error handling
   useEffect(() => {
     const loadNaceCodes = async () => {
       setIsLoading(true);
+      setLoadingProgress(0);
+      
       try {
+        setLoadingProgress(25);
         const response = await fetch('/NACE_REV.2.1-ALTILI_(V3.0) - Sayfa 1.csv');
+        
         if (response.ok) {
+          setLoadingProgress(50);
           const csvContent = await response.text();
+          setLoadingProgress(75);
+          
           const parsedCodes = parseNaceCodes(csvContent);
+          
           if (parsedCodes.length > 0) {
             setNaceCodes(parsedCodes);
-            console.log(`NACE kodları yüklendi: ${parsedCodes.length} adet`);
+            setTotalCodes(parsedCodes.length);
+            setLoadingProgress(100);
+            console.log(`✅ NACE kodları başarıyla yüklendi: ${parsedCodes.length} adet`);
           } else {
-            console.warn('NACE kodları parse edilemedi, mock veriler kullanılıyor');
+            console.warn('⚠️ NACE kodları parse edilemedi, mock veriler kullanılıyor');
+            setNaceCodes(mockNaceCodes);
+            setTotalCodes(mockNaceCodes.length);
           }
         } else {
-          console.warn('NACE CSV dosyası yüklenemedi, mock veriler kullanılıyor');
+          console.warn('⚠️ NACE CSV dosyası yüklenemedi, mock veriler kullanılıyor');
+          setNaceCodes(mockNaceCodes);
+          setTotalCodes(mockNaceCodes.length);
         }
       } catch (error) {
-        console.warn('NACE CSV dosyası yüklenemedi, mock veriler kullanılıyor:', error);
+        console.error('❌ NACE CSV dosyası yüklenirken hata:', error);
+        setNaceCodes(mockNaceCodes);
+        setTotalCodes(mockNaceCodes.length);
       } finally {
         setIsLoading(false);
+        setLoadingProgress(100);
       }
     };
 
@@ -113,21 +156,29 @@ const ActivitySelector = ({
     return YATIRIM_DATA.YATIRIM_KONULARI;
   }, []);
 
-  // Filtrelenmiş seçenekler
+  // Geliştirilmiş arama ve filtreleme - Tüm sonuçları göster
   const filteredOptions = useMemo(() => {
     if (codeSystem === 'old') {
-      if (!searchTerm) return oldSystemCodes.slice(0, 50);
+      if (!searchTerm) return oldSystemCodes;
+      const searchLower = searchTerm.toLowerCase();
       return oldSystemCodes.filter(code => 
-        code.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 50);
+        code.toLowerCase().includes(searchLower)
+      );
     } else {
-      if (!searchTerm) return naceCodes.slice(0, 50);
+      if (!searchTerm) return naceCodes;
+      const searchLower = searchTerm.toLowerCase();
       return naceCodes.filter(code => 
-        code.kod.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        code.tanim.toLowerCase().includes(searchTerm.toLowerCase())
-      ).slice(0, 50);
+        code.searchText.includes(searchLower)
+      );
     }
   }, [codeSystem, searchTerm, oldSystemCodes, naceCodes]);
+
+  // Arama sonuçları istatistikleri
+  const searchStats = useMemo(() => {
+    const total = codeSystem === 'old' ? oldSystemCodes.length : naceCodes.length;
+    const filtered = filteredOptions.length;
+    return { total, filtered, hasFilter: !!searchTerm };
+  }, [codeSystem, oldSystemCodes.length, naceCodes.length, filteredOptions.length, searchTerm]);
 
   const handleSystemChange = (event, newSystem) => {
     if (newSystem !== null) {
@@ -137,7 +188,7 @@ const ActivitySelector = ({
     }
   };
 
-  const handleSelectionChange = (event, newValue) => {
+  const handleSelectionChange = useCallback((event, newValue) => {
     if (newValue) {
       if (typeof newValue === 'string') {
         onChange(newValue);
@@ -147,7 +198,15 @@ const ActivitySelector = ({
     } else {
       onChange('');
     }
-  };
+  }, [onChange]);
+
+  const handleSearchChange = useCallback((event) => {
+    setSearchTerm(event.target.value);
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setSearchTerm('');
+  }, []);
 
   const getOptionLabel = (option) => {
     if (typeof option === 'string') {
@@ -224,28 +283,70 @@ const ActivitySelector = ({
         >
           <ToggleButton value="old">
             <Business sx={{ mr: 1, fontSize: 16 }} />
-            Eski Sistem (1010-9500)
+            Eski Sistem ({oldSystemCodes.length} kod)
           </ToggleButton>
-          <ToggleButton value="nace">
+          <ToggleButton value="nace" disabled={isLoading}>
             <Code sx={{ mr: 1, fontSize: 16 }} />
-            NACE Kodları
+            NACE Kodları ({totalCodes} kod)
+            {isLoading && <CircularProgress size={16} sx={{ ml: 1 }} />}
           </ToggleButton>
         </ToggleButtonGroup>
       </Box>
 
-      {/* Ana Faaliyet Seçici */}
+      {/* Loading Progress */}
+      {isLoading && (
+        <Box sx={{ mb: 2, p: 2, backgroundColor: 'info.light', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <CircularProgress size={20} />
+            <Typography variant="body2" color="info.dark">
+              NACE kodları yükleniyor... ({loadingProgress}%)
+            </Typography>
+          </Box>
+        </Box>
+      )}
+
+      {/* Arama İstatistikleri */}
+      {!isLoading && (
+        <Box sx={{ mb: 2, p: 1.5, backgroundColor: 'grey.50', borderRadius: 1 }}>
+          <Typography variant="caption" color="text.secondary">
+            {searchStats.hasFilter 
+              ? `${searchStats.filtered} sonuç bulundu (${searchStats.total} toplam)`
+              : `${searchStats.total} kod mevcut`
+            }
+          </Typography>
+        </Box>
+      )}
+
+      {/* Ana Faaliyet Seçici - Geliştirilmiş Autocomplete */}
       <Autocomplete
         value={value || null}
         onChange={handleSelectionChange}
-        options={codeSystem === 'old' ? filteredOptions : filteredOptions}
+        options={filteredOptions}
         getOptionLabel={getOptionLabel}
         renderOption={renderOption}
-        loading={isLoading}
-        loadingText="NACE kodları yükleniyor..."
-        noOptionsText={searchTerm ? "Sonuç bulunamadı" : "Arama yapın"}
+        loading={isLoading && codeSystem === 'nace'}
+        loadingText={`NACE kodları yükleniyor... (${loadingProgress}%)`}
+        noOptionsText={searchTerm ? `"${searchTerm}" için sonuç bulunamadı` : "Arama yapmaya başlayın"}
         filterOptions={(x) => x} // Filtreleme manuel yapılıyor
+        ListboxProps={{
+          style: {
+            maxHeight: '400px',
+            padding: 0
+          }
+        }}
         PaperComponent={(props) => (
-          <Paper {...props} sx={{ maxHeight: 300, overflow: 'auto' }} />
+          <Paper 
+            {...props} 
+            sx={{ 
+              maxHeight: 450, 
+              overflow: 'hidden',
+              '& .MuiAutocomplete-listbox': {
+                padding: 0,
+                maxHeight: '400px',
+                overflow: 'auto'
+              }
+            }} 
+          />
         )}
         renderInput={(params) => {
           const inputProps = {
@@ -263,8 +364,9 @@ const ActivitySelector = ({
                 <InputAdornment position="end">
                   <IconButton
                     size="small"
-                    onClick={() => setSearchTerm('')}
+                    onClick={clearSearch}
                     edge="end"
+                    title="Aramayı temizle"
                   >
                     <Clear sx={{ fontSize: 16 }} />
                   </IconButton>
@@ -280,11 +382,14 @@ const ActivitySelector = ({
             <TextField
               {...params}
               label={`Ana Faaliyet Konusu * (${codeSystem === 'old' ? 'Eski Sistem' : 'NACE'})`}
-              placeholder={codeSystem === 'old' ? 'Eski sistem kodlarından seçin...' : 'NACE kodlarından seçin...'}
+              placeholder={codeSystem === 'old' 
+                ? 'Eski sistem kodlarından arayın ve seçin...' 
+                : 'NACE kodlarından arayın ve seçin...'
+              }
               required={required}
               error={error}
-              helperText={helperText}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              helperText={helperText || (searchTerm && `"${searchTerm}" için ${filteredOptions.length} sonuç`)}
+              onChange={handleSearchChange}
               InputProps={inputProps}
               sx={{
                 backgroundColor: 'white',
@@ -305,22 +410,34 @@ const ActivitySelector = ({
         }}
       />
 
-      {/* Seçim Bilgisi */}
+      {/* Seçim Bilgisi - Geliştirilmiş */}
       {value && (
-        <Box sx={{ mt: 2, p: 2, backgroundColor: 'success.light', borderRadius: 1 }}>
-          <Typography variant="caption" sx={{ color: 'success.dark', fontWeight: 600 }}>
-            Seçili Ana Faaliyet:
-          </Typography>
-          <Typography variant="body2" sx={{ color: 'success.dark', mt: 0.5 }}>
+        <Box sx={{ mt: 2, p: 2, backgroundColor: 'success.light', borderRadius: 1, border: '1px solid', borderColor: 'success.main' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <CheckCircle sx={{ fontSize: 16, color: 'success.dark' }} />
+            <Typography variant="caption" sx={{ color: 'success.dark', fontWeight: 600 }}>
+              Seçili Ana Faaliyet:
+            </Typography>
+          </Box>
+          <Typography variant="body2" sx={{ color: 'success.dark', mb: 1, fontWeight: 500 }}>
             {value}
           </Typography>
-          <Chip 
-            label={codeSystem === 'old' ? 'Eski Sistem' : 'NACE Kodu'} 
-            size="small" 
-            color="success" 
-            variant="outlined"
-            sx={{ mt: 1, fontSize: '0.75rem' }}
-          />
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <Chip 
+              label={codeSystem === 'old' ? 'Eski Sistem' : 'NACE Kodu'} 
+              size="small" 
+              color="success" 
+              variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
+            />
+            <Chip 
+              label={`${filteredOptions.length} seçenek mevcut`}
+              size="small" 
+              color="info" 
+              variant="outlined"
+              sx={{ fontSize: '0.75rem' }}
+            />
+          </Box>
         </Box>
       )}
 
@@ -329,6 +446,11 @@ const ActivitySelector = ({
         type="hidden"
         name="anaFaaliyetKonusu"
         value={value}
+      />
+      <input
+        type="hidden"
+        name="anaFaaliyetKoduSistemi"
+        value={codeSystem}
       />
     </Box>
   );
