@@ -2,31 +2,6 @@
 // Ultra-performance optimized with zero re-render issues
 // State-of-the-art React best practices implementation
 
-// 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
-const toTurkishUpperCase = (str) => {
-  if (!str || typeof str !== 'string') return str;
-  
-  // Türkçe karakterlerin doğru büyük harf karşılıkları
-  const turkishCharMap = {
-    'ı': 'I',  // Türkçe küçük ı -> Türkçe büyük I
-    'i': 'İ',  // Türkçe küçük i -> Türkçe büyük İ
-    'ş': 'Ş',  // ş -> Ş
-    'ğ': 'Ğ',  // ğ -> Ğ
-    'ü': 'Ü',  // ü -> Ü
-    'ö': 'Ö',  // ö -> Ö
-    'ç': 'Ç'   // ç -> Ç
-  };
-  
-  return str.split('').map(char => {
-    // Önce Türkçe karakterleri kontrol et
-    if (turkishCharMap[char]) {
-      return turkishCharMap[char];
-    }
-    // Diğer karakterler için normal uppercase
-    return char.toUpperCase();
-  }).join('');
-};
-
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -65,14 +40,37 @@ import Sidebar from '../../components/Layout/Sidebar';
 // Hooks & Services
 import { useFirma } from '../../contexts/FirmaContext';
 import { validateFirmaData, getNextFirmaId } from '../../services/firmaService';
-// import { CITY_DISTRICTS } from '../../data/turkeyData'; // Not used
 
 // 🆕 Enhanced Components - CSV Integration
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 
-
 // 🎯 Import activity selector component
 import ActivitySelector from '../../components/ActivitySelector';
+
+// 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
+const toTurkishUpperCase = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  
+  // Türkçe karakterlerin doğru büyük harf karşılıkları
+  const turkishCharMap = {
+    'ı': 'I',  // Türkçe küçük ı -> Türkçe büyük I
+    'i': 'İ',  // Türkçe küçük i -> Türkçe büyük İ
+    'ş': 'Ş',  // ş -> Ş
+    'ğ': 'Ğ',  // ğ -> Ğ
+    'ü': 'Ü',  // ü -> Ü
+    'ö': 'Ö',  // ö -> Ö
+    'ç': 'Ç'   // ç -> Ç
+  };
+  
+  return str.split('').map(char => {
+    // Önce Türkçe karakterleri kontrol et
+    if (turkishCharMap[char]) {
+      return turkishCharMap[char];
+    }
+    // Diğer karakterler için normal uppercase
+    return char.toUpperCase();
+  }).join('');
+};
 
 // 🎯 Default structures
 const createEmptyYetkiliKisi = () => ({

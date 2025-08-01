@@ -23,7 +23,7 @@ import {
   TableBody,
   TableCell,
   TableContainer,
-  TableHead,
+
   TableRow,
   LinearProgress,
   Skeleton,
@@ -48,7 +48,9 @@ import {
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   Close as CloseIcon,
-  Info as InfoIcon
+  Info as InfoIcon,
+  FileDownload as FileDownloadIcon,
+
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -73,6 +75,13 @@ const TesvikDetail = () => {
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState('all');
+  const [exportingRevizyon, setExportingRevizyon] = useState(false);
+  const [revizyonModalOpen, setRevizyonModalOpen] = useState(false);
+  const [revizyonForm, setRevizyonForm] = useState({
+    revizyonSebebi: '',
+    yeniDurum: '',
+    kullaniciNotu: ''
+  });
 
   // 🎨 Durum Renk Haritası
   const getDurumColor = (durum) => {
@@ -179,6 +188,86 @@ const TesvikDetail = () => {
       minute: '2-digit',
       second: '2-digit'
     });
+  };
+
+  // 📊 Revizyon Excel Export
+  const handleRevizyonExcelExport = async () => {
+    try {
+      setExportingRevizyon(true);
+      
+      const response = await axios.get(`/tesvik/${tesvik._id}/revizyon-excel-export`, {
+        responseType: 'blob',
+        params: {
+          includeColors: true
+        }
+      });
+      
+      // Blob'dan dosya oluştur
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      
+      // Dosya adını response header'ından al veya varsayılan kullan
+      const contentDisposition = response.headers['content-disposition'];
+      let fileName = `revizyon_gecmisi_${tesvik.firma?.firmaId}_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (fileNameMatch) {
+          fileName = fileNameMatch[1];
+        }
+      }
+      
+      // Dosyayı indir
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Revizyon Excel export başarılı');
+      
+    } catch (error) {
+      console.error('❌ Revizyon Excel export hatası:', error);
+      alert('Excel export sırasında hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setExportingRevizyon(false);
+    }
+  };
+
+  // 📝 Revizyon Ekleme
+  const handleRevizyonEkle = async () => {
+    try {
+      const response = await axios.post(`/tesvik/${tesvik._id}/revizyon`, {
+        revizyonSebebi: revizyonForm.revizyonSebebi,
+        yeniDurum: revizyonForm.yeniDurum,
+        kullaniciNotu: revizyonForm.kullaniciNotu
+      });
+      
+      if (response.data.success) {
+        // Başarılı mesajı
+        alert('Revizyon başarıyla eklendi!');
+        
+        // Form'u temizle
+        setRevizyonForm({
+          revizyonSebebi: '',
+          yeniDurum: '',
+          kullaniciNotu: ''
+        });
+        
+        // Modal'ı kapat
+        setRevizyonModalOpen(false);
+        
+        // Sayfayı yenile (teşvik verisini tekrar yükle)
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error('❌ Revizyon ekleme hatası:', error);
+      alert('Revizyon eklenirken hata oluştu. Lütfen tekrar deneyin.');
+    }
   };
 
   // ⏰ Kaç Zaman Önce Hesaplama
@@ -329,35 +418,7 @@ const TesvikDetail = () => {
     return value;
   };
 
-  // 📝 Değişikliklerin Detaylı Özetini Oluştur
-  const getChangesSummary = (changes) => {
-    if (!changes || changes.length === 0) return '';
-    
-    const changesByCategory = {};
-    
-    changes.forEach(change => {
-      const fieldName = getFieldDisplayName(change.field);
-      const category = getCategoryFromField(change.field);
-      
-      if (!changesByCategory[category]) {
-        changesByCategory[category] = [];
-      }
-      changesByCategory[category].push(fieldName);
-    });
-    
-    const summaryParts = [];
-    Object.entries(changesByCategory).forEach(([category, fields]) => {
-      if (fields.length === 1) {
-        summaryParts.push(`${category}: ${fields[0]}`);
-      } else if (fields.length <= 3) {
-        summaryParts.push(`${category}: ${fields.join(', ')}`);
-      } else {
-        summaryParts.push(`${category}: ${fields.slice(0, 2).join(', ')} ve ${fields.length - 2} alan daha`);
-      }
-    });
-    
-    return summaryParts.join(' • ');
-  };
+  // Removed unused function getChangesSummary
 
   // 🏷️ Alanın Kategorisini Belirle
   const getCategoryFromField = (fieldName) => {
@@ -478,6 +539,25 @@ const TesvikDetail = () => {
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1 }}>
+              {user?.yetkiler?.belgeEkle && (
+                <Button
+                  variant="outlined"
+                  startIcon={<AddIcon />}
+                  onClick={() => setRevizyonModalOpen(true)}
+                  sx={{
+                    borderColor: '#059669',
+                    color: '#059669',
+                    '&:hover': {
+                      backgroundColor: '#059669',
+                      color: 'white',
+                      borderColor: '#059669'
+                    }
+                  }}
+                >
+                  Revizyon Ekle
+                </Button>
+              )}
+
               {user?.yetkiler?.belgeDuzenle && (
                 <Button
                   variant="outlined"
@@ -799,10 +879,66 @@ const TesvikDetail = () => {
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <HistoryIcon />
-                    Son Belge İşlemleri
-                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <HistoryIcon />
+                      Son Belge İşlemleri
+                    </Typography>
+                    
+                    {/* Revizyon Butonları */}
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      {user?.yetkiler?.belgeEkle && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={() => setRevizyonModalOpen(true)}
+                          sx={{
+                            minWidth: 'auto',
+                            fontSize: '0.75rem',
+                            borderColor: '#059669',
+                            color: '#059669',
+                            '&:hover': {
+                              backgroundColor: '#059669',
+                              color: 'white'
+                            }
+                          }}
+                        >
+                          Revizyon Ekle
+                        </Button>
+                      )}
+                      
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={exportingRevizyon ? null : <FileDownloadIcon />}
+                        onClick={handleRevizyonExcelExport}
+                        disabled={exportingRevizyon}
+                        sx={{
+                          minWidth: 'auto',
+                          fontSize: '0.75rem',
+                          backgroundColor: exportingRevizyon ? '#f5f5f5' : 'transparent',
+                          borderColor: '#4F46E5',
+                          color: '#4F46E5',
+                          '&:hover': {
+                            backgroundColor: '#4F46E5',
+                            color: 'white'
+                          }
+                        }}
+                      >
+                        {exportingRevizyon ? (
+                          <>
+                            <Box sx={{ width: 16, height: 16, mr: 1 }}>
+                              <LinearProgress size="small" />
+                            </Box>
+                            Excel...
+                          </>
+                        ) : (
+                          'Excel Export'
+                        )}
+                      </Button>
+                    </Box>
+                  </Box>
                   
                   {activitiesLoading ? (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -1353,6 +1489,179 @@ const TesvikDetail = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseAllActivitiesModal}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 📝 Revizyon Ekleme Modal */}
+      <Dialog 
+        open={revizyonModalOpen} 
+        onClose={() => setRevizyonModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          backgroundColor: '#f8fafc', 
+          borderBottom: '1px solid #e5e7eb',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2
+        }}>
+          <Avatar sx={{ 
+            backgroundColor: '#059669',
+            width: 40,
+            height: 40
+          }}>
+            <AddIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              Yeni Revizyon Ekle
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {tesvik?.tesvikId} - {tesvik?.yatirimciUnvan}
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={() => setRevizyonModalOpen(false)}
+            sx={{ ml: 'auto' }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  Bu revizyon teşvik belgesinin geçmişine kaydedilecek ve Excel raporunda görünecektir.
+                </Typography>
+              </Alert>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  Revizyon Sebebi *
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {[
+                    'Red geldi - Ek belge istendi',
+                    'Red geldi - Revizyon talep edildi', 
+                    'Onay geldi',
+                    'Belge tamamlandı',
+                    'İptal edildi',
+                    'Diğer'
+                  ].map((sebep) => (
+                    <Box 
+                      key={sebep}
+                      onClick={() => setRevizyonForm(prev => ({ ...prev, revizyonSebebi: sebep }))}
+                      sx={{
+                        p: 2,
+                        border: revizyonForm.revizyonSebebi === sebep ? '2px solid #059669' : '1px solid #e5e7eb',
+                        borderRadius: 1,
+                        cursor: 'pointer',
+                        backgroundColor: revizyonForm.revizyonSebebi === sebep ? '#f0fdf4' : 'white',
+                        '&:hover': {
+                          backgroundColor: revizyonForm.revizyonSebebi === sebep ? '#f0fdf4' : '#f8fafc'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ 
+                        fontWeight: revizyonForm.revizyonSebebi === sebep ? 600 : 400,
+                        color: revizyonForm.revizyonSebebi === sebep ? '#059669' : 'text.primary'
+                      }}>
+                        {sebep}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                  Yeni Durum
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {[
+                    { value: 'reddedildi', label: 'Reddedildi', color: '#EF4444' },
+                    { value: 'revize_talep_edildi', label: 'Revize Talep Edildi', color: '#F59E0B' },
+                    { value: 'ek_belge_istendi', label: 'Ek Belge İstendi', color: '#F97316' },
+                    { value: 'inceleniyor', label: 'İnceleniyor', color: '#3B82F6' },
+                    { value: 'onaylandi', label: 'Onaylandı', color: '#10B981' },
+                    { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' }
+                  ].map((durum) => (
+                    <Box 
+                      key={durum.value}
+                      onClick={() => setRevizyonForm(prev => ({ ...prev, yeniDurum: durum.value }))}
+                      sx={{
+                        p: 2,
+                        border: revizyonForm.yeniDurum === durum.value ? `2px solid ${durum.color}` : '1px solid #e5e7eb',
+                        borderRadius: 1,
+                        cursor: 'pointer',
+                        backgroundColor: revizyonForm.yeniDurum === durum.value ? `${durum.color}10` : 'white',
+                        '&:hover': {
+                          backgroundColor: revizyonForm.yeniDurum === durum.value ? `${durum.color}20` : '#f8fafc'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ 
+                        fontWeight: revizyonForm.yeniDurum === durum.value ? 600 : 400,
+                        color: revizyonForm.yeniDurum === durum.value ? durum.color : 'text.primary'
+                      }}>
+                        {durum.label}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Açıklama / Not
+              </Typography>
+              <textarea
+                placeholder="Bu revizyon hakkında detaylı açıklama yazabilirsiniz..."
+                value={revizyonForm.kullaniciNotu}
+                onChange={(e) => setRevizyonForm(prev => ({ ...prev, kullaniciNotu: e.target.value }))}
+                style={{
+                  width: '100%',
+                  minHeight: '100px',
+                  padding: '12px',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontFamily: 'inherit',
+                  resize: 'vertical'
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, backgroundColor: '#f8fafc', borderTop: '1px solid #e5e7eb' }}>
+          <Button 
+            onClick={() => setRevizyonModalOpen(false)}
+            variant="outlined"
+          >
+            İptal
+          </Button>
+          <Button 
+            onClick={handleRevizyonEkle}
+            variant="contained"
+            disabled={!revizyonForm.revizyonSebebi}
+            sx={{
+              backgroundColor: '#059669',
+              '&:hover': {
+                backgroundColor: '#047857'
+              }
+            }}
+          >
+            Revizyon Ekle
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

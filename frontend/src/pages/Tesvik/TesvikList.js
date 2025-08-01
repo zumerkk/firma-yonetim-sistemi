@@ -41,8 +41,9 @@ import {
   Delete as DeleteIcon,
   EmojiEvents as EmojiEventsIcon,
   Add as AddIcon,
-  GetApp as GetAppIcon,
-  TableView as TableViewIcon
+
+  TableView as TableViewIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -74,6 +75,18 @@ const TesvikList = () => {
     tesvik: null,
     loading: false
   });
+
+  // 📝 Revizyon Dialog States
+  const [revizyonDialog, setRevizyonDialog] = useState({
+    open: false,
+    tesvik: null,
+    loading: false,
+    form: {
+      revizyonSebebi: '',
+      yeniDurum: '',
+      kullaniciNotu: ''
+    }
+  });
   
   // 🔍 Filter States
   const [filters, setFilters] = useState({
@@ -97,6 +110,61 @@ const TesvikList = () => {
       'iptal_edildi': '#6B7280'
     };
     return colorMap[durum] || '#6B7280';
+  };
+
+  // 📝 Revizyon İşlemleri
+  const handleRevizyonClick = (tesvik) => {
+    setRevizyonDialog({
+      open: true,
+      tesvik,
+      loading: false,
+      form: {
+        revizyonSebebi: '',
+        yeniDurum: '',
+        kullaniciNotu: ''
+      }
+    });
+  };
+
+  const handleRevizyonClose = () => {
+    setRevizyonDialog({
+      open: false,
+      tesvik: null,
+      loading: false,
+      form: {
+        revizyonSebebi: '',
+        yeniDurum: '',
+        kullaniciNotu: ''
+      }
+    });
+  };
+
+  const handleRevizyonSubmit = async () => {
+    try {
+      setRevizyonDialog(prev => ({ ...prev, loading: true }));
+      
+      const response = await axios.post(`/tesvik/${revizyonDialog.tesvik._id}/revizyon`, {
+        revizyonSebebi: revizyonDialog.form.revizyonSebebi,
+        yeniDurum: revizyonDialog.form.yeniDurum,
+        kullaniciNotu: revizyonDialog.form.kullaniciNotu
+      });
+      
+      if (response.data.success) {
+        // Başarılı mesajı
+        alert('Revizyon başarıyla eklendi!');
+        
+        // Dialog'u kapat
+        handleRevizyonClose();
+        
+        // Listeyi yenile
+        loadTesvikler(pagination.currentPage);
+      }
+    } catch (error) {
+      console.error('❌ Revizyon ekleme hatası:', error);
+      alert('Revizyon eklenirken hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setRevizyonDialog(prev => ({ ...prev, loading: false }));
+    }
   };
 
   // 📱 Responsive Handling
@@ -512,6 +580,18 @@ const TesvikList = () => {
                               </IconButton>
                             </Tooltip>
                             
+                            {user?.yetkiler?.belgeEkle && (
+                              <Tooltip title="Revizyon Ekle">
+                                <IconButton 
+                                  size="small"
+                                  onClick={() => handleRevizyonClick(tesvik)}
+                                  sx={{ color: '#059669' }}
+                                >
+                                  <HistoryIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
                             {user?.yetkiler?.belgeDuzenle && (
                               <Tooltip title="Düzenle">
                                 <IconButton 
@@ -618,6 +698,183 @@ const TesvikList = () => {
           sx={{ fontWeight: 600 }}
         >
           {deleteDialog.loading ? 'Siliniyor...' : 'Sil'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    {/* 📝 Revizyon Ekleme Modal */}
+    <Dialog 
+      open={revizyonDialog.open} 
+      onClose={handleRevizyonClose}
+      maxWidth="md"
+      fullWidth
+    >
+      <DialogTitle sx={{ 
+        backgroundColor: '#f8fafc', 
+        borderBottom: '1px solid #e5e7eb',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2
+      }}>
+        <Avatar sx={{ 
+          backgroundColor: '#059669',
+          width: 40,
+          height: 40
+        }}>
+          <HistoryIcon />
+        </Avatar>
+        <Box>
+          <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            Revizyon Ekle
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {revizyonDialog.tesvik?.tesvikId} - {revizyonDialog.tesvik?.yatirimciUnvan}
+          </Typography>
+        </Box>
+      </DialogTitle>
+      
+      <DialogContent sx={{ p: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                Bu revizyon teşvik belgesinin geçmişine kaydedilecektir.
+              </Typography>
+            </Alert>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Revizyon Sebebi *
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {[
+                  'Red geldi - Ek belge istendi',
+                  'Red geldi - Revizyon talep edildi', 
+                  'Onay geldi',
+                  'Belge tamamlandı',
+                  'İptal edildi',
+                  'Diğer'
+                ].map((sebep) => (
+                  <Box 
+                    key={sebep}
+                    onClick={() => setRevizyonDialog(prev => ({ 
+                      ...prev, 
+                      form: { ...prev.form, revizyonSebebi: sebep } 
+                    }))}
+                    sx={{
+                      p: 2,
+                      border: revizyonDialog.form.revizyonSebebi === sebep ? '2px solid #059669' : '1px solid #e5e7eb',
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      backgroundColor: revizyonDialog.form.revizyonSebebi === sebep ? '#f0fdf4' : 'white',
+                      '&:hover': {
+                        backgroundColor: revizyonDialog.form.revizyonSebebi === sebep ? '#f0fdf4' : '#f8fafc'
+                      }
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ 
+                      fontWeight: revizyonDialog.form.revizyonSebebi === sebep ? 600 : 400,
+                      color: revizyonDialog.form.revizyonSebebi === sebep ? '#059669' : 'text.primary'
+                    }}>
+                      {sebep}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Yeni Durum
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {[
+                  { value: 'reddedildi', label: 'Reddedildi', color: '#EF4444' },
+                  { value: 'revize_talep_edildi', label: 'Revize Talep Edildi', color: '#F59E0B' },
+                  { value: 'ek_belge_istendi', label: 'Ek Belge İstendi', color: '#F97316' },
+                  { value: 'inceleniyor', label: 'İnceleniyor', color: '#3B82F6' },
+                  { value: 'onaylandi', label: 'Onaylandı', color: '#10B981' },
+                  { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' }
+                ].map((durum) => (
+                  <Box 
+                    key={durum.value}
+                    onClick={() => setRevizyonDialog(prev => ({ 
+                      ...prev, 
+                      form: { ...prev.form, yeniDurum: durum.value } 
+                    }))}
+                    sx={{
+                      p: 2,
+                      border: revizyonDialog.form.yeniDurum === durum.value ? `2px solid ${durum.color}` : '1px solid #e5e7eb',
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      backgroundColor: revizyonDialog.form.yeniDurum === durum.value ? `${durum.color}10` : 'white',
+                      '&:hover': {
+                        backgroundColor: revizyonDialog.form.yeniDurum === durum.value ? `${durum.color}20` : '#f8fafc'
+                      }
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ 
+                      fontWeight: revizyonDialog.form.yeniDurum === durum.value ? 600 : 400,
+                      color: revizyonDialog.form.yeniDurum === durum.value ? durum.color : 'text.primary'
+                    }}>
+                      {durum.label}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+              Açıklama / Not
+            </Typography>
+            <textarea
+              placeholder="Bu revizyon hakkında detaylı açıklama yazabilirsiniz..."
+              value={revizyonDialog.form.kullaniciNotu}
+              onChange={(e) => setRevizyonDialog(prev => ({ 
+                ...prev, 
+                form: { ...prev.form, kullaniciNotu: e.target.value } 
+              }))}
+              style={{
+                width: '100%',
+                minHeight: '100px',
+                padding: '12px',
+                border: '1px solid #e5e7eb',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+          </Grid>
+        </Grid>
+      </DialogContent>
+      
+      <DialogActions sx={{ p: 3, backgroundColor: '#f8fafc', borderTop: '1px solid #e5e7eb' }}>
+        <Button 
+          onClick={handleRevizyonClose}
+          variant="outlined"
+          disabled={revizyonDialog.loading}
+        >
+          İptal
+        </Button>
+        <Button 
+          onClick={handleRevizyonSubmit}
+          variant="contained"
+          disabled={!revizyonDialog.form.revizyonSebebi || revizyonDialog.loading}
+          sx={{
+            backgroundColor: '#059669',
+            '&:hover': {
+              backgroundColor: '#047857'
+            }
+          }}
+        >
+          {revizyonDialog.loading ? 'Kaydediliyor...' : 'Revizyon Ekle'}
         </Button>
       </DialogActions>
     </Dialog>
