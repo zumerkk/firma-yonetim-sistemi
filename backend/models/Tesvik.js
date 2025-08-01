@@ -171,7 +171,12 @@ const belgeYonetimiSchema = new mongoose.Schema({
   belgeBaslamaTarihi: { type: Date },
   belgebitisTarihi: { type: Date },
   uzatimTarihi: { type: Date },
-  mudebbirUzatimTarihi: { type: Date }
+  mudebbirUzatimTarihi: { type: Date },
+  ozellikliYatirim: { 
+    type: String, 
+    enum: ['evet', 'hayir'], 
+    trim: true 
+  } // 🆕 Excel'den eklendi
 }, { _id: false });
 
 // 🎨 Durum Renk Kodlaması Schema - Excel'deki renk sistemi
@@ -231,6 +236,24 @@ const tesvikSchema = new mongoose.Schema({
     maxlength: 500
   },
   
+  // 📝 Künye Bilgileri - Excel Şablonuna Uygun
+  kunyeBilgileri: {
+    talepSonuc: { type: String, trim: true },
+    revizeId: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    sorguBaglantisi: { type: String, trim: true },
+    yatirimci: { type: String, trim: true },
+    yatirimciUnvan: { type: String, trim: true },
+    sgkSicilNo: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    kararTarihi: { type: Date },
+    kararSayisi: { type: String, trim: true },
+    yonetmelikMaddesi: { type: String, trim: true },
+    basvuruTarihi: { type: Date },
+    dosyaNo: { type: String, trim: true },
+    projeBedeli: { type: Number, default: 0 },
+    tesvikMiktari: { type: Number, default: 0 },
+    tesvikOrani: { type: Number, default: 0 }
+  },
+  
   // 📋 Belge Yönetimi
   belgeYonetimi: belgeYonetimiSchema,
   
@@ -273,10 +296,15 @@ const tesvikSchema = new mongoose.Schema({
       trim: true,
       uppercase: true
     },
+    ada: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    parsel: { type: String, trim: true }, // 🆕 Excel'den eklendi
     yatirimAdresi1: { type: String, trim: true },
     yatirimAdresi2: { type: String, trim: true },
     yatirimAdresi3: { type: String, trim: true },
-    osbIseMudurluk: { type: String, trim: true }
+    osbIseMudurluk: { type: String, trim: true },
+    ilBazliBolge: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    ilceBazliBolge: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    serbsetBolge: { type: String, trim: true } // 🆕 Excel'den eklendi
   },
   
   // 📦 Ürün Yönetimi - U$97 Kodlu Sistem

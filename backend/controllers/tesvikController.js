@@ -1341,11 +1341,23 @@ const getYatirimKonusuKategorileri = () => [
 
 const getKunyeBilgileriTemplate = () => ({
   talepSonuc: '',
+  revizeId: '', // 🆕 Excel şablonundan eklendi
   sorguBaglantisi: '',
+  yatirimci: '',
+  yatirimciUnvan: '',
+  sgkSicilNo: '', // 🆕 Excel şablonundan eklendi
   belgeBaslamaTarihi: null,
   belgeBitisTarihi: null,
   uzatimTarihi: null,
-  mucbirUzatimTarihi: null
+  mucbirUzatimTarihi: null,
+  kararTarihi: '',
+  kararSayisi: '',
+  yonetmelikMaddesi: '',
+  basvuruTarihi: '',
+  dosyaNo: '',
+  projeBedeli: 0,
+  tesvikMiktari: 0,
+  tesvikOrani: 0
 });
 
 // 📦 Excel U$97 Ürün Kodları Template
@@ -1752,6 +1764,308 @@ const getOptionsForType = async (req, res) => {
   }
 };
 
+// 📋 REVİZYON EXCEL EXPORT - Her revizyon ayrı satır olacak şekilde
+const exportRevizyonExcel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { includeColors = true } = req.query;
+    
+    console.log(`📊 Revizyon Excel export başlatılıyor: ${id}`);
+    
+    // Teşvik verisini revizyonları ve kullanıcı bilgileriyle getir
+    const tesvik = await Tesvik.findById(id)
+      .populate('firma', 'tamUnvan firmaId vergiNoTC')
+      .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
+      .populate('olusturanKullanici', 'adSoyad email')
+      .populate('sonGuncelleyen', 'adSoyad email')
+      .lean();
+      
+    if (!tesvik) {
+      return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+    }
+    
+    // ExcelJS workbook oluştur
+    const ExcelJS = require('exceljs');
+    const workbook = new ExcelJS.Workbook();
+    
+    // Stil tanımlamaları
+    const headerStyle = {
+      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E75B6' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    const subHeaderStyle = {
+      font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } },
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    const dataStyle = {
+      font: { color: { argb: 'FF000000' }, size: 11 },
+      alignment: { horizontal: 'left', vertical: 'middle' },
+      border: {
+        top: { style: 'thin' },
+        left: { style: 'thin' },
+        bottom: { style: 'thin' },
+        right: { style: 'thin' }
+      }
+    };
+    
+    // Revizyon geçmişi sayfası
+    const revizyonSheet = workbook.addWorksheet('Revizyon Geçmişi');
+    
+    // Ana başlık
+    revizyonSheet.mergeCells('A1:I1');
+    revizyonSheet.getCell('A1').value = `${tesvik.firma?.tamUnvan} - Teşvik Revizyon Geçmişi`;
+    revizyonSheet.getCell('A1').style = headerStyle;
+    
+    // Teşvik bilgi satırı
+    revizyonSheet.mergeCells('A2:I2');
+    revizyonSheet.getCell('A2').value = `Teşvik ID: ${tesvik.tesvikId || tesvik.gmId} | Firma ID: ${tesvik.firma?.firmaId} | Vergi/TC: ${tesvik.firma?.vergiNoTC}`;
+    revizyonSheet.getCell('A2').style = {
+      font: { bold: true, color: { argb: 'FF000000' }, size: 11 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F8FF' } },
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    };
+    
+    // Tablo başlıkları
+    const headers = [
+      'Sıra',
+      'Revizyon No',
+      'Tarih',
+      'Durum Öncesi',
+      'Durum Sonrası', 
+      'Revizyon Sebebi',
+      'Yapan Kullanıcı',
+      'Kullanıcı Rolü',
+      'Açıklama'
+    ];
+    
+    headers.forEach((header, index) => {
+      const cell = revizyonSheet.getCell(4, index + 1);
+      cell.value = header;
+      cell.style = subHeaderStyle;
+    });
+    
+    // İlk oluşturma kaydı ekle
+    let rowIndex = 5;
+    const ilkKayit = [
+      1,
+      0,
+      tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.createdAt).toLocaleTimeString('tr-TR') : '',
+      '-',
+      tesvik.durumBilgileri?.genelDurum || 'taslak',
+      'İlk oluşturma',
+      tesvik.olusturanKullanici?.adSoyad || 'Sistem',
+      tesvik.olusturanKullanici?.rol || 'sistem',
+      'Teşvik belgesi ilk kez oluşturuldu'
+    ];
+    
+    ilkKayit.forEach((value, colIndex) => {
+      const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
+      cell.value = value;
+      cell.style = dataStyle;
+      
+      // İlk satır için özel renk
+      if (includeColors) {
+        cell.style = {
+          ...dataStyle,
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E8' } }
+        };
+      }
+    });
+    
+    // Revizyon kayıtları
+    if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
+      tesvik.revizyonlar.forEach((revizyon, index) => {
+        rowIndex++;
+        const revizyonData = [
+          index + 2, // Sıra (ilk kayıt 1 olduğu için +2)
+          revizyon.revizyonNo,
+          revizyon.revizyonTarihi ? new Date(revizyon.revizyonTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizyon.revizyonTarihi).toLocaleTimeString('tr-TR') : '',
+          revizyon.durumOncesi || '-',
+          revizyon.durumSonrasi || '-',
+          revizyon.revizyonSebebi || '',
+          revizyon.yapanKullanici?.adSoyad || 'Bilinmiyor',
+          revizyon.yapanKullanici?.rol || '-',
+          revizyon.kullaniciNotu || revizyon.revizyonSebebi || ''
+        ];
+        
+        revizyonData.forEach((value, colIndex) => {
+          const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
+          cell.value = value;
+          cell.style = dataStyle;
+          
+          // Durum bazında renk kodlaması
+          if (includeColors && colIndex === 4) { // Durum Sonrası sütunu
+            let fillColor = 'FFFFFFFF'; // Varsayılan beyaz
+            
+            switch (value) {
+              case 'onaylandi':
+                fillColor = 'FFD4EDDA'; // Yeşil
+                break;
+              case 'reddedildi':
+                fillColor = 'FFF8D7DA'; // Kırmızı
+                break;
+              case 'revize_talep_edildi':
+                fillColor = 'FFFFEAA7'; // Sarı
+                break;
+              case 'inceleniyor':
+                fillColor = 'FFD1ECF1'; // Mavi
+                break;
+              case 'ek_belge_istendi':
+                fillColor = 'FFFDEBD0'; // Turuncu
+                break;
+              default:
+                fillColor = 'FFF0F0F0'; // Gri
+            }
+            
+            cell.style = {
+              ...dataStyle,
+              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
+            };
+          }
+        });
+      });
+    }
+    
+    // Son güncelleme kaydı ekle (eğer revizyonlardan farklıysa)
+    if (tesvik.sonGuncelleyen && tesvik.updatedAt && tesvik.updatedAt > tesvik.createdAt) {
+      const sonGuncellemeVar = tesvik.revizyonlar && tesvik.revizyonlar.length > 0 && 
+        tesvik.revizyonlar[tesvik.revizyonlar.length - 1].revizyonTarihi < tesvik.updatedAt;
+      
+      if (sonGuncellemeVar) {
+        rowIndex++;
+        const sonGuncelleme = [
+          rowIndex - 4, // Sıra hesaplaması
+          (tesvik.revizyonlar?.length || 0) + 1,
+          new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.updatedAt).toLocaleTimeString('tr-TR'),
+          '-',
+          tesvik.durumBilgileri?.genelDurum || '-',
+          'Veri güncelleme',
+          tesvik.sonGuncelleyen?.adSoyad || 'Sistem',
+          tesvik.sonGuncelleyen?.rol || 'sistem',
+          tesvik.sonGuncellemeNotlari || 'Teşvik verileri güncellendi'
+        ];
+        
+        sonGuncelleme.forEach((value, colIndex) => {
+          const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
+          cell.value = value;
+          cell.style = {
+            ...dataStyle,
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F8FF' } }
+          };
+        });
+      }
+    }
+    
+    // Sütun genişlikleri
+    revizyonSheet.columns = [
+      { width: 8 },   // Sıra
+      { width: 12 },  // Revizyon No
+      { width: 20 },  // Tarih
+      { width: 18 },  // Durum Öncesi
+      { width: 18 },  // Durum Sonrası
+      { width: 30 },  // Revizyon Sebebi
+      { width: 20 },  // Yapan Kullanıcı
+      { width: 15 },  // Kullanıcı Rolü
+      { width: 40 }   // Açıklama
+    ];
+    
+    // Özet sayfası ekle
+    const ozetSheet = workbook.addWorksheet('Özet');
+    
+    // Özet başlık
+    ozetSheet.mergeCells('A1:D1');
+    ozetSheet.getCell('A1').value = 'REVİZYON ÖZETİ';
+    ozetSheet.getCell('A1').style = headerStyle;
+    
+    // Özet bilgileri
+    const ozetBilgileri = [
+      ['Toplam Revizyon Sayısı:', (tesvik.revizyonlar?.length || 0) + 1], // +1 ilk oluşturma için
+      ['Mevcut Durum:', tesvik.durumBilgileri?.genelDurum || 'taslak'],
+      ['İlk Oluşturma:', tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') : '-'],
+      ['Son Güncelleme:', tesvik.updatedAt ? new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') : '-'],
+      ['Son Güncelleyen:', tesvik.sonGuncelleyen?.adSoyad || 'Sistem']
+    ];
+    
+    ozetBilgileri.forEach((bilgi, index) => {
+      const row = index + 3;
+      ozetSheet.getCell(`A${row}`).value = bilgi[0];
+      ozetSheet.getCell(`A${row}`).style = subHeaderStyle;
+      ozetSheet.getCell(`B${row}`).value = bilgi[1];
+      ozetSheet.getCell(`B${row}`).style = dataStyle;
+    });
+    
+    ozetSheet.columns = [
+      { width: 25 },
+      { width: 30 },
+      { width: 15 },
+      { width: 15 }
+    ];
+    
+    // Excel dosyasını buffer olarak oluştur
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    
+    // Response headers ayarla
+    const fileName = `revizyon_gecmisi_${tesvik.firma?.firmaId}_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    
+    // Activity log
+    await Activity.logActivity({
+      action: 'export',
+      category: 'tesvik',
+      title: 'Revizyon Geçmişi Excel Export',
+      description: `${tesvik.tesvikId || tesvik.gmId} için revizyon geçmişi Excel olarak export edildi`,
+      targetResource: {
+        type: 'tesvik',
+        id: tesvik._id,
+        name: tesvik.yatirimciUnvan,
+        tesvikId: tesvik.tesvikId
+      },
+      user: {
+        id: req.user._id,
+        name: req.user.adSoyad,
+        email: req.user.email,
+        role: req.user.rol
+      },
+      metadata: {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        source: 'web',
+        exportType: 'revizyon_excel'
+      }
+    });
+    
+    // Excel dosyasını gönder
+    res.send(excelBuffer);
+    
+    console.log(`✅ Revizyon Excel export tamamlandı: ${fileName}`);
+    
+  } catch (error) {
+    console.error('❌ Revizyon Excel export hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Revizyon Excel export sırasında hata oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
+    });
+  }
+};
+
 // MODULE EXPORTS
 module.exports = {
   createTesvik,
@@ -1764,6 +2078,7 @@ module.exports = {
   getTesvikByFirma,
   updateTesvikDurum,
   addTesvikRevizyon,
+  exportRevizyonExcel,
   calculateMaliHesaplamalar,
   getDurumRenkleri,
   getNextTesvikId,
@@ -1772,13 +2087,21 @@ module.exports = {
   // 📄 EXCEL EXPORT - Excel benzeri renk kodlamalı çıktı (ExcelJS ile)
   exportTesvikExcel: async (req, res) => {
     try {
-      const { id } = req.params;
-      const { format = 'xlsx', includeColors = true } = req.query;
-      
-      console.log(`📊 Excel export başlatılıyor: ${id}`);
-      
-      // Teşvik verisini getir
-      const tesvik = await Tesvik.findById(id)
+        const { id } = req.params;
+  const { format = 'xlsx', includeColors = true } = req.query;
+  
+  console.log(`📊 Excel export başlatılıyor: ${id}`);
+  
+  // ID validation
+  if (!id || id === 'undefined') {
+    return res.status(400).json({
+      success: false,
+      message: 'Geçersiz teşvik ID\'si'
+    });
+  }
+  
+  // Teşvik verisini getir
+  const tesvik = await Tesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
         .lean();
         

@@ -18,6 +18,7 @@ const {
   updateTesvikDurum,
   addTesvikRevizyon,
   exportTesvikExcel,
+  exportRevizyonExcel, // 🆕 Revizyon Excel Export
   exportTesvikPDF,
   getTesvikTimeline,
   calculateMaliHesaplamalar,
@@ -224,6 +225,10 @@ router.get('/:id/excel-export', authenticate, checkPermission('raporGoruntule'),
 // 📄 GET /api/tesvik/:id/pdf-export - Tekil Teşvik PDF Export
 // Query params: includeColors (true/false)
 router.get('/:id/pdf-export', authenticate, exportTesvikPDF);
+
+// 📋 GET /api/tesvik/:id/revizyon-excel-export - Revizyon Geçmişi Excel Export
+// Query params: includeColors (true/false)
+router.get('/:id/revizyon-excel-export', authenticate, checkPermission('raporGoruntule'), exportRevizyonExcel);
 
 // 📊 GET /api/tesvik/bulk-excel-export - Toplu Excel Export (Filtrelenebilir, Renk Kodlamalı)
 // Query params: durum, il, firma, tarihBaslangic, tarihBitis

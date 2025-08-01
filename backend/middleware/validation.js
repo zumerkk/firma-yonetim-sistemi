@@ -528,6 +528,18 @@ const validateCreateTesvik = [
     .withMessage('Belge tarihi zorunludur')
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz'),
+    
+  body('kunyeBilgileri.sgkSicilNo')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('SGK Sicil No en fazla 50 karakter olabilir'),
+    
+  body('kunyeBilgileri.revizeId')
+    .optional()
+    .trim()
+    .isLength({ max: 50 })
+    .withMessage('Revize ID en fazla 50 karakter olabilir'),
 ];
 
 const validateUpdateTesvik = [
