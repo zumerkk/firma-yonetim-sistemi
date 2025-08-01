@@ -75,7 +75,7 @@ const RevisionTimeline = ({ tesvikId }) => {
   const loadRevisions = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/tesvik/${tesvikId}/revisions`);
+      const response = await axios.get(`/tesvik/${tesvikId}/revisions`);
       
       if (response.data.success) {
         setRevisions(response.data.data);

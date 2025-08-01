@@ -256,23 +256,23 @@ const NotificationDropdown = ({ sx = {} }) => {
               }
               secondary={
                 <Box>
-                  <Typography 
-                    variant="caption" 
-                    color="text.secondary"
+                  <Box 
                     sx={{ 
                       display: 'block',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
-                      maxWidth: 250
+                      maxWidth: 250,
+                      fontSize: '0.75rem',
+                      color: 'text.secondary'
                     }}
                   >
                     {notification.message}
-                  </Typography>
+                  </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary">
+                    <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
                       {formatRelativeTime(notification.createdAt)}
-                    </Typography>
+                    </Box>
                     <Chip 
                       label={notification.type.toUpperCase()} 
                       size="small"

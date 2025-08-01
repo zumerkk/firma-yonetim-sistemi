@@ -45,6 +45,8 @@ interface EnhancedCitySelectorProps {
   className?: string;
   required?: boolean;
   showCodes?: boolean;
+  cityLabel?: string;  // 🆕 Label prop'u eklendi
+  districtLabel?: string;  // 🆕 Label prop'u eklendi
 }
 
 // City ve District tipi için interface tanımlayalım
@@ -67,8 +69,15 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
   onDistrictChange,
   className = '',
   required = false,
-  showCodes = true
+  showCodes = true,
+  cityLabel = 'İl',  // 🆕 Default değer
+  districtLabel = 'İlçe'  // 🆕 Default değer
 }) => {
+  // 🎯 Unique ID'ler için - component mount'ta bir kez üretilir
+  const [componentId] = useState(() => Math.random().toString(36).substr(2, 9));
+  const cityId = `city-autocomplete-${componentId}`;
+  const districtId = `district-autocomplete-${componentId}`;
+
   const [citySearchTerm, setCitySearchTerm] = useState('');
   const [districtSearchTerm, setDistrictSearchTerm] = useState('');
   const [cityOptions, setCityOptions] = useState<CityType[]>(TURKEY_CITIES_WITH_CODES);
@@ -101,27 +110,29 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
 
   const handleCityChange = useCallback((event: any, newValue: any) => {
     const cityName = newValue ? newValue.ad : '';
-    onCityChange?.(cityName);
+    const cityCode = newValue ? newValue.kod : undefined;
+    onCityChange?.(cityName, cityCode);
     setCitySearchTerm('');
     setDistrictSearchTerm('');
-    onDistrictChange?.('');
+    onDistrictChange?.('', undefined);
   }, [onCityChange, onDistrictChange]);
 
   const handleDistrictChange = useCallback((event: any, newValue: any) => {
     const districtName = newValue ? newValue.ad : '';
-    onDistrictChange?.(districtName);
+    const districtCode = newValue ? newValue.kod : undefined;
+    onDistrictChange?.(districtName, districtCode);
     setDistrictSearchTerm('');
   }, [onDistrictChange]);
 
   const handleClearCity = useCallback(() => {
-    onCityChange?.('');
+    onCityChange?.('', undefined);
     setCitySearchTerm('');
     setDistrictSearchTerm('');
-    onDistrictChange?.('');
+    onDistrictChange?.('', undefined);
   }, [onCityChange, onDistrictChange]);
 
   const handleClearDistrict = useCallback(() => {
-    onDistrictChange?.('');
+    onDistrictChange?.('', undefined);
     setDistrictSearchTerm('');
   }, [onDistrictChange]);
 
@@ -176,7 +187,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
       <Box>
         <Typography 
           component="label"
-          htmlFor="city-autocomplete-input"
+          htmlFor={cityId}
           variant="subtitle2" 
           sx={{ 
             mb: 1, 
@@ -189,7 +200,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           }}
         >
           <LocationOn sx={{ fontSize: 16 }} />
-          İl {required && <span style={{ color: 'error.main' }}>*</span>}
+          {cityLabel} {required && <span style={{ color: 'error.main' }}>*</span>}
         </Typography>
         
         <Autocomplete
@@ -197,20 +208,32 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           value={selectedCity ? cityOptions.find(city => city.ad === selectedCity) || null : null}
           onChange={handleCityChange}
           options={cityOptions}
-          getOptionLabel={(option) => option.ad || ''}
-          isOptionEqualToValue={(option, value) => option.ad === value.ad}
+          getOptionLabel={(option) => option?.ad || ''}
+          isOptionEqualToValue={(option, value) => option?.ad === value?.ad}
           renderOption={renderCityOption}
+          disablePortal={false}
+          componentsProps={{
+            popper: {
+              disablePortal: false,
+              style: {
+                zIndex: 99999
+              }
+            }
+          }}
           slotProps={{
             popper: {
-              style: { zIndex: 9999 }
+              style: { 
+                zIndex: 99999,
+                position: 'absolute'
+              }
             }
           }}
           renderInput={(params) => (
             <TextField
               {...params}
-              id="city-autocomplete-input"
-              name="firmaIl"
-              placeholder="İl seçin..."
+              id={cityId}
+              name={`firmaIl-${componentId}`}
+              placeholder={`${cityLabel} seçin...`}
               variant="outlined"
               size="medium"
               inputProps={{
@@ -276,7 +299,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
       <Box>
         <Typography 
           component="label"
-          htmlFor="district-autocomplete-input"
+          htmlFor={districtId}
           variant="subtitle2" 
           sx={{ 
             mb: 1, 
@@ -289,7 +312,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           }}
         >
           <LocationOn sx={{ fontSize: 16 }} />
-          İlçe {required && <span style={{ color: 'error.main' }}>*</span>}
+          {districtLabel} {required && <span style={{ color: 'error.main' }}>*</span>}
         </Typography>
         
         <Autocomplete
@@ -301,17 +324,29 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
           disabled={!selectedCity}
           isOptionEqualToValue={(option, value) => option.ad === value.ad}
           renderOption={renderDistrictOption}
+          disablePortal={false}
+          componentsProps={{
+            popper: {
+              disablePortal: false,
+              style: {
+                zIndex: 99999
+              }
+            }
+          }}
           slotProps={{
             popper: {
-              style: { zIndex: 9999 }
+              style: { 
+                zIndex: 99999,
+                position: 'absolute'
+              }
             }
           }}
           renderInput={(params) => (
             <TextField
               {...params}
-              id="district-autocomplete-input"
-              name="firmaIlce"
-              placeholder={selectedCity ? "İlçe seçin..." : "Önce il seçin"}
+              id={districtId}
+              name={`firmaIlce-${componentId}`}
+              placeholder={selectedCity ? `${districtLabel} seçin...` : `Önce ${cityLabel.toLowerCase()} seçin`}
               variant="outlined"
               size="medium"
               inputProps={{

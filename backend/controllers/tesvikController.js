@@ -11,6 +11,7 @@ const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const csv = require('csv-parser'); // OSB verilerini okumak için
 
 // 📝 YENİ TEŞVİK OLUŞTUR
 const createTesvik = async (req, res) => {
@@ -1269,22 +1270,62 @@ const getU97KodlariOptions = () => [
   { kod: '0121.2.04', aciklama: 'Kıl keçisi', kategori: 'Küçükbaş' }
 ];
 
-// 🏢 OSB (Organize Sanayi Bölgesi) SEÇENEKLERİ
-const getOsbOptions = () => [
-  { il: 'Adana', osb: 'Adana Gıda İhtisas OSB' },
-  { il: 'Adana', osb: 'Adana Hacı Sabancı OSB' },
-  { il: 'Adana', osb: 'Adana Karataş TDİ (Su Ürünleri)' },
-  { il: 'Adana', osb: 'Adana TDİ (Sera)' },
-  { il: 'Adana', osb: 'Ceyhan OSB' },
-  { il: 'Adana', osb: 'Kozan OSB' },
-  { il: 'Adıyaman', osb: 'Adıyaman OSB' },
-  { il: 'Adıyaman', osb: 'Adıyaman Gölbaşı OSB' },
-  { il: 'Adıyaman', osb: 'Adıyaman Kahta OSB' },
-  { il: 'Afyonkarahisar', osb: 'Afyonkarahisar OSB' },
-  { il: 'Afyonkarahisar', osb: 'Afyonkarahisar Bolvadin OSB' },
-  { il: 'Afyonkarahisar', osb: 'Afyonkarahisar Bolvadin TDİ(Besi)' },
-  // ... daha fazla OSB seçeneği eklenebilir
-];
+// 🏭 OSB SEÇENEKLERİ - CSV'den real-time yükleme
+const getOsbListFromCSV = () => {
+  try {
+    const csvPath = path.join(__dirname, '../../belge ytb - admin.csv');
+    
+    if (!fs.existsSync(csvPath)) {
+      console.log('⚠️ OSB CSV dosyası bulunamadı:', csvPath);
+      return [];
+    }
+
+    // CSV dosyasını satır satır oku
+    const csvData = fs.readFileSync(csvPath, 'utf-8');
+    const lines = csvData.split('\n');
+    
+    const osbList = new Set(); // Duplicate'leri önlemek için Set kullan
+    
+    // İlk satır header, ondan sonrakiler data
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line || line.trim() === '') continue;
+      
+      const columns = line.split(',');
+      const osbIli = columns[12]; // OSB İli (13. kolon)
+      const osbUnvani = columns[13]; // OSB Ünvanı (14. kolon)
+      
+      if (osbIli && osbUnvani && osbIli.trim() !== '' && osbUnvani.trim() !== '') {
+        // Unique key oluştur
+        const osbKey = `${osbIli.trim()}|${osbUnvani.trim()}`;
+        osbList.add(osbKey);
+      }
+    }
+    
+    // Set'i array'e çevir ve formatla
+    const formattedOsb = Array.from(osbList).map(osbKey => {
+      const [il, unvan] = osbKey.split('|');
+      return {
+        value: unvan,
+        label: unvan,
+        il: il,
+        fullLabel: `${unvan} (${il})`
+      };
+    }).sort((a, b) => a.il.localeCompare(b.il) || a.label.localeCompare(b.label));
+    
+    console.log(`✅ ${formattedOsb.length} OSB verisi CSV'den yüklendi`);
+    return formattedOsb;
+    
+  } catch (error) {
+    console.error('❌ OSB CSV okuma hatası:', error);
+    return [];
+  }
+};
+
+// OSB seçenekleri - CSV'den dinamik yükleme
+const getOsbOptions = () => {
+  return getOsbListFromCSV();
+};
 
 // 💼 YATIRIM KONUSU KATEGORİLERİ - CSV'den ana kategoriler
 const getYatirimKonusuKategorileri = () => [
