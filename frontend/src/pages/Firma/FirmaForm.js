@@ -2,6 +2,31 @@
 // Ultra-performance optimized with zero re-render issues
 // State-of-the-art React best practices implementation
 
+// 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
+const toTurkishUpperCase = (str) => {
+  if (!str || typeof str !== 'string') return str;
+  
+  // Türkçe karakterlerin doğru büyük harf karşılıkları
+  const turkishCharMap = {
+    'ı': 'I',  // Türkçe küçük ı -> Türkçe büyük I
+    'i': 'İ',  // Türkçe küçük i -> Türkçe büyük İ
+    'ş': 'Ş',  // ş -> Ş
+    'ğ': 'Ğ',  // ğ -> Ğ
+    'ü': 'Ü',  // ü -> Ü
+    'ö': 'Ö',  // ö -> Ö
+    'ç': 'Ç'   // ç -> Ç
+  };
+  
+  return str.split('').map(char => {
+    // Önce Türkçe karakterleri kontrol et
+    if (turkishCharMap[char]) {
+      return turkishCharMap[char];
+    }
+    // Diğer karakterler için normal uppercase
+    return char.toUpperCase();
+  }).join('');
+};
+
 import React, { useState, useEffect, useCallback, memo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -114,10 +139,10 @@ const YetkiliKisiForm = memo(({
   const handleFieldChange = useCallback((field) => (event) => {
     let value = event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (email alanları hariç)
+    // 🔤 Türkçe karakterli büyük harf dönüştürme (email alanları hariç)
     const emailFields = ['eposta1', 'eposta2'];
     if (typeof value === 'string' && !emailFields.includes(field)) {
-      value = value.toUpperCase();
+      value = toTurkishUpperCase(value);
     }
     
     onChange(index, field, value);
@@ -310,10 +335,10 @@ const FirmaForm = () => {
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (email, website alanları ve İlk İrtibat Kişisi hariç)
+    // 🔤 Türkçe karakterli büyük harf dönüştürme (email, website alanları ve İlk İrtibat Kişisi hariç)
     const exemptFields = ['ilkIrtibatKisi', 'firmaEmail', 'kepAdresi', 'firmaWebsite'];
     if (typeof value === 'string' && !exemptFields.includes(field)) {
-      value = value.toUpperCase();
+      value = toTurkishUpperCase(value);
     }
     
     // 🌐 Website alanı için otomatik küçük harf + https:// ekleme
@@ -350,10 +375,10 @@ const FirmaForm = () => {
 
   // 🎯 Ultra-optimized Yetkili Kisi Management
   const handleYetkiliChange = useCallback((index, field, value) => {
-    // 🔤 Otomatik büyük harf dönüştürme (email alanları hariç)
+    // 🔤 Türkçe karakterli büyük harf dönüştürme (email alanları hariç)
     const emailFields = ['eposta1', 'eposta2'];
     if (typeof value === 'string' && !emailFields.includes(field)) {
-      value = value.toUpperCase();
+      value = toTurkishUpperCase(value);
     }
     
     setFormData(prevData => {
