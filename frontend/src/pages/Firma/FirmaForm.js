@@ -114,8 +114,9 @@ const YetkiliKisiForm = memo(({
   const handleFieldChange = useCallback((field) => (event) => {
     let value = event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
-    if (typeof value === 'string') {
+    // 🔤 Otomatik büyük harf dönüştürme (email alanları hariç)
+    const emailFields = ['eposta1', 'eposta2'];
+    if (typeof value === 'string' && !emailFields.includes(field)) {
       value = value.toUpperCase();
     }
     
@@ -309,8 +310,9 @@ const FirmaForm = () => {
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (İlk İrtibat Kişisi hariç)
-    if (typeof value === 'string' && field !== 'ilkIrtibatKisi') {
+    // 🔤 Otomatik büyük harf dönüştürme (email alanları ve İlk İrtibat Kişisi hariç)
+    const exemptFields = ['ilkIrtibatKisi', 'firmaEmail', 'kepAdresi'];
+    if (typeof value === 'string' && !exemptFields.includes(field)) {
       value = value.toUpperCase();
     }
     
@@ -347,8 +349,9 @@ const FirmaForm = () => {
 
   // 🎯 Ultra-optimized Yetkili Kisi Management
   const handleYetkiliChange = useCallback((index, field, value) => {
-    // 🔤 Otomatik büyük harf dönüştürme (tüm alanlar için)
-    if (typeof value === 'string') {
+    // 🔤 Otomatik büyük harf dönüştürme (email alanları hariç)
+    const emailFields = ['eposta1', 'eposta2'];
+    if (typeof value === 'string' && !emailFields.includes(field)) {
       value = value.toUpperCase();
     }
     
