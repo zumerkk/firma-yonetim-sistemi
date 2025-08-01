@@ -172,7 +172,7 @@ const FirmaDetail = () => {
     setEditLoading(true);
     try {
       const updateData = { [field]: editValues[field] };
-      const response = await api.put(`/firmalar/${id}`, updateData);
+      const response = await api.put(`/firma/${id}`, updateData);
       
       if (response.data.success) {
         // Refresh firma data

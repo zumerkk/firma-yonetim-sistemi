@@ -367,6 +367,10 @@ const updateFirma = async (req, res) => {
 
     // Güncelleme bilgilerini ekle
     updateData.sonGuncelleyen = req.user._id;
+    
+    // ⚠️ olusturanKullanici field'ini güncelleme verilerinden çıkar
+    // Bu field sadece firma oluşturulurken set edilmeli, güncellenmemeli
+    delete updateData.olusturanKullanici;
 
     // Büyük/küçük harf dönüşümleri
     if (updateData.firmaIl) {
