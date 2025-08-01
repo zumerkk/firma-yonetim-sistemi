@@ -310,16 +310,17 @@ const FirmaForm = () => {
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
     
-    // 🔤 Otomatik büyük harf dönüştürme (email alanları ve İlk İrtibat Kişisi hariç)
-    const exemptFields = ['ilkIrtibatKisi', 'firmaEmail', 'kepAdresi'];
+    // 🔤 Otomatik büyük harf dönüştürme (email, website alanları ve İlk İrtibat Kişisi hariç)
+    const exemptFields = ['ilkIrtibatKisi', 'firmaEmail', 'kepAdresi', 'firmaWebsite'];
     if (typeof value === 'string' && !exemptFields.includes(field)) {
       value = value.toUpperCase();
     }
     
-    // 🌐 Website alanı için otomatik https:// ekleme (sadece kullanıcı protokol yazmadığında)
+    // 🌐 Website alanı için otomatik küçük harf + https:// ekleme
     if (field === 'firmaWebsite' && value && value.trim() !== '') {
-      const trimmedValue = value.trim();
-      // Eğer kullanıcı zaten https:// yazmışsa, tekrar ekleme
+      let trimmedValue = value.trim().toLowerCase(); // Küçük harfe dönüştür (I/İ karışıklığı önler)
+      
+      // Protokol kontrolü ve ekleme
       if (!trimmedValue.startsWith('http://') && !trimmedValue.startsWith('https://') && !trimmedValue.includes('://')) {
         // Sadece domain adı yazıldıysa https:// ekle
         if (trimmedValue.includes('.') && !trimmedValue.startsWith('www.')) {
