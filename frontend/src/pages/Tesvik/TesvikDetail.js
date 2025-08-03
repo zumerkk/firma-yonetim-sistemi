@@ -40,6 +40,8 @@ import {
   Business as BusinessIcon,
   AttachMoney as AttachMoneyIcon,
   Print as PrintIcon,
+  Download as DownloadIcon,
+  TableChart as TableChartIcon,
   LocationOn as LocationOnIcon,
   DateRange as DateRangeIcon,
   History as HistoryIcon,
@@ -76,6 +78,7 @@ const TesvikDetail = () => {
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
   const [activityFilter, setActivityFilter] = useState('all');
   const [exportingRevizyon, setExportingRevizyon] = useState(false);
+  const [exportingSistemExcel, setExportingSistemExcel] = useState(false);
   const [revizyonModalOpen, setRevizyonModalOpen] = useState(false);
   const [revizyonForm, setRevizyonForm] = useState({
     revizyonSebebi: '',
@@ -188,6 +191,61 @@ const TesvikDetail = () => {
       minute: '2-digit',
       second: '2-digit'
     });
+  };
+
+  // 📊 Sistem Excel Çıktısı - Tüm Belge Detayları
+  const handleSistemExcelCiktisi = async () => {
+    try {
+      setExportingSistemExcel(true);
+      
+      // Backend'e sistem excel çıktısı isteği gönder
+      const response = await axios.get(`/tesvik/${tesvik._id}/sistem-excel-ciktisi`, {
+        responseType: 'blob',
+        params: {
+          includeRevisions: true, // Tüm revizeleri dahil et
+          includeActivities: true, // Tüm işlemleri dahil et
+          includeFinancials: true, // Mali hesaplamaları dahil et
+          includeProducts: true,  // Ürün bilgilerini dahil et
+          includeSupports: true,  // Destek unsurlarını dahil et
+          includeConditions: true // Özel şartları dahil et
+        }
+      });
+      
+      // Blob'dan dosya oluştur
+      const blob = new Blob([response.data], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      });
+      
+      // Dosya adını oluştur
+      let fileName = `sistem_excel_ciktisi_${tesvik.firma?.firmaId}_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      
+      // Response header'dan dosya adı al
+      const contentDisposition = response.headers['content-disposition'];
+      if (contentDisposition) {
+        const fileNameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (fileNameMatch) {
+          fileName = fileNameMatch[1];
+        }
+      }
+      
+      // Dosyayı indir
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      console.log('✅ Sistem Excel çıktısı başarılı');
+      
+    } catch (error) {
+      console.error('❌ Sistem Excel çıktısı hatası:', error);
+      alert('Excel çıktısı oluşturulurken hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setExportingSistemExcel(false);
+    }
   };
 
   // 📊 Revizyon Excel Export
@@ -570,10 +628,25 @@ const TesvikDetail = () => {
               
               <Button
                 variant="outlined"
-                startIcon={<PrintIcon />}
-                onClick={() => window.print()}
+                startIcon={exportingSistemExcel ? <TableChartIcon /> : <DownloadIcon />}
+                onClick={handleSistemExcelCiktisi}
+                disabled={exportingSistemExcel}
+                sx={{
+                  borderColor: '#10B981',
+                  color: '#10B981',
+                  fontWeight: 600,
+                  '&:hover': {
+                    backgroundColor: '#10B981',
+                    color: 'white',
+                    borderColor: '#10B981'
+                  },
+                  '&:disabled': {
+                    borderColor: '#d1d5db',
+                    color: '#9ca3af'
+                  }
+                }}
               >
-                Yazdır
+                {exportingSistemExcel ? 'Excel Hazırlanıyor...' : 'Sistem Excel Çıktısı'}
               </Button>
             </Box>
           </Box>
