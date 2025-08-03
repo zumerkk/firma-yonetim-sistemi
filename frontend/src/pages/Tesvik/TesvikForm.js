@@ -52,7 +52,7 @@ import {
   Delete as DeleteIcon,
   EmojiEvents as EmojiEventsIcon,
   TableView as TableViewIcon,
-  PictureAsPdf as PictureAsPdfIcon
+
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -436,6 +436,36 @@ const TesvikForm = () => {
     }
   };
 
+  // 🔧 Problematik Değer Temizleme Utility
+  const cleanProblematicValue = (value) => {
+    if (!value) return '';
+    if (typeof value !== 'string') return value;
+    
+    // Problematik değerler listesi
+    const problematicValues = [
+      '2012/3305',
+      'hazirlaniyor',
+      'undefined',
+      'null',
+      '1',
+      'SİGORTA BAŞLAMA',
+      'Var (Yerli ve İthal Liste - Tamamı)',
+      'ÇOK ÖZEL',
+      'BEYANNAMESIZ',
+      'BEYANNAMELI',
+      'YANLIŞ'
+    ];
+    
+    // Trim edilmiş değeri kontrol et
+    const trimmedValue = value.trim();
+    
+    if (problematicValues.includes(trimmedValue)) {
+      return '';
+    }
+    
+    return trimmedValue;
+  };
+
   const loadTesvikData = async () => {
     try {
       setLoading(true);
@@ -469,14 +499,19 @@ const TesvikForm = () => {
             toplamSabitYatirimTutari: backendData.maliHesaplamalar?.toplamSabitYatirim || 0,
             
             araziArsaBedeli: {
-              aciklama: '',
-              metrekaresi: 0,
-              birimFiyatiTl: 0,
-              araziArsaBedeli: backendData.maliHesaplamalar?.araciArsaBedeli || 0
+              aciklama: 'Arazi Arsa Bedeli Açıklaması',
+              metrekaresi: backendData.maliHesaplamalar?.maliyetlenen?.sl || 0,
+              birimFiyatiTl: backendData.maliHesaplamalar?.maliyetlenen?.sm || 0,
+              araziArsaBedeli: backendData.maliHesaplamalar?.araciArsaBedeli || backendData.maliHesaplamalar?.maliyetlenen?.sn || 0
             },
             
             finansman: {
               yabanciKaynaklar: {
+                bankKredisi: backendData.maliHesaplamalar?.finansman?.yabanciKaynak || 0,
+                ikinciElFiyatFarki: 0,
+                kullanilmisTeçhizatBedeli: 0,
+                digerDisKaynaklar: 0,
+                digerYabanciKaynak: 0,
                 toplamYabanciKaynak: backendData.maliHesaplamalar?.finansman?.yabanciKaynak || 0
               },
               ozkaynaklar: {
@@ -486,7 +521,7 @@ const TesvikForm = () => {
             },
             
             binaInsaatGiderleri: {
-              aciklama: '',
+              aciklama: 'Bina İnşaat Gideri Açıklaması',
               anaBinaVeTesisleri: backendData.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0,
               yardimciIsBinaVeIcareBinalari: backendData.maliHesaplamalar?.binaInsaatGideri?.yardimciBinaGideri || 0,
               yeraltiAnaGalerileri: 0,
@@ -500,7 +535,6 @@ const TesvikForm = () => {
                 toplamMakineTeç: backendData.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0
               },
               dolar: {
-                ithalMakine: 0,
                 yeniMakine: backendData.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0,
                 kullanilmisMakine: backendData.maliHesaplamalar?.makinaTechizat?.kullanimisMakina || 0,
                 toplamIthalMakine: backendData.maliHesaplamalar?.makinaTechizat?.toplamYeniMakina || 0
@@ -508,36 +542,24 @@ const TesvikForm = () => {
             },
             
             digerYatirimHarcamalari: {
-              yardimciIslMakTeçGid: 0,
-              ithalatVeGumGiderleri: 0,
-              tasimaVeSigortaGiderleri: 0,
-              etudVeProjeGiderleri: 0,
-              digerGiderleri: 0,
-              toplamDigerYatirimHarcamalari: 0
+              yardimciIslMakTeçGid: backendData.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0,
+              ithalatVeGumGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0,
+              tasimaVeSigortaGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0,
+              etudVeProjeGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0,
+              digerGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0,
+              toplamDigerYatirimHarcamalari: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0
             }
           },
           
           // Yatırım bilgilerini böl (backend'deki yatirimBilgileri → frontend'deki 2 bölüm)
           yatirimBilgileri1: {
             yatirimKonusu: backendData.yatirimBilgileri?.yatirimKonusu || '',
-            // 🔧 Sadece açıkça problematik olan değerleri temizle
-            cins1: (backendData.yatirimBilgileri?.sCinsi1 && 
-                   backendData.yatirimBilgileri.sCinsi1 !== '2012/3305' &&
-                   backendData.yatirimBilgileri.sCinsi1 !== 'undefined') 
-                   ? backendData.yatirimBilgileri.sCinsi1 : '',
-            cins2: (backendData.yatirimBilgileri?.tCinsi2 && 
-                   backendData.yatirimBilgileri.tCinsi2 !== '2012/3305' &&
-                   backendData.yatirimBilgileri.tCinsi2 !== 'undefined')
-                   ? backendData.yatirimBilgileri.tCinsi2 : '',
-            cins3: (backendData.yatirimBilgileri?.uCinsi3 && 
-                   backendData.yatirimBilgileri.uCinsi3 !== '2012/3305' &&
-                   backendData.yatirimBilgileri.uCinsi3 !== 'undefined')
-                   ? backendData.yatirimBilgileri.uCinsi3 : '',
-            cins4: (backendData.yatirimBilgileri?.vCinsi4 && 
-                   backendData.yatirimBilgileri.vCinsi4 !== '2012/3305' &&
-                   backendData.yatirimBilgileri.vCinsi4 !== 'undefined')
-                   ? backendData.yatirimBilgileri.vCinsi4 : '',
-            destekSinifi: backendData.yatirimBilgileri?.destekSinifi || ''
+            // 🔧 Problematik değerleri temizle
+            cins1: cleanProblematicValue(backendData.yatirimBilgileri?.sCinsi1),
+            cins2: cleanProblematicValue(backendData.yatirimBilgileri?.tCinsi2),
+            cins3: cleanProblematicValue(backendData.yatirimBilgileri?.uCinsi3),
+            cins4: cleanProblematicValue(backendData.yatirimBilgileri?.vCinsi4),
+            destekSinifi: cleanProblematicValue(backendData.yatirimBilgileri?.destekSinifi)
           },
           
           yatirimBilgileri2: {
@@ -561,19 +583,16 @@ const TesvikForm = () => {
           
           // 📝 Künye Bilgileri - Backend'den mapping (Excel formatına uygun)
           kunyeBilgileri: {
-            // 🔧 Sadece açıkça problematik olan değerleri temizle, gerçek verileri koru
-            talepSonuc: (backendData.kunyeBilgileri?.talepSonuc && 
-                        backendData.kunyeBilgileri.talepSonuc !== '2012/3305' &&
-                        backendData.kunyeBilgileri.talepSonuc !== 'undefined' &&
-                        backendData.kunyeBilgileri.talepSonuc !== 'null')
-                       ? backendData.kunyeBilgileri.talepSonuc : '',
+            // 🔧 Tüm problematik değerleri temizle
+            talepSonuc: cleanProblematicValue(backendData.kunyeBilgileri?.talepSonuc),
+            revizeId: cleanProblematicValue(backendData.kunyeBilgileri?.revizeId),
             sorguBaglantisi: backendData.kunyeBilgileri?.sorguBaglantisi || '',
             yatirimci: backendData.kunyeBilgileri?.yatirimci || '',
             yatirimciUnvan: backendData.kunyeBilgileri?.yatirimciUnvan || backendData.yatirimciUnvan || '',
-            // 🔧 YENİ ALANLAR - Excel detayları (Date formatları düzeltildi)
+            // 🔧 YENİ ALANLAR - Excel detayları (Date formatları düzeltildi) 
             kararTarihi: formatDateForInput(backendData.kunyeBilgileri?.kararTarihi) || '',
-            kararSayisi: backendData.kunyeBilgileri?.kararSayisi || '',
-            yonetmelikMaddesi: backendData.kunyeBilgileri?.yonetmelikMaddesi || '',
+            kararSayisi: cleanProblematicValue(backendData.kunyeBilgileri?.kararSayisi),
+            yonetmelikMaddesi: cleanProblematicValue(backendData.kunyeBilgileri?.yonetmelikMaddesi),
             basvuruTarihi: formatDateForInput(backendData.kunyeBilgileri?.basvuruTarihi) || '',
             dosyaNo: backendData.kunyeBilgileri?.dosyaNo || '',
             projeBedeli: backendData.kunyeBilgileri?.projeBedeli || 0,
@@ -584,30 +603,19 @@ const TesvikForm = () => {
           // 🎯 Destek Unsurları - Backend formatından frontend formatına çevir
           destekUnsurlari: backendData.destekUnsurlari?.map(destek => ({
             index: destek._id || Math.random().toString(36).substr(2, 9),
-            // 🔧 Sadece açıkça problematik olan değerleri temizle, gerçek verileri koru
-            destekUnsuru: (destek.destekUnsuru && 
-                          destek.destekUnsuru !== '2012/3305' &&
-                          destek.destekUnsuru !== 'undefined' &&
-                          destek.destekUnsuru !== 'null')
-                         ? destek.destekUnsuru : '',
-            sarti: (destek.sarti && 
-                   destek.sarti !== '2012/3305' &&
-                   destek.sarti !== 'undefined' &&
-                   destek.sarti !== 'null')
-                  ? destek.sarti : '',
+            // 🔧 Problematik değerleri temizle
+            destekUnsuru: cleanProblematicValue(destek.destekUnsuru),
+            sartlari: cleanProblematicValue(destek.sarti),
             aciklama: destek.aciklama || ''
           })) || [],
           
           // ⚖️ Özel Şartlar - Backend formatından frontend formatına çevir 
           ozelSartlar: backendData.ozelSartlar?.map(sart => ({
             index: sart.koşulNo || Math.random().toString(36).substr(2, 9),
-            // 🔧 Sadece açıkça problematik olan değerleri temizle, gerçek verileri koru
-            kisaltma: (sart.koşulNo && 
-                      sart.koşulNo !== '2012/3305' &&
-                      sart.koşulNo !== 'undefined' &&
-                      sart.koşulNo !== 'null')
-                     ? `${sart.koşulNo}` : '',
-            notu: sart.koşulMetni || ''
+            // 🔧 DOĞRU MAPPİNG: Backend koşulMetni → Frontend kisaltma (Ana metin)
+            kisaltma: cleanProblematicValue(sart.koşulMetni) || '',
+            // 🔧 DOĞRU MAPPİNG: Backend aciklamaNotu → Frontend notu (Açıklama)
+            notu: cleanProblematicValue(sart.aciklamaNotu) || ''
           })) || []
         };
         
@@ -633,8 +641,7 @@ const TesvikForm = () => {
         }
         setAdresSayisi(adresCount);
         
-        // Ürün bilgileri satır sayısını hesapla - DÜZELTME: Single row olmalı edit'te
-        const urunCount = Math.max(1, mappedData.urunBilgileri?.length || 1);
+        // Ürün bilgileri satır sayısını ayarla - DÜZELTME: Single row olmalı edit'te
         setUrunSayisi(1); // ✅ Kullanıcı isteği: Edit'te 1 satır başlasın
         
         // Destek unsurları satır sayısını hesapla
@@ -1043,6 +1050,117 @@ const TesvikForm = () => {
     });
   };
 
+  // 🎯 ======== DİNAMİK VERİ EKLEME FONKSİYONLARI ========
+
+  // Yeni Destek Unsuru Ekleme
+  const addNewDestekUnsuru = async (value) => {
+    if (!value || value.length < 3) return; // En az 3 karakter
+    
+    try {
+      const response = await axios.post('/tesvik/dynamic/destek-unsuru', {
+        value: value.trim(),
+        label: value.trim(),
+        kategori: 'Diğer',
+        renk: '#6B7280'
+      });
+
+      if (response.data.success) {
+        // Şablonları yeniden yükle
+        await loadInitialData();
+        console.log('✅ Yeni destek unsuru eklendi:', value);
+        setSuccess(`✅ "${value}" destek unsuru sisteme eklendi!`);
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        console.log('🔄 Destek unsuru zaten mevcut:', value);
+      } else {
+        console.error('🚨 Destek unsuru ekleme hatası:', error);
+        setError('Destek unsuru eklenirken hata oluştu');
+      }
+    }
+  };
+
+  // Yeni Destek Şartı Ekleme
+  const addNewDestekSarti = async (value) => {
+    if (!value || value.length < 3) return;
+    
+    try {
+      const response = await axios.post('/tesvik/dynamic/destek-sarti', {
+        value: value.trim(),
+        label: value.trim(),
+        kategori: 'Diğer'
+      });
+
+      if (response.data.success) {
+        await loadInitialData();
+        console.log('✅ Yeni destek şartı eklendi:', value);
+        setSuccess(`✅ "${value}" destek şartı sisteme eklendi!`);
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        console.log('🔄 Destek şartı zaten mevcut:', value);
+      } else {
+        console.error('🚨 Destek şartı ekleme hatası:', error);
+        setError('Destek şartı eklenirken hata oluştu');
+      }
+    }
+  };
+
+  // Yeni Özel Şart Ekleme
+  const addNewOzelSart = async (value) => {
+    if (!value || value.length < 2) return;
+    
+    try {
+      const kisaltma = value.trim().toUpperCase();
+      const aciklama = value.length > 10 ? value.trim() : `${kisaltma} Açıklaması`;
+      
+      const response = await axios.post('/tesvik/dynamic/ozel-sart', {
+        kisaltma: kisaltma,
+        aciklama: aciklama,
+        kategori: 'Diğer'
+      });
+
+      if (response.data.success) {
+        await loadInitialData();
+        console.log('✅ Yeni özel şart eklendi:', kisaltma);
+        setSuccess(`✅ "${kisaltma}" özel şartı sisteme eklendi!`);
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        console.log('🔄 Özel şart zaten mevcut:', value);
+      } else {
+        console.error('🚨 Özel şart ekleme hatası:', error);
+        setError('Özel şart eklenirken hata oluştu');
+      }
+    }
+  };
+
+  // Yeni Özel Şart Notu Ekleme
+  const addNewOzelSartNotu = async (value) => {
+    if (!value || value.length < 5) return;
+    
+    try {
+      const response = await axios.post('/tesvik/dynamic/ozel-sart-notu', {
+        value: value.trim(),
+        label: value.trim(),
+        kategori: 'Diğer'
+      });
+
+      if (response.data.success) {
+        await loadInitialData();
+        console.log('✅ Yeni özel şart notu eklendi:', value);
+        setSuccess(`✅ "${value}" özel şart notu sisteme eklendi!`);
+      }
+    } catch (error) {
+      if (error.response?.status === 409) {
+        console.log('🔄 Özel şart notu zaten mevcut:', value);
+      } else {
+        console.error('🚨 Özel şart notu ekleme hatası:', error);
+        setError('Özel şart notu eklenirken hata oluştu');
+      }
+    }
+  };
+
   // Mali hesaplamalar
   const calculateMali = (data) => {
     const mali = data.maliHesaplamalar;
@@ -1122,48 +1240,7 @@ const TesvikForm = () => {
     }
   };
 
-  // 🔧 YENİ EKLENDİ - PDF Export Handler
-  const handlePDFExport = async () => {
-    try {
-      // Teşvik ID'sini doğru şekilde belirle
-      const tesvikId = id || formData._id || formData.tesvikId;
-      
-      if (!tesvikId || (!formData.gmId && !formData.tesvikId)) {
-        setError('PDF çıktı alabilmek için teşvik kaydedilmiş olmalıdır.');
-        return;
-      }
 
-      console.log('📄 PDF çıktı hazırlanıyor...', 'Teşvik ID:', tesvikId);
-      setLoading(true);
-      
-      const response = await axios.get(`/tesvik/${tesvikId}/pdf-export`, {
-        responseType: 'blob'
-      });
-      
-      // Dosya indirme
-      const blob = new Blob([response.data], {
-        type: 'application/pdf'
-      });
-      
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `tesvik_${formData.gmId || formData.tesvikId}_${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      
-      setSuccess('PDF dosyası başarıyla indirildi!');
-      console.log('✅ PDF dosyası indirildi');
-      
-    } catch (error) {
-      console.error('🚨 PDF export hatası:', error);
-      setError('PDF çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async () => {
     try {
@@ -1213,6 +1290,41 @@ const TesvikForm = () => {
           yatiriminTutari: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
           araciArsaBedeli: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
           
+          // Maliyetlenen (Araç Arsa Bedeli Detayları)
+          maliyetlenen: {
+            sl: formData.finansalBilgiler?.araziArsaBedeli?.metrekaresi || 0,
+            sm: formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl || 0,
+            sn: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0
+          },
+          
+          // Bina İnşaat Giderleri
+          binaInsaatGideri: {
+            anaBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.anaBinaVeTesisleri || 0,
+            yardimciBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari || 0,
+            toplamBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.toplamBinaInsaatGideri || 0
+          },
+          
+          // Makine Teçhizat
+          makinaTechizat: {
+            ithalMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal || 0,
+            yerliMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli || 0,
+            toplamMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.toplamMakineTeç || 0,
+            yeniMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.yeniMakine || 0,
+            kullanimisMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine || 0,
+            toplamYeniMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.toplamIthalMakine || 0
+          },
+          
+          // Yatırım Hesaplamaları (Diğer Yatırım Harcamaları)
+          yatirimHesaplamalari: {
+            eu: formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid || 0,
+            ev: formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri || 0,
+            ew: formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri || 0,
+            ex: formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri || 0,
+            ey: formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri || 0,
+            ez: formData.finansalBilgiler?.digerYatirimHarcamalari?.toplamDigerYatirimHarcamalari || 0
+          },
+          
+          // Finansman
           finansman: {
             yabanciKaynak: formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.toplamYabanciKaynak || 0,
             ozKaynak: formData.finansalBilgiler?.finansman?.ozkaynaklar?.ozkaynaklar || 0,
@@ -1229,13 +1341,13 @@ const TesvikForm = () => {
           aciklama: destek.aciklama?.trim() || ''
         })) || [],
         
-        // 🔧 Özel Şartlar model formatına çevir - GÜÇLENLED
+        // 🔧 Özel Şartlar model formatına çevir - DOĞRU MAPPİNG
         ozelSartlar: formData.ozelSartlar?.filter(s => 
           s && (s.kisaltma?.trim() || s.notu?.trim())
         ).map((sart, index) => ({
-          koşulNo: index + 1, // Backend: koşulNo (required)
-          koşulMetni: (sart.kisaltma?.trim() || sart.notu?.trim() || ''), // Backend: koşulMetni (required)
-          aciklamaNotu: (sart.notu?.trim() || sart.kisaltma?.trim() || '') // Backend: aciklamaNotu
+          koşulNo: index + 1, // Backend: koşulNo (required) - otomatik ID
+          koşulMetni: (sart.kisaltma?.trim() || ''), // Frontend kisaltma → Backend koşulMetni
+          aciklamaNotu: (sart.notu?.trim() || '') // Frontend notu → Backend aciklamaNotu
         })) || []
       };
       
@@ -2656,84 +2768,146 @@ const TesvikForm = () => {
                             </Box>
             
             <Grid container spacing={3}>
-              {/* Destek Unsuru Seçimi */}
+              {/* Destek Unsuru Seçimi - DİNAMİK VERİ DESTEKLİ */}
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Destek Unsuru 🏛️</InputLabel>
-                    <Select
-                    value={destek.destekUnsuru || ''}
-                    onChange={(e) => handleDestekChange(index, 'destekUnsuru', e.target.value)}
-                    label="Destek Unsuru 🏛️"
-                    sx={{
-                      backgroundColor: '#ffffff',
-                      '&:hover .MuiOutlinedInput-notchedOutline': { 
-                        borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                        borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                <Autocomplete
+                  freeSolo
+                  value={destek.destekUnsuru || ''}
+                  onChange={(event, newValue) => {
+                    if (newValue && typeof newValue === 'object') {
+                      // Seçeneklerden biri seçildi
+                      handleDestekChange(index, 'destekUnsuru', newValue.value);
+                    } else if (newValue && typeof newValue === 'string') {
+                      // Yeni değer girdi
+                      handleDestekChange(index, 'destekUnsuru', newValue);
+                      
+                      // Sadece mevcut listede YOKSA ekle (duplicate önleme)
+                      const exists = templateData.destekUnsurlariOptions?.some(option => 
+                        (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
+                      );
+                      if (!exists && newValue.trim().length >= 3) {
+                        addNewDestekUnsuru(newValue.trim());
                       }
-                    }}
-                    >
-                      <MenuItem value="">
-                      <em>Destek türü seçiniz...</em>
-                      </MenuItem>
-                    {templateData.destekUnsurlariOptions?.map((destekOption, destekIndex) => (
-                      <MenuItem key={`destek-${index}-${destekIndex}-${destekOption.value}`} value={destekOption.value}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    } else {
+                      // Temizlendi
+                      handleDestekChange(index, 'destekUnsuru', '');
+                    }
+                  }}
+                  options={templateData.destekUnsurlariOptions || []}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.label || option.value || '';
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={`destek-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Chip
-                            label={destekOption.kategori}
+                          label={option.kategori}
                               size="small"
-                            sx={{ backgroundColor: destekOption.renk, color: 'white', fontSize: '0.7rem' }}
-                            />
-                          <Typography variant="body2">{destekOption.label}</Typography>
+                          sx={{ 
+                            backgroundColor: option.renk || '#6B7280', 
+                            color: 'white', 
+                            fontSize: '0.7rem' 
+                          }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
+                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                        </div>
                           </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Destek Unsuru 🏛️"
+                      placeholder="Destek türü seçin veya yeni ekleyin..."
+                      sx={{
+                        backgroundColor: '#ffffff',
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': { 
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                />
               </Grid>
 
-              {/* Şartları Seçimi */}
+              {/* Şartları Seçimi - DİNAMİK VERİ DESTEKLİ */}
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Şartları ⚖️</InputLabel>
-                    <Select
-                    value={destek.sartlari || ''}
-                    onChange={(e) => handleDestekChange(index, 'sartlari', e.target.value)}
-                    label="Şartları ⚖️"
-                    sx={{
-                      backgroundColor: '#ffffff',
-                      '&:hover .MuiOutlinedInput-notchedOutline': { 
-                        borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                        borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                <Autocomplete
+                  freeSolo
+                  value={destek.sartlari || ''}
+                  onChange={(event, newValue) => {
+                    if (newValue && typeof newValue === 'object') {
+                      // Seçeneklerden biri seçildi
+                      handleDestekChange(index, 'sartlari', newValue.value);
+                    } else if (newValue && typeof newValue === 'string') {
+                      // Yeni değer girdi
+                      handleDestekChange(index, 'sartlari', newValue);
+                      
+                      // Sadece mevcut listede YOKSA ekle (duplicate önleme)
+                      const exists = templateData.destekSartlariOptions?.some(option => 
+                        (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
+                      );
+                      if (!exists && newValue.trim().length >= 3) {
+                        addNewDestekSarti(newValue.trim());
                       }
-                    }}
-                    >
-                      <MenuItem value="">
-                      <em>Şart seçiniz...</em>
-                      </MenuItem>
-                      {templateData.destekSartlariOptions?.map((sart, sartIndex) => (
-                      <MenuItem key={`sart-${index}-${sartIndex}-${sart.value}`} value={sart.value}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {sart.label}
-                            </Typography>
+                    } else {
+                      // Temizlendi
+                      handleDestekChange(index, 'sartlari', '');
+                    }
+                  }}
+                  options={templateData.destekSartlariOptions || []}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.label || option.value || '';
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={`sart-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{option.label}</span>
+                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                        </div>
                             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                              <Chip label={sart.kategori} size="small" variant="outlined" />
-                              {sart.yuzde && <Chip label={`%${sart.yuzde}`} size="small" color="success" />}
-                              {sart.yil && <Chip label={`${sart.yil} yıl`} size="small" color="info" />}
+                          <Chip label={option.kategori} size="small" variant="outlined" />
+                          {option.yuzde && <Chip label={`%${option.yuzde}`} size="small" color="success" />}
+                          {option.yil && <Chip label={`${option.yil} yıl`} size="small" color="info" />}
                             </Box>
                           </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Şartları ⚖️"
+                      placeholder="Şart seçin veya yeni ekleyin..."
+                      sx={{
+                        backgroundColor: '#ffffff',
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': { 
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                />
               </Grid>
           </Grid>
         </Paper>
-        </Grid>
+      </Grid>
       ))}
 
       {/* Add Destek Unsuru Butonu */}
@@ -2860,73 +3034,133 @@ const TesvikForm = () => {
                           </Typography>
                 </Box>
             <Grid container spacing={3}>
-              {/* Özel Şart Kısaltma Seçimi */}
+              {/* Özel Şart Kısaltma Seçimi - DİNAMİK VERİ DESTEKLİ */}
             <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Özel Şart Kısaltma</InputLabel>
-                  <Select
-                    value={sart.kisaltma || ''}
-                    onChange={(e) => handleOzelSartChange(index, 'kisaltma', e.target.value)}
-                    label="Özel Şart Kısaltma"
-                    sx={{
-                      backgroundColor: '#ffffff',
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                <Autocomplete
+                  freeSolo
+                  value={sart.kisaltma || ''}
+                  onChange={(event, newValue) => {
+                    if (newValue && typeof newValue === 'object') {
+                      // Seçeneklerden biri seçildi
+                      handleOzelSartChange(index, 'kisaltma', newValue.value);
+                    } else if (newValue && typeof newValue === 'string') {
+                      // Yeni değer girdi
+                      handleOzelSartChange(index, 'kisaltma', newValue);
+                      
+                      // Sadece mevcut listede YOKSA ekle (duplicate önleme)
+                      const exists = templateData.ozelSartKisaltmalari?.some(option => 
+                        (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
+                      );
+                      if (!exists && newValue.trim().length >= 2) {
+                        addNewOzelSart(newValue.trim());
                       }
-                    }}
-                  >
-                    <MenuItem value="">
-                      <em>Kısaltma seçiniz...</em>
-                    </MenuItem>
-                    {templateData.ozelSartKisaltmalari?.map((kisaltma, kisaltmaIndex) => (
-                      <MenuItem key={`kisaltma-${index}-${kisaltmaIndex}-${kisaltma.value}`} value={kisaltma.value}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    } else {
+                      // Temizlendi
+                      handleOzelSartChange(index, 'kisaltma', '');
+                    }
+                  }}
+                  options={templateData.ozelSartKisaltmalari || []}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.label || option.value || '';
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={`kisaltma-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Chip
-                            label={kisaltma.kategori}
+                          label={option.kategori}
                             size="small"
-                            sx={{ backgroundColor: kisaltma.renk, color: 'white', fontSize: '0.7rem' }}
-                          />
-                          <Typography variant="body2">{kisaltma.label}</Typography>
+                          sx={{ backgroundColor: option.renk || '#6B7280', color: 'white', fontSize: '0.7rem' }}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
+                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                        </div>
                         </Box>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Özel Şart Kısaltma"
+                      placeholder="Kısaltma seçin veya yeni ekleyin..."
+                      sx={{
+                        backgroundColor: '#ffffff',
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                />
               </Grid>
 
-              {/* Özel Şart Notu Seçimi */}
+              {/* Özel Şart Notu Seçimi - DİNAMİK VERİ DESTEKLİ */}
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Özel Şart Notu 📝</InputLabel>
-                  <Select
-                    value={sart.notu || ''}
-                    onChange={(e) => handleOzelSartChange(index, 'notu', e.target.value)}
-                    label="Özel Şart Notu 📝"
-                    sx={{
-                      backgroundColor: '#ffffff',
-                      '&:hover .MuiOutlinedInput-notchedOutline': {
-                        borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
-                      },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                        borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                <Autocomplete
+                  freeSolo
+                  value={sart.notu || ''}
+                  onChange={(event, newValue) => {
+                    if (newValue && typeof newValue === 'object') {
+                      // Seçeneklerden biri seçildi
+                      handleOzelSartChange(index, 'notu', newValue.value);
+                    } else if (newValue && typeof newValue === 'string') {
+                      // Yeni değer girdi
+                      handleOzelSartChange(index, 'notu', newValue);
+                      
+                      // Sadece mevcut listede YOKSA ekle (duplicate önleme)
+                      const exists = templateData.ozelSartNotlari?.some(option => 
+                        (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
+                      );
+                      if (!exists && newValue.trim().length >= 3) {
+                        addNewOzelSartNotu(newValue.trim());
                       }
-                    }}
-                  >
-                    <MenuItem value="">
-                      <em>Not seçiniz...</em>
-                    </MenuItem>
-                    {templateData.ozelSartNotlari?.map((not, notIndex) => (
-                      <MenuItem key={`not-${index}-${notIndex}-${not}`} value={not}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {not}
-                        </Typography>
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    } else {
+                      // Temizlendi
+                      handleOzelSartChange(index, 'notu', '');
+                    }
+                  }}
+                  options={templateData.ozelSartNotlari || []}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return option.label || option.value || '';
+                  }}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={`notu-${option.value || option.label || option}-${Math.random()}`} {...otherProps}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{typeof option === 'string' ? option : option.label}</span>
+                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                        </div>
+              </Box>
+                    );
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Özel Şart Notu 📝"
+                      placeholder="Not seçin veya yeni ekleyin..."
+                      sx={{
+                        backgroundColor: '#ffffff',
+                        '& .MuiOutlinedInput-root': {
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ea580c' : '#f97316'
+                          }
+                        }
+                      }}
+                    />
+                  )}
+                />
             </Grid>
           </Grid>
           </Paper>
@@ -3145,6 +3379,7 @@ const TesvikForm = () => {
     }));
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     formData.finansalBilgiler?.araziArsaBedeli?.metrekaresi,
     formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl,
@@ -3165,8 +3400,8 @@ const TesvikForm = () => {
     formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri,
-    formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri,
-    // ⚠️ calculateFinansalTotals KALDIRILDI - infinite loop'u önlemek için
+    formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri
+    // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
   ]);
 
   // 💰 5. FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Tablo
@@ -3969,25 +4204,7 @@ const TesvikForm = () => {
                         📊 Excel Çıktı
                       </Button>
                       
-                      <Button
-                        variant="outlined"
-                        onClick={() => handlePDFExport()}
-                        disabled={!formData.gmId || !formData.tesvikId}
-                        startIcon={<PictureAsPdfIcon />}
-                        size="large"
-                        sx={{ 
-                          color: '#dc2626',
-                          borderColor: '#dc2626',
-                          fontWeight: 600,
-                          px: 3,
-                          '&:hover': {
-                            backgroundColor: '#fef2f2',
-                            borderColor: '#dc2626'
-                          }
-                        }}
-                      >
-                        📄 PDF Çıktı
-                      </Button>
+
                       
                     <Button
                       variant="contained"

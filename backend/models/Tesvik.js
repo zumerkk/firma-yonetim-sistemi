@@ -565,6 +565,129 @@ tesvikSchema.methods.addRevizyon = function(revizyonData) {
   }
 };
 
+// 🎯 OTOMATIK CHANGE TRACKING - Pre Save Hook
+tesvikSchema.pre('save', function(next) {
+  // Yeni dokümanse değilse (update işlemi)
+  if (!this.isNew) {
+    // Değişen alanları tespit et
+    const modifiedPaths = this.modifiedPaths();
+    
+    if (modifiedPaths.length > 0) {
+      // Revizyonlar alanı değişmişse (manuel revizyon eklemesi) pas geç
+      if (modifiedPaths.includes('revizyonlar')) {
+        return next();
+      }
+      
+      const degisikenAlanlar = [];
+      
+      modifiedPaths.forEach(path => {
+        // Önemli sistemsel alanları filtrele
+        if (!['updatedAt', 'sonGuncelleyen', 'sonGuncellemeNotlari', '__v'].includes(path)) {
+          const eskiDeger = this._original ? this._original[path] : this.get(path);
+          const yeniDeger = this.get(path);
+          
+          // Değer gerçekten değişmişse kaydet
+          if (JSON.stringify(eskiDeger) !== JSON.stringify(yeniDeger)) {
+            degisikenAlanlar.push({
+              alan: path,
+              eskiDeger: eskiDeger,
+              yeniDeger: yeniDeger
+            });
+          }
+        }
+      });
+      
+      // Değişiklik varsa otomatik revizyon ekle
+      if (degisikenAlanlar.length > 0) {
+        const revizyonNo = this.revizyonlar.length + 1;
+        
+        this.revizyonlar.push({
+          revizyonNo,
+          revizyonTarihi: new Date(),
+          revizyonSebebi: 'Otomatik Güncelleme',
+          yapanKullanici: this.sonGuncelleyen,
+          degisikenAlanlar: degisikenAlanlar,
+          durumOncesi: this.durumBilgileri?.genelDurum,
+          durumSonrasi: this.durumBilgileri?.genelDurum
+        });
+      }
+    }
+  }
+  
+  next();
+});
+
+// 📊 Post Save Hook - Original değerini kaydet
+tesvikSchema.post('init', function() {
+  this._original = this.toObject();
+});
+
+// 🔍 Değişiklik Detay Analizi için Method
+tesvikSchema.methods.analyzeChanges = function(originalData) {
+  const changes = {
+    belgeYonetimi: [],
+    yatirimBilgileri: [],
+    finansalBilgiler: [],
+    urunBilgileri: [],
+    destekUnsurlari: [],
+    ozelSartlar: []
+  };
+  
+  // Ana kategorileri kontrol et
+  const categories = Object.keys(changes);
+  
+  categories.forEach(category => {
+    const original = originalData[category] || {};
+    const current = this[category] || {};
+    
+    // Deep comparison ile değişiklikleri tespit et
+    const categoryChanges = this.deepCompare(original, current, category);
+    if (categoryChanges.length > 0) {
+      changes[category] = categoryChanges;
+    }
+  });
+  
+  return changes;
+};
+
+// 🔍 Deep Comparison Helper
+tesvikSchema.methods.deepCompare = function(obj1, obj2, parentPath = '') {
+  const changes = [];
+  const allKeys = new Set([...Object.keys(obj1), ...Object.keys(obj2)]);
+  
+  allKeys.forEach(key => {
+    const fullPath = parentPath ? `${parentPath}.${key}` : key;
+    const val1 = obj1[key];
+    const val2 = obj2[key];
+    
+    if (Array.isArray(val1) && Array.isArray(val2)) {
+      // Array değişiklikleri
+      if (JSON.stringify(val1) !== JSON.stringify(val2)) {
+        changes.push({
+          field: fullPath,
+          oldValue: val1,
+          newValue: val2,
+          changeType: 'array_modified'
+        });
+      }
+    } else if (typeof val1 === 'object' && typeof val2 === 'object' && val1 && val2) {
+      // Nested object değişiklikleri
+      const nestedChanges = this.deepCompare(val1, val2, fullPath);
+      changes.push(...nestedChanges);
+    } else if (val1 !== val2) {
+      // Primitive değer değişiklikleri
+      changes.push({
+        field: fullPath,
+        oldValue: val1,
+        newValue: val2,
+        changeType: val1 === undefined ? 'added' : val2 === undefined ? 'removed' : 'modified'
+      });
+    }
+  });
+  
+  return changes;
+};
+
 // 📊 Static Methods
 tesvikSchema.statics.findByTesvikId = function(tesvikId) {
   return this.findOne({ tesvikId: tesvikId.toUpperCase(), aktif: true });

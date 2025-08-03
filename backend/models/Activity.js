@@ -123,7 +123,22 @@ const activitySchema = new mongoose.Schema({
       type: String,
       validate: {
         validator: function(v) {
-          return !v || /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$|^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/.test(v);
+          if (!v) return true;
+          
+          // Localhost IP'leri (development için)
+          if (v === '::1' || v === '127.0.0.1' || v === 'localhost') {
+            return true;
+          }
+          
+          // IPv4 validation
+          const ipv4 = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+          if (ipv4.test(v)) return true;
+          
+          // Basic IPv6 validation (simplified)
+          const ipv6 = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$/;
+          if (ipv6.test(v)) return true;
+          
+          return false;
         },
         message: 'Geçerli bir IP adresi giriniz'
       }

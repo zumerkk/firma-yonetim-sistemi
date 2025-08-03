@@ -30,7 +30,18 @@ const {
   getTesvikFormTemplate, // YENİ: Template verileri
   getNextGmId, // YENİ: GM ID generation
   addNewOption, // YENİ: Yeni seçenek ekleme
-  getOptionsForType // YENİ: Seçenekleri getirme
+  getOptionsForType, // YENİ: Seçenekleri getirme
+  getTesvikRevisions, // 🆕 Revizyon Geçmişi Getirme
+  
+  // 🎯 DİNAMİK VERİ YÖNETİMİ API'LERİ
+  getDynamicDestekUnsurlari,
+  addDestekUnsuru,
+  getDynamicDestekSartlari,
+  addDestekSarti,
+  getDynamicOzelSartlar,
+  addOzelSart,
+  getDynamicOzelSartNotlari,
+  addOzelSartNotu
 } = require('../controllers/tesvikController');
 
 // Middleware
@@ -477,6 +488,13 @@ router.post('/:id/revizyon',
   addTesvikRevizyon
 );
 
+// 📊 GET /api/tesvik/:id/revisions - Revizyon Geçmişi Getirme
+router.get('/:id/revisions', 
+  authenticate, 
+  checkPermission('belgeOkuma'),
+  getTesvikRevisions
+);
+
 // 🗑️ DELETE /api/tesvik/:id - Teşvik Silme (Soft delete)
 router.delete('/:id', 
   authenticate, 
@@ -671,5 +689,23 @@ router.get('/alerts/suresi-dolacaklar', authenticate, async (req, res) => {
     });
   }
 });
+
+// 🎯 ======== DİNAMİK VERİ YÖNETİMİ API'LERİ ========
+
+// 📋 Dinamik Destek Unsurları
+router.get('/dynamic/destek-unsurlari', authenticate, checkPermission('belgeOkuma'), getDynamicDestekUnsurlari);
+router.post('/dynamic/destek-unsuru', authenticate, checkPermission('belgeEkleme'), addDestekUnsuru);
+
+// 📋 Dinamik Destek Şartları  
+router.get('/dynamic/destek-sartlari', authenticate, checkPermission('belgeOkuma'), getDynamicDestekSartlari);
+router.post('/dynamic/destek-sarti', authenticate, checkPermission('belgeEkleme'), addDestekSarti);
+
+// 📋 Dinamik Özel Şartlar
+router.get('/dynamic/ozel-sartlar', authenticate, checkPermission('belgeOkuma'), getDynamicOzelSartlar);
+router.post('/dynamic/ozel-sart', authenticate, checkPermission('belgeEkleme'), addOzelSart);
+
+// 📋 Dinamik Özel Şart Notları
+router.get('/dynamic/ozel-sart-notlari', authenticate, checkPermission('belgeOkuma'), getDynamicOzelSartNotlari);
+router.post('/dynamic/ozel-sart-notu', authenticate, checkPermission('belgeEkleme'), addOzelSartNotu);
 
 module.exports = router;

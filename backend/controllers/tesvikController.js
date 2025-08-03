@@ -6,6 +6,7 @@ const Tesvik = require('../models/Tesvik');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
+const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const { validationResult } = require('express-validator');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
@@ -580,6 +581,621 @@ const addTesvikRevizyon = async (req, res) => {
   }
 };
 
+// 📊 REVİZYON GEÇMİŞİ GETIRME
+const getTesvikRevisions = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ID format'ını kontrol et: ObjectId mi yoksa TesvikId mi?
+    let tesvik;
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      // ObjectId format (24 karakter hex)
+      tesvik = await Tesvik.findById(id)
+        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
+        .select('tesvikId revizyonlar aktif');
+    } else {
+      // TesvikId format (TES20250007 gibi)
+      tesvik = await Tesvik.findOne({ tesvikId: id })
+        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
+        .select('tesvikId revizyonlar aktif');
+    }
+
+    if (!tesvik) {
+      console.log(`🚨 Teşvik bulunamadı: ${id}`);
+      return res.status(404).json({
+        success: false,
+        message: 'Teşvik bulunamadı'
+      });
+    }
+
+    // Aktif olmayan teşvikler için de revizyon geçmişini gösterelim
+    if (tesvik.aktif === false) {
+      console.log(`⚠️ Pasif teşvik için revizyon geçmişi istendi: ${id}`);
+    }
+
+    // Revizyonları en son eklenen ilk sırada sırala
+    const formattedRevisions = tesvik.revizyonlar
+      .sort((a, b) => new Date(b.revizyonTarihi) - new Date(a.revizyonTarihi))
+      .map(revision => ({
+        revizyonNo: revision.revizyonNo,
+        tarih: revision.revizyonTarihi,
+        sebep: revision.revizyonSebebi,
+        yapanKullanici: {
+          ad: revision.yapanKullanici?.adSoyad || 'Bilinmeyen Kullanıcı',
+          email: revision.yapanKullanici?.email,
+          rol: revision.yapanKullanici?.rol
+        },
+        degisikenAlanlar: revision.degisikenAlanlar || [],
+        durumOncesi: revision.durumOncesi,
+        durumSonrasi: revision.durumSonrasi
+      }));
+
+    res.json({
+      success: true,
+      message: 'Revizyon geçmişi başarıyla getirildi',
+      data: formattedRevisions,
+      count: formattedRevisions.length
+    });
+
+  } catch (error) {
+    console.error('🚨 Revizyon geçmişi getirme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Revizyon geçmişi getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// 🎯 ======== DİNAMİK VERİ YÖNETİMİ API'LERİ ========
+
+// 📋 Dinamik Destek Unsurları Getirme
+const getDynamicDestekUnsurlari = async (req, res) => {
+  try {
+    console.log('🎯 Dinamik destek unsurları yükleniyor...');
+
+    // Statik veri + dinamik veri birleşimi
+    const staticOptions = getDestekUnsurlariOptions();
+    
+    // Veritabanından dinamik veriyi al
+    const dynamicOptions = await DestekUnsuru.find({ aktif: true })
+      .populate('ekleyenKullanici', 'adSoyad')
+      .sort({ kullanimSayisi: -1, createdAt: -1 })
+      .lean();
+
+    // Dinamik verileri statik formatına çevir
+    const formattedDynamic = dynamicOptions.map(item => ({
+      value: item.value,
+      label: item.label,
+      kategori: item.kategori,
+      renk: item.renk,
+      isDynamic: true,
+      kullanimSayisi: item.kullanimSayisi,
+      ekleyenKullanici: item.ekleyenKullanici?.adSoyad
+    }));
+
+    // Statik + dinamik verileri birleştir
+    const allOptions = [...staticOptions, ...formattedDynamic];
+
+    console.log(`✅ ${staticOptions.length} statik + ${dynamicOptions.length} dinamik = ${allOptions.length} toplam destek unsuru`);
+
+    res.json({
+      success: true,
+      message: 'Destek unsurları başarıyla getirildi',
+      data: allOptions,
+      counts: {
+        static: staticOptions.length,
+        dynamic: dynamicOptions.length,
+        total: allOptions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Dinamik destek unsurları hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Destek unsurları getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// ➕ Yeni Destek Unsuru Ekleme
+const addDestekUnsuru = async (req, res) => {
+  try {
+    const { value, label, kategori = 'Diğer', renk = '#6B7280' } = req.body;
+
+    if (!value || !label) {
+      return res.status(400).json({
+        success: false,
+        message: 'Değer ve label alanları zorunludur'
+      });
+    }
+
+    // Aynı değer var mı kontrol et
+    const existing = await DestekUnsuru.findOne({ value: value.trim() });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Bu destek unsuru zaten mevcut'
+      });
+    }
+
+    // Yeni destek unsuru oluştur
+    const yeniDestekUnsuru = new DestekUnsuru({
+      value: value.trim(),
+      label: label.trim(),
+      kategori,
+      renk,
+      ekleyenKullanici: req.user._id
+    });
+
+    await yeniDestekUnsuru.save();
+
+    // Activity log
+    await Activity.create({
+      user: {
+        id: req.user._id,
+        name: req.user.adSoyad || `${req.user.ad} ${req.user.soyad}` || 'Kullanıcı',
+        email: req.user.email || 'unknown@example.com'
+      },
+      action: 'create',
+      title: 'Yeni Destek Unsuru Eklendi',
+      description: `Yeni destek unsuru eklendi: ${label}`,
+      ip: req.ip || '127.0.0.1',
+      userAgent: req.get('User-Agent') || 'Unknown'
+    });
+
+    console.log(`✅ Yeni destek unsuru eklendi: ${label} (${value})`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Destek unsuru başarıyla eklendi',
+      data: {
+        value: yeniDestekUnsuru.value,
+        label: yeniDestekUnsuru.label,
+        kategori: yeniDestekUnsuru.kategori,
+        renk: yeniDestekUnsuru.renk,
+        isDynamic: true
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Destek unsuru ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Destek unsuru eklenemedi',
+      error: error.message
+    });
+  }
+};
+
+// 📋 Dinamik Destek Şartları Getirme
+const getDynamicDestekSartlari = async (req, res) => {
+  try {
+    console.log('🎯 Dinamik destek şartları yükleniyor...');
+
+    const staticOptions = getDestekSartlariOptions();
+    
+    const dynamicOptions = await DestekSarti.find({ aktif: true })
+      .populate('ekleyenKullanici', 'adSoyad')
+      .sort({ kullanimSayisi: -1, createdAt: -1 })
+      .lean();
+
+    const formattedDynamic = dynamicOptions.map(item => ({
+      value: item.value,
+      label: item.label,
+      kategori: item.kategori,
+      yuzde: item.yuzde,
+      yil: item.yil,
+      isDynamic: true,
+      kullanimSayisi: item.kullanimSayisi,
+      ekleyenKullanici: item.ekleyenKullanici?.adSoyad
+    }));
+
+    const allOptions = [...staticOptions, ...formattedDynamic];
+
+    console.log(`✅ ${staticOptions.length} statik + ${dynamicOptions.length} dinamik = ${allOptions.length} toplam destek şartı`);
+
+    res.json({
+      success: true,
+      message: 'Destek şartları başarıyla getirildi',
+      data: allOptions,
+      counts: {
+        static: staticOptions.length,
+        dynamic: dynamicOptions.length,
+        total: allOptions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Dinamik destek şartları hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Destek şartları getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// ➕ Yeni Destek Şartı Ekleme
+const addDestekSarti = async (req, res) => {
+  try {
+    const { value, label, kategori = 'Diğer', yuzde, yil } = req.body;
+
+    if (!value || !label) {
+      return res.status(400).json({
+        success: false,
+        message: 'Değer ve label alanları zorunludur'
+      });
+    }
+
+    const existing = await DestekSarti.findOne({ value: value.trim() });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Bu destek şartı zaten mevcut'
+      });
+    }
+
+    const yeniDestekSarti = new DestekSarti({
+      value: value.trim(),
+      label: label.trim(),
+      kategori,
+      yuzde,
+      yil,
+      ekleyenKullanici: req.user._id
+    });
+
+    await yeniDestekSarti.save();
+
+    await Activity.create({
+      user: {
+        id: req.user._id,
+        name: req.user.adSoyad || `${req.user.ad} ${req.user.soyad}` || 'Kullanıcı',
+        email: req.user.email || 'unknown@example.com'
+      },
+      action: 'create',
+      title: 'Yeni Destek Şartı Eklendi',
+      description: `Yeni destek şartı eklendi: ${label}`,
+      ip: req.ip || '127.0.0.1',
+      userAgent: req.get('User-Agent') || 'Unknown'
+    });
+
+    console.log(`✅ Yeni destek şartı eklendi: ${label}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Destek şartı başarıyla eklendi',
+      data: {
+        value: yeniDestekSarti.value,
+        label: yeniDestekSarti.label,
+        kategori: yeniDestekSarti.kategori,
+        yuzde: yeniDestekSarti.yuzde,
+        yil: yeniDestekSarti.yil,
+        isDynamic: true
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Destek şartı ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Destek şartı eklenemedi',
+      error: error.message
+    });
+  }
+};
+
+// 📋 Dinamik Özel Şartlar Getirme
+const getDynamicOzelSartlar = async (req, res) => {
+  try {
+    console.log('🎯 Dinamik özel şartlar yükleniyor...');
+
+    const staticOptions = getOzelSartKisaltmalariOptions();
+    
+    const dynamicOptions = await OzelSart.find({ aktif: true })
+      .populate('ekleyenKullanici', 'adSoyad')
+      .sort({ kullanimSayisi: -1, createdAt: -1 })
+      .lean();
+
+    const formattedDynamic = dynamicOptions.map(item => ({
+      value: item.kisaltma,
+      label: `${item.kisaltma} - ${item.aciklama}`,
+      kisaltma: item.kisaltma,
+      aciklama: item.aciklama,
+      kategori: item.kategori,
+      isDynamic: true,
+      kullanimSayisi: item.kullanimSayisi,
+      ekleyenKullanici: item.ekleyenKullanici?.adSoyad
+    }));
+
+    const allOptions = [...staticOptions, ...formattedDynamic];
+
+    console.log(`✅ ${staticOptions.length} statik + ${dynamicOptions.length} dinamik = ${allOptions.length} toplam özel şart`);
+
+    res.json({
+      success: true,
+      message: 'Özel şartlar başarıyla getirildi',
+      data: allOptions,
+      counts: {
+        static: staticOptions.length,
+        dynamic: dynamicOptions.length,
+        total: allOptions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Dinamik özel şartlar hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Özel şartlar getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// ➕ Yeni Özel Şart Ekleme
+const addOzelSart = async (req, res) => {
+  try {
+    const { kisaltma, aciklama, kategori = 'Diğer' } = req.body;
+
+    if (!kisaltma || !aciklama) {
+      return res.status(400).json({
+        success: false,
+        message: 'Kısaltma ve açıklama alanları zorunludur'
+      });
+    }
+
+    const existing = await OzelSart.findOne({ kisaltma: kisaltma.trim().toUpperCase() });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Bu kısaltma zaten mevcut'
+      });
+    }
+
+    const yeniOzelSart = new OzelSart({
+      kisaltma: kisaltma.trim().toUpperCase(),
+      aciklama: aciklama.trim(),
+      kategori,
+      ekleyenKullanici: req.user._id
+    });
+
+    await yeniOzelSart.save();
+
+    await Activity.create({
+      user: {
+        id: req.user._id,
+        name: req.user.adSoyad || `${req.user.ad} ${req.user.soyad}` || 'Kullanıcı',
+        email: req.user.email || 'unknown@example.com'
+      },
+      action: 'create',
+      title: 'Yeni Özel Şart Eklendi',
+      description: `Yeni özel şart eklendi: ${kisaltma} - ${aciklama}`,
+      ip: req.ip || '127.0.0.1',
+      userAgent: req.get('User-Agent') || 'Unknown'
+    });
+
+    console.log(`✅ Yeni özel şart eklendi: ${kisaltma} - ${aciklama}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Özel şart başarıyla eklendi',
+      data: {
+        value: yeniOzelSart.kisaltma,
+        label: `${yeniOzelSart.kisaltma} - ${yeniOzelSart.aciklama}`,
+        kisaltma: yeniOzelSart.kisaltma,
+        aciklama: yeniOzelSart.aciklama,
+        kategori: yeniOzelSart.kategori,
+        isDynamic: true
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Özel şart ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Özel şart eklenemedi',
+      error: error.message
+    });
+  }
+};
+
+// 📋 Dinamik Özel Şart Notları Getirme
+const getDynamicOzelSartNotlari = async (req, res) => {
+  try {
+    console.log('🎯 Dinamik özel şart notları yükleniyor...');
+
+    const staticOptions = getOzelSartNotlariOptions();
+    
+    const dynamicOptions = await OzelSartNotu.find({ aktif: true })
+      .populate('ekleyenKullanici', 'adSoyad')
+      .sort({ kullanimSayisi: -1, createdAt: -1 })
+      .lean();
+
+    const formattedDynamic = dynamicOptions.map(item => ({
+      value: item.value,
+      label: item.label,
+      kategori: item.kategori,
+      isDynamic: true,
+      kullanimSayisi: item.kullanimSayisi,
+      ekleyenKullanici: item.ekleyenKullanici?.adSoyad
+    }));
+
+    const allOptions = [...staticOptions, ...formattedDynamic];
+
+    console.log(`✅ ${staticOptions.length} statik + ${dynamicOptions.length} dinamik = ${allOptions.length} toplam özel şart notu`);
+
+    res.json({
+      success: true,
+      message: 'Özel şart notları başarıyla getirildi',
+      data: allOptions,
+      counts: {
+        static: staticOptions.length,
+        dynamic: dynamicOptions.length,
+        total: allOptions.length
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Dinamik özel şart notları hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Özel şart notları getirilemedi',
+      error: error.message
+    });
+  }
+};
+
+// ➕ Yeni Özel Şart Notu Ekleme
+const addOzelSartNotu = async (req, res) => {
+  try {
+    const { value, label, kategori = 'Diğer' } = req.body;
+
+    if (!value || !label) {
+      return res.status(400).json({
+        success: false,
+        message: 'Değer ve label alanları zorunludur'
+      });
+    }
+
+    const existing = await OzelSartNotu.findOne({ value: value.trim() });
+    if (existing) {
+      return res.status(409).json({
+        success: false,
+        message: 'Bu özel şart notu zaten mevcut'
+      });
+    }
+
+    const yeniOzelSartNotu = new OzelSartNotu({
+      value: value.trim(),
+      label: label.trim(),
+      kategori,
+      ekleyenKullanici: req.user._id
+    });
+
+    await yeniOzelSartNotu.save();
+
+    await Activity.create({
+      user: {
+        id: req.user._id,
+        name: req.user.adSoyad || `${req.user.ad} ${req.user.soyad}` || 'Kullanıcı',
+        email: req.user.email || 'unknown@example.com'
+      },
+      action: 'create',
+      title: 'Yeni Özel Şart Notu Eklendi',
+      description: `Yeni özel şart notu eklendi: ${label}`,
+      ip: req.ip || '127.0.0.1',
+      userAgent: req.get('User-Agent') || 'Unknown'
+    });
+
+    console.log(`✅ Yeni özel şart notu eklendi: ${label}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Özel şart notu başarıyla eklendi',
+      data: {
+        value: yeniOzelSartNotu.value,
+        label: yeniOzelSartNotu.label,
+        kategori: yeniOzelSartNotu.kategori,
+        isDynamic: true
+      }
+    });
+
+  } catch (error) {
+    console.error('🚨 Özel şart notu ekleme hatası:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Özel şart notu eklenemedi',
+      error: error.message
+    });
+  }
+};
+
+// 🎯 ======== TEMPLATE İÇİN DİNAMİK VERİ HELPER FONKSİYONLARI ========
+
+// Dinamik Destek Unsurları Verisi (Template için)
+const getDynamicDestekUnsurlariData = async () => {
+  const staticOptions = getDestekUnsurlariOptions();
+  
+  const dynamicOptions = await DestekUnsuru.find({ aktif: true })
+    .sort({ kullanimSayisi: -1, createdAt: -1 })
+    .lean();
+
+  const formattedDynamic = dynamicOptions.map(item => ({
+    value: item.value,
+    label: item.label,
+    kategori: item.kategori,
+    renk: item.renk,
+    isDynamic: true,
+    kullanimSayisi: item.kullanimSayisi
+  }));
+
+  return [...staticOptions, ...formattedDynamic];
+};
+
+// Dinamik Destek Şartları Verisi (Template için)
+const getDynamicDestekSartlariData = async () => {
+  const staticOptions = getDestekSartlariOptions();
+  
+  const dynamicOptions = await DestekSarti.find({ aktif: true })
+    .sort({ kullanimSayisi: -1, createdAt: -1 })
+    .lean();
+
+  const formattedDynamic = dynamicOptions.map(item => ({
+    value: item.value,
+    label: item.label,
+    kategori: item.kategori,
+    yuzde: item.yuzde,
+    yil: item.yil,
+    isDynamic: true,
+    kullanimSayisi: item.kullanimSayisi
+  }));
+
+  return [...staticOptions, ...formattedDynamic];
+};
+
+// Dinamik Özel Şartlar Verisi (Template için)
+const getDynamicOzelSartlarData = async () => {
+  const staticOptions = getOzelSartKisaltmalariOptions();
+  
+  const dynamicOptions = await OzelSart.find({ aktif: true })
+    .sort({ kullanimSayisi: -1, createdAt: -1 })
+    .lean();
+
+  const formattedDynamic = dynamicOptions.map(item => ({
+    value: item.kisaltma,
+    label: `${item.kisaltma} - ${item.aciklama}`,
+    kisaltma: item.kisaltma,
+    aciklama: item.aciklama,
+    kategori: item.kategori,
+    isDynamic: true,
+    kullanimSayisi: item.kullanimSayisi
+  }));
+
+  return [...staticOptions, ...formattedDynamic];
+};
+
+// Dinamik Özel Şart Notları Verisi (Template için)
+const getDynamicOzelSartNotlariData = async () => {
+  const staticOptions = getOzelSartNotlariOptions();
+  
+  const dynamicOptions = await OzelSartNotu.find({ aktif: true })
+    .sort({ kullanimSayisi: -1, createdAt: -1 })
+    .lean();
+
+  const formattedDynamic = dynamicOptions.map(item => ({
+    value: item.value,
+    label: item.label,
+    kategori: item.kategori,
+    isDynamic: true,
+    kullanimSayisi: item.kullanimSayisi
+  }));
+
+  return [...staticOptions, ...formattedDynamic];
+};
+
 // 💰 MALİ HESAPLAMALAR OTOMATİK HESAPLAMA
 const calculateMaliHesaplamalar = async (req, res) => {
   try {
@@ -1019,17 +1635,17 @@ const getTesvikFormTemplate = async (req, res) => {
       // U$97 Kodları
       getU97KodlariOptions(),
 
-      // Destek Unsurları Seçenekleri
-      getDestekUnsurlariOptions(),
+      // 🎯 DİNAMİK DESTEK UNSURLARI (Statik + Dinamik Birleşim)
+      getDynamicDestekUnsurlariData(),
 
-      // Destek Şartları Seçenekleri
-      getDestekSartlariOptions(),
+      // 🎯 DİNAMİK DESTEK ŞARTLARI (Statik + Dinamik Birleşim)  
+      getDynamicDestekSartlariData(),
 
-      // Özel Şart Kısaltmaları - CSV'den
-      getOzelSartKisaltmalariOptions(),
+      // 🎯 DİNAMİK ÖZEL ŞARTLAR (Statik + Dinamik Birleşim)
+      getDynamicOzelSartlarData(),
 
-      // Özel Şart Notları
-      getOzelSartNotlariOptions()
+      // 🎯 DİNAMİK ÖZEL ŞART NOTLARI (Statik + Dinamik Birleşim)
+      getDynamicOzelSartNotlariData()
     ]);
 
     console.log(`✅ Template data loaded: ${firmalar.length} firmalar, GM ID: ${nextGmId}, Teşvik ID: ${nextTesvikId}`);
@@ -1813,13 +2429,25 @@ const exportRevizyonExcel = async (req, res) => {
     
     console.log(`📊 Revizyon Excel export başlatılıyor: ${id}`);
     
-    // Teşvik verisini revizyonları ve kullanıcı bilgileriyle getir
-    const tesvik = await Tesvik.findById(id)
-      .populate('firma', 'tamUnvan firmaId vergiNoTC')
-      .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
-      .populate('olusturanKullanici', 'adSoyad email')
-      .populate('sonGuncelleyen', 'adSoyad email')
-      .lean();
+    // ID format'ını kontrol et: ObjectId mi yoksa TesvikId mi?
+    let tesvik;
+    if (id.match(/^[0-9a-fA-F]{24}$/)) {
+      // ObjectId format (24 karakter hex)
+      tesvik = await Tesvik.findById(id)
+        .populate('firma', 'tamUnvan firmaId vergiNoTC')
+        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
+        .populate('olusturanKullanici', 'adSoyad email')
+        .populate('sonGuncelleyen', 'adSoyad email')
+        .lean();
+    } else {
+      // TesvikId format (TES20250007 gibi)
+      tesvik = await Tesvik.findOne({ tesvikId: id })
+        .populate('firma', 'tamUnvan firmaId vergiNoTC')
+        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
+        .populate('olusturanKullanici', 'adSoyad email')
+        .populate('sonGuncelleyen', 'adSoyad email')
+        .lean();
+    }
       
     if (!tesvik) {
       return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
@@ -1868,31 +2496,41 @@ const exportRevizyonExcel = async (req, res) => {
     // Revizyon geçmişi sayfası
     const revizyonSheet = workbook.addWorksheet('Revizyon Geçmişi');
     
-    // Ana başlık
-    revizyonSheet.mergeCells('A1:I1');
-    revizyonSheet.getCell('A1').value = `${tesvik.firma?.tamUnvan} - Teşvik Revizyon Geçmişi`;
+    // Ana başlık - 12 sütun için güncellendi
+    revizyonSheet.mergeCells('A1:L1');
+    revizyonSheet.getCell('A1').value = `${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} - REVİZYON GEÇMİŞİ RAPORU`;
     revizyonSheet.getCell('A1').style = headerStyle;
     
     // Teşvik bilgi satırı
-    revizyonSheet.mergeCells('A2:I2');
-    revizyonSheet.getCell('A2').value = `Teşvik ID: ${tesvik.tesvikId || tesvik.gmId} | Firma ID: ${tesvik.firma?.firmaId} | Vergi/TC: ${tesvik.firma?.vergiNoTC}`;
+    revizyonSheet.mergeCells('A2:L2');
+    revizyonSheet.getCell('A2').value = `Teşvik ID: ${tesvik.tesvikId || tesvik.gmId} | Firma: ${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} | Vergi/TC: ${tesvik.firma?.vergiNoTC || '-'}`;
     revizyonSheet.getCell('A2').style = {
       font: { bold: true, color: { argb: 'FF000000' }, size: 11 },
       fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F8FF' } },
       alignment: { horizontal: 'center', vertical: 'middle' }
     };
     
-    // Tablo başlıkları
+    // Boş satır bırak
+    revizyonSheet.mergeCells('A3:L3');
+    revizyonSheet.getCell('A3').value = '';
+    revizyonSheet.getCell('A3').style = {
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
+    };
+    
+    // Tablo başlıkları - Resimde gösterilen şablona uygun
     const headers = [
-      'Sıra',
-      'Revizyon No',
-      'Tarih',
-      'Durum Öncesi',
-      'Durum Sonrası', 
-      'Revizyon Sebebi',
-      'Yapan Kullanıcı',
-      'Kullanıcı Rolü',
-      'Açıklama'
+      'SIRA NO',
+      'TEŞVİK ID',
+      'FİRMA ÜNVANI',
+      'REVİZYON NO',
+      'REVİZYON TARİHİ',
+      'REVİZYON SEBEBİ',
+      'DEĞİŞEN ALAN',
+      'ESKİ DEĞER',
+      'YENİ DEĞER',
+      'DEĞİŞİKLİK YAPAN',
+      'KULLANICI ROLÜ',
+      'DURUM'
     ];
     
     headers.forEach((header, index) => {
@@ -1901,18 +2539,23 @@ const exportRevizyonExcel = async (req, res) => {
       cell.style = subHeaderStyle;
     });
     
-    // İlk oluşturma kaydı ekle
+    // İlk oluşturma kaydı ekle - Resim şablonuna uygun
     let rowIndex = 5;
+    let siraNo = 1;
+    
     const ilkKayit = [
-      1,
-      0,
-      tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.createdAt).toLocaleTimeString('tr-TR') : '',
-      '-',
-      tesvik.durumBilgileri?.genelDurum || 'taslak',
-      'İlk oluşturma',
-      tesvik.olusturanKullanici?.adSoyad || 'Sistem',
-      tesvik.olusturanKullanici?.rol || 'sistem',
-      'Teşvik belgesi ilk kez oluşturuldu'
+      siraNo,                                                                    // SIRA NO
+      tesvik.tesvikId || tesvik.gmId || '-',                                    // TEŞVİK ID
+      tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',                   // FİRMA ÜNVANI
+      0,                                                                        // REVİZYON NO
+      tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.createdAt).toLocaleTimeString('tr-TR') : '', // REVİZYON TARİHİ
+      'İlk Oluşturma',                                                          // REVİZYON SEBEBİ
+      'Sistem',                                                                 // DEĞİŞEN ALAN
+      '-',                                                                      // ESKİ DEĞER
+      'Teşvik belgesi oluşturuldu',                                            // YENİ DEĞER
+      tesvik.olusturanKullanici?.adSoyad || 'Sistem',                          // DEĞİŞİKLİK YAPAN
+      tesvik.olusturanKullanici?.rol || 'sistem',                              // KULLANICI ROLÜ
+      tesvik.durumBilgileri?.genelDurum || 'taslak'                            // DURUM
     ];
     
     ilkKayit.forEach((value, colIndex) => {
@@ -1920,7 +2563,7 @@ const exportRevizyonExcel = async (req, res) => {
       cell.value = value;
       cell.style = dataStyle;
       
-      // İlk satır için özel renk
+      // İlk satır için özel renk (yeşil)
       if (includeColors) {
         cell.style = {
           ...dataStyle,
@@ -1929,57 +2572,129 @@ const exportRevizyonExcel = async (req, res) => {
       }
     });
     
-    // Revizyon kayıtları
+    siraNo++;
+    
+    // Revizyon kayıtları - Her alan değişikliği için ayrı satır
     if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
-      tesvik.revizyonlar.forEach((revizyon, index) => {
-        rowIndex++;
-        const revizyonData = [
-          index + 2, // Sıra (ilk kayıt 1 olduğu için +2)
-          revizyon.revizyonNo,
-          revizyon.revizyonTarihi ? new Date(revizyon.revizyonTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizyon.revizyonTarihi).toLocaleTimeString('tr-TR') : '',
-          revizyon.durumOncesi || '-',
-          revizyon.durumSonrasi || '-',
-          revizyon.revizyonSebebi || '',
-          revizyon.yapanKullanici?.adSoyad || 'Bilinmiyor',
-          revizyon.yapanKullanici?.rol || '-',
-          revizyon.kullaniciNotu || revizyon.revizyonSebebi || ''
-        ];
+      tesvik.revizyonlar.forEach((revizyon) => {
+        const revizyonTarihi = revizyon.revizyonTarihi ? new Date(revizyon.revizyonTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizyon.revizyonTarihi).toLocaleTimeString('tr-TR') : '';
+        const yapanKullanici = revizyon.yapanKullanici?.adSoyad || 'Bilinmiyor';
+        const kullaniciRolu = revizyon.yapanKullanici?.rol || '-';
+        const durum = revizyon.durumSonrasi || tesvik.durumBilgileri?.genelDurum || '-';
         
-        revizyonData.forEach((value, colIndex) => {
-          const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
-          cell.value = value;
-          cell.style = dataStyle;
+        // Eğer değişiklik detayları varsa, her alan için ayrı satır
+        if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+          revizyon.degisikenAlanlar.forEach((degisiklik) => {
+            rowIndex++;
+            const revizyonData = [
+              siraNo,                                                             // SIRA NO
+              tesvik.tesvikId || tesvik.gmId || '-',                             // TEŞVİK ID
+              tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',            // FİRMA ÜNVANI
+              revizyon.revizyonNo,                                               // REVİZYON NO
+              revizyonTarihi,                                                    // REVİZYON TARİHİ
+              revizyon.revizyonSebebi || 'Güncelleme',                          // REVİZYON SEBEBİ
+              degisiklik.alan || 'Belirtilmemiş',                               // DEĞİŞEN ALAN
+              degisiklik.eskiDeger || '-',                                       // ESKİ DEĞER
+              degisiklik.yeniDeger || '-',                                       // YENİ DEĞER
+              yapanKullanici,                                                    // DEĞİŞİKLİK YAPAN
+              kullaniciRolu,                                                     // KULLANICI ROLÜ
+              durum                                                              // DURUM
+            ];
+            
+            revizyonData.forEach((value, colIndex) => {
+              const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
+              cell.value = value;
+              cell.style = dataStyle;
+              
+              // Durum bazında renk kodlaması (son sütun)
+              if (includeColors && colIndex === 11) { // DURUM sütunu
+                let fillColor = 'FFFFFFFF'; // Varsayılan beyaz
+                
+                switch (value) {
+                  case 'onaylandi':
+                    fillColor = 'FFD4EDDA'; // Yeşil
+                    break;
+                  case 'reddedildi':
+                    fillColor = 'FFF8D7DA'; // Kırmızı
+                    break;
+                  case 'revize_talep_edildi':
+                    fillColor = 'FFFFEAA7'; // Sarı
+                    break;
+                  case 'inceleniyor':
+                    fillColor = 'FFD1ECF1'; // Mavi
+                    break;
+                  case 'ek_belge_istendi':
+                    fillColor = 'FFFDEBD0'; // Turuncu
+                    break;
+                  default:
+                    fillColor = 'FFF0F0F0'; // Gri
+                }
+                
+                cell.style = {
+                  ...dataStyle,
+                  fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
+                };
+              }
+            });
+            
+            siraNo++;
+          });
+        } else {
+          // Değişiklik detayı yoksa, genel revizyon bilgisi olarak bir satır ekle
+          rowIndex++;
+          const revizyonData = [
+            siraNo,                                                             // SIRA NO
+            tesvik.tesvikId || tesvik.gmId || '-',                             // TEŞVİK ID
+            tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',            // FİRMA ÜNVANI
+            revizyon.revizyonNo,                                               // REVİZYON NO
+            revizyonTarihi,                                                    // REVİZYON TARİHİ
+            revizyon.revizyonSebebi || 'Güncelleme',                          // REVİZYON SEBEBİ
+            'Genel Güncelleme',                                               // DEĞİŞEN ALAN
+            '-',                                                               // ESKİ DEĞER
+            'Veriler güncellendi',                                            // YENİ DEĞER
+            yapanKullanici,                                                    // DEĞİŞİKLİK YAPAN
+            kullaniciRolu,                                                     // KULLANICI ROLÜ
+            durum                                                              // DURUM
+          ];
           
-          // Durum bazında renk kodlaması
-          if (includeColors && colIndex === 4) { // Durum Sonrası sütunu
-            let fillColor = 'FFFFFFFF'; // Varsayılan beyaz
+          revizyonData.forEach((value, colIndex) => {
+            const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
+            cell.value = value;
+            cell.style = dataStyle;
             
-            switch (value) {
-              case 'onaylandi':
-                fillColor = 'FFD4EDDA'; // Yeşil
-                break;
-              case 'reddedildi':
-                fillColor = 'FFF8D7DA'; // Kırmızı
-                break;
-              case 'revize_talep_edildi':
-                fillColor = 'FFFFEAA7'; // Sarı
-                break;
-              case 'inceleniyor':
-                fillColor = 'FFD1ECF1'; // Mavi
-                break;
-              case 'ek_belge_istendi':
-                fillColor = 'FFFDEBD0'; // Turuncu
-                break;
-              default:
-                fillColor = 'FFF0F0F0'; // Gri
+            // Durum bazında renk kodlaması
+            if (includeColors && colIndex === 11) {
+              let fillColor = 'FFFFFFFF';
+              
+              switch (value) {
+                case 'onaylandi':
+                  fillColor = 'FFD4EDDA';
+                  break;
+                case 'reddedildi':
+                  fillColor = 'FFF8D7DA';
+                  break;
+                case 'revize_talep_edildi':
+                  fillColor = 'FFFFEAA7';
+                  break;
+                case 'inceleniyor':
+                  fillColor = 'FFD1ECF1';
+                  break;
+                case 'ek_belge_istendi':
+                  fillColor = 'FFFDEBD0';
+                  break;
+                default:
+                  fillColor = 'FFF0F0F0';
+              }
+              
+              cell.style = {
+                ...dataStyle,
+                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
+              };
             }
-            
-            cell.style = {
-              ...dataStyle,
-              fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
-            };
-          }
-        });
+          });
+          
+          siraNo++;
+        }
       });
     }
     
@@ -2013,49 +2728,79 @@ const exportRevizyonExcel = async (req, res) => {
       }
     }
     
-    // Sütun genişlikleri
+    // Sütun genişlikleri - Resim şablonuna uygun
     revizyonSheet.columns = [
-      { width: 8 },   // Sıra
-      { width: 12 },  // Revizyon No
-      { width: 20 },  // Tarih
-      { width: 18 },  // Durum Öncesi
-      { width: 18 },  // Durum Sonrası
-      { width: 30 },  // Revizyon Sebebi
-      { width: 20 },  // Yapan Kullanıcı
-      { width: 15 },  // Kullanıcı Rolü
-      { width: 40 }   // Açıklama
+      { width: 8 },   // SIRA NO
+      { width: 15 },  // TEŞVİK ID
+      { width: 25 },  // FİRMA ÜNVANI
+      { width: 12 },  // REVİZYON NO
+      { width: 20 },  // REVİZYON TARİHİ
+      { width: 25 },  // REVİZYON SEBEBİ
+      { width: 20 },  // DEĞİŞEN ALAN
+      { width: 25 },  // ESKİ DEĞER
+      { width: 25 },  // YENİ DEĞER
+      { width: 20 },  // DEĞİŞİKLİK YAPAN
+      { width: 15 },  // KULLANICI ROLÜ
+      { width: 15 }   // DURUM
     ];
     
     // Özet sayfası ekle
     const ozetSheet = workbook.addWorksheet('Özet');
     
     // Özet başlık
-    ozetSheet.mergeCells('A1:D1');
-    ozetSheet.getCell('A1').value = 'REVİZYON ÖZETİ';
+    ozetSheet.mergeCells('A1:L1');
+    ozetSheet.getCell('A1').value = 'REVİZYON ÖZETİ RAPORU';
     ozetSheet.getCell('A1').style = headerStyle;
+    
+    // Özet bilgi başlığı
+    ozetSheet.mergeCells('A2:L2');
+    ozetSheet.getCell('A2').value = `${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} - Revizyon İstatistikleri`;
+    ozetSheet.getCell('A2').style = {
+      font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
+      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } },
+      alignment: { horizontal: 'center', vertical: 'middle' }
+    };
     
     // Özet bilgileri
     const ozetBilgileri = [
+      ['Teşvik ID:', tesvik.tesvikId || tesvik.gmId || '-'],
+      ['Firma Ünvanı:', tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'],
       ['Toplam Revizyon Sayısı:', (tesvik.revizyonlar?.length || 0) + 1], // +1 ilk oluşturma için
       ['Mevcut Durum:', tesvik.durumBilgileri?.genelDurum || 'taslak'],
-      ['İlk Oluşturma:', tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') : '-'],
-      ['Son Güncelleme:', tesvik.updatedAt ? new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') : '-'],
-      ['Son Güncelleyen:', tesvik.sonGuncelleyen?.adSoyad || 'Sistem']
+      ['İlk Oluşturma Tarihi:', tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') : '-'],
+      ['Son Güncelleme Tarihi:', tesvik.updatedAt ? new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') : '-'],
+      ['Son Güncelleyen:', tesvik.sonGuncelleyen?.adSoyad || 'Sistem'],
+      ['Rapor Oluşturma Tarihi:', new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR')]
     ];
     
     ozetBilgileri.forEach((bilgi, index) => {
-      const row = index + 3;
+      const row = index + 4;
       ozetSheet.getCell(`A${row}`).value = bilgi[0];
-      ozetSheet.getCell(`A${row}`).style = subHeaderStyle;
+      ozetSheet.getCell(`A${row}`).style = {
+        ...subHeaderStyle,
+        alignment: { horizontal: 'left', vertical: 'middle' }
+      };
       ozetSheet.getCell(`B${row}`).value = bilgi[1];
-      ozetSheet.getCell(`B${row}`).style = dataStyle;
+      ozetSheet.getCell(`B${row}`).style = {
+        ...dataStyle,
+        alignment: { horizontal: 'left', vertical: 'middle' }
+      };
     });
     
+    // Sütun genişlikleri
     ozetSheet.columns = [
-      { width: 25 },
-      { width: 30 },
-      { width: 15 },
-      { width: 15 }
+      { width: 25 },   // Açıklama
+      { width: 35 },   // Değer
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 },   // Boş
+      { width: 15 }    // Boş
     ];
     
     // Excel dosyasını buffer olarak oluştur
@@ -2246,11 +2991,11 @@ module.exports = {
       
       row++;
       const finansalFields = [
-        ['Toplam Sabit Yatırım:', tesvik.finansalBilgiler?.toplamSabitYatirimTutari || 0],
-        ['Arazi/Arsa Bedeli:', tesvik.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0],
-        ['Yerli Makine (TL):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli || 0],
-        ['İthal Makine (TL):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal || 0],
-        ['İthal Makine (USD):', tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine || 0]
+        ['Toplam Sabit Yatırım:', tesvik.maliHesaplamalar?.toplamSabitYatirim || 0],
+        ['Arazi/Arsa Bedeli:', tesvik.maliHesaplamalar?.araciArsaBedeli || 0],
+        ['Yerli Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0],
+        ['İthal Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0],
+        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0]
       ];
       
       finansalFields.forEach(fieldRow => {
@@ -2282,18 +3027,25 @@ module.exports = {
         cell.style = subHeaderStyle;
       });
       
-      // Ürün verileri
-      if (tesvik.urunBilgileri && tesvik.urunBilgileri.length > 0) {
-        tesvik.urunBilgileri.forEach((urun, index) => {
+      // Ürün verileri - Sadece anlamlı verisi olan ürünler
+      if (tesvik.urunler && tesvik.urunler.length > 0) {
+        // 🔧 FİLTRE: SADECE 1+ kapasitesi olan ürünleri göster (Kod/açıklama olsa bile kapasite 0 ise gösterme)
+        const filteredUrunler = tesvik.urunler.filter(urun => 
+          (urun.mevcutKapasite && urun.mevcutKapasite > 0) ||
+          (urun.ilaveKapasite && urun.ilaveKapasite > 0) ||
+          (urun.toplamKapasite && urun.toplamKapasite > 0)
+        );
+        
+        filteredUrunler.forEach((urun, index) => {
           const rowIndex = index + 4;
           const urunData = [
-            urun.kod || '',
-            urun.aciklama || '',
-            urun.mevcut || 0,
-            urun.ilave || 0,
-            urun.toplam || 0,
-            urun.kapsite || 0,
-            urun.kapasite_birimi || ''
+            urun.u97Kodu || '',
+            urun.urunAdi || '',
+            urun.mevcutKapasite || 0,
+            urun.ilaveKapasite || 0,
+            urun.toplamKapasite || 0,
+            urun.toplamKapasite || 0,
+            urun.kapasiteBirimi || ''
           ];
           
           urunData.forEach((value, colIndex) => {
@@ -2617,5 +3369,16 @@ module.exports = {
   getTesvikFormTemplate: getTesvikFormTemplate,
   getNextGmId: getNextGmId,
   addNewOption: addNewOption,
-  getOptionsForType: getOptionsForType
+  getOptionsForType: getOptionsForType,
+  getTesvikRevisions: getTesvikRevisions,
+  
+  // 🎯 DİNAMİK VERİ YÖNETİMİ API'LERİ
+  getDynamicDestekUnsurlari: getDynamicDestekUnsurlari,
+  addDestekUnsuru: addDestekUnsuru,
+  getDynamicDestekSartlari: getDynamicDestekSartlari,
+  addDestekSarti: addDestekSarti,
+  getDynamicOzelSartlar: getDynamicOzelSartlar,
+  addOzelSart: addOzelSart,
+  getDynamicOzelSartNotlari: getDynamicOzelSartNotlari,
+  addOzelSartNotu: addOzelSartNotu
 };
