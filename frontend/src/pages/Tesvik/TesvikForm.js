@@ -48,7 +48,6 @@ import {
   Remove as RemoveIcon,
   Info as InfoIcon,
   Engineering as EngineeringIcon,
-  Description as DescriptionIcon,
   ContentCopy as ContentCopyIcon,
   Delete as DeleteIcon,
   EmojiEvents as EmojiEventsIcon,
@@ -144,16 +143,7 @@ const TesvikForm = () => {
       dosyaNo: '',
       projeBedeli: 0,
       tesvikMiktari: 0,
-      tesvikOrani: 0,
-      
-      // 🆕 EKLENEN EKSİK ALANLAR - Resimden eklenen
-      basvuruKontroldenSira: '', // Başvuru Kontrolden Sıra
-      sickSicilNo: '', // SİCK Sicil No  
-      sektorelTuru: '', // Sektörel Türü
-      kurmaninTarihi: '', // Kurmanın Tarihi
-      kurmaninSayi: '', // Kurmanın Sayı
-      mevcutTarihi: '', // Mevcut Tarihi
-      tasvibenyatirimisi: '' // Tasviben Yatırım İşi
+      tesvikOrani: 0
     },
     
     // 👥 İstihdam Bilgileri
@@ -172,13 +162,6 @@ const TesvikForm = () => {
       cins2: '',
       cins3: '',
       cins4: '',
-      
-      // 🆕 YATIRIM CİNSİ DETAYLARI - Resimden eklenen
-      sSayi: '', // S Sayı
-      eKayit: '', // E Kayıt
-      uSayi: '', // U Sayı  
-      vSayi: '', // V Sayı
-      
       destekSinifi: ''
     },
     
@@ -284,14 +267,6 @@ const TesvikForm = () => {
       genelDurum: 'taslak',
       durumAciklamasi: '',
       sonDurumGuncelleme: new Date()
-    },
-    
-    // 📋 Proje Tanımı - Zorunlu değil
-    projeTanimi: {
-      aciklama: '', // Ana açıklama alanı
-      amac: '', // Proje amacı
-      kapsam: '', // Proje kapsamı
-      beklenenSonuc: '' // Beklenen sonuçlar
     }
   });
 
@@ -584,13 +559,6 @@ const TesvikForm = () => {
             cins2: cleanProblematicValue(backendData.yatirimBilgileri?.tCinsi2),
             cins3: cleanProblematicValue(backendData.yatirimBilgileri?.uCinsi3),
             cins4: cleanProblematicValue(backendData.yatirimBilgileri?.vCinsi4),
-            
-            // 🆕 YATIRIM CİNSİ DETAYLARI - Backend'den mapping
-            sSayi: cleanProblematicValue(backendData.yatirimBilgileri?.sSayi),
-            eKayit: cleanProblematicValue(backendData.yatirimBilgileri?.eKayit),
-            uSayi: cleanProblematicValue(backendData.yatirimBilgileri?.uSayi),
-            vSayi: cleanProblematicValue(backendData.yatirimBilgileri?.vSayi),
-            
             destekSinifi: cleanProblematicValue(backendData.yatirimBilgileri?.destekSinifi)
           },
           
@@ -629,16 +597,7 @@ const TesvikForm = () => {
             dosyaNo: backendData.kunyeBilgileri?.dosyaNo || '',
             projeBedeli: backendData.kunyeBilgileri?.projeBedeli || 0,
             tesvikMiktari: backendData.kunyeBilgileri?.tesvikMiktari || 0,
-            tesvikOrani: backendData.kunyeBilgileri?.tesvikOrani || 0,
-            
-            // 🆕 EKLENEN EKSİK ALANLAR - Backend'den mapping
-            basvuruKontroldenSira: cleanProblematicValue(backendData.kunyeBilgileri?.basvuruKontroldenSira),
-            sickSicilNo: cleanProblematicValue(backendData.kunyeBilgileri?.sickSicilNo),
-            sektorelTuru: cleanProblematicValue(backendData.kunyeBilgileri?.sektorelTuru),
-            kurmaninTarihi: formatDateForInput(backendData.kunyeBilgileri?.kurmaninTarihi) || '',
-            kurmaninSayi: cleanProblematicValue(backendData.kunyeBilgileri?.kurmaninSayi),
-            mevcutTarihi: formatDateForInput(backendData.kunyeBilgileri?.mevcutTarihi) || '',
-            tasvibenyatirimisi: cleanProblematicValue(backendData.kunyeBilgileri?.tasvibenyatirimisi)
+            tesvikOrani: backendData.kunyeBilgileri?.tesvikOrani || 0
           },
           
           // 🎯 Destek Unsurları - Backend formatından frontend formatına çevir
@@ -657,15 +616,7 @@ const TesvikForm = () => {
             kisaltma: cleanProblematicValue(sart.koşulMetni) || '',
             // 🔧 DOĞRU MAPPİNG: Backend aciklamaNotu → Frontend notu (Açıklama)
             notu: cleanProblematicValue(sart.aciklamaNotu) || ''
-          })) || [],
-          
-          // 📋 Proje Tanımı - Backend'den mapping
-          projeTanimi: {
-            aciklama: backendData.projeTanimi?.aciklama || '',
-            amac: backendData.projeTanimi?.amac || '',
-            kapsam: backendData.projeTanimi?.kapsam || '',
-            beklenenSonuc: backendData.projeTanimi?.beklenenSonuc || ''
-          }
+          })) || []
         };
         
         console.log('🔄 Backend data mapped to frontend format:', mappedData);
@@ -1307,13 +1258,6 @@ const TesvikForm = () => {
           tCinsi2: formData.yatirimBilgileri1?.cins2 || '',
           uCinsi3: formData.yatirimBilgileri1?.cins3 || '',
           vCinsi4: formData.yatirimBilgileri1?.cins4 || '',
-          
-          // 🆕 YATIRIM CİNSİ DETAYLARI - Frontend'den backend'e mapping
-          sSayi: formData.yatirimBilgileri1?.sSayi || '',
-          eKayit: formData.yatirimBilgileri1?.eKayit || '',
-          uSayi: formData.yatirimBilgileri1?.uSayi || '',
-          vSayi: formData.yatirimBilgileri1?.vSayi || '',
-          
           destekSinifi: formData.yatirimBilgileri1?.destekSinifi || '',
           
           // Bölüm 2 alanları  
@@ -1404,28 +1348,7 @@ const TesvikForm = () => {
           koşulNo: index + 1, // Backend: koşulNo (required) - otomatik ID
           koşulMetni: (sart.kisaltma?.trim() || ''), // Frontend kisaltma → Backend koşulMetni
           aciklamaNotu: (sart.notu?.trim() || '') // Frontend notu → Backend aciklamaNotu
-        })) || [],
-        
-        // 📝 Künye Bilgileri - Tüm alanları mapping (mevcut + yeni eklenenler)
-        kunyeBilgileri: {
-          ...formData.kunyeBilgileri,
-          // 🆕 EKLENEN EKSİK ALANLAR - Frontend'den backend'e mapping
-          basvuruKontroldenSira: formData.kunyeBilgileri?.basvuruKontroldenSira || '',
-          sickSicilNo: formData.kunyeBilgileri?.sickSicilNo || '',
-          sektorelTuru: formData.kunyeBilgileri?.sektorelTuru || '',
-          kurmaninTarihi: formData.kunyeBilgileri?.kurmaninTarihi || '',
-          kurmaninSayi: formData.kunyeBilgileri?.kurmaninSayi || '',
-          mevcutTarihi: formData.kunyeBilgileri?.mevcutTarihi || '',
-          tasvibenyatirimisi: formData.kunyeBilgileri?.tasvibenyatirimisi || ''
-        },
-        
-        // 📋 Proje Tanımı - Frontend'den backend'e mapping
-        projeTanimi: {
-          aciklama: formData.projeTanimi?.aciklama || '',
-          amac: formData.projeTanimi?.amac || '',
-          kapsam: formData.projeTanimi?.kapsam || '',
-          beklenenSonuc: formData.projeTanimi?.beklenenSonuc || ''
-        }
+        })) || []
       };
       
              // Frontend-specific alanları kaldır
@@ -1745,154 +1668,6 @@ const TesvikForm = () => {
           }}
               />
             </Grid>
-            
-            {/* 🆕 EKLENEN EKSİK ALANLAR - İKİ SÜTUN DÜZENİ */}
-            
-            {/* BAŞVURU KONTROLDEN SIRA */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-basvuruKontroldenSira"
-                name="basvuruKontroldenSira"
-                fullWidth
-                label="BAŞVURU KONTROLDEN SIRA 📋"
-                value={formData.kunyeBilgileri?.basvuruKontroldenSira || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.basvuruKontroldenSira', e.target.value)}
-                placeholder="Başvuru kontrol sıra numarası..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* SİCK SİCİL NO */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-sickSicilNo"
-                name="sickSicilNo"
-                fullWidth
-                label="SİCK SİCİL NO 🏛️"
-                value={formData.kunyeBilgileri?.sickSicilNo || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.sickSicilNo', e.target.value)}
-                placeholder="SİCK sicil numarası..."
-                helperText="Sanayi ve İcaret Sicil sistemi"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* SEKTÖREL TÜRÜ */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-sektorelTuru"
-                name="sektorelTuru"
-                fullWidth
-                label="SEKTÖREL TÜRÜ 🏭"
-                value={formData.kunyeBilgileri?.sektorelTuru || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.sektorelTuru', e.target.value)}
-                placeholder="Sektörel tür giriniz..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* KURMANIN SAYISI */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-kurmaninSayi"
-                name="kurmaninSayi"
-                fullWidth
-                label="KURMANIN SAYISI 📄"
-                value={formData.kunyeBilgileri?.kurmaninSayi || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.kurmaninSayi', e.target.value)}
-                placeholder="Kurma kararı sayı numarası..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* KURMANIN TARİHİ */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-kurmaninTarihi"
-                name="kurmaninTarihi"
-                fullWidth
-                label="KURMANIN TARİHİ 📅"
-                type="date"
-                value={formData.kunyeBilgileri?.kurmaninTarihi || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.kurmaninTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* MEVCUT TARİHİ */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-mevcutTarihi"
-                name="mevcutTarihi"
-                fullWidth
-                label="MEVCUT TARİHİ 📅"
-                type="date"
-                value={formData.kunyeBilgileri?.mevcutTarihi || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.mevcutTarihi', e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* TASVİBEN YATIRIM İŞİ */}
-            <Grid item xs={12}>
-              <TextField
-                id="tesvikForm-tasvibenyatirimisi"
-                name="tasvibenyatirimisi"
-                fullWidth
-                label="TASVİBEN YATIRIM İŞİ 🏗️"
-                value={formData.kunyeBilgileri?.tasvibenyatirimisi || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.tasvibenyatirimisi', e.target.value)}
-                placeholder="Tasviben yatırım işi açıklaması..."
-                multiline
-                rows={3}
-                helperText="Onaylanmış yatırım işi detaylı açıklaması"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#1e40af' },
-                    '&.Mui-focused': { borderColor: '#1e40af' }
-                  }
-                }}
-              />
-            </Grid>
           </Grid>
         </Paper>
       </Grid>
@@ -2153,139 +1928,6 @@ const TesvikForm = () => {
       </Grid>
         </Paper>
       </Grid>
-      
-      {/* 📋 PROJE TANIMI BÖLÜMÜ - Zorunlu değil */}
-      <Grid item xs={12}>
-        <Paper 
-          elevation={3}
-          sx={{ 
-            p: 4, 
-            backgroundColor: '#fefdf8', 
-            border: '2px solid #facc15',
-            borderRadius: 3,
-            mt: 2
-          }}
-        >
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              mb: 3, 
-              fontWeight: 600, 
-              display: 'flex', 
-              alignItems: 'center', 
-              color: '#b45309',
-              borderBottom: '2px solid #facc15',
-              pb: 2
-            }}
-          >
-            <DescriptionIcon sx={{ mr: 2, fontSize: 28 }} />
-            📋 PROJE TANIMI
-          </Typography>
-          
-          <Typography 
-            variant="subtitle2" 
-            sx={{ 
-              mb: 3, 
-              color: '#92400e', 
-              fontStyle: 'italic' 
-            }}
-          >
-            ℹ️ Bu bölüm zorunlu değildir. Proje hakkında detaylı bilgi vermek isterseniz doldurabilirsiniz.
-          </Typography>
-          
-          <Grid container spacing={3}>
-            {/* ANA AÇIKLAMA */}
-            <Grid item xs={12}>
-              <TextField
-                id="tesvikForm-projeAciklama"
-                name="projeAciklama"
-                fullWidth
-                label="PROJE AÇIKLAMASI 📝"
-                value={formData.projeTanimi?.aciklama || ''}
-                onChange={(e) => handleFieldChange('projeTanimi.aciklama', e.target.value)}
-                placeholder="Projenin detaylı açıklamasını giriniz..."
-                multiline
-                rows={4}
-                helperText="Projenin genel tanımı ve kapsamı hakkında detaylı bilgi"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#b45309' },
-                    '&.Mui-focused': { borderColor: '#b45309' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* PROJE AMACI */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-projeAmac"
-                name="projeAmac"
-                fullWidth
-                label="PROJE AMACI 🎯"
-                value={formData.projeTanimi?.amac || ''}
-                onChange={(e) => handleFieldChange('projeTanimi.amac', e.target.value)}
-                placeholder="Projenin ana amacını belirtiniz..."
-                multiline
-                rows={3}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#b45309' },
-                    '&.Mui-focused': { borderColor: '#b45309' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* PROJE KAPSAMI */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-projeKapsam"
-                name="projeKapsam"
-                fullWidth
-                label="PROJE KAPSAMI 📋"
-                value={formData.projeTanimi?.kapsam || ''}
-                onChange={(e) => handleFieldChange('projeTanimi.kapsam', e.target.value)}
-                placeholder="Projenin kapsamını detaylandırınız..."
-                multiline
-                rows={3}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#b45309' },
-                    '&.Mui-focused': { borderColor: '#b45309' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* BEKLENEN SONUÇ */}
-            <Grid item xs={12}>
-              <TextField
-                id="tesvikForm-beklenenSonuc"
-                name="beklenenSonuc"
-                fullWidth
-                label="BEKLENEN SONUÇ 🚀"
-                value={formData.projeTanimi?.beklenenSonuc || ''}
-                onChange={(e) => handleFieldChange('projeTanimi.beklenenSonuc', e.target.value)}
-                placeholder="Projeden beklenen sonuçları açıklayınız..."
-                multiline
-                rows={3}
-                helperText="Proje tamamlandığında elde edilmesi beklenen sonuçlar"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#b45309' },
-                    '&.Mui-focused': { borderColor: '#b45309' }
-                  }
-                }}
-              />
-            </Grid>
-          </Grid>
-        </Paper>
-      </Grid>
 
       {/* Excel Template Info Banner */}
       <Grid item xs={12}>
@@ -2459,102 +2101,6 @@ const TesvikForm = () => {
                 </Button>
             </Grid>
             )}
-            
-            {/* 🆕 YATIRIM CİNSİ DETAYLARI - S, E, U, V SAYILARI */}
-            <Grid item xs={12}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  mb: 2, 
-                  fontWeight: 600, 
-                  color: '#16a085',
-                  borderBottom: '2px solid #e2e8f0',
-                  pb: 1
-                }}
-              >
-                🔢 Yatırım Cinsi Detayları
-              </Typography>
-            </Grid>
-            
-            {/* S SAYI */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-sSayi"
-                name="sSayi"
-                fullWidth
-                label="S SAYI"
-                value={formData.yatirimBilgileri1?.sSayi || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.sSayi', e.target.value)}
-                placeholder="S sayısını giriniz..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* E KAYIT */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-eKayit"
-                name="eKayit"
-                fullWidth
-                label="E KAYIT"
-                value={formData.yatirimBilgileri1?.eKayit || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.eKayit', e.target.value)}
-                placeholder="E kayıt numarası..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* U SAYI */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-uSayi"
-                name="uSayi"
-                fullWidth
-                label="U SAYI"
-                value={formData.yatirimBilgileri1?.uSayi || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.uSayi', e.target.value)}
-                placeholder="U sayısını giriniz..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
-            
-            {/* V SAYI */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-vSayi"
-                name="vSayi"
-                fullWidth
-                label="V SAYI"
-                value={formData.yatirimBilgileri1?.vSayi || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.vSayi', e.target.value)}
-                placeholder="V sayısını giriniz..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
             
             {/* ROW 3: DESTEK SINIFI */}
             <Grid item xs={12} md={6}>

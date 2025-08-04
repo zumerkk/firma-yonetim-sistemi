@@ -248,15 +248,6 @@ const tesvikSchema = new mongoose.Schema({
     kararSayisi: { type: String, trim: true },
     yonetmelikMaddesi: { type: String, trim: true },
     basvuruTarihi: { type: Date },
-    
-    // 🆕 EKLENEN EKSİK ALANLAR
-    basvuruKontroldenSira: { type: String, trim: true }, // Başvuru Kontrolden Sıra
-    sickSicilNo: { type: String, trim: true }, // SİCK Sicil No
-    sektorelTuru: { type: String, trim: true }, // Sektörel Türü
-    kurmaninTarihi: { type: Date }, // Kurmanın Tarihi
-    kurmaninSayi: { type: String, trim: true }, // Kurmanın Sayı
-    mevcutTarihi: { type: Date }, // Mevcut Tarihi
-    tasvibenyatirimisi: { type: String, trim: true, maxlength: 1000 }, // Tasviben Yatırım İşi
     dosyaNo: { type: String, trim: true },
     projeBedeli: { type: Number, default: 0 },
     tesvikMiktari: { type: Number, default: 0 },
@@ -286,13 +277,6 @@ const tesvikSchema = new mongoose.Schema({
     tCinsi2: { type: String, trim: true },
     uCinsi3: { type: String, trim: true },
     vCinsi4: { type: String, trim: true },
-    
-    // 🆕 YATIRIM CİNSİ DETAYLARI - Resimden eklenen
-    sSayi: { type: String, trim: true }, // S Sayı
-    eKayit: { type: String, trim: true }, // E Kayıt  
-    uSayi: { type: String, trim: true }, // U Sayı
-    vSayi: { type: String, trim: true }, // V Sayı
-    
     destekSinifi: {
       type: String,
       required: true,
@@ -353,30 +337,6 @@ const tesvikSchema = new mongoose.Schema({
       type: String,
       trim: true,
       maxlength: 500
-    }
-  },
-  
-  // 📋 Proje Tanımı - Zorunlu değil, detaylı açıklama alanı
-  projeTanimi: {
-    aciklama: { 
-      type: String, 
-      trim: true, 
-      maxlength: 2000 // Büyük metin alanı
-    },
-    amac: { 
-      type: String, 
-      trim: true, 
-      maxlength: 1000 
-    },
-    kapsam: { 
-      type: String, 
-      trim: true, 
-      maxlength: 1000 
-    },
-    beklenenSonuc: { 
-      type: String, 
-      trim: true, 
-      maxlength: 1000 
     }
   },
   
