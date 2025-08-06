@@ -1,0 +1,16 @@
+# React Router SPA Redirects for Render.com
+# Tüm route'ları index.html'e yönlendir (SPA için gerekli)
+
+/*    /index.html   200
+
+# Specific API routes (optional - eğer backend farklı domain'de ise)
+/api/*  https://cahit-firma-backend.onrender.com/api/:splat  200
+
+# Favicon and static files
+/favicon.ico   /favicon.ico   200
+/manifest.json /manifest.json 200
+/logo*.png     /logo*.png     200
+/robots.txt    /robots.txt    200
+
+# Ensure all other routes go to React app
+*     /index.html   200
