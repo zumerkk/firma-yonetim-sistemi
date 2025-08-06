@@ -569,11 +569,18 @@ const TesvikDetail = () => {
               )}
               
               <Button
-                variant="outlined"
-                startIcon={<PrintIcon />}
-                onClick={() => window.print()}
+                variant="contained"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleRevizyonExcelExport}
+                disabled={exportingRevizyon}
+                sx={{
+                  backgroundColor: '#4F46E5',
+                  '&:hover': {
+                    backgroundColor: '#3730A3'
+                  }
+                }}
               >
-                Yazdır
+                {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Revizyon Çıktısı'}
               </Button>
             </Box>
           </Box>

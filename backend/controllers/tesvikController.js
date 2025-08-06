@@ -2421,402 +2421,1267 @@ const getOptionsForType = async (req, res) => {
   }
 };
 
-// 📋 REVİZYON EXCEL EXPORT - Her revizyon ayrı satır olacak şekilde
+// 🏢 ENTERPRISE SİSTEM REVİZYON EXCEL EXPORT
+// MongoDB'den tam veri çekme + CSV formatına tam uyum + Revizyon tracking + Professional export
 const exportRevizyonExcel = async (req, res) => {
+  const startTime = Date.now();
+  const exportId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
   try {
     const { id } = req.params;
     const { includeColors = true } = req.query;
     
-    console.log(`📊 Revizyon Excel export başlatılıyor: ${id}`);
+    console.log(`🚀 [${exportId}] Enterprise Sistem Revizyon Excel export başlatıldı: ${id}`);
     
-    // ID format'ını kontrol et: ObjectId mi yoksa TesvikId mi?
-    let tesvik;
-    if (id.match(/^[0-9a-fA-F]{24}$/)) {
-      // ObjectId format (24 karakter hex)
-      tesvik = await Tesvik.findById(id)
-        .populate('firma', 'tamUnvan firmaId vergiNoTC')
-        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
-        .populate('olusturanKullanici', 'adSoyad email')
-        .populate('sonGuncelleyen', 'adSoyad email')
-        .lean();
-    } else {
-      // TesvikId format (TES20250007 gibi)
-      tesvik = await Tesvik.findOne({ tesvikId: id })
-        .populate('firma', 'tamUnvan firmaId vergiNoTC')
-        .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
-        .populate('olusturanKullanici', 'adSoyad email')
-        .populate('sonGuncelleyen', 'adSoyad email')
-        .lean();
-    }
-      
+    // 📊 PHASE 1: ENTERPRISE VERİ ÇEKME SİSTEMİ
+    console.log(`⏱️  [${exportId}] Phase 1: MongoDB'den tam veri çekme başladı`);
+    
+    const tesvik = await getCompleteTesvikData(id);
     if (!tesvik) {
-      return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
-    }
-    
-    // ExcelJS workbook oluştur
-    const ExcelJS = require('exceljs');
-    const workbook = new ExcelJS.Workbook();
-    
-    // Stil tanımlamaları
-    const headerStyle = {
-      font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2E75B6' } },
-      alignment: { horizontal: 'center', vertical: 'middle' },
-      border: {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    };
-    
-    const subHeaderStyle = {
-      font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } },
-      alignment: { horizontal: 'center', vertical: 'middle' },
-      border: {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    };
-    
-    const dataStyle = {
-      font: { color: { argb: 'FF000000' }, size: 11 },
-      alignment: { horizontal: 'left', vertical: 'middle' },
-      border: {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      }
-    };
-    
-    // Revizyon geçmişi sayfası
-    const revizyonSheet = workbook.addWorksheet('Revizyon Geçmişi');
-    
-    // Ana başlık - 12 sütun için güncellendi
-    revizyonSheet.mergeCells('A1:L1');
-    revizyonSheet.getCell('A1').value = `${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} - REVİZYON GEÇMİŞİ RAPORU`;
-    revizyonSheet.getCell('A1').style = headerStyle;
-    
-    // Teşvik bilgi satırı
-    revizyonSheet.mergeCells('A2:L2');
-    revizyonSheet.getCell('A2').value = `Teşvik ID: ${tesvik.tesvikId || tesvik.gmId} | Firma: ${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} | Vergi/TC: ${tesvik.firma?.vergiNoTC || '-'}`;
-    revizyonSheet.getCell('A2').style = {
-      font: { bold: true, color: { argb: 'FF000000' }, size: 11 },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F8FF' } },
-      alignment: { horizontal: 'center', vertical: 'middle' }
-    };
-    
-    // Boş satır bırak
-    revizyonSheet.mergeCells('A3:L3');
-    revizyonSheet.getCell('A3').value = '';
-    revizyonSheet.getCell('A3').style = {
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } }
-    };
-    
-    // Tablo başlıkları - Resimde gösterilen şablona uygun
-    const headers = [
-      'SIRA NO',
-      'TEŞVİK ID',
-      'FİRMA ÜNVANI',
-      'REVİZYON NO',
-      'REVİZYON TARİHİ',
-      'REVİZYON SEBEBİ',
-      'DEĞİŞEN ALAN',
-      'ESKİ DEĞER',
-      'YENİ DEĞER',
-      'DEĞİŞİKLİK YAPAN',
-      'KULLANICI ROLÜ',
-      'DURUM'
-    ];
-    
-    headers.forEach((header, index) => {
-      const cell = revizyonSheet.getCell(4, index + 1);
-      cell.value = header;
-      cell.style = subHeaderStyle;
-    });
-    
-    // İlk oluşturma kaydı ekle - Resim şablonuna uygun
-    let rowIndex = 5;
-    let siraNo = 1;
-    
-    const ilkKayit = [
-      siraNo,                                                                    // SIRA NO
-      tesvik.tesvikId || tesvik.gmId || '-',                                    // TEŞVİK ID
-      tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',                   // FİRMA ÜNVANI
-      0,                                                                        // REVİZYON NO
-      tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.createdAt).toLocaleTimeString('tr-TR') : '', // REVİZYON TARİHİ
-      'İlk Oluşturma',                                                          // REVİZYON SEBEBİ
-      'Sistem',                                                                 // DEĞİŞEN ALAN
-      '-',                                                                      // ESKİ DEĞER
-      'Teşvik belgesi oluşturuldu',                                            // YENİ DEĞER
-      tesvik.olusturanKullanici?.adSoyad || 'Sistem',                          // DEĞİŞİKLİK YAPAN
-      tesvik.olusturanKullanici?.rol || 'sistem',                              // KULLANICI ROLÜ
-      tesvik.durumBilgileri?.genelDurum || 'taslak'                            // DURUM
-    ];
-    
-    ilkKayit.forEach((value, colIndex) => {
-      const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
-      cell.value = value;
-      cell.style = dataStyle;
-      
-      // İlk satır için özel renk (yeşil)
-      if (includeColors) {
-        cell.style = {
-          ...dataStyle,
-          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E8' } }
-        };
-      }
-    });
-    
-    siraNo++;
-    
-    // Revizyon kayıtları - Her alan değişikliği için ayrı satır
-    if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
-      tesvik.revizyonlar.forEach((revizyon) => {
-        const revizyonTarihi = revizyon.revizyonTarihi ? new Date(revizyon.revizyonTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizyon.revizyonTarihi).toLocaleTimeString('tr-TR') : '';
-        const yapanKullanici = revizyon.yapanKullanici?.adSoyad || 'Bilinmiyor';
-        const kullaniciRolu = revizyon.yapanKullanici?.rol || '-';
-        const durum = revizyon.durumSonrasi || tesvik.durumBilgileri?.genelDurum || '-';
-        
-        // Eğer değişiklik detayları varsa, her alan için ayrı satır
-        if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-          revizyon.degisikenAlanlar.forEach((degisiklik) => {
-            rowIndex++;
-            const revizyonData = [
-              siraNo,                                                             // SIRA NO
-              tesvik.tesvikId || tesvik.gmId || '-',                             // TEŞVİK ID
-              tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',            // FİRMA ÜNVANI
-              revizyon.revizyonNo,                                               // REVİZYON NO
-              revizyonTarihi,                                                    // REVİZYON TARİHİ
-              revizyon.revizyonSebebi || 'Güncelleme',                          // REVİZYON SEBEBİ
-              degisiklik.alan || 'Belirtilmemiş',                               // DEĞİŞEN ALAN
-              degisiklik.eskiDeger || '-',                                       // ESKİ DEĞER
-              degisiklik.yeniDeger || '-',                                       // YENİ DEĞER
-              yapanKullanici,                                                    // DEĞİŞİKLİK YAPAN
-              kullaniciRolu,                                                     // KULLANICI ROLÜ
-              durum                                                              // DURUM
-            ];
-            
-            revizyonData.forEach((value, colIndex) => {
-              const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
-              cell.value = value;
-              cell.style = dataStyle;
-              
-              // Durum bazında renk kodlaması (son sütun)
-              if (includeColors && colIndex === 11) { // DURUM sütunu
-                let fillColor = 'FFFFFFFF'; // Varsayılan beyaz
-                
-                switch (value) {
-                  case 'onaylandi':
-                    fillColor = 'FFD4EDDA'; // Yeşil
-                    break;
-                  case 'reddedildi':
-                    fillColor = 'FFF8D7DA'; // Kırmızı
-                    break;
-                  case 'revize_talep_edildi':
-                    fillColor = 'FFFFEAA7'; // Sarı
-                    break;
-                  case 'inceleniyor':
-                    fillColor = 'FFD1ECF1'; // Mavi
-                    break;
-                  case 'ek_belge_istendi':
-                    fillColor = 'FFFDEBD0'; // Turuncu
-                    break;
-                  default:
-                    fillColor = 'FFF0F0F0'; // Gri
-                }
-                
-                cell.style = {
-                  ...dataStyle,
-                  fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
-                };
-              }
-            });
-            
-            siraNo++;
-          });
-        } else {
-          // Değişiklik detayı yoksa, genel revizyon bilgisi olarak bir satır ekle
-          rowIndex++;
-          const revizyonData = [
-            siraNo,                                                             // SIRA NO
-            tesvik.tesvikId || tesvik.gmId || '-',                             // TEŞVİK ID
-            tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-',            // FİRMA ÜNVANI
-            revizyon.revizyonNo,                                               // REVİZYON NO
-            revizyonTarihi,                                                    // REVİZYON TARİHİ
-            revizyon.revizyonSebebi || 'Güncelleme',                          // REVİZYON SEBEBİ
-            'Genel Güncelleme',                                               // DEĞİŞEN ALAN
-            '-',                                                               // ESKİ DEĞER
-            'Veriler güncellendi',                                            // YENİ DEĞER
-            yapanKullanici,                                                    // DEĞİŞİKLİK YAPAN
-            kullaniciRolu,                                                     // KULLANICI ROLÜ
-            durum                                                              // DURUM
-          ];
-          
-          revizyonData.forEach((value, colIndex) => {
-            const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
-            cell.value = value;
-            cell.style = dataStyle;
-            
-            // Durum bazında renk kodlaması
-            if (includeColors && colIndex === 11) {
-              let fillColor = 'FFFFFFFF';
-              
-              switch (value) {
-                case 'onaylandi':
-                  fillColor = 'FFD4EDDA';
-                  break;
-                case 'reddedildi':
-                  fillColor = 'FFF8D7DA';
-                  break;
-                case 'revize_talep_edildi':
-                  fillColor = 'FFFFEAA7';
-                  break;
-                case 'inceleniyor':
-                  fillColor = 'FFD1ECF1';
-                  break;
-                case 'ek_belge_istendi':
-                  fillColor = 'FFFDEBD0';
-                  break;
-                default:
-                  fillColor = 'FFF0F0F0';
-              }
-              
-              cell.style = {
-                ...dataStyle,
-                fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } }
-              };
-            }
-          });
-          
-          siraNo++;
-        }
+      console.log(`❌ [${exportId}] Teşvik bulunamadı: ${id}`);
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Teşvik bulunamadı',
+        exportId 
       });
     }
     
-    // Son güncelleme kaydı ekle (eğer revizyonlardan farklıysa)
-    if (tesvik.sonGuncelleyen && tesvik.updatedAt && tesvik.updatedAt > tesvik.createdAt) {
-      const sonGuncellemeVar = tesvik.revizyonlar && tesvik.revizyonlar.length > 0 && 
-        tesvik.revizyonlar[tesvik.revizyonlar.length - 1].revizyonTarihi < tesvik.updatedAt;
+    console.log(`✅ [${exportId}] Teşvik verisi çekildi: ${tesvik.tesvikId || tesvik.gmId}`);
+    console.log(`📋 [${exportId}] Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
+    console.log(`👥 [${exportId}] İlişkili veri: Firma, Kullanıcılar, Aktiviteler yüklendi`);
+    
+    // 📊 PHASE 2: CSV SÜTUN KONTROLÜ VE DOĞRULAMA
+    console.log(`⏱️  [${exportId}] Phase 2: CSV sütun yapısı doğrulama başladı`);
+    
+    const csvStructure = await validateAndBuildCsvStructure();
+    console.log(`✅ [${exportId}] CSV yapısı doğrulandı: ${csvStructure.totalColumns} sütun`);
+    
+    // 📊 PHASE 3: REVİZYON TRAKİNG ALGORİTMASI  
+    console.log(`⏱️  [${exportId}] Phase 3: Revizyon tracking algoritması başladı`);
+    
+    const revisionData = await buildRevisionTrackingData(tesvik);
+    console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${revisionData.length} satır`);
+    console.log(`🔍 [${exportId}] Toplam değişiklik: ${revisionData.reduce((sum, r) => sum + r.changesCount, 0)} alan`);
+    
+    // 📊 PHASE 4: PROFESSIONAL EXCEL EXPORT
+    console.log(`⏱️  [${exportId}] Phase 4: Professional Excel export başladı`);
+    
+    const workbook = await createProfessionalWorkbook(csvStructure, revisionData, includeColors, exportId);
+    
+    console.log(`✅ [${exportId}] Excel workbook oluşturuldu`);
+    
+    // 📊 PHASE 5: EXPORT FİNALİZATİON
+    console.log(`⏱️  [${exportId}] Phase 5: Export finalization başladı`);
+    
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    const fileName = generateFileName(tesvik);
+    
+    // Response headers
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('X-Export-ID', exportId);
+    res.setHeader('X-Export-Duration', `${Date.now() - startTime}ms`);
+    
+    // Activity log
+    await logExportActivity(tesvik, req.user, exportId, revisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
+    
+    // Send Excel file
+    res.send(excelBuffer);
+    
+    const duration = Date.now() - startTime;
+    console.log(`🎉 [${exportId}] Export tamamlandı! Süre: ${duration}ms, Dosya: ${fileName}`);
+    console.log(`📈 [${exportId}] Performans: ${revisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
+    
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`💥 [${exportId}] Export hatası! Süre: ${duration}ms`, error);
+    
+    // Enterprise error response
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Sistem revizyon Excel çıktısı oluşturulurken hata oluştu',
+        exportId,
+        duration,
+        error: process.env.NODE_ENV === 'development' ? {
+          message: error.message,
+          stack: error.stack
+        } : undefined
+      });
+    }
+  }
+};
+
+// 🏢 ENTERPRISE HELPER FUNCTIONS
+
+// 📊 PHASE 1: COMPLETE MONGODB DATA RETRIEVAL
+const getCompleteTesvikData = async (id) => {
+  try {
+    console.log(`📊 MongoDB'den tam veri çekme başladı: ${id}`);
+    
+    // ID format detection
+    const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
+    const query = isObjectId ? { _id: id } : { tesvikId: id };
+    
+    // Complete data with all relations
+    const tesvik = await Tesvik.findOne(query)
+      .populate({
+        path: 'firma',
+        select: 'tamUnvan firmaId vergiNoTC firmaIl firmaIlce aktif etuysYetkiBitis dysYetkiBitis createdAt'
+      })
+      .populate({
+        path: 'revizyonlar.yapanKullanici', 
+        select: 'adSoyad email rol aktif'
+      })
+      .populate({
+        path: 'olusturanKullanici',
+        select: 'adSoyad email rol aktif createdAt'
+      })
+      .populate({
+        path: 'sonGuncelleyen',
+        select: 'adSoyad email rol aktif'
+      })
+        .lean();
+    
+    if (!tesvik) return null;
+    
+    // Get related activities for complete revision history
+    const activities = await Activity.find({
+      'targetResource.type': 'tesvik',
+      'targetResource.id': tesvik._id,
+      action: { $in: ['create', 'update', 'revision'] }
+    })
+      .sort({ createdAt: 1 })
+        .lean();
+    
+    tesvik.relatedActivities = activities;
+    
+    console.log(`✅ Tam veri çekildi: ${tesvik.tesvikId}, ${activities.length} aktivite`);
+    return tesvik;
+    
+  } catch (error) {
+    console.error('❌ MongoDB veri çekme hatası:', error);
+    throw error;
+  }
+};
+
+// 📊 PHASE 2: CSV STRUCTURE VALIDATION
+const validateAndBuildCsvStructure = async () => {
+  try {
+    console.log(`📊 CSV sütun yapısı doğrulanıyor...`);
+    
+    // CSV'den gerçek sütun yapısını çıkar (belytbsütun çalışması - Sayfa2.csv'ye göre)
+    const csvStructure = {
+      // 1. SEVIYE - Ana kategoriler (CSV'den sayılar çıkarıldı)
+      level1: [
+        { text: 'KÜNYE BİLGLERİ', span: 17, startCol: 1 },
+        { text: 'YATIRIM İLE İLGİLİ BİLGİLER', span: 17, startCol: 18 }, 
+        { text: 'İSTİHDAM', span: 2, startCol: 35 },
+        { text: 'ÜRÜN BİLGLERİ', span: 54, startCol: 37 },
+        { text: 'DESTEK UNSURLARI', span: 16, startCol: 91 },
+        { text: 'ÖZEL ŞARTLAR', span: 28, startCol: 107 },
+        { text: 'FİNANSAL BİLGLER', span: 26, startCol: 135 }, // 26 sütun (25 + REVIZE TARIHI)
+      ],
       
-      if (sonGuncellemeVar) {
-        rowIndex++;
-        const sonGuncelleme = [
-          rowIndex - 4, // Sıra hesaplaması
-          (tesvik.revizyonlar?.length || 0) + 1,
-          new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') + ' ' + new Date(tesvik.updatedAt).toLocaleTimeString('tr-TR'),
-          '-',
-          tesvik.durumBilgileri?.genelDurum || '-',
-          'Veri güncelleme',
-          tesvik.sonGuncelleyen?.adSoyad || 'Sistem',
-          tesvik.sonGuncelleyen?.rol || 'sistem',
-          tesvik.sonGuncellemeNotlari || 'Teşvik verileri güncellendi'
-        ];
+      // 2. SEVIYE - Alt kategoriler  
+      level2: [
+        { text: 'YATIRIMCI', span: 6, startCol: 1 },
+        { text: 'BELGE BİLGLERİ', span: 11, startCol: 7 },
+        { text: 'YATIRIM İLE İLGİLİ BİLGİLER', span: 17, startCol: 18 },
+        { text: 'İSTİHDAM', span: 2, startCol: 35 },
+        { text: 'ÜRÜN BİLGLERİ', span: 54, startCol: 37 },
+        { text: 'DESTEK UNSURLARI', span: 16, startCol: 91 },
+        { text: 'ÖZEL ŞARTLAR', span: 28, startCol: 107 },
+        { text: 'FİNANSAL BİLGLER', span: 26, startCol: 135 },
+      ],
+      
+      // 3. SEVIYE - Özel kategoriler (sadece finansal kısımda)
+      level3: [
+        ...Array(134).fill(''), // İlk 134 sütun boş
+        'ARAZİ-ARSA BEDELİ', '', '', '',
+        'BİNA İNŞAAT GİDERLERİ TL', '', '', '', '',  
+        'DİĞER YATIRIM HARCAMALARI TL', '', '', '', '', '', '',
+        'TOPLAM SABİT YATIRIM TUTARI TL',
+        'MAKİNE TEÇHİZAT GİDERLERİ TL(*)', '', '',
+        'İTHAL MAKİNE ($)', '', '',
+        'YABANCI KAYNAKLAR', 'ÖZ KAYNAKLAR', '',
+        '' // REVİZE TARİHİ
+      ],
+      
+      // 4. SEVIYE - Sütun isimleri (CSV'den tam kopyası - 156 sütun)
+      level4: [
+        'GM ID', 'TALEP/SONUÇ', 'REVIZE ID', 'FIRMA ID', 'YATIRIMCI UNVAN', 'SGK SİCİL NO',
+        'BELGE ID', 'BELGE NO', 'BELGE TARIHI', 'BELGE MURACAAT TARIHI', 'MÜRACAAT SAYISI', 
+        'BELGE BASLAMA TARIHI', 'BELGE BITIS TARIHI', 'SÜRE UZATIM TARİHİ', 'ÖZELLİKLİ YATIRIM İSE', 'DAYANDIĞI KANUN', 'BELGE DURUMU',
+        '2-YATIRIM KONUSU', '3-CINSI(1)', '3-CINSI(2)', '3-CINSI(3)', '3-CINSI(4)', 'DESTEK SINIFI', 'YERI IL', 'YERI ILCE',
+        'ADA', 'PARSEL', 'YATIRIM ADRESI(1)', 'YATIRIM ADRESI(2)', 'YATIRIM ADRESI(3)', 'OSB ISE MUDURLUK', 'İL BAZLI BÖLGE', 'İLÇE BAZLI BÖLGE', 'SERBEST BÖLGE',
+        'Mevcut Kişi', 'İlave Kişi',
+        // Ürün bilgileri (9 ürün x 6 alan = 54 sütun)
+        'US97 Kodu (1)', 'Ürün(1)', 'Mevcut(1)', 'İlave(1)', 'Toplam(1)', 'Kapsite Birimi(1)',
+        'US97 Kodu (2)', 'Ürün(2)', 'Mevcut(2)', 'İlave(2)', 'Toplam(2)', 'Kapsite Birimi(2)',
+        'US97 Kodu (3)', 'Ürün(3)', 'Mevcut(3)', 'İlave(3)', 'Toplam(3)', 'Kapsite Birimi(3)',
+        'US97 Kodu (4)', 'Ürün(4)', 'Mevcut(4)', 'İlave(4)', 'Toplam(4)', 'Kapsite Birimi(4)',
+        'US97 Kodu (5)', 'Ürün(5)', 'Mevcut(5)', 'İlave(5)', 'Toplam(5)', 'Kapsite Birimi(5)',
+        'US97 Kodu (6)', 'Ürün(6)', 'Mevcut(6)', 'İlave(6)', 'Toplam(6)', 'Kapsite Birimi(6)',
+        'US97 Kodu (7)', 'Ürün(7)', 'Mevcut(7)', 'İlave(7)', 'Toplam(7)', 'Kapsite Birimi(7)',
+        'US97 Kodu (8)', 'Ürün(8)', 'Mevcut(8)', 'İlave(8)', 'Toplam(8)', 'Kapsite Birimi(8)',
+        'US97 Kodu (9)', 'Ürün(9)', 'Mevcut(9)', 'İlave(9)', 'Toplam(9)', 'Kapsite Birimi(9)',
+        // Destek unsurları (8 destek x 2 alan = 16 sütun)
+        'Destek Unusrları(1)', 'Şartları(1)', 'Destek Unusrları(2)', 'Şartları(2)',
+        'Destek Unusrları(3)', 'Şartları(3)', 'Destek Unusrları(4)', 'Şartları(4)',
+        'Destek Unusrları(5)', 'Şartları(5)', 'Destek Unusrları(6)', 'Şartları(6)',
+        'Destek Unusrları(7)', 'Şartları(7)', 'Destek Unusrları(8)', 'Şartları(8)',
+        // Özel şartlar (14 şart x 2 alan = 28 sütun) - CSV'de hata var, düzeltildi
+        'Özel Şart Kısaltma 1', 'Özelşart Notu 1', 'Özel Şart Kısaltma 2', 'Özelşart Notu 2',
+        'Özel Şart Kısaltma 3', 'Özelşart Notu 3', 'Özel Şart Kısaltma 4', 'Özelşart Notu 4',
+        'Özel Şart Kısaltma 5', 'Özelşart Notu 5', 'Özel Şart Kısaltma 6', 'Özelşart Notu 6',
+        'Özel Şart Kısaltma 7', 'Özelşart Notu 7', 'Özel Şart Kısaltma 8', 'Özelşart Notu 8',
+        'Özel Şart Kısaltma 9', 'Özelşart Notu 9', 'Özel Şart Kısaltma 10', 'Özelşart Notu 10',
+        'Özel Şart Kısaltma 11', 'Özelşart Notu 11', 'Özel Şart Kısaltma 12', 'Özelşart Notu 12',
+        'Özel Şart Kısaltma 13', 'Özelşart Notu 13', 'Özel Şart Kısaltma 14', 'Özelşart Notu 14',
+        // Finansal bilgiler (25 sütun)
+        'Arazi-Arsa Bedeli Açıklama', 'Metrekaresi', 'Birim Fiyatı TL', 'ARAZİ ARSA BEDELİ',
+        'Bina İnşaat Gideri Açıklama', 'Ana Bina ve Tesisleri', 'Yardımcı İş. Bina ve Tesisleri', 'İdare Binaları', 'TOPLAM BİNA İNŞAAT GİDERİ',
+        'Yardımcı İşl. Mak. Teç. Gid.', 'İthalat ve Güm.Giderleri', 'Taşıma ve Sigorta Giderleri', 'Montaj Giderleri', 'Etüd ve Proje Giderleri', 'Diğer Giderleri', 'TOPLAM DİĞER YATIRIM HARCAMALARI',
+        'TOPLAM SABİT YATIRIM TUTARI TL', 'İthal', 'Yerli', 'Toplam Makine Teçhizat', 'Yeni Makine', 'Kullanılmış Makine', 'TOPLAM İTHAL MAKİNE ($)', 'Toplam Yabancı Kaynak', 'Öz kaynak', 'TOPLAM FİNANSMAN',
+        'REVIZE TARIHI'
+      ]
+    };
+    
+    csvStructure.totalColumns = csvStructure.level4.length;
+    
+    console.log(`✅ CSV yapısı doğrulandı: ${csvStructure.totalColumns} sütun`);
+    return csvStructure;
+    
+  } catch (error) {
+    console.error('❌ CSV yapısı doğrulama hatası:', error);
+    throw error;
+  }
+};
+
+// 📊 PHASE 3: REVISION TRACKING ALGORITHM
+const buildRevisionTrackingData = async (tesvik) => {
+  try {
+    console.log(`📊 Revizyon tracking algoritması başlıyor...`);
+    
+    const revisionData = [];
+    
+    // İlk oluşturma kaydı
+    const initialRow = await buildCsvDataRow(tesvik, null, 0);
+    revisionData.push({
+      rowData: initialRow,
+      revisionNo: 0,
+      revisionDate: tesvik.createdAt,
+      changedBy: tesvik.olusturanKullanici,
+      reason: 'İlk Oluşturma',
+      changesCount: 0,
+      isInitial: true
+    });
+    
+    // Revizyonlar
+    if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
+      for (let i = 0; i < tesvik.revizyonlar.length; i++) {
+        const revizyon = tesvik.revizyonlar[i];
+        const revizyonRow = await buildCsvDataRow(tesvik, revizyon, i + 1);
         
-        sonGuncelleme.forEach((value, colIndex) => {
-          const cell = revizyonSheet.getCell(rowIndex, colIndex + 1);
-          cell.value = value;
-          cell.style = {
-            ...dataStyle,
-            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F8FF' } }
-          };
+        // Önceki satırla karşılaştır
+        const previousRow = i === 0 ? revisionData[0].rowData : revisionData[i].rowData;
+        const changes = detectChanges(previousRow, revizyonRow);
+        
+        revisionData.push({
+          rowData: revizyonRow,
+          revisionNo: i + 1,
+          revisionDate: revizyon.revizyonTarihi || revizyon.createdAt,
+          changedBy: revizyon.yapanKullanici,
+          reason: revizyon.revizyonSebebi || 'Güncelleme',
+          changes: changes,
+          changesCount: changes.length,
+          isInitial: false
         });
       }
     }
     
-    // Sütun genişlikleri - Resim şablonuna uygun
-    revizyonSheet.columns = [
-      { width: 8 },   // SIRA NO
-      { width: 15 },  // TEŞVİK ID
-      { width: 25 },  // FİRMA ÜNVANI
-      { width: 12 },  // REVİZYON NO
-      { width: 20 },  // REVİZYON TARİHİ
-      { width: 25 },  // REVİZYON SEBEBİ
-      { width: 20 },  // DEĞİŞEN ALAN
-      { width: 25 },  // ESKİ DEĞER
-      { width: 25 },  // YENİ DEĞER
-      { width: 20 },  // DEĞİŞİKLİK YAPAN
-      { width: 15 },  // KULLANICI ROLÜ
-      { width: 15 }   // DURUM
-    ];
+    console.log(`✅ Revizyon tracking tamamlandı: ${revisionData.length} satır`);
+    console.log(`🔍 Toplam değişiklik: ${revisionData.reduce((sum, r) => sum + r.changesCount, 0)} alan`);
     
-    // Özet sayfası ekle
-    const ozetSheet = workbook.addWorksheet('Özet');
+    return revisionData;
     
-    // Özet başlık
-    ozetSheet.mergeCells('A1:L1');
-    ozetSheet.getCell('A1').value = 'REVİZYON ÖZETİ RAPORU';
-    ozetSheet.getCell('A1').style = headerStyle;
+  } catch (error) {
+    console.error('❌ Revizyon tracking hatası:', error);
+    throw error;
+  }
+};
+
+// 🏗️ CSV DATA ROW BUILDER - 156 SÜTUN TAM UYUMLU
+const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
+  try {
+    const row = [];
     
-    // Özet bilgi başlığı
-    ozetSheet.mergeCells('A2:L2');
-    ozetSheet.getCell('A2').value = `${tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan} - Revizyon İstatistikleri`;
-    ozetSheet.getCell('A2').style = {
-      font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
-      fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCFE2F3' } },
-      alignment: { horizontal: 'center', vertical: 'middle' }
-    };
+    // KÜNYE BİLGLERİ (17 sütun)
+    row.push(tesvik.tesvikId || tesvik.gmId || 'GM2025000'); // GM ID
+    row.push(tesvik.durumBilgileri?.genelDurum || 'taslak'); // TALEP/SONUÇ
+    row.push(revizyonNo); // REVIZE ID
+    row.push(tesvik.firma?.firmaId || 'A000000'); // FIRMA ID
+    row.push(tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'); // YATIRIMCI UNVAN
+    row.push(tesvik.kunyeBilgileri?.sgkSicilNo || ''); // Schema'da 'kunyeBilgileri' içinde
+    row.push(tesvik._id || ''); // BELGE ID
+    row.push(tesvik.belgeYonetimi?.belgeNo || ''); // BELGE NO
+    row.push(tesvik.belgeYonetimi?.belgeTarihi ? new Date(tesvik.belgeYonetimi.belgeTarihi).toLocaleDateString('tr-TR') : ''); // BELGE TARIHI
+    row.push(tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : ''); // BELGE MURACAAT TARIHI
+    row.push(tesvik.belgeYonetimi?.muracaatSayisi || ''); // MÜRACAAT SAYISI
+    row.push(tesvik.belgeYonetimi?.belgeBaslamaTarihi ? new Date(tesvik.belgeYonetimi.belgeBaslamaTarihi).toLocaleDateString('tr-TR') : ''); // BELGE BASLAMA TARIHI
+    row.push(tesvik.belgeYonetimi?.belgeBitisTarihi ? new Date(tesvik.belgeYonetimi.belgeBitisTarihi).toLocaleDateString('tr-TR') : ''); // BELGE BITIS TARIHI
+    row.push(tesvik.belgeYonetimi?.sureUzatimTarihi ? new Date(tesvik.belgeYonetimi.sureUzatimTarihi).toLocaleDateString('tr-TR') : ''); // SÜRE UZATIM TARİHİ
+    row.push(tesvik.yatirimBilgileri?.ozellikliYatirimMi ? 'evet' : 'hayir'); // ÖZELLİKLİ YATIRIM İSE
+    row.push(tesvik.belgeYonetimi?.dayandigiKanun || '2012/3305'); // DAYANDIĞI KANUN
+    row.push(tesvik.durumBilgileri?.genelDurum || 'taslak'); // BELGE DURUMU
     
-    // Özet bilgileri
-    const ozetBilgileri = [
-      ['Teşvik ID:', tesvik.tesvikId || tesvik.gmId || '-'],
-      ['Firma Ünvanı:', tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'],
-      ['Toplam Revizyon Sayısı:', (tesvik.revizyonlar?.length || 0) + 1], // +1 ilk oluşturma için
-      ['Mevcut Durum:', tesvik.durumBilgileri?.genelDurum || 'taslak'],
-      ['İlk Oluşturma Tarihi:', tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString('tr-TR') : '-'],
-      ['Son Güncelleme Tarihi:', tesvik.updatedAt ? new Date(tesvik.updatedAt).toLocaleDateString('tr-TR') : '-'],
-      ['Son Güncelleyen:', tesvik.sonGuncelleyen?.adSoyad || 'Sistem'],
-      ['Rapor Oluşturma Tarihi:', new Date().toLocaleDateString('tr-TR') + ' ' + new Date().toLocaleTimeString('tr-TR')]
-    ];
+    // YATIRIM İLE İLGİLİ BİLGLER (17 sütun)
+    row.push(tesvik.yatirimBilgileri?.yatirimKonusu || ''); // 2-YATIRIM KONUSU
+    row.push(tesvik.yatirimBilgileri?.sCinsi1 || ''); // Schema'da 'sCinsi1'
+    row.push(tesvik.yatirimBilgileri?.tCinsi2 || ''); // Schema'da 'tCinsi2'
+    row.push(tesvik.yatirimBilgileri?.uCinsi3 || ''); // Schema'da 'uCinsi3'
+    row.push(tesvik.yatirimBilgileri?.vCinsi4 || ''); // Schema'da 'vCinsi4'
+    row.push(tesvik.yatirimBilgileri?.destekSinifi || 'Genel'); // DESTEK SINIFI
+    row.push(tesvik.yatirimBilgileri?.yerinIl || tesvik.firma?.firmaIl || ''); // YERI IL
+    row.push(tesvik.yatirimBilgileri?.yerinIlce || tesvik.firma?.firmaIlce || ''); // YERI ILCE
+    row.push(tesvik.yatirimBilgileri?.ada || ''); // ADA
+    row.push(tesvik.yatirimBilgileri?.parsel || ''); // PARSEL
+    row.push(tesvik.yatirimBilgileri?.yatirimAdresi1 || ''); // YATIRIM ADRESI(1)
+    row.push(tesvik.yatirimBilgileri?.yatirimAdresi2 || ''); // YATIRIM ADRESI(2)
+    row.push(tesvik.yatirimBilgileri?.yatirimAdresi3 || ''); // YATIRIM ADRESI(3)
+    row.push(tesvik.yatirimBilgileri?.osbMudurluk || ''); // OSB ISE MUDURLUK
+    row.push(tesvik.yatirimBilgileri?.ilBazliBolge || ''); // İL BAZLI BÖLGE
+    row.push(tesvik.yatirimBilgileri?.ilceBazliBolge || ''); // İLÇE BAZLI BÖLGE
+    row.push(tesvik.yatirimBilgileri?.serbsetBolge || ''); // Schema'da 'serbsetBolge' (typo olabilir)
     
-    ozetBilgileri.forEach((bilgi, index) => {
-      const row = index + 4;
-      ozetSheet.getCell(`A${row}`).value = bilgi[0];
-      ozetSheet.getCell(`A${row}`).style = {
-        ...subHeaderStyle,
-        alignment: { horizontal: 'left', vertical: 'middle' }
-      };
-      ozetSheet.getCell(`B${row}`).value = bilgi[1];
-      ozetSheet.getCell(`B${row}`).style = {
-        ...dataStyle,
-        alignment: { horizontal: 'left', vertical: 'middle' }
-      };
+    // İSTİHDAM (2 sütun)
+    row.push(tesvik.istihdam?.mevcutKisi || 0); // Mevcut Kişi
+    row.push(tesvik.istihdam?.ilaveKisi || 0); // İlave Kişi
+    
+    // ÜRÜN BİLGLERİ (54 sütun - 9 ürün x 6 alan)
+    for (let i = 1; i <= 9; i++) {
+      const urun = tesvik.urunler?.[i-1]; // Schema'da 'urunler' array'i kullanılıyor
+      row.push(urun?.u97Kodu || ''); // Schema'da 'u97Kodu' kullanılıyor
+      row.push(urun?.urunAdi || ''); // Ürün(i)
+      row.push(urun?.mevcutKapasite || 0); // Mevcut(i)
+      row.push(urun?.ilaveKapasite || 0); // İlave(i)
+      row.push(urun?.toplamKapasite || 0); // Toplam(i)
+      row.push(urun?.kapasiteBirimi || ''); // Kapsite Birimi(i)
+    }
+    
+    // DESTEK UNSURLARI (16 sütun - 8 destek x 2 alan)
+    for (let i = 1; i <= 8; i++) {
+      const destek = tesvik.destekUnsurlari?.[i-1]; // Schema'da 'destekUnsurlari' kullanılıyor
+      row.push(destek?.destekUnsuru || ''); // Schema'da 'destekUnsuru' kullanılıyor
+      row.push(destek?.sarti || ''); // Schema'da 'sarti' kullanılıyor
+    }
+    
+    // ÖZEL ŞARTLAR (28 sütun - 14 şart x 2 alan)
+    for (let i = 1; i <= 14; i++) {
+      const sart = tesvik.ozelSartlar?.[i-1];
+      row.push(sart?.koşulNo || ''); // Schema'da 'koşulNo' kullanılıyor
+      row.push(sart?.koşulMetni || ''); // Schema'da 'koşulMetni' kullanılıyor
+    }
+    
+    // FİNANSAL BİLGLER (25 sütun) - Schema'ya uygun düzeltmeler
+    row.push(''); // Arazi-Arsa Bedeli Açıklama (schema'da yok)
+    row.push(0); // Metrekaresi (schema'da yok)
+    row.push(0); // Birim Fiyatı TL (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.araciArsaBedeli || 0); // Schema'da 'araciArsaBedeli'
+    row.push(''); // Bina İnşaat Gideri Açıklama (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.yardimciBinaGideri || 0); // Schema'da nested
+    row.push(0); // İdare Binaları (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0); // Schema'da nested
+    row.push(0); // Yardımcı İşl. Mak. Teç. Gid. (schema'da yok)
+    row.push(0); // İthalat ve Güm.Giderleri (schema'da yok)
+    row.push(0); // Taşıma ve Sigorta Giderleri (schema'da yok)
+    row.push(0); // Montaj Giderleri (schema'da yok)
+    row.push(0); // Etüd ve Proje Giderleri (schema'da yok)
+    row.push(0); // Diğer Giderleri (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0); // Schema'da 'ez' = TOPLAM
+    row.push(tesvik.maliHesaplamalar?.toplamSabitYatirim || 0); // Schema'da mevcut
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakina || 0); // Schema'da nested
+    row.push(0); // TOPLAM İTHAL MAKİNE ($) (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.finansman?.ozKaynak || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0); // Schema'da nested
+    
+    // REVİZE TARİHİ (1 sütun)
+    const revizeTarihi = revizyon?.revizyonTarihi || tesvik.createdAt;
+    row.push(revizeTarihi ? new Date(revizeTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizeTarihi).toLocaleTimeString('tr-TR') : '');
+    
+    return row;
+    
+  } catch (error) {
+    console.error('❌ CSV data row build hatası:', error);
+    throw error;
+  }
+};
+
+// 🔍 CHANGE DETECTION ALGORITHM
+const detectChanges = (previousRow, currentRow) => {
+  const changes = [];
+  
+  for (let i = 0; i < currentRow.length; i++) {
+    if (previousRow[i] !== currentRow[i] && currentRow[i] !== '' && currentRow[i] !== 0) {
+      changes.push({
+        columnIndex: i,
+        oldValue: previousRow[i],
+        newValue: currentRow[i]
+      });
+    }
+  }
+  
+  return changes;
+};
+
+// 📊 PHASE 4: PROFESSIONAL WORKBOOK CREATION
+const createProfessionalWorkbook = async (csvStructure, revisionData, includeColors, exportId) => {
+  try {
+    console.log(`📊 [${exportId}] Professional workbook oluşturuluyor...`);
+    
+    const ExcelJS = require('exceljs');
+    // 🏢 ENTERPRISE-LEVEL WORKBOOK SETUP
+    const workbook = new ExcelJS.Workbook();
+    
+    // Set workbook properties for professional look
+    workbook.creator = 'GM Teşvik Sistemi';
+    workbook.lastModifiedBy = 'GM Teşvik Sistemi';
+    workbook.created = new Date();
+    workbook.modified = new Date();
+    workbook.subject = 'Teşvik Revizyon Excel Çıktısı';
+    workbook.description = 'Kurumsal Teşvik Sistemi - Profesyonel Excel Raporu';
+    workbook.keywords = 'teşvik, revizyon, excel, kurumsal, rapor';
+    workbook.category = 'Raporlar';
+    
+    const sheet = workbook.addWorksheet('📊 Sistem Revizyon Çıktısı', {
+      properties: { 
+        tabColor: { argb: 'FF1F4E79' },
+        defaultRowHeight: 18,
+        defaultColWidth: 12
+      },
+      pageSetup: {
+        orientation: 'landscape',
+        fitToPage: true,
+        fitToHeight: 1,
+        fitToWidth: 1,
+        paperSize: 9, // A4
+        margins: {
+          left: 0.5,
+          right: 0.5,
+          top: 0.75,
+          bottom: 0.75,
+          header: 0.3,
+          footer: 0.3
+        }
+      }
     });
     
-    // Sütun genişlikleri
-    ozetSheet.columns = [
-      { width: 25 },   // Açıklama
-      { width: 35 },   // Değer
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 },   // Boş
-      { width: 15 }    // Boş
+    // 🎨 ENTERPRISE-LEVEL PROFESSIONAL STYLES - SECTION-BASED CORPORATE DESIGN
+    const styles = {
+            // 🏢 KÜNYE BİLGLERİ - Deep Blue Corporate Theme - FONTRENGİ SİYAH!
+      kunyeLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }, // Deep blue
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+          top: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
+          left: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
+          right: { style: 'medium', color: { argb: 'FF1E40AF' } }
+        }
+      },
+      kunyeLevel2: {
+        font: { bold: true, color: { argb: 'FF1E3A8A' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } }, // Light blue
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
+          left: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
+          right: { style: 'thin', color: { argb: 'FF3B82F6' } }
+        }
+      },
+      kunyeColumn: {
+        font: { bold: true, color: { argb: 'FF1E3A8A' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F4FF' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF3B82F6' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF3B82F6' } }, right: { style: 'thin' } }
+      },
+      kunyeData: {
+        font: { color: { argb: 'FF1E40AF' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFBFCFF' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 🏭 YATIRIM BİLGLERİ - Forest Green Corporate Theme
+      yatirimLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF064E3B' } }, // Forest green
+      alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+          top: { style: 'medium', color: { argb: 'FF065F46' } }, 
+          left: { style: 'medium', color: { argb: 'FF065F46' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF065F46' } }, 
+          right: { style: 'medium', color: { argb: 'FF065F46' } }
+        }
+      },
+      yatirimLevel2: {
+        font: { bold: true, color: { argb: 'FF064E3B' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }, // Light green
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF10B981' } }, 
+          left: { style: 'thin', color: { argb: 'FF10B981' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF10B981' } }, 
+          right: { style: 'thin', color: { argb: 'FF10B981' } }
+        }
+      },
+      yatirimColumn: {
+        font: { bold: true, color: { argb: 'FF064E3B' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF10B981' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF10B981' } }, right: { style: 'thin' } }
+      },
+      yatirimData: {
+        font: { color: { argb: 'FF065F46' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7FEFC' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 👥 İSTİHDAM - Purple Corporate Theme
+      istihdamLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF581C87' } }, // Purple
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
+          left: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
+          right: { style: 'medium', color: { argb: 'FF7C3AED' } }
+        }
+      },
+      istihdamLevel2: {
+        font: { bold: true, color: { argb: 'FF581C87' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE9D5FF' } }, // Light purple
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
+          left: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
+          right: { style: 'thin', color: { argb: 'FF8B5CF6' } }
+        }
+      },
+      istihdamColumn: {
+        font: { bold: true, color: { argb: 'FF581C87' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF8B5CF6' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF8B5CF6' } }, right: { style: 'thin' } }
+      },
+      istihdamData: {
+        font: { color: { argb: 'FF7C3AED' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF9FF' } },
+      alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 📦 ÜRÜN BİLGLERİ - Orange Corporate Theme  
+      urunLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB45309' } }, // Orange
+        alignment: { horizontal: 'center', vertical: 'middle' },
+      border: {
+          top: { style: 'medium', color: { argb: 'FFD97706' } }, 
+          left: { style: 'medium', color: { argb: 'FFD97706' } }, 
+          bottom: { style: 'medium', color: { argb: 'FFD97706' } }, 
+          right: { style: 'medium', color: { argb: 'FFD97706' } }
+        }
+      },
+      urunLevel2: {
+        font: { bold: true, color: { argb: 'FFB45309' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }, // Light orange
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
+          left: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
+          bottom: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
+          right: { style: 'thin', color: { argb: 'FFF59E0B' } }
+        }
+      },
+      urunColumn: {
+        font: { bold: true, color: { argb: 'FFB45309' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FFF59E0B' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FFF59E0B' } }, right: { style: 'thin' } }
+      },
+      urunData: {
+        font: { color: { argb: 'FFD97706' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFEF7' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 🛠️ DESTEK UNSURLARI - Teal Corporate Theme
+      destekLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }, // Teal
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
+          left: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
+          right: { style: 'medium', color: { argb: 'FF14B8A6' } }
+        }
+      },
+      destekLevel2: {
+        font: { bold: true, color: { argb: 'FF0F766E' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFBF1' } }, // Light teal
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
+          left: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
+          right: { style: 'thin', color: { argb: 'FF2DD4BF' } }
+        }
+      },
+      destekColumn: {
+        font: { bold: true, color: { argb: 'FF0F766E' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDFA' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF2DD4BF' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF2DD4BF' } }, right: { style: 'thin' } }
+      },
+      destekData: {
+        font: { color: { argb: 'FF14B8A6' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCFFFE' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 📋 ÖZEL ŞARTLAR - Indigo Corporate Theme
+      ozelLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3730A3' } }, // Indigo
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
+          left: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
+          right: { style: 'medium', color: { argb: 'FF4F46E5' } }
+        }
+      },
+      ozelLevel2: {
+        font: { bold: true, color: { argb: 'FF3730A3' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } }, // Light indigo
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF6366F1' } }, 
+          left: { style: 'thin', color: { argb: 'FF6366F1' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF6366F1' } }, 
+          right: { style: 'thin', color: { argb: 'FF6366F1' } }
+        }
+      },
+      ozelColumn: {
+        font: { bold: true, color: { argb: 'FF3730A3' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2FF' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF6366F1' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF6366F1' } }, right: { style: 'thin' } }
+      },
+      ozelData: {
+        font: { color: { argb: 'FF4F46E5' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCFCFF' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 💰 FİNANSAL BİLGLER - Rose Gold Corporate Theme
+      finansalLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9F1239' } }, // Rose
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FFE11D48' } }, 
+          left: { style: 'medium', color: { argb: 'FFE11D48' } }, 
+          bottom: { style: 'medium', color: { argb: 'FFE11D48' } }, 
+          right: { style: 'medium', color: { argb: 'FFE11D48' } }
+        }
+      },
+      finansalLevel2: {
+        font: { bold: true, color: { argb: 'FF9F1239' }, size: 10, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }, // Light rose
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          left: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          right: { style: 'thin', color: { argb: 'FFF43F5E' } }
+        }
+      },
+      finansalLevel3: {
+        font: { bold: true, color: { argb: 'FF9F1239' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF2F8' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          left: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+          right: { style: 'thin', color: { argb: 'FFF43F5E' } }
+        }
+      },
+      finansalColumn: {
+        font: { bold: true, color: { argb: 'FF9F1239' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF7F0' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FFF43F5E' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FFF43F5E' } }, right: { style: 'thin' } }
+      },
+      finansalData: {
+        font: { color: { argb: 'FFE11D48' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEFCFD' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // 🕐 REVİZE TARİHİ - Gray Corporate Theme
+      revizyonLevel1: {
+        font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF374151' } }, // Gray
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FF6B7280' } }, 
+          left: { style: 'medium', color: { argb: 'FF6B7280' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF6B7280' } }, 
+          right: { style: 'medium', color: { argb: 'FF6B7280' } }
+        }
+      },
+      revizyonColumn: {
+        font: { bold: true, color: { argb: 'FF374151' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9FAFB' } },
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: { top: { style: 'medium', color: { argb: 'FF9CA3AF' } }, left: { style: 'thin' }, bottom: { style: 'medium', color: { argb: 'FF9CA3AF' } }, right: { style: 'thin' } }
+      },
+      revizyonData: {
+        font: { color: { argb: 'FF6B7280' }, size: 9, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEFEFE' } },
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+      },
+
+      // ⚠️ SPECIAL DATA STYLES
+      initialRowCell: {
+        font: { color: { argb: 'FF065F46' }, size: 9, bold: true, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6FFFA' } }, // Very light green
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { 
+          top: { style: 'thin', color: { argb: 'FF059669' } }, 
+          left: { style: 'thin', color: { argb: 'FF059669' } }, 
+          bottom: { style: 'thin', color: { argb: 'FF059669' } }, 
+          right: { style: 'thin', color: { argb: 'FF059669' } }
+        }
+      },
+      changedCell: {
+        font: { color: { argb: 'FF8B0000' }, size: 9, bold: true, name: 'Calibri' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE6E6' } }, // Light red
+        alignment: { horizontal: 'left', vertical: 'middle' },
+        border: { 
+          top: { style: 'medium', color: { argb: 'FFFF0000' } }, 
+          bottom: { style: 'medium', color: { argb: 'FFFF0000' } },
+          left: { style: 'medium', color: { argb: 'FFFF0000' } }, 
+          right: { style: 'medium', color: { argb: 'FFFF0000' } }
+        }
+      }
+    };
+    
+    // 🏗️ BUILD 4-LEVEL HEADER STRUCTURE WITH SECTION-BASED CORPORATE COLORS
+    console.log(`📊 [${exportId}] 4 seviyeli kurumsal renk şemalı başlık yapısı oluşturuluyor...`);
+    
+    // 🎨 Section styling mapping function - DÜZELTİLMİŞ VERSİYON
+    const getSectionStyle = (colIndex, level) => {
+      console.log(`🎨 [${exportId}] getSectionStyle called: colIndex=${colIndex}, level=${level}`);
+      
+      // KÜNYE BİLGLERİ: 1-17
+      if (colIndex >= 1 && colIndex <= 17) {
+        return level === 1 ? styles.kunyeLevel1 : 
+               level === 2 ? styles.kunyeLevel2 : 
+               level === 3 ? styles.kunyeLevel2 : // Level 3 fallback
+               level === 4 ? styles.kunyeColumn : styles.kunyeLevel1;
+      }
+      // YATIRIM BİLGLERİ: 18-34
+      else if (colIndex >= 18 && colIndex <= 34) {
+        return level === 1 ? styles.yatirimLevel1 : 
+               level === 2 ? styles.yatirimLevel2 : 
+               level === 3 ? styles.yatirimLevel2 : // Level 3 fallback
+               level === 4 ? styles.yatirimColumn : styles.yatirimLevel1;
+      }
+      // İSTİHDAM: 35-36
+      else if (colIndex >= 35 && colIndex <= 36) {
+        return level === 1 ? styles.istihdamLevel1 : 
+               level === 2 ? styles.istihdamLevel2 : 
+               level === 3 ? styles.istihdamLevel2 : // Level 3 fallback
+               level === 4 ? styles.istihdamColumn : styles.istihdamLevel1;
+      }
+      // ÜRÜN BİLGLERİ: 37-90
+      else if (colIndex >= 37 && colIndex <= 90) {
+        return level === 1 ? styles.urunLevel1 : 
+               level === 2 ? styles.urunLevel2 : 
+               level === 3 ? styles.urunLevel2 : // Level 3 fallback
+               level === 4 ? styles.urunColumn : styles.urunLevel1;
+      }
+      // DESTEK UNSURLARI: 91-106
+      else if (colIndex >= 91 && colIndex <= 106) {
+        return level === 1 ? styles.destekLevel1 : 
+               level === 2 ? styles.destekLevel2 : 
+               level === 3 ? styles.destekLevel2 : // Level 3 fallback
+               level === 4 ? styles.destekColumn : styles.destekLevel1;
+      }
+      // ÖZEL ŞARTLAR: 107-134
+      else if (colIndex >= 107 && colIndex <= 134) {
+        return level === 1 ? styles.ozelLevel1 : 
+               level === 2 ? styles.ozelLevel2 : 
+               level === 3 ? styles.ozelLevel2 : // Level 3 fallback
+               level === 4 ? styles.ozelColumn : styles.ozelLevel1;
+      }
+      // FİNANSAL BİLGLER: 135-160
+      else if (colIndex >= 135 && colIndex <= 160) {
+        return level === 1 ? styles.finansalLevel1 : 
+               level === 2 ? styles.finansalLevel2 : 
+               level === 3 ? styles.finansalLevel3 :
+               level === 4 ? styles.finansalColumn : styles.finansalLevel1;
+      }
+      // REVİZE TARİHİ: 161
+      else if (colIndex >= 161) {
+        return level === 1 ? styles.revizyonLevel1 : 
+               level === 2 ? styles.revizyonLevel1 : // Level 2 fallback
+               level === 3 ? styles.revizyonLevel1 : // Level 3 fallback
+               level === 4 ? styles.revizyonColumn : styles.revizyonLevel1;
+      }
+      
+      return styles.kunyeLevel1; // Default
+    };
+    
+    // 🏆 ENTERPRISE-LEVEL KURUMSAL EXCEL ŞABLONU - AŞK OLACAKSIN!
+    console.log(`🏆 [${exportId}] PROFESYONEL KURUMSAL ŞABLON OLUŞTURULUYOR...`);
+    
+    // 🎨 KURUMSAL PROFESYONEL STİLLER - HER BÖLÜM ÖZEL RENK!
+    const professionalStyles = {
+      // 🏢 KÜNYE BİLGLERİ - Navy Blue Corporate
+      kunye: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FF1E3A8A' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBFDBFE' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FF1E40AF' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 🏭 YATIRIM - Forest Green Corporate  
+      yatirim: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF064E3B' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FF064E3B' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB7F5E8' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FF065F46' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 👥 İSTİHDAM - Purple Corporate
+      istihdam: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF581C87' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FF581C87' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE9D5FF' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FF7C3AED' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 📦 ÜRÜN - Orange Corporate
+      urun: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEA580C' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FFEA580C' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FFDC2626' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 🛠️ DESTEK - Teal Corporate
+      destek: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FF0F766E' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFBF1' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FF14B8A6' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDFA' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 📋 ÖZEL ŞARTLAR - Indigo Corporate
+      ozel: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FF4338CA' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FF6366F1' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0F2FF' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      },
+      // 💰 FİNANSAL - Rose Corporate
+      finansal: {
+        level1: {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 13, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFBE185D' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'thick' }, left: { style: 'thick' }, bottom: { style: 'thick' }, right: { style: 'thick' } }
+        },
+        level2: {
+          font: { bold: true, color: { argb: 'FFBE185D' }, size: 11, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: { top: { style: 'medium' }, left: { style: 'medium' }, bottom: { style: 'medium' }, right: { style: 'medium' } }
+        },
+        column: {
+          font: { bold: true, color: { argb: 'FFE11D48' }, size: 9, name: 'Segoe UI' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF7F0' } },
+          alignment: { horizontal: 'center', vertical: 'middle', wrapText: true },
+          border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
+        }
+      }
+    };
+    
+    // 🎯 BÖLÜM TANIMLAMALARI - KURUMSAL RENKLER İLE
+    const sections = [
+      { name: 'KÜNYE BİLGLERİ', start: 1, end: 17, style: professionalStyles.kunye },
+      { name: 'YATIRIM BİLGLERİ', start: 18, end: 34, style: professionalStyles.yatirim },
+      { name: 'İSTİHDAM', start: 35, end: 36, style: professionalStyles.istihdam },
+      { name: 'ÜRÜN BİLGLERİ', start: 37, end: 90, style: professionalStyles.urun },
+      { name: 'DESTEK UNSURLARI', start: 91, end: 106, style: professionalStyles.destek },
+      { name: 'ÖZEL ŞARTLAR', start: 107, end: 134, style: professionalStyles.ozel },
+      { name: 'FİNANSAL BİLGLER', start: 135, end: 161, style: professionalStyles.finansal }
     ];
     
-    // Excel dosyasını buffer olarak oluştur
-    const excelBuffer = await workbook.xlsx.writeBuffer();
+    // 🏆 SATIR 1 - ANA BÖLÜM BAŞLIKLARI (KURUMSAL RENKLER)
+    console.log(`🏆 [${exportId}] Level 1 - Ana bölüm başlıkları kurumsal renklerle...`);
+    sections.forEach(section => {
+      // Merge cells for entire section
+      sheet.mergeCells(1, section.start, 1, section.end);
+      
+      // Apply corporate styling to merged area
+      for (let col = section.start; col <= section.end; col++) {
+        const cell = sheet.getCell(1, col);
+        if (col === section.start) cell.value = section.name;
+        cell.style = section.style.level1;
+      }
+      console.log(`🎨 Merged: ${section.name} (${section.start}-${section.end}) - ${section.style.level1.fill.fgColor.argb}`);
+    });
     
-    // Response headers ayarla
-    const fileName = `revizyon_gecmisi_${tesvik.firma?.firmaId}_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    // 🎯 SATIR 2 - ALT BÖLÜM BAŞLIKLARI (KURUMSAL RENKLER)
+    console.log(`🎯 [${exportId}] Level 2 - Alt bölüm başlıkları kurumsal renklerle...`);
     
-    // Activity log
+    // KÜNYE alt bölümleri
+    sheet.mergeCells(2, 1, 2, 6);
+    for (let c = 1; c <= 6; c++) {
+      const cell = sheet.getCell(2, c);
+      if (c === 1) cell.value = 'YATIRIMCI';
+      cell.style = professionalStyles.kunye.level2;
+    }
+    sheet.mergeCells(2, 7, 2, 17);
+    for (let c = 7; c <= 17; c++) {
+      const cell = sheet.getCell(2, c);
+      if (c === 7) cell.value = 'BELGE BİLGLERİ';
+      cell.style = professionalStyles.kunye.level2;
+    }
+    
+    // Diğer ana bölümler
+    const level2Sections = [
+      { name: 'YATIRIM İLE İLGİLİ BİLGLER', start: 18, end: 34, style: professionalStyles.yatirim.level2 },
+      { name: 'İSTİHDAM', start: 35, end: 36, style: professionalStyles.istihdam.level2 },
+      { name: 'ÜRÜN BİLGLERİ', start: 37, end: 90, style: professionalStyles.urun.level2 },
+      { name: 'DESTEK UNSURLARI', start: 91, end: 106, style: professionalStyles.destek.level2 },
+      { name: 'ÖZEL ŞARTLAR', start: 107, end: 134, style: professionalStyles.ozel.level2 },
+      { name: 'FİNANSAL BİLGLER', start: 135, end: 161, style: professionalStyles.finansal.level2 }
+    ];
+    
+    level2Sections.forEach(section => {
+      sheet.mergeCells(2, section.start, 2, section.end);
+      for (let c = section.start; c <= section.end; c++) {
+        const cell = sheet.getCell(2, c);
+        if (c === section.start) cell.value = section.name;
+        cell.style = section.style;
+      }
+      console.log(`🎨 Level2: ${section.name} (${section.start}-${section.end})`);
+    });
+    
+    // 📝 SATIR 4 - SÜTUN İSİMLERİ (BÖLÜM BAZLI KURUMSAL RENKLER)
+    console.log(`📝 [${exportId}] Level 4 - Sütun isimleri bölüm renkleryle...`);
+    csvStructure.level4.forEach((columnName, index) => {
+      const cell = sheet.getCell(4, index + 1);
+      cell.value = columnName;
+      
+      // Bölüm bazlı stil ata
+      const colNum = index + 1;
+      let columnStyle = professionalStyles.kunye.column; // Default
+      
+      if (colNum >= 1 && colNum <= 17) columnStyle = professionalStyles.kunye.column;
+      else if (colNum >= 18 && colNum <= 34) columnStyle = professionalStyles.yatirim.column;
+      else if (colNum >= 35 && colNum <= 36) columnStyle = professionalStyles.istihdam.column;
+      else if (colNum >= 37 && colNum <= 90) columnStyle = professionalStyles.urun.column;
+      else if (colNum >= 91 && colNum <= 106) columnStyle = professionalStyles.destek.column;
+      else if (colNum >= 107 && colNum <= 134) columnStyle = professionalStyles.ozel.column;
+      else if (colNum >= 135 && colNum <= 161) columnStyle = professionalStyles.finansal.column;
+      
+      cell.style = columnStyle;
+      
+      if (index < 10) {
+        console.log(`🎨 Col ${colNum}: "${columnName}"`);
+      }
+    });
+    
+    console.log(`🏆 [${exportId}] KURUMSAL ŞABLON TAMAMLANDI - 161 sütun, 7 renkli bölüm!`);
+    
+    // 🎨 PROFESYONEL SATIR YÜKSEKLİKLERİ & DONDURMALAR
+    sheet.getRow(1).height = 35; // Ana bölüm başlıkları - daha yüksek
+    sheet.getRow(2).height = 30; // Alt bölüm başlıkları  
+    sheet.getRow(3).height = 25; // Boş satır (ileride kullanım için)
+    sheet.getRow(4).height = 28; // Sütun isimleri - daha yüksek
+    
+    // Freeze header rows for better user experience
+    sheet.views = [{
+      state: 'frozen',
+      xSplit: 0,
+      ySplit: 4, // Freeze first 4 header rows
+      topLeftCell: 'A5',
+      activeCell: 'A5'
+    }];
+    
+    console.log(`📊 [${exportId}] Başlık yapısı tamamlandı: ${csvStructure.totalColumns} sütun`);
+    
+    // 📊 POPULATE DATA ROWS WITH SECTION-BASED CORPORATE COLORS
+    console.log(`📊 [${exportId}] Kurumsal renk şemalı veri satırları oluşturuluyor: ${revisionData.length} satır`);
+    
+    // 🎨 Section data styling function
+    const getSectionDataStyle = (colIndex, isInitial = false, isChanged = false) => {
+      // İlk satır için özel stil
+      if (isInitial) {
+        return styles.initialRowCell;
+      }
+      // Değişen hücreler için kırmızı vurgu
+      if (isChanged) {
+        return styles.changedCell;
+      }
+      
+      // Section-based normal data styles
+      // KÜNYE BİLGLERİ: 1-17 (Blue theme)
+      if (colIndex >= 1 && colIndex <= 17) {
+        return styles.kunyeData;
+      }
+      // YATIRIM BİLGLERİ: 18-34 (Green theme)
+      else if (colIndex >= 18 && colIndex <= 34) {
+        return styles.yatirimData;
+      }
+      // İSTİHDAM: 35-36 (Purple theme)
+      else if (colIndex >= 35 && colIndex <= 36) {
+        return styles.istihdamData;
+      }
+      // ÜRÜN BİLGLERİ: 37-90 (Orange theme)
+      else if (colIndex >= 37 && colIndex <= 90) {
+        return styles.urunData;
+      }
+      // DESTEK UNSURLARI: 91-106 (Teal theme)
+      else if (colIndex >= 91 && colIndex <= 106) {
+        return styles.destekData;
+      }
+      // ÖZEL ŞARTLAR: 107-134 (Indigo theme)
+      else if (colIndex >= 107 && colIndex <= 134) {
+        return styles.ozelData;
+      }
+      // FİNANSAL BİLGLER: 135-160 (Rose theme)
+      else if (colIndex >= 135 && colIndex <= 160) {
+        return styles.finansalData;
+      }
+      // REVİZE TARİHİ: 161+ (Gray theme)
+      else if (colIndex >= 161) {
+        return styles.revizyonData;
+      }
+      
+      return styles.kunyeData; // Default
+    };
+    
+    let currentRow = 5;
+    
+    revisionData.forEach((revision, revisionIndex) => {
+      revision.rowData.forEach((value, colIndex) => {
+        const cell = sheet.getCell(currentRow, colIndex + 1);
+            cell.value = value;
+        
+        // Determine styling based on section and state
+        const isChanged = includeColors && revision.changes?.some(c => c.columnIndex === colIndex);
+        const baseStyle = getSectionDataStyle(colIndex + 1, revision.isInitial, isChanged);
+        
+        // 🎨 ADD ALTERNATING ROW EFFECT (subtle gradient-like effect)
+        if (!revision.isInitial && !isChanged && revisionIndex % 2 === 1) {
+          // Create slightly darker version for alternating rows
+          const alternatingStyle = { ...baseStyle };
+          
+          // Section-specific alternating colors
+          if (colIndex + 1 >= 1 && colIndex + 1 <= 17) { // KÜNYE
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FF' } };
+          } else if (colIndex + 1 >= 18 && colIndex + 1 <= 34) { // YATIRIM
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3FDF6' } };
+          } else if (colIndex + 1 >= 35 && colIndex + 1 <= 36) { // İSTİHDAM
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF7F5FF' } };
+          } else if (colIndex + 1 >= 37 && colIndex + 1 <= 90) { // ÜRÜN
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFCF5' } };
+          } else if (colIndex + 1 >= 91 && colIndex + 1 <= 106) { // DESTEK
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FFFE' } };
+          } else if (colIndex + 1 >= 107 && colIndex + 1 <= 134) { // ÖZEL ŞARTLAR
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F8FF' } };
+          } else if (colIndex + 1 >= 135 && colIndex + 1 <= 160) { // FİNANSAL
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF8F9' } };
+          } else { // REVİZYON
+            alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCFCFC' } };
+          }
+          
+          cell.style = alternatingStyle;
+        } else {
+          cell.style = baseStyle;
+        }
+      });
+      
+      // 🎨 ENHANCED ROW HEIGHTS
+      if (revision.isInitial) {
+        sheet.getRow(currentRow).height = 22; // Initial row daha yüksek
+      } else if (revision.changes && revision.changes.length > 0) {
+        sheet.getRow(currentRow).height = 20; // Changed rows biraz daha yüksek
+      } else {
+        sheet.getRow(currentRow).height = 18; // Normal rows
+      }
+      
+      currentRow++;
+    });
+    
+    // 📏 COLUMN WIDTHS
+    console.log(`📊 [${exportId}] Sütun genişlikleri ayarlanıyor...`);
+    
+    const columnWidths = [
+      8, 12, 8, 10, 35, 12, 25, 12, 12, 15, 12, 15, 12, 15, 15, 12, 15, // KÜNYE + YATIRIM
+      25, 10, 10, 10, 10, 18, 12, 12, 8, 8, 20, 20, 20, 15, 15, 15, 12, 10, 10, // YATIRIM devam + İSTİHDAM
+    ];
+    
+    // Ürün bilgileri için sütun genişlikleri (54 sütun)
+    for (let i = 0; i < 54; i++) {
+      if (i % 6 === 0) columnWidths.push(12); // US97 Kodu
+      else if (i % 6 === 1) columnWidths.push(25); // Ürün adı
+      else columnWidths.push(8); // Diğer alanlar
+    }
+    
+    // Kalan sütunlar için
+    for (let i = columnWidths.length; i < csvStructure.totalColumns; i++) {
+      columnWidths.push(12);
+    }
+    
+    columnWidths.forEach((width, index) => {
+      if (sheet.getColumn(index + 1)) {
+        sheet.getColumn(index + 1).width = width;
+      }
+    });
+    
+    console.log(`✅ [${exportId}] Professional workbook oluşturuldu`);
+    return workbook;
+    
+  } catch (error) {
+    console.error(`❌ [${exportId}] Workbook creation hatası:`, error);
+    throw error;
+  }
+};
+
+// 📁 FILE NAME GENERATOR
+const generateFileName = (tesvik) => {
+  const firmId = tesvik.firma?.firmaId || 'A000000';
+  const tesvikId = tesvik.tesvikId || tesvik.gmId || 'UNKNOWN';
+  const date = new Date().toISOString().split('T')[0];
+  
+  return `sistem_excel_ciktisi_${firmId}_${tesvikId}_${date}.xlsx`;
+};
+
+// 📋 EXPORT ACTIVITY LOGGER
+const logExportActivity = async (tesvik, user, exportId, rowCount, duration, ip, userAgent) => {
+  try {
     await Activity.logActivity({
       action: 'export',
       category: 'tesvik',
-      title: 'Revizyon Geçmişi Excel Export',
-      description: `${tesvik.tesvikId || tesvik.gmId} için revizyon geçmişi Excel olarak export edildi`,
+      title: 'Enterprise Sistem Revizyon Excel Çıktısı',
+      description: `${tesvik.tesvikId || tesvik.gmId} için enterprise seviyede CSV formatında sistem revizyon Excel çıktısı oluşturuldu`,
       targetResource: {
         type: 'tesvik',
         id: tesvik._id,
@@ -2824,31 +3689,27 @@ const exportRevizyonExcel = async (req, res) => {
         tesvikId: tesvik.tesvikId
       },
       user: {
-        id: req.user._id,
-        name: req.user.adSoyad,
-        email: req.user.email,
-        role: req.user.rol
+        id: user._id,
+        name: user.adSoyad,
+        email: user.email,
+        role: user.rol
       },
       metadata: {
-        ip: req.ip,
-        userAgent: req.get('User-Agent'),
-        source: 'web',
-        exportType: 'revizyon_excel'
+        ip: ip || '127.0.0.1',
+        userAgent: userAgent,
+        exportId,
+        exportType: 'enterprise_sistem_revizyon_excel',
+        csvFormat: true,
+        columnCount: 156,
+        rowCount,
+        duration,
+        enterprise: true,
+        source: 'web'
       }
     });
-    
-    // Excel dosyasını gönder
-    res.send(excelBuffer);
-    
-    console.log(`✅ Revizyon Excel export tamamlandı: ${fileName}`);
-    
   } catch (error) {
-    console.error('❌ Revizyon Excel export hatası:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Revizyon Excel export sırasında hata oluştu',
-      error: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-    });
+    console.error('❌ Export activity log hatası:', error);
+    // Log hatası export'u engellemez
   }
 };
 
