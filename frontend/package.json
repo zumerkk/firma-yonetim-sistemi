@@ -37,7 +37,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "react-scripts build && echo '/* /index.html 200' > build/_redirects",
+    "build:debug": "react-scripts build && echo '/* /index.html 200' > build/_redirects && ls -la build/ && cat build/_redirects",
     "serve": "node server.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

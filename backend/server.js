@@ -172,7 +172,23 @@ const setupCronJobs = () => {
     timezone: 'Europe/Istanbul'
   });
 
-  console.log('⏰ Cron jobs configured - Activity cleanup scheduled for 02:00 daily');
+  // 🔥 Backend Warm-up - Her 10 dakikada kendini ping'le (Render.com sleep mode engellemek için)
+  cron.schedule('*/10 * * * *', async () => {
+    try {
+      const https = require('https');
+      const backendUrl = process.env.BACKEND_URL || 'https://cahit-firma-backend.onrender.com';
+      
+      https.get(`${backendUrl}/api/health`, (res) => {
+        console.log(`💓 [${new Date().toLocaleTimeString('tr-TR')}] Backend warm-up ping: ${res.statusCode}`);
+      }).on('error', (err) => {
+        console.log(`⚠️ Warm-up ping error:`, err.message);
+      });
+    } catch (error) {
+      console.error('🚨 Warm-up cron error:', error);
+    }
+  });
+
+  console.log('⏰ Cron jobs configured - Activity cleanup (02:00) & Backend warm-up (*/10min)');
 };
 
 // 🚀 Server'ı başlat

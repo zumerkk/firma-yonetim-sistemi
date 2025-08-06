@@ -28,6 +28,8 @@ services:
         value: 15
       - key: RATE_LIMIT_MAX
         value: 100
+      - key: BACKEND_URL
+        value: https://cahit-firma-backend.onrender.com
     healthCheckPath: /api/health
 
   # 🎨 Frontend Service - React Web Service with SPA Routing
@@ -36,7 +38,7 @@ services:
     env: node
     plan: free
     rootDir: frontend
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npm run build && echo '/* /index.html 200' > build/_redirects && ls -la build/
     startCommand: npm run serve
     envVars:
       - key: NODE_ENV
