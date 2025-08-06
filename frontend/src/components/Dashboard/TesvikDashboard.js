@@ -53,14 +53,10 @@ const TesvikDashboard = () => {
   // Renk paleti
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [selectedPeriod]);
-
   const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/tesvik/dashboard?period=${selectedPeriod}`);
+      const response = await axios.get(`/tesvik/dashboard?period=${selectedPeriod}`);
       setDashboardData(response.data);
     } catch (error) {
       console.error('Dashboard veri yükleme hatası:', error);
@@ -69,6 +65,10 @@ const TesvikDashboard = () => {
       setLoading(false);
     }
   }, [selectedPeriod]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [selectedPeriod, fetchDashboardData]);
 
   if (loading) {
     return (
@@ -93,7 +93,7 @@ const TesvikDashboard = () => {
     monthlyTrends = [],
     topCompanies = [],
     categoryBreakdown = [],
-    financialSummary = {},
+    // financialSummary = {}, // GELECEKTE KULLANILABİLİR
     recentActivities = []
   } = dashboardData || {};
 

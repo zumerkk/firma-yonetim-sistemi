@@ -111,7 +111,7 @@ const FileManager = () => {
       if (response.data.success) {
         setFiles(response.data.data.files || []);
         setFolders(response.data.data.folders || []);
-        setStorageStats(response.data.data.stats || storageStats);
+        setStorageStats(prevStats => response.data.data.stats || prevStats);
       }
     } catch (error) {
       console.error('File system loading error:', error);

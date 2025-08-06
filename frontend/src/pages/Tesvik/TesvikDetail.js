@@ -70,7 +70,7 @@ const TesvikDetail = () => {
   const [error, setError] = useState(null);
   const [tesvik, setTesvik] = useState(null);
   const [activities, setActivities] = useState([]);
-  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  // const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
@@ -145,7 +145,7 @@ const TesvikDetail = () => {
       if (!tesvik) return;
       
       try {
-        setActivitiesLoading(true);
+        // setActivitiesLoading(true);
         const response = await axios.get('/activities', {
           params: {
             kategori: 'tesvik',
@@ -161,7 +161,7 @@ const TesvikDetail = () => {
       } catch (error) {
         console.error('🚨 Aktivite yükleme hatası:', error);
       } finally {
-        setActivitiesLoading(false);
+        // setActivitiesLoading(false);
       }
     };
 
@@ -875,32 +875,48 @@ const TesvikDetail = () => {
               </Card>
             </Grid>
 
-            {/* 📋 Son Belge İşlemleri */}
+            {/* 📋 Belge İşlem Yönetimi - Sadece Butonlar */}
             <Grid item xs={12} md={6}>
               <Card>
                 <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <HistoryIcon />
-                      Son Belge İşlemleri
-                    </Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+                    <HistoryIcon />
+                    Belge İşlem Yönetimi
+                  </Typography>
+                  
+                  {/* Ana İşlem Butonları */}
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* Tüm İşlemleri Göster Butonu */}
+                    <Button 
+                      size="large"
+                      variant="outlined"
+                      startIcon={<HistoryIcon />}
+                      onClick={() => setAllActivitiesModalOpen(true)}
+                      sx={{
+                        py: 2,
+                        borderColor: '#3B82F6',
+                        color: '#3B82F6',
+                        '&:hover': {
+                          backgroundColor: '#3B82F6',
+                          color: 'white'
+                        }
+                      }}
+                    >
+                      Tüm Belge İşlemlerini Göster ({activities.length})
+                    </Button>
                     
-                    {/* Revizyon Butonları */}
+                    {/* Revizyon İşlemleri */}
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       {user?.yetkiler?.belgeEkle && (
                         <Button
-                          variant="outlined"
-                          size="small"
+                          variant="contained"
                           startIcon={<AddIcon />}
                           onClick={() => setRevizyonModalOpen(true)}
                           sx={{
-                            minWidth: 'auto',
-                            fontSize: '0.75rem',
-                            borderColor: '#059669',
-                            color: '#059669',
+                            flex: 1,
+                            backgroundColor: '#059669',
                             '&:hover': {
-                              backgroundColor: '#059669',
-                              color: 'white'
+                              backgroundColor: '#047857'
                             }
                           }}
                         >
@@ -910,14 +926,11 @@ const TesvikDetail = () => {
                       
                       <Button
                         variant="outlined"
-                        size="small"
                         startIcon={exportingRevizyon ? null : <FileDownloadIcon />}
                         onClick={handleRevizyonExcelExport}
                         disabled={exportingRevizyon}
                         sx={{
-                          minWidth: 'auto',
-                          fontSize: '0.75rem',
-                          backgroundColor: exportingRevizyon ? '#f5f5f5' : 'transparent',
+                          flex: 1,
                           borderColor: '#4F46E5',
                           color: '#4F46E5',
                           '&:hover': {
@@ -938,113 +951,25 @@ const TesvikDetail = () => {
                         )}
                       </Button>
                     </Box>
-                  </Box>
-                  
-                  {activitiesLoading ? (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                      {[1, 2, 3].map(i => (
-                        <Skeleton key={i} variant="rectangular" height={40} sx={{ borderRadius: 1 }} />
-                      ))}
-                    </Box>
-                  ) : activities.length > 0 ? (
-                     <Stack spacing={1}>
-                       {activities.slice(0, 5).map((activity, index) => (
-                         <Paper 
-                           key={activity._id}
-                           variant="outlined"
-                           sx={{ 
-                             p: 2,
-                             cursor: 'pointer',
-                             '&:hover': { backgroundColor: '#f5f5f5' },
-                             transition: 'background-color 0.2s',
-                             borderLeft: `4px solid ${getActivityColor(activity.action)}`
-                           }}
-                           onClick={() => handleActivityClick(activity)}
-                         >
-                           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                             <Avatar sx={{ 
-                               backgroundColor: getActivityColor(activity.action),
-                               color: 'white',
-                               width: 32,
-                               height: 32
-                             }}>
-                               {getActivityIcon(activity.action)}
-                             </Avatar>
-                             <Box sx={{ flex: 1 }}>
-                               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
-                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                   {activity.title}
-                                 </Typography>
-                                 <Typography variant="caption" color="text.secondary">
-                                   {formatDate(activity.createdAt)}
-                                 </Typography>
-                               </Box>
-                               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                 {activity.description}
-                               </Typography>
-                               {activity.changes?.fields && activity.changes.fields.length > 0 && (
-                                  <Box sx={{ mt: 1 }}>
-                                    <span style={{
-                                      display: 'inline-block',
-                                      padding: '2px 6px',
-                                      backgroundColor: '#FEF3C7',
-                                      color: '#D97706',
-                                      fontSize: '0.65rem',
-                                      borderRadius: '4px',
-                                      height: '20px',
-                                      lineHeight: '16px',
-                                      marginBottom: '4px'
-                                    }}>
-                                      {activity.changes.fields.length} alan güncellendi
-                                    </span>
-                                    {activity.changes.fields.slice(0, 2).map((change, idx) => (
-                                      <Typography key={idx} variant="caption" sx={{ 
-                                        display: 'block',
-                                        color: 'text.secondary',
-                                        fontSize: '0.65rem',
-                                        lineHeight: 1.2,
-                                        mt: 0.3
-                                      }}>
-                                        <span style={{ fontWeight: 500 }}>{change.field}:</span> {change.oldValue || '-'} → {change.newValue || '-'}
-                                      </Typography>
-                                    ))}
-                                    {activity.changes.fields.length > 2 && (
-                                      <Typography variant="caption" sx={{ 
-                                        color: 'primary.main',
-                                        fontSize: '0.65rem',
-                                        fontStyle: 'italic',
-                                        display: 'block',
-                                        mt: 0.3
-                                      }}>
-                                        +{activity.changes.fields.length - 2} alan daha...
-                                      </Typography>
-                                    )}
-                                  </Box>
-                                )}
-                             </Box>
-                           </Box>
-                         </Paper>
-                       ))}
-                     </Stack>
-                  ) : (
-                    <Box sx={{ textAlign: 'center', py: 3 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Henüz işlem kaydı bulunmuyor
+                    
+                    {/* İstatistik Bilgisi */}
+                    <Paper sx={{ p: 2, backgroundColor: '#f8fafc', border: '1px solid #e5e7eb' }}>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        📊 İşlem Özeti
                       </Typography>
-                    </Box>
-                  )}
-                  
-                  {activities.length > 5 && (
-                    <Box sx={{ textAlign: 'center', mt: 2 }}>
-                      <Button 
-                        size="small" 
-                        variant="outlined"
-                        onClick={() => setAllActivitiesModalOpen(true)}
-                      >
-                        Tüm İşlemleri Göster ({activities.length})
-                      </Button>
-                    </Box>
-                  )}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          Toplam İşlem: <strong>{activities.length}</strong>
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Görüntüleme: <strong>{activities.filter(a => a.action === 'view').length}</strong>
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Güncelleme: <strong>{activities.filter(a => a.action === 'update').length}</strong>
+                        </Typography>
+                      </Box>
+                    </Paper>
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>

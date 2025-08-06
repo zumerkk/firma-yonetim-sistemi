@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Backend API base URL - Environment variable ile production/development uyumlu
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
+// 🚨 Backend API base URL - /api PATH İLE birlikte (çift /api sorununu çöz)
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // Axios instance oluştur
 const api = axios.create({
@@ -23,9 +23,11 @@ api.interceptors.request.use(
       }
     }
     
-    // Debug log for troubleshooting
+    // 🚨 ENHANCED Debug log for US97 issue troubleshooting
     console.log('🔍 API Request:', {
       url: config.url,
+      baseURL: config.baseURL,
+      fullURL: `${config.baseURL}${config.url}`, // 🎯 FULL URL ÇIKARIMI
       method: config.method,
       hasAuth: !!config.headers.Authorization
     });

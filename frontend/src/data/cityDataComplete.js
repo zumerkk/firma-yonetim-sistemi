@@ -145,8 +145,8 @@ export const getRegionByCity = (cityName) => {
   return null;
 };
 
-// Varsayılan export
-export default {
+// Varsayılan export - ESLint uyarısını gidermek için
+const cityDataComplete = {
   TURKEY_CITIES,
   TURKEY_CITIES_WITH_CODES,
   CITY_CODES,
@@ -165,3 +165,5 @@ export default {
   getCitiesByRegion,
   getRegionByCity
 };
+
+export default cityDataComplete;

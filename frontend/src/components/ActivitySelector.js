@@ -10,8 +10,7 @@ import {
   Paper,
   InputAdornment,
   IconButton,
-  CircularProgress,
-  ListSubheader
+  CircularProgress
 } from '@mui/material';
 import {
   Search,
@@ -20,7 +19,7 @@ import {
   Code,
   CheckCircle
 } from '@mui/icons-material';
-import { FixedSizeList as List } from 'react-window';
+// import { FixedSizeList as List } from 'react-window';
 import { YATIRIM_DATA } from '../data/yatirimData';
 
 // NACE kodlarını parse etme fonksiyonu - Geliştirilmiş CSV parsing
@@ -56,35 +55,35 @@ const parseNaceCodes = (csvContent) => {
   return codes;
 };
 
-// Virtualized List Item Component
-const VirtualizedListItem = ({ index, style, data }) => {
-  const { options, getOptionLabel, renderOption, onSelect } = data;
-  const option = options[index];
-  
-  return (
-    <div style={style}>
-      <div
-        onClick={() => onSelect(option)}
-        style={{
-          padding: '8px 16px',
-          cursor: 'pointer',
-          borderBottom: '1px solid #f0f0f0',
-          ':hover': {
-            backgroundColor: '#f5f5f5'
-          }
-        }}
-        onMouseEnter={(e) => {
-          e.target.style.backgroundColor = '#f5f5f5';
-        }}
-        onMouseLeave={(e) => {
-          e.target.style.backgroundColor = 'transparent';
-        }}
-      >
-        {renderOption({ key: index }, option)}
-      </div>
-    </div>
-  );
-};
+// Virtualized List Item Component (GELECEKTE KULLANILABİLİR)
+// const VirtualizedListItem = ({ index, style, data }) => {
+//   const { options, getOptionLabel, renderOption, onSelect } = data;
+//   const option = options[index];
+//   
+//   return (
+//     <div style={style}>
+//       <div
+//         onClick={() => onSelect(option)}
+//         style={{
+//           padding: '8px 16px',
+//           cursor: 'pointer',
+//           borderBottom: '1px solid #f0f0f0',
+//           ':hover': {
+//             backgroundColor: '#f5f5f5'
+//           }
+//         }}
+//         onMouseEnter={(e) => {
+//           e.target.style.backgroundColor = '#f5f5f5';
+//         }}
+//         onMouseLeave={(e) => {
+//           e.target.style.backgroundColor = 'transparent';
+//         }}
+//       >
+//         {renderOption({ key: index }, option)}
+//       </div>
+//     </div>
+//   );
+// };
 
 // Mock NACE kodları (gerçek CSV'den yüklenecek)
 const mockNaceCodes = [
@@ -208,12 +207,13 @@ const ActivitySelector = ({
     setSearchTerm('');
   }, []);
 
-  const getOptionLabel = (option) => {
-    if (typeof option === 'string') {
-      return option;
-    }
-    return `${option.kod} - ${option.tanim}`;
-  };
+  // GELECEKTE KULLANILABİLİR
+  // const getOptionLabel = (option) => {
+  //   if (typeof option === 'string') {
+  //     return option;
+  //   }
+  //   return `${option.kod} - ${option.tanim}`;
+  // };
 
   const renderOption = (props, option) => {
     const { key, ...otherProps } = props;
@@ -322,7 +322,6 @@ const ActivitySelector = ({
         value={value || null}
         onChange={handleSelectionChange}
         options={filteredOptions}
-        getOptionLabel={getOptionLabel}
         renderOption={renderOption}
         loading={isLoading && codeSystem === 'nace'}
         loadingText={`NACE kodları yükleniyor... (${loadingProgress}%)`}

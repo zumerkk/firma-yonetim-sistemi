@@ -40,7 +40,7 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   Person as PersonIcon,
-  Schedule as ScheduleIcon,
+  // Schedule as ScheduleIcon, // GELECEKTE KULLANILABİLİR
   GetApp as DownloadIcon,
   History as HistoryIcon,
   TrendingUp as TrendingUpIcon,
@@ -57,33 +57,33 @@ const RevisionTimeline = ({ tesvikId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // 🎨 Revizyon Tipi Renk Haritası
-  const getRevisionColor = (type) => {
-    const colorMap = {
-      'created': '#10B981',
-      'updated': '#3B82F6',
-      'status_changed': '#F59E0B',
-      'approved': '#10B981',
-      'rejected': '#EF4444',
-      'document_added': '#8B5CF6',
-      'financial_updated': '#F97316'
-    };
-    return colorMap[type] || '#6B7280';
-  };
+  // 🎨 GELECEKTE KULLANILABİLİR - Revizyon Tipi Renk Haritası
+  // const getRevisionColor = (type) => {
+  //   const colorMap = {
+  //     'created': '#10B981',
+  //     'updated': '#3B82F6',
+  //     'status_changed': '#F59E0B',
+  //     'approved': '#10B981',
+  //     'rejected': '#EF4444',
+  //     'document_added': '#8B5CF6',
+  //     'financial_updated': '#F97316'
+  //   };
+  //   return colorMap[type] || '#6B7280';
+  // };
 
-  // 🔄 Revizyon İkonu
-  const getRevisionIcon = (type) => {
-    const iconMap = {
-      'created': '🆕',
-      'updated': '✏️',
-      'status_changed': '🔄',
-      'approved': '✅',
-      'rejected': '❌',
-      'document_added': '📎',
-      'financial_updated': '💰'
-    };
-    return iconMap[type] || '📝';
-  };
+  // 🔄 GELECEKTE KULLANILABİLİR - Revizyon İkonu
+  // const getRevisionIcon = (type) => {
+  //   const iconMap = {
+  //     'created': '🆕',
+  //     'updated': '✏️',
+  //     'status_changed': '🔄',
+  //     'approved': '✅',
+  //     'rejected': '❌',
+  //     'document_added': '📎',
+  //     'financial_updated': '💰'
+  //   };
+  //   return iconMap[type] || '📝';
+  // };
 
   // 📊 Revizyon Verilerini Yükle
   const loadRevisions = useCallback(async () => {
@@ -135,7 +135,7 @@ const RevisionTimeline = ({ tesvikId }) => {
     if (tesvikId) {
       loadRevisions();
     }
-  }, [tesvikId]);
+  }, [tesvikId, loadRevisions]);
 
   // 📅 Tarih Formatı
   const formatDate = (date) => {

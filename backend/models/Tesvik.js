@@ -172,11 +172,18 @@ const belgeYonetimiSchema = new mongoose.Schema({
   belgebitisTarihi: { type: Date },
   uzatimTarihi: { type: Date },
   mudebbirUzatimTarihi: { type: Date },
-  ozellikliYatirim: { 
-    type: String, 
-    enum: ['evet', 'hayir'], 
-    trim: true 
-  } // 🆕 Excel'den eklendi
+  // 🏆 Öncelikli Yatırım Alanları
+  oncelikliYatirim: {
+    type: String,
+    enum: ['evet', 'hayır', ''],
+    default: '',
+    trim: true
+  },
+  oncelikliYatirimTuru: {
+    type: String,
+    trim: true,
+    default: ''
+  }
 }, { _id: false });
 
 // 🎨 Durum Renk Kodlaması Schema - Excel'deki renk sistemi
@@ -272,6 +279,48 @@ const tesvikSchema = new mongoose.Schema({
       required: true,
       trim: true,
       maxlength: 200
+    },
+    // 🎯 YENİ PROFESYONEL ALANLAR - Resimden eklenenler
+    cazibeMerkeziMi: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
+    savunmaSanayiProjesi: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
+    enerjiUretimKaynagi: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    cazibeMerkezi2018: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
+    cazibeMerkeziDeprem: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
+    hamleMi: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
+    vergiIndirimsizDestek: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
     },
     sCinsi1: { type: String, trim: true },
     tCinsi2: { type: String, trim: true },

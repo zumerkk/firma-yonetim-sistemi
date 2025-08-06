@@ -26,13 +26,13 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  ListItemSecondaryAction,
+  // ListItemSecondaryAction,    // Commented out - unused import
   IconButton,
-  Tooltip,
+  // Tooltip,                    // Commented out - unused import
   Divider,
   Tab,
   Tabs,
-  TabPanel
+  // TabPanel                    // Commented out - unused import
 } from '@mui/material';
 import {
   Notifications as NotificationIcon,
@@ -40,13 +40,13 @@ import {
   Sms as SmsIcon,
   Settings as SettingsIcon,
   Send as SendIcon,
-  Schedule as ScheduleIcon,
+  // Schedule as ScheduleIcon,     // Commented out - unused import
   Group as GroupIcon,
   Person as PersonIcon,
   Close as CloseIcon,
   Edit as EditIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon
+  // Delete as DeleteIcon,        // Commented out - unused import
+  // Add as AddIcon               // Commented out - unused import
 } from '@mui/icons-material';
 import api from '../../utils/axios';
 
@@ -90,7 +90,7 @@ const NotificationManager = ({ open, onClose }) => {
   });
 
   // 📋 Templates
-  const [templates, setTemplates] = useState([
+  const [templates, /*setTemplates*/] = useState([   // setTemplates commented out - unused variable
     {
       id: 'welcome',
       name: 'Hoş Geldiniz',
@@ -118,7 +118,7 @@ const NotificationManager = ({ open, onClose }) => {
   ]);
 
   // 👥 Recipients
-  const [recipients, setRecipients] = useState([
+  const [recipients, /*setRecipients*/] = useState([   // setRecipients commented out - unused variable
     { id: 1, name: 'Tüm Kullanıcılar', type: 'group', count: 25 },
     { id: 2, name: 'Admin Kullanıcılar', type: 'group', count: 3 },
     { id: 3, name: 'Firma Yöneticileri', type: 'group', count: 15 }
@@ -221,8 +221,8 @@ const NotificationManager = ({ open, onClose }) => {
     }));
   };
 
-  // 🎨 Get priority color
-  const getPriorityColor = (priority) => {
+  // 🎨 Get priority color - commented out (unused function)
+  /*const getPriorityColor = (priority) => {
     const colors = {
       low: '#10b981',
       medium: '#f59e0b',
@@ -230,7 +230,7 @@ const NotificationManager = ({ open, onClose }) => {
       critical: '#dc2626'
     };
     return colors[priority] || '#6b7280';
-  };
+  };*/
 
   // 📱 Tab Panel Component
   const TabPanel = ({ children, value, index, ...other }) => {

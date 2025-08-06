@@ -164,15 +164,10 @@ const ReportCenter = () => {
       if (response.data.success) {
         const { downloadUrl, fileName } = response.data.data;
         
-        // Create full download URL - remove /api prefix from downloadUrl since axios baseURL already includes it
-        let cleanDownloadUrl = downloadUrl;
-        if (downloadUrl.startsWith('/api/')) {
-          cleanDownloadUrl = downloadUrl.substring(4); // Remove '/api' prefix
-        }
-        
-        const fullDownloadUrl = cleanDownloadUrl.startsWith('http') 
-          ? cleanDownloadUrl 
-          : `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${cleanDownloadUrl}`;
+        // Create full download URL - baseURL already includes /api now
+        const fullDownloadUrl = downloadUrl.startsWith('http') 
+          ? downloadUrl 
+          : `${process.env.REACT_APP_API_URL || 'http://localhost:5001'}${downloadUrl}`;
         
         // Download file
         try {
