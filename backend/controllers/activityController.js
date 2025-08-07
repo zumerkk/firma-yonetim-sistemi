@@ -135,7 +135,8 @@ const getRecentActivities = async (req, res) => {
   try {
     const { limit = 10 } = req.query;
     
-    const activities = await Activity.getRecentActivities(parseInt(limit));
+    // Dashboard için view aktivitelerini hariç tut
+    const activities = await Activity.getRecentActivitiesForDashboard(parseInt(limit));
     
     sendSuccess(res, {
       activities: activities.map(activity => ({

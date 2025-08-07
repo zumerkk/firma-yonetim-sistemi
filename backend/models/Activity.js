@@ -244,6 +244,16 @@ activitySchema.statics.getRecentActivities = function(limit = 20) {
     .lean();
 };
 
+// 📊 Dashboard için Son İşlemler (view aktivitelerini hariç tut)
+activitySchema.statics.getRecentActivitiesForDashboard = function(limit = 20) {
+  return this.find({
+    action: { $ne: 'view' } // "view" aktivitelerini dashboard'dan gizle
+  })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
+};
+
 activitySchema.statics.getActivitiesByUser = function(userId, limit = 50) {
   return this.find({ 'user.id': userId })
     .sort({ createdAt: -1 })
