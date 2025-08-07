@@ -261,8 +261,8 @@ const TesvikDetail = () => {
         // Modal'ı kapat
         setRevizyonModalOpen(false);
         
-        // Sayfayı yenile (teşvik verisini tekrar yükle)
-        window.location.reload();
+        // Teşvik listesi sayfasına yönlendir
+        navigate('/tesvik/liste');
       }
     } catch (error) {
       console.error('❌ Revizyon ekleme hatası:', error);
@@ -364,22 +364,71 @@ const TesvikDetail = () => {
     return actionMap[action] || action;
   };
 
-  // 🏷️ Alan İsimlerini Türkçe'ye Çevir
+  // 🏷️ Alan İsimlerini Türkçe'ye Çevir - PROFESSIONAL EXPANDED
   const getFieldDisplayName = (field) => {
+    // Null check - backend compatibility
+    if (!field || typeof field !== 'string') {
+      console.log('⚠️ Field undefined in getFieldDisplayName:', field);
+      return 'Bilinmeyen Alan';
+    }
+    
     const fieldMap = {
+      // Temel bilgiler
       'yatirimciUnvan': 'Yatırımcı Ünvanı',
-      'yatirimciAdres': 'Yatırımcı Adresi',
+      'yatirimciAdres': 'Yatırımcı Adresi', 
       'yatirimciTelefon': 'Telefon',
       'yatirimciEmail': 'E-posta',
       'yatirimTutari': 'Yatırım Tutarı',
+      'firma': 'Firma',
+      'firmaId': 'Firma ID',
+      
+      // İstihdam bilgileri
       'istihdam.mevcutKisi': 'Mevcut Kişi Sayısı',
+      'istihdam.ilaveKisi': 'İlave Kişi Sayısı',
       'istihdam.yeniKisi': 'Yeni Kişi Sayısı',
+      'istihdam.toplamKisi': 'Toplam Kişi Sayısı',
+      
+      // Yatırım bilgileri
+      'yatirimBilgileri1.yatirimKonusu': 'Yatırım Konusu',
+      'yatirimBilgileri1.destekSinifi': 'Destek Sınıfı',
+      'yatirimBilgileri2.il': 'İl',
+      'yatirimBilgileri2.ilce': 'İlçe',
+      'yatirimBilgileri2.yatirimAdresi1': 'Yatırım Adresi',
+      
+      // Finansal bilgiler
+      'finansalBilgiler.toplamSabitYatirimTutari': 'Toplam Sabit Yatırım Tutarı',
+      'finansalBilgiler.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi',
+      'finansalBilgiler.araziArsaBedeli.birimFiyatiTl': 'Arazi Birim Fiyatı',
+      'finansalBilgiler.araziArsaBedeli.araziArsaBedeli': 'Arazi Arsa Bedeli',
+      'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri': 'Ana Bina ve Tesisleri',
+      'finansalBilgiler.makineTeçhizatGiderleri.tl.ithal': 'İthal Makine (TL)',
+      'finansalBilgiler.makineTeçhizatGiderleri.tl.yerli': 'Yerli Makine (TL)',
+      
+      // Belge yönetimi
+      'belgeYonetimi.belgeId': 'Belge ID',
+      'belgeYonetimi.belgeNo': 'Belge No',
+      'belgeYonetimi.belgeTarihi': 'Belge Tarihi',
+      'belgeYonetimi.oncelikliYatirim': 'Öncelikli Yatırım',
+      
+      // Durum bilgileri
       'durumBilgileri.genelDurum': 'Genel Durum',
       'durumBilgileri.durumAciklamasi': 'Durum Açıklaması',
+      'durumBilgileri.durumRengi': 'Durum Rengi',
+      'durumBilgileri.sonGuncellemeTarihi': 'Son Güncelleme Tarihi',
+      
+      // Mali hesaplamalar
       'maliHesaplamalar.toplamYatirim': 'Toplam Yatırım',
       'maliHesaplamalar.tesvikTutari': 'Teşvik Tutarı',
+      
+      // Notlar
       'notlar.dahiliNotlar': 'Dahili Notlar',
-      'notlar.resmiAciklamalar': 'Resmi Açıklamalar'
+      'notlar.resmiAciklamalar': 'Resmi Açıklamalar',
+      
+      // Backend'den gelen label'ları direkt kullan
+      'Mevcut Kişi Sayısı': 'Mevcut Kişi Sayısı',
+      'İlave Kişi Sayısı': 'İlave Kişi Sayısı',
+      'Arazi Metrekaresi': 'Arazi Metrekaresi',
+      'Arazi Birim Fiyatı': 'Arazi Birim Fiyatı'
     };
     
     return fieldMap[field] || field;
@@ -420,15 +469,26 @@ const TesvikDetail = () => {
 
   // Removed unused function getChangesSummary
 
-  // 🏷️ Alanın Kategorisini Belirle
+  // 🏷️ Alanın Kategorisini Belirle - PROFESSIONAL FIX
   const getCategoryFromField = (fieldName) => {
-    if (fieldName.includes('firma') || fieldName.includes('yatirimci')) return 'Firma Bilgileri';
-    if (fieldName.includes('yatirim') || fieldName.includes('konum')) return 'Yatırım Bilgileri';
-    if (fieldName.includes('belge') || fieldName.includes('durum')) return 'Belge Bilgileri';
-    if (fieldName.includes('mali') || fieldName.includes('tutar') || fieldName.includes('hesap')) return 'Mali Bilgiler';
-    if (fieldName.includes('urun')) return 'Ürün Bilgileri';
-    if (fieldName.includes('destek') || fieldName.includes('sart')) return 'Destek & Şartlar';
-    if (fieldName.includes('istihdam')) return 'İstihdam Bilgileri';
+    // Null check - backend compatibility
+    if (!fieldName || typeof fieldName !== 'string') {
+      console.log('⚠️ Field name undefined:', fieldName);
+      return 'Diğer';
+    }
+    
+    const field = fieldName.toLowerCase();
+    
+    // Kategorileri güncellendi - backend field names ile uyumlu
+    if (field.includes('firma') || field.includes('yatirimci')) return 'Firma Bilgileri';
+    if (field.includes('yatirim') || field.includes('konum') || field.includes('il') || field.includes('ilce')) return 'Yatırım Bilgileri';
+    if (field.includes('belge') || field.includes('durum')) return 'Belge Bilgileri';
+    if (field.includes('istihdam') || field.includes('kisi')) return 'İstihdam Bilgileri';
+    if (field.includes('finansal') || field.includes('mali') || field.includes('tutar') || field.includes('hesap') || field.includes('arazi') || field.includes('bina') || field.includes('makine')) return 'Mali Bilgiler';
+    if (field.includes('urun') || field.includes('kapasite') || field.includes('us97')) return 'Ürün Bilgileri';
+    if (field.includes('destek') || field.includes('unsur')) return 'Destek Unsurları';
+    if (field.includes('ozel') || field.includes('sart')) return 'Özel Şartlar';
+    
     return 'Genel Bilgiler';
   };
 
@@ -1139,10 +1199,10 @@ const TesvikDetail = () => {
                               backgroundColor: getActivityColor(selectedActivity.action) 
                             }} />
                             <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                              {getFieldDisplayName(change.field)}
+                              {getFieldDisplayName(change.field || change.alan || change.label)}
                             </Typography>
                             <Chip 
-                              label={getCategoryFromField(change.field)} 
+                              label={getCategoryFromField(change.field || change.alan || change.label)} 
                               size="small" 
                               variant="outlined"
                               sx={{ ml: 'auto' }}
@@ -1172,7 +1232,7 @@ const TesvikDetail = () => {
                                   fontWeight: 500,
                                   wordBreak: 'break-word'
                                 }}>
-                                  {formatFieldValue(change.field, change.oldValue) || '(Boş)'}
+                                  {formatFieldValue(change.field || change.alan || change.label, change.oldValue || change.eskiDeger) || '(Boş)'}
                                 </Typography>
                               </Box>
                             </Grid>
@@ -1214,7 +1274,7 @@ const TesvikDetail = () => {
                                   fontWeight: 500,
                                   wordBreak: 'break-word'
                                 }}>
-                                  {formatFieldValue(change.field, change.newValue) || '(Boş)'}
+                                  {formatFieldValue(change.field || change.alan || change.label, change.newValue || change.yeniDeger) || '(Boş)'}
                                 </Typography>
                               </Box>
                             </Grid>

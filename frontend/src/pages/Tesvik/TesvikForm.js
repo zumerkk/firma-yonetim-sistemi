@@ -220,67 +220,67 @@ const TesvikForm = () => {
     // 💰 FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Yapı
     finansalBilgiler: {
       // 1. TOPLAM SABİT YATIRIM TUTARI TL
-      toplamSabitYatirimTutari: 0,
+      toplamSabitYatirimTutari: '',
       
       // 2. YATIRIMIN TUTARI
       araziArsaBedeli: {
         aciklama: '',
-        metrekaresi: 0,
-        birimFiyatiTl: 0,
-        araziArsaBedeli: 0
+        metrekaresi: '',
+        birimFiyatiTl: '',
+        araziArsaBedeli: ''
       },
       
       // 3. FİNANSMAN TL
       finansman: {
         yabanciKaynaklar: {
           // 🔧 EKSİK ALANLAR EKLENDİ - Excel formatına uygun
-          bankKredisi: 0,
-          ikinciElFiyatFarki: 0,
-          kullanilmisTeçhizatBedeli: 0,
-          digerDisKaynaklar: 0,
-          digerYabanciKaynak: 0,
-          toplamYabanciKaynak: 0
+          bankKredisi: '',
+          ikinciElFiyatFarki: '',
+          kullanilmisTeçhizatBedeli: '',
+          digerDisKaynaklar: '',
+          digerYabanciKaynak: '',
+          toplamYabanciKaynak: ''
         },
         ozkaynaklar: {
-          ozkaynaklar: 0
+          ozkaynaklar: ''
         },
-        toplamFinansman: 0
+        toplamFinansman: ''
       },
       
       // 4. BİNA İNŞAAT GİDERLERİ TL
       binaInsaatGiderleri: {
         aciklama: '',
-        anaBinaVeTesisleri: 0,
-        yardimciIsBinaVeIcareBinalari: 0,
-        yeraltiAnaGalerileri: 0,
-        toplamBinaInsaatGideri: 0
+        anaBinaVeTesisleri: '',
+        yardimciIsBinaVeIcareBinalari: '',
+        yeraltiAnaGalerileri: '',
+        toplamBinaInsaatGideri: ''
       },
       
       // 5. MAKİNE TEÇHİZAT GİDERLERİ
       makineTeçhizatGiderleri: {
         // TL Cinsinden
         tl: {
-          ithal: 0,
-          yerli: 0,
-          toplamMakineTeç: 0
+          ithal: '',
+          yerli: '',
+          toplamMakineTeç: ''
         },
         // Dolar Cinsinden
         dolar: {
-          ithalMakine: 0,  // İTHAL MAKİNE ($)
-          yeniMakine: 0,
-          kullanilmisMakine: 0,
-          toplamIthalMakine: 0  // TOPLAM İTHAL MAKİNE ($)
+          ithalMakine: '',  // İTHAL MAKİNE ($)
+          yeniMakine: '',
+          kullanilmisMakine: '',
+          toplamIthalMakine: ''  // TOPLAM İTHAL MAKİNE ($)
         }
       },
       
       // 6. DİĞER YATIRIM HARCAMALARI TL
       digerYatirimHarcamalari: {
-        yardimciIslMakTeçGid: 0,        // Yardımcı İşl. Mak. Teç. Gid.
-        ithalatVeGumGiderleri: 0,       // İthalat ve Güm.Giderleri
-        tasimaVeSigortaGiderleri: 0,    // Taşıma ve Sigorta G.(Monta) Giderleri
-        etudVeProjeGiderleri: 0,        // Etüd ve Proje Giderleri
-        digerGiderleri: 0,              // Diğer Giderleri
-        toplamDigerYatirimHarcamalari: 0 // TOPLAM DİĞER YATIRIM HARCAMALARI
+        yardimciIslMakTeçGid: '',        // Yardımcı İşl. Mak. Teç. Gid.
+        ithalatVeGumGiderleri: '',       // İthalat ve Güm.Giderleri
+        tasimaVeSigortaGiderleri: '',    // Taşıma ve Sigorta G.(Monta) Giderleri
+        etudVeProjeGiderleri: '',        // Etüd ve Proje Giderleri
+        digerGiderleri: '',              // Diğer Giderleri
+        toplamDigerYatirimHarcamalari: '' // TOPLAM DİĞER YATIRIM HARCAMALARI
       }
     },
     
@@ -676,12 +676,20 @@ const TesvikForm = () => {
         setUrunSayisi(1); // ✅ Kullanıcı isteği: Edit'te 1 satır başlasın
         
         // Destek unsurları satır sayısını hesapla
-        const destekCount = Math.max(1, Math.min(mappedData.destekUnsurlari?.length || 1, 8));
+        const destekCount = Math.max(1, mappedData.destekUnsurlari?.length || 1);
         setDestekSayisi(destekCount);
-        
+        console.log('🎯 Destek unsurları yüklendi:', {
+          count: destekCount,
+          data: mappedData.destekUnsurlari
+        });
+
         // Özel şartlar satır sayısını hesapla
         const ozelSartCount = Math.max(1, Math.min(mappedData.ozelSartlar?.length || 1, 7));
         setOzelSartSayisi(ozelSartCount);
+        console.log('⚖️ Özel şartlar yüklendi:', {
+          count: ozelSartCount,
+          data: mappedData.ozelSartlar
+        });
       }
     } catch (error) {
       console.error('🚨 Teşvik data hatası:', error);
@@ -1085,51 +1093,123 @@ const TesvikForm = () => {
     }
   };
 
-  // 📅 Farklı tarih formatlarını YYYY-MM-DD formatına çevir
+  // 📅 Gelişmiş tarih formatları parser - Excel copy-paste uyumlu
   const parseClipboardDate = (dateString) => {
-    // Boşlukları ve özel karakterleri temizle
-    let cleaned = dateString.replace(/[\s\n\r\t]/g, '');
+    // Null/undefined kontrolü
+    if (!dateString || typeof dateString !== 'string') {
+      return null;
+    }
     
-    // Tarih formatlarını dene
+    // Boşlukları, tab ve satır sonlarını temizle, ayrıca Excel'den gelebilecek özel karakterleri de
+    let cleaned = dateString.trim().replace(/[\s\n\r\t\u00A0\u2000-\u200F\u2028-\u202F]/g, '');
+    
+    // Boş string kontrolü
+    if (!cleaned) {
+      return null;
+    }
+    
+    // Farklı tarih formatları - daha esnek regex'ler
     const formats = [
-      // DD/MM/YYYY veya DD.MM.YYYY
-      /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/,
-      // DD/MM/YY veya DD.MM.YY  
-      /^(\d{1,2})[/.](\d{1,2})[/.](\d{2})$/,
-      // YYYY-MM-DD (zaten doğru format)
-      /^(\d{4})-(\d{1,2})-(\d{1,2})$/,
+      // DD/MM/YYYY veya DD.MM.YYYY (Türk formatı)
+      {
+                  regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{4})$/,
+        type: 'DD_MM_YYYY'
+      },
+      // DD/MM/YY veya DD.MM.YY (Kısa yıl)
+      {
+                  regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{2})$/,
+        type: 'DD_MM_YY'
+      },
+      // YYYY-MM-DD (ISO formatı)
+      {
+                  regex: /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/,
+        type: 'YYYY_MM_DD'
+      },
+      // YYYY/MM/DD veya YYYY.MM.DD
+      {
+                  regex: /^(\d{4})[/.,-](\d{1,2})[/.,-](\d{1,2})$/,
+        type: 'YYYY_MM_DD_ALT'
+      },
       // MM/DD/YYYY (Amerikan formatı)
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+      {
+        regex: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/,
+        type: 'MM_DD_YYYY'
+      },
+      // DDMMYYYY (rakamlar yan yana)
+      {
+        regex: /^(\d{2})(\d{2})(\d{4})$/,
+        type: 'DDMMYYYY'
+      },
+      // DD-MM-YYYY (tire ile)
+      {
+        regex: /^(\d{1,2})-(\d{1,2})-(\d{4})$/,
+        type: 'DD_MM_YYYY_DASH'
+      }
     ];
 
-    for (let i = 0; i < formats.length; i++) {
-      const match = cleaned.match(formats[i]);
+    // Her formatı dene
+    for (const format of formats) {
+      const match = cleaned.match(format.regex);
       if (match) {
         let day, month, year;
         
-        if (i === 0 || i === 1) { // DD/MM/YYYY veya DD/MM/YY
-          day = match[1].padStart(2, '0');
-          month = match[2].padStart(2, '0');
-          year = i === 1 ? (parseInt(match[3]) < 50 ? '20' + match[3] : '19' + match[3]) : match[3];
-        } else if (i === 2) { // YYYY-MM-DD
-          year = match[1];
-          month = match[2].padStart(2, '0');
-          day = match[3].padStart(2, '0');
-        } else if (i === 3) { // MM/DD/YYYY
-          month = match[1].padStart(2, '0');
-          day = match[2].padStart(2, '0');
-          year = match[3];
-        }
-
-        // Tarih geçerliliğini kontrol et
-        const date = new Date(year, month - 1, day);
-        if (date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
-          return `${year}-${month}-${day}`;
+        try {
+          switch (format.type) {
+            case 'DD_MM_YYYY':
+            case 'DD_MM_YYYY_DASH':
+            case 'DDMMYYYY':
+              day = parseInt(match[1]);
+              month = parseInt(match[2]);
+              year = parseInt(match[3]);
+              break;
+              
+            case 'DD_MM_YY':
+              day = parseInt(match[1]);
+              month = parseInt(match[2]);
+              const yy = parseInt(match[3]);
+              // 2000 sonrası için 00-30, 1900'ler için 31-99
+              year = yy <= 30 ? 2000 + yy : 1900 + yy;
+              break;
+              
+            case 'YYYY_MM_DD':
+            case 'YYYY_MM_DD_ALT':
+              year = parseInt(match[1]);
+              month = parseInt(match[2]);
+              day = parseInt(match[3]);
+              break;
+              
+            case 'MM_DD_YYYY':
+              month = parseInt(match[1]);
+              day = parseInt(match[2]);
+              year = parseInt(match[3]);
+              break;
+              
+            default:
+              continue;
+          }
+          
+          // Tarih değerlerini doğrula
+          if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+            continue;
+          }
+          
+          // JavaScript Date objesi ile doğrula
+          const date = new Date(year, month - 1, day);
+          if (date.getFullYear() === year && date.getMonth() === (month - 1) && date.getDate() === day) {
+            // YYYY-MM-DD formatında geri döndür
+            const formattedMonth = month.toString().padStart(2, '0');
+            const formattedDay = day.toString().padStart(2, '0');
+            return `${year}-${formattedMonth}-${formattedDay}`;
+          }
+          
+        } catch (error) {
+          // Bu format çalışmadı, bir sonrakini dene
+          continue;
         }
       }
     }
     
-    return null; // Hiçbir format uymazsa
+    return null; // Hiçbir format çalışmazsa
   };
 
   // Destek unsurları handler - Dinamik sistem
@@ -1203,10 +1283,20 @@ const TesvikForm = () => {
       });
 
       if (response.data.success) {
+        // CRITICAL FIX: Template data'yı yenile!
+        try {
+          const templateResponse = await axios.get('/tesvik/form-template');
+          if (templateResponse.data.success) {
+            setTemplateData(templateResponse.data.data);
+          }
+        } catch (templateError) {
+          console.error('🚨 Template data refresh hatası:', templateError);
+        }
+        
         // Şablonları yeniden yükle
         await loadInitialData();
         console.log('✅ Yeni destek unsuru eklendi:', value);
-        setSuccess(`✅ "${value}" destek unsuru sisteme eklendi!`);
+        setSuccess(`✅ "${value}" destek unsuru sisteme eklendi ve dropdown güncelllendi!`);
       }
     } catch (error) {
       if (error.response?.status === 409) {
@@ -1244,13 +1334,23 @@ const TesvikForm = () => {
     }
   };
 
-  // Yeni Özel Şart Ekleme
+  // Yeni Özel Şart Ekleme - ENHANCED DEBUG
   const addNewOzelSart = async (value) => {
-    if (!value || value.length < 2) return;
+    console.log(`🆕 [DEBUG] addNewOzelSart çağrıldı:`, { value, length: value?.length });
+    
+    if (!value || value.length < 2) {
+      console.log(`❌ [DEBUG] Value çok kısa, eklenmedi:`, value);
+      return;
+    }
     
     try {
       const kisaltma = value.trim().toUpperCase();
       const aciklama = value.length > 10 ? value.trim() : `${kisaltma} Açıklaması`;
+      
+      console.log(`📡 [DEBUG] Backend'e POST isteği gönderiliyor:`, {
+        endpoint: '/tesvik/dynamic/ozel-sart',
+        data: { kisaltma, aciklama, kategori: 'Diğer' }
+      });
       
       const response = await axios.post('/tesvik/dynamic/ozel-sart', {
         kisaltma: kisaltma,
@@ -1258,16 +1358,38 @@ const TesvikForm = () => {
         kategori: 'Diğer'
       });
 
+      console.log(`✅ [DEBUG] Backend response:`, response.data);
+
       if (response.data.success) {
+        console.log(`🔄 [DEBUG] Template data refresh başlatılıyor...`);
+        
+        // CRITICAL FIX: Template data'yı da yenile!
+        try {
+          const templateResponse = await axios.get('/tesvik/form-template');
+          if (templateResponse.data.success) {
+            setTemplateData(templateResponse.data.data);
+            console.log(`✅ [DEBUG] Template data yenilendi - Özel şart sayısı:`, 
+              templateResponse.data.data.ozelSartKisaltmalari?.length);
+          }
+        } catch (templateError) {
+          console.error('🚨 Template data refresh hatası:', templateError);
+        }
+        
+        // Form data'yı da güncelle (mevcut işlem)
         await loadInitialData();
+        
         console.log('✅ Yeni özel şart eklendi:', kisaltma);
-        setSuccess(`✅ "${kisaltma}" özel şartı sisteme eklendi!`);
+        setSuccess(`✅ "${kisaltma}" özel şartı sisteme eklendi ve dropdown güncelllendi!`);
       }
     } catch (error) {
       if (error.response?.status === 409) {
         console.log('🔄 Özel şart zaten mevcut:', value);
       } else {
-        console.error('🚨 Özel şart ekleme hatası:', error);
+        console.error('🚨 [DEBUG] Özel şart ekleme hatası:', {
+          error: error.message,
+          response: error.response?.data,
+          status: error.response?.status
+        });
         setError('Özel şart eklenirken hata oluştu');
       }
     }
@@ -2997,7 +3119,30 @@ const TesvikForm = () => {
                       label="MEVCUT KİŞİ 👥"
                 type="number"
                 value={formData.istihdam.mevcutKisi}
-                onChange={(e) => handleFieldChange('istihdam.mevcutKisi', parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const inputValue = e.target.value;
+                  // Boş string ise boş bırak, değer varsa parse et
+                  if (inputValue === '') {
+                    handleFieldChange('istihdam.mevcutKisi', '');
+                  } else {
+                    const numValue = parseInt(inputValue);
+                    // Geçerli sayı değilse veya negatifse 0 yap
+                    const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
+                    handleFieldChange('istihdam.mevcutKisi', safeValue);
+                  }
+                }}
+                onFocus={(e) => {
+                  // Input'a focus olduğunda 0 ise temizle
+                  if (e.target.value === '0') {
+                    handleFieldChange('istihdam.mevcutKisi', '');
+                  }
+                }}
+                onBlur={(e) => {
+                  // Focus kaybında boşsa 0 yap
+                  if (e.target.value === '') {
+                    handleFieldChange('istihdam.mevcutKisi', 0);
+                  }
+                }}
                       placeholder="Mevcut personel sayısı..."
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -3015,7 +3160,30 @@ const TesvikForm = () => {
                       label="İLAVE KİŞİ ➕"
                 type="number"
                 value={formData.istihdam.ilaveKisi}
-                onChange={(e) => handleFieldChange('istihdam.ilaveKisi', parseInt(e.target.value) || 0)}
+                onChange={(e) => {
+                  const inputValue = e.target.value;
+                  // Boş string ise boş bırak, değer varsa parse et
+                  if (inputValue === '') {
+                    handleFieldChange('istihdam.ilaveKisi', '');
+                  } else {
+                    const numValue = parseInt(inputValue);
+                    // Geçerli sayı değilse veya negatifse 0 yap
+                    const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
+                    handleFieldChange('istihdam.ilaveKisi', safeValue);
+                  }
+                }}
+                onFocus={(e) => {
+                  // Input'a focus olduğunda 0 ise temizle
+                  if (e.target.value === '0') {
+                    handleFieldChange('istihdam.ilaveKisi', '');
+                  }
+                }}
+                onBlur={(e) => {
+                  // Focus kaybında boşsa 0 yap
+                  if (e.target.value === '') {
+                    handleFieldChange('istihdam.ilaveKisi', 0);
+                  }
+                }}
                       placeholder="İlave personel sayısı..."
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -3090,140 +3258,112 @@ const TesvikForm = () => {
   const renderUrunBilgileri = () => (
     <Grid container spacing={2}>
       <Grid item xs={12}>
-        {/* 🚀 ULTRA-PROFESSIONAL ENTERPRISE DASHBOARD HEADER */}
+        {/* US97 Ürün Yönetim Paneli - Minimal Tasarım */}
         <Box sx={{ 
-          background: 'linear-gradient(145deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
-          borderRadius: 3,
-          overflow: 'hidden',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-          position: 'relative',
-          mb: 3,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'linear-gradient(45deg, rgba(255,255,255,0.1) 25%, transparent 25%), linear-gradient(-45deg, rgba(255,255,255,0.1) 25%, transparent 25%)',
-            backgroundSize: '30px 30px',
-            opacity: 0.3
-          }
+          backgroundColor: '#f8fafc',
+          border: '1px solid #e2e8f0',
+          borderRadius: 2,
+          mb: 2,
+          p: 2
         }}>
-          <Box sx={{ position: 'relative', zIndex: 1, p: 4 }}>
-            {/* 🎯 MAIN HEADER ROW */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box>
+            {/* Ana Başlık */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Box sx={{
-                  width: 60,
-                  height: 60,
-                  borderRadius: 2,
-                  background: 'rgba(255,255,255,0.2)',
-              display: 'flex', 
-              alignItems: 'center', 
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1,
+                  backgroundColor: '#3b82f6',
+                  display: 'flex', 
+                  alignItems: 'center', 
                   justifyContent: 'center',
-                  backdropFilter: 'blur(10px)',
-                  fontSize: '24px'
+                  color: 'white',
+                  fontSize: '18px'
                 }}>
                   📦
                 </Box>
                 <Box>
-                                    <Typography variant="h4" sx={{ 
-                    fontWeight: 800,
-                  color: 'white',
-                    fontSize: '1.75rem',
-                    mb: 0.5,
-                    textShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  <Typography variant="h6" sx={{ 
+                    fontWeight: 600,
+                    color: '#1e293b',
+                    fontSize: '1.25rem',
+                    mb: 0
                   }}>
                     US97 Ürün Yönetim Paneli
-            </Typography>
-                  <Typography variant="body1" sx={{ 
-                    color: 'rgba(255,255,255,0.9)',
-                    fontWeight: 500
-                  }}>
-                    Gelişmiş Ürün Yönetim Sistemi • Kurumsal Sürüm
                   </Typography>
-            </Box>
-          </Box>
+                  <Typography variant="body2" sx={{ 
+                    color: '#64748b',
+                    fontWeight: 400
+                  }}>
+                    Ürün Bilgileri Yönetimi
+                  </Typography>
+                </Box>
+              </Box>
           
-              {/* 📊 STATUS BADGE */}
+              {/* Aktif Ürünler Sayacı */}
               <Box sx={{
-                background: 'rgba(255,255,255,0.15)',
-                backdropFilter: 'blur(20px)',
-                borderRadius: 2,
-                p: 2,
+                backgroundColor: '#dbeafe',
+                borderRadius: 1,
+                px: 2,
+                py: 1,
                 textAlign: 'center',
-                border: '1px solid rgba(255,255,255,0.2)'
+                border: '1px solid #bfdbfe'
               }}>
-                <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
+                <Typography variant="h6" sx={{ color: '#1e40af', fontWeight: 600, mb: 0 }}>
                   {formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}
-          </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#3b82f6' }}>
                   Aktif Ürünler
                 </Typography>
               </Box>
             </Box>
 
-            {/* 📈 SMART ANALYTICS ROW */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+            {/* İstatistikler */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               {[
-                { label: 'Kapasite Slotları', value: `${urunSayisi}/10`, icon: '📊', color: '#3b82f6' },
-                { label: 'Kod Veritabanı', value: '2742 Öğe', icon: '🗄️', color: '#10b981' },
-                { label: 'Tamamlanan Öğeler', value: `${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length}`, icon: '✅', color: '#f59e0b' },
-                { label: 'Portföy Değeri', value: `${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000000).toFixed(1)}M`, icon: '💰', color: '#ef4444' }
+                { label: 'Kapasite Slotları', value: `${urunSayisi}/10` },
+                { label: 'Kod Veritabanı', value: '2742 Öğe' },
+                { label: 'Tamamlanan', value: `${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length}` },
+                { label: 'Portföy Değeri', value: `${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000000).toFixed(1)}M` }
               ].map((stat, index) => (
                 <Box key={index} sx={{
                   flex: 1,
-                  background: 'rgba(255,255,255,0.1)',
-                  backdropFilter: 'blur(15px)',
-                  borderRadius: 2,
-                  p: 2.5,
+                  backgroundColor: 'white',
+                  borderRadius: 1,
+                  p: 1.5,
                   textAlign: 'center',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    background: 'rgba(255,255,255,0.2)',
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-                  }
+                  border: '1px solid #e2e8f0'
                 }}>
-                  <Typography variant="h5" sx={{ color: 'white', mb: 1 }}>
-                    {stat.icon}
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
+                  <Typography variant="subtitle1" sx={{ color: '#1e293b', fontWeight: 600, mb: 0.5 }}>
                     {stat.value}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
                     {stat.label}
                   </Typography>
                 </Box>
             ))}
           </Box>
 
-            {/* 🎛️ PROFESSIONAL ACTION BUTTONS */}
+            {/* İşlem Butonları */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Button
               startIcon={<ContentCopyIcon />}
               onClick={handleCopyTableData}
-                variant="contained"
+                variant="outlined"
               sx={{
-                  background: 'rgba(255,255,255,0.2)',
-                  backdropFilter: 'blur(10px)',
-                  color: 'white',
-                fontWeight: 600,
-                  py: 1.5,
-                  px: 3,
-                  borderRadius: 2,
-                  border: '1px solid rgba(255,255,255,0.3)',
-                '&:hover': {
-                    background: 'rgba(255,255,255,0.3)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
-                  },
-                  transition: 'all 0.3s ease'
+                  borderColor: '#e2e8f0',
+                  color: '#475569',
+                fontWeight: 500,
+                  py: 1,
+                  px: 2,
+                  '&:hover': {
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#f1f5f9'
+                  }
                 }}
               >
-                📋 Akıllı Kopyala
+                Akıllı Kopyala
               </Button>
               
               <Button
@@ -3258,96 +3398,43 @@ const TesvikForm = () => {
                 }}
                 variant="contained"
                 sx={{
-                  background: 'linear-gradient(45deg, #10b981, #059669)',
+                  backgroundColor: '#22c55e',
                   color: 'white',
-                  fontWeight: 600,
-                  py: 1.5,
-                  px: 3,
-                  borderRadius: 2,
-                  boxShadow: '0 4px 15px rgba(16, 185, 129, 0.4)',
+                  fontWeight: 500,
+                  py: 1,
+                  px: 2,
                   '&:hover': {
-                    background: 'linear-gradient(45deg, #059669, #047857)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 8px 25px rgba(16, 185, 129, 0.6)'
-                  },
-                  transition: 'all 0.3s ease'
+                    backgroundColor: '#16a34a'
+                  }
                 }}
-                            >
-                📊 Excel İndir
-            </Button>
+              >
+                Excel İndir
+              </Button>
 
             <Button
               startIcon={<DeleteIcon />}
                 onClick={() => {
-                  if (window.confirm('🚨 Bu işlem TÜM ürün verilerini silecek. Emin misiniz?')) {
+                  if (window.confirm('Bu işlem TÜM ürün verilerini silecek. Emin misiniz?')) {
                     handleClearAllUrunData();
                   }
                 }}
               variant="outlined"
               sx={{
-                  borderColor: 'rgba(255,255,255,0.4)',
-                  color: 'white',
-                fontWeight: 600,
-                  py: 1.5,
-                  px: 3,
-                  borderRadius: 2,
-                  backdropFilter: 'blur(10px)',
+                  borderColor: '#ef4444',
+                  color: '#ef4444',
+                fontWeight: 500,
+                  py: 1,
+                  px: 2,
                 '&:hover': {
-                    borderColor: '#ef4444',
-                    backgroundColor: '#ef4444',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 8px 25px rgba(239, 68, 68, 0.4)'
-                  },
-                  transition: 'all 0.3s ease'
+                    borderColor: '#dc2626',
+                    backgroundColor: '#fef2f2'
+                  }
               }}
             >
-              🗑️ Tümünü Temizle
+              Tümünü Temizle
             </Button>
 
-              <Button
-                startIcon={<AddIcon />}
-                onClick={() => {
-                  // 🎯 SMART TEMPLATE SYSTEM
-                  const templates = [
-                    { kod: '0111.0.16', aciklama: 'Durum buğdayı (makarnalık buğday)', mevcut: 1000000, ilave: 500000, birim: 'TON' },
-                    { kod: '1001.1.01', aciklama: 'Sığır eti, karkas halinde, taze veya soğutulmuş', mevcut: 2000000, ilave: 1000000, birim: 'KG' },
-                    { kod: '2208.3.01', aciklama: 'Viski', mevcut: 50000, ilave: 25000, birim: 'LİTRE' },
-                    { kod: '0401.1.01', aciklama: 'Süt ve krema, yoğunlaştırılmamış', mevcut: 5000000, ilave: 2000000, birim: 'LİTRE' },
-                    { kod: '1701.1.01', aciklama: 'Kamış şekeri veya pancar şekeri', mevcut: 3000000, ilave: 1500000, birim: 'TON' }
-                  ];
-                  
-                  if (urunSayisi < 10) {
-                    const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
-                    addUrunField();
-                    setTimeout(() => {
-                      const newIndex = urunSayisi;
-                      handleUrunChange(newIndex, 'kod', randomTemplate.kod);
-                      handleUrunChange(newIndex, 'aciklama', randomTemplate.aciklama);
-                      handleUrunChange(newIndex, 'mevcut', randomTemplate.mevcut);
-                      handleUrunChange(newIndex, 'ilave', randomTemplate.ilave);
-                      handleUrunChange(newIndex, 'kapasite_birimi', randomTemplate.birim);
-                    }, 100);
-                  }
-                }}
-                variant="contained"
-              sx={{ 
-                  background: 'linear-gradient(45deg, #3b82f6, #1d4ed8)',
-                  color: 'white',
-                fontWeight: 600,
-                  py: 1.5,
-                  px: 3,
-                  borderRadius: 2,
-                  boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1d4ed8, #1e40af)',
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 8px 25px rgba(59, 130, 246, 0.6)'
-                  },
-                  transition: 'all 0.3s ease'
-                }}
-                            >
-                🎯 Akıllı Şablon
-              </Button>
+              {/* Akıllı Şablon butonu kaldırıldı - daha sade arayüz için */}
           </Box>
           </Box>
         </Box>
@@ -3365,7 +3452,7 @@ const TesvikForm = () => {
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
-                📦 Ürün Portföyü ({formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}/{urunSayisi})
+                Ürün Portföyü ({formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}/{urunSayisi})
             </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
             <Chip 
@@ -3528,7 +3615,7 @@ const TesvikForm = () => {
                         {/* Current Capacity */}
                         <Grid item xs={12} sm={4}>
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
-                            💙 Mevcut Kapasite
+                            Mevcut Kapasite
                           </Typography>
                           <TextField
                             fullWidth
@@ -3571,7 +3658,7 @@ const TesvikForm = () => {
                         {/* Additional Capacity */}
                         <Grid item xs={12} sm={4}>
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
-                            💚 İlave Kapasite
+                            İlave Kapasite
                           </Typography>
                     <TextField
                             fullWidth
@@ -3614,7 +3701,7 @@ const TesvikForm = () => {
                         {/* Total Capacity */}
                         <Grid item xs={12} sm={4}>
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
-                            🏆 Toplam Kapasite (Otomatik hesaplanır)
+                            Toplam Kapasite (Otomatik hesaplanır)
                           </Typography>
                     <TextField
                             fullWidth
@@ -4328,7 +4415,7 @@ const TesvikForm = () => {
 
 
 
-  // Finansal bilgiler handler - Excel yapısına uygun
+  // Finansal bilgiler handler - Excel yapısına uygun + Smart Input Management
   const handleFinansalChange = (section, field, value, subField = null) => {
     setFormData(prev => {
       const newData = { ...prev };
@@ -4353,6 +4440,33 @@ const TesvikForm = () => {
     });
      
     // 🔧 Hesaplamalar useEffect ile tetiklenecek - infinite loop önlenir
+  };
+
+  // 💡 Smart financial input handler - 0 değerini akıllı yönetim
+  const handleSmartFinansalInput = (section, field, inputValue, subField = null) => {
+    // Boş string ise boş bırak
+    if (inputValue === '') {
+      handleFinansalChange(section, field, '', subField);
+    } else {
+      // Sayıya çevir
+      const numValue = parseFloat(inputValue);
+      const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
+      handleFinansalChange(section, field, safeValue, subField);
+    }
+  };
+
+  // 💡 Financial input focus handler - 0 değerinde otomatik temizleme
+  const handleFinansalFocus = (section, field, currentValue, subField = null) => {
+    if (currentValue === 0) {
+      handleFinansalChange(section, field, '', subField);
+    }
+  };
+
+  // 💡 Financial input blur handler - boşsa 0 yap
+  const handleFinansalBlur = (section, field, inputValue, subField = null) => {
+    if (inputValue === '') {
+      handleFinansalChange(section, field, 0, subField);
+    }
   };
 
   // 🔧 Finansal otomatik hesaplamalar - DEVLET SİSTEMİ MANTIGI
@@ -4625,7 +4739,9 @@ const TesvikForm = () => {
                 label="Metrekaresi"
                 type="number"
                 value={formData.finansalBilgiler.araziArsaBedeli.metrekaresi}
-                onChange={(e) => handleFinansalChange('araziArsaBedeli', 'metrekaresi', parseFloat(e.target.value) || 0)}
+                onChange={(e) => handleSmartFinansalInput('araziArsaBedeli', 'metrekaresi', e.target.value)}
+                onFocus={(e) => handleFinansalFocus('araziArsaBedeli', 'metrekaresi', formData.finansalBilgiler.araziArsaBedeli.metrekaresi)}
+                onBlur={(e) => handleFinansalBlur('araziArsaBedeli', 'metrekaresi', e.target.value)}
                 InputProps={{ endAdornment: 'm²' }}
               />
             </Grid>
@@ -4635,7 +4751,9 @@ const TesvikForm = () => {
                 label="Birim Fiyatı TL"
                 type="number"
                 value={formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl}
-                onChange={(e) => handleFinansalChange('araziArsaBedeli', 'birimFiyatiTl', parseFloat(e.target.value) || 0)}
+                onChange={(e) => handleSmartFinansalInput('araziArsaBedeli', 'birimFiyatiTl', e.target.value)}
+                onFocus={(e) => handleFinansalFocus('araziArsaBedeli', 'birimFiyatiTl', formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl)}
+                onBlur={(e) => handleFinansalBlur('araziArsaBedeli', 'birimFiyatiTl', e.target.value)}
                 InputProps={{ endAdornment: '₺/m²' }}
               />
             </Grid>

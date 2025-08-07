@@ -12,6 +12,7 @@ require('dotenv').config();
 
 // Models
 const Activity = require('./models/Activity');
+const Tesvik = require('./models/Tesvik');
 
 // Services
 const notificationService = require('./services/notificationService');
@@ -92,6 +93,84 @@ const connectDB = async () => {
     process.exit(1);
   }
 };
+
+// 🔍 DEBUG ENDPOINT - VERİTABANI VERİSİ KONTROL
+app.get('/debug/tesvik/:tesvikId', async (req, res) => {
+  try {
+    const tesvik = await Tesvik.findOne({ tesvikId: req.params.tesvikId }).lean();
+    if (!tesvik) {
+      return res.json({ error: 'Teşvik bulunamadı!' });
+    }
+    
+    const result = {
+      tesvikId: tesvik.tesvikId,
+      destekUnsurlari: {
+        count: tesvik.destekUnsurlari?.length || 0,
+        data: tesvik.destekUnsurlari?.map(d => ({
+          destekUnsuru: d.destekUnsuru,
+          sarti: d.sarti,
+          sartlari: d.sartlari
+        }))
+      },
+      ozelSartlar: {
+        count: tesvik.ozelSartlar?.length || 0,
+        data: tesvik.ozelSartlar?.map(s => ({
+          kisaltma: s.kisaltma,
+          koşulMetni: s.koşulMetni,
+          notu: s.notu,
+          aciklamaNotu: s.aciklamaNotu
+        }))
+      },
+      urunler: {
+        count: tesvik.urunler?.length || 0,
+        data: tesvik.urunler?.map(u => ({
+          us97Kodu: u.us97Kodu,
+          urunAdi: u.urunAdi,
+          mevcutKapasite: u.mevcutKapasite,
+          ilaveKapasite: u.ilaveKapasite
+        }))
+      },
+      maliHesaplamalar: {
+        keys: Object.keys(tesvik.maliHesaplamalar || {}),
+        araziArsaBedeli: tesvik.maliHesaplamalar?.araziArsaBedeli,
+        araciArsaBedeli: tesvik.maliHesaplamalar?.araciArsaBedeli,
+        toplamSabitYatirimTutari: tesvik.maliHesaplamalar?.toplamSabitYatirimTutari,
+        toplamSabitYatirim: tesvik.maliHesaplamalar?.toplamSabitYatirim
+      },
+      revizyonlar: {
+        count: tesvik.revizyonlar?.length || 0
+      }
+    };
+    
+    res.json(result);
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
+
+// 🧪 TEST CSV EXPORT (NO AUTH)
+app.get('/test/csv-export/:tesvikId', async (req, res) => {
+  try {
+    const tesvikController = require('./controllers/tesvikController');
+    // Mock request object
+    const mockReq = {
+      params: { id: req.params.tesvikId },
+      query: { format: 'csv' },
+      user: { _id: 'test-user' }
+    };
+    const mockRes = {
+      setHeader: (key, value) => res.setHeader(key, value),
+      send: (data) => res.send(data),
+      status: (code) => res.status(code),
+      json: (data) => res.json(data)
+    };
+    
+    // Call the actual controller
+    await tesvikController.exportRevizyonExcel(mockReq, mockRes);
+  } catch (error) {
+    res.json({ error: error.message });
+  }
+});
 
 // 🎯 Ana rotalar
 app.get('/', (req, res) => {

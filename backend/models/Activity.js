@@ -154,7 +154,7 @@ const activitySchema = new mongoose.Schema({
     },
     source: {
       type: String,
-      enum: ['web', 'api', 'import', 'system'],
+      enum: ['web', 'web_interface', 'api', 'import', 'system'],
       default: 'web'
     }
   },

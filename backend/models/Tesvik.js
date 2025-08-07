@@ -614,52 +614,28 @@ tesvikSchema.methods.addRevizyon = function(revizyonData) {
   }
 };
 
-// 🎯 OTOMATIK CHANGE TRACKING - Pre Save Hook
+// 🎯 PROFESSIONAL CHANGE TRACKING - DEACTIVATED
+// Change tracking şimdi controller seviyesinde professional olarak yapılıyor
+// Model seviyesindeki hook'u devre dışı bırakıyoruz - çakışma önlemi
 tesvikSchema.pre('save', function(next) {
-  // Yeni dokümanse değilse (update işlemi)
-  if (!this.isNew) {
-    // Değişen alanları tespit et
-    const modifiedPaths = this.modifiedPaths();
-    
-    if (modifiedPaths.length > 0) {
-      // Revizyonlar alanı değişmişse (manuel revizyon eklemesi) pas geç
-      if (modifiedPaths.includes('revizyonlar')) {
-        return next();
-      }
-      
-      const degisikenAlanlar = [];
-      
-      modifiedPaths.forEach(path => {
-        // Önemli sistemsel alanları filtrele
-        if (!['updatedAt', 'sonGuncelleyen', 'sonGuncellemeNotlari', '__v'].includes(path)) {
-          const eskiDeger = this._original ? this._original[path] : this.get(path);
-          const yeniDeger = this.get(path);
-          
-          // Değer gerçekten değişmişse kaydet
-          if (JSON.stringify(eskiDeger) !== JSON.stringify(yeniDeger)) {
-            degisikenAlanlar.push({
-              alan: path,
-              eskiDeger: eskiDeger,
-              yeniDeger: yeniDeger
-            });
-          }
-        }
-      });
-      
-      // Değişiklik varsa otomatik revizyon ekle
-      if (degisikenAlanlar.length > 0) {
-        const revizyonNo = this.revizyonlar.length + 1;
-        
-        this.revizyonlar.push({
-          revizyonNo,
-          revizyonTarihi: new Date(),
-          revizyonSebebi: 'Otomatik Güncelleme',
-          yapanKullanici: this.sonGuncelleyen,
-          degisikenAlanlar: degisikenAlanlar,
-          durumOncesi: this.durumBilgileri?.genelDurum,
-          durumSonrasi: this.durumBilgileri?.genelDurum
-        });
-      }
+  // Sadece temel validasyonlar ve hesaplamalar
+  console.log('📝 Tesvik kaydediliyor:', this.tesvikId || 'YENİ');
+  
+  // Mali hesaplamaları güncelle (eğer tanımlıysa)
+  if (typeof this.updateMaliHesaplamalar === 'function') {
+    try {
+      this.updateMaliHesaplamalar();
+    } catch (error) {
+      console.log('⚠️ Mali hesaplama hatası (pas geçildi):', error.message);
+    }
+  }
+  
+  // Durum rengini güncelle (eğer tanımlıysa)
+  if (typeof this.updateDurumRengi === 'function') {
+    try {
+      this.updateDurumRengi();
+    } catch (error) {
+      console.log('⚠️ Durum rengi güncelleme hatası (pas geçildi):', error.message);
     }
   }
   
