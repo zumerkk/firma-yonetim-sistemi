@@ -59,6 +59,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import axios from '../../utils/axios';
+import destekSartService from '../../services/destekSartService'; // 🎯 Destek-Şart eşleştirmesi
 
 // 🏙️ İl İlçe Seçici Import - Yatırım Yeri İl/İlçe seçimi için hala kullanılıyor
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
@@ -1212,8 +1213,8 @@ const TesvikForm = () => {
     return null; // Hiçbir format çalışmazsa
   };
 
-  // Destek unsurları handler - Dinamik sistem
-  const handleDestekChange = (index, field, value) => {
+  // Destek unsurları handler - Dinamik sistem + Otomatik Şart Eşleştirmesi
+  const handleDestekChange = async (index, field, value) => {
     setFormData(prev => {
       const newData = { ...prev };
       
@@ -1238,6 +1239,54 @@ const TesvikForm = () => {
       
       return newData;
     });
+
+    // 🎯 OTOMATIK ŞART DOLDURMA - Destek unsuru seçildiğinde
+    if (field === 'destekUnsuru' && value && value.trim()) {
+      try {
+        console.log(`🎯 ${value} için otomatik şartlar getiriliyor...`);
+        const sartlar = await destekSartService.getShartlarByDestekTuru(value.trim());
+        
+        if (sartlar && sartlar.length > 0) {
+          console.log(`✅ ${sartlar.length} şart bulundu, otomatik doldurulacak`);
+          
+          // İlk şartı otomatik olarak doldur
+          const ilkSart = sartlar[0];
+          
+          setFormData(prev => {
+            const newData = { ...prev };
+            if (newData.destekUnsurlari[index]) {
+              newData.destekUnsurlari[index].sartlari = ilkSart;
+            }
+            return newData;
+          });
+          
+          // Kullanıcıya bilgi ver
+          console.log(`🎯 Otomatik şart dolduruldu: ${ilkSart}`);
+          
+          // Eğer birden fazla şart varsa, kullanıcıya seçenekleri göster (templateData'yı güncelle)
+          if (sartlar.length > 1) {
+            setTemplateData(prev => ({
+              ...prev,
+              destekSartlariOptions: [
+                ...(prev.destekSartlariOptions || []),
+                ...sartlar.filter(sart => 
+                  !prev.destekSartlariOptions?.some(option => 
+                    (typeof option === 'string' ? option : option.value || option.label) === sart
+                  )
+                )
+              ]
+            }));
+            console.log(`📋 ${sartlar.length} şart seçeneklere eklendi`);
+          }
+          
+        } else {
+          console.log(`⚠️ ${value} için eşleştirme bulunamadı, kullanıcı manuel girebilir`);
+        }
+      } catch (error) {
+        console.error('❌ Otomatik şart getirme hatası:', error);
+        // Hata olursa sessizce devam et, kullanıcı manuel girebilir
+      }
+    }
   };
 
   // Özel şartlar handler - Dinamik sistem

@@ -28,6 +28,7 @@ const adminRoutes = require('./routes/admin'); // 🔐 Admin panel routes
 const reportRoutes = require('./routes/reports'); // 📊 Report system routes
 const fileRoutes = require('./routes/files'); // 📁 File management routes
 const us97Routes = require('./routes/us97'); // 📦 US 97 Kodları sistemi
+const destekSartRoutes = require('./routes/destekSart'); // 🎯 Destek-Şart Eşleştirmesi sistemi
 
 const app = express();
 
@@ -210,6 +211,7 @@ app.use('/api/admin', adminRoutes); // 🔐 Admin Panel Sistemi
 app.use('/api/reports', reportRoutes); // 📊 Report Sistemi
 app.use('/api/files', fileRoutes); // 📁 File Management Sistemi
 app.use('/api/us97', us97Routes); // 📦 US 97 Kodları API
+app.use('/api/destek-sart', destekSartRoutes); // 🎯 Destek-Şart Eşleştirmesi API
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
