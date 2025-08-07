@@ -568,8 +568,9 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
         return count;
       }),
       
-      // 3. Bekleyen teşvik sayısı
+      // 3. Bekleyen teşvik sayısı (sadece aktif olanlar)
       Tesvik.countDocuments({ 
+        aktif: true,
         'durumBilgileri.genelDurum': { 
           $in: ['inceleniyor', 'onay_bekliyor', 'ek_belge_istendi'] 
         } 
@@ -578,8 +579,11 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
         return count;
       }),
       
-      // 4. Onaylanan teşvik sayısı
-      Tesvik.countDocuments({ 'durumBilgileri.genelDurum': 'onaylandi' }).then(count => {
+      // 4. Onaylanan teşvik sayısı (sadece aktif olanlar)
+      Tesvik.countDocuments({ 
+        aktif: true,
+        'durumBilgileri.genelDurum': 'onaylandi' 
+      }).then(count => {
         console.log('🎯 Onaylanan teşvik:', count);
         return count;
       }),
