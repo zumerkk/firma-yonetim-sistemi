@@ -30,7 +30,6 @@ import {
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   AccessTime as AccessTimeIcon,
-  Assessment as AssessmentIcon,
   Visibility as VisibilityIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -453,18 +452,6 @@ const TesvikDashboard = () => {
                         sx={{ py: 1.5 }}
                       >
                         Teşvik Listesi
-                      </Button>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        startIcon={<AssessmentIcon />}
-                        onClick={() => navigate('/istatistikler')}
-                        sx={{ py: 1.5 }}
-                      >
-                        Teşvik Raporları
                       </Button>
                     </Grid>
                   </Grid>
