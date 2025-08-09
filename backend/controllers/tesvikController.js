@@ -2960,10 +2960,14 @@ const buildRevisionTrackingData = async (tesvik) => {
         // 🎯 Bu revizyonda kaydedilmiş snapshot varsa kullan
         let revizyonSnapshot;
         
-        if (revizyon.veriSnapshot?.sonrasi) {
+        if (revizyon.veriSnapshot?.oncesi && i > 0) {
+          // Önceki durum snapshot'ı varsa kullan (değişiklik öncesi hali)
+          revizyonSnapshot = revizyon.veriSnapshot.oncesi;
+          console.log('✅ Revizyon ÖNCESİ snapshot kullanılıyor');
+        } else if (revizyon.veriSnapshot?.sonrasi) {
           // Yeni sisteme göre snapshot varsa kullan
           revizyonSnapshot = revizyon.veriSnapshot.sonrasi;
-          console.log('✅ Revizyon snapshot kullanılıyor (Yeni sistem)');
+          console.log('✅ Revizyon SONRASI snapshot kullanılıyor');
         } else if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
           // CRITICAL FIX: Önceki revizyonun snapshot'ını temel al (KÜMÜLATIF YAKLAŞIM)
           const previousSnapshot = revisionData[revisionData.length - 1]?.snapshot || currentState;
@@ -3130,10 +3134,10 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(belge.belgeNo || '');                                // BELGE NO
     row.push(belge.belgeTarihi || '');                            // BELGE TARIHI
     row.push(belge.belgeMuracaatTarihi || '');                    // BELGE MURACAAT TARIHI
-    row.push('');                                                 // MÜRACAAT SAYISI
+    row.push(belge.muracaatSayisi || snapshot.belgeYonetimi?.muracaatSayisi || ''); // MÜRACAAT SAYISI
     row.push(belge.belgeBaslamaTarihi || '');                     // BELGE BASLAMA TARIHI
-    row.push(belge.belgeBitisTarihi || '');                       // BELGE BITIS TARIHI
-    row.push('');                                                 // SÜRE UZATIM TARİHİ
+    row.push(belge.belgeBitisTarihi || snapshot.belgeYonetimi?.belgeBitisTarihi || ''); // BELGE BITIS TARIHI
+    row.push(belge.sureUzatimTarihi || snapshot.belgeYonetimi?.sureUzatimTarihi || ''); // SÜRE UZATIM TARİHİ
     row.push(belge.oncelikliYatirim || 'hayır');                  // ÖZELLİKLİ YATIRIM İSE
     row.push(belge.dayandigiKanun || '');                         // DAYANDIĞI KANUN
     row.push(snapshot.durumBilgileri?.genelDurum || '');          // BELGE DURUMU
@@ -3157,15 +3161,15 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     });
     
     row.push(yatirim1.yatirimKonusu || '');                       // 2-YATIRIM KONUSU
-    row.push(yatirim1.cins1 || '');                               // 3-CINSI(1)
-    row.push(yatirim1.cins2 || '');                               // 3-CINSI(2)
-    row.push(yatirim1.cins3 || '');                               // 3-CINSI(3)
-    row.push(yatirim1.cins4 || '');                               // 3-CINSI(4)
-    row.push(yatirim1.destekSinifi || '');                        // DESTEK SINIFI
-    row.push(yatirim2.il || '');                                  // YERI IL
-    row.push(yatirim2.ilce || '');                                // YERI ILCE
-    row.push('');                                                 // ADA
-    row.push('');                                                 // PARSEL
+    row.push(yatirim1.cins1 || yatirimBilgileri.jCinsi1 || '');  // 3-CINSI(1)
+    row.push(yatirim1.cins2 || yatirimBilgileri.kCinsi2 || '');  // 3-CINSI(2)
+    row.push(yatirim1.cins3 || yatirimBilgileri.uCinsi3 || '');  // 3-CINSI(3)
+    row.push(yatirim1.cins4 || yatirimBilgileri.vCinsi4 || '');  // 3-CINSI(4)
+    row.push(yatirim1.destekSinifi || yatirimBilgileri.destekSinifi || ''); // DESTEK SINIFI
+    row.push(yatirim2.yerinIl || yatirimBilgileri.yerinIl || ''); // YERI IL
+    row.push(yatirim2.yerinIlce || yatirimBilgileri.yerinIlce || ''); // YERI ILCE
+    row.push(yatirim2.ada || yatirimBilgileri.ada || '');        // ADA
+    row.push(yatirim2.parsel || yatirimBilgileri.parsel || '');  // PARSEL
     row.push(yatirim2.yatirimAdresi1 || '');                      // YATIRIM ADRESI(1)
     row.push(yatirim2.yatirimAdresi2 || '');                      // YATIRIM ADRESI(2)
     row.push(yatirim2.yatirimAdresi3 || '');                      // YATIRIM ADRESI(3)

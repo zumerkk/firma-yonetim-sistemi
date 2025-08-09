@@ -647,7 +647,10 @@ const TesvikForm = () => {
             yatirimAdresi1: backendData.yatirimBilgileri?.yatirimAdresi1 || '',
             yatirimAdresi2: backendData.yatirimBilgileri?.yatirimAdresi2 || '',
             yatirimAdresi3: backendData.yatirimBilgileri?.yatirimAdresi3 || '',
-            ossBelgeMudavimi: backendData.yatirimBilgileri?.osbIseMudurluk || ''
+            ossBelgeMudavimi: backendData.yatirimBilgileri?.osbIseMudurluk || '',
+            ilBazliBolge: backendData.yatirimBilgileri?.ilBazliBolge || '',
+            ilceBazliBolge: backendData.yatirimBilgileri?.ilceBazliBolge || '',
+            serbsetBolge: backendData.yatirimBilgileri?.serbsetBolge || ''
           },
           
           // Ürün bilgilerini çevir
@@ -4538,32 +4541,7 @@ const TesvikForm = () => {
     // 🔧 Hesaplamalar useEffect ile tetiklenecek - infinite loop önlenir
   };
 
-  // 💡 Smart financial input handler - 0 değerini akıllı yönetim
-  const handleSmartFinansalInput = (section, field, inputValue, subField = null) => {
-    // Boş string ise boş bırak
-    if (inputValue === '') {
-      handleFinansalChange(section, field, '', subField);
-    } else {
-      // Sayıya çevir
-      const numValue = parseFloat(inputValue);
-      const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
-      handleFinansalChange(section, field, safeValue, subField);
-    }
-  };
-
-  // 💡 Financial input focus handler - 0 değerinde otomatik temizleme
-  const handleFinansalFocus = (section, field, currentValue, subField = null) => {
-    if (currentValue === 0) {
-      handleFinansalChange(section, field, '', subField);
-    }
-  };
-
-  // 💡 Financial input blur handler - boşsa 0 yap
-  const handleFinansalBlur = (section, field, inputValue, subField = null) => {
-    if (inputValue === '') {
-      handleFinansalChange(section, field, 0, subField);
-    }
-  };
+  // Kullanılmayan fonksiyonlar kaldırıldı - handleNumberChange kullanılıyor
 
   // 🔧 Finansal otomatik hesaplamalar - DEVLET SİSTEMİ MANTIGI
   const calculateFinansalTotals = useCallback(() => {
@@ -4887,9 +4865,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Ana Bina ve Tesisleri"
-                type="number"
-                value={formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri}
-                onChange={(e) => handleFinansalChange('binaInsaatGiderleri', 'anaBinaVeTesisleri', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri)}
+                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -4897,9 +4875,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yardımcı İş. Bina ve İcare Binaları"
-                type="number"
-                value={formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari}
-                onChange={(e) => handleFinansalChange('binaInsaatGiderleri', 'yardimciIsBinaVeIcareBinalari', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari)}
+                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -4907,9 +4885,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yeraltı Ana Galerileri"
-                type="number"
-                value={formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri}
-                onChange={(e) => handleFinansalChange('binaInsaatGiderleri', 'yeraltiAnaGalerileri', parseFloat(e.target.value) || 0)}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri)}
+                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -4946,9 +4924,9 @@ const TesvikForm = () => {
                     fullWidth
                     size="small"
                     label="Bank Kredisi"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi}
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', parseFloat(e.target.value) || 0)}
+                    type="text"
+                    value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi)}
+                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi')}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
