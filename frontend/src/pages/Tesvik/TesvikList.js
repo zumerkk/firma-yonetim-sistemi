@@ -145,19 +145,18 @@ const TesvikList = () => {
       
       const response = await axios.post(`/tesvik/${revizyonDialog.tesvik._id}/revizyon`, {
         revizyonSebebi: revizyonDialog.form.revizyonSebebi,
-        yeniDurum: revizyonDialog.form.yeniDurum,
         kullaniciNotu: revizyonDialog.form.kullaniciNotu
       });
       
       if (response.data.success) {
         // Başarılı mesajı
-        alert('Revizyon başarıyla eklendi!');
+        alert('Revizyon başarıyla eklendi! Düzenleme sayfasına yönlendiriliyorsunuz...');
         
         // Dialog'u kapat
         handleRevizyonClose();
         
-        // Listeyi yenile
-        loadTesvikler(pagination.currentPage);
+        // Düzenleme sayfasına yönlendir
+        navigate(`/tesvik/${revizyonDialog.tesvik._id}/duzenle`);
       }
     } catch (error) {
       console.error('❌ Revizyon ekleme hatası:', error);
@@ -596,7 +595,7 @@ const TesvikList = () => {
                               <Tooltip title="Düzenle">
                                 <IconButton 
                                   size="small"
-                                  onClick={() => navigate(`/tesvik/${tesvik._id}/duzenle`)}
+                                  onClick={() => handleRevizyonClick(tesvik)}
                                 >
                                   <EditIcon fontSize="small" />
                                 </IconButton>
@@ -743,7 +742,7 @@ const TesvikList = () => {
             </Alert>
           </Grid>
           
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12}>
             <Box>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Revizyon Sebebi *
@@ -755,6 +754,10 @@ const TesvikList = () => {
                   'Onay geldi',
                   'Belge tamamlandı',
                   'İptal edildi',
+                  'Talep Revize',
+                  'Sonuç Revize',
+                  'Resen Revize',
+                  'Müşavir Revize',
                   'Diğer'
                 ].map((sebep) => (
                   <Box 
@@ -779,49 +782,6 @@ const TesvikList = () => {
                       color: revizyonDialog.form.revizyonSebebi === sebep ? '#059669' : 'text.primary'
                     }}>
                       {sebep}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Box>
-          </Grid>
-          
-          <Grid item xs={12} md={6}>
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                Yeni Durum
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {[
-                  { value: 'reddedildi', label: 'Reddedildi', color: '#EF4444' },
-                  { value: 'revize_talep_edildi', label: 'Revize Talep Edildi', color: '#F59E0B' },
-                  { value: 'ek_belge_istendi', label: 'Ek Belge İstendi', color: '#F97316' },
-                  { value: 'inceleniyor', label: 'İnceleniyor', color: '#3B82F6' },
-                  { value: 'onaylandi', label: 'Onaylandı', color: '#10B981' },
-                  { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' }
-                ].map((durum) => (
-                  <Box 
-                    key={durum.value}
-                    onClick={() => setRevizyonDialog(prev => ({ 
-                      ...prev, 
-                      form: { ...prev.form, yeniDurum: durum.value } 
-                    }))}
-                    sx={{
-                      p: 2,
-                      border: revizyonDialog.form.yeniDurum === durum.value ? `2px solid ${durum.color}` : '1px solid #e5e7eb',
-                      borderRadius: 1,
-                      cursor: 'pointer',
-                      backgroundColor: revizyonDialog.form.yeniDurum === durum.value ? `${durum.color}10` : 'white',
-                      '&:hover': {
-                        backgroundColor: revizyonDialog.form.yeniDurum === durum.value ? `${durum.color}20` : '#f8fafc'
-                      }
-                    }}
-                  >
-                    <Typography variant="body2" sx={{ 
-                      fontWeight: revizyonDialog.form.yeniDurum === durum.value ? 600 : 400,
-                      color: revizyonDialog.form.yeniDurum === durum.value ? durum.color : 'text.primary'
-                    }}>
-                      {durum.label}
                     </Typography>
                   </Box>
                 ))}

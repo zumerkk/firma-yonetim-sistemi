@@ -167,7 +167,7 @@ const RevisionTimeline = ({ tesvikId }) => {
               <TableRow key={index}>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {change.field}
+                    {change.label || change.field || change.alan || 'Bilinmeyen Alan'}
                   </Typography>
                 </TableCell>
                 <TableCell>
@@ -178,7 +178,7 @@ const RevisionTimeline = ({ tesvikId }) => {
                     borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
-                    {change.oldValue || '-'}
+                    {change.oldValue || change.eskiDeger || '-'}
                   </Box>
                 </TableCell>
                 <TableCell>
@@ -189,7 +189,7 @@ const RevisionTimeline = ({ tesvikId }) => {
                     borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
-                    {change.newValue || '-'}
+                    {change.newValue || change.yeniDeger || '-'}
                   </Box>
                 </TableCell>
               </TableRow>

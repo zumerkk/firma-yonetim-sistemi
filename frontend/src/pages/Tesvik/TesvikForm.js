@@ -223,7 +223,7 @@ const TesvikForm = () => {
       // 1. TOPLAM SABİT YATIRIM TUTARI TL
       toplamSabitYatirimTutari: '',
       
-      // 2. YATIRIMIN TUTARI
+      // 2. ARAZI ARSA BEDELİ
       araziArsaBedeli: {
         aciklama: '',
         metrekaresi: '',
@@ -4764,11 +4764,11 @@ const TesvikForm = () => {
         </Paper>
       </Grid>
 
-      {/* 2. YATIRIMIN TUTARI */}
+      {/* 2. ARAZI ARSA BEDELİ */}
       <Grid item xs={12}>
         <Paper sx={{ p: 3, backgroundColor: '#fef3f2' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#dc2626' }}>
-            🏗️ YATIRIMIN TUTARI
+            💰 FİNANSAL BİLGİLER - Arazi Arsa Bedeli
           </Typography>
           
           <Grid container spacing={2}>

@@ -68,29 +68,30 @@ const Header = ({ onSidebarToggle }) => {
       <Toolbar sx={{ 
         minHeight: '64px !important',
         px: { xs: 2, sm: 3 },
-        gap: 2,
         width: '100%',
         maxWidth: '100vw',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        display: 'flex',
+        justifyContent: 'space-between', // 🎯 Sol ve sağ arasında boşluk
+        alignItems: 'center'
       }}>
-                 {/* 🍔 Hamburger Menu */}
-         <IconButton
-           edge="start"
-           onClick={onSidebarToggle}
-           sx={{ 
-             color: '#4b5563',
-             mr: 1,
-             p: 1,
-             borderRadius: 2,
-             '&:hover': {
-               backgroundColor: '#f3f4f6',
-             }
-           }}
-         >
-           <MenuIcon />
-         </IconButton>
+        {/* 🍔 Sol Taraf - Sadece Hamburger Menu */}
+        <IconButton
+          edge="start"
+          onClick={onSidebarToggle}
+          sx={{ 
+            color: '#4b5563',
+            p: 1,
+            borderRadius: 2,
+            '&:hover': {
+              backgroundColor: '#f3f4f6',
+            }
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
 
-        {/* 🎯 Sağ Taraf - Bildirimler ve Profil */}
+        {/* 🎯 Sağ Taraf - Bildirimler, Dashboard ve Profil */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {/* 🔔 Bildirimler - Enterprise Edition */}
           <NotificationDropdown />

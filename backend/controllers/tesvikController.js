@@ -716,6 +716,14 @@ const addTesvikRevizyon = async (req, res) => {
   try {
     const { id } = req.params;
     const { revizyonSebebi, degisikenAlanlar, yeniDurum, kullaniciNotu } = req.body;
+    
+    // Validation - Sadece revizyonSebebi zorunlu
+    if (!revizyonSebebi) {
+      return res.status(400).json({
+        success: false,
+        message: 'Revizyon sebebi zorunludur'
+      });
+    }
 
     // Teşviği populate ile birlikte getir - detaylı bilgiler için
     const tesvik = await Tesvik.findById(id)
@@ -3017,6 +3025,23 @@ const buildRevisionTrackingData = async (tesvik) => {
         // Önceki satırla değişiklikleri karşılaştır
         const previousRow = revisionData[revisionData.length - 1].rowData;
         const changes = detectDetailedChangesInCsvRows(previousRow, revizyonRow);
+        
+        // Revizyon'dan gelen değişiklikleri de ekle
+        if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+          revizyon.degisikenAlanlar.forEach(degisiklik => {
+            const existingChange = changes.find(c => c.columnName === degisiklik.label);
+            if (!existingChange) {
+              changes.push({
+                columnName: degisiklik.label || degisiklik.alan,
+                oldValue: degisiklik.eskiDeger || '-',
+                newValue: degisiklik.yeniDeger || '-',
+                changeType: 'modified',
+                label: degisiklik.label,
+                alan: degisiklik.alan
+              });
+            }
+          });
+        }
         
         revisionData.push({
           rowData: revizyonRow,
