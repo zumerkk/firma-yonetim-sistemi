@@ -598,10 +598,10 @@ const TesvikDetail = () => {
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1 }}>
-              {user?.yetkiler?.belgeEkle && (
+              {(user?.yetkiler?.belgeEkle || user?.yetkiler?.belgeDuzenle) && (
                 <Button
                   variant="outlined"
-                  startIcon={<AddIcon />}
+                  startIcon={<EditIcon />}
                   onClick={() => setRevizyonModalOpen(true)}
                   sx={{
                     borderColor: '#059669',
@@ -613,17 +613,7 @@ const TesvikDetail = () => {
                     }
                   }}
                 >
-                  Revizyon Ekle
-                </Button>
-              )}
-
-              {user?.yetkiler?.belgeDuzenle && (
-                <Button
-                  variant="outlined"
-                  startIcon={<EditIcon />}
-                  onClick={() => setRevizyonModalOpen(true)}
-                >
-                  Düzenle
+                  Revizyon Ekle / Düzenle
                 </Button>
               )}
               

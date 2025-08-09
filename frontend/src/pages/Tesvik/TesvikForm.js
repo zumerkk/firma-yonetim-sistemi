@@ -85,6 +85,51 @@ const TesvikForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   
+  // 🔢 NUMBER FORMATTING UTILITIES
+  const formatNumber = (value) => {
+    if (!value || value === '') return '';
+    // Sadece sayıları al (nokta ve virgülleri temizle)
+    const numericValue = value.toString().replace(/[^\d]/g, '');
+    if (numericValue === '') return '';
+    // Sayıyı formatla (3'lü gruplar halinde nokta koy)
+    return parseInt(numericValue).toLocaleString('tr-TR');
+  };
+  
+  const parseNumber = (formattedValue) => {
+    if (!formattedValue || formattedValue === '') return '';
+    // Formatlanmış değerden sadece sayıları al
+    return formattedValue.toString().replace(/[^\d]/g, '');
+  };
+  
+  const handleNumberChange = (e, fieldPath) => {
+    const rawValue = e.target.value;
+    const numericValue = parseNumber(rawValue);
+    
+    // FormData'yı güncelle - raw değeri kaydet
+    const keys = fieldPath.split('.');
+    let newData = { ...formData };
+    let current = newData;
+    
+    for (let i = 0; i < keys.length - 1; i++) {
+      if (!current[keys[i]]) current[keys[i]] = {};
+      current = current[keys[i]];
+    }
+    current[keys[keys.length - 1]] = numericValue;
+    
+    // Özel durum: US97 kapasite alanları için toplam hesaplama
+    if (fieldPath.includes('urunBilgileri') && (fieldPath.includes('mevcut') || fieldPath.includes('ilave'))) {
+      const index = parseInt(keys[1]);
+      const urun = newData.urunBilgileri[index];
+      if (urun) {
+        const mevcut = Number(urun.mevcut) || 0;
+        const ilave = Number(urun.ilave) || 0;
+        urun.toplam = mevcut + ilave;
+      }
+    }
+    
+    setFormData(newData);
+  };
+  
   // 📊 State Management
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -597,6 +642,8 @@ const TesvikForm = () => {
           yatirimBilgileri2: {
             yerinIl: backendData.yatirimBilgileri?.yerinIl || '',
             yerinIlce: backendData.yatirimBilgileri?.yerinIlce || '',
+            ada: backendData.yatirimBilgileri?.ada || '', // 🗺️ ADA MAPPING
+            parsel: backendData.yatirimBilgileri?.parsel || '', // 📄 PARSEL MAPPING
             yatirimAdresi1: backendData.yatirimBilgileri?.yatirimAdresi1 || '',
             yatirimAdresi2: backendData.yatirimBilgileri?.yatirimAdresi2 || '',
             yatirimAdresi3: backendData.yatirimBilgileri?.yatirimAdresi3 || '',
@@ -3668,10 +3715,10 @@ const TesvikForm = () => {
                           </Typography>
                           <TextField
                             fullWidth
-                      type="number"
-                            value={urun.mevcut === '' || urun.mevcut === 0 ? '' : urun.mevcut}
-                      onChange={(e) => handleUrunChange(index, 'mevcut', e.target.value)}
-                            placeholder="500,000,000"
+                      type="text"
+                            value={formatNumber(urun.mevcut)}
+                      onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.mevcut`)}
+                            placeholder="500.000.000"
                       variant="outlined"
                             inputProps={{ 
                               min: 0,
@@ -3711,10 +3758,10 @@ const TesvikForm = () => {
                           </Typography>
                     <TextField
                             fullWidth
-                      type="number"
-                            value={urun.ilave === '' || urun.ilave === 0 ? '' : urun.ilave}
-                      onChange={(e) => handleUrunChange(index, 'ilave', e.target.value)}
-                            placeholder="120,000,000"
+                      type="text"
+                            value={formatNumber(urun.ilave)}
+                      onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.ilave`)}
+                            placeholder="120.000.000"
                       variant="outlined"
                             inputProps={{ 
                               min: 0,
@@ -3754,8 +3801,8 @@ const TesvikForm = () => {
                           </Typography>
                     <TextField
                             fullWidth
-                      type="number"
-                            value={urun.toplam === '' || urun.toplam === 0 ? '' : urun.toplam}
+                      type="text"
+                            value={formatNumber(urun.toplam)}
                       InputProps={{ 
                         readOnly: true,
                               style: { 
@@ -4768,7 +4815,7 @@ const TesvikForm = () => {
       <Grid item xs={12}>
         <Paper sx={{ p: 3, backgroundColor: '#fef3f2' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#dc2626' }}>
-            💰 FİNANSAL BİLGİLER - Arazi Arsa Bedeli
+            Arazi Arsa Bedeli
           </Typography>
           
           <Grid container spacing={2}>
@@ -4786,11 +4833,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Metrekaresi"
-                type="number"
-                value={formData.finansalBilgiler.araziArsaBedeli.metrekaresi}
-                onChange={(e) => handleSmartFinansalInput('araziArsaBedeli', 'metrekaresi', e.target.value)}
-                onFocus={(e) => handleFinansalFocus('araziArsaBedeli', 'metrekaresi', formData.finansalBilgiler.araziArsaBedeli.metrekaresi)}
-                onBlur={(e) => handleFinansalBlur('araziArsaBedeli', 'metrekaresi', e.target.value)}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.metrekaresi)}
+                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
                 InputProps={{ endAdornment: 'm²' }}
               />
             </Grid>
@@ -4798,11 +4843,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Birim Fiyatı TL"
-                type="number"
-                value={formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl}
-                onChange={(e) => handleSmartFinansalInput('araziArsaBedeli', 'birimFiyatiTl', e.target.value)}
-                onFocus={(e) => handleFinansalFocus('araziArsaBedeli', 'birimFiyatiTl', formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl)}
-                onBlur={(e) => handleFinansalBlur('araziArsaBedeli', 'birimFiyatiTl', e.target.value)}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl)}
+                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
                 InputProps={{ endAdornment: '₺/m²' }}
               />
             </Grid>

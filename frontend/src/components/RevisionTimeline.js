@@ -148,6 +148,23 @@ const RevisionTimeline = ({ tesvikId }) => {
     });
   };
 
+  // 🔍 Değer Formatlama Fonksiyonu
+  const formatValue = (value) => {
+    if (value === null || value === undefined) return '-';
+    if (typeof value === 'object') {
+      // Obje ise JSON string'e çevir
+      try {
+        return JSON.stringify(value);
+      } catch (e) {
+        return '[Object]';
+      }
+    }
+    if (Array.isArray(value)) {
+      return value.join(', ');
+    }
+    return String(value);
+  };
+
   // 🔍 Değişiklik Detayları Tablosu
   const renderChangeDetails = (changes) => {
     if (!changes || changes.length === 0) return null;
@@ -178,7 +195,7 @@ const RevisionTimeline = ({ tesvikId }) => {
                     borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
-                    {change.oldValue || change.eskiDeger || '-'}
+                    {formatValue(change.oldValue || change.eskiDeger)}
                   </Box>
                 </TableCell>
                 <TableCell>
@@ -189,7 +206,7 @@ const RevisionTimeline = ({ tesvikId }) => {
                     borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
-                    {change.newValue || change.yeniDeger || '-'}
+                    {formatValue(change.newValue || change.yeniDeger)}
                   </Box>
                 </TableCell>
               </TableRow>

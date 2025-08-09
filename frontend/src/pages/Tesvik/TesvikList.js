@@ -579,23 +579,12 @@ const TesvikList = () => {
                               </IconButton>
                             </Tooltip>
                             
-                            {user?.yetkiler?.belgeEkle && (
-                              <Tooltip title="Revizyon Ekle">
+                            {(user?.yetkiler?.belgeEkle || user?.yetkiler?.belgeDuzenle) && (
+                              <Tooltip title="Revizyon Ekle / Düzenle">
                                 <IconButton 
                                   size="small"
                                   onClick={() => handleRevizyonClick(tesvik)}
                                   sx={{ color: '#059669' }}
-                                >
-                                  <HistoryIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {user?.yetkiler?.belgeDuzenle && (
-                              <Tooltip title="Düzenle">
-                                <IconButton 
-                                  size="small"
-                                  onClick={() => handleRevizyonClick(tesvik)}
                                 >
                                   <EditIcon fontSize="small" />
                                 </IconButton>
