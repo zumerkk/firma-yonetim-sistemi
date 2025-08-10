@@ -64,6 +64,11 @@ const getActivities = async (req, res) => {
     if (firmaId) {
       filter['targetResource.firmaId'] = firmaId;
     }
+    
+    // targetId parametresi ile filtreleme - TesvikDetail için
+    if (req.query.targetId) {
+      filter['targetResource.id'] = req.query.targetId;
+    }
 
     // Tarih filtresi
     if (baslangicTarihi || bitisTarihi) {

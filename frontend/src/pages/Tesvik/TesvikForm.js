@@ -4711,6 +4711,22 @@ const TesvikForm = () => {
     // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
   ]);
 
+  // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için
+  const handleNumberFieldFocus = (e) => {
+    // Sıfırsa veya "0" ise temizle
+    if (e.target.value === '0' || e.target.value === 0) {
+      e.target.value = '';
+      e.target.select(); // Tüm içeriği seç
+    }
+  };
+
+  const handleNumberFieldBlur = (e, changeHandler) => {
+    // Boşsa sıfır yap
+    if (e.target.value === '' || e.target.value === null) {
+      changeHandler(0);
+    }
+  };
+
   // 💰 5. FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Tablo
   const renderFinansalBilgiler = () => (
     <Grid container spacing={3}>
@@ -5051,6 +5067,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal}
                 onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5061,6 +5079,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli}
                 onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>

@@ -2926,6 +2926,9 @@ const buildRevisionTrackingData = async (tesvik) => {
     
     const revisionData = [];
     
+    // 🔧 FIX: currentState değişkenini tanımla (let kullan - değişebilir)
+    let currentState = JSON.parse(JSON.stringify(tesvik));
+    
     console.log(`🎯 İşleme alınan teşvik: ${tesvik.tesvikId} | Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
     
     // 🟢 İLK OLUŞTURMA KAYDI - Original creation state
@@ -3017,10 +3020,29 @@ const buildRevisionTrackingData = async (tesvik) => {
           
           console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
         } else {
-          // PRESERVE: Hiç veri yoksa güncel veriyi kullan (currentState = tesvik'in güncel hali)
-          // NOT: Önceki revizyondan değil, doğrudan güncel halinden al
-          revizyonSnapshot = JSON.parse(JSON.stringify(tesvik));
-          console.log('⚠️ Snapshot yok, GÜNCEL VERİ kullanılıyor');
+          // PRESERVE: Snapshot yoksa önceki state'i kullan
+          // Bu sayede değişiklikleri doğru takip edebiliriz
+          revizyonSnapshot = JSON.parse(JSON.stringify(currentState));
+          console.log('⚠️ Snapshot yok, ÖNCEKİ STATE kullanılıyor');
+          
+          // Revizyon değişikliklerini uygula
+          if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+            revizyon.degisikenAlanlar.forEach(degisiklik => {
+              // Alan yolunu parçala ve değeri güncelle
+              const fieldPath = degisiklik.alan?.split('.') || [];
+              if (fieldPath.length > 0) {
+                let target = revizyonSnapshot;
+                for (let j = 0; j < fieldPath.length - 1; j++) {
+                  if (!target[fieldPath[j]]) {
+                    target[fieldPath[j]] = {};
+                  }
+                  target = target[fieldPath[j]];
+                }
+                target[fieldPath[fieldPath.length - 1]] = degisiklik.yeniDeger;
+              }
+            });
+            console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
+          }
         }
         
         // CSV satırı oluştur
@@ -3161,10 +3183,10 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     });
     
     row.push(yatirim1.yatirimKonusu || '');                       // 2-YATIRIM KONUSU
-    row.push(yatirim1.cins1 || yatirimBilgileri.jCinsi1 || '');  // 3-CINSI(1)
-    row.push(yatirim1.cins2 || yatirimBilgileri.kCinsi2 || '');  // 3-CINSI(2)
-    row.push(yatirim1.cins3 || yatirimBilgileri.uCinsi3 || '');  // 3-CINSI(3)
-    row.push(yatirim1.cins4 || yatirimBilgileri.vCinsi4 || '');  // 3-CINSI(4)
+    row.push(yatirim1.cins1 || yatirimBilgileri.sCinsi1 || snapshot.yatirimBilgileri?.sCinsi1 || '');  // 3-CINSI(1)
+    row.push(yatirim1.cins2 || yatirimBilgileri.tCinsi2 || snapshot.yatirimBilgileri?.tCinsi2 || '');  // 3-CINSI(2)
+    row.push(yatirim1.cins3 || yatirimBilgileri.uCinsi3 || snapshot.yatirimBilgileri?.uCinsi3 || '');  // 3-CINSI(3)
+    row.push(yatirim1.cins4 || yatirimBilgileri.vCinsi4 || snapshot.yatirimBilgileri?.vCinsi4 || '');  // 3-CINSI(4)
     row.push(yatirim1.destekSinifi || yatirimBilgileri.destekSinifi || ''); // DESTEK SINIFI
     row.push(yatirim2.yerinIl || yatirimBilgileri.yerinIl || ''); // YERI IL
     row.push(yatirim2.yerinIlce || yatirimBilgileri.yerinIlce || ''); // YERI ILCE
