@@ -2941,8 +2941,19 @@ const buildRevisionTrackingData = async (tesvik) => {
     // 🟢 İLK OLUŞTURMA KAYDI - Original creation state
     console.log('📝 İlk oluşturma snapshot hazırlanıyor...');
     
-    // İlk hali için snapshot oluştur - GÜNCEL VERİYİ KULLAN
-    const initialSnapshot = JSON.parse(JSON.stringify(tesvik));
+    // İlk hali için snapshot oluştur
+    // Tercih sırası:
+    // 1) İlk revizyonun veriSnapshot.oncesi (varsa) → gerçek başlangıç durumu
+    // 2) Aksi halde mevcut tesvik'in kopyası
+    let initialSnapshot;
+    const firstRevisionWithSnapshot = tesvik.revizyonlar?.find?.(r => r?.veriSnapshot?.oncesi);
+    if (firstRevisionWithSnapshot?.veriSnapshot?.oncesi) {
+      initialSnapshot = JSON.parse(JSON.stringify(firstRevisionWithSnapshot.veriSnapshot.oncesi));
+      console.log('🧩 Initial snapshot: İlk revizyonun ONCESI kullanıldı');
+    } else {
+      initialSnapshot = JSON.parse(JSON.stringify(tesvik));
+      console.log('🧩 Initial snapshot: Mevcut tesvik state kullanıldı (fallback)');
+    }
     delete initialSnapshot.revizyonlar; // İlk halde revizyon yok
     
     const initialRow = await buildCsvDataRowWithSnapshot(initialSnapshot, null, 0);
@@ -3028,36 +3039,36 @@ const buildRevisionTrackingData = async (tesvik) => {
           
           console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
         } else {
-          // 🔥 CRITICAL FIX: Sadece önceki revizyon'un snapshot'ını kullan
-          // İlk revizyon için tesvik, sonraki tüm revizyonlar için sadece önceki snapshot
-          if (revisionData.length === 0) {
-            // İlk revizyon: orijinal tesvik state'ini kullan
-            revizyonSnapshot = JSON.parse(JSON.stringify(tesvik));
-            console.log('🆕 İLK REVİZYON: Orijinal tesvik state kullanılıyor');
+          // 🔥 STRONG FIX: Eğer revizyon üzerinde tam snapshot varsa onu kullan
+          if (revizyon?.veriSnapshot?.sonrasi) {
+            revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
+            console.log('📦 Revizyon snapshot (SONRASI) kullanıldı');
           } else {
-            // Sonraki revizyonlar: önceki revizyon'un snapshot'ını kullan
-            const lastRevisionSnapshot = revisionData[revisionData.length - 1].snapshot;
-            revizyonSnapshot = JSON.parse(JSON.stringify(lastRevisionSnapshot));
-            console.log(`📋 ÖNCEKİ REVİZYON SNAPSHOT kullanılıyor (${revisionData.length})`);
-          }
-          
-          // Revizyon değişikliklerini uygula
-          if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-            revizyon.degisikenAlanlar.forEach(degisiklik => {
-              // Alan yolunu parçala ve değeri güncelle
-              const fieldPath = degisiklik.alan?.split('.') || [];
-              if (fieldPath.length > 0) {
-                let target = revizyonSnapshot;
-                for (let j = 0; j < fieldPath.length - 1; j++) {
-                  if (!target[fieldPath[j]]) {
-                    target[fieldPath[j]] = {};
+            // CRITICAL: Sadece önceki revizyonun snapshot'ını baz al
+            const baseSnapshot = revisionData.length > 0
+              ? revisionData[revisionData.length - 1].snapshot
+              : initialSnapshot;
+            revizyonSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
+            console.log(`📋 Baz snapshot kullanıldı (${revisionData.length === 0 ? 'initial' : 'previous'})`);
+
+            // Revizyon değişikliklerini uygula
+            if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+              revizyon.degisikenAlanlar.forEach(degisiklik => {
+                // Alan yolunu parçala ve değeri güncelle
+                const fieldPath = degisiklik.alan?.split('.') || [];
+                if (fieldPath.length > 0) {
+                  let target = revizyonSnapshot;
+                  for (let j = 0; j < fieldPath.length - 1; j++) {
+                    if (!target[fieldPath[j]]) {
+                      target[fieldPath[j]] = {};
+                    }
+                    target = target[fieldPath[j]];
                   }
-                  target = target[fieldPath[j]];
+                  target[fieldPath[fieldPath.length - 1]] = degisiklik.yeniDeger;
                 }
-                target[fieldPath[fieldPath.length - 1]] = degisiklik.yeniDeger;
-              }
-            });
-            console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
+              });
+              console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
+            }
           }
         }
         
