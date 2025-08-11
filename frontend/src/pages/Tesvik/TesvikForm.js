@@ -2464,36 +2464,7 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
             
-            {/* BELGE DURUMU */}
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>BELGE DURUMU 📊</InputLabel>
-                <Select
-                  value={formData.belgeYonetimi.belgeDurumu}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeDurumu', e.target.value)}
-                  label="BELGE DURUMU 📊"
-                  sx={{
-                    backgroundColor: '#ffffff',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' }
-                  }}
-                >
-                  {templateData.belgeDurumlari?.map((durum) => (
-                    <MenuItem key={durum.value} value={durum.value}>
-                      <Chip
-                        label={durum.label}
-                        size="small"
-                        sx={{
-                          backgroundColor: durum.backgroundColor || '#e2e8f0',
-                          color: durum.color || '#1f2937',
-                          fontWeight: 600
-                        }}
-                      />
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
+            {/* BELGE DURUMU kaldırıldı */}
       </Grid>
         </Paper>
       </Grid>
@@ -4715,11 +4686,9 @@ const TesvikForm = () => {
   const handleNumberFieldFocus = (e) => {
     // 🔧 Kullanıcı tıklayınca sıfır varsa tamamen temizle
     if (e.target.value === '0' || e.target.value === 0 || e.target.value === '0.00') {
-      setTimeout(() => {
-        e.target.value = ''; // İmleç problemini önlemek için setTimeout kullan
-        e.target.setSelectionRange(0, 0); // İmleci başa al
-        e.target.focus(); // Tekrar focus ver
-      }, 0);
+      // number input'larda setSelectionRange desteklenmez; sadece değeri temizle
+      e.target.value = '';
+      // Değişiklik handler'ı varsa 0 yerine boşu temsil edecek bir state set edilebilir
     }
   };
 
