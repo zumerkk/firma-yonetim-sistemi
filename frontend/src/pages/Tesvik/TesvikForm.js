@@ -4957,6 +4957,8 @@ const TesvikForm = () => {
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.ikinciElFiyatFarki}
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', parseFloat(e.target.value) || 0)}
+                    onFocus={handleNumberFieldFocus}
+                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', val))}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
@@ -4968,6 +4970,8 @@ const TesvikForm = () => {
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli}
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', parseFloat(e.target.value) || 0)}
+                    onFocus={handleNumberFieldFocus}
+                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', val))}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
@@ -4979,6 +4983,8 @@ const TesvikForm = () => {
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerDisKaynaklar}
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', parseFloat(e.target.value) || 0)}
+                    onFocus={handleNumberFieldFocus}
+                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', val))}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
@@ -4990,6 +4996,8 @@ const TesvikForm = () => {
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerYabanciKaynak}
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', parseFloat(e.target.value) || 0)}
+                    onFocus={handleNumberFieldFocus}
+                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', val))}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
@@ -5165,6 +5173,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5175,6 +5185,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5185,6 +5197,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5195,6 +5209,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5205,6 +5221,8 @@ const TesvikForm = () => {
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>

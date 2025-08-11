@@ -3020,9 +3020,9 @@ const buildRevisionTrackingData = async (tesvik) => {
           
           console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
         } else {
-          // PRESERVE: Snapshot yoksa önceki state'i kullan
-          // Bu sayede değişiklikleri doğru takip edebiliriz
-          revizyonSnapshot = JSON.parse(JSON.stringify(currentState));
+          // 🔥 FIXED: currentState yerine revisionData'daki son snapshot'ı kullan
+          const lastRevisionSnapshot = revisionData[revisionData.length - 1]?.snapshot || tesvik;
+          revizyonSnapshot = JSON.parse(JSON.stringify(lastRevisionSnapshot));
           console.log('⚠️ Snapshot yok, ÖNCEKİ STATE kullanılıyor');
           
           // Revizyon değişikliklerini uygula
