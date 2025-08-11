@@ -3020,10 +3020,18 @@ const buildRevisionTrackingData = async (tesvik) => {
           
           console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
         } else {
-          // 🔥 FIXED: currentState yerine revisionData'daki son snapshot'ı kullan
-          const lastRevisionSnapshot = revisionData[revisionData.length - 1]?.snapshot || tesvik;
-          revizyonSnapshot = JSON.parse(JSON.stringify(lastRevisionSnapshot));
-          console.log('⚠️ Snapshot yok, ÖNCEKİ STATE kullanılıyor');
+          // 🔥 CRITICAL FIX: Sadece önceki revizyon'un snapshot'ını kullan
+          // İlk revizyon için tesvik, sonraki tüm revizyonlar için sadece önceki snapshot
+          if (revisionData.length === 0) {
+            // İlk revizyon: orijinal tesvik state'ini kullan
+            revizyonSnapshot = JSON.parse(JSON.stringify(tesvik));
+            console.log('🆕 İLK REVİZYON: Orijinal tesvik state kullanılıyor');
+          } else {
+            // Sonraki revizyonlar: önceki revizyon'un snapshot'ını kullan
+            const lastRevisionSnapshot = revisionData[revisionData.length - 1].snapshot;
+            revizyonSnapshot = JSON.parse(JSON.stringify(lastRevisionSnapshot));
+            console.log(`📋 ÖNCEKİ REVİZYON SNAPSHOT kullanılıyor (${revisionData.length})`);
+          }
           
           // Revizyon değişikliklerini uygula
           if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {

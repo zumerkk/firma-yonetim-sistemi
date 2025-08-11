@@ -236,7 +236,8 @@ const TesvikDetail = () => {
       // Activities verisi
       let activitiesData = [];
       if (activitiesResponse && activitiesResponse.data.success) {
-        activitiesData = activitiesResponse.data.data;
+        // 🔥 FIX: activities array'i data.activities içinde
+        activitiesData = activitiesResponse.data.data?.activities || [];
         console.log('✅ Gerçek activities verisi yüklendi:', activitiesData.length, 'adet');
       } else {
         // Fallback - Mock activities
@@ -1251,7 +1252,7 @@ const TesvikDetail = () => {
                 📊 Belge İşlem Yönetimi
                             </Typography>
                             <Chip 
-                label={`Toplam ${activities?.length || 0} İşlem`} 
+                label={`Toplam ${(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} İşlem`} 
                               size="small" 
                 sx={{ ml: 'auto', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '0.6rem', height: 20 }} 
                             />
@@ -1272,7 +1273,7 @@ const TesvikDetail = () => {
                     '&:hover': { borderColor: '#3b82f6', color: '#3b82f6' }
                   }}
                 >
-                  📋 Tüm İşlemleri Göster ({activities?.length || 0})
+                  📋 Tüm İşlemleri Göster ({(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)})
                 </Button>
               </Grid>
               <Grid item xs={6} sm={4}>
@@ -1304,7 +1305,7 @@ const TesvikDetail = () => {
                   color: '#64748b',
                   fontSize: '0.65rem'
                 }}>
-                  📅 İşlem Geçmişi: Toplam {activities?.length || 0} • Güncellemeler {activities?.filter?.(a => a.action === 'update')?.length || 0}
+                  📅 İşlem Geçmişi: Toplam {(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} • Güncellemeler {activities?.filter?.(a => a.action === 'update')?.length || 0} • Revizyonlar {tesvik?.revizyonlar?.length || 0}
                                 </Typography>
                             </Grid>
             </Grid>
@@ -1409,7 +1410,7 @@ const TesvikDetail = () => {
         fullWidth
       >
         <DialogTitle>
-          Tüm Belge İşlemleri ({activities?.length || 0})
+          Tüm Belge İşlemleri ({(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)})
           <IconButton onClick={handleCloseAllActivitiesModal} sx={{ float: 'right' }}>
             <CloseIcon />
           </IconButton>
