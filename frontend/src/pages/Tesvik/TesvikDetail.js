@@ -89,6 +89,23 @@ const TesvikDetail = () => {
     return new Date(date).toLocaleDateString('tr-TR');
   };
 
+  // 🧩 Değerleri güvenli biçimde yazdırmak için yardımcı
+  const formatChangeValue = (val) => {
+    // null/undefined
+    if (val === null || val === undefined) return '-';
+    // Tarih objesi
+    if (val instanceof Date) return formatDateTime(val);
+    // Sayı/boolean/string direkt yaz
+    if (typeof val === 'number' || typeof val === 'boolean' || typeof val === 'string') return String(val);
+    // Dizi/obje -> JSON ile kısalt
+    try {
+      const str = JSON.stringify(val, null, 2);
+      return str?.length > 500 ? str.slice(0, 500) + '…' : str;
+    } catch (e) {
+      return String(val);
+    }
+  };
+
   // Modal handlers
   const handleCloseActivityModal = () => {
     setActivityModalOpen(false);
@@ -1415,7 +1432,11 @@ const TesvikDetail = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     🔄 Değişiklik Detayları ({selectedActivity.changes.fields.length} Alan)
                   </Typography>
-                  {selectedActivity.changes.fields.map((change, index) => (
+                  {selectedActivity.changes.fields.map((rawChange, index) => {
+                    const label = rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName || `Alan ${index + 1}`;
+                    const oldVal = formatChangeValue(rawChange.eskiDeger ?? rawChange.oldValue);
+                    const newVal = formatChangeValue(rawChange.yeniDeger ?? rawChange.newValue);
+                    return (
                     <Paper key={index} sx={{ 
                       p: 2, 
                       mb: 1.5, 
@@ -1423,18 +1444,19 @@ const TesvikDetail = () => {
                       border: '1px solid #e0e0e0'
                     }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        {change.label || change.field || change.alan || `Alan ${index + 1}`}
+                        {label}
                         </Typography>
                       <Box sx={{ pl: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                          <strong>Önceki Değer:</strong> {change.eskiDeger || change.oldValue || '-'}
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap' }}>
+                          <strong>Önceki Değer:</strong> {oldVal}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          <strong>Yeni Değer:</strong> {change.yeniDeger || change.newValue || '-'}
+                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                          <strong>Yeni Değer:</strong> {newVal}
                         </Typography>
                       </Box>
                       </Paper>
-                  ))}
+                    );
+                  })}
                 </Box>
               ) : (
                 <Alert severity="info">Bu işlem için detaylı değişiklik kaydı bulunamadı.</Alert>
@@ -1532,7 +1554,8 @@ const TesvikDetail = () => {
                     }}
                   />
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {activity.title || activity.description || activity.action}
+                    {typeof activity.title === 'object' ? JSON.stringify(activity.title) : (activity.title || '')}
+                    {typeof activity.description === 'object' ? ` ${JSON.stringify(activity.description)}` : (activity.description ? ` ${activity.description}` : (!activity.title ? activity.action : ''))}
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#64748b', ml: 'auto' }}>
                     {formatDateTime(activity.createdAt)} • {activity.user?.adSoyad || 'Sistem'}
