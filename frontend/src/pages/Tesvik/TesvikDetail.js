@@ -42,7 +42,8 @@ const TesvikDetail = () => {
 
   // Form states
   const [revizyonForm, setRevizyonForm] = useState({
-    revizyonSebebi: ''
+    revizyonSebebi: '',
+    kullaniciNotu: ''
   });
 
   // Helper functions
@@ -185,11 +186,12 @@ const TesvikDetail = () => {
       setSavingRevision(true);
       // API: Revizyon ekleme
       const res = await api.post(`/tesvik/${tesvik._id}/revizyon`, {
-        revizyonSebebi: revizyonForm.revizyonSebebi
+        revizyonSebebi: revizyonForm.revizyonSebebi,
+        kullaniciNotu: revizyonForm.kullaniciNotu || ''
       });
       if (res?.data?.success) {
         setRevizyonModalOpen(false);
-        setRevizyonForm({ revizyonSebebi: '' });
+        setRevizyonForm({ revizyonSebebi: '', kullaniciNotu: '' });
         await loadData();
         if (afterRevisionAction === 'goEdit') {
           setAfterRevisionAction(null);
@@ -555,15 +557,15 @@ const TesvikDetail = () => {
             
             {/* Kompakt Action Buttons */}
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Button
+                <Button
                 variant="contained"
                 size="small"
-                startIcon={<EditIcon />}
+                  startIcon={<EditIcon />}
                 onClick={() => { setAfterRevisionAction('goEdit'); setRevizyonModalOpen(true); }}
-                sx={{
+                  sx={{
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
-                  color: 'white',
+                      color: 'white',
                   px: 1.5,
                   py: 0.5,
                   borderRadius: 1,
@@ -574,9 +576,9 @@ const TesvikDetail = () => {
                 }}
               >
                 Düzenle
-              </Button>
+                </Button>
               
-                <Button
+              <Button
                   variant="outlined"
                 size="small"
                 startIcon={<DownloadIcon />}
@@ -609,10 +611,10 @@ const TesvikDetail = () => {
               startIcon={exportingRevizyon ? null : <FileDownloadIcon />}
                 onClick={handleRevizyonExcelExport}
                 disabled={exportingRevizyon}
-                sx={{
+                      sx={{
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
-                color: 'white',
+                        color: 'white',
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
@@ -628,14 +630,14 @@ const TesvikDetail = () => {
             >
               {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Exel Revizyon'}
               </Button>
-          </Box>
+                  </Box>
 
           {/* Progress indicator */}
           <Box sx={{ mt: 1.5, position: 'relative', zIndex: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
               <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
                 Belge İlerleme Durumu
-                  </Typography>
+                    </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
                 %{getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
                     </Typography>
@@ -1475,8 +1477,26 @@ const TesvikDetail = () => {
                   <MenuItem value="Sonuç Revize">✅ Sonuç Revize</MenuItem>
                   <MenuItem value="Resen Revize">⚖️ Resen Revize</MenuItem>
                   <MenuItem value="Müşavir Revize">👨‍💼 Müşavir Revize</MenuItem>
+                  <MenuItem value="Red geldi - Ek belge istendi">Red geldi - Ek belge istendi</MenuItem>
+                  <MenuItem value="Red geldi - Revizyon talep edildi">Red geldi - Revizyon talep edildi</MenuItem>
+                  <MenuItem value="Onay geldi">Onay geldi</MenuItem>
+                  <MenuItem value="Belge tamamlandı">Belge tamamlandı</MenuItem>
+                  <MenuItem value="İptal edildi">İptal edildi</MenuItem>
+                  <MenuItem value="Diğer">Diğer</MenuItem>
                 </Select>
               </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Açıklama / Not"
+                placeholder="Bu revizyon hakkında detaylı açıklama yazabilirsiniz..."
+                value={revizyonForm.kullaniciNotu}
+                onChange={(e) => setRevizyonForm({ ...revizyonForm, kullaniciNotu: e.target.value })}
+              />
             </Grid>
           </Grid>
         </DialogContent>
