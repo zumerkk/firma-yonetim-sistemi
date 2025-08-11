@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Chip, Paper, Button, Avatar, LinearProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, TextField, Alert, Stack
+  Dialog, DialogTitle, DialogContent, DialogActions, IconButton, TextField, Alert, Stack,
+  FormControl, InputLabel, Select, MenuItem
 } from '@mui/material';
 import {
   EmojiEvents as EmojiEventsIcon,
@@ -545,7 +546,7 @@ const TesvikDetail = () => {
                 variant="contained"
                 size="small"
                 startIcon={<EditIcon />}
-                onClick={() => navigate(`/tesvik/edit/${id}`)}
+                onClick={() => navigate(`/tesvik/${id}/duzenle`)}
                 sx={{
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
@@ -1472,15 +1473,20 @@ const TesvikDetail = () => {
             </Grid>
             
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Revizyon Sebebi"
-                required
-                value={revizyonForm.revizyonSebebi}
-                onChange={(e) => setRevizyonForm({...revizyonForm, revizyonSebebi: e.target.value})}
-                multiline
-                rows={3}
-              />
+              <FormControl fullWidth required>
+                <InputLabel>Revizyon Sebebi</InputLabel>
+                <Select
+                  value={revizyonForm.revizyonSebebi}
+                  onChange={(e) => setRevizyonForm({...revizyonForm, revizyonSebebi: e.target.value})}
+                  label="Revizyon Sebebi"
+                >
+                  <MenuItem value="Talep Revize">📋 Talep Revize</MenuItem>
+                  <MenuItem value="Sonuç Revize">✅ Sonuç Revize</MenuItem>
+                  <MenuItem value="Resen Revize">⚖️ Resen Revize</MenuItem>
+                  <MenuItem value="Müşavir Revize">👨‍💼 Müşavir Revize</MenuItem>
+                  <MenuItem value="Diğer">🔧 Diğer</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             
             <Grid item xs={12} sm={6}>
