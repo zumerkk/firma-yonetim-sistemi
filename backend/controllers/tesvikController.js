@@ -2781,6 +2781,7 @@ const exportRevizyonExcel = async (req, res) => {
     // Response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('X-Revision-Rows', revisionData.length.toString());
     res.setHeader('X-Export-ID', exportId);
     res.setHeader('X-Export-Duration', `${Date.now() - startTime}ms`);
     
@@ -3215,14 +3216,29 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     
     // Temel bilgiler - ENHANCED DEBUG
     const gmId = snapshot.tesvikId || snapshot.gmId || '';
-    const durum = snapshot.durumBilgileri?.genelDurum || '';
+    // TALEP/SONUÇ: Revizyona özel seçilen durum öncelikli
+    // "TALEP/SONUÇ": Öncelik sırası → Revizyonun seçilen işlemi (revizyonSebebi) > revizyonun yeni durumu > snapshot durumu
+    const talepSonuc = (revizyon?.revizyonSebebi)
+      || (revizyon?.yeniDurum)
+      || (revizyon?.durumSonrasi)
+      || (snapshot.kunyeBilgileri?.talepSonuc)
+      || (snapshot.durumBilgileri?.genelDurum)
+      || (revizyonNo === 0 ? 'İlk Oluşturma' : '');
     const firmaId = snapshot.firmaId || '';
     const yatirimciUnvan = snapshot.yatirimciUnvan || '';
     
-    console.log(`🏢 [DEBUG] Temel bilgiler: GM=${gmId}, Durum=${durum}, Firma=${firmaId}, Ünvan=${yatirimciUnvan}`);
+    console.log(`🏢 [DEBUG] Temel bilgiler: GM=${gmId}, Talep/Sonuç=${talepSonuc}, Firma=${firmaId}, Ünvan=${yatirimciUnvan}`);
+    console.log(`🧾 [DEBUG] TALEP/SONUÇ sütunu kaynağı:`, {
+      kullanilan: talepSonuc,
+      revizyonSebebi: revizyon?.revizyonSebebi,
+      yeniDurum: revizyon?.yeniDurum,
+      durumSonrasi: revizyon?.durumSonrasi,
+      snapshotTalepSonuc: snapshot?.kunyeBilgileri?.talepSonuc,
+      snapshotDurum: snapshot?.durumBilgileri?.genelDurum
+    });
     
     row.push(gmId);                                               // GM ID
-    row.push(durum);                                              // TALEP/SONUÇ  
+    row.push(talepSonuc);                                         // TALEP/SONUÇ  
     row.push(revizyonNo.toString());                              // REVIZE ID
     row.push(firmaId);                                            // FIRMA ID
     row.push(yatirimciUnvan);                                     // YATIRIMCI UNVAN
@@ -3483,8 +3499,8 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(finansmanBilgisi.ozKaynak || 0);                          // Öz kaynak
     row.push(finansmanBilgisi.toplamFinansman || 0);        // TOPLAM FİNANSMAN
     
-    // Revize tarihi
-    const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.createdAt;
+    // Revize tarihi (revizyon varsa onun tarihi, yoksa kaydın oluşturulma)
+    const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.updatedAt || snapshot.createdAt;
     row.push(revizyonTarihi ? new Date(revizyonTarihi).toLocaleString('tr-TR') : '');
     
     console.log(`📊 CSV satırı oluşturuldu: ${row.length} sütun, Revizyon: ${revizyonNo}`);
@@ -3588,7 +3604,9 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     
     // KÜNYE BİLGLERİ (17 sütun)
     row.push(tesvik.tesvikId || tesvik.gmId || 'GM2025000'); // GM ID
-    row.push(tesvik.durumBilgileri?.genelDurum || 'taslak'); // TALEP/SONUÇ
+    // TALEP/SONUÇ: Revizyon satırında varsa o revizyonun durumunu yaz
+    const revTalepSonuc = (revizyon && (revizyon.revizyonSebebi || revizyon.yeniDurum || revizyon.durumSonrasi)) || tesvik.kunyeBilgileri?.talepSonuc || tesvik.durumBilgileri?.genelDurum || 'taslak';
+    row.push(revTalepSonuc); // TALEP/SONUÇ
     row.push(revizyonNo); // REVIZE ID
     row.push(tesvik.firma?.firmaId || 'A000000'); // FIRMA ID
     row.push(tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'); // YATIRIMCI UNVAN
