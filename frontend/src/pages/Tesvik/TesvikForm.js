@@ -87,10 +87,16 @@ const TesvikForm = () => {
   
   // 🔢 NUMBER FORMATTING UTILITIES
   const formatNumber = (value) => {
-    if (!value || value === '') return '';
+    // Boş, null, undefined ise boş string döndür
+    if (value === null || value === undefined || value === '') return '';
+    
+    // 0 değeri için özel kontrol - 0 geçerli bir sayıdır!
+    if (value === 0 || value === '0') return '0';
+    
     // Sadece sayıları al (nokta ve virgülleri temizle)
     const numericValue = value.toString().replace(/[^\d]/g, '');
     if (numericValue === '') return '';
+    
     // Sayıyı formatla (3'lü gruplar halinde nokta koy)
     return parseInt(numericValue).toLocaleString('tr-TR');
   };
@@ -4921,9 +4927,14 @@ const TesvikForm = () => {
                     fullWidth
                     size="small"
                     label="Bank Kredisi"
-                    type="text"
-                    value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi')}
+                    type="number"
+                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi}
+                    name="bankKredisi"
+                    data-section="finansman"
+                    data-field="yabanciKaynaklar.bankKredisi"
+                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', parseFloat(e.target.value) || 0)}
+                    onFocus={handleNumberFieldFocus}
+                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', val))}
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
