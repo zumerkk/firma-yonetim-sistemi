@@ -514,6 +514,15 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.toplamSabitYatirimTutari': 'Toplam Sabit Yatırım Tutarı',
     'maliHesaplamalar.toplamSabitYatirim': 'Toplam Sabit Yatırım',
     
+    // Arazi/Arsa - REVİZYON TAKİBİ İÇİN KRİTİK ALANLAR
+    'maliHesaplamalar.araciArsaBedeli': 'Arazi Arsa Bedeli',
+    'maliHesaplamalar.maliyetlenen.sl': 'Arazi Metrekaresi',
+    'maliHesaplamalar.maliyetlenen.sm': 'Arazi Birim Fiyatı (TL)',
+    'maliHesaplamalar.maliyetlenen.sn': 'Arazi Arsa Bedeli (Hesaplanan)',
+    'maliHesaplamalar.aracAracaGideri.sx': 'Arazi Metrekaresi (Alternatif)',
+    'maliHesaplamalar.aracAracaGideri.sayisi': 'Arazi Birim Fiyatı (Alternatif)',
+    'maliHesaplamalar.aracAracaGideri.toplam': 'Arazi Arsa Bedeli (Alternatif)',
+
     // Arazi-Arsa Bedeli - DOĞRU FIELD PATHS
     'maliHesaplamalar.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi', 
     'maliHesaplamalar.araziArsaBedeli.birimFiyatiTl': 'Arazi Birim Fiyatı (TL)',
@@ -521,7 +530,7 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.araziArsaBedeli.aciklama': 'Arazi Açıklaması',
     
     // DOĞRUDAN FIELD ADI - backend tarafında bu şekilde görünüyor
-    'araciArsaBedeli': 'Arazi Arsa Bedeli',
+    'araciArsaBedeli': 'Arazi Arsa Bedeli (Legacy)',
     
     // Bina İnşaat Giderleri - DOĞRU FIELD PATHS
     'maliHesaplamalar.binaInsaatGideri.anaBinaGideri': 'Ana Bina Gideri',
@@ -3384,10 +3393,16 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     const maliyetlenen = finansal.maliyetlenen || {};
     const araziGideri = finansal.aracAracaGideri || {};
     
-    // Veri öncelik sırası: maliyetlenen > aracAracaGideri > default
-    const metrekaresi = parseInt(maliyetlenen.sl || araziGideri.sx || 0);
-    const birimFiyat = parseInt(maliyetlenen.sm || araziGideri.sayisi || 0);
-    const araziToplam = parseInt(finansal.araciArsaBedeli || maliyetlenen.sn || araziGideri.toplam || 0);
+    // Veri öncelik sırası: maliyetlenen > aracAracaGideri > legacy alan
+    const metrekaresi = parseInt(maliyetlenen.sl ?? araziGideri.sx ?? 0);
+    const birimFiyat  = parseInt(maliyetlenen.sm ?? araziGideri.sayisi ?? 0);
+    // Her revizyonda doğru toplamı türet: eğer sn yoksa sl*sm; o da yoksa alternatif/legacy toplam
+    const hesaplananSn = Number.isFinite(maliyetlenen.sl) && Number.isFinite(maliyetlenen.sm)
+      ? (maliyetlenen.sl || 0) * (maliyetlenen.sm || 0)
+      : undefined;
+    const araziToplam = parseInt(
+      (maliyetlenen.sn ?? hesaplananSn ?? araziGideri.toplam ?? finansal.araciArsaBedeli ?? 0)
+    );
     
     // Açıklama için otomatik oluştur veya varsa kullan
     const araziAciklama = finansal.araziAciklama || 
@@ -3423,7 +3438,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(parseInt(yatirimHesap.ez || 0));                   // TOPLAM DİĞER YATIRIM HARCAMALARI
     
     // Toplam Sabit Yatırım Tutarı (1 sütun) - PRIORITY: toplamSabitYatirim FIRST!
-    const toplamSabitYatirim = parseInt(finansal.toplamSabitYatirim || 0);
+    const toplamSabitYatirim = parseInt(finansal.toplamSabitYatirim || finansal.toplamSabitYatirimTutari || 0);
     row.push(toplamSabitYatirim > maxValue ? 0 : toplamSabitYatirim);  // TOPLAM SABİT YATIRIM TUTARI TL
     
     // Makine Teçhizat Giderleri TL (3 sütun) - MODEL'E UYGUN
