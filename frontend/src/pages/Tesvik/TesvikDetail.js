@@ -8,7 +8,6 @@ import {
 import {
   EmojiEvents as EmojiEventsIcon,
   Edit as EditIcon,
-  Download as DownloadIcon,
   Close as CloseIcon,
   FileDownload as FileDownloadIcon,
   ArrowBack as ArrowBackIcon,
@@ -668,27 +667,7 @@ const TesvikDetail = () => {
                 Düzenle
                 </Button>
               
-              <Button
-                  variant="outlined"
-                size="small"
-                startIcon={<DownloadIcon />}
-                onClick={handleExcelExport}
-                disabled={excelLoading}
-                sx={{
-                  background: 'rgba(255,255,255,0.1)',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                  color: 'white',
-                  px: 1.5,
-                  py: 0.5,
-                  borderRadius: 1,
-                  fontWeight: 500,
-                  fontSize: '0.8rem',
-                  textTransform: 'none',
-                  '&:hover': { background: 'rgba(255,255,255,0.2)' }
-                }}
-              >
-                {excelLoading ? 'Oluşturuluyor...' : 'Excel'}
-              </Button>
+              {/* Sağdaki Excel butonu kaldırıldı */}
             </Box>
           </Box>
 
@@ -701,7 +680,7 @@ const TesvikDetail = () => {
               startIcon={exportingRevizyon ? null : <FileDownloadIcon />}
                 onClick={handleRevizyonExcelExport}
                 disabled={exportingRevizyon}
-                      sx={{
+                sx={{
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
                         color: 'white',
@@ -720,14 +699,14 @@ const TesvikDetail = () => {
             >
               {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Exel Revizyon'}
               </Button>
-                  </Box>
+          </Box>
 
           {/* Progress indicator */}
           <Box sx={{ mt: 1.5, position: 'relative', zIndex: 1 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
               <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
                 Belge İlerleme Durumu
-                    </Typography>
+                  </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
                 %{getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
                     </Typography>
@@ -1390,7 +1369,7 @@ const TesvikDetail = () => {
                   📅 İşlem Geçmişi: Toplam {(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} • Güncellemeler {activities?.filter?.(a => a.action === 'update')?.length || 0} • Revizyonlar {tesvik?.revizyonlar?.length || 0}
                                 </Typography>
                             </Grid>
-            </Grid>
+                            </Grid>
           </Paper>
         </Box>
       </Container>
@@ -1529,14 +1508,14 @@ const TesvikDetail = () => {
           {/* Filtre Barı */}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
             <TextField
-              size="small"
+              size="small" 
               placeholder="Ara (işlem, kullanıcı, açıklama)"
               value={activityFilters.search}
               onChange={(e) => setActivityFilters({ ...activityFilters, search: e.target.value })}
               sx={{ minWidth: 240 }}
             />
             <TextField
-              size="small"
+              size="small" 
               type="date"
               label="Başlangıç"
               InputLabelProps={{ shrink: true }}
@@ -1544,7 +1523,7 @@ const TesvikDetail = () => {
               onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value })}
             />
             <TextField
-              size="small"
+              size="small" 
               type="date"
               label="Bitiş"
               InputLabelProps={{ shrink: true }}
@@ -1560,7 +1539,7 @@ const TesvikDetail = () => {
               label="Revizyonları dahil et"
             />
             <TextField
-              size="small"
+              size="small" 
               type="number"
               label="Limit"
               InputLabelProps={{ shrink: true }}
@@ -1571,7 +1550,7 @@ const TesvikDetail = () => {
           </Stack>
 
           <Divider sx={{ mb: 1.5 }} />
-
+          
           {getFilteredActivities().length > 0 ? (
             <Stack spacing={1}>
               {getFilteredActivities().map((activity, index) => (
@@ -1579,7 +1558,7 @@ const TesvikDetail = () => {
                   p: 1.25,
                   border: '1px solid #e5e7eb',
                   display: 'flex', alignItems: 'center', gap: 1,
-                  cursor: 'pointer',
+                    cursor: 'pointer',
                   '&:hover': { backgroundColor: '#f9fafb' }
                 }}
                 onClick={() => { setSelectedActivity(activity); setActivityModalOpen(true); }}
@@ -1593,20 +1572,20 @@ const TesvikDetail = () => {
                       backgroundColor: activity.action === 'update' ? '#ecfccb' : activity.action === 'create' ? '#dbeafe' : activity.action === 'revizyon' ? '#fff7ed' : '#f1f5f9'
                     }}
                   />
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {typeof activity.title === 'object' ? JSON.stringify(activity.title) : (activity.title || '')}
                     {typeof activity.description === 'object' ? ` ${JSON.stringify(activity.description)}` : (activity.description ? ` ${activity.description}` : (!activity.title ? activity.action : ''))}
-                  </Typography>
+                        </Typography>
                   <Typography variant="caption" sx={{ color: '#64748b', ml: 'auto' }}>
                     {formatDateTime(activity.createdAt)} • {activity.user?.adSoyad || 'Sistem'}
-                  </Typography>
+                        </Typography>
                 </Paper>
               ))}
             </Stack>
           ) : (
-            <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" color="text.secondary">
               Kayıt bulunamadı. Filtreleri genişletmeyi deneyin.
-            </Typography>
+              </Typography>
           )}
         </DialogContent>
         <DialogActions>

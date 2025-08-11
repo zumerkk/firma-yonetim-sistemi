@@ -4684,11 +4684,20 @@ const TesvikForm = () => {
 
   // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için - ENHANCED!
   const handleNumberFieldFocus = (e) => {
-    // 🔧 Kullanıcı tıklayınca sıfır varsa tamamen temizle
+    // Kullanıcı tıklayınca 0 ise tamamen temizle (tip number olduğu için sadece value='')
     if (e.target.value === '0' || e.target.value === 0 || e.target.value === '0.00') {
-      // number input'larda setSelectionRange desteklenmez; sadece değeri temizle
       e.target.value = '';
-      // Değişiklik handler'ı varsa 0 yerine boşu temsil edecek bir state set edilebilir
+      // Field'ı boşalttığımızı state'e de yansıt (blur beklemeden) → pasif toplam ve validasyonlar canlı çalışsın
+      const nameAttr = e.target.getAttribute('name');
+      const dataSection = e.target.getAttribute('data-section');
+      const dataField = e.target.getAttribute('data-field');
+      if (dataSection && dataField) {
+        // Finansal alanlara özel: 0 yerine boş anlık state yaz
+        handleFinansalChange(dataSection, dataField, '');
+      } else if (nameAttr) {
+        // Genel sayı alanları için destek (varsa)
+        setFormData(prev => ({ ...prev, [nameAttr]: '' }));
+      }
     }
   };
 
@@ -4925,6 +4934,9 @@ const TesvikForm = () => {
                     label="İkinci El Fiyat Farkı"
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.ikinciElFiyatFarki}
+                    name="ikinciElFiyatFarki"
+                    data-section="finansman"
+                    data-field="yabanciKaynaklar.ikinciElFiyatFarki"
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', parseFloat(e.target.value) || 0)}
                     onFocus={handleNumberFieldFocus}
                     onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', val))}
@@ -4938,6 +4950,9 @@ const TesvikForm = () => {
                     label="Kullanılmış Teçhizat Bedeli"
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli}
+                    name="kullanilmisTechizatBedeli"
+                    data-section="finansman"
+                    data-field="yabanciKaynaklar.kullanilmisTeçhizatBedeli"
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', parseFloat(e.target.value) || 0)}
                     onFocus={handleNumberFieldFocus}
                     onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', val))}
@@ -4951,6 +4966,9 @@ const TesvikForm = () => {
                     label="Diğer Dış Kaynaklar"
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerDisKaynaklar}
+                    name="digerDisKaynaklar"
+                    data-section="finansman"
+                    data-field="yabanciKaynaklar.digerDisKaynaklar"
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', parseFloat(e.target.value) || 0)}
                     onFocus={handleNumberFieldFocus}
                     onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', val))}
@@ -4964,6 +4982,9 @@ const TesvikForm = () => {
                     label="Diğer Yabancı Kaynak"
                     type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerYabanciKaynak}
+                    name="digerYabanciKaynak"
+                    data-section="finansman"
+                    data-field="yabanciKaynaklar.digerYabanciKaynak"
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', parseFloat(e.target.value) || 0)}
                     onFocus={handleNumberFieldFocus}
                     onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', val))}
@@ -5046,6 +5067,9 @@ const TesvikForm = () => {
                 label="İthal"
                 type="number"
                 value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal}
+                name="makineTlIthal"
+                data-section="makineTeçhizatGiderleri"
+                data-field="tl.ithal"
                 onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', val))}
@@ -5058,6 +5082,9 @@ const TesvikForm = () => {
                 label="Yerli"
                 type="number"
                 value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli}
+                name="makineTlYerli"
+                data-section="makineTeçhizatGiderleri"
+                data-field="tl.yerli"
                 onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', val))}
@@ -5141,6 +5168,9 @@ const TesvikForm = () => {
                 label="Yardımcı İşl. Mak. Teç. Gid."
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid}
+                name="yardimciIslMakTecGid"
+                data-section="digerYatirimHarcamalari"
+                data-field="yardimciIslMakTeçGid"
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', val))}
@@ -5153,6 +5183,9 @@ const TesvikForm = () => {
                 label="İthalat ve Güm.Giderleri"
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri}
+                name="ithalatVeGumGiderleri"
+                data-section="digerYatirimHarcamalari"
+                data-field="ithalatVeGumGiderleri"
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', val))}
