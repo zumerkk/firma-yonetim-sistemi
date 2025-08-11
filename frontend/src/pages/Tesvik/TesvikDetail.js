@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Chip, Paper, Button, Avatar, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, TextField, Alert, Stack,
-  FormControl, InputLabel, Select, MenuItem
+  FormControl, InputLabel, Select, MenuItem, Divider, Switch, FormControlLabel
 } from '@mui/material';
 import {
   EmojiEvents as EmojiEventsIcon,
@@ -44,6 +44,16 @@ const TesvikDetail = () => {
   const [revizyonForm, setRevizyonForm] = useState({
     revizyonSebebi: '',
     kullaniciNotu: ''
+  });
+
+  // Activity filters (modern modal)
+  const [activityFilters, setActivityFilters] = useState({
+    showView: false,
+    includeRevisions: true,
+    search: '',
+    startDate: '',
+    endDate: '',
+    limit: 50
   });
 
   // Helper functions
@@ -90,7 +100,53 @@ const TesvikDetail = () => {
   };
 
   const getFilteredActivities = () => {
-    return activities || []; // 🔧 Ensure we always return an array
+    const base = Array.isArray(activities) ? activities : [];
+    // Revizyonları listeye dahil et
+    const revs = Array.isArray(tesvik?.revizyonlar) ? tesvik.revizyonlar.map((r) => ({
+      _id: `rev_${r.revizyonNo}`,
+      action: 'revizyon',
+      createdAt: r.revizyonTarihi || r.createdAt,
+      user: { adSoyad: r.yapanKullanici?.adSoyad || 'Sistem' },
+      title: `Revizyon ${r.revizyonNo}`,
+      description: r.revizyonSebebi,
+      changes: { fields: (r.degisikenAlanlar || []).map(d => ({
+        field: d.alan,
+        label: d.label,
+        oldValue: d.eskiDeger,
+        newValue: d.yeniDeger
+      })) }
+    })) : [];
+
+    let merged = activityFilters.includeRevisions ? [...base, ...revs] : base;
+
+    // Önce action filtresi (view'ları gizle)
+    merged = merged.filter(a => activityFilters.showView ? true : a.action !== 'view');
+
+    // Tarih aralığı filtresi
+    if (activityFilters.startDate) {
+      const s = new Date(activityFilters.startDate).getTime();
+      merged = merged.filter(a => new Date(a.createdAt).getTime() >= s);
+    }
+    if (activityFilters.endDate) {
+      const e = new Date(activityFilters.endDate).getTime();
+      merged = merged.filter(a => new Date(a.createdAt).getTime() <= e);
+    }
+
+    // Arama
+    const q = (activityFilters.search || '').trim().toLowerCase();
+    if (q) {
+      merged = merged.filter(a => {
+        const haystack = [a.title, a.description, a.action, a.user?.adSoyad]
+          .filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+
+    // Tarihe göre azalan sırala
+    merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    // Limit uygula
+    return merged.slice(0, activityFilters.limit);
   };
 
     // Export handlers
@@ -1317,9 +1373,7 @@ const TesvikDetail = () => {
         <DialogTitle sx={{ 
           backgroundColor: '#f8fafc', 
           borderBottom: '1px solid #e5e7eb',
-                                display: 'flex', 
-                                alignItems: 'center', 
-          gap: 1
+          display: 'flex', alignItems: 'center', gap: 1
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {selectedActivity && (
@@ -1356,7 +1410,7 @@ const TesvikDetail = () => {
           {selectedActivity ? (
             <Box>
               {/* Değişiklik Detayları */}
-              {selectedActivity.changes?.fields && selectedActivity.changes.fields.length > 0 && (
+              {selectedActivity.changes?.fields && selectedActivity.changes.fields.length > 0 ? (
                 <Box sx={{ p: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     🔄 Değişiklik Detayları ({selectedActivity.changes.fields.length} Alan)
@@ -1382,6 +1436,8 @@ const TesvikDetail = () => {
                       </Paper>
                   ))}
                 </Box>
+              ) : (
+                <Alert severity="info">Bu işlem için detaylı değişiklik kaydı bulunamadı.</Alert>
               )}
             </Box>
           ) : (
@@ -1398,44 +1454,96 @@ const TesvikDetail = () => {
       <Dialog 
         open={allActivitiesModalOpen} 
         onClose={handleCloseAllActivitiesModal}
-        maxWidth="lg"
+        maxWidth="xl"
         fullWidth
       >
-        <DialogTitle>
-          Tüm Belge İşlemleri ({(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)})
-          <IconButton onClick={handleCloseAllActivitiesModal} sx={{ float: 'right' }}>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          📚 Tüm Belge İşlemleri
+          <IconButton onClick={handleCloseAllActivitiesModal} sx={{ ml: 'auto' }}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ p: 2 }}>
+          {/* Filtre Barı */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder="Ara (işlem, kullanıcı, açıklama)"
+              value={activityFilters.search}
+              onChange={(e) => setActivityFilters({ ...activityFilters, search: e.target.value })}
+              sx={{ minWidth: 240 }}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Başlangıç"
+              InputLabelProps={{ shrink: true }}
+              value={activityFilters.startDate}
+              onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value })}
+            />
+            <TextField
+              size="small"
+              type="date"
+              label="Bitiş"
+              InputLabelProps={{ shrink: true }}
+              value={activityFilters.endDate}
+              onChange={(e) => setActivityFilters({ ...activityFilters, endDate: e.target.value })}
+            />
+            <FormControlLabel
+              control={<Switch checked={activityFilters.showView} onChange={(e) => setActivityFilters({ ...activityFilters, showView: e.target.checked })} />}
+              label="View kayıtlarını göster"
+            />
+            <FormControlLabel
+              control={<Switch checked={activityFilters.includeRevisions} onChange={(e) => setActivityFilters({ ...activityFilters, includeRevisions: e.target.checked })} />}
+              label="Revizyonları dahil et"
+            />
+            <TextField
+              size="small"
+              type="number"
+              label="Limit"
+              InputLabelProps={{ shrink: true }}
+              value={activityFilters.limit}
+              onChange={(e) => setActivityFilters({ ...activityFilters, limit: Math.max(10, Math.min(500, Number(e.target.value) || 50)) })}
+              sx={{ width: 100 }}
+            />
+          </Stack>
+
+          <Divider sx={{ mb: 1.5 }} />
+
           {getFilteredActivities().length > 0 ? (
             <Stack spacing={1}>
               {getFilteredActivities().map((activity, index) => (
-                <Paper key={activity._id || index} sx={{ 
-                    p: 2,
+                <Paper key={activity._id || index} sx={{
+                  p: 1.25,
                   border: '1px solid #e5e7eb',
-                    cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: 1,
+                  cursor: 'pointer',
                   '&:hover': { backgroundColor: '#f9fafb' }
-                  }}
-                  onClick={() => {
-                  setSelectedActivity(activity);
-                  setActivityModalOpen(true);
-                    setAllActivitiesModalOpen(false);
-                  }}
+                }}
+                onClick={() => { setSelectedActivity(activity); setActivityModalOpen(true); }}
                 >
-                  <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                    {activity.action} - {activity.user?.adSoyad}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                    {formatDateTime(activity.createdAt)}
-                        </Typography>
+                  <Chip
+                    size="small"
+                    label={activity.action}
+                    sx={{
+                      height: 18,
+                      fontSize: '0.65rem',
+                      backgroundColor: activity.action === 'update' ? '#ecfccb' : activity.action === 'create' ? '#dbeafe' : activity.action === 'revizyon' ? '#fff7ed' : '#f1f5f9'
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {activity.title || activity.description || activity.action}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#64748b', ml: 'auto' }}>
+                    {formatDateTime(activity.createdAt)} • {activity.user?.adSoyad || 'Sistem'}
+                  </Typography>
                 </Paper>
               ))}
             </Stack>
           ) : (
-              <Typography variant="body2" color="text.secondary">
-              İşlem kaydı bulunmuyor
-              </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Kayıt bulunamadı. Filtreleri genişletmeyi deneyin.
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
