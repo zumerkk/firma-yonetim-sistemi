@@ -106,6 +106,23 @@ const TesvikDetail = () => {
     }
   };
 
+  // 🧭 Nesne içinden path ile değer alma ("a.b.0.c" gibi)
+  const getByPath = (obj, path) => {
+    try {
+      if (!obj || !path) return undefined;
+      const keys = path.split('.');
+      let cur = obj;
+      for (const k of keys) {
+        if (cur === null || cur === undefined) return undefined;
+        const idx = Number.isInteger(Number(k)) ? Number(k) : k;
+        cur = cur[idx];
+      }
+      return cur;
+    } catch (_) {
+      return undefined;
+    }
+  };
+
   // Modal handlers
   const handleCloseActivityModal = () => {
     setActivityModalOpen(false);
@@ -1440,8 +1457,18 @@ const TesvikDetail = () => {
                   </Stack>
                   {selectedActivity.changes.fields.map((rawChange, index) => {
                     const label = rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName || `Alan ${index + 1}`;
-                    const oldVal = formatChangeValue(rawChange.eskiDeger ?? rawChange.oldValue);
-                    const newVal = formatChangeValue(rawChange.yeniDeger ?? rawChange.newValue);
+                    let oldValRaw = rawChange.eskiDeger ?? rawChange.oldValue;
+                    let newValRaw = rawChange.yeniDeger ?? rawChange.newValue;
+                    // Fallback: fields içinde değer yoksa before/after içinden alan path'i ile çek
+                    if ((oldValRaw === undefined && newValRaw === undefined)) {
+                      const pathKey = rawChange.alan || rawChange.field || rawChange.columnName;
+                      if (pathKey) {
+                        oldValRaw = getByPath(selectedActivity.changes?.before, pathKey);
+                        newValRaw = getByPath(selectedActivity.changes?.after, pathKey);
+                      }
+                    }
+                    const oldVal = formatChangeValue(oldValRaw);
+                    const newVal = formatChangeValue(newValRaw);
                     return (
                     <Paper key={index} sx={{ 
                       p: 2, 
