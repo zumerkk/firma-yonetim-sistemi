@@ -4711,12 +4711,15 @@ const TesvikForm = () => {
     // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
   ]);
 
-  // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için
+  // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için - ENHANCED!
   const handleNumberFieldFocus = (e) => {
-    // Sıfırsa veya "0" ise temizle
-    if (e.target.value === '0' || e.target.value === 0) {
-      e.target.value = '';
-      e.target.select(); // Tüm içeriği seç
+    // 🔧 Kullanıcı tıklayınca sıfır varsa tamamen temizle
+    if (e.target.value === '0' || e.target.value === 0 || e.target.value === '0.00') {
+      setTimeout(() => {
+        e.target.value = ''; // İmleç problemini önlemek için setTimeout kullan
+        e.target.setSelectionRange(0, 0); // İmleci başa al
+        e.target.focus(); // Tekrar focus ver
+      }, 0);
     }
   };
 

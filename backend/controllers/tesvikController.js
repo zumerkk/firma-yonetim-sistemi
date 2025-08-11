@@ -2926,8 +2926,7 @@ const buildRevisionTrackingData = async (tesvik) => {
     
     const revisionData = [];
     
-    // 🔧 FIX: currentState değişkenini tanımla (let kullan - değişebilir)
-    let currentState = JSON.parse(JSON.stringify(tesvik));
+    // 🔥 REMOVED: currentState artık kullanılmıyor - her revizyon kendi historik snapshot'ını tutuyor!
     
     console.log(`🎯 İşleme alınan teşvik: ${tesvik.tesvikId} | Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
     
@@ -2972,8 +2971,9 @@ const buildRevisionTrackingData = async (tesvik) => {
           revizyonSnapshot = revizyon.veriSnapshot.sonrasi;
           console.log('✅ Revizyon SONRASI snapshot kullanılıyor');
         } else if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-          // CRITICAL FIX: Önceki revizyonun snapshot'ını temel al (KÜMÜLATIF YAKLAŞIM)
-          const previousSnapshot = revisionData[revisionData.length - 1]?.snapshot || currentState;
+          // 🔥 CRITICAL FIX: Her revizyon kendi HISTORIK snapshot'ını tutsun!
+          // Son revizyon varsa onun snapshot'ını kullan, yoksa initial tesvik state'i kullan
+          const previousSnapshot = revisionData[revisionData.length - 1]?.snapshot || JSON.parse(JSON.stringify(tesvik));
           revizyonSnapshot = JSON.parse(JSON.stringify(previousSnapshot));
           
           // ENHANCED CHANGE APPLICATION - Veri kaybını önle
@@ -3088,9 +3088,11 @@ const buildRevisionTrackingData = async (tesvik) => {
         });
         
         console.log(`✅ Revizyon ${i + 1} eklendi - ${changes.length} değişiklik tespit edildi`);
+        console.log(`🔍 CSV değişiklik analizi: ${changes.length} farklılık tespit edildi`);
         
-        // Current state'i güncelle
-        currentState = JSON.parse(JSON.stringify(revizyonSnapshot));
+        // 🚫 CRITICAL FIX: currentState güncellemesini KALDIR! 
+        // Her revizyon kendi historik snapshot'ını kullanmalı, güncel state ile değil!
+        // currentState = JSON.parse(JSON.stringify(revizyonSnapshot)); // ❌ REMOVED
       }
     }
     
