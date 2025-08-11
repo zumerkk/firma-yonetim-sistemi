@@ -1413,19 +1413,19 @@ const TesvikDetail = () => {
             {selectedActivity && (
               <>
                 <Avatar sx={{ 
-                  backgroundColor: selectedActivity.user?.rol === 'admin' ? '#dc2626' : '#3b82f6',
+                  backgroundColor: (selectedActivity.user?.rol || selectedActivity.user?.role) === 'admin' ? '#dc2626' : '#3b82f6',
                   width: 32,
                   height: 32,
                   fontSize: '0.9rem'
                 }}>
-                  {selectedActivity.user?.adSoyad?.charAt(0) || 'U'}
+                  {(selectedActivity.user?.adSoyad || selectedActivity.user?.name || 'U')?.charAt(0)}
                 </Avatar>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: '#1f2937' }}>
                     📋 İşlem Bilgisi
                                 </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {selectedActivity.user?.adSoyad} - {selectedActivity.action}
+                    {(selectedActivity.user?.adSoyad || selectedActivity.user?.name || 'Sistem')} - {selectedActivity.action}
                                 </Typography>
                               </Box>
               </>
@@ -1451,9 +1451,9 @@ const TesvikDetail = () => {
                   </Typography>
                   {/* Özet bilgileri */}
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1 }}>
-                    <Chip size="small" label={`İşlem: ${selectedActivity.action}`} />
-                    {selectedActivity.user?.adSoyad && <Chip size="small" label={`Kullanıcı: ${selectedActivity.user?.adSoyad}`} />}
-                    <Chip size="small" label={`Tarih: ${formatDateTime(selectedActivity.createdAt)}`} />
+                    <Chip size="small" label={`İşlem: ${selectedActivity.action}`} color="default" />
+                    <Chip size="small" label={`Kullanıcı: ${(selectedActivity.user?.adSoyad || selectedActivity.user?.name || 'Sistem')}`} color="primary" variant="outlined" />
+                    <Chip size="small" label={`Tarih: ${formatDateTime(selectedActivity.createdAt)}`} color="success" variant="outlined" />
                   </Stack>
                   {selectedActivity.changes.fields.map((rawChange, index) => {
                     const label = rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName || `Alan ${index + 1}`;
@@ -1470,20 +1470,21 @@ const TesvikDetail = () => {
                     const oldVal = formatChangeValue(oldValRaw);
                     const newVal = formatChangeValue(newValRaw);
                     return (
-                    <Paper key={index} sx={{ 
+                    <Paper key={index} elevation={0} sx={{ 
                       p: 2, 
-                      mb: 1.5, 
-                      backgroundColor: '#fafafa',
-                      border: '1px solid #e0e0e0'
+                      mb: 1.25, 
+                      background: 'linear-gradient(180deg,#ffffff, #f9fafb)',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 2
                     }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                         {label}
                         </Typography>
                       <Box sx={{ pl: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}>
                           <strong>Önceki Değer:</strong> {oldVal}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}>
                           <strong>Yeni Değer:</strong> {newVal}
                         </Typography>
                       </Box>
