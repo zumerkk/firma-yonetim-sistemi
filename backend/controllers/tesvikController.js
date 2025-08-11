@@ -458,34 +458,41 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'istihdam.toplamKisi': 'Toplam Kişi Sayısı',
     'istihdam.yeniKisi': 'Yeni Kişi Sayısı',
     
-    // 🏭 Yatırım bilgileri - GENİŞLETİLDİ
-    'yatirimBilgileri1.yatirimKonusu': 'Yatırım Konusu',
-    'yatirimBilgileri1.yatirimYeri': 'Yatırım Yeri',
-    'yatirimBilgileri1.destekSinifi': 'Destek Sınıfı',
-    'yatirimBilgileri1.cins1': 'Yatırım Cinsi 1',
-    'yatirimBilgileri1.cins2': 'Yatırım Cinsi 2',
-    'yatirimBilgileri1.cins3': 'Yatırım Cinsi 3',
-    'yatirimBilgileri1.cins4': 'Yatırım Cinsi 4',
-    'yatirimBilgileri2.yatirimAdresi1': 'Yatırım Adresi',
-    'yatirimBilgileri2.yatirimAdresi2': 'Yatırım Adresi 2',
-    'yatirimBilgileri2.yatirimAdresi3': 'Yatırım Adresi 3',
-    'yatirimBilgileri2.il': 'İl',
-    'yatirimBilgileri2.ilce': 'İlçe',
+    // 🏭 Yatırım bilgileri - DOĞRU FIELD PATHS
+    'yatirimBilgileri.yatirim1.yatirimKonusu': 'Yatırım Konusu',
+    'yatirimBilgileri.yatirim1.destekSinifi': 'Destek Sınıfı',
+    'yatirimBilgileri.yatirim1.cins1': 'Yatırım Cinsi 1',
+    'yatirimBilgileri.yatirim1.cins2': 'Yatırım Cinsi 2',
+    'yatirimBilgileri.yatirim1.cins3': 'Yatırım Cinsi 3',
+    'yatirimBilgileri.yatirim1.cins4': 'Yatırım Cinsi 4',
+    'yatirimBilgileri.yatirim2.yatirimAdresi1': 'Yatırım Adresi',
+    'yatirimBilgileri.yatirim2.yatirimAdresi2': 'Yatırım Adresi 2',
+    'yatirimBilgileri.yatirim2.yatirimAdresi3': 'Yatırım Adresi 3',
+    'yatirimBilgileri.yatirim2.il': 'İl',
+    'yatirimBilgileri.yatirim2.ilce': 'İlçe',
+    'yatirimBilgileri.yatirim2.ada': 'ADA',
+    'yatirimBilgileri.yatirim2.parsel': 'PARSEL',
     
-    // 📦 Ürün bilgileri - GENİŞLETİLDİ
-    'urunBilgileri': 'Ürün Bilgileri',
-    'urunBilgileri.0.us97Kodu': 'US97 Kodu (1)',
-    'urunBilgileri.0.urunAdi': 'Ürün Adı (1)',
-    'urunBilgileri.0.mevcutKapasite': 'Mevcut Kapasite (1)',
-    'urunBilgileri.0.ilaveKapasite': 'İlave Kapasite (1)',
-    'urunBilgileri.0.toplamKapasite': 'Toplam Kapasite (1)',
-    'urunBilgileri.0.kapasiteBirimi': 'Kapasite Birimi (1)',
-    'urunBilgileri.1.us97Kodu': 'US97 Kodu (2)',
-    'urunBilgileri.1.urunAdi': 'Ürün Adı (2)',
-    'urunBilgileri.1.mevcutKapasite': 'Mevcut Kapasite (2)',
-    'urunBilgileri.1.ilaveKapasite': 'İlave Kapasite (2)',
-    'urunBilgileri.1.toplamKapasite': 'Toplam Kapasite (2)',
-    'urunBilgileri.1.kapasiteBirimi': 'Kapasite Birimi (2)',
+    // 📦 Ürün bilgileri - DOĞRU FIELD PATHS!
+    'urunler': 'Ürün Bilgileri',
+    'urunler.0.us97Kodu': 'US97 Kodu (1)',
+    'urunler.0.urunAdi': 'Ürün Adı (1)',
+    'urunler.0.mevcutKapasite': 'Mevcut Kapasite (1)',
+    'urunler.0.ilaveKapasite': 'İlave Kapasite (1)',
+    'urunler.0.toplamKapasite': 'Toplam Kapasite (1)',
+    'urunler.0.kapasiteBirimi': 'Kapasite Birimi (1)',
+    'urunler.1.us97Kodu': 'US97 Kodu (2)',
+    'urunler.1.urunAdi': 'Ürün Adı (2)',
+    'urunler.1.mevcutKapasite': 'Mevcut Kapasite (2)',
+    'urunler.1.ilaveKapasite': 'İlave Kapasite (2)',
+    'urunler.1.toplamKapasite': 'Toplam Kapasite (2)',
+    'urunler.1.kapasiteBirimi': 'Kapasite Birimi (2)',
+    'urunler.2.us97Kodu': 'US97 Kodu (3)',
+    'urunler.2.urunAdi': 'Ürün Adı (3)',
+    'urunler.2.mevcutKapasite': 'Mevcut Kapasite (3)',
+    'urunler.2.ilaveKapasite': 'İlave Kapasite (3)',
+    'urunler.2.toplamKapasite': 'Toplam Kapasite (3)',
+    'urunler.2.kapasiteBirimi': 'Kapasite Birimi (3)',
     
     // 🎯 Destek unsurları - GENİŞLETİLDİ
     'destekUnsurlari': 'Destek Unsurları',
@@ -503,48 +510,49 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'ozelSartlar.1.kisaltma': 'Özel Şart Kısaltma (2)',
     'ozelSartlar.1.notu': 'Özel Şart Notu (2)',
     
-    // 💰 Finansal bilgiler - SÜPER GENİŞLETİLDİ
-    'finansalBilgiler.toplamSabitYatirimTutari': 'Toplam Sabit Yatırım Tutarı',
+    // 💰 Finansal bilgiler - DOĞRU FIELD PATHS!
+    'maliHesaplamalar.toplamSabitYatirimTutari': 'Toplam Sabit Yatırım Tutarı',
+    'maliHesaplamalar.toplamSabitYatirim': 'Toplam Sabit Yatırım',
     
-    // Arazi-Arsa Bedeli
-    'finansalBilgiler.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi',
-    'finansalBilgiler.araziArsaBedeli.birimFiyatiTl': 'Arazi Birim Fiyatı (TL)',
-    'finansalBilgiler.araziArsaBedeli.araziArsaBedeli': 'Arazi Arsa Bedeli',
-    'finansalBilgiler.araziArsaBedeli.aciklama': 'Arazi Açıklaması',
+    // Arazi-Arsa Bedeli - DOĞRU FIELD PATHS
+    'maliHesaplamalar.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi', 
+    'maliHesaplamalar.araziArsaBedeli.birimFiyatiTl': 'Arazi Birim Fiyatı (TL)',
+    'maliHesaplamalar.araziArsaBedeli.araziArsaBedeli': 'Arazi Arsa Bedeli',
+    'maliHesaplamalar.araziArsaBedeli.aciklama': 'Arazi Açıklaması',
     
-    // Bina İnşaat Giderleri
-    'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri': 'Ana Bina ve Tesisleri',
-    'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeTesisleri': 'Yardımcı İş Bina ve Tesisleri',
-    'finansalBilgiler.binaInsaatGiderleri.idareBinalari': 'İdare Binaları',
-    'finansalBilgiler.binaInsaatGiderleri.toplamBinaInsaatGideri': 'Toplam Bina İnşaat Gideri',
-    'finansalBilgiler.binaInsaatGiderleri.aciklama': 'Bina İnşaat Açıklaması',
+    // DOĞRUDAN FIELD ADI - backend tarafında bu şekilde görünüyor
+    'araciArsaBedeli': 'Arazi Arsa Bedeli',
     
-    // Makine Teçhizat Giderleri
-    'finansalBilgiler.makineTeçhizatGiderleri.tl.ithal': 'İthal Makine (TL)',
-    'finansalBilgiler.makineTeçhizatGiderleri.tl.yerli': 'Yerli Makine (TL)',
-    'finansalBilgiler.makineTeçhizatGiderleri.tl.toplam': 'Toplam Makine Teçhizat (TL)',
-    'finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine': 'Yeni Makine ($)',
-    'finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine': 'Kullanılmış Makine ($)',
-    'finansalBilgiler.makineTeçhizatGiderleri.dolar.toplam': 'Toplam İthal Makine ($)',
+    // Bina İnşaat Giderleri - DOĞRU FIELD PATHS
+    'maliHesaplamalar.binaInsaatGideri.anaBinaGideri': 'Ana Bina Gideri',
+    'maliHesaplamalar.binaInsaatGideri.yardimciBinaGideri': 'Yardımcı Bina Gideri', 
+    'maliHesaplamalar.binaInsaatGideri.toplamBinaGideri': 'Toplam Bina Gideri',
+    'binaInsaatGideri': 'Bina İnşaat Gideri',
     
-    // Diğer Yatırım Harcamaları
-    'finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid': 'Yardımcı İşl. Mak. Teç. Gid.',
-    'finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri': 'İthalat ve Güm. Giderleri',
-    'finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri': 'Taşıma ve Sigorta Giderleri',
-    'finansalBilgiler.digerYatirimHarcamalari.montajGiderleri': 'Montaj Giderleri',
-    'finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri': 'Etüd ve Proje Giderleri',
-    'finansalBilgiler.digerYatirimHarcamalari.digerGiderleri': 'Diğer Giderleri',
-    'finansalBilgiler.digerYatirimHarcamalari.toplamDigerYatirimHarcamalari': 'Toplam Diğer Yatırım Harcamaları',
+    // Makine Teçhizat Giderleri - DOĞRU FIELD PATHS
+    'maliHesaplamalar.makinaTechizat.ithalMakina': 'İthal Makine',
+    'maliHesaplamalar.makinaTechizat.yerliMakina': 'Yerli Makine',
+    'maliHesaplamalar.makinaTechizat.toplamMakina': 'Toplam Makine',
+    'maliHesaplamalar.makinaTechizat.yeniMakina': 'Yeni Makine',
+    'maliHesaplamalar.makinaTechizat.kullanimisMakina': 'Kullanılmış Makine',
+    'makinaTechizat': 'Makine Teçhizat',
     
-    // Finansman
-    'finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar': 'Öz Kaynaklar',
-    'finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi': 'Banka Kredisi',
-    'finansalBilgiler.finansman.yabanciKaynaklar.ikinciElFiyatFarki': 'İkinci El Fiyat Farkı',
-    'finansalBilgiler.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli': 'Kullanılmış Teçhizat Bedeli',
-    'finansalBilgiler.finansman.yabanciKaynaklar.digerDisKaynaklar': 'Diğer Dış Kaynaklar',
-    'finansalBilgiler.finansman.yabanciKaynaklar.digerYabanciKaynak': 'Diğer Yabancı Kaynak',
-    'finansalBilgiler.finansman.yabanciKaynaklar.toplam': 'Toplam Yabancı Kaynak',
-    'finansalBilgiler.finansman.toplam': 'Toplam Finansman',
+    // Diğer Yatırım Harcamaları - DOĞRU FIELD PATHS
+    'maliHesaplamalar.digerYatirimHarcamalari.yardimciIslMakTeçGid': 'Yardımcı İşl. Mak. Teç. Gid.',
+    'maliHesaplamalar.digerYatirimHarcamalari.ithalatVeGumGiderleri': 'İthalat ve Güm. Giderleri',
+    'maliHesaplamalar.digerYatirimHarcamalari.tasimaVeSigortaGiderleri': 'Taşıma ve Sigorta Giderleri',
+    'maliHesaplamalar.digerYatirimHarcamalari.etudVeProjeGiderleri': 'Etüd ve Proje Giderleri',
+    'maliHesaplamalar.digerYatirimHarcamalari.digerGiderleri': 'Diğer Giderleri',
+    
+    // Finansman - DOĞRU FIELD PATHS
+    'maliHesaplamalar.finansman.ozkaynaklar.ozkaynaklar': 'Öz Kaynaklar',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.bankKredisi': 'Banka Kredisi',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.ikinciElFiyatFarki': 'İkinci El Fiyat Farkı',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli': 'Kullanılmış Teçhizat Bedeli',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.digerDisKaynaklar': 'Diğer Dış Kaynaklar',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.digerYabanciKaynak': 'Diğer Yabancı Kaynak',
+    'maliHesaplamalar.finansman.yabanciKaynaklar.toplamYabanciKaynak': 'Toplam Yabancı Kaynak',
+    'maliHesaplamalar.finansman.toplamFinansman': 'Toplam Finansman',
     
     // 📊 Durum bilgileri
     'durumBilgileri.genelDurum': 'Genel Durum',
