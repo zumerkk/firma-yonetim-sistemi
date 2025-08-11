@@ -367,7 +367,7 @@ const updateTesvik = async (req, res) => {
       console.log('✅ Otomatik revizyon eklendi - Revizyon No:', tesvik.revizyonlar.length);
     }
 
-    // 📊 Activity log - detaylı
+    // 📊 Activity log - detaylı (fields boş kalmasın diye alan-özeti ekliyoruz)
     await Activity.logActivity({
       action: 'update',
       category: 'tesvik',
@@ -389,7 +389,32 @@ const updateTesvik = async (req, res) => {
       changes: {
         before: eskiVeri,
         after: yeniVeri,
-        fields: degisikenAlanlar,
+        // Alan listesi dolu ise normalize et; boş ise minimum path listesi üret
+        fields: (degisikenAlanlar && degisikenAlanlar.length > 0)
+          ? degisikenAlanlar.map(ch => ({
+              field: ch.alan || ch.field || ch.columnName,
+              oldValue: ch.eskiDeger,
+              newValue: ch.yeniDeger,
+              label: ch.label
+            }))
+          : (function() {
+              try {
+                const paths = [];
+                const collect = (obj, prefix = '') => {
+                  if (!obj || typeof obj !== 'object') return;
+                  Object.keys(obj).forEach(k => {
+                    const full = prefix ? `${prefix}.${k}` : k;
+                    if (typeof obj[k] === 'object' && obj[k] !== null && !Array.isArray(obj[k])) {
+                      collect(obj[k], full);
+                    } else {
+                      paths.push(full);
+                    }
+                  });
+                };
+                collect(yeniVeri);
+                return paths.slice(0, 20);
+              } catch (e) { return []; }
+            })(),
         summary: {
           totalChanges: degisikenAlanlar.length,
           revisionAdded: degisikenAlanlar.length > 0,
