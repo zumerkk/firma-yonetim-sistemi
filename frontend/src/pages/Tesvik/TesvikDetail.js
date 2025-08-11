@@ -1456,12 +1456,15 @@ const TesvikDetail = () => {
                     <Chip size="small" label={`Tarih: ${formatDateTime(selectedActivity.createdAt)}`} color="success" variant="outlined" />
                   </Stack>
                   {selectedActivity.changes.fields.map((rawChange, index) => {
-                    const label = rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName || `Alan ${index + 1}`;
-                    let oldValRaw = rawChange.eskiDeger ?? rawChange.oldValue;
-                    let newValRaw = rawChange.yeniDeger ?? rawChange.newValue;
+                    // String gelebilir (örn. sadece path) → objeye normalleştir
+                    const isStringItem = typeof rawChange === 'string';
+                    const pathKeyStr = isStringItem ? rawChange : undefined;
+                    const label = (isStringItem ? pathKeyStr : (rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName)) || `Alan ${index + 1}`;
+                    let oldValRaw = isStringItem ? undefined : (rawChange.eskiDeger ?? rawChange.oldValue);
+                    let newValRaw = isStringItem ? undefined : (rawChange.yeniDeger ?? rawChange.newValue);
                     // Fallback: fields içinde değer yoksa before/after içinden alan path'i ile çek
-                    if ((oldValRaw === undefined && newValRaw === undefined)) {
-                      const pathKey = rawChange.alan || rawChange.field || rawChange.columnName;
+                    if (oldValRaw === undefined && newValRaw === undefined) {
+                      const pathKey = pathKeyStr || rawChange.alan || rawChange.field || rawChange.columnName;
                       if (pathKey) {
                         oldValRaw = getByPath(selectedActivity.changes?.before, pathKey);
                         newValRaw = getByPath(selectedActivity.changes?.after, pathKey);
@@ -1477,9 +1480,12 @@ const TesvikDetail = () => {
                       border: '1px solid #e5e7eb',
                       borderRadius: 2
                     }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        {label}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <Chip size="small" label="Alan" color="secondary" variant="outlined" />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          {label}
                         </Typography>
+                      </Box>
                       <Box sx={{ pl: 2 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace' }}>
                           <strong>Önceki Değer:</strong> {oldVal}
