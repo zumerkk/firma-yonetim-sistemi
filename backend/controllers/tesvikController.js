@@ -2950,9 +2950,31 @@ const buildRevisionTrackingData = async (tesvik) => {
     if (firstRevisionWithSnapshot?.veriSnapshot?.oncesi) {
       initialSnapshot = JSON.parse(JSON.stringify(firstRevisionWithSnapshot.veriSnapshot.oncesi));
       console.log('🧩 Initial snapshot: İlk revizyonun ONCESI kullanıldı');
+    } else if (Array.isArray(tesvik.revizyonlar) && tesvik.revizyonlar.length > 0) {
+      // 🚑 Fallback 2: Mevcut state'ten GERİYE DOĞRU rollback yaparak ilk halini inşa et
+      console.log('🧩 Initial snapshot: Rollback ile inşa ediliyor (oncesi yok)');
+      const rolledBack = JSON.parse(JSON.stringify(tesvik.toObject ? tesvik.toObject() : tesvik));
+      delete rolledBack.revizyonlar;
+      // En sondan başa doğru tüm değişiklikleri geri al
+      for (let r = tesvik.revizyonlar.length - 1; r >= 0; r--) {
+        const rev = tesvik.revizyonlar[r];
+        if (Array.isArray(rev.degisikenAlanlar)) {
+          rev.degisikenAlanlar.forEach(ch => {
+            const path = (ch.alan || '').split('.');
+            if (!path.length) return;
+            let target = rolledBack;
+            for (let i = 0; i < path.length - 1; i++) {
+              if (!target[path[i]]) target[path[i]] = {};
+              target = target[path[i]];
+            }
+            target[path[path.length - 1]] = ch.eskiDeger;
+          });
+        }
+      }
+      initialSnapshot = rolledBack;
     } else {
       initialSnapshot = JSON.parse(JSON.stringify(tesvik));
-      console.log('🧩 Initial snapshot: Mevcut tesvik state kullanıldı (fallback)');
+      console.log('🧩 Initial snapshot: Mevcut tesvik state kullanıldı (fallback 3)');
     }
     delete initialSnapshot.revizyonlar; // İlk halde revizyon yok
     
