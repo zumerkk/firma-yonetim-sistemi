@@ -90,6 +90,18 @@ const urunBilgileriSchema = new mongoose.Schema({
   aktif: { type: Boolean, default: true }
 }, { _id: false });
 
+// 🛠️ Makine/Teçhizat Kalemi - Yerli/İthal listeleri için
+const makinaKalemiSchema = new mongoose.Schema({
+  gtipKodu: { type: String, trim: true, maxlength: 20 },
+  gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
+  adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
+  miktar: { type: Number, default: 0 },
+  birim: { type: String, trim: true, maxlength: 50 },
+  birimFiyatiTl: { type: Number, default: 0 }, // KDV hariç
+  toplamTutariTl: { type: Number, default: 0 }, // KDV hariç
+  kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' }
+}, { _id: false });
+
 // 🎯 Destek Unsurları Schema
 const destekUnsurlariSchema = new mongoose.Schema({
   destekUnsuru: {
@@ -241,6 +253,12 @@ const tesvikSchema = new mongoose.Schema({
     required: true,
     trim: true,
     maxlength: 500
+  },
+
+  // 🧰 Makine-Teçhizat Listeleri (Özel Şartlar ve Finansal Bilgiler arasında)
+  makineListeleri: {
+    yerli: [makinaKalemiSchema],
+    ithal: [makinaKalemiSchema]
   },
   
   // 📝 Künye Bilgileri - Excel Şablonuna Uygun

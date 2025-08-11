@@ -75,10 +75,10 @@ import { osbListesi, osbIlleri } from '../../data/osbData';
 import { serbestBolgeler, serbestBolgeKategorileri } from '../../data/serbestBolgeData';
 // 🚀 US 97 Kodları ULTRA-FAST Search Component
 import US97SuperSearch from '../../components/US97SuperSearch';
+import gtipService from '../../services/gtipService';
+import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 // 📏 Kapasite Birimleri Import  
 import { kapasiteBirimleri } from '../../data/kapasiteData';
-
-// 🆕 Enhanced Components - CSV Integration (imports removed - not used in this form)
 
 const TesvikForm = () => {
   const navigate = useNavigate();
@@ -135,6 +135,132 @@ const TesvikForm = () => {
     
     setFormData(newData);
   };
+
+  // 🛠️ Makine Listesi yardımcıları
+  const emptyMakine = () => ({
+    gtipKodu: '',
+    gtipAciklamasi: '',
+    adiVeOzelligi: '',
+    miktar: '',
+    birim: '',
+    birimFiyatiTl: '',
+    toplamTutariTl: '',
+    kdvIstisnasi: ''
+  });
+
+  const [makineTab, setMakineTab] = useState('yerli');
+
+  const addMakineSatiri = (tip) => {
+    setFormData(prev => ({
+      ...prev,
+      makineListeleri: {
+        ...(prev.makineListeleri || {}),
+        [tip]: [ ...((prev.makineListeleri && prev.makineListeleri[tip]) || []), emptyMakine() ]
+      }
+    }));
+  };
+
+  const removeMakineSatiri = (tip, index) => {
+    setFormData(prev => {
+      const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
+      const arr = [ ...mevcut ];
+      arr.splice(index, 1);
+      return { ...prev, makineListeleri: { ...(prev.makineListeleri || {}), [tip]: arr } };
+    });
+  };
+
+  const updateMakineField = (tip, index, field, value) => {
+    setFormData(prev => {
+      const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
+      const arr = [ ...mevcut ];
+      const row = { ...(arr[index] || emptyMakine()) };
+      row[field] = value;
+      const miktar = parseInt((row.miktar || '').toString().replace(/[^\d]/g, '')) || 0;
+      const birimFiyati = parseInt((row.birimFiyatiTl || '').toString().replace(/[^\d]/g, '')) || 0;
+      if (miktar && birimFiyati) row.toplamTutariTl = (miktar * birimFiyati).toString();
+      arr[index] = row;
+      return { ...prev, makineListeleri: { ...(prev.makineListeleri || {}), [tip]: arr } };
+    });
+  };
+
+  const renderMakineSatirlari = (tip) => {
+    const rows = (formData.makineListeleri && formData.makineListeleri[tip]) || [];
+    return (
+      <Grid container spacing={2}>
+        {rows.map((row, idx) => (
+          <React.Fragment key={`${tip}-${idx}`}>
+            <Grid item xs={12} md={3}>
+              <GTIPSuperSearch
+                value={row.gtipKodu || ''}
+                onChange={(kod, aciklama) => {
+                  updateMakineField(tip, idx, 'gtipKodu', kod);
+                  if (aciklama) updateMakineField(tip, idx, 'gtipAciklamasi', aciklama);
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <TextField fullWidth label="GTIP Açıklama" value={row.gtipAciklamasi || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'gtipAciklamasi', e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField fullWidth label="Adı ve Özelliği" value={row.adiVeOzelligi || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'adiVeOzelligi', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField fullWidth label="Miktar" value={row.miktar || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <TextField fullWidth label="Birim" value={row.birim || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'birim', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <TextField fullWidth label="Birim Fiyatı (TL) (KDV Hariç)" value={row.birimFiyatiTl || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'birimFiyatiTl', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <TextField fullWidth label="Toplam Tutar (TL) (KDV Hariç)" value={row.toplamTutariTl || ''}
+                onChange={(e) => updateMakineField(tip, idx, 'toplamTutariTl', e.target.value)} />
+            </Grid>
+            <Grid item xs={6} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>KDV İstisnası</InputLabel>
+                <Select label="KDV İstisnası" value={row.kdvIstisnasi || ''}
+                  onChange={(e) => updateMakineField(tip, idx, 'kdvIstisnasi', e.target.value)}>
+                  <MenuItem value="">Seçilmedi</MenuItem>
+                  <MenuItem value="EVET">EVET</MenuItem>
+                  <MenuItem value="HAYIR">HAYIR</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button color="error" startIcon={<DeleteIcon />} onClick={() => removeMakineSatiri(tip, idx)}>Sil</Button>
+              </Box>
+            </Grid>
+            <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+          </React.Fragment>
+        ))}
+        <Grid item xs={12}>
+          <Button variant="outlined" startIcon={<AddIcon />} onClick={() => addMakineSatiri(tip)}>
+            Satır Ekle
+          </Button>
+        </Grid>
+      </Grid>
+    );
+  };
+
+  const renderMakineListesi = () => (
+    <Box>
+      <Typography variant="h6" gutterBottom>Makine-Teçhizat Listesi</Typography>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Button variant={makineTab === 'yerli' ? 'contained' : 'outlined'} onClick={() => setMakineTab('yerli')}>Yerli</Button>
+        <Button variant={makineTab === 'ithal' ? 'contained' : 'outlined'} onClick={() => setMakineTab('ithal')}>İthal</Button>
+      </Box>
+      {renderMakineSatirlari(makineTab)}
+      <Alert severity="info" sx={{ mt: 2 }}>Bu alan isteğe bağlıdır. GTIP kodu girerek açıklamayı otomatik çekebilirsiniz.</Alert>
+    </Box>
+  );
   
   // 📊 State Management
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -375,6 +501,7 @@ const TesvikForm = () => {
     '📦 ÜRÜN BİLGİLERİ',
     '🎯 DESTEK UNSURLARI',
     '⚖️ ÖZEL ŞARTLAR',
+    '🛠️ MAKİNE LİSTESİ',
     '💰 FİNANSAL BİLGİLER',
     '📈 REVİZYON GEÇMİŞİ'
   ];
@@ -657,6 +784,30 @@ const TesvikForm = () => {
             ilBazliBolge: backendData.yatirimBilgileri?.ilBazliBolge || '',
             ilceBazliBolge: backendData.yatirimBilgileri?.ilceBazliBolge || '',
             serbsetBolge: backendData.yatirimBilgileri?.serbsetBolge || ''
+          },
+          
+          // 🛠️ Makine Listeleri (backend → frontend mapping)
+          makineListeleri: {
+            yerli: (backendData.makineListeleri?.yerli || []).map(r => ({
+              gtipKodu: r.gtipKodu || '',
+              gtipAciklamasi: r.gtipAciklamasi || '',
+              adiVeOzelligi: r.adiVeOzelligi || '',
+              miktar: r.miktar?.toString() || '',
+              birim: r.birim || '',
+              birimFiyatiTl: r.birimFiyatiTl?.toString() || '',
+              toplamTutariTl: r.toplamTutariTl?.toString() || '',
+              kdvIstisnasi: r.kdvIstisnasi || ''
+            })),
+            ithal: (backendData.makineListeleri?.ithal || []).map(r => ({
+              gtipKodu: r.gtipKodu || '',
+              gtipAciklamasi: r.gtipAciklamasi || '',
+              adiVeOzelligi: r.adiVeOzelligi || '',
+              miktar: r.miktar?.toString() || '',
+              birim: r.birim || '',
+              birimFiyatiTl: r.birimFiyatiTl?.toString() || '',
+              toplamTutariTl: r.toplamTutariTl?.toString() || '',
+              kdvIstisnasi: r.kdvIstisnasi || ''
+            }))
           },
           
           // Ürün bilgilerini çevir
@@ -1721,6 +1872,30 @@ const TesvikForm = () => {
             ozKaynak: formData.finansalBilgiler?.finansman?.ozkaynaklar?.ozkaynaklar || 0,
             toplamFinansman: formData.finansalBilgiler?.finansman?.toplamFinansman || 0
           }
+        },
+        
+        // 🛠️ Makine Listeleri (frontend → backend mapping)
+        makineListeleri: {
+          yerli: ((formData.makineListeleri && formData.makineListeleri.yerli) || []).map(r => ({
+            gtipKodu: r.gtipKodu || '',
+            gtipAciklamasi: r.gtipAciklamasi || '',
+            adiVeOzelligi: r.adiVeOzelligi || '',
+            miktar: parseInt(r.miktar) || 0,
+            birim: r.birim || '',
+            birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
+            toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
+            kdvIstisnasi: r.kdvIstisnasi || ''
+          })),
+          ithal: ((formData.makineListeleri && formData.makineListeleri.ithal) || []).map(r => ({
+            gtipKodu: r.gtipKodu || '',
+            gtipAciklamasi: r.gtipAciklamasi || '',
+            adiVeOzelligi: r.adiVeOzelligi || '',
+            miktar: parseInt(r.miktar) || 0,
+            birim: r.birim || '',
+            birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
+            toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
+            kdvIstisnasi: r.kdvIstisnasi || ''
+          }))
         },
         
         // 🔧 Destek Unsurları model formatına çevir - GÜÇLENLED
@@ -5416,8 +5591,9 @@ const TesvikForm = () => {
       case 2: return renderUrunBilgileri();
       case 3: return renderDestekUnsurlari();
       case 4: return renderOzelSartlar();
-      case 5: return renderFinansalBilgiler();
-      case 6: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
+      case 5: return renderMakineListesi();
+      case 6: return renderFinansalBilgiler();
+      case 7: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
       default: return renderKunyeBilgileri();
     }
   };

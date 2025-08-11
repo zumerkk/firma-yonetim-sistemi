@@ -28,6 +28,25 @@ const createTesvik = async (req, res) => {
     }
 
     const tesvikData = req.body;
+    // Makine listelerinde boş satırları ayıkla ve sayısal alanları normalize et
+    if (tesvikData.makineListeleri) {
+      const normalize = (arr = []) => arr
+        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
+        .map(r => ({
+          gtipKodu: (r.gtipKodu || '').trim(),
+          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
+          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
+          miktar: Number(r.miktar) || 0,
+          birim: (r.birim || '').trim(),
+          birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
+          toplamTutariTl: Number(r.toplamTutariTl) || 0,
+          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+        }));
+      tesvikData.makineListeleri = {
+        yerli: normalize(tesvikData.makineListeleri.yerli),
+        ithal: normalize(tesvikData.makineListeleri.ithal)
+      };
+    }
     
     // Firma kontrolü
     const firma = await Firma.findById(tesvikData.firma);
@@ -313,6 +332,25 @@ const updateTesvik = async (req, res) => {
     
     // Güncelleme uygula
     Object.assign(tesvik, filteredUpdateData);
+    // Güncellemede makine listelerini normalize et
+    if (filteredUpdateData.makineListeleri) {
+      const normalize = (arr = []) => arr
+        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
+        .map(r => ({
+          gtipKodu: (r.gtipKodu || '').trim(),
+          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
+          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
+          miktar: Number(r.miktar) || 0,
+          birim: (r.birim || '').trim(),
+          birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
+          toplamTutariTl: Number(r.toplamTutariTl) || 0,
+          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+        }));
+      tesvik.makineListeleri = {
+        yerli: normalize(filteredUpdateData.makineListeleri.yerli),
+        ithal: normalize(filteredUpdateData.makineListeleri.ithal)
+      };
+    }
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = updateData.guncellemeNotu || `Güncelleme yapıldı - ${new Date().toLocaleString('tr-TR')}`;
     tesvik.durumBilgileri.sonGuncellemeTarihi = new Date();
