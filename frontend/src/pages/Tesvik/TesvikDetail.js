@@ -36,12 +36,13 @@ const TesvikDetail = () => {
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
   const [revizyonModalOpen, setRevizyonModalOpen] = useState(false);
+  const [afterRevisionAction, setAfterRevisionAction] = useState(null); // 'goEdit' | null
+  const [savingRevision, setSavingRevision] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
 
   // Form states
   const [revizyonForm, setRevizyonForm] = useState({
-    revizyonSebebi: '',
-    yeniDurum: ''
+    revizyonSebebi: ''
   });
 
   // Helper functions
@@ -180,15 +181,26 @@ const TesvikDetail = () => {
 
   const handleRevizyonEkle = async () => {
     try {
-      // Mock for now - implement with proper API later
-      console.log('Revizyon ekleniyor:', revizyonForm);
-      alert('Revizyon başarıyla eklendi!');
+      if (!revizyonForm.revizyonSebebi) return;
+      setSavingRevision(true);
+      // API: Revizyon ekleme
+      const res = await api.post(`/tesvik/${tesvik._id}/revizyon`, {
+        revizyonSebebi: revizyonForm.revizyonSebebi
+      });
+      if (res?.data?.success) {
         setRevizyonModalOpen(false);
-      setRevizyonForm({ revizyonSebebi: '', yeniDurum: '' });
-      // Refresh data
-      loadData();
+        setRevizyonForm({ revizyonSebebi: '' });
+        await loadData();
+        if (afterRevisionAction === 'goEdit') {
+          setAfterRevisionAction(null);
+          navigate(`/tesvik/${id}/duzenle`);
+        }
+      }
     } catch (error) {
       console.error('Revizyon ekle hatası:', error);
+      alert(`Revizyon eklenemedi: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setSavingRevision(false);
     }
   };
 
@@ -547,7 +559,7 @@ const TesvikDetail = () => {
                 variant="contained"
                 size="small"
                 startIcon={<EditIcon />}
-                onClick={() => navigate(`/tesvik/${id}/duzenle`)}
+                onClick={() => { setAfterRevisionAction('goEdit'); setRevizyonModalOpen(true); }}
                 sx={{
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
@@ -589,29 +601,7 @@ const TesvikDetail = () => {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 0.5, flexDirection: { xs: 'column', sm: 'row' }, mt: 1 }}>
-            <Button
-              variant="outlined"
-              size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => setRevizyonModalOpen(true)}
-                  sx={{
-                borderColor: 'rgba(255,255,255,0.3)',
-                      color: 'white',
-                fontWeight: 500,
-                px: 1.5,
-                py: 0.5,
-                borderRadius: 1,
-                background: 'rgba(255,255,255,0.1)',
-                textTransform: 'none',
-                fontSize: '0.8rem',
-                '&:hover': {
-                  background: 'rgba(255,255,255,0.2)',
-                  borderColor: 'rgba(255,255,255,0.5)'
-                }
-              }}
-            >
-              Revizyon Ekle
-                </Button>
+            {/* Revizyon Ekle butonu kaldırıldı */}
               
               <Button
                 variant="contained"
@@ -636,7 +626,7 @@ const TesvikDetail = () => {
                 }
               }}
             >
-              {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Excel'}
+              {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Exel Revizyon'}
               </Button>
           </Box>
 
@@ -1462,7 +1452,7 @@ const TesvikDetail = () => {
           backgroundColor: '#f8fafc', 
           borderBottom: '1px solid #e5e7eb'
         }}>
-          📝 Revizyon Ekle / Düzenle
+          📝 Revizyon Sebebi
         </DialogTitle>
         
         <DialogContent sx={{ p: 2 }}>
@@ -1473,7 +1463,7 @@ const TesvikDetail = () => {
               </Alert>
             </Grid>
             
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth required>
                 <InputLabel>Revizyon Sebebi</InputLabel>
                 <Select
@@ -1485,26 +1475,8 @@ const TesvikDetail = () => {
                   <MenuItem value="Sonuç Revize">✅ Sonuç Revize</MenuItem>
                   <MenuItem value="Resen Revize">⚖️ Resen Revize</MenuItem>
                   <MenuItem value="Müşavir Revize">👨‍💼 Müşavir Revize</MenuItem>
-                  <MenuItem value="Diğer">🔧 Diğer</MenuItem>
                 </Select>
               </FormControl>
-            </Grid>
-            
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Yeni Durum"
-                value={revizyonForm.yeniDurum}
-                onChange={(e) => setRevizyonForm({...revizyonForm, yeniDurum: e.target.value})}
-                select
-                SelectProps={{ native: true }}
-              >
-                <option value="">Durum seçiniz</option>
-                <option value="hazirlaniyor">Hazırlanıyor</option>
-                <option value="inceleniyor">İnceleniyor</option>
-                <option value="onaylandi">Onaylandı</option>
-                <option value="reddedildi">Reddedildi</option>
-              </TextField>
             </Grid>
           </Grid>
         </DialogContent>
@@ -1514,9 +1486,9 @@ const TesvikDetail = () => {
           <Button 
             onClick={handleRevizyonEkle}
             variant="contained"
-            disabled={!revizyonForm.revizyonSebebi}
+            disabled={!revizyonForm.revizyonSebebi || savingRevision}
           >
-            Revizyon Ekle
+            {savingRevision ? 'Kaydediliyor...' : 'Devam Et'}
           </Button>
         </DialogActions>
       </Dialog>
