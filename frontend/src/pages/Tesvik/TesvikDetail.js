@@ -1432,6 +1432,12 @@ const TesvikDetail = () => {
                   <Typography variant="h6" sx={{ fontWeight: 600, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     🔄 Değişiklik Detayları ({selectedActivity.changes.fields.length} Alan)
                   </Typography>
+                  {/* Özet bilgileri */}
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1 }}>
+                    <Chip size="small" label={`İşlem: ${selectedActivity.action}`} />
+                    {selectedActivity.user?.adSoyad && <Chip size="small" label={`Kullanıcı: ${selectedActivity.user?.adSoyad}`} />}
+                    <Chip size="small" label={`Tarih: ${formatDateTime(selectedActivity.createdAt)}`} />
+                  </Stack>
                   {selectedActivity.changes.fields.map((rawChange, index) => {
                     const label = rawChange.label || rawChange.field || rawChange.alan || rawChange.columnName || `Alan ${index + 1}`;
                     const oldVal = formatChangeValue(rawChange.eskiDeger ?? rawChange.oldValue);
