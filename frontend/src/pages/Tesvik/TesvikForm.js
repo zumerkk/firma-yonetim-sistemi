@@ -499,10 +499,10 @@ const TesvikForm = () => {
     '📋 KÜNYE BİLGİLERİ',
     '🏢 YATIRIM İLE İLGİLİ BİLGİLER',
     '📦 ÜRÜN BİLGİLERİ',
-    '🎯 DESTEK UNSURLARI',
-    '⚖️ ÖZEL ŞARTLAR',
     '🛠️ MAKİNE LİSTESİ',
     '💰 FİNANSAL BİLGİLER',
+    '⚖️ ÖZEL ŞARTLAR',
+    '🎯 DESTEK UNSURLARI',
     '📈 REVİZYON GEÇMİŞİ'
   ];
 
@@ -5589,10 +5589,10 @@ const TesvikForm = () => {
       case 0: return renderKunyeBilgileri(); // Künye + Belge Bilgileri birleşik
       case 1: return renderYatirimBilgileri(); // Yatırım + İstihdam Bilgileri birleşik
       case 2: return renderUrunBilgileri();
-      case 3: return renderDestekUnsurlari();
-      case 4: return renderOzelSartlar();
-      case 5: return renderMakineListesi();
-      case 6: return renderFinansalBilgiler();
+      case 3: return renderMakineListesi();
+      case 4: return renderFinansalBilgiler();
+      case 5: return renderOzelSartlar();
+      case 6: return renderDestekUnsurlari();
       case 7: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
       default: return renderKunyeBilgileri();
     }
