@@ -240,6 +240,13 @@ const getTesvik = async (req, res) => {
       });
     }
 
+    // ⛳ Durumu revizyon geçmişine göre otomatik senkronize et (arka planda düzelt)
+    try {
+      await autoSyncDurumFromRevisions(tesvik);
+    } catch (e) {
+      console.log('⚠️ Auto-sync (getTesvik) pas geçildi:', e.message);
+    }
+
     // Populate işlemleri
     await tesvik.populate('firma', 'tamUnvan firmaId vergiNoTC firmaIl firmaIlce adres kepAdresi');
     await tesvik.populate('olusturanKullanici', 'adSoyad email rol');
@@ -365,6 +372,12 @@ const updateTesvik = async (req, res) => {
 
     // 💾 Güncellemeyi kaydet
     await tesvik.save();
+    // Her update sonrası da senkronize et (revizyonlar güncellendiyse)
+    try {
+      await autoSyncDurumFromRevisions(tesvik);
+    } catch (e) {
+      console.log('⚠️ Auto-sync (updateTesvik) pas geçildi:', e.message);
+    }
 
     // Yeni veriyi al - güncellenmiş haliyle
     const yeniVeri = JSON.parse(JSON.stringify(tesvik.toSafeJSON()));
@@ -849,6 +862,12 @@ const addTesvikRevizyon = async (req, res) => {
 
     // 💾 Kaydet - Bu nokta önemli, revizyon tracking için
     await tesvik.save();
+    // Kaydettikten sonra revizyonlardan durumu türetip senkronize et
+    try {
+      await autoSyncDurumFromRevisions(tesvik);
+    } catch (e) {
+      console.log('⚠️ Auto-sync (addTesvikRevizyon) pas geçildi:', e.message);
+    }
 
     // 📋 Detaylı Activity log
     await Activity.logActivity({
@@ -2854,6 +2873,52 @@ const exportRevizyonExcel = async (req, res) => {
 };
 
 // 🏢 ENTERPRISE HELPER FUNCTIONS
+// 🔎 Revizyonlardan durum türetme (doğal dil → sistem durumu)
+const deriveDurumFromRevision = (rev) => {
+  if (!rev) return null;
+  // 1) Açıkça belirtilmiş alanlar
+  if (rev.yeniDurum) return rev.yeniDurum;
+  if (rev.durumSonrasi) return rev.durumSonrasi;
+  const text = (rev.revizyonSebebi || '').toString().toLowerCase('tr');
+  if (!text) return null;
+  // 2) Serbest metinden çıkarım (contains kontrollü)
+  if (text.includes('onay')) return 'onaylandi';
+  if (text.includes('iptal')) return 'iptal_edildi';
+  if (text.includes('ek belge')) return 'ek_belge_istendi';
+  if (text.includes('revizyon talep')) return 'revize_talep_edildi';
+  if (text.includes('başvuru')) return 'başvuru_yapildi';
+  if (text.includes('incele') || text.includes('inceleniyor')) return 'inceleniyor';
+  if (text.includes('onay bekliyor')) return 'onay_bekliyor';
+  if (text.includes('red') || text.includes('redded')) return 'reddedildi';
+  return null;
+};
+
+// 🔄 Revizyon geçmişine göre durumu otomatik senkronize et
+const autoSyncDurumFromRevisions = async (tesvikDoc) => {
+  try {
+    if (!tesvikDoc || !Array.isArray(tesvikDoc.revizyonlar)) return false;
+    // Tarihe göre sırala (eski → yeni)
+    const revs = [...tesvikDoc.revizyonlar].sort((a, b) => new Date(a.revizyonTarihi || a.createdAt) - new Date(b.revizyonTarihi || b.createdAt));
+    let derived = null;
+    for (const rev of revs) {
+      const d = deriveDurumFromRevision(rev);
+      if (d) derived = d; // son bulunan geçerli durum kazanır
+    }
+    if (derived && derived !== tesvikDoc.durumBilgileri?.genelDurum) {
+      tesvikDoc.durumBilgileri.genelDurum = derived;
+      if (typeof tesvikDoc.updateDurumRengi === 'function') {
+        tesvikDoc.updateDurumRengi();
+      }
+      await tesvikDoc.save();
+      console.log(`🟢 Durum auto-sync: ${tesvikDoc.tesvikId} → ${derived}`);
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.log('⚠️ Durum auto-sync hatası (pas geçildi):', err.message);
+    return false;
+  }
+};
 
 // 📊 PHASE 1: COMPLETE MONGODB DATA RETRIEVAL
 const getCompleteTesvikData = async (id) => {
