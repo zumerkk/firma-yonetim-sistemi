@@ -1093,8 +1093,8 @@ const TesvikDetail = () => {
                             }} 
                           />
                         )}
-                      </Box>
-                      
+                    </Box>
+                    
                       <Typography variant="body2" sx={{ 
                         mb: 0.5, 
                         fontWeight: 500, 
@@ -1113,24 +1113,24 @@ const TesvikDetail = () => {
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
                             {urun.mevcut?.toLocaleString() || '300.000'}
-                          </Typography>
+                        </Typography>
                           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>Mevcut</Typography>
                             </Box>
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.8rem' }}>
                             +{urun.ilave?.toLocaleString() || '1.900.000'}
-                          </Typography>
+                        </Typography>
                           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>İlave</Typography>
                         </Box>
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body1" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem' }}>
                             {urun.toplam?.toLocaleString() || '2.200.000'}
-                          </Typography>
+                        </Typography>
                           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.birim || 'KG/YIL'}</Typography>
-                        </Box>
                       </Box>
+                  </Box>
                     </Paper>
-                  </Grid>
+            </Grid>
                 ))}
               </Grid>
             ) : (
@@ -1149,8 +1149,8 @@ const TesvikDetail = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 🛡️ Destek Unsurları
                       </Typography>
-            </Box>
-            
+      </Box>
+
             {/* Default Destek Unsurları */}
             <Grid container spacing={0.5}>
               <Grid item xs={12} sm={6}>
@@ -1158,105 +1158,79 @@ const TesvikDetail = () => {
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
                       Sigorta Primi İşveren Hissesi
-                        </Typography>
+              </Typography>
                     <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
-                  </Box>
+            </Box>
                   <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
                     7 Yıl ve En Fazla Yatırım Tutarının %35'i (5. Bölge)
-                        </Typography>
-                </Paper>
-              </Grid>
+                      </Typography>
+                    </Paper>
+                  </Grid>
               <Grid item xs={12} sm={6}>
                 <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
                       Vergi İndirimi
-                        </Typography>
+                      </Typography>
                     <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
                       </Box>
                   <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
                     Yatırıma Katkı Oranı:%40 - Vergi İndirim %80 (5. Bölge)
-                  </Typography>
+                      </Typography>
                     </Paper>
-            </Grid>
+                  </Grid>
               <Grid item xs={12} sm={6}>
                 <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
                       Faiz Desteği
-                    </Typography>
+                      </Typography>
                     <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
                   </Box>
                   <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
                     TL 5 Puan - Döviz 2 Puan (En Fazla 1.4 Milyon TL yararlanılır)(5. Bölge)
-                    </Typography>
-                </Paper>
-              </Grid>
+                      </Typography>
+                    </Paper>
+                  </Grid>
           </Grid>
           </Paper>
 
-          {/* ⚖️ ÖZEL ŞARTLAR - KOMPAKT */}
+          {/* ⚖️ ÖZEL ŞARTLAR - DİNAMİK + AÇIKLAMA */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 ⚖️ Özel Şartlar
               </Typography>
-      </Box>
+                      </Box>
 
-            {/* Default Özel Şartlar */}
-            <Grid container spacing={0.5}>
-              <Grid item xs={12} sm={6} md={4}>
-                <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                    Şart #1
-              </Typography>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem' }}>
-                    DİĞER KURUM-3(21.08.2020)
-                </Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                    Şart #2
+            <Grid container spacing={0.75}>
+              {(tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0) ? (
+                tesvik.ozelSartlar.map((sart, idx) => (
+                  <Grid item xs={12} sm={6} md={4} key={idx}>
+                    <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
+                        {`Şart #${sart?.koşulNo || idx + 1}`}
                       </Typography>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem' }}>
-                    BÖL- Faliyet Zorunluluğu
+                      <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem', display: 'block' }}>
+                        {sart?.koşulMetni || '-'}
                       </Typography>
+                      {sart?.aciklamaNotu ? (
+                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
+                          {sart.aciklamaNotu}
+                        </Typography>
+                      ) : null}
                     </Paper>
                   </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                    Şart #3
-                      </Typography>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem' }}>
-                    BÖL - SGK NO
-                      </Typography>
-                    </Paper>
-                  </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                    Şart #4
-                      </Typography>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem' }}>
-                    İşyeri Açma ve Çalışma Ruhsatı
-                      </Typography>
-                    </Paper>
-                  </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                    Şart #5
+                ))
+              ) : (
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                    Özel şart bulunmuyor.
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem' }}>
-                    DİĞER
-                      </Typography>
-                    </Paper>
-                  </Grid>
                 </Grid>
+              )}
+            </Grid>
           </Paper>
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}
