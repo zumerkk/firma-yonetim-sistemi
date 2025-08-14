@@ -30,6 +30,7 @@ const fileRoutes = require('./routes/files'); // 📁 File management routes
 const us97Routes = require('./routes/us97'); // 📦 US 97 Kodları sistemi
 const gtipRoutes = require('./routes/gtip'); // 🏷️ GTIP Kodları API
 const destekSartRoutes = require('./routes/destekSart'); // 🎯 Destek-Şart Eşleştirmesi sistemi
+const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
 
 const app = express();
 
@@ -214,6 +215,7 @@ app.use('/api/files', fileRoutes); // 📁 File Management Sistemi
   app.use('/api/us97', us97Routes); // 📦 US 97 Kodları API
   app.use('/api/gtip', gtipRoutes); // 🏷️ GTIP Kodları API
 app.use('/api/destek-sart', destekSartRoutes); // 🎯 Destek-Şart Eşleştirmesi API
+app.use('/api/lookup', lookupRoutes); // 🔎 Unit & Currency lookup API
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {

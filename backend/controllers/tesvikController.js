@@ -30,7 +30,7 @@ const createTesvik = async (req, res) => {
     const tesvikData = req.body;
     // Makine listelerinde boş satırları ayıkla ve sayısal alanları normalize et
     if (tesvikData.makineListeleri) {
-      const normalize = (arr = []) => arr
+      const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
         .map(r => ({
           gtipKodu: (r.gtipKodu || '').trim(),
@@ -42,9 +42,26 @@ const createTesvik = async (req, res) => {
           toplamTutariTl: Number(r.toplamTutariTl) || 0,
           kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
         }));
+      const normalizeIthal = (arr = []) => arr
+        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
+        .map(r => ({
+          gtipKodu: (r.gtipKodu || '').trim(),
+          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
+          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
+          miktar: Number(r.miktar) || 0,
+          birim: (r.birim || '').trim(),
+          birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
+          gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
+          toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
+          toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
+          // Kullanılmış makine alanı: modal artık kod döndürüyor (örn: 1,2,3). Eski EVET/HAYIR değerleri de korunur.
+          kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+        }));
       tesvikData.makineListeleri = {
-        yerli: normalize(tesvikData.makineListeleri.yerli),
-        ithal: normalize(tesvikData.makineListeleri.ithal)
+        yerli: normalizeYerli(tesvikData.makineListeleri.yerli),
+        ithal: normalizeIthal(tesvikData.makineListeleri.ithal)
       };
     }
     
@@ -341,7 +358,7 @@ const updateTesvik = async (req, res) => {
     Object.assign(tesvik, filteredUpdateData);
     // Güncellemede makine listelerini normalize et
     if (filteredUpdateData.makineListeleri) {
-      const normalize = (arr = []) => arr
+      const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
         .map(r => ({
           gtipKodu: (r.gtipKodu || '').trim(),
@@ -353,9 +370,25 @@ const updateTesvik = async (req, res) => {
           toplamTutariTl: Number(r.toplamTutariTl) || 0,
           kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
         }));
+      const normalizeIthal = (arr = []) => arr
+        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
+        .map(r => ({
+          gtipKodu: (r.gtipKodu || '').trim(),
+          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
+          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
+          miktar: Number(r.miktar) || 0,
+          birim: (r.birim || '').trim(),
+          birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
+          gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
+          toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
+          toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
+          kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+        }));
       tesvik.makineListeleri = {
-        yerli: normalize(filteredUpdateData.makineListeleri.yerli),
-        ithal: normalize(filteredUpdateData.makineListeleri.ithal)
+        yerli: normalizeYerli(filteredUpdateData.makineListeleri.yerli),
+        ithal: normalizeIthal(filteredUpdateData.makineListeleri.ithal)
       };
     }
     tesvik.sonGuncelleyen = req.user._id;
@@ -4720,6 +4753,79 @@ module.exports = {
   getDurumRenkleri,
   getNextTesvikId,
   bulkUpdateDurum,
+  // 🆕 Makine Talep/Karar API'leri
+  setMakineTalepDurumu: async (req, res) => {
+    try {
+      const { id } = req.params; // Tesvik Id
+      const { liste, rowId, talep, match } = req.body; // liste: 'yerli' | 'ithal'
+      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      const arr = tesvik.makineListeleri[liste] || [];
+      let idx = arr.findIndex(r => r.rowId === rowId);
+      if (idx === -1 && match) {
+        idx = arr.findIndex(r => 
+          (match.gtipKodu ? (r.gtipKodu || '').toString() === (match.gtipKodu || '').toString() : true) &&
+          (match.adiVeOzelligi ? (r.adiVeOzelligi || '').toString() === (match.adiVeOzelligi || '').toString() : true) &&
+          (match.miktar != null ? Number(r.miktar||0) === Number(match.miktar||0) : true) &&
+          (match.birim ? (r.birim || '').toString() === (match.birim || '').toString() : true)
+        );
+      }
+      if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
+      arr[idx].talep = {
+        durum: talep?.durum || arr[idx].talep?.durum || 'taslak',
+        istenenAdet: talep?.istenenAdet ?? arr[idx].talep?.istenenAdet ?? 0,
+        talepTarihi: talep?.talepTarihi || new Date(),
+        talepNotu: talep?.talepNotu || ''
+      };
+      if (!arr[idx].rowId) {
+        arr[idx].rowId = new (require('mongoose')).Types.ObjectId().toString();
+      }
+      tesvik.markModified('makineListeleri');
+      await tesvik.save();
+      res.json({ success:true, message:'Talep durumu güncellendi', data: tesvik.toSafeJSON() });
+    } catch (error) {
+      console.error('setMakineTalepDurumu error:', error);
+      res.status(500).json({ success:false, message:'Talep güncellenemedi' });
+    }
+  },
+  setMakineKararDurumu: async (req, res) => {
+    try {
+      const { id } = req.params; // Tesvik Id
+      const { liste, rowId, karar, match } = req.body; // kararDurumu, onaylananAdet, kararNotu
+      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      const arr = tesvik.makineListeleri[liste] || [];
+      let idx = arr.findIndex(r => r.rowId === rowId);
+      if (idx === -1 && match) {
+        idx = arr.findIndex(r => 
+          (match.gtipKodu ? (r.gtipKodu || '').toString() === (match.gtipKodu || '').toString() : true) &&
+          (match.adiVeOzelligi ? (r.adiVeOzelligi || '').toString() === (match.adiVeOzelligi || '').toString() : true) &&
+          (match.miktar != null ? Number(r.miktar||0) === Number(match.miktar||0) : true) &&
+          (match.birim ? (r.birim || '').toString() === (match.birim || '').toString() : true)
+        );
+      }
+      if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
+      arr[idx].karar = {
+        kararDurumu: karar?.kararDurumu || arr[idx].karar?.kararDurumu || 'beklemede',
+        onaylananAdet: karar?.onaylananAdet ?? arr[idx].karar?.onaylananAdet ?? 0,
+        kararTarihi: karar?.kararTarihi || new Date(),
+        kararNotu: karar?.kararNotu || ''
+      };
+      if (!arr[idx].rowId) {
+        arr[idx].rowId = new (require('mongoose')).Types.ObjectId().toString();
+      }
+      tesvik.markModified('makineListeleri');
+      await tesvik.save();
+      res.json({ success:true, message:'Karar durumu güncellendi', data: tesvik.toSafeJSON() });
+    } catch (error) {
+      console.error('setMakineKararDurumu error:', error);
+      res.status(500).json({ success:false, message:'Karar güncellenemedi' });
+    }
+  },
   
   // 📄 EXCEL EXPORT - Excel benzeri renk kodlamalı çıktı (ExcelJS ile)
   exportTesvikExcel: async (req, res) => {
@@ -4911,6 +5017,68 @@ module.exports = {
       urunSheet.columns = [
         { width: 15 }, { width: 40 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 12 }
       ];
+
+      // 🧾 İthal Makine Listesi Sayfası
+      const ithalSheet = workbook.addWorksheet('İthal Makine Listesi');
+      ithalSheet.columns = [
+        { header: 'GM id', key: 'gmId', width: 14 },
+        { header: 'GTIP No', key: 'gtipKodu', width: 18 },
+        { header: 'GTIP Açıklama', key: 'gtipAciklamasi', width: 40 },
+        { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 30 },
+        { header: 'Miktarı', key: 'miktar', width: 10 },
+        { header: 'Birimi', key: 'birim', width: 12 },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 26 },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 26 },
+        { header: 'Menşe Döviz Cinsi (FOB)', key: 'gumrukDovizKodu', width: 22 },
+        { header: 'KULLANILMIŞ MAKİNE (KOD)', key: 'kullanilmisMakine', width: 20 },
+        { header: 'KULLANILMIŞ MAKİNE (AÇIKLAMA)', key: 'kullanilmisMakineAciklama', width: 28 }
+      ];
+      if (Array.isArray(tesvik.makineListeleri?.ithal)) {
+        tesvik.makineListeleri.ithal.forEach(r => {
+          ithalSheet.addRow({
+            gmId: tesvik.tesvikId || tesvik.gmId || '',
+            gtipKodu: r.gtipKodu || '',
+            gtipAciklamasi: r.gtipAciklamasi || '',
+            adiVeOzelligi: r.adiVeOzelligi || '',
+            miktar: r.miktar || 0,
+            birim: r.birim || '',
+            toplamTutarFobUsd: r.toplamTutarFobUsd || 0,
+            toplamTutarFobTl: r.toplamTutarFobTl || 0,
+            gumrukDovizKodu: r.gumrukDovizKodu || '',
+            kullanilmisMakine: r.kullanilmisMakine || '',
+            kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || ''
+          });
+        });
+      }
+
+      // 🧾 Yerli Makine Listesi Sayfası
+      const yerliSheet = workbook.addWorksheet('Yerli Makine Listesi');
+      yerliSheet.columns = [
+        { header: 'GM id', key: 'gmId', width: 14 },
+        { header: 'GTIP No', key: 'gtipKodu', width: 18 },
+        { header: 'GTIP Açıklama', key: 'gtipAciklamasi', width: 40 },
+        { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 30 },
+        { header: 'Miktarı', key: 'miktar', width: 10 },
+        { header: 'Birimi', key: 'birim', width: 12 },
+        { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 26 },
+        { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 26 },
+        { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 }
+      ];
+      if (Array.isArray(tesvik.makineListeleri?.yerli)) {
+        tesvik.makineListeleri.yerli.forEach(r => {
+          yerliSheet.addRow({
+            gmId: tesvik.tesvikId || tesvik.gmId || '',
+            gtipKodu: r.gtipKodu || '',
+            gtipAciklamasi: r.gtipAciklamasi || '',
+            adiVeOzelligi: r.adiVeOzelligi || '',
+            miktar: r.miktar || 0,
+            birim: r.birim || '',
+            birimFiyatiTl: r.birimFiyatiTl || 0,
+            toplamTutariTl: r.toplamTutariTl || 0,
+            kdvIstisnasi: r.kdvIstisnasi || ''
+          });
+        });
+      }
       
       // Destek unsurları sayfası
       const destekSheet = workbook.addWorksheet('Destek Unsurları');

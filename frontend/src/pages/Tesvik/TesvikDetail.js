@@ -1029,13 +1029,13 @@ const TesvikDetail = () => {
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dbeafe', border: '1px solid #60a5fa', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#1e40af', mb: 0.5, fontSize: '0.6rem' }}>Finansman TL</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.finansman || 25000000).toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.finansman?.toplamFinansman ?? 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fae8ff', border: '1px solid #c084fc', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', mb: 0.5, fontSize: '0.6rem' }}>Makine Teçhizat</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.makineTeçhizatGiderleri || 399900).toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina ?? 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>

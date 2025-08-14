@@ -27,6 +27,7 @@ import TesvikDashboard from '../pages/Tesvik/TesvikDashboard';
 import TesvikList from '../pages/Tesvik/TesvikList'; 
 import TesvikForm from '../pages/Tesvik/TesvikForm';
 import TesvikDetail from '../pages/Tesvik/TesvikDetail';
+import MakineYonetimi from '../pages/Tesvik/MakineYonetimi';
 
 // 📊 Dashboard Bileşenleri
 import TesvikAnalyticsDashboard from './Dashboard/TesvikDashboard';
@@ -123,6 +124,13 @@ const AppRouter = () => {
       <Route path="/tesvik/:id/duzenle" element={
         <ProtectedRoute permission="belgeDuzenle">
           <TesvikForm />
+        </ProtectedRoute>
+      } />
+
+      {/* 🛠️ Makine Teçhizat Yönetimi (Geliştiriliyor) */}
+      <Route path="/tesvik/makine-yonetimi" element={
+        <ProtectedRoute>
+          <MakineYonetimi />
         </ProtectedRoute>
       } />
       

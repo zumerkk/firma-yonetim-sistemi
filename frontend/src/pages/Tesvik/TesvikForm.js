@@ -77,6 +77,7 @@ import { serbestBolgeler, serbestBolgeKategorileri } from '../../data/serbestBol
 import US97SuperSearch from '../../components/US97SuperSearch';
 import gtipService from '../../services/gtipService';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
+import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 // 📏 Kapasite Birimleri Import  
 import { kapasiteBirimleri } from '../../data/kapasiteData';
 
@@ -137,7 +138,7 @@ const TesvikForm = () => {
   };
 
   // 🛠️ Makine Listesi yardımcıları
-  const emptyMakine = () => ({
+  const emptyMakineYerli = () => ({
     gtipKodu: '',
     gtipAciklamasi: '',
     adiVeOzelligi: '',
@@ -148,6 +149,21 @@ const TesvikForm = () => {
     kdvIstisnasi: ''
   });
 
+  const emptyMakineIthal = () => ({
+    gtipKodu: '',
+    gtipAciklamasi: '',
+    adiVeOzelligi: '',
+    miktar: '',
+    birim: '',
+    birimFiyatiFob: '',
+    gumrukDovizKodu: '',
+    toplamTutarFobUsd: '',
+    toplamTutarFobTl: '',
+    kullanilmisMakine: '',
+    ckdSkdMi: '',
+    aracMi: ''
+  });
+
   const [makineTab, setMakineTab] = useState('yerli');
 
   const addMakineSatiri = (tip) => {
@@ -155,7 +171,10 @@ const TesvikForm = () => {
       ...prev,
       makineListeleri: {
         ...(prev.makineListeleri || {}),
-        [tip]: [ ...((prev.makineListeleri && prev.makineListeleri[tip]) || []), emptyMakine() ]
+        [tip]: [
+          ...((prev.makineListeleri && prev.makineListeleri[tip]) || []),
+          tip === 'ithal' ? emptyMakineIthal() : emptyMakineYerli()
+        ]
       }
     }));
   };
@@ -173,11 +192,16 @@ const TesvikForm = () => {
     setFormData(prev => {
       const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
       const arr = [ ...mevcut ];
-      const row = { ...(arr[index] || emptyMakine()) };
+      const row = { ...(arr[index] || (tip === 'ithal' ? emptyMakineIthal() : emptyMakineYerli())) };
       row[field] = value;
       const miktar = parseInt((row.miktar || '').toString().replace(/[^\d]/g, '')) || 0;
-      const birimFiyati = parseInt((row.birimFiyatiTl || '').toString().replace(/[^\d]/g, '')) || 0;
-      if (miktar && birimFiyati) row.toplamTutariTl = (miktar * birimFiyati).toString();
+      if (tip === 'ithal') {
+        const birimFiyatiFob = parseInt((row.birimFiyatiFob || '').toString().replace(/[^\d]/g, '')) || 0;
+        if (miktar && birimFiyatiFob) row.toplamTutarFobUsd = (miktar * birimFiyatiFob).toString();
+      } else {
+        const birimFiyati = parseInt((row.birimFiyatiTl || '').toString().replace(/[^\d]/g, '')) || 0;
+        if (miktar && birimFiyati) row.toplamTutariTl = (miktar * birimFiyati).toString();
+      }
       arr[index] = row;
       return { ...prev, makineListeleri: { ...(prev.makineListeleri || {}), [tip]: arr } };
     });
@@ -206,33 +230,123 @@ const TesvikForm = () => {
               <TextField fullWidth label="Adı ve Özelliği" value={row.adiVeOzelligi || ''}
                 onChange={(e) => updateMakineField(tip, idx, 'adiVeOzelligi', e.target.value)} />
             </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField fullWidth label="Miktar" value={row.miktar || ''}
-                onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <TextField fullWidth label="Birim" value={row.birim || ''}
-                onChange={(e) => updateMakineField(tip, idx, 'birim', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth label="Birim Fiyatı (TL) (KDV Hariç)" value={row.birimFiyatiTl || ''}
-                onChange={(e) => updateMakineField(tip, idx, 'birimFiyatiTl', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} md={3}>
-              <TextField fullWidth label="Toplam Tutar (TL) (KDV Hariç)" value={row.toplamTutariTl || ''}
-                onChange={(e) => updateMakineField(tip, idx, 'toplamTutariTl', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>KDV İstisnası</InputLabel>
-                <Select label="KDV İstisnası" value={row.kdvIstisnasi || ''}
-                  onChange={(e) => updateMakineField(tip, idx, 'kdvIstisnasi', e.target.value)}>
-                  <MenuItem value="">Seçilmedi</MenuItem>
-                  <MenuItem value="EVET">EVET</MenuItem>
-                  <MenuItem value="HAYIR">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+
+            {tip === 'ithal' ? (
+              <>
+                <Grid item xs={6} md={2}>
+                  <TextField fullWidth label="Miktar" value={row.miktar || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <UnitCurrencySearch
+                    type="unit"
+                    value={row.birim || ''}
+                    onChange={(kod) => updateMakineField(tip, idx, 'birim', kod)}
+                    placeholder="Birim seç..."
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <TextField fullWidth label="Menşe Ülke Döviz Birim Fiyatı (FOB)" value={row.birimFiyatiFob || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'birimFiyatiFob', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <UnitCurrencySearch
+                    type="currency"
+                    value={row.gumrukDovizKodu || ''}
+                    onChange={(kod) => updateMakineField(tip, idx, 'gumrukDovizKodu', kod)}
+                    placeholder="Döviz seç..."
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <TextField fullWidth label="Toplam Tutar (FOB $)" value={row.toplamTutarFobUsd || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'toplamTutarFobUsd', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <TextField fullWidth label="Toplam Tutar (FOB TL)" value={row.toplamTutarFobTl || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'toplamTutarFobTl', e.target.value)}
+                    onBlur={async () => {
+                      try {
+                        // Otomatik hesaplama: FOB USD * kur
+                        if (row.toplamTutarFobUsd && row.gumrukDovizKodu && row.gumrukDovizKodu !== 'TRY') {
+                          const rate = await (await import('../../services/currencyService')).default.getRate(row.gumrukDovizKodu, 'TRY');
+                          if (rate) {
+                            const usd = parseInt((row.toplamTutarFobUsd || '').toString().replace(/[^\d]/g, '')) || 0;
+                            const tl = Math.round(usd * rate);
+                            updateMakineField(tip, idx, 'toplamTutarFobTl', tl.toString());
+                          }
+                        }
+                      } catch (e) { /* sessiz geç */ }
+                    }} />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <UnitCurrencySearch
+                    type="used"
+                    value={row.kullanilmisMakine || ''}
+                    onChange={(kod, aciklama) => {
+                      updateMakineField(tip, idx, 'kullanilmisMakine', kod);
+                      updateMakineField(tip, idx, 'kullanilmisMakineAciklama', aciklama || '');
+                    }}
+                    placeholder="Kullanılmış makine seç..."
+                  />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>CKD/SKD Mi?</InputLabel>
+                    <Select label="CKD/SKD Mi?" value={row.ckdSkdMi || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'ckdSkdMi', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>ARAÇ MI?</InputLabel>
+                    <Select label="ARAÇ MI?" value={row.aracMi || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'aracMi', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            ) : (
+              <>
+                <Grid item xs={6} md={2}>
+                  <TextField fullWidth label="Miktar" value={row.miktar || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <UnitCurrencySearch
+                    type="unit"
+                    value={row.birim || ''}
+                    onChange={(kod) => updateMakineField(tip, idx, 'birim', kod)}
+                    placeholder="Birim seç..."
+                  />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <TextField fullWidth label="Birim Fiyatı (TL) (KDV Hariç)" value={row.birimFiyatiTl || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'birimFiyatiTl', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={3}>
+                  <TextField fullWidth label="Toplam Tutar (TL) (KDV Hariç)" value={row.toplamTutariTl || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'toplamTutariTl', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>KDV İstisnası</InputLabel>
+                    <Select label="KDV İstisnası" value={row.kdvIstisnasi || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'kdvIstisnasi', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </>
+            )}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button color="error" startIcon={<DeleteIcon />} onClick={() => removeMakineSatiri(tip, idx)}>Sil</Button>
@@ -253,9 +367,37 @@ const TesvikForm = () => {
   const renderMakineListesi = () => (
     <Box>
       <Typography variant="h6" gutterBottom>Makine-Teçhizat Listesi</Typography>
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
         <Button variant={makineTab === 'yerli' ? 'contained' : 'outlined'} onClick={() => setMakineTab('yerli')}>Yerli</Button>
         <Button variant={makineTab === 'ithal' ? 'contained' : 'outlined'} onClick={() => setMakineTab('ithal')}>İthal</Button>
+        <Box sx={{ flex: 1 }} />
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={async () => {
+            try {
+              if (!formData._id && !id) {
+                alert('Önce teşviki kaydedin, sonra Excel alın.');
+                return;
+              }
+              const tesvikId = id || formData._id;
+              const res = await axios.get(`/tesvik/${tesvikId}/excel-export`, { responseType: 'blob' });
+              const url = window.URL.createObjectURL(new Blob([res.data]));
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `tesvik_${tesvikId}.xlsx`;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              window.URL.revokeObjectURL(url);
+            } catch (e) {
+              console.error('Excel export hatası:', e);
+              alert('Excel export sırasında bir hata oluştu.');
+            }
+          }}
+        >
+          Excel Çıktısı
+        </Button>
       </Box>
       {renderMakineSatirlari(makineTab)}
       <Alert severity="info" sx={{ mt: 2 }}>Bu alan isteğe bağlıdır. GTIP kodu girerek açıklamayı otomatik çekebilirsiniz.</Alert>
@@ -804,9 +946,13 @@ const TesvikForm = () => {
               adiVeOzelligi: r.adiVeOzelligi || '',
               miktar: r.miktar?.toString() || '',
               birim: r.birim || '',
-              birimFiyatiTl: r.birimFiyatiTl?.toString() || '',
-              toplamTutariTl: r.toplamTutariTl?.toString() || '',
-              kdvIstisnasi: r.kdvIstisnasi || ''
+              birimFiyatiFob: r.birimFiyatiFob?.toString() || r.birimFiyatiTl?.toString() || '',
+              gumrukDovizKodu: r.gumrukDovizKodu || '',
+              toplamTutarFobUsd: r.toplamTutarFobUsd?.toString() || r.toplamTutariTl?.toString() || '',
+              toplamTutarFobTl: r.toplamTutarFobTl?.toString() || r.toplamTutariTl?.toString() || '',
+              kullanilmisMakine: r.kullanilmisMakine || '',
+              ckdSkdMi: r.ckdSkdMi || '',
+              aracMi: r.aracMi || ''
             }))
           },
           
@@ -1892,9 +2038,13 @@ const TesvikForm = () => {
             adiVeOzelligi: r.adiVeOzelligi || '',
             miktar: parseInt(r.miktar) || 0,
             birim: r.birim || '',
-            birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
-            toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
-            kdvIstisnasi: r.kdvIstisnasi || ''
+            birimFiyatiFob: parseInt(r.birimFiyatiFob) || 0,
+            gumrukDovizKodu: r.gumrukDovizKodu || '',
+            toplamTutarFobUsd: parseInt(r.toplamTutarFobUsd) || 0,
+            toplamTutarFobTl: parseInt(r.toplamTutarFobTl) || 0,
+            kullanilmisMakine: r.kullanilmisMakine || '',
+            ckdSkdMi: r.ckdSkdMi || '',
+            aracMi: r.aracMi || ''
           }))
         },
         

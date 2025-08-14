@@ -26,6 +26,8 @@ const {
   getDestekUnsurlari,
   getNextTesvikId,
   bulkUpdateDurum,
+  setMakineTalepDurumu,
+  setMakineKararDurumu,
   getTesvikAnalytics,
   getTesvikFormTemplate, // YENİ: Template verileri
   getNextGmId, // YENİ: GM ID generation
@@ -487,6 +489,12 @@ router.post('/:id/revizyon',
   checkPermission('belgeDuzenle'),
   addTesvikRevizyon
 );
+
+// 🆕 Makine Talep/Karar Yönetimi
+// Body: { liste:'yerli'|'ithal', rowId, talep:{ durum, istenenAdet, talepTarihi?, talepNotu? } }
+router.post('/:id/makine-talep', authenticate, checkPermission('belgeDuzenle'), setMakineTalepDurumu);
+// Body: { liste:'yerli'|'ithal', rowId, karar:{ kararDurumu:'onay|kismi_onay|red|revize', onaylananAdet, kararTarihi?, kararNotu? } }
+router.post('/:id/makine-karar', authenticate, checkPermission('belgeDuzenle'), setMakineKararDurumu);
 
 // 📊 GET /api/tesvik/:id/revisions - Revizyon Geçmişi Getirme
 router.get('/:id/revisions', 

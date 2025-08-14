@@ -90,8 +90,10 @@ const urunBilgileriSchema = new mongoose.Schema({
   aktif: { type: Boolean, default: true }
 }, { _id: false });
 
-// 🛠️ Makine/Teçhizat Kalemi - Yerli/İthal listeleri için
-const makinaKalemiSchema = new mongoose.Schema({
+// 🛠️ Makine/Teçhizat Kalemi - Yerli liste için
+const makinaKalemiYerliSchema = new mongoose.Schema({
+  // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
+  rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
@@ -99,7 +101,59 @@ const makinaKalemiSchema = new mongoose.Schema({
   birim: { type: String, trim: true, maxlength: 50 },
   birimFiyatiTl: { type: Number, default: 0 }, // KDV hariç
   toplamTutariTl: { type: Number, default: 0 }, // KDV hariç
-  kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' }
+  kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
+  talep: {
+    durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
+    istenenAdet: { type: Number, default: 0 },
+    talepTarihi: { type: Date },
+    talepNotu: { type: String, trim: true, maxlength: 500 }
+  },
+  karar: {
+    kararDurumu: { type: String, enum: ['beklemede', 'onay', 'kismi_onay', 'red', 'revize'], default: 'beklemede' },
+    onaylananAdet: { type: Number, default: 0 },
+    kararTarihi: { type: Date },
+    kararNotu: { type: String, trim: true, maxlength: 500 }
+  }
+}, { _id: false });
+
+// 🛠️ Makine/Teçhizat Kalemi - İthal liste için (FOB ve ek alanlar)
+const makinaKalemiIthalSchema = new mongoose.Schema({
+  // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
+  rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+  gtipKodu: { type: String, trim: true, maxlength: 20 },
+  gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
+  adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
+  miktar: { type: Number, default: 0 },
+  birim: { type: String, trim: true, maxlength: 50 },
+  // FOB alanları ve döviz bilgileri
+  birimFiyatiFob: { type: Number, default: 0 }, // Menşe ülke döviz birim fiyatı (FOB)
+  gumrukDovizKodu: { type: String, trim: true, uppercase: true, maxlength: 10 },
+  toplamTutarFobUsd: { type: Number, default: 0 },
+  toplamTutarFobTl: { type: Number, default: 0 },
+  // Ek nitelikler
+  // Kullanılmış makine alanı artık referans kod (ör: 1,2,3) veya açıklama tutulabilir
+  kullanilmisMakine: { type: String, trim: true, maxlength: 50, default: '' },
+  kullanilmisMakineAciklama: { type: String, trim: true, maxlength: 200, default: '' },
+  ckdSkdMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  aracMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  // ⏮️ Eski alanlar (geriye dönük uyumluluk için tutulur)
+  birimFiyatiTl: { type: Number, default: 0 },
+  toplamTutariTl: { type: Number, default: 0 },
+  kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
+  talep: {
+    durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
+    istenenAdet: { type: Number, default: 0 },
+    talepTarihi: { type: Date },
+    talepNotu: { type: String, trim: true, maxlength: 500 }
+  },
+  karar: {
+    kararDurumu: { type: String, enum: ['beklemede', 'onay', 'kismi_onay', 'red', 'revize'], default: 'beklemede' },
+    onaylananAdet: { type: Number, default: 0 },
+    kararTarihi: { type: Date },
+    kararNotu: { type: String, trim: true, maxlength: 500 }
+  }
 }, { _id: false });
 
 // 🎯 Destek Unsurları Schema
@@ -255,10 +309,10 @@ const tesvikSchema = new mongoose.Schema({
     maxlength: 500
   },
 
-  // 🧰 Makine-Teçhizat Listeleri (Özel Şartlar ve Finansal Bilgiler arasında)
+  // 🧰 Makine-Teçhizat Listeleri (Yerli/İthal ayrı şemalar)
   makineListeleri: {
-    yerli: [makinaKalemiSchema],
-    ithal: [makinaKalemiSchema]
+    yerli: [makinaKalemiYerliSchema],
+    ithal: [makinaKalemiIthalSchema]
   },
   
   // 📝 Künye Bilgileri - Excel Şablonuna Uygun

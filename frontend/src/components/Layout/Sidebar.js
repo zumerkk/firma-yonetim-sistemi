@@ -83,6 +83,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
       permission: 'belgeEkle',
       description: 'Yeni teşvik belgesi'
+    },
+    {
+      text: 'Makine Teçhizat Yönetimi',
+      icon: <EmojiEventsIcon />,
+      path: '/tesvik/makine-yonetimi',
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      description: 'Makine/Teçhizat kayıt ve yönetimi',
+      isNew: true
     }
   ];
 
