@@ -613,10 +613,39 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
   yatirim.ez = (yatirim.et || 0) + (yatirim.eu || 0) + (yatirim.ev || 0) + 
                (yatirim.ew || 0) + (yatirim.ex || 0) + (yatirim.ey || 0);
   
-  // Makina toplam hesaplamaları
+  // Makine toplam hesaplamaları (kalemlerden otomatik topla)
   const makina = this.maliHesaplamalar.makinaTechizat;
-  makina.toplamMakina = (makina.ithalMakina || 0) + (makina.yerliMakina || 0);
-  makina.toplamYeniMakina = (makina.yeniMakina || 0) + (makina.kullanimisMakina || 0);
+
+  // Yerli kalemlerden TL toplamını hesapla
+  const yerliKalemler = Array.isArray(this.makineListeleri?.yerli) ? this.makineListeleri.yerli : [];
+  const yerliToplamTl = yerliKalemler.reduce((sum, r) => {
+    const tl = Number(r.toplamTutariTl || r.toplamTl || 0);
+    return sum + (isNaN(tl) ? 0 : tl);
+  }, 0);
+
+  // İthal kalemlerden TL toplamını hesapla (FOB TL öncelikli; yoksa toplamTl)
+  const ithalKalemler = Array.isArray(this.makineListeleri?.ithal) ? this.makineListeleri.ithal : [];
+  const ithalToplamTl = ithalKalemler.reduce((sum, r) => {
+    const tl = Number(r.toplamTutarFobTl || r.toplamTl || 0);
+    return sum + (isNaN(tl) ? 0 : tl);
+  }, 0);
+
+  // Yeni/Kullanılmış ayrımı (kullanilmisMakine alanı dolu ise kullanılmış kabul edilir)
+  const yeniToplam = (
+    yerliKalemler.filter(r => !r.kullanilmisKod).reduce((s, r) => s + (Number(r.toplamTutariTl || 0) || 0), 0) +
+    ithalKalemler.filter(r => !r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobTl || 0) || 0), 0)
+  );
+  const kullanilmisToplam = (
+    yerliKalemler.filter(r => !!r.kullanilmisKod).reduce((s, r) => s + (Number(r.toplamTutariTl || 0) || 0), 0) +
+    ithalKalemler.filter(r => !!r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobTl || 0) || 0), 0)
+  );
+
+  makina.yerliMakina = yerliToplamTl;
+  makina.ithalMakina = ithalToplamTl;
+  makina.toplamMakina = yerliToplamTl + ithalToplamTl;
+  makina.yeniMakina = yeniToplam;
+  makina.kullanimisMakina = kullanilmisToplam;
+  makina.toplamYeniMakina = yeniToplam + kullanilmisToplam;
   
   // Finansman toplam
   const finansman = this.maliHesaplamalar.finansman;

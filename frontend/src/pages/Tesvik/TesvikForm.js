@@ -417,7 +417,7 @@ const TesvikForm = () => {
   const [adresSayisi, setAdresSayisi] = useState(1); // Yatırım Adresi alanları (max 3)
   const [urunSayisi, setUrunSayisi] = useState(1); // Ürün bilgileri satır sayısı (max 10)
   const [destekSayisi, setDestekSayisi] = useState(1); // Destek unsurları satır sayısı (max 8)
-  const [ozelSartSayisi, setOzelSartSayisi] = useState(1); // Özel şartlar satır sayısı (max 7)
+  const [ozelSartSayisi, setOzelSartSayisi] = useState(1); // Özel şartlar satır sayısı (limit kaldırıldı)
   
   // 🆕 YENİ SEÇENEK EKLEME MODAL STATE'LERİ
   const [addOptionModal, setAddOptionModal] = useState({
@@ -1038,7 +1038,7 @@ const TesvikForm = () => {
         });
 
         // Özel şartlar satır sayısını hesapla
-        const ozelSartCount = Math.max(1, Math.min(mappedData.ozelSartlar?.length || 1, 7));
+        const ozelSartCount = Math.max(1, mappedData.ozelSartlar?.length || 1);
         setOzelSartSayisi(ozelSartCount);
         console.log('⚖️ Özel şartlar yüklendi:', {
           count: ozelSartCount,
@@ -1268,18 +1268,16 @@ const TesvikForm = () => {
     }
   };
 
-  // 🎯 Dinamik Özel Şart Yönetimi - 1 başlangıç, Max 7
+  // 🎯 Dinamik Özel Şart Yönetimi - 1 başlangıç, limit kaldırıldı
   const addOzelSartField = () => {
-    if (ozelSartSayisi < 7) {
-      setOzelSartSayisi(prev => prev + 1);
-      setFormData(prevData => ({
-        ...prevData,
-        ozelSartlar: [
-          ...prevData.ozelSartlar,
-          { index: prevData.ozelSartlar.length + 1, kisaltma: '', notu: '' }
-        ]
-      }));
-    }
+    setOzelSartSayisi(prev => prev + 1);
+    setFormData(prevData => ({
+      ...prevData,
+      ozelSartlar: [
+        ...prevData.ozelSartlar,
+        { index: prevData.ozelSartlar.length + 1, kisaltma: '', notu: '' }
+      ]
+    }));
   };
 
   const removeOzelSartField = () => {
@@ -4566,14 +4564,14 @@ const TesvikForm = () => {
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
             🏷️ Özel Şartlar
           <Chip 
-            label={`${ozelSartSayisi}/7 Satır`} 
+            label={`${ozelSartSayisi} Satır`} 
             size="small" 
             color="warning" 
             variant="outlined" 
           />
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Dinamik sistem: İhtiyacınıza göre maksimum 7 özel şart satırı ekleyebilirsiniz - CSV'den {templateData.ozelSartKisaltmalari?.length || 0} kısaltma mevcut
+          Dinamik sistem: İhtiyacınıza göre sınırsız özel şart satırı ekleyebilirsiniz - CSV'den {templateData.ozelSartKisaltmalari?.length || 0} kısaltma mevcut
           </Typography>
       </Grid>
 
@@ -4775,7 +4773,7 @@ const TesvikForm = () => {
       ))}
 
       {/* Add Özel Şart Butonu */}
-      {ozelSartSayisi < 7 && (
+      {true && (
         <Grid item xs={12}>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
             <Button
@@ -4794,7 +4792,7 @@ const TesvikForm = () => {
                 }
               }}
             >
-              Özel Şart Ekle ({ozelSartSayisi}/7)
+              Özel Şart Ekle ({ozelSartSayisi})
             </Button>
           </Box>
         </Grid>
@@ -4804,7 +4802,7 @@ const TesvikForm = () => {
       <Grid item xs={12}>
         <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
             <Typography variant="body2" color="text.secondary">
-            🏷️ <strong>Aktif Satır:</strong> {ozelSartSayisi}/7 |
+            🏷️ <strong>Aktif Satır:</strong> {ozelSartSayisi} |
             <strong> Kısaltma Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.kisaltma).length} |
             <strong> Not Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.notu).length} |
               <strong> CSV'den Seçenek:</strong> {templateData.ozelSartKisaltmalari?.length || 0} kısaltma, {templateData.ozelSartNotlari?.length || 0} not
@@ -4890,11 +4888,8 @@ const TesvikForm = () => {
     
     // 7. DEVLET MANTIGI: Yabancı Kaynak alt kalemlerini topla
     const bankKredisi = toNumber(finansal.finansman?.yabanciKaynaklar?.bankKredisi);
-    const ikinciElFiyat = toNumber(finansal.finansman?.yabanciKaynaklar?.ikinciElFiyatFarki);
-    const kullanilmisTeçhizat = toNumber(finansal.finansman?.yabanciKaynaklar?.kullanilmisTeçhizatBedeli);
-    const digerDisKaynak = toNumber(finansal.finansman?.yabanciKaynaklar?.digerDisKaynaklar);
-    const digerYabanci = toNumber(finansal.finansman?.yabanciKaynaklar?.digerYabanciKaynak);
-    const toplamYabanciKaynak = bankKredisi + ikinciElFiyat + kullanilmisTeçhizat + digerDisKaynak + digerYabanci;
+    // Kaldırılan kalemler hesaplamadan çıkarıldı
+    const toplamYabanciKaynak = bankKredisi;
     
     // 8. DEVLET MANTIGI: Özkaynak = Toplam Sabit Yatırım - Yabancı Kaynak (OTOMATIK HESAPLANAN!)
     const ozKaynakOtomatik = Math.max(0, toplamSabitYatirim - toplamYabanciKaynak); // Negatif olamaz
@@ -4993,10 +4988,6 @@ const TesvikForm = () => {
     formData.finansalBilgiler?.araziArsaBedeli?.metrekaresi,
     formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl,
     formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.bankKredisi,
-    formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.ikinciElFiyatFarki,
-    formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.kullanilmisTeçhizatBedeli,
-    formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.digerDisKaynaklar,
-    formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.digerYabanciKaynak,
     formData.finansalBilgiler?.finansman?.ozkaynaklar?.ozkaynaklar,
     formData.finansalBilgiler?.binaInsaatGiderleri?.anaBinaVeTesisleri,
     formData.finansalBilgiler?.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari,
@@ -5247,7 +5238,7 @@ const TesvikForm = () => {
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>YABANCI KAYNAKLAR - Detaylı Breakdown</Typography>
               <Grid container spacing={2}>
-                <Grid item xs={12} md={2.4}>
+                <Grid item xs={12} md={3}>
                   <TextField
                     fullWidth
                     size="small"
@@ -5263,70 +5254,7 @@ const TesvikForm = () => {
                     InputProps={{ endAdornment: '₺' }}
                   />
                 </Grid>
-                <Grid item xs={12} md={2.4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="İkinci El Fiyat Farkı"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.ikinciElFiyatFarki}
-                    name="ikinciElFiyatFarki"
-                    data-section="finansman"
-                    data-field="yabanciKaynaklar.ikinciElFiyatFarki"
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', parseFloat(e.target.value) || 0)}
-                    onFocus={handleNumberFieldFocus}
-                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.ikinciElFiyatFarki', val))}
-                    InputProps={{ endAdornment: '₺' }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={2.4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Kullanılmış Teçhizat Bedeli"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli}
-                    name="kullanilmisTechizatBedeli"
-                    data-section="finansman"
-                    data-field="yabanciKaynaklar.kullanilmisTeçhizatBedeli"
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', parseFloat(e.target.value) || 0)}
-                    onFocus={handleNumberFieldFocus}
-                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.kullanilmisTeçhizatBedeli', val))}
-                    InputProps={{ endAdornment: '₺' }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={2.4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Diğer Dış Kaynaklar"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerDisKaynaklar}
-                    name="digerDisKaynaklar"
-                    data-section="finansman"
-                    data-field="yabanciKaynaklar.digerDisKaynaklar"
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', parseFloat(e.target.value) || 0)}
-                    onFocus={handleNumberFieldFocus}
-                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerDisKaynaklar', val))}
-                    InputProps={{ endAdornment: '₺' }}
-                  />
-                </Grid>
-                <Grid item xs={12} md={2.4}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Diğer Yabancı Kaynak"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.digerYabanciKaynak}
-                    name="digerYabanciKaynak"
-                    data-section="finansman"
-                    data-field="yabanciKaynaklar.digerYabanciKaynak"
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', parseFloat(e.target.value) || 0)}
-                    onFocus={handleNumberFieldFocus}
-                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.digerYabanciKaynak', val))}
-                    InputProps={{ endAdornment: '₺' }}
-                  />
-                </Grid>
+                {/* Kaldırılan kalemler: İkinci El Fiyat Farkı, Kullanılmış Teçhizat Bedeli, Diğer Dış Kaynaklar */}
               </Grid>
               
               {/* Toplam Yabancı Kaynak */}

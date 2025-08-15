@@ -662,13 +662,9 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.digerYatirimHarcamalari.etudVeProjeGiderleri': 'Etüd ve Proje Giderleri',
     'maliHesaplamalar.digerYatirimHarcamalari.digerGiderleri': 'Diğer Giderleri',
     
-    // Finansman - DOĞRU FIELD PATHS
+    // Finansman - Sadeleştirilmiş
     'maliHesaplamalar.finansman.ozkaynaklar.ozkaynaklar': 'Öz Kaynaklar',
     'maliHesaplamalar.finansman.yabanciKaynaklar.bankKredisi': 'Banka Kredisi',
-    'maliHesaplamalar.finansman.yabanciKaynaklar.ikinciElFiyatFarki': 'İkinci El Fiyat Farkı',
-    'maliHesaplamalar.finansman.yabanciKaynaklar.kullanilmisTeçhizatBedeli': 'Kullanılmış Teçhizat Bedeli',
-    'maliHesaplamalar.finansman.yabanciKaynaklar.digerDisKaynaklar': 'Diğer Dış Kaynaklar',
-    'maliHesaplamalar.finansman.yabanciKaynaklar.digerYabanciKaynak': 'Diğer Yabancı Kaynak',
     'maliHesaplamalar.finansman.yabanciKaynaklar.toplamYabanciKaynak': 'Toplam Yabancı Kaynak',
     'maliHesaplamalar.finansman.toplamFinansman': 'Toplam Finansman',
     
@@ -3831,7 +3827,7 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakina || 0); // Schema'da nested
     row.push(0); // TOPLAM İTHAL MAKİNE ($) (schema'da yok)
-    row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || tesvik.maliHesaplamalar?.finansman?.yabanciKaynaklar?.bankKredisi || 0); // Banka Kredisi
     row.push(tesvik.maliHesaplamalar?.finansman?.ozKaynak || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0); // Schema'da nested
     

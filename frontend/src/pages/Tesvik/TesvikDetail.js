@@ -302,53 +302,15 @@ const TesvikDetail = () => {
       
       // Paralel API çağrıları - Gerçek data
       const [tesvikResponse, activitiesResponse] = await Promise.all([
-        api.get(`/tesvik/${id}`).catch(err => {
-          console.warn('Tesvik API hatası, mock data kullanılıyor:', err.message);
-          return null;
-        }),
-        api.get(`/activities?targetId=${id}`).catch(err => {
-          console.warn('Activities API hatası, mock data kullanılıyor:', err.message);
-          return null;
-        })
+        api.get(`/tesvik/${id}`),
+        api.get(`/activities?targetId=${id}`)
       ]);
 
       // Tesvik verisi
-      let tesvikData;
-      if (tesvikResponse && tesvikResponse.data.success) {
-        tesvikData = tesvikResponse.data.data;
-        console.log('✅ Gerçek tesvik verisi yüklendi:', tesvikData.tesvikId);
-      } else {
-        // Fallback - Mock data
-        console.log('⚠️ Mock data kullanılıyor...');
-        tesvikData = {
-          _id: id,
-          tesvikId: 'TES20250011',
-          gmId: 'GM2025009',
-          yatirimciUnvan: 'TOPÇUOĞLU SANAYİ VE TİCARET ANONİM ŞİRKETİ',
-          durumBilgileri: { genelDurum: 'reddedildi' },
-          firmaBilgileri: { vergiNo: 'A001081', unvan: 'TOPÇUOĞLU SANAYİ VE TİCARET ANONİM ŞİRKETİ' },
-          yatirimBilgileri2: { yatirimKonusu: '1513', destekSinifi: 'Bölgesel', il: 'TOKAT', ilce: 'MERKEZ', yatirimAdresi1: 'Bedestenlioğlu OSB Mah. 2. OSB Mevkii 6. Cad. No:34' },
-          istihdam: { toplamKisi: 41, mevcutKisi: 11, ilaveKisi: 30 },
-          urunler: [{ urunAdi: 'Hazır Paketlenmiş - Dondurulmuş Kızartmalık Patates', us97Kodu: 'US97001', mevcut: 300000, ilave: 1900000, toplam: 2200000, birim: 'KG/YIL' }],
-          maliHesaplamalar: { toplamSabitYatirim: 8899899, araziArsaBedeli: 2000000, binaInsaatGiderleri: 5499999, finansman: 25000000, makineTeçhizatGiderleri: 399900, digerYatirimHarcamalari: 1000000 },
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-      }
+      const tesvikData = tesvikResponse?.data?.data;
 
       // Activities verisi
-      let activitiesData = [];
-      if (activitiesResponse && activitiesResponse.data.success) {
-        // 🔥 FIX: activities array'i data.activities içinde
-        activitiesData = activitiesResponse.data.data?.activities || [];
-        console.log('✅ Gerçek activities verisi yüklendi:', activitiesData.length, 'adet');
-      } else {
-        // Fallback - Mock activities
-        activitiesData = [
-          { _id: '1', action: 'create', user: { adSoyad: 'Hüseyin Cahit Ağar', rol: 'admin' }, createdAt: new Date(), changes: { fields: [{ field: 'durum', oldValue: '-', newValue: 'hazırlanıyor' }] } },
-          { _id: '2', action: 'update', user: { adSoyad: 'Sistem Yöneticisi', rol: 'system' }, createdAt: new Date(), changes: { fields: [{ field: 'durum', oldValue: 'hazırlanıyor', newValue: 'reddedildi' }] } }
-        ];
-      }
+      const activitiesData = activitiesResponse?.data?.data?.activities || [];
       
       setTesvik(tesvikData);
       setActivities(Array.isArray(activitiesData) ? activitiesData : []); // 🔧 Ensure it's always an array
@@ -621,11 +583,11 @@ const TesvikDetail = () => {
               
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.25, fontSize: '1.1rem' }}>
-                  {tesvik.tesvikId || tesvik.gmId}
-              </Typography>
+                  {tesvik.tesvikId || tesvik.gmId || '-'}
+                </Typography>
                 <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500, fontSize: '0.85rem' }}>
-                {tesvik.yatirimciUnvan}
-              </Typography>
+                  {tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'}
+                </Typography>
                 
                 {/* Kompakt Status Badge */}
                 <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
@@ -803,7 +765,7 @@ const TesvikDetail = () => {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap'
                   }}>
-                    {tesvik.firmaBilgileri?.vergiNo || 'A001081'}
+                    {tesvik.firmaId || tesvik.firma?.firmaId || tesvik.firma?.vergiNoTC || '-'}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     color: '#64748b',
@@ -844,14 +806,14 @@ const TesvikDetail = () => {
                     fontSize: '0.8rem',
                     mb: 0.5
                   }}>
-                    {tesvik.yatirimBilgileri2?.yatirimKonusu || '1513'}
+                    {tesvik.yatirimBilgileri?.yatirimKonusu || tesvik.yatirimBilgileri2?.yatirimKonusu || '-'}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     color: '#64748b',
                     fontSize: '0.6rem',
                     display: 'block'
                   }}>
-                    {tesvik.yatirimBilgileri2?.destekSinifi || 'Bölgesel'} - {tesvik.yatirimBilgileri2?.il || 'TOKAT'}
+                    {(tesvik.yatirimBilgileri?.destekSinifi || tesvik.yatirimBilgileri2?.destekSinifi || '-')} - {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')}
                   </Typography>
                 </Box>
               </Paper>
@@ -925,7 +887,7 @@ const TesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
                   <Typography variant="caption" sx={{ color: '#1d4ed8', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Lokasyonu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri2?.il || 'TOKAT'} / {tesvik.yatirimBilgileri2?.ilce || 'MERKEZ'}
+                    {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || tesvik.yatirimBilgileri2?.ilce || '-')}
                         </Typography>
                 </Box>
                       </Grid>
@@ -933,7 +895,7 @@ const TesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
                   <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {tesvik.yatirimBilgileri2?.yatirimAdresi1?.substring(0, 25) || 'Bedestenlioğlu OSB Mah.'}
+                    {(tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-').toString().substring(0, 25)}
                         </Typography>
                 </Box>
                       </Grid>
@@ -1002,7 +964,7 @@ const TesvikDetail = () => {
               borderRadius: 2
             }}>
               <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                ₺{(tesvik.maliHesaplamalar?.toplamSabitYatirim || 8899899).toLocaleString()}
+                ₺{Number(tesvik.maliHesaplamalar?.toplamSabitYatirim || 0).toLocaleString('tr-TR')}
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.9 }}>
                 TOPLAM SABİT YATIRIM TUTARI TL
@@ -1017,31 +979,31 @@ const TesvikDetail = () => {
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef7cd', border: '1px solid #fbbf24', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400e', mb: 0.5, fontSize: '0.6rem' }}>Arazi Arsa Bedeli</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.araziArsaBedeli || 2000000).toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.araciArsaBedeli || tesvik.maliHesaplamalar?.araziArsaBedeli || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
             </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dcfce7', border: '1px solid #4ade80', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', mb: 0.5, fontSize: '0.6rem' }}>Bina İnşaat Giderleri</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#15803d', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.binaInsaatGiderleri || 5499999).toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#15803d', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dbeafe', border: '1px solid #60a5fa', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#1e40af', mb: 0.5, fontSize: '0.6rem' }}>Finansman TL</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.finansman?.toplamFinansman ?? 0).toLocaleString('tr-TR')}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fae8ff', border: '1px solid #c084fc', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', mb: 0.5, fontSize: '0.6rem' }}>Makine Teçhizat</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina ?? 0).toLocaleString('tr-TR')}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#dc2626', mb: 0.5, fontSize: '0.6rem' }}>Diğer Yatırım Harc.</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>₺{(tesvik.maliHesaplamalar?.digerYatirimHarcamalari || 1000000).toLocaleString()}</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
               </Grid>
               <Grid item xs={6} sm={4} md={2}>
