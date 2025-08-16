@@ -4870,11 +4870,10 @@ const TesvikForm = () => {
     const makineYerli = toNumber(finansal.makineTeçhizatGiderleri?.tl?.yerli);
     const toplamMakineTL = makineIthal + makineYerli;
     
-    // 4. Toplam İthal Makine ($) hesapla
-    const makineIthalDolar = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.ithalMakine);
+    // 4. Toplam İthal Makine ($) hesapla → Kullanıcı talebi: sadece Yeni + Kullanılmış
     const makineYeni = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.yeniMakine);
     const makineKullanilmis = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine);
-    const toplamMakineDolar = makineIthalDolar + makineYeni + makineKullanilmis;
+    const toplamMakineDolar = makineYeni + makineKullanilmis;
     
     // 5. Toplam Diğer Yatırım Harcamaları hesapla
     const yardimciIsl = toNumber(finansal.digerYatirimHarcamalari?.yardimciIslMakTeçGid);
@@ -4999,7 +4998,6 @@ const TesvikForm = () => {
     formData.finansalBilgiler?.binaInsaatGiderleri?.yeraltiAnaGalerileri,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli,
-    formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.yeniMakine,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid,
@@ -5378,16 +5376,7 @@ const TesvikForm = () => {
           {/* Dolar Cinsinden */}
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>İTHAL MAKİNE ($)</Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={2.5}>
-              <TextField
-                fullWidth
-                label="İthal Makine"
-                type="number"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.ithalMakine}
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.ithalMakine', parseFloat(e.target.value) || 0)}
-                InputProps={{ endAdornment: '$' }}
-              />
-            </Grid>
+            {/* Kullanıcı talebi: İthal Makine alanı kaldırıldı - toplam sadece Yeni + Kullanılmış */}
             <Grid item xs={12} md={2.5}>
               <TextField
                 fullWidth
