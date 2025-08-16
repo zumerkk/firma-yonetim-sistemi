@@ -4871,9 +4871,10 @@ const TesvikForm = () => {
     const toplamMakineTL = makineIthal + makineYerli;
     
     // 4. Toplam İthal Makine ($) hesapla
+    const makineIthalDolar = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.ithalMakine);
     const makineYeni = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.yeniMakine);
     const makineKullanilmis = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine);
-    const toplamMakineDolar = makineYeni + makineKullanilmis;
+    const toplamMakineDolar = makineIthalDolar + makineYeni + makineKullanilmis;
     
     // 5. Toplam Diğer Yatırım Harcamaları hesapla
     const yardimciIsl = toNumber(finansal.digerYatirimHarcamalari?.yardimciIslMakTeçGid);
@@ -4927,7 +4928,9 @@ const TesvikForm = () => {
         araziTotal: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
         toplamYabanciKaynak: formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.toplamYabanciKaynak || 0,
         ozkaynaklar: formData.finansalBilgiler?.finansman?.ozkaynaklar?.ozkaynaklar || 0,
-        toplamSabitYatirimTutari: formData.finansalBilgiler?.toplamSabitYatirimTutari || 0
+        toplamSabitYatirimTutari: formData.finansalBilgiler?.toplamSabitYatirimTutari || 0,
+        toplamMakineTL: formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.toplamMakineTeç || 0,
+        toplamMakineDolar: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.toplamIthalMakine || 0
       };
 
       // Sadece anlamlı değişiklik varsa güncelle (1 TL tolerans)
@@ -4935,7 +4938,9 @@ const TesvikForm = () => {
         Math.abs(currentCalculatedValues.araziTotal - calculations.araziTotal) > 1 ||
         Math.abs(currentCalculatedValues.toplamYabanciKaynak - calculations.toplamYabanciKaynak) > 1 ||
         Math.abs(currentCalculatedValues.ozkaynaklar - calculations.ozKaynakOtomatik) > 1 ||
-        Math.abs(currentCalculatedValues.toplamSabitYatirimTutari - calculations.toplamSabitYatirim) > 1
+        Math.abs(currentCalculatedValues.toplamSabitYatirimTutari - calculations.toplamSabitYatirim) > 1 ||
+        Math.abs(currentCalculatedValues.toplamMakineTL - calculations.toplamMakineTL) > 1 ||
+        Math.abs(currentCalculatedValues.toplamMakineDolar - calculations.toplamMakineDolar) > 1
       );
 
             if (hasChanged) {
@@ -4994,6 +4999,7 @@ const TesvikForm = () => {
     formData.finansalBilgiler?.binaInsaatGiderleri?.yeraltiAnaGalerileri,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli,
+    formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.yeniMakine,
     formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid,
