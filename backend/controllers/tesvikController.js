@@ -4763,8 +4763,9 @@ module.exports = {
       const str = (v) => (v ?? '').toString();
 
       // Map Yerli
-      const yerliMapped = (Array.isArray(yerli) ? yerli : []).map(r => ({
+      const yerliMapped = (Array.isArray(yerli) ? yerli : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
+        siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
@@ -4785,8 +4786,9 @@ module.exports = {
       }));
 
       // Map İthal
-      const ithalMapped = (Array.isArray(ithal) ? ithal : []).map(r => ({
+      const ithalMapped = (Array.isArray(ithal) ? ithal : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
+        siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),

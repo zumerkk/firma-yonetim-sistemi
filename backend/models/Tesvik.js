@@ -94,6 +94,8 @@ const urunBilgileriSchema = new mongoose.Schema({
 const makinaKalemiYerliSchema = new mongoose.Schema({
   // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+  // Kullanıcı görünümü için sıra numarası (manuel düzenlenebilir)
+  siraNo: { type: Number, default: 0 },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
@@ -131,6 +133,8 @@ const makinaKalemiYerliSchema = new mongoose.Schema({
 const makinaKalemiIthalSchema = new mongoose.Schema({
   // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
+  // Kullanıcı görünümü için sıra numarası (manuel düzenlenebilir)
+  siraNo: { type: Number, default: 0 },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },

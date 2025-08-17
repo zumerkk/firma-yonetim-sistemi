@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Snackbar, Alert } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
@@ -17,8 +17,8 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
   return isNaN(n) ? 0 : n;
 };
 
-const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklama: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklama: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -62,6 +62,7 @@ const MakineYonetimi = () => {
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => { document.title = 'Makine Teçhizat Yönetimi'; }, []);
   useEffect(() => {
@@ -176,8 +177,8 @@ const MakineYonetimi = () => {
   };
 
   const addRow = () => {
-    if (tab === 'yerli') setYerliRows(rows => [...rows, emptyYerli()]);
-    else setIthalRows(rows => [...rows, emptyIthal()]);
+    if (tab === 'yerli') setYerliRows(rows => [...rows, calcYerli({ ...emptyYerli(), siraNo: rows.length + 1 })]);
+    else setIthalRows(rows => [...rows, calcIthal({ ...emptyIthal(), siraNo: rows.length + 1 })]);
   };
   const delRow = (id) => {
     if (tab === 'yerli') setYerliRows(rows => rows.filter(r => r.id !== id));
@@ -437,6 +438,7 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
+      { field: 'siraNo', headerName: 'Sıra', width: 80, editable: true, type: 'number' },
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: true },
       { field: 'kdvIstisnasi', headerName: 'KDV', width: 90, renderCell: (p) => (
@@ -446,17 +448,21 @@ const MakineYonetimi = () => {
         </Select>
       ) },
       { field: 'miktar', headerName: 'Miktar', width: 90, editable: true, type: 'number' },
-      { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
+      { field: 'birim', headerName: 'Birim', width: 200, renderCell: (p) => (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1 }}>
-              <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod)=>updateYerli(p.row.id,{birim:kod})} />
+              <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod,aciklama)=>updateYerli(p.row.id,{birim:kod, birimAciklama:aciklama})} />
             </Box>
             <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
           </Stack>
         ) },
       { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: true, type: 'number' },
-      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 200, renderCell: (p)=> (
-        <UnitCurrencySearch type="machineType" value={p.row.makineTechizatTipi} onChange={(kod)=> updateYerli(p.row.id, { makineTechizatTipi: kod })} />
+      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
+        <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="ANA MAKİNE">ANA MAKİNE</MenuItem>
+          <MenuItem value="YARDIMCI MAKİNE">YARDIMCI MAKİNE</MenuItem>
+        </Select>
       ) },
       { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p) => (
         <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> updateYerli(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth>
@@ -581,10 +587,10 @@ const MakineYonetimi = () => {
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: true },
       { field: 'miktar', headerName: 'Miktar', width: 90, editable: true, type: 'number' },
-      { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
+      { field: 'birim', headerName: 'Birim', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod)=>updateIthal(p.row.id,{birim:kod})} />
+            <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod,aciklama)=>updateIthal(p.row.id,{birim:kod, birimAciklama:aciklama})} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
@@ -798,10 +804,15 @@ const MakineYonetimi = () => {
           <Tooltip title={fullScreen?'Tam ekranı kapat':'Tam ekran'}><IconButton onClick={()=> setFullScreen(v=>!v)}>{fullScreen ? <FullscreenExitIcon/> : <FullscreenIcon/>}</IconButton></Tooltip>
           <Tooltip title="Kaydet"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
             const payload = {
-              yerli: yerliRows.map(r=>({ rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
-              ithal: ithalRows.map(r=>({ rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
+              yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
+              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
             };
-            await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+            try {
+              await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+              setSnackbar({ open: true, message: 'Makine listeleri kaydedildi', severity: 'success' });
+            } catch (e) {
+              setSnackbar({ open: true, message: 'Kayıt başarısız', severity: 'error' });
+            }
           }}><CheckIcon/></IconButton></span></Tooltip>
         </Stack>
 
@@ -903,6 +914,11 @@ const MakineYonetimi = () => {
           <Button onClick={()=> setPreviewOpen(false)}>Kapat</Button>
         </DialogActions>
       </Dialog>
+      <Snackbar open={snackbar.open} autoHideDuration={2500} onClose={()=> setSnackbar(s=>({...s, open:false}))} anchorOrigin={{ vertical:'bottom', horizontal:'right' }}>
+        <Alert severity={snackbar.severity} onClose={()=> setSnackbar(s=>({...s, open:false}))} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
