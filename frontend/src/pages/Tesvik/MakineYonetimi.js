@@ -18,7 +18,7 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 };
 
 const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -146,21 +146,57 @@ const MakineYonetimi = () => {
     const patch = { [params.field]: params.value };
     updateYerli(params.id, patch);
   };
-  const handleIthalCommit = (params) => {
-    const patch = { [params.field]: params.value };
-    // USD toplamını anında güncelle
-    updateIthal(params.id, patch);
-    // Eğer döviz TRY ise TL toplamını da anında eşitle (kur gerektirmiyor)
-    const row = ithalRows.find(r => r.id === params.id);
-    const next = { ...(row || {}), ...patch };
-    const miktar = numberOrZero(next.miktar);
-    const fob = numberOrZero(next.birimFiyatiFob);
-    const usd = miktar * fob;
-    if ((next.doviz || '').toUpperCase() === 'TRY') {
-      updateIthal(params.id, { toplamUsd: usd, toplamTl: usd });
-    } else {
-      updateIthal(params.id, { toplamUsd: usd });
+  const handleIthalCommit = async (params) => {
+    const field = params.field;
+    const value = params.value;
+    const row = ithalRows.find(r => r.id === params.id) || {};
+    const next = { ...row, [field]: value };
+    // 1) USD'yi canlı hesapla (miktar/FOB değiştiğinde)
+    if (field === 'miktar' || field === 'birimFiyatiFob') {
+      const miktar = numberOrZero(field === 'miktar' ? value : next.miktar);
+      const fob = numberOrZero(field === 'birimFiyatiFob' ? value : next.birimFiyatiFob);
+      const usd = miktar * fob;
+      updateIthal(params.id, { [field]: value, toplamUsd: usd });
+      // TRY ise TL = USD; değilse kur ile TL (manuel değilse)
+      if ((next.doviz || '').toUpperCase() === 'TRY') {
+        if (!next.tlManuel) updateIthal(params.id, { toplamTl: usd });
+      } else if (!next.tlManuel && next.doviz) {
+        try {
+          const key = `${next.doviz}->TRY`;
+          let rate = rateCache[key];
+          if (!rate) { rate = await currencyService.getRate(next.doviz, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
+          updateIthal(params.id, { toplamTl: Math.round(usd * (rate || 0)) });
+        } catch {}
+      }
+      return;
     }
+    // 2) Döviz değiştiğinde TL'yi güncelle (manuel değilse)
+    if (field === 'doviz') {
+      updateIthal(params.id, { doviz: value });
+      const miktar = numberOrZero(next.miktar);
+      const fob = numberOrZero(next.birimFiyatiFob);
+      const usd = miktar * fob;
+      if ((value || '').toUpperCase() === 'TRY') {
+        if (!next.tlManuel) updateIthal(params.id, { toplamUsd: usd, toplamTl: usd });
+      } else if (!next.tlManuel && value) {
+        try {
+          const key = `${value}->TRY`;
+          let rate = rateCache[key];
+          if (!rate) { rate = await currencyService.getRate(value, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
+          updateIthal(params.id, { toplamUsd: usd, toplamTl: Math.round(usd * (rate || 0)) });
+        } catch { updateIthal(params.id, { toplamUsd: usd }); }
+      } else {
+        updateIthal(params.id, { toplamUsd: usd });
+      }
+      return;
+    }
+    // 3) TL elle düzenlendiyse manuel mod
+    if (field === 'toplamTl') {
+      updateIthal(params.id, { toplamTl: numberOrZero(value), tlManuel: true });
+      return;
+    }
+    // Diğer alanlar için patch
+    updateIthal(params.id, { [field]: value });
   };
 
   const calcYerli = (r) => {
@@ -345,18 +381,19 @@ const MakineYonetimi = () => {
   };
 
   const recalcIthalTotals = async () => {
-    // Döviz kuruna göre TL hesapla (TRY hedef)
+    // Döviz kuruna göre TL hesapla (TRY hedef) + USD yoksa önce hesapla
     const results = await Promise.all(ithalRows.map(async r => {
-      if (!r.doviz || r.doviz === 'TRY') return { ...r, toplamTl: numberOrZero(r.toplamUsd) };
+      if (r.tlManuel) return r; // kullanıcı elle girmişse dokunma
+      const miktar = numberOrZero(r.miktar);
+      const fob = numberOrZero(r.birimFiyatiFob);
+      const usd = miktar * fob;
+      if (!r.doviz || (r.doviz || '').toUpperCase() === 'TRY') return { ...r, toplamUsd: usd, toplamTl: usd };
       try {
         const key = `${r.doviz}->TRY`;
         let rate = rateCache[key];
-        if (!rate) {
-          rate = await currencyService.getRate(r.doviz, 'TRY');
-          setRateCache(prev => ({ ...prev, [key]: rate }));
-        }
-        return { ...r, toplamTl: Math.round(numberOrZero(r.toplamUsd) * (rate || 0)) };
-      } catch { return { ...r }; }
+        if (!rate) { rate = await currencyService.getRate(r.doviz, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
+        return { ...r, toplamUsd: usd, toplamTl: Math.round(usd * (rate || 0)) };
+      } catch { return { ...r, toplamUsd: usd }; }
     }));
     setIthalRows(results);
   };
@@ -435,7 +472,7 @@ const MakineYonetimi = () => {
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ updateYerli(p.row.id, { gtipKodu: kod, gtipAciklama: aciklama }); }} />
+            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ const patch = { gtipKodu: kod, gtipAciklama: aciklama }; if (!p.row.adi) patch.adi = aciklama; updateYerli(p.row.id, patch); }} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
@@ -453,12 +490,12 @@ const MakineYonetimi = () => {
       { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1 }}>
-              <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>updateYerli(p.row.id,{birim:kod,birimAciklamasi:aciklama})} />
+              <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod)=>updateYerli(p.row.id,{birim:kod})} />
             </Box>
             <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
           </Stack>
         ) },
-      { field: 'birimAciklamasi', headerName: 'Birim Açıklaması', width: 220 },
+      // birimAciklamasi kolonu kaldırıldı
       { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: true, type: 'number' },
       { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth>
@@ -579,11 +616,12 @@ const MakineYonetimi = () => {
 
   const IthalGrid = () => {
     const cols = [
+      // Birim Açıklaması kolonu kaldırıldı (müşteri istemiyor)
       { field: 'siraNo', headerName: '#', width: 70, editable: true, type: 'number' },
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ updateIthal(p.row.id, { gtipKodu: kod, gtipAciklama: aciklama }); }} />
+            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ const patch = { gtipKodu: kod, gtipAciklama: aciklama }; if (!p.row.adi) patch.adi = aciklama; updateIthal(p.row.id, patch); }} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
@@ -594,12 +632,12 @@ const MakineYonetimi = () => {
       { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>updateIthal(p.row.id,{birim:kod,birimAciklamasi:aciklama})} />
+            <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod)=>updateIthal(p.row.id,{birim:kod})} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'birimAciklamasi', headerName: 'Birim Açıklaması', width: 220 },
+      // birimAciklamasi kolonu kaldırıldı
       { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: true, type: 'number' },
       { field: 'doviz', headerName: 'Döviz', width: 160, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
@@ -610,7 +648,7 @@ const MakineYonetimi = () => {
         </Stack>
       ) },
       { field: 'toplamUsd', headerName: '$', width: 110, valueFormatter: (p)=> p.value?.toLocaleString('en-US') },
-      { field: 'toplamTl', headerName: 'TL', width: 120, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'TL', width: 140, editable: true, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama})} />
       ) },
@@ -805,7 +843,7 @@ const MakineYonetimi = () => {
           </Tabs>
           <Box sx={{ flex: 1 }} />
           <Tooltip title="Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
-          <Tooltip title="Toplamları Yenile (İthal)"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
+          <Tooltip title="Kurları (TCMB) al ve TL hesapla"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
           <Tooltip title="İçe Aktar"><label><input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} /><IconButton component="span"><ImportIcon/></IconButton></label></Tooltip>
           <Tooltip title="Dışa Aktar"><IconButton onClick={exportExcel}><ExportIcon/></IconButton></Tooltip>
           <Tooltip title="Sütunlar"><IconButton onClick={(e)=> setColumnsAnchor(e.currentTarget)}><ViewColumnIcon/></IconButton></Tooltip>

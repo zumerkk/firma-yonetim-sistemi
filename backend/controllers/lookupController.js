@@ -52,14 +52,65 @@ module.exports.getCurrencyRate = async (req, res) => {
     const base = (code || 'USD').toUpperCase();
     const sym = (target || 'TRY').toUpperCase();
 
-    const fetch = require('node-fetch');
+    // TRY -> TRY
+    if (base === sym) return res.json({ success: true, base, target: sym, rate: 1 });
+
+    const fetch = (typeof global.fetch === 'function') ? global.fetch : require('node-fetch');
     let rate = null;
+
+    // 1) TCMB today.xml öncelikli (USD/EUR başta olmak üzere TRY karşılığı)
     try {
-      const r = await fetch(`https://api.exchangerate.host/latest?base=${base}&symbols=${sym}`);
-      const j = await r.json();
-      rate = j?.rates?.[sym] || null;
+      const resp = await fetch('https://www.tcmb.gov.tr/kurlar/today.xml', { timeout: 4000 });
+      const xml = await resp.text();
+      const parseTcmb = (xmlText, currencyCode) => {
+        // XML attribute is CurrencyCode="USD" not "Currency Code"
+        const idx = xmlText.indexOf(`CurrencyCode="${currencyCode}"`);
+        if (idx === -1) return null;
+        const slice = xmlText.slice(idx, idx + 1200);
+        const unitMatch = slice.match(/<Unit>(\d+)<\/Unit>/);
+        const fsMatch = slice.match(/<ForexSelling>([\d.,]+)<\/ForexSelling>/);
+        const bsMatch = slice.match(/<BanknoteSelling>([\d.,]+)<\/BanknoteSelling>/);
+        const num = (s) => {
+          const v = (s || '').trim();
+          if (!v) return NaN;
+          // Eğer virgül içeriyorsa binlik ayırıcıları (.) kaldır ve , => .
+          if (v.includes(',')) return Number(v.replace(/\./g, '').replace(/,/g, '.'));
+          return Number(v); // 40.8047 gibi değerler
+        };
+        const unit = num(unitMatch && unitMatch[1]);
+        const val = num((fsMatch && fsMatch[1]) || (bsMatch && bsMatch[1]));
+        if (!val || !unit) return null;
+        return val / unit; // 1 birim döviz kaç TL
+      };
+
+      // TCMB sadece TRY bazlı kurları verir. base != TRY ve target == TRY ise direkt al.
+      if (sym === 'TRY' && base !== 'TRY') {
+        const tcmbRate = parseTcmb(xml, base);
+        if (tcmbRate) rate = tcmbRate; // base->TRY
+      }
+      // TRY -> USD/EUR istenirse tersini hesapla
+      if (!rate && base === 'TRY' && sym !== 'TRY') {
+        const tcmbRate = parseTcmb(xml, sym);
+        if (tcmbRate) rate = 1 / tcmbRate; // TRY->sym
+      }
+      // USD->EUR gibi çapraz kur istenirse TRY üzerinden hesapla
+      if (!rate && base !== 'TRY' && sym !== 'TRY') {
+        const rBaseTry = parseTcmb(xml, base);
+        const rSymTry = parseTcmb(xml, sym);
+        if (rBaseTry && rSymTry) rate = rBaseTry / rSymTry; // base->TRY / sym->TRY
+      }
     } catch (e) {}
 
+    // 2) Fallback: exchangerate.host
+    if (!rate) {
+      try {
+        const r = await fetch(`https://api.exchangerate.host/latest?base=${base}&symbols=${sym}`);
+        const j = await r.json();
+        rate = j?.rates?.[sym] || null;
+      } catch (e) {}
+    }
+
+    // 3) Fallback: open.er-api.com
     if (!rate) {
       try {
         const r2 = await fetch(`https://open.er-api.com/v6/latest/${base}`);
