@@ -94,13 +94,15 @@ const urunBilgileriSchema = new mongoose.Schema({
 const makinaKalemiYerliSchema = new mongoose.Schema({
   // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-  // Kullanıcı görünümü için sıra numarası (manuel düzenlenebilir)
+  // 🆕 Sıra numarası (otomatik atanır, manuel düzenlenebilir)
   siraNo: { type: Number, default: 0 },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
   miktar: { type: Number, default: 0 },
   birim: { type: String, trim: true, maxlength: 50 },
+  // 🆕 Birim açıklaması (gösterim amaçlı)
+  birimAciklamasi: { type: String, trim: true, maxlength: 200, default: '' },
   birimFiyatiTl: { type: Number, default: 0 }, // KDV hariç
   toplamTutariTl: { type: Number, default: 0 }, // KDV hariç
   kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
@@ -133,13 +135,15 @@ const makinaKalemiYerliSchema = new mongoose.Schema({
 const makinaKalemiIthalSchema = new mongoose.Schema({
   // Satır kimliği (alt dökümanlarda _id yok, bu alanla adreslenecek)
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
-  // Kullanıcı görünümü için sıra numarası (manuel düzenlenebilir)
+  // 🆕 Sıra numarası (otomatik atanır, manuel düzenlenebilir)
   siraNo: { type: Number, default: 0 },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
   miktar: { type: Number, default: 0 },
   birim: { type: String, trim: true, maxlength: 50 },
+  // 🆕 Birim açıklaması (gösterim amaçlı)
+  birimAciklamasi: { type: String, trim: true, maxlength: 200, default: '' },
   // FOB alanları ve döviz bilgileri
   birimFiyatiFob: { type: Number, default: 0 }, // Menşe ülke döviz birim fiyatı (FOB)
   gumrukDovizKodu: { type: String, trim: true, uppercase: true, maxlength: 10 },

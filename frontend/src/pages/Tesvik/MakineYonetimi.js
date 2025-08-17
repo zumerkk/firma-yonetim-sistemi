@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Snackbar, Alert } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
@@ -17,8 +17,8 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
   return isNaN(n) ? 0 : n;
 };
 
-const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklama: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklama: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -62,7 +62,6 @@ const MakineYonetimi = () => {
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   useEffect(() => { document.title = 'Makine Teçhizat Yönetimi'; }, []);
   useEffect(() => {
@@ -177,8 +176,8 @@ const MakineYonetimi = () => {
   };
 
   const addRow = () => {
-    if (tab === 'yerli') setYerliRows(rows => [...rows, calcYerli({ ...emptyYerli(), siraNo: rows.length + 1 })]);
-    else setIthalRows(rows => [...rows, calcIthal({ ...emptyIthal(), siraNo: rows.length + 1 })]);
+    if (tab === 'yerli') setYerliRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyYerli(), siraNo: nextSira }]; });
+    else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
   };
   const delRow = (id) => {
     if (tab === 'yerli') setYerliRows(rows => rows.filter(r => r.id !== id));
@@ -213,11 +212,11 @@ const MakineYonetimi = () => {
       });
       return ws;
     };
-    const common = (r) => ({ 'GTIP No': r.gtipKodu, 'GTIP Açıklama': r.gtipAciklama, 'Adı ve Özelliği': r.adi, 'Miktarı': r.miktar, 'Birimi': r.birim });
-    addSheet('Yerli', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Fiyatı(TL)(KDV HARİÇ)', 'Makine Teçhizat Tipi', 'KDV Muafiyeti Var Mı?', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
-      yerliRows.map(r => ({ ...common(r), 'Birim Fiyatı(TL)(KDV HARİÇ)': r.birimFiyatiTl, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti Var Mı?': r.kdvIstisnasi, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
+    const common = (r) => ({ 'Sıra No': r.siraNo, 'GTIP No': r.gtipKodu, 'GTIP Açıklama': r.gtipAciklama, 'Adı ve Özelliği': r.adi, 'Miktarı': r.miktar, 'Birimi': r.birim, 'Birim Açıklaması': r.birimAciklamasi });
+    addSheet('Yerli', ['Sıra No', 'GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Açıklaması', 'Birim Fiyatı(TL)(KDV HARİÇ)', 'Makine Teçhizat Tipi', 'KDV Muafiyeti (EVET/HAYIR)', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
+      yerliRows.map(r => ({ ...common(r), 'Birim Fiyatı(TL)(KDV HARİÇ)': r.birimFiyatiTl, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti (EVET/HAYIR)': r.kdvIstisnasi, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
     );
-    addSheet('İthal', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Mensei Doviz Tutari(Fob)', 'Mensei Doviz Cinsi(Fob)', 'Toplam Tutar (FOB $)', 'Toplam Tutar (FOB TL)', 'KULLANILMIŞ MAKİNE', 'Makine Teçhizat Tipi', 'KDV Muafiyeti', 'Gümrük Vergisi Muafiyeti', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
+    addSheet('İthal', ['Sıra No', 'GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Açıklaması', 'Mensei Doviz Tutari(Fob)', 'Mensei Doviz Cinsi(Fob)', 'Toplam Tutar (FOB $)', 'Toplam Tutar (FOB TL)', 'KULLANILMIŞ MAKİNE', 'Makine Teçhizat Tipi', 'KDV Muafiyeti', 'Gümrük Vergisi Muafiyeti', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
       ithalRows.map(r => ({ ...common(r), 'Mensei Doviz Tutari(Fob)': r.birimFiyatiFob, 'Mensei Doviz Cinsi(Fob)': r.doviz, 'Toplam Tutar (FOB $)': r.toplamUsd, 'Toplam Tutar (FOB TL)': r.toplamTl, 'KULLANILMIŞ MAKİNE': r.kullanilmisKod, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti': r.kdvMuafiyeti, 'Gümrük Vergisi Muafiyeti': r.gumrukVergisiMuafiyeti, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
     );
     const buff = await wb.xlsx.writeBuffer();
@@ -240,11 +239,12 @@ const MakineYonetimi = () => {
     const yerli = (data?.makineListeleri?.yerli || []).map(r => ({
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
+      siraNo: r.siraNo || 0,
       gtipKodu: r.gtipKodu || '',
       gtipAciklama: r.gtipAciklamasi || '',
       adi: r.adiVeOzelligi || '',
       miktar: r.miktar || 0,
-      birim: r.birim || '',
+      birim: r.birim || '', birimAciklamasi: r.birimAciklamasi || '',
       birimFiyatiTl: r.birimFiyatiTl || 0,
       toplamTl: r.toplamTutariTl || 0,
       kdvIstisnasi: r.kdvIstisnasi || '',
@@ -263,11 +263,12 @@ const MakineYonetimi = () => {
     const ithal = (data?.makineListeleri?.ithal || []).map(r => ({
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
+      siraNo: r.siraNo || 0,
       gtipKodu: r.gtipKodu || '',
       gtipAciklama: r.gtipAciklamasi || '',
       adi: r.adiVeOzelligi || '',
       miktar: r.miktar || 0,
-      birim: r.birim || '',
+      birim: r.birim || '', birimAciklamasi: r.birimAciklamasi || '',
       birimFiyatiFob: r.birimFiyatiFob || 0,
       doviz: r.gumrukDovizKodu || '',
       toplamUsd: r.toplamTutarFobUsd || 0,
@@ -321,7 +322,7 @@ const MakineYonetimi = () => {
     const yerli = toJSON('Yerli');
     const ithal = toJSON('İthal');
     const yerliMapped = yerli.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'], toplamTl: r['Toplam Tutar (TL)'], kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV İstisnası'], makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, dosyalar: [] };
+      const obj = { id: Math.random().toString(36).slice(2), siraNo: r['Sıra No'] || 0, gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimAciklamasi: r['Birim Açıklaması'] || '', birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'], toplamTl: r['Toplam Tutar (TL)'], kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV Muafiyeti (EVET/HAYIR)'] || r['KDV İstisnası'], makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, dosyalar: [] };
       const errs = [];
       if (!obj.adi) errs.push('Adı boş');
       if (!obj.birim) errs.push('Birim boş');
@@ -330,7 +331,7 @@ const MakineYonetimi = () => {
       return calcYerli(obj);
     });
     const ithalMapped = ithal.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'], doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'], toplamUsd: r['Toplam Tutar (FOB $)'], toplamTl: r['Toplam Tutar (FOB TL)'], kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'], kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', kdvMuafiyeti: r['KDV Muafiyeti'] || '', gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, ckdSkd: '', aracMi: '', dosyalar: [] };
+      const obj = { id: Math.random().toString(36).slice(2), siraNo: r['Sıra No'] || 0, gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimAciklamasi: r['Birim Açıklaması'] || '', birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'], doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'], toplamUsd: r['Toplam Tutar (FOB $)'], toplamTl: r['Toplam Tutar (FOB TL)'], kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'], kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', kdvMuafiyeti: r['KDV Muafiyeti'] || '', gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, ckdSkd: '', aracMi: '', dosyalar: [] };
       const errs = [];
       if (!obj.adi) errs.push('Adı boş');
       if (!obj.birim) errs.push('Birim boş');
@@ -430,6 +431,7 @@ const MakineYonetimi = () => {
 
   const YerliGrid = () => {
     const cols = [
+      { field: 'siraNo', headerName: '#', width: 70, editable: true, type: 'number' },
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
@@ -438,30 +440,31 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'siraNo', headerName: 'Sıra', width: 80, editable: true, type: 'number' },
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: true },
-      { field: 'kdvIstisnasi', headerName: 'KDV', width: 90, renderCell: (p) => (
+      { field: 'kdvIstisnasi', headerName: 'KDV Muafiyeti', width: 140, renderCell: (p) => (
         <Select size="small" value={p.row.kdvIstisnasi || ''} onChange={(e)=> updateYerli(p.row.id, { kdvIstisnasi: e.target.value })} displayEmpty fullWidth>
           <MenuItem value="">-</MenuItem>
-          <MenuItem value="EVET">VAR</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
       { field: 'miktar', headerName: 'Miktar', width: 90, editable: true, type: 'number' },
-      { field: 'birim', headerName: 'Birim', width: 200, renderCell: (p) => (
+      { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1 }}>
-              <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod,aciklama)=>updateYerli(p.row.id,{birim:kod, birimAciklama:aciklama})} />
+              <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>updateYerli(p.row.id,{birim:kod,birimAciklamasi:aciklama})} />
             </Box>
             <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
           </Stack>
         ) },
+      { field: 'birimAciklamasi', headerName: 'Birim Açıklaması', width: 220 },
       { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: true, type: 'number' },
       { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth>
           <MenuItem value="">-</MenuItem>
-          <MenuItem value="ANA MAKİNE">ANA MAKİNE</MenuItem>
-          <MenuItem value="YARDIMCI MAKİNE">YARDIMCI MAKİNE</MenuItem>
+          <MenuItem value="Ana Makine">Ana Makine</MenuItem>
+          <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
         </Select>
       ) },
       { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p) => (
@@ -576,6 +579,7 @@ const MakineYonetimi = () => {
 
   const IthalGrid = () => {
     const cols = [
+      { field: 'siraNo', headerName: '#', width: 70, editable: true, type: 'number' },
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
@@ -587,14 +591,15 @@ const MakineYonetimi = () => {
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: true },
       { field: 'miktar', headerName: 'Miktar', width: 90, editable: true, type: 'number' },
-      { field: 'birim', headerName: 'Birim', width: 200, renderCell: (p) => (
+      { field: 'birim', headerName: 'Birim', width: 180, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <UnitCurrencySearch type="unit" value={p.row.birim} onChange={(kod,aciklama)=>updateIthal(p.row.id,{birim:kod, birimAciklama:aciklama})} />
+            <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>updateIthal(p.row.id,{birim:kod,birimAciklamasi:aciklama})} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
+      { field: 'birimAciklamasi', headerName: 'Birim Açıklaması', width: 220 },
       { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: true, type: 'number' },
       { field: 'doviz', headerName: 'Döviz', width: 160, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
@@ -611,8 +616,12 @@ const MakineYonetimi = () => {
       ) },
       { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, editable: true },
       { field: 'aracMi', headerName: 'Araç mı?', width: 110, editable: true },
-      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 200, renderCell: (p)=> (
-        <UnitCurrencySearch type="machineType" value={p.row.makineTechizatTipi} onChange={(kod)=> updateIthal(p.row.id, { makineTechizatTipi: kod })} />
+      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
+        <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> updateIthal(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="Ana Makine">Ana Makine</MenuItem>
+          <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
+        </Select>
       ) },
       { field: 'kdvMuafiyeti', headerName: 'KDV Muaf?', width: 120, renderCell: (p)=> (
         <Select size="small" value={p.row.kdvMuafiyeti || ''} onChange={(e)=> updateIthal(p.row.id, { kdvMuafiyeti: e.target.value })} displayEmpty fullWidth>
@@ -804,14 +813,13 @@ const MakineYonetimi = () => {
           <Tooltip title={fullScreen?'Tam ekranı kapat':'Tam ekran'}><IconButton onClick={()=> setFullScreen(v=>!v)}>{fullScreen ? <FullscreenExitIcon/> : <FullscreenIcon/>}</IconButton></Tooltip>
           <Tooltip title="Kaydet"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
             const payload = {
-              yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
-              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
+              yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
+              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
             };
-            try {
-              await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-              setSnackbar({ open: true, message: 'Makine listeleri kaydedildi', severity: 'success' });
-            } catch (e) {
-              setSnackbar({ open: true, message: 'Kayıt başarısız', severity: 'error' });
+            const res = await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+            if (res?.success) {
+              // basit geri bildirim
+              alert('Makine listeleri kaydedildi.');
             }
           }}><CheckIcon/></IconButton></span></Tooltip>
         </Stack>
@@ -914,11 +922,6 @@ const MakineYonetimi = () => {
           <Button onClick={()=> setPreviewOpen(false)}>Kapat</Button>
         </DialogActions>
       </Dialog>
-      <Snackbar open={snackbar.open} autoHideDuration={2500} onClose={()=> setSnackbar(s=>({...s, open:false}))} anchorOrigin={{ vertical:'bottom', horizontal:'right' }}>
-        <Alert severity={snackbar.severity} onClose={()=> setSnackbar(s=>({...s, open:false}))} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
     </Box>
   );
 };
