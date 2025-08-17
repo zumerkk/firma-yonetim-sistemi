@@ -4749,6 +4749,82 @@ module.exports = {
   getDurumRenkleri,
   getNextTesvikId,
   bulkUpdateDurum,
+  // 🆕 Makine listelerini toplu kaydet (Yerli/İthal) - CSV uyumlu
+  saveMakineListeleri: async (req, res) => {
+    try {
+      const { id } = req.params; // Tesvik Id
+      const { yerli = [], ithal = [] } = req.body || {};
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+
+      // Normalize helpers
+      const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+      const str = (v) => (v ?? '').toString();
+
+      // Map Yerli
+      const yerliMapped = (Array.isArray(yerli) ? yerli : []).map(r => ({
+        rowId: str(r.rowId) || undefined,
+        gtipKodu: str(r.gtipKodu),
+        gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
+        adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
+        miktar: nz(r.miktar),
+        birim: str(r.birim),
+        birimFiyatiTl: nz(r.birimFiyatiTl),
+        toplamTutariTl: nz(r.toplamTutariTl || r.toplamTl || nz(r.miktar) * nz(r.birimFiyatiTl)),
+        kdvIstisnasi: str(r.kdvIstisnasi || '').toUpperCase(),
+        makineTechizatTipi: str(r.makineTechizatTipi || ''),
+        finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+        finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+        finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+        gerceklesenAdet: nz(r.gerceklesenAdet),
+        gerceklesenTutar: nz(r.gerceklesenTutar),
+        iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+        iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar)
+      }));
+
+      // Map İthal
+      const ithalMapped = (Array.isArray(ithal) ? ithal : []).map(r => ({
+        rowId: str(r.rowId) || undefined,
+        gtipKodu: str(r.gtipKodu),
+        gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
+        adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
+        miktar: nz(r.miktar),
+        birim: str(r.birim),
+        birimFiyatiFob: nz(r.birimFiyatiFob),
+        gumrukDovizKodu: str(r.gumrukDovizKodu || r.doviz).toUpperCase(),
+        toplamTutarFobUsd: nz(r.toplamTutarFobUsd || r.toplamUsd || (nz(r.miktar) * nz(r.birimFiyatiFob))),
+        toplamTutarFobTl: nz(r.toplamTutarFobTl || r.toplamTl),
+        kullanilmisMakine: str(r.kullanilmisMakine || r.kullanilmisKod || ''),
+        kullanilmisMakineAciklama: str(r.kullanilmisMakineAciklama || r.kullanilmisAciklama || ''),
+        ckdSkdMi: str(r.ckdSkdMi || r.ckdSkd || ''),
+        aracMi: str(r.aracMi || ''),
+        kdvIstisnasi: str(r.kdvIstisnasi || ''),
+        makineTechizatTipi: str(r.makineTechizatTipi || ''),
+        kdvMuafiyeti: str(r.kdvMuafiyeti || ''),
+        gumrukVergisiMuafiyeti: str(r.gumrukVergisiMuafiyeti || ''),
+        finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+        finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+        finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+        gerceklesenAdet: nz(r.gerceklesenAdet),
+        gerceklesenTutar: nz(r.gerceklesenTutar),
+        iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+        iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar)
+      }));
+
+      tesvik.makineListeleri.yerli = yerliMapped;
+      tesvik.makineListeleri.ithal = ithalMapped;
+      tesvik.markModified('makineListeleri');
+      await tesvik.save();
+
+      return res.json({ success:true, message:'Makine listeleri kaydedildi', data: tesvik.toSafeJSON() });
+    } catch (error) {
+      console.error('saveMakineListeleri error:', error);
+      return res.status(500).json({ success:false, message:'Makine listeleri kaydedilemedi' });
+    }
+  },
   // 🆕 Makine Talep/Karar API'leri
   setMakineTalepDurumu: async (req, res) => {
     try {

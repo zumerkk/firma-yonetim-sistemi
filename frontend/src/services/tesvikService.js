@@ -21,6 +21,11 @@ const tesvikService = {
     const res = await api.post(`/tesvik/${id}/makine-karar`, payload);
     return res.data;
   },
+  async saveMakineListeleri(id, payload) {
+    // payload: { yerli:[], ithal:[] }
+    const res = await api.post(`/tesvik/${id}/makine-listeleri`, payload);
+    return res.data;
+  },
   async exportMakineExcel(id) {
     // Tek belge makine listeleri için excel (mevcut export endpointini kullanıyoruz)
     const res = await api.get(`/tesvik/${id}/excel-export`, { responseType: 'blob', params: { includeColors: true } });

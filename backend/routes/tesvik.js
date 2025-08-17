@@ -26,6 +26,7 @@ const {
   getDestekUnsurlari,
   getNextTesvikId,
   bulkUpdateDurum,
+  saveMakineListeleri,
   setMakineTalepDurumu,
   setMakineKararDurumu,
   getTesvikAnalytics,
@@ -495,6 +496,8 @@ router.post('/:id/revizyon',
 router.post('/:id/makine-talep', authenticate, checkPermission('belgeDuzenle'), setMakineTalepDurumu);
 // Body: { liste:'yerli'|'ithal', rowId, karar:{ kararDurumu:'onay|kismi_onay|red|revize', onaylananAdet, kararTarihi?, kararNotu? } }
 router.post('/:id/makine-karar', authenticate, checkPermission('belgeDuzenle'), setMakineKararDurumu);
+// 🆕 Makine Listeleri Kaydet (tam liste)
+router.post('/:id/makine-listeleri', authenticate, checkPermission('belgeDuzenle'), saveMakineListeleri);
 
 // 📊 GET /api/tesvik/:id/revisions - Revizyon Geçmişi Getirme
 router.get('/:id/revisions', 

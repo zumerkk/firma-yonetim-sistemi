@@ -3,6 +3,7 @@
 const UnitCode = require('../models/UnitCode');
 const CurrencyCode = require('../models/CurrencyCode');
 const UsedMachineCode = require('../models/UsedMachineCode');
+const MachineTypeCode = require('../models/MachineTypeCode');
 
 // GET /api/lookup/unit?search=SET&limit=50
 const searchUnits = async (req, res) => {
@@ -72,6 +73,18 @@ module.exports.getCurrencyRate = async (req, res) => {
     return res.json({ success: true, base, target: sym, rate });
   } catch (e) {
     return res.status(500).json({ success: false, message: 'Kur servis hatası' });
+  }
+};
+
+// GET /api/lookup/machine-type?search=...
+module.exports.searchMachineTypes = async (req, res) => {
+  try {
+    const { search = '', limit = 100 } = req.query;
+    const data = await MachineTypeCode.search(search, limit);
+    return res.json({ success: true, count: data.length, data });
+  } catch (e) {
+    console.error('❌ MachineType search error:', e);
+    return res.status(500).json({ success: false, message: 'Makine tipi arama hatası' });
   }
 };
 

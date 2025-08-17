@@ -17,8 +17,8 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
   return isNaN(n) ? 0 : n;
 };
 
-const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', dosyalar: []});
+const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -213,11 +213,11 @@ const MakineYonetimi = () => {
       return ws;
     };
     const common = (r) => ({ 'GTIP No': r.gtipKodu, 'GTIP Açıklama': r.gtipAciklama, 'Adı ve Özelliği': r.adi, 'Miktarı': r.miktar, 'Birimi': r.birim });
-    addSheet('Yerli', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Fiyatı (TL)', 'Toplam Tutar (TL)', 'KDV İstisnası'],
-      yerliRows.map(r => ({ ...common(r), 'Birim Fiyatı (TL)': r.birimFiyatiTl, 'Toplam Tutar (TL)': r.toplamTl, 'KDV İstisnası': r.kdvIstisnasi }))
+    addSheet('Yerli', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Fiyatı(TL)(KDV HARİÇ)', 'Makine Teçhizat Tipi', 'KDV Muafiyeti Var Mı?', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
+      yerliRows.map(r => ({ ...common(r), 'Birim Fiyatı(TL)(KDV HARİÇ)': r.birimFiyatiTl, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti Var Mı?': r.kdvIstisnasi, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
     );
-    addSheet('İthal', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Menşei Döviz Birim Fiyatı (FOB)', 'Menşei Döviz Cinsi (FOB)', 'Toplam Tutar (FOB $)', 'Toplam Tutar (FOB TL)', 'Kullanılmış Makine (Kod)', 'Kullanılmış Makine (Açıklama)'],
-      ithalRows.map(r => ({ ...common(r), 'Menşei Döviz Birim Fiyatı (FOB)': r.birimFiyatiFob, 'Menşei Döviz Cinsi (FOB)': r.doviz, 'Toplam Tutar (FOB $)': r.toplamUsd, 'Toplam Tutar (FOB TL)': r.toplamTl, 'Kullanılmış Makine (Kod)': r.kullanilmisKod, 'Kullanılmış Makine (Açıklama)': r.kullanilmisAciklama }))
+    addSheet('İthal', ['GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Mensei Doviz Tutari(Fob)', 'Mensei Doviz Cinsi(Fob)', 'Toplam Tutar (FOB $)', 'Toplam Tutar (FOB TL)', 'KULLANILMIŞ MAKİNE', 'Makine Teçhizat Tipi', 'KDV Muafiyeti', 'Gümrük Vergisi Muafiyeti', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
+      ithalRows.map(r => ({ ...common(r), 'Mensei Doviz Tutari(Fob)': r.birimFiyatiFob, 'Mensei Doviz Cinsi(Fob)': r.doviz, 'Toplam Tutar (FOB $)': r.toplamUsd, 'Toplam Tutar (FOB TL)': r.toplamTl, 'KULLANILMIŞ MAKİNE': r.kullanilmisKod, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti': r.kdvMuafiyeti, 'Gümrük Vergisi Muafiyeti': r.gumrukVergisiMuafiyeti, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
     );
     const buff = await wb.xlsx.writeBuffer();
     const blob = new Blob([buff], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
@@ -247,6 +247,15 @@ const MakineYonetimi = () => {
       birimFiyatiTl: r.birimFiyatiTl || 0,
       toplamTl: r.toplamTutariTl || 0,
       kdvIstisnasi: r.kdvIstisnasi || '',
+      makineTechizatTipi: r.makineTechizatTipi || '',
+      finansalKiralamaMi: r.finansalKiralamaMi || '',
+      finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+      finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+      gerceklesenAdet: r.gerceklesenAdet || 0,
+      gerceklesenTutar: r.gerceklesenTutar || 0,
+      iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+      iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+      iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
       talep: r.talep || null,
       karar: r.karar || null
     }));
@@ -267,6 +276,17 @@ const MakineYonetimi = () => {
       kullanilmisAciklama: r.kullanilmisMakineAciklama || '',
       ckdSkd: r.ckdSkdMi || '',
       aracMi: r.aracMi || '',
+      makineTechizatTipi: r.makineTechizatTipi || '',
+      kdvMuafiyeti: r.kdvMuafiyeti || '',
+      gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || '',
+      finansalKiralamaMi: r.finansalKiralamaMi || '',
+      finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+      finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+      gerceklesenAdet: r.gerceklesenAdet || 0,
+      gerceklesenTutar: r.gerceklesenTutar || 0,
+      iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+      iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+      iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
       talep: r.talep || null,
       karar: r.karar || null
     }));
@@ -300,7 +320,7 @@ const MakineYonetimi = () => {
     const yerli = toJSON('Yerli');
     const ithal = toJSON('İthal');
     const yerliMapped = yerli.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiTl: r['Birim Fiyatı (TL)'], toplamTl: r['Toplam Tutar (TL)'], kdvIstisnasi: r['KDV İstisnası'], dosyalar: [] };
+      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'], toplamTl: r['Toplam Tutar (TL)'], kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV İstisnası'], makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, dosyalar: [] };
       const errs = [];
       if (!obj.adi) errs.push('Adı boş');
       if (!obj.birim) errs.push('Birim boş');
@@ -309,7 +329,7 @@ const MakineYonetimi = () => {
       return calcYerli(obj);
     });
     const ithalMapped = ithal.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiFob: r['Menşei Döviz Birim Fiyatı (FOB)'], doviz: r['Menşei Döviz Cinsi (FOB)'], toplamUsd: r['Toplam Tutar (FOB $)'], toplamTl: r['Toplam Tutar (FOB TL)'], kullanilmisKod: r['Kullanılmış Makine (Kod)'], kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'], ckdSkd: '', aracMi: '', dosyalar: [] };
+      const obj = { id: Math.random().toString(36).slice(2), gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'], doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'], toplamUsd: r['Toplam Tutar (FOB $)'], toplamTl: r['Toplam Tutar (FOB TL)'], kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'], kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', kdvMuafiyeti: r['KDV Muafiyeti'] || '', gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, ckdSkd: '', aracMi: '', dosyalar: [] };
       const errs = [];
       if (!obj.adi) errs.push('Adı boş');
       if (!obj.birim) errs.push('Birim boş');
@@ -435,9 +455,32 @@ const MakineYonetimi = () => {
           </Stack>
         ) },
       { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: true, type: 'number' },
+      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 200, renderCell: (p)=> (
+        <UnitCurrencySearch type="machineType" value={p.row.makineTechizatTipi} onChange={(kod)=> updateYerli(p.row.id, { makineTechizatTipi: kod })} />
+      ) },
+      { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p) => (
+        <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> updateYerli(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      )},
+      { field: 'finansalKiralamaAdet', headerName: 'FK Adet', width: 100, editable: true, type: 'number' },
+      { field: 'finansalKiralamaSirket', headerName: 'FK Şirket', width: 160, editable: true },
+      { field: 'gerceklesenAdet', headerName: 'Gerç. Adet', width: 110, editable: true, type: 'number' },
+      { field: 'gerceklesenTutar', headerName: 'Gerç. Tutar', width: 130, editable: true, type: 'number' },
+      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış?', width: 150, renderCell: (p) => (
+        <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> updateYerli(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: true, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: true, type: 'number' },
       { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
-        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
+        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
           <Button size="small" onClick={()=>openUpload(p.row.id)}>Yükle</Button>
           {Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 && (
             <Chip label={p.row.dosyalar.length} size="small" sx={{ ml: 0.5 }} />
@@ -562,8 +605,45 @@ const MakineYonetimi = () => {
       ) },
       { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, editable: true },
       { field: 'aracMi', headerName: 'Araç mı?', width: 110, editable: true },
+      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 200, renderCell: (p)=> (
+        <UnitCurrencySearch type="machineType" value={p.row.makineTechizatTipi} onChange={(kod)=> updateIthal(p.row.id, { makineTechizatTipi: kod })} />
+      ) },
+      { field: 'kdvMuafiyeti', headerName: 'KDV Muaf?', width: 120, renderCell: (p)=> (
+        <Select size="small" value={p.row.kdvMuafiyeti || ''} onChange={(e)=> updateIthal(p.row.id, { kdvMuafiyeti: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'gumrukVergisiMuafiyeti', headerName: 'G.Verg. Muaf?', width: 140, renderCell: (p)=> (
+        <Select size="small" value={p.row.gumrukVergisiMuafiyeti || ''} onChange={(e)=> updateIthal(p.row.id, { gumrukVergisiMuafiyeti: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p)=> (
+        <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> updateIthal(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'finansalKiralamaAdet', headerName: 'FK Adet', width: 100, editable: true, type: 'number' },
+      { field: 'finansalKiralamaSirket', headerName: 'FK Şirket', width: 160, editable: true },
+      { field: 'gerceklesenAdet', headerName: 'Gerç. Adet', width: 110, editable: true, type: 'number' },
+      { field: 'gerceklesenTutar', headerName: 'Gerç. Tutar', width: 130, editable: true, type: 'number' },
+      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış?', width: 150, renderCell: (p)=> (
+        <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> updateIthal(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: true, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: true, type: 'number' },
       { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
-        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
+        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
           <Button size="small" onClick={()=>openUpload(p.row.id)}>Yükle</Button>
           {Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 && (
             <Chip label={p.row.dosyalar.length} size="small" sx={{ ml: 0.5 }} />
@@ -716,6 +796,13 @@ const MakineYonetimi = () => {
           <Tooltip title="Sütunlar"><IconButton onClick={(e)=> setColumnsAnchor(e.currentTarget)}><ViewColumnIcon/></IconButton></Tooltip>
           <Tooltip title={density==='compact'?'Geniş görünüm':'Kompakt görünüm'}><IconButton onClick={()=> setDensity(density==='compact'?'standard':'compact')}><VisibilityIcon/></IconButton></Tooltip>
           <Tooltip title={fullScreen?'Tam ekranı kapat':'Tam ekran'}><IconButton onClick={()=> setFullScreen(v=>!v)}>{fullScreen ? <FullscreenExitIcon/> : <FullscreenIcon/>}</IconButton></Tooltip>
+          <Tooltip title="Kaydet"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
+            const payload = {
+              yerli: yerliRows.map(r=>({ rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
+              ithal: ithalRows.map(r=>({ rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
+            };
+            await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+          }}><CheckIcon/></IconButton></span></Tooltip>
         </Stack>
 
         {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
@@ -730,7 +817,7 @@ const MakineYonetimi = () => {
         ))}
       </Menu>
 
-      <FileUpload open={uploadOpen} onClose={closeUpload} onUploadComplete={handleUploadComplete} currentPath={`makine-yonetimi/${tab}/${uploadRowId||''}`} />
+      <FileUpload open={uploadOpen} onClose={closeUpload} onUploadComplete={handleUploadComplete} currentPath={`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${uploadRowId||''}`} />
 
       {/* Sağ tık menüsü */}
       <Menu open={!!contextAnchor} anchorEl={contextAnchor} onClose={()=>{setContextAnchor(null); setContextRow(null);}}>

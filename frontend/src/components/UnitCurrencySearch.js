@@ -10,7 +10,7 @@ const debounce = (fn, wait = 250) => {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
 };
 
-// type: 'unit' | 'currency' | 'used'
+// type: 'unit' | 'currency' | 'used' | 'machineType'
 const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,6 +27,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
       let data = [];
       if (type === 'unit') data = await unitService.search(q, 100);
       else if (type === 'currency') data = await currencyService.search(q, 200);
+      else if (type === 'machineType') data = await unitService.searchMachineTypes(q, 200);
       else data = await usedMachineService.search(q, 50);
       setResults(data);
     } finally {
@@ -65,7 +66,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
         inputRef={inputRef}
         value={selected ? (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : '')) : ''}
         onClick={() => setIsOpen(true)}
-        placeholder={placeholder || (type === 'unit' ? 'Birim seç...' : 'Döviz seç...')}
+        placeholder={placeholder || (type === 'unit' ? 'Birim seç...' : type==='currency' ? 'Döviz seç...' : type==='machineType' ? 'Makine tipi seç...' : 'Seç...')}
         size={size}
         fullWidth
         readOnly
@@ -81,7 +82,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
       />
 
       <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{type === 'unit' ? 'Birim Kodu Seç' : type === 'currency' ? 'Döviz Kodu Seç' : 'Kullanılmış Makine Seç'}</DialogTitle>
+        <DialogTitle>{type === 'unit' ? 'Birim Kodu Seç' : type === 'currency' ? 'Döviz Kodu Seç' : type === 'machineType' ? 'Makine Teçhizat Tipi Seç' : 'Kullanılmış Makine Seç'}</DialogTitle>
         <DialogContent dividers>
           <TextField
             autoFocus

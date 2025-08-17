@@ -16,7 +16,7 @@ const { authenticate } = require('../middleware/auth');
 // 📂 FILE & FOLDER LISTING
 router.get('/', authenticate, getFiles);
 
-// 📤 FILE UPLOAD
+// 📤 FILE UPLOAD (path önerisi: makine-yonetimi/:tesvikId/:liste/:rowId)
 router.post('/upload', authenticate, uploadFiles);
 
 // 📥 FILE DOWNLOAD

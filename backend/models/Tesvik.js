@@ -102,6 +102,16 @@ const makinaKalemiYerliSchema = new mongoose.Schema({
   birimFiyatiTl: { type: Number, default: 0 }, // KDV hariç
   toplamTutariTl: { type: Number, default: 0 }, // KDV hariç
   kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  // 🆕 Ek alanlar (CSV şablonlarına uygun)
+  makineTechizatTipi: { type: String, trim: true, default: '' },
+  finansalKiralamaMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  finansalKiralamaAdet: { type: Number, default: 0 },
+  finansalKiralamaSirket: { type: String, trim: true, default: '' },
+  gerceklesenAdet: { type: Number, default: 0 },
+  gerceklesenTutar: { type: Number, default: 0 },
+  iadeDevirSatisVarMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  iadeDevirSatisAdet: { type: Number, default: 0 },
+  iadeDevirSatisTutar: { type: Number, default: 0 },
   // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
   talep: {
     durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
@@ -141,6 +151,18 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   birimFiyatiTl: { type: Number, default: 0 },
   toplamTutariTl: { type: Number, default: 0 },
   kdvIstisnasi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  // 🆕 Ek alanlar (CSV şablonlarına uygun)
+  makineTechizatTipi: { type: String, trim: true, default: '' },
+  kdvMuafiyeti: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  gumrukVergisiMuafiyeti: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  finansalKiralamaMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  finansalKiralamaAdet: { type: Number, default: 0 },
+  finansalKiralamaSirket: { type: String, trim: true, default: '' },
+  gerceklesenAdet: { type: Number, default: 0 },
+  gerceklesenTutar: { type: Number, default: 0 },
+  iadeDevirSatisVarMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
+  iadeDevirSatisAdet: { type: Number, default: 0 },
+  iadeDevirSatisTutar: { type: Number, default: 0 },
   // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
   talep: {
     durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
