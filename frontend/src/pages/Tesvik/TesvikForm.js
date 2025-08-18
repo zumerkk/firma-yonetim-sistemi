@@ -1685,7 +1685,7 @@ const TesvikForm = () => {
       if (response.data.success) {
         // CRITICAL FIX: Template data'yı yenile!
         try {
-          const templateResponse = await axios.get('/tesvik/form-template');
+          const templateResponse = await axios.get('/tesvik/templates/yeni-tesvik');
           if (templateResponse.data.success) {
             setTemplateData(templateResponse.data.data);
           }
@@ -1765,7 +1765,7 @@ const TesvikForm = () => {
         
         // CRITICAL FIX: Template data'yı da yenile!
         try {
-          const templateResponse = await axios.get('/tesvik/form-template');
+          const templateResponse = await axios.get('/tesvik/templates/yeni-tesvik');
           if (templateResponse.data.success) {
             setTemplateData(templateResponse.data.data);
             console.log(`✅ [DEBUG] Template data yenilendi - Özel şart sayısı:`, 
