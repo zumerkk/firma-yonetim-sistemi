@@ -114,16 +114,8 @@ const TesvikList = () => {
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
-    setRevizyonDialog({
-      open: true,
-      tesvik,
-      loading: false,
-      form: {
-        revizyonSebebi: '',
-        yeniDurum: '',
-        kullaniciNotu: ''
-      }
-    });
+    // Liste modali yerine detay sayfasına git ve revizyon modalini otomatik aç
+    navigate(`/tesvik/${tesvik._id}?revizyon=1`);
   };
 
   const handleRevizyonClose = () => {

@@ -329,6 +329,16 @@ const TesvikDetail = () => {
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 🔔 Liste ekranından revizyon başlatıldıysa modalı otomatik aç
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('revizyon') === '1') {
+        setRevizyonModalOpen(true);
+      }
+    } catch (e) {}
+  }, []);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
