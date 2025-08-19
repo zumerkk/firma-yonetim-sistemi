@@ -1218,10 +1218,12 @@ const TesvikDetail = () => {
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#f0f9ff', borderRadius: 1, border: '1px solid #bae6fd', textAlign: 'center' }}>
                   <Typography variant="caption" sx={{ color: '#0369a1', fontSize: '0.65rem', fontWeight: 500 }}>Oluşturan</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284c7', fontSize: '0.8rem' }}>
-                    {activities?.find?.(a => a.action === 'create')?.user?.adSoyad || 'Hüseyin Cahit Ağar'}
-                </Typography>
-                  <Chip label="admin" size="small" sx={{ backgroundColor: '#dc2626', color: 'white', fontSize: '0.6rem', height: 16, mt: 0.25 }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284c7', fontSize: '0.8rem' }}>
+                    {tesvik?.olusturanKullanici?.adSoyad || 'Bilinmiyor'}
+                  </Typography>
+                  {tesvik?.olusturanKullanici?.rol && (
+                    <Chip label={tesvik.olusturanKullanici.rol} size="small" sx={{ backgroundColor: '#dc2626', color: 'white', fontSize: '0.6rem', height: 16, mt: 0.25 }} />
+                  )}
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
@@ -1234,15 +1236,15 @@ const TesvikDetail = () => {
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fffbeb', borderRadius: 1, border: '1px solid #fed7aa', textAlign: 'center' }}>
-                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleme</Typography>
+                  <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleyen</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.8rem' }}>
-                    Sistem Yöneticisi
+                    {tesvik?.sonGuncelleyen?.adSoyad || '—'}
                   </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fef2f2', borderRadius: 1, border: '1px solid #fecaca', textAlign: 'center' }}>
-                  <Typography variant="caption" sx={{ color: '#dc2626', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleme</Typography>
+                  <Typography variant="caption" sx={{ color: '#dc2626', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleme Tarihi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#991b1b', fontSize: '0.8rem' }}>
                     {formatDate(tesvik.updatedAt) || '10 Ağustos 2025'}
                   </Typography>
