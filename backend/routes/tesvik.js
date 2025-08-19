@@ -502,7 +502,7 @@ router.post('/:id/makine-listeleri', authenticate, checkPermission('belgeDuzenle
 // 📊 GET /api/tesvik/:id/revisions - Revizyon Geçmişi Getirme
 router.get('/:id/revisions', 
   authenticate, 
-  checkPermission('belgeOkuma'),
+  checkPermission('raporGoruntule'),
   getTesvikRevisions
 );
 
