@@ -14,6 +14,61 @@ const fs = require('fs');
 const path = require('path');
 const csv = require('csv-parser'); // OSB verilerini okumak için
 
+// 🔧 ÜRÜN NORMALİZASYON & BİRLEŞTİRME YARDIMCISI
+// Aynı US97 kodu ve kapasite birimine sahip birden fazla ürün varsa birleştirir
+// - Boş/eksik satırları ayıklar
+// - Sayısal alanları normalize eder
+// - Toplam kapasiteyi yeniden hesaplar
+function normalizeAndMergeUrunler(urunler = []) {
+  try {
+    const map = new Map();
+    (Array.isArray(urunler) ? urunler : []).forEach((raw) => {
+      if (!raw) return;
+      const u97Kodu = (raw.u97Kodu || raw.us97Kodu || '').toString().trim();
+      const urunAdi = (raw.urunAdi || raw.ad || raw.aciklama || '').toString().trim();
+      const kapasiteBirimi = (raw.kapasiteBirimi || raw.birim || '').toString().trim();
+      const mevcutKapasite = Number(raw.mevcutKapasite || raw.mevcut || 0) || 0;
+      const ilaveKapasite = Number(raw.ilaveKapasite || raw.ilave || 0) || 0;
+      const toplamKapasite = Number(raw.toplamKapasite || raw.toplam || (mevcutKapasite + ilaveKapasite) || 0) || 0;
+
+      // En azından kod veya ad olmalı; ikisi de boşsa atla
+      if (!u97Kodu && !urunAdi) return;
+
+      const key = `${u97Kodu}|${kapasiteBirimi}`.toUpperCase();
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          u97Kodu,
+          urunAdi,
+          kapasiteBirimi,
+          mevcutKapasite,
+          ilaveKapasite,
+          toplamKapasite: toplamKapasite || (mevcutKapasite + ilaveKapasite),
+          aktif: true
+        });
+      } else {
+        // Birleştir: kapasiteleri topla, isim boşsa doldur
+        existing.mevcutKapasite += mevcutKapasite;
+        existing.ilaveKapasite += ilaveKapasite;
+        const combinedToplam = (existing.toplamKapasite || 0) + (toplamKapasite || (mevcutKapasite + ilaveKapasite));
+        // Tekrar hesapla: toplam = mevcut + ilave (daha tutarlı)
+        existing.toplamKapasite = existing.mevcutKapasite + existing.ilaveKapasite;
+        if (!existing.urunAdi && urunAdi) existing.urunAdi = urunAdi;
+      }
+    });
+
+    // Sadece anlamlı ürünleri döndür (en az bir kapasite veya kod/ad)
+    return Array.from(map.values()).filter((u) => {
+      const hasCapacity = (Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0;
+      const hasIdentity = !!(u.u97Kodu || u.urunAdi);
+      return hasIdentity && (hasCapacity || true); // kapasite 0 olsa da kimliği olanı tut
+    });
+  } catch (e) {
+    console.log('⚠️ Ürün normalizasyonu sırasında hata (pas geçildi):', e.message);
+    return Array.isArray(urunler) ? urunler : [];
+  }
+}
+
 // 📝 YENİ TEŞVİK OLUŞTUR
 const createTesvik = async (req, res) => {
   try {
@@ -72,6 +127,11 @@ const createTesvik = async (req, res) => {
         success: false,
         message: 'Belirtilen firma bulunamadı'
       });
+    }
+
+    // Ürünleri normalize et ve mükerrerleri birleştir
+    if (Array.isArray(tesvikData.urunler)) {
+      tesvikData.urunler = normalizeAndMergeUrunler(tesvikData.urunler);
     }
 
     // Yeni teşvik oluştur
@@ -356,6 +416,10 @@ const updateTesvik = async (req, res) => {
     
     // Güncelleme uygula
     Object.assign(tesvik, filteredUpdateData);
+    // Ürünler güncelleniyorsa normalize et ve mükerrerleri birleştir
+    if (Array.isArray(filteredUpdateData.urunler)) {
+      tesvik.urunler = normalizeAndMergeUrunler(filteredUpdateData.urunler);
+    }
     // Güncellemede makine listelerini normalize et
     if (filteredUpdateData.makineListeleri) {
       const normalizeYerli = (arr = []) => arr
