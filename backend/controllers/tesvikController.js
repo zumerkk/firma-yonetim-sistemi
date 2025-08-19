@@ -25,7 +25,11 @@ function normalizeAndMergeUrunler(urunler = []) {
     (Array.isArray(urunler) ? urunler : []).forEach((raw) => {
       if (!raw) return;
       const u97Kodu = (raw.u97Kodu || raw.us97Kodu || '').toString().trim();
-      const urunAdi = (raw.urunAdi || raw.ad || raw.aciklama || '').toString().trim();
+      // Çok uzun açıklamaları makul bir uzunluğa kısalt (model limitine uygun)
+      let urunAdi = (raw.urunAdi || raw.ad || raw.aciklama || '').toString().trim();
+      if (urunAdi.length > 400) {
+        urunAdi = urunAdi.slice(0, 400);
+      }
       const kapasiteBirimi = (raw.kapasiteBirimi || raw.birim || '').toString().trim();
       const mevcutKapasite = Number(raw.mevcutKapasite || raw.mevcut || 0) || 0;
       const ilaveKapasite = Number(raw.ilaveKapasite || raw.ilave || 0) || 0;

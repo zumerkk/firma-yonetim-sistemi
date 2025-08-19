@@ -33,6 +33,8 @@ const destekSartRoutes = require('./routes/destekSart'); // 🎯 Destek-Şart E�
 const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
 
 const app = express();
+// Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
+app.set('trust proxy', 1);
 
 // 🌐 CORS ayarlarını EN BAŞTA tanımla (middleware order çok önemli)
 const allowedOrigins = [

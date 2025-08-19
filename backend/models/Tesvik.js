@@ -77,7 +77,7 @@ const urunBilgileriSchema = new mongoose.Schema({
     type: String,
     required: true,
     trim: true,
-    maxlength: 200
+    maxlength: 400 // 200 → 400: Bazı sektör ürün açıklamaları uzun olabiliyor
   },
   mevcutKapasite: { type: Number, default: 0 },
   ilaveKapasite: { type: Number, default: 0 },
@@ -85,7 +85,7 @@ const urunBilgileriSchema = new mongoose.Schema({
   kapasiteBirimi: {
     type: String,
     trim: true,
-    maxlength: 50
+    maxlength: 100
   },
   aktif: { type: Boolean, default: true }
 }, { _id: false });
