@@ -68,13 +68,17 @@ export const NotificationProvider = ({ children }) => {
     try {
       const result = await notificationService.getUnreadCount();
       if (result.success) {
-        setState(prev => ({
-          ...prev,
-          unreadCount: result.count
-        }));
+        setState(prev => ({ ...prev, unreadCount: result.count }));
+      } else {
+        // Sessiz fallback
+        setState(prev => ({ ...prev, unreadCount: 0 }));
       }
     } catch (error) {
-      console.error('❌ Okunmamış sayı yenileme hatası:', error);
+      // Gürültüyü azalt: production'da konsola basma
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Okunmamış sayı yenileme hatası:', error?.message || error);
+      }
+      setState(prev => ({ ...prev, unreadCount: 0 }));
     }
   }, [user]);
 

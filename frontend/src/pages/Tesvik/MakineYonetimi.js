@@ -81,6 +81,48 @@ const MakineYonetimi = () => {
   useEffect(() => saveLS(`mk_${selectedTesvik?._id || 'global'}_yerli`, yerliRows), [yerliRows, selectedTesvik]);
   useEffect(() => saveLS(`mk_${selectedTesvik?._id || 'global'}_ithal`, ithalRows), [ithalRows, selectedTesvik]);
 
+  // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
+  useEffect(() => {
+    (async () => {
+      if (!Array.isArray(ithalRows) || ithalRows.length === 0) return;
+      let changed = false;
+      const nextRows = await Promise.all(ithalRows.map(async (r) => {
+        try {
+          if (r.tlManuel) return r; // manuel modda dokunma
+          const miktar = numberOrZero(r.miktar);
+          const fob = numberOrZero(r.birimFiyatiFob);
+          const usd = miktar * fob;
+          // Döviz yoksa sadece USD güncelle
+          if (!r.doviz) {
+            if (numberOrZero(r.toplamUsd) !== usd) { changed = true; return { ...r, toplamUsd: usd }; }
+            return r;
+          }
+          const doviz = (r.doviz || '').toUpperCase();
+          if (doviz === 'TRY') {
+            const tl = usd;
+            if (numberOrZero(r.toplamUsd) !== usd || numberOrZero(r.toplamTl) !== tl) { changed = true; return { ...r, toplamUsd: usd, toplamTl: tl }; }
+            return r;
+          }
+          // Kur çek ve TL hesapla
+          const key = `${doviz}->TRY`;
+          let rate = rateCache[key];
+          if (!rate) {
+            try {
+              rate = await currencyService.getRate(doviz, 'TRY');
+              if (rate) setRateCache(prev => ({ ...prev, [key]: rate }));
+            } catch { /* ignore */ }
+          }
+          const tl = rate ? Math.round(usd * rate) : numberOrZero(r.toplamTl);
+          if (numberOrZero(r.toplamUsd) !== usd || (rate && numberOrZero(r.toplamTl) !== tl)) {
+            changed = true; return { ...r, toplamUsd: usd, ...(rate ? { toplamTl: tl } : {}) };
+          }
+          return r;
+        } catch { return r; }
+      }));
+      if (changed) setIthalRows(nextRows);
+    })();
+  }, [ithalRows, rateCache]);
+
   const yerliToplamTl = useMemo(() => yerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [yerliRows]);
   const ithalToplamUsd = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamUsd), 0), [ithalRows]);
   const ithalToplamTl = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [ithalRows]);
@@ -156,7 +198,8 @@ const MakineYonetimi = () => {
       const miktar = numberOrZero(field === 'miktar' ? value : next.miktar);
       const fob = numberOrZero(field === 'birimFiyatiFob' ? value : next.birimFiyatiFob);
       const usd = miktar * fob;
-      updateIthal(params.id, { [field]: value, toplamUsd: usd });
+      // çekirdek alan değiştiyse manuel TL resetle (yeniden otomatik hesaplansın)
+      updateIthal(params.id, { [field]: value, toplamUsd: usd, tlManuel: false });
       // TRY ise TL = USD; değilse kur ile TL (manuel değilse)
       if ((next.doviz || '').toUpperCase() === 'TRY') {
         if (!next.tlManuel) updateIthal(params.id, { toplamTl: usd });
@@ -172,7 +215,7 @@ const MakineYonetimi = () => {
     }
     // 2) Döviz değiştiğinde TL'yi güncelle (manuel değilse)
     if (field === 'doviz') {
-      updateIthal(params.id, { doviz: value });
+      updateIthal(params.id, { doviz: value, tlManuel: false });
       const miktar = numberOrZero(next.miktar);
       const fob = numberOrZero(next.birimFiyatiFob);
       const usd = miktar * fob;
@@ -192,7 +235,10 @@ const MakineYonetimi = () => {
     }
     // 3) TL elle düzenlendiyse manuel mod
     if (field === 'toplamTl') {
-      updateIthal(params.id, { toplamTl: numberOrZero(value), tlManuel: true });
+      const newVal = numberOrZero(value);
+      if (newVal !== numberOrZero(row.toplamTl)) {
+        updateIthal(params.id, { toplamTl: newVal, tlManuel: true });
+      }
       return;
     }
     // Diğer alanlar için patch
@@ -230,31 +276,184 @@ const MakineYonetimi = () => {
   const closeUpload = () => { setUploadOpen(false); setUploadRowId(null); };
 
   const exportExcel = async () => {
+    // Daha profesyonel Excel çıktı: stil, dondurulmuş başlık, filtre, numara formatları,
+    // veri doğrulama (EVET/HAYIR ve Makine Tipi), toplam satırları ve özet sayfası.
+
     const wb = new ExcelJS.Workbook();
-    const addSheet = (name, headers, rows) => {
-      const ws = wb.addWorksheet(name);
-      ws.columns = headers.map(h => ({ header: h, key: h, width: Math.max(14, h.length + 2) }));
-      rows.forEach(r => ws.addRow(r));
-      // header style
-      ws.getRow(1).font = { bold: true };
-      ws.getRow(1).alignment = { horizontal: 'center' };
+    wb.creator = 'Firma Yönetim Sistemi';
+    wb.created = new Date();
+
+    // Yardımcı: kolon index → harf
+    const colLetter = (n) => {
+      let s = ''; let x = n;
+      while (x > 0) { const m = (x - 1) % 26; s = String.fromCharCode(65 + m) + s; x = Math.floor((x - 1) / 26); }
+      return s;
+    };
+
+    // Yardımcı: sayfayı profesyonel hale getir
+    const finalizeSheet = (ws, numRows) => {
+      // Başlık satırı
+      const header = ws.getRow(1);
+      header.font = { bold: true, color: { argb: 'FF1F2937' } };
+      header.alignment = { horizontal: 'center', vertical: 'middle' };
+      header.height = 20;
+      header.eachCell((cell) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+      });
+      // Satır stilleri
       ws.eachRow((row, rowNumber) => {
-        row.eachCell((cell) => {
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        });
         if (rowNumber > 1) {
           row.alignment = { vertical: 'middle' };
         }
       });
-      return ws;
+      // Dondur ve filtre ekle
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+      const lastCol = colLetter(ws.columnCount);
+      ws.autoFilter = `A1:${lastCol}1`;
+      // Baskı ve kenar boşlukları
+      ws.pageSetup = { fitToPage: true, orientation: 'landscape', margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5 } };
+      // Zebra şerit (okunabilirlik)
+      for (let r = 2; r <= numRows; r += 2) {
+        ws.getRow(r).eachCell((cell) => {
+          cell.fill = cell.fill || { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+        });
+      }
     };
-    const common = (r) => ({ 'Sıra No': r.siraNo, 'GTIP No': r.gtipKodu, 'GTIP Açıklama': r.gtipAciklama, 'Adı ve Özelliği': r.adi, 'Miktarı': r.miktar, 'Birimi': r.birim, 'Birim Açıklaması': r.birimAciklamasi });
-    addSheet('Yerli', ['Sıra No', 'GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Açıklaması', 'Birim Fiyatı(TL)(KDV HARİÇ)', 'Makine Teçhizat Tipi', 'KDV Muafiyeti (EVET/HAYIR)', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
-      yerliRows.map(r => ({ ...common(r), 'Birim Fiyatı(TL)(KDV HARİÇ)': r.birimFiyatiTl, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti (EVET/HAYIR)': r.kdvIstisnasi, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
-    );
-    addSheet('İthal', ['Sıra No', 'GTIP No', 'GTIP Açıklama', 'Adı ve Özelliği', 'Miktarı', 'Birimi', 'Birim Açıklaması', 'Mensei Doviz Tutari(Fob)', 'Mensei Doviz Cinsi(Fob)', 'Toplam Tutar (FOB $)', 'Toplam Tutar (FOB TL)', 'KULLANILMIŞ MAKİNE', 'Makine Teçhizat Tipi', 'KDV Muafiyeti', 'Gümrük Vergisi Muafiyeti', 'Finansal Kiralama Mı', 'Finansal Kiralama İse Adet ', 'Finansal Kiralama İse Şirket', 'Gerçekleşen Adet', 'Gerçekleşen Tutar ', 'İade-Devir-Satış Var mı?', 'İade-Devir-Satış adet', 'İade Devir Satış Tutar'],
-      ithalRows.map(r => ({ ...common(r), 'Mensei Doviz Tutari(Fob)': r.birimFiyatiFob, 'Mensei Doviz Cinsi(Fob)': r.doviz, 'Toplam Tutar (FOB $)': r.toplamUsd, 'Toplam Tutar (FOB TL)': r.toplamTl, 'KULLANILMIŞ MAKİNE': r.kullanilmisKod, 'Makine Teçhizat Tipi': r.makineTechizatTipi, 'KDV Muafiyeti': r.kdvMuafiyeti, 'Gümrük Vergisi Muafiyeti': r.gumrukVergisiMuafiyeti, 'Finansal Kiralama Mı': r.finansalKiralamaMi, 'Finansal Kiralama İse Adet ': r.finansalKiralamaAdet, 'Finansal Kiralama İse Şirket': r.finansalKiralamaSirket, 'Gerçekleşen Adet': r.gerceklesenAdet, 'Gerçekleşen Tutar ': r.gerceklesenTutar, 'İade-Devir-Satış Var mı?': r.iadeDevirSatisVarMi, 'İade-Devir-Satış adet': r.iadeDevirSatisAdet, 'İade Devir Satış Tutar': r.iadeDevirSatisTutar }))
-    );
+
+    // Lookup/Validation sayfası (gizli)
+    const wsLists = wb.addWorksheet('Lists');
+    wsLists.state = 'veryHidden';
+    wsLists.getCell('A1').value = 'EVETHAYIR';
+    wsLists.getCell('A2').value = 'EVET';
+    wsLists.getCell('A3').value = 'HAYIR';
+    wsLists.getCell('B1').value = 'MAKINE_TIPI';
+    wsLists.getCell('B2').value = 'Ana Makine';
+    wsLists.getCell('B3').value = 'Yardımcı Makine';
+
+    // Alan setleri
+    const yerliColumns = [
+      { header: 'Sıra No', key: 'siraNo', width: 10 },
+      { header: 'GTIP No', key: 'gtipKodu', width: 16 },
+      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
+      { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
+      { header: 'Miktarı', key: 'miktar', width: 12, numFmt: '#,##0' },
+      { header: 'Birimi', key: 'birim', width: 12 },
+      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 22 },
+      { header: 'Birim Fiyatı(TL)(KDV HARİÇ)', key: 'birimFiyatiTl', width: 20, numFmt: '#,##0.00' },
+      { header: 'Toplam Tutar (TL)', key: 'toplamTl', width: 18, numFmt: '#,##0' },
+      { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
+      { header: 'KDV Muafiyeti (EVET/HAYIR)', key: 'kdvIstisnasi', width: 22 },
+      { header: 'Finansal Kiralama Mı', key: 'finansalKiralamaMi', width: 18 },
+      { header: 'Finansal Kiralama İse Adet ', key: 'finansalKiralamaAdet', width: 20, numFmt: '#,##0' },
+      { header: 'Finansal Kiralama İse Şirket', key: 'finansalKiralamaSirket', width: 24 },
+      { header: 'Gerçekleşen Adet', key: 'gerceklesenAdet', width: 16, numFmt: '#,##0' },
+      { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
+      { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
+      { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
+      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' }
+    ];
+
+    const ithalColumns = [
+      { header: 'Sıra No', key: 'siraNo', width: 10 },
+      { header: 'GTIP No', key: 'gtipKodu', width: 16 },
+      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
+      { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
+      { header: 'Miktarı', key: 'miktar', width: 12, numFmt: '#,##0' },
+      { header: 'Birimi', key: 'birim', width: 12 },
+      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 22 },
+      { header: 'Menşei Döviz Birim Fiyatı (FOB)', key: 'birimFiyatiFob', width: 24, numFmt: '#,##0.00' },
+      { header: 'Menşei Döviz Cinsi (FOB)', key: 'doviz', width: 18 },
+      { header: 'Toplam Tutar (FOB $)', key: 'toplamUsd', width: 20, numFmt: '#,##0' },
+      { header: 'Toplam Tutar (FOB TL)', key: 'toplamTl', width: 20, numFmt: '#,##0' },
+      { header: 'KULLANILMIŞ MAKİNE', key: 'kullanilmisKod', width: 22 },
+      { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
+      { header: 'KDV Muafiyeti', key: 'kdvMuafiyeti', width: 16 },
+      { header: 'Gümrük Vergisi Muafiyeti', key: 'gumrukVergisiMuafiyeti', width: 22 },
+      { header: 'Finansal Kiralama Mı', key: 'finansalKiralamaMi', width: 18 },
+      { header: 'Finansal Kiralama İse Adet ', key: 'finansalKiralamaAdet', width: 20, numFmt: '#,##0' },
+      { header: 'Finansal Kiralama İse Şirket', key: 'finansalKiralamaSirket', width: 24 },
+      { header: 'Gerçekleşen Adet', key: 'gerceklesenAdet', width: 16, numFmt: '#,##0' },
+      { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
+      { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
+      { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
+      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' }
+    ];
+
+    // Yerli sayfası
+    const wsYerli = wb.addWorksheet('Yerli');
+    wsYerli.columns = yerliColumns;
+    yerliRows.forEach((r) => {
+      // Toplam TL'yi Excel içinde formülle üretelim
+      const row = wsYerli.addRow({ ...r, toplamTl: undefined });
+      const miktarCol = yerliColumns.findIndex(c => c.key === 'miktar') + 1;
+      const bfCol = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
+      const toplamCol = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
+      row.getCell(toplamCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(bfCol)}${row.number}` };
+    });
+    // Numara formatlarını uygula
+    yerliColumns.forEach((c, idx) => { if (c.numFmt) wsYerli.getColumn(idx + 1).numFmt = c.numFmt; });
+    finalizeSheet(wsYerli, wsYerli.rowCount);
+    // Veri doğrulama: EVET/HAYIR ve Makine Tipi
+    const idxKdvY = yerliColumns.findIndex(c => c.key === 'kdvIstisnasi') + 1;
+    const idxFkY = yerliColumns.findIndex(c => c.key === 'finansalKiralamaMi') + 1;
+    const idxIadeY = yerliColumns.findIndex(c => c.key === 'iadeDevirSatisVarMi') + 1;
+    const idxTipY = yerliColumns.findIndex(c => c.key === 'makineTechizatTipi') + 1;
+    const endRowY = Math.max(wsYerli.rowCount + 100, 1000); // boş satırlar için ileriye kadar
+    wsYerli.dataValidations.add(`${colLetter(idxKdvY)}2:${colLetter(idxKdvY)}${endRowY}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$A$2:$A$3'] });
+    wsYerli.dataValidations.add(`${colLetter(idxFkY)}2:${colLetter(idxFkY)}${endRowY}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$A$2:$A$3'] });
+    wsYerli.dataValidations.add(`${colLetter(idxIadeY)}2:${colLetter(idxIadeY)}${endRowY}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$A$2:$A$3'] });
+    wsYerli.dataValidations.add(`${colLetter(idxTipY)}2:${colLetter(idxTipY)}${endRowY}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$B$2:$B$3'] });
+    // Toplam satırı (TL)
+    const totalRowY = wsYerli.addRow({});
+    const toplamColY = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
+    totalRowY.getCell(toplamColY).value = { formula: `SUM(${colLetter(toplamColY)}2:${colLetter(toplamColY)}${wsYerli.rowCount - 1})` };
+    totalRowY.font = { bold: true };
+
+    // İthal sayfası
+    const wsIthal = wb.addWorksheet('İthal');
+    wsIthal.columns = ithalColumns;
+    ithalRows.forEach((r) => {
+      // $'ı Excel formülüyle üret
+      const row = wsIthal.addRow({ ...r });
+      const miktarCol = ithalColumns.findIndex(c => c.key === 'miktar') + 1;
+      const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
+      const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
+      row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
+    });
+    ithalColumns.forEach((c, idx) => { if (c.numFmt) wsIthal.getColumn(idx + 1).numFmt = c.numFmt; });
+    finalizeSheet(wsIthal, wsIthal.rowCount);
+    // Veri doğrulama sütunları: EVET/HAYIR + Makine Tipi
+    const idxKdvI = ithalColumns.findIndex(c => c.key === 'kdvMuafiyeti') + 1;
+    const idxGvI = ithalColumns.findIndex(c => c.key === 'gumrukVergisiMuafiyeti') + 1;
+    const idxFkI = ithalColumns.findIndex(c => c.key === 'finansalKiralamaMi') + 1;
+    const idxIadeI = ithalColumns.findIndex(c => c.key === 'iadeDevirSatisVarMi') + 1;
+    const idxTipI = ithalColumns.findIndex(c => c.key === 'makineTechizatTipi') + 1;
+    const endRowI = Math.max(wsIthal.rowCount + 100, 1000);
+    [idxKdvI, idxGvI, idxFkI, idxIadeI].forEach((idx) => wsIthal.dataValidations.add(`${colLetter(idx)}2:${colLetter(idx)}${endRowI}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$A$2:$A$3'] }));
+    wsIthal.dataValidations.add(`${colLetter(idxTipI)}2:${colLetter(idxTipI)}${endRowI}`, { type: 'list', allowBlank: true, formulae: ['=Lists!$B$2:$B$3'] });
+    // Toplam satırları ($ ve TL)
+    const totalRowI = wsIthal.addRow({});
+    const colUsd = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
+    const colTl = ithalColumns.findIndex(c => c.key === 'toplamTl') + 1;
+    totalRowI.getCell(colUsd).value = { formula: `SUM(${colLetter(colUsd)}2:${colLetter(colUsd)}${wsIthal.rowCount - 1})` };
+    totalRowI.getCell(colTl).value = { formula: `SUM(${colLetter(colTl)}2:${colLetter(colTl)}${wsIthal.rowCount - 1})` };
+    totalRowI.font = { bold: true };
+
+    // Özet sayfası
+    const wsSummary = wb.addWorksheet('Özet');
+    wsSummary.columns = [ { header: 'Alan', key: 'k', width: 28 }, { header: 'Değer', key: 'v', width: 40 } ];
+    wsSummary.addRows([
+      { k: 'Tarih', v: new Date().toLocaleString('tr-TR') },
+      { k: 'Belge', v: selectedTesvik ? `${selectedTesvik.tesvikId || selectedTesvik.gmId} — ${selectedTesvik.yatirimciUnvan || selectedTesvik.firma?.tamUnvan || ''}` : '-' },
+      { k: 'Yerli Toplam (TL)', v: yerliToplamTl },
+      { k: 'İthal Toplam ($)', v: ithalToplamUsd },
+      { k: 'İthal Toplam (TL)', v: ithalToplamTl }
+    ]);
+    wsSummary.getColumn(2).numFmt = '#,##0';
+    wsSummary.getRow(1).font = { bold: true };
+
+    // Çıktıyı indir
     const buff = await wb.xlsx.writeBuffer();
     const blob = new Blob([buff], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
@@ -647,7 +846,10 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'currency', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'toplamUsd', headerName: '$', width: 110, valueFormatter: (p)=> p.value?.toLocaleString('en-US') },
+      { field: 'toplamUsd', headerName: '$', width: 110,
+        valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
+        valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
+      },
       { field: 'toplamTl', headerName: 'TL', width: 140, editable: true, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama})} />
@@ -824,6 +1026,13 @@ const MakineYonetimi = () => {
         <Chip label={`İthal Toplam (TL): ${ithalToplamTl.toLocaleString('tr-TR')} ₺`} color="secondary" variant="outlined" />
         <Box sx={{ flex: 1 }} />
         <TextField size="small" placeholder="Satır ara (Ad/GTIP)" value={filterText} onChange={(e)=> setFilterText(e.target.value)} sx={{ width: 260 }} />
+        <Tooltip title="Kur Hesapla (TCMB)">
+          <span>
+            <IconButton onClick={recalcIthalTotals} disabled={(ithalRows||[]).length===0}>
+              <RecalcIcon/>
+            </IconButton>
+          </span>
+        </Tooltip>
         <Tooltip title="Toplu İşlemler">
           <IconButton onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon/></IconButton>
         </Tooltip>

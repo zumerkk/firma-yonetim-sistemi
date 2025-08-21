@@ -51,11 +51,11 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('❌ API Response Error:', {
-      url: error.config?.url,
-      status: error.response?.status,
-      message: error.response?.data?.message || error.message
-    });
+    // Konsol gürültüsünü azalt: object dump yerine kısa satır
+    const msg = error.response?.data?.message || error.message;
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ API Error', error.config?.url, error.response?.status || '-', msg);
+    }
     
     // 401 Unauthorized - token geçersiz veya süresi dolmuş
     if (error.response?.status === 401) {
