@@ -1591,31 +1591,37 @@ const TesvikForm = () => {
       return newData;
     });
 
-    // 🎯 OTOMATIK ŞART DOLDURMA - Destek unsuru seçildiğinde
+    // 🎯 OTOMATIK ŞART DOLDURMA - Destek unsuru seçildiğinde (ROBUST VERSİYON)
     if (field === 'destekUnsuru' && value && value.trim()) {
       try {
         console.log(`🎯 ${value} için otomatik şartlar getiriliyor...`);
         const sartlar = await destekSartService.getShartlarByDestekTuru(value.trim());
         
         if (sartlar && sartlar.length > 0) {
-          console.log(`✅ ${sartlar.length} şart bulundu, otomatik doldurulacak`);
+          console.log(`✅ ${sartlar.length} şart bulundu:`, sartlar);
           
-          // İlk şartı otomatik olarak doldur
+          // İlk şartı otomatik doldur - async state update için setTimeout
           const ilkSart = sartlar[0];
           
-          setFormData(prev => {
-            const newData = { ...prev };
-            if (newData.destekUnsurlari[index]) {
-              newData.destekUnsurlari[index].sartlari = ilkSart;
-            }
-            return newData;
-          });
+          // State güncelleme işlemini biraz geciktir ki diğer field güncellemesi tamamlansın
+          setTimeout(() => {
+            setFormData(prev => {
+              const newData = { ...prev };
+              
+              // Güvenli kontrol ve atama
+              if (newData.destekUnsurlari && Array.isArray(newData.destekUnsurlari) && newData.destekUnsurlari[index]) {
+                newData.destekUnsurlari[index].sartlari = ilkSart;
+                console.log(`✅ Index ${index} için şart otomatik dolduruldu: ${ilkSart}`);
+              } else {
+                console.warn(`⚠️ Index ${index} bulunamadı:`, newData.destekUnsurlari);
+              }
+              
+              return newData;
+            });
+          }, 150); // 150ms gecikme
           
-          // Kullanıcıya bilgi ver
-          console.log(`🎯 Otomatik şart dolduruldu: ${ilkSart}`);
-          
-          // Eğer birden fazla şart varsa, kullanıcıya seçenekleri göster (templateData'yı güncelle)
-          if (sartlar.length > 1) {
+          // Şart seçeneklerini template data'ya ekle
+          if (sartlar.length > 0) {
             setTemplateData(prev => ({
               ...prev,
               destekSartlariOptions: [
@@ -1631,10 +1637,10 @@ const TesvikForm = () => {
           }
           
         } else {
-          console.log(`⚠️ ${value} için eşleştirme bulunamadı, kullanıcı manuel girebilir`);
+          console.log(`⚠️ ${value} için eşleştirme bulunamadı - kullanıcı manuel girebilir`);
         }
       } catch (error) {
-        console.error('❌ Otomatik şart getirme hatası:', error);
+        console.error(`❌ ${value} için şart getirme hatası:`, error);
         // Hata olursa sessizce devam et, kullanıcı manuel girebilir
       }
     }
@@ -2866,7 +2872,7 @@ const TesvikForm = () => {
             }}
           >
             <EngineeringIcon sx={{ mr: 2, fontSize: { xs: 32, md: 40 } }} />
-            YATIRIM İLE İLGİLİ BİLGİLER
+            Yatırım Konusu Seçiniz
           </Typography>
           
           {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
