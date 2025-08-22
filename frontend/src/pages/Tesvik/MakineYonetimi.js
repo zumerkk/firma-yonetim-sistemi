@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
@@ -9,7 +9,8 @@ import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 
   const numberOrZero = (v) => {
@@ -26,6 +27,7 @@ const loadLS = (key, fallback) => {
 const saveLS = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
 
 const MakineYonetimi = () => {
+  const navigate = useNavigate(); // 🧭 Navigasyon hook'u
   const [tab, setTab] = useState('yerli');
   const [selectedTesvik, setSelectedTesvik] = useState(null);
   const [tesvikOptions, setTesvikOptions] = useState([]);
@@ -985,7 +987,87 @@ const MakineYonetimi = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>🛠️ Makine Teçhizat Yönetimi</Typography>
+      {/* 🧭 Navigasyon Butonları */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Ana Sayfa ve Geri Dönüş Butonları */}
+          <Button
+            variant="outlined"
+            startIcon={<HomeIcon />}
+            onClick={() => navigate('/')}
+            sx={{
+              color: '#10b981',
+              borderColor: '#10b981',
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: '#f0fdf4',
+                borderColor: '#10b981'
+              }
+            }}
+          >
+            Ana Sayfa
+          </Button>
+          
+          <Button
+            variant="outlined"
+            startIcon={<ArrowBackIcon />}
+            onClick={() => navigate('/tesvik')}
+            sx={{
+              color: '#8b5cf6',
+              borderColor: '#8b5cf6',
+              fontWeight: 600,
+              '&:hover': {
+                backgroundColor: '#faf5ff',
+                borderColor: '#8b5cf6'
+              }
+            }}
+          >
+            Teşvikler
+          </Button>
+        </Box>
+
+        {/* Breadcrumb Navigasyon */}
+        <Breadcrumbs
+          separator="›"
+          sx={{ 
+            color: '#64748b',
+            '& .MuiBreadcrumbs-separator': { color: '#d1d5db' }
+          }}
+        >
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => navigate('/')}
+            sx={{ 
+              color: '#64748b', 
+              minWidth: 'auto',
+              '&:hover': { color: '#10b981', backgroundColor: 'transparent' }
+            }}
+          >
+            Ana Sayfa
+          </Button>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => navigate('/tesvik')}
+            sx={{ 
+              color: '#64748b', 
+              minWidth: 'auto',
+              '&:hover': { color: '#8b5cf6', backgroundColor: 'transparent' }
+            }}
+          >
+            Teşvikler
+          </Button>
+          <Typography variant="body2" sx={{ color: '#1f2937', fontWeight: 600 }}>
+            Makine Yönetimi
+          </Typography>
+        </Breadcrumbs>
+      </Box>
+
+      <Typography variant="h5" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <BuildIcon sx={{ color: '#dc2626' }} />
+        Makine Teçhizat Yönetimi
+      </Typography>
 
       {/* Belge Seçimi */}
       <Paper sx={{ p:2, mb:2 }}>
