@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Breadcrumbs, Grid } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
 import tesvikService from '../../services/tesvikService';
-import { Autocomplete, TextField, Divider } from '@mui/material';
+import { Autocomplete, TextField } from '@mui/material';
 import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
@@ -40,8 +40,6 @@ const MakineYonetimi = () => {
   const [filterText, setFilterText] = useState('');
   const [bulkMenuAnchor, setBulkMenuAnchor] = useState(null);
   const [rateCache, setRateCache] = useState({}); // { USD->TRY: 32.1 }
-  const [gumrukMuaf, setGumrukMuaf] = useState(false);
-  const [kdvMuaf, setKdvMuaf] = useState(false);
   const [contextAnchor, setContextAnchor] = useState(null);
   const [contextRow, setContextRow] = useState(null);
   const [rowClipboard, setRowClipboard] = useState(null);
@@ -54,16 +52,12 @@ const MakineYonetimi = () => {
   const [templatesYerli, setTemplatesYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_tpl_yerli')||'[]');}catch{return [];} });
   const [templatesIthal, setTemplatesIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_tpl_ithal')||'[]');}catch{return [];} });
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState('');
+  const [previewUrl] = useState('');
   const [density, setDensity] = useState('compact');
   const [fullScreen, setFullScreen] = useState(false);
   const [columnsAnchor, setColumnsAnchor] = useState(null);
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({ gtipAciklama: false });
-  const [columnOrderYerli, setColumnOrderYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_yerli')||'[]')}catch{return []};});
-  const [columnOrderIthal, setColumnOrderIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_ithal')||'[]')}catch{return []};});
-  const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
-  const [errorsOpen, setErrorsOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
+  const [groupBy] = useState('none'); // none|gtip|birim|kullanilmis
   
   // 🆕 Makine Modal States
   const [makineModalOpen, setMakineModalOpen] = useState(false);
@@ -177,7 +171,6 @@ const MakineYonetimi = () => {
   // Keyboard shortcuts
   useEffect(()=>{
     const handler = (e)=>{
-      if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
       if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); addRow(); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1) { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) setRowClipboard(row); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v' && selectionModel.length===1 && rowClipboard) { e.preventDefault(); const id=selectionModel[0]; if(tab==='yerli') setYerliRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); else setIthalRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); }
@@ -185,7 +178,7 @@ const MakineYonetimi = () => {
     };
     window.addEventListener('keydown', handler);
     return ()=> window.removeEventListener('keydown', handler);
-  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
+  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard, addRow, delRow]);
 
   const updateYerli = (id, patch) => setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
   const updateIthal = (id, patch) => setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
@@ -767,7 +760,7 @@ const MakineYonetimi = () => {
   const saveFav = (key, list) => { try { localStorage.setItem(key, JSON.stringify(list)); } catch {} };
   const getFavKey = (type) => type==='gtip' ? 'fav_gtip' : type==='unit' ? 'fav_units' : 'fav_currencies';
   const addFavorite = (type, item) => { const key = getFavKey(type); const list = loadFav(key); const exists = list.find(x => x.kod === item.kod); if (!exists){ const next = [item, ...list].slice(0,50); saveFav(key,next);} };
-  const removeFavorite = (type, code) => { const key = getFavKey(type); const list = loadFav(key).filter(x => x.kod !== code); saveFav(key,list); };
+  // const removeFavorite = (type, code) => { const key = getFavKey(type); const list = loadFav(key).filter(x => x.kod !== code); saveFav(key,list); };
   const openFavMenu = (event, type, rowId) => { setFavAnchor(event.currentTarget); setFavType(type); setFavRowId(rowId); };
   const closeFavMenu = () => { setFavAnchor(null); setFavType(null); setFavRowId(null); };
 
