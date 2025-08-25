@@ -64,6 +64,11 @@ const MakineYonetimi = () => {
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  
+  // 🆕 Makine Modal States
+  const [makineModalOpen, setMakineModalOpen] = useState(false);
+  const [makineFormData, setMakineFormData] = useState({});
+  const [makineFormErrors, setMakineFormErrors] = useState({});
 
   useEffect(() => { document.title = 'Makine Teçhizat Yönetimi'; }, []);
   useEffect(() => {
@@ -277,6 +282,125 @@ const MakineYonetimi = () => {
       // Hata durumunda eski row'u döndür
       return oldRow;
     }
+  };
+
+  // 🆕 Makine Modal Functions
+  const initMakineForm = () => {
+    const baseForm = {
+      gtipKodu: '',
+      gtipAciklama: '',
+      adi: '',
+      miktar: '',
+      birim: '',
+      birimAciklamasi: ''
+    };
+    
+    if (tab === 'yerli') {
+      return {
+        ...baseForm,
+        birimFiyatiTl: '',
+        kdvIstisnasi: '',
+        makineTechizatTipi: '',
+        finansalKiralamaMi: '',
+        finansalKiralamaAdet: '',
+        finansalKiralamaSirket: '',
+        gerceklesenAdet: '',
+        gerceklesenTutar: '',
+        iadeDevirSatisVarMi: '',
+        iadeDevirSatisAdet: '',
+        iadeDevirSatisTutar: ''
+      };
+    } else {
+      return {
+        ...baseForm,
+        birimFiyatiFob: '',
+        doviz: 'USD',
+        kullanilmisKod: '',
+        kullanilmisAciklama: '',
+        ckdSkd: '',
+        aracMi: '',
+        makineTechizatTipi: '',
+        kdvMuafiyeti: '',
+        gumrukVergisiMuafiyeti: '',
+        finansalKiralamaMi: '',
+        finansalKiralamaAdet: '',
+        finansalKiralamaSirket: '',
+        gerceklesenAdet: '',
+        gerceklesenTutar: '',
+        iadeDevirSatisVarMi: '',
+        iadeDevirSatisAdet: '',
+        iadeDevirSatisTutar: ''
+      };
+    }
+  };
+
+  const handleMakineModalOpen = () => {
+    setMakineFormData(initMakineForm());
+    setMakineFormErrors({});
+    setMakineModalOpen(true);
+  };
+
+  const handleMakineFormChange = (field, value) => {
+    setMakineFormData(prev => ({ ...prev, [field]: value }));
+    // Hata varsa temizle
+    if (makineFormErrors[field]) {
+      setMakineFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validateMakineForm = () => {
+    const errors = {};
+    
+    if (!makineFormData.adi?.trim()) errors.adi = 'Makine adı zorunludur';
+    if (!makineFormData.miktar || Number(makineFormData.miktar) <= 0) errors.miktar = 'Geçerli bir miktar giriniz';
+    if (!makineFormData.birim?.trim()) errors.birim = 'Birim zorunludur';
+    
+    if (tab === 'yerli') {
+      if (!makineFormData.birimFiyatiTl || Number(makineFormData.birimFiyatiTl) <= 0) {
+        errors.birimFiyatiTl = 'Geçerli bir birim fiyat giriniz';
+      }
+    } else {
+      if (!makineFormData.birimFiyatiFob || Number(makineFormData.birimFiyatiFob) <= 0) {
+        errors.birimFiyatiFob = 'Geçerli bir FOB fiyat giriniz';
+      }
+      if (!makineFormData.doviz?.trim()) errors.doviz = 'Döviz cinsi zorunludur';
+    }
+    
+    setMakineFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleMakineFormSubmit = () => {
+    if (!validateMakineForm()) return;
+    
+    // Yeni makine objesi oluştur
+    const newMachine = {
+      id: Math.random().toString(36).slice(2),
+      siraNo: tab === 'yerli' ? yerliRows.length + 1 : ithalRows.length + 1,
+      ...makineFormData,
+      miktar: Number(makineFormData.miktar),
+      dosyalar: []
+    };
+    
+    if (tab === 'yerli') {
+      const calculatedMachine = calcYerli({
+        ...newMachine,
+        birimFiyatiTl: Number(makineFormData.birimFiyatiTl)
+      });
+      setYerliRows(prev => [...prev, calculatedMachine]);
+    } else {
+      const calculatedMachine = calcIthal({
+        ...newMachine,
+        birimFiyatiFob: Number(makineFormData.birimFiyatiFob),
+        toplamUsd: Number(makineFormData.miktar) * Number(makineFormData.birimFiyatiFob)
+      });
+      setIthalRows(prev => [...prev, calculatedMachine]);
+    }
+    
+    // Modal'ı kapat
+    setMakineModalOpen(false);
+    setMakineFormData({});
+    setMakineFormErrors({});
   };
 
   const calcYerli = (r) => {
@@ -1165,7 +1289,22 @@ const MakineYonetimi = () => {
             <Tab label="İthal" value="ithal" />
           </Tabs>
           <Box sx={{ flex: 1 }} />
-          <Tooltip title="Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleMakineModalOpen}
+            sx={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              fontWeight: 600,
+              mr: 1,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669, #047857)'
+              }
+            }}
+          >
+            Yeni Makine
+          </Button>
+          <Tooltip title="Excel Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
           <Tooltip title="Kurları (TCMB) al ve TL hesapla"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
           <Tooltip title="İçe Aktar"><label><input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} /><IconButton component="span"><ImportIcon/></IconButton></label></Tooltip>
           <Tooltip title="Dışa Aktar"><IconButton onClick={exportExcel}><ExportIcon/></IconButton></Tooltip>
@@ -1281,6 +1420,303 @@ const MakineYonetimi = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={()=> setPreviewOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🆕 Makine Ekleme Modal */}
+      <Dialog
+        open={makineModalOpen}
+        onClose={() => setMakineModalOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.1)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+          fontWeight: 700
+        }}>
+          <AddIcon />
+          {tab === 'yerli' ? 'Yeni Yerli Makine Ekle' : 'Yeni İthal Makine Ekle'}
+        </DialogTitle>
+        
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={3} sx={{ mt: 1 }}>
+            
+            {/* GTIP Kod ve Açıklama */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="GTIP Kodu"
+                value={makineFormData.gtipKodu || ''}
+                onChange={(e) => handleMakineFormChange('gtipKodu', e.target.value)}
+                error={!!makineFormErrors.gtipKodu}
+                helperText={makineFormErrors.gtipKodu}
+                placeholder="ör: 8417.10.10.00.00"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="GTIP Açıklama"
+                value={makineFormData.gtipAciklama || ''}
+                onChange={(e) => handleMakineFormChange('gtipAciklama', e.target.value)}
+                placeholder="GTIP kod açıklaması"
+              />
+            </Grid>
+
+            {/* Makine Adı */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Makine Adı ve Özelliği *"
+                value={makineFormData.adi || ''}
+                onChange={(e) => handleMakineFormChange('adi', e.target.value)}
+                error={!!makineFormErrors.adi}
+                helperText={makineFormErrors.adi || 'Makine/teçhizat adını detaylı giriniz'}
+                multiline
+                rows={2}
+                placeholder="ör: CNC Torna Tezgahı - Fanuc Kontrol Üniteli"
+              />
+            </Grid>
+
+            {/* Miktar ve Birim */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Miktar *"
+                type="number"
+                value={makineFormData.miktar || ''}
+                onChange={(e) => handleMakineFormChange('miktar', e.target.value)}
+                error={!!makineFormErrors.miktar}
+                helperText={makineFormErrors.miktar}
+                placeholder="ör: 5"
+                inputProps={{ min: 1 }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Birim *"
+                value={makineFormData.birim || ''}
+                onChange={(e) => handleMakineFormChange('birim', e.target.value)}
+                error={!!makineFormErrors.birim}
+                helperText={makineFormErrors.birim}
+                placeholder="ör: ADET"
+              />
+            </Grid>
+
+            {/* Fiyat Bilgileri */}
+            {tab === 'yerli' ? (
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Birim Fiyat (TL) *"
+                  type="number"
+                  value={makineFormData.birimFiyatiTl || ''}
+                  onChange={(e) => handleMakineFormChange('birimFiyatiTl', e.target.value)}
+                  error={!!makineFormErrors.birimFiyatiTl}
+                  helperText={makineFormErrors.birimFiyatiTl}
+                  placeholder="ör: 150000"
+                  inputProps={{ min: 0, step: 0.01 }}
+                  InputProps={{
+                    endAdornment: '₺'
+                  }}
+                />
+              </Grid>
+            ) : (
+              <>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Birim Fiyat (FOB) *"
+                    type="number"
+                    value={makineFormData.birimFiyatiFob || ''}
+                    onChange={(e) => handleMakineFormChange('birimFiyatiFob', e.target.value)}
+                    error={!!makineFormErrors.birimFiyatiFob}
+                    helperText={makineFormErrors.birimFiyatiFob}
+                    placeholder="ör: 15000"
+                    inputProps={{ min: 0, step: 0.01 }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12} md={2}>
+                  <TextField
+                    fullWidth
+                    label="Döviz *"
+                    select
+                    value={makineFormData.doviz || 'USD'}
+                    onChange={(e) => handleMakineFormChange('doviz', e.target.value)}
+                    error={!!makineFormErrors.doviz}
+                    helperText={makineFormErrors.doviz}
+                  >
+                    <MenuItem value="USD">USD</MenuItem>
+                    <MenuItem value="EUR">EUR</MenuItem>
+                    <MenuItem value="GBP">GBP</MenuItem>
+                    <MenuItem value="JPY">JPY</MenuItem>
+                    <MenuItem value="TRY">TRY</MenuItem>
+                  </TextField>
+                </Grid>
+              </>
+            )}
+
+            {/* KDV/Muafiyet Durumu */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label={tab === 'yerli' ? 'KDV İstisnası' : 'KDV Muafiyeti'}
+                select
+                value={makineFormData[tab === 'yerli' ? 'kdvIstisnasi' : 'kdvMuafiyeti'] || ''}
+                onChange={(e) => handleMakineFormChange(tab === 'yerli' ? 'kdvIstisnasi' : 'kdvMuafiyeti', e.target.value)}
+              >
+                <MenuItem value="">Seçiniz</MenuItem>
+                <MenuItem value="EVET">EVET</MenuItem>
+                <MenuItem value="HAYIR">HAYIR</MenuItem>
+              </TextField>
+            </Grid>
+
+            {/* Makine Teçhizat Tipi */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Makine Teçhizat Tipi"
+                select
+                value={makineFormData.makineTechizatTipi || ''}
+                onChange={(e) => handleMakineFormChange('makineTechizatTipi', e.target.value)}
+              >
+                <MenuItem value="">Seçiniz</MenuItem>
+                <MenuItem value="Ana Makine">Ana Makine</MenuItem>
+                <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
+              </TextField>
+            </Grid>
+
+            {/* İthal için ek alanlar */}
+            {tab === 'ithal' && (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Gümrük Vergisi Muafiyeti"
+                    select
+                    value={makineFormData.gumrukVergisiMuafiyeti || ''}
+                    onChange={(e) => handleMakineFormChange('gumrukVergisiMuafiyeti', e.target.value)}
+                  >
+                    <MenuItem value="">Seçiniz</MenuItem>
+                    <MenuItem value="VAR">VAR</MenuItem>
+                    <MenuItem value="YOK">YOK</MenuItem>
+                  </TextField>
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Kullanılmış Makine Kodu"
+                    value={makineFormData.kullanilmisKod || ''}
+                    onChange={(e) => handleMakineFormChange('kullanilmisKod', e.target.value)}
+                    placeholder="ör: 01"
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Finansal Kiralama */}
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Finansal Kiralama"
+                select
+                value={makineFormData.finansalKiralamaMi || ''}
+                onChange={(e) => handleMakineFormChange('finansalKiralamaMi', e.target.value)}
+              >
+                <MenuItem value="">Seçiniz</MenuItem>
+                <MenuItem value="EVET">EVET</MenuItem>
+                <MenuItem value="HAYIR">HAYIR</MenuItem>
+              </TextField>
+            </Grid>
+
+            {makineFormData.finansalKiralamaMi === 'EVET' && (
+              <>
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="FK Adet"
+                    type="number"
+                    value={makineFormData.finansalKiralamaAdet || ''}
+                    onChange={(e) => handleMakineFormChange('finansalKiralamaAdet', e.target.value)}
+                    inputProps={{ min: 0 }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="FK Şirket"
+                    value={makineFormData.finansalKiralamaSirket || ''}
+                    onChange={(e) => handleMakineFormChange('finansalKiralamaSirket', e.target.value)}
+                    placeholder="Finansal kiralama şirketi"
+                  />
+                </Grid>
+              </>
+            )}
+
+          </Grid>
+
+          {/* Hesaplanan Toplam Gösterimi */}
+          <Box sx={{ mt: 3, p: 2, background: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
+            <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 600, mb: 1 }}>
+              📊 Hesaplanan Toplam
+            </Typography>
+            {tab === 'yerli' ? (
+              <Typography variant="h4" sx={{ color: '#059669', fontWeight: 700 }}>
+                {((Number(makineFormData.miktar) || 0) * (Number(makineFormData.birimFiyatiTl) || 0)).toLocaleString('tr-TR')} ₺
+              </Typography>
+            ) : (
+              <Box>
+                <Typography variant="h5" sx={{ color: '#059669', fontWeight: 700 }}>
+                  {((Number(makineFormData.miktar) || 0) * (Number(makineFormData.birimFiyatiFob) || 0)).toLocaleString('en-US')} {makineFormData.doviz || 'USD'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  * TL karşılığı otomatik hesaplanacaktır
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+        </DialogContent>
+
+        <DialogActions sx={{ p: 3, background: '#f8fafc' }}>
+          <Button 
+            onClick={() => setMakineModalOpen(false)}
+            variant="outlined"
+            sx={{ mr: 2 }}
+          >
+            İptal
+          </Button>
+          <Button
+            onClick={handleMakineFormSubmit}
+            variant="contained"
+            startIcon={<AddIcon />}
+            sx={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              fontWeight: 600,
+              px: 4,
+              '&:hover': {
+                background: 'linear-gradient(135deg, #059669, #047857)'
+              }
+            }}
+          >
+            Makine Ekle
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
