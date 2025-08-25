@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Breadcrumbs, Grid } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Grid } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
 import tesvikService from '../../services/tesvikService';
-import { Autocomplete, TextField } from '@mui/material';
+import { Autocomplete, TextField, Divider } from '@mui/material';
 import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
@@ -40,6 +40,8 @@ const MakineYonetimi = () => {
   const [filterText, setFilterText] = useState('');
   const [bulkMenuAnchor, setBulkMenuAnchor] = useState(null);
   const [rateCache, setRateCache] = useState({}); // { USD->TRY: 32.1 }
+  const [gumrukMuaf, setGumrukMuaf] = useState(false);
+  const [kdvMuaf, setKdvMuaf] = useState(false);
   const [contextAnchor, setContextAnchor] = useState(null);
   const [contextRow, setContextRow] = useState(null);
   const [rowClipboard, setRowClipboard] = useState(null);
@@ -52,14 +54,18 @@ const MakineYonetimi = () => {
   const [templatesYerli, setTemplatesYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_tpl_yerli')||'[]');}catch{return [];} });
   const [templatesIthal, setTemplatesIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_tpl_ithal')||'[]');}catch{return [];} });
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [previewUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
   const [density, setDensity] = useState('compact');
   const [fullScreen, setFullScreen] = useState(false);
   const [columnsAnchor, setColumnsAnchor] = useState(null);
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({ gtipAciklama: false });
-  const [groupBy] = useState('none'); // none|gtip|birim|kullanilmis
-  
-  // 🆕 Makine Modal States
+  const [columnOrderYerli, setColumnOrderYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_yerli')||'[]')}catch{return []};});
+  const [columnOrderIthal, setColumnOrderIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_ithal')||'[]')}catch{return []};});
+  const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
+  const [errorsOpen, setErrorsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // 🧩 Kullanıcı dostu ekleme modali state'leri
   const [makineModalOpen, setMakineModalOpen] = useState(false);
   const [makineFormData, setMakineFormData] = useState({});
   const [makineFormErrors, setMakineFormErrors] = useState({});
@@ -139,40 +145,39 @@ const MakineYonetimi = () => {
     return ithalRows.filter(r => (r.adi||'').toLowerCase().includes(q) || (r.gtipKodu||'').toLowerCase().includes(q));
   }, [ithalRows, filterText]);
 
-  // Totals hesaplama - şu an kullanılmıyor ama ileride gerekirse açılabilir
-  // const totals = useMemo(()=>({
-  //   yerli: {
-  //     filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-  //     all: yerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
-  //   },
-  //   ithal: {
-  //     filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-  //     filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-  //     allUsd: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-  //     allTl: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
-  //   }
-  // }), [filteredYerliRows, yerliRows, filteredIthalRows, ithalRows]);
+  const totals = useMemo(()=>({
+    yerli: {
+      filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
+      all: yerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+    },
+    ithal: {
+      filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
+      filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
+      allUsd: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
+      allTl: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+    }
+  }), [filteredYerliRows, yerliRows, filteredIthalRows, ithalRows]);
 
-  // Group summary hesaplama - şu an kullanılmıyor ama ileride gerekirse açılabilir
-  // const groupSummary = useMemo(()=>{
-  //   const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
-  //   const map = new Map();
-  //   const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (r.kullanilmisKod ? 'KULLANILMIŞ' : 'YENİ') : null;
-  //   if (!keyFn) return [];
-  //   for (const r of list) {
-  //     const k = keyFn(r);
-  //     const o = map.get(k) || { count:0, toplamTl:0, toplamUsd:0 };
-  //     o.count += 1;
-  //     o.toplamTl += numberOrZero(r.toplamTl);
-  //     o.toplamUsd += numberOrZero(r.toplamUsd);
-  //     map.set(k,o);
-  //   }
-  //   return Array.from(map.entries()).map(([k,v])=> ({ key:k, ...v }));
-  // }, [tab, filteredYerliRows, filteredIthalRows, groupBy]);
+  const groupSummary = useMemo(()=>{
+    const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
+    const map = new Map();
+    const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (r.kullanilmisKod ? 'KULLANILMIŞ' : 'YENİ') : null;
+    if (!keyFn) return [];
+    for (const r of list) {
+      const k = keyFn(r);
+      const o = map.get(k) || { count:0, toplamTl:0, toplamUsd:0 };
+      o.count += 1;
+      o.toplamTl += numberOrZero(r.toplamTl);
+      o.toplamUsd += numberOrZero(r.toplamUsd);
+      map.set(k,o);
+    }
+    return Array.from(map.entries()).map(([k,v])=> ({ key:k, ...v }));
+  }, [tab, filteredYerliRows, filteredIthalRows, groupBy]);
 
   // Keyboard shortcuts
   useEffect(()=>{
     const handler = (e)=>{
+      if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
       if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); addRow(); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1) { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) setRowClipboard(row); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v' && selectionModel.length===1 && rowClipboard) { e.preventDefault(); const id=selectionModel[0]; if(tab==='yerli') setYerliRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); else setIthalRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); }
@@ -180,7 +185,7 @@ const MakineYonetimi = () => {
     };
     window.addEventListener('keydown', handler);
     return ()=> window.removeEventListener('keydown', handler);
-  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard, addRow, delRow]);
+  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
 
   const updateYerli = (id, patch) => setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
   const updateIthal = (id, patch) => setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
@@ -279,9 +284,9 @@ const MakineYonetimi = () => {
     }
   };
 
-  // 🆕 Makine Modal Functions
+  // 🎛️ Modal yardımcıları
   const initMakineForm = () => {
-    const baseForm = {
+    const base = {
       gtipKodu: '',
       gtipAciklama: '',
       adi: '',
@@ -289,44 +294,22 @@ const MakineYonetimi = () => {
       birim: '',
       birimAciklamasi: ''
     };
-    
     if (tab === 'yerli') {
       return {
-        ...baseForm,
+        ...base,
         birimFiyatiTl: '',
-        kdvIstisnasi: '',
-        makineTechizatTipi: '',
-        finansalKiralamaMi: '',
-        finansalKiralamaAdet: '',
-        finansalKiralamaSirket: '',
-        gerceklesenAdet: '',
-        gerceklesenTutar: '',
-        iadeDevirSatisVarMi: '',
-        iadeDevirSatisAdet: '',
-        iadeDevirSatisTutar: ''
-      };
-    } else {
-      return {
-        ...baseForm,
-        birimFiyatiFob: '',
-        doviz: 'USD',
-        kullanilmisKod: '',
-        kullanilmisAciklama: '',
-        ckdSkd: '',
-        aracMi: '',
-        makineTechizatTipi: '',
-        kdvMuafiyeti: '',
-        gumrukVergisiMuafiyeti: '',
-        finansalKiralamaMi: '',
-        finansalKiralamaAdet: '',
-        finansalKiralamaSirket: '',
-        gerceklesenAdet: '',
-        gerceklesenTutar: '',
-        iadeDevirSatisVarMi: '',
-        iadeDevirSatisAdet: '',
-        iadeDevirSatisTutar: ''
+        kdvIstisnasi: kdvMuaf ? 'EVET' : '' ,
+        makineTechizatTipi: ''
       };
     }
+    // ithal
+    return {
+      ...base,
+      birimFiyatiFob: '',
+      doviz: 'USD',
+      kdvMuafiyeti: kdvMuaf ? 'EVET' : '',
+      gumrukVergisiMuafiyeti: gumrukMuaf ? 'VAR' : ''
+    };
   };
 
   const handleMakineModalOpen = () => {
@@ -337,62 +320,64 @@ const MakineYonetimi = () => {
 
   const handleMakineFormChange = (field, value) => {
     setMakineFormData(prev => ({ ...prev, [field]: value }));
-    // Hata varsa temizle
-    if (makineFormErrors[field]) {
-      setMakineFormErrors(prev => ({ ...prev, [field]: '' }));
-    }
+    if (makineFormErrors[field]) setMakineFormErrors(prev => ({ ...prev, [field]: '' }));
   };
 
   const validateMakineForm = () => {
-    const errors = {};
-    
-    if (!makineFormData.adi?.trim()) errors.adi = 'Makine adı zorunludur';
-    if (!makineFormData.miktar || Number(makineFormData.miktar) <= 0) errors.miktar = 'Geçerli bir miktar giriniz';
-    if (!makineFormData.birim?.trim()) errors.birim = 'Birim zorunludur';
-    
+    const errs = {};
+    if (!makineFormData.adi?.trim()) errs.adi = 'Makine adı zorunlu';
+    if (!makineFormData.miktar || Number(makineFormData.miktar) <= 0) errs.miktar = 'Geçerli bir miktar girin';
+    if (!makineFormData.birim?.trim()) errs.birim = 'Birim zorunlu';
     if (tab === 'yerli') {
-      if (!makineFormData.birimFiyatiTl || Number(makineFormData.birimFiyatiTl) <= 0) {
-        errors.birimFiyatiTl = 'Geçerli bir birim fiyat giriniz';
-      }
+      if (!makineFormData.birimFiyatiTl || Number(makineFormData.birimFiyatiTl) <= 0) errs.birimFiyatiTl = 'Geçerli bir TL fiyat girin';
     } else {
-      if (!makineFormData.birimFiyatiFob || Number(makineFormData.birimFiyatiFob) <= 0) {
-        errors.birimFiyatiFob = 'Geçerli bir FOB fiyat giriniz';
-      }
-      if (!makineFormData.doviz?.trim()) errors.doviz = 'Döviz cinsi zorunludur';
+      if (!makineFormData.birimFiyatiFob || Number(makineFormData.birimFiyatiFob) <= 0) errs.birimFiyatiFob = 'Geçerli bir FOB fiyat girin';
+      if (!makineFormData.doviz?.trim()) errs.doviz = 'Döviz zorunlu';
     }
-    
-    setMakineFormErrors(errors);
-    return Object.keys(errors).length === 0;
+    setMakineFormErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
   const handleMakineFormSubmit = () => {
     if (!validateMakineForm()) return;
-    
-    // Yeni makine objesi oluştur
-    const newMachine = {
-      id: Math.random().toString(36).slice(2),
-      siraNo: tab === 'yerli' ? yerliRows.length + 1 : ithalRows.length + 1,
-      ...makineFormData,
-      miktar: Number(makineFormData.miktar),
-      dosyalar: []
-    };
-    
+    const id = Math.random().toString(36).slice(2);
     if (tab === 'yerli') {
-      const calculatedMachine = calcYerli({
-        ...newMachine,
-        birimFiyatiTl: Number(makineFormData.birimFiyatiTl)
+      const yeni = calcYerli({
+        id,
+        siraNo: (yerliRows[yerliRows.length-1]?.siraNo || yerliRows.length) + 1,
+        gtipKodu: makineFormData.gtipKodu || '',
+        gtipAciklama: makineFormData.gtipAciklama || '',
+        adi: makineFormData.adi,
+        miktar: Number(makineFormData.miktar) || 0,
+        birim: makineFormData.birim || '',
+        birimAciklamasi: makineFormData.birimAciklamasi || '',
+        birimFiyatiTl: Number(makineFormData.birimFiyatiTl) || 0,
+        kdvIstisnasi: makineFormData.kdvIstisnasi || '',
+        makineTechizatTipi: makineFormData.makineTechizatTipi || '',
+        dosyalar: []
       });
-      setYerliRows(prev => [...prev, calculatedMachine]);
+      setYerliRows(rows => [...rows, yeni]);
     } else {
-      const calculatedMachine = calcIthal({
-        ...newMachine,
-        birimFiyatiFob: Number(makineFormData.birimFiyatiFob),
-        toplamUsd: Number(makineFormData.miktar) * Number(makineFormData.birimFiyatiFob)
+      const miktar = Number(makineFormData.miktar) || 0;
+      const fob = Number(makineFormData.birimFiyatiFob) || 0;
+      const yeni = calcIthal({
+        id,
+        siraNo: (ithalRows[ithalRows.length-1]?.siraNo || ithalRows.length) + 1,
+        gtipKodu: makineFormData.gtipKodu || '',
+        gtipAciklama: makineFormData.gtipAciklama || '',
+        adi: makineFormData.adi,
+        miktar,
+        birim: makineFormData.birim || '',
+        birimAciklamasi: makineFormData.birimAciklamasi || '',
+        birimFiyatiFob: fob,
+        doviz: makineFormData.doviz || 'USD',
+        toplamUsd: miktar * fob,
+        kdvMuafiyeti: makineFormData.kdvMuafiyeti || '',
+        gumrukVergisiMuafiyeti: makineFormData.gumrukVergisiMuafiyeti || '',
+        dosyalar: []
       });
-      setIthalRows(prev => [...prev, calculatedMachine]);
+      setIthalRows(rows => [...rows, yeni]);
     }
-    
-    // Modal'ı kapat
     setMakineModalOpen(false);
     setMakineFormData({});
     setMakineFormErrors({});
@@ -410,15 +395,14 @@ const MakineYonetimi = () => {
     return { ...r, toplamUsd: usd, toplamTl: r.toplamTl ?? 0 };
   };
 
-  const addRow = React.useCallback(() => {
+  const addRow = () => {
     if (tab === 'yerli') setYerliRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyYerli(), siraNo: nextSira }]; });
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
-  }, [tab]);
-  
-  const delRow = React.useCallback((id) => {
+  };
+  const delRow = (id) => {
     if (tab === 'yerli') setYerliRows(rows => rows.filter(r => r.id !== id));
     else setIthalRows(rows => rows.filter(r => r.id !== id));
-  }, [tab]);
+  };
 
   const handleUploadComplete = (files) => {
     if (!uploadRowId) return;
@@ -620,10 +604,11 @@ const MakineYonetimi = () => {
     if (!tesvikId) return;
     const data = await tesvikService.get(tesvikId);
     // Muafiyetleri destek unsurlarından türet
-    // const destekList = Array.isArray(data?.destekUnsurlari) ? data.destekUnsurlari : [];
-    // const hasGumruk = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'gümrük vergisi muafiyeti');
-    // const hasKdv = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'kdv istisnası' || (d?.destekUnsuru || '').toLowerCase() === 'kdv i̇stisnası');
-    // Bu değerler şu an için kullanılmıyor - gerektiğinde açılabilir
+    const destekList = Array.isArray(data?.destekUnsurlari) ? data.destekUnsurlari : [];
+    const hasGumruk = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'gümrük vergisi muafiyeti');
+    const hasKdv = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'kdv istisnası' || (d?.destekUnsuru || '').toLowerCase() === 'kdv i̇stisnası');
+    setGumrukMuaf(!!hasGumruk);
+    setKdvMuaf(!!hasKdv);
     const yerli = (data?.makineListeleri?.yerli || []).map(r => ({
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
@@ -762,7 +747,7 @@ const MakineYonetimi = () => {
   const saveFav = (key, list) => { try { localStorage.setItem(key, JSON.stringify(list)); } catch {} };
   const getFavKey = (type) => type==='gtip' ? 'fav_gtip' : type==='unit' ? 'fav_units' : 'fav_currencies';
   const addFavorite = (type, item) => { const key = getFavKey(type); const list = loadFav(key); const exists = list.find(x => x.kod === item.kod); if (!exists){ const next = [item, ...list].slice(0,50); saveFav(key,next);} };
-  // const removeFavorite = (type, code) => { const key = getFavKey(type); const list = loadFav(key).filter(x => x.kod !== code); saveFav(key,list); };
+  const removeFavorite = (type, code) => { const key = getFavKey(type); const list = loadFav(key).filter(x => x.kod !== code); saveFav(key,list); };
   const openFavMenu = (event, type, rowId) => { setFavAnchor(event.currentTarget); setFavType(type); setFavRowId(rowId); };
   const closeFavMenu = () => { setFavAnchor(null); setFavType(null); setFavRowId(null); };
 
@@ -1299,7 +1284,7 @@ const MakineYonetimi = () => {
           >
             Yeni Makine
           </Button>
-          <Tooltip title="Excel Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
+          <Tooltip title="Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
           <Tooltip title="Kurları (TCMB) al ve TL hesapla"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
           <Tooltip title="İçe Aktar"><label><input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} /><IconButton component="span"><ImportIcon/></IconButton></label></Tooltip>
           <Tooltip title="Dışa Aktar"><IconButton onClick={exportExcel}><ExportIcon/></IconButton></Tooltip>
@@ -1415,303 +1400,6 @@ const MakineYonetimi = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={()=> setPreviewOpen(false)}>Kapat</Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* 🆕 Makine Ekleme Modal */}
-      <Dialog
-        open={makineModalOpen}
-        onClose={() => setMakineModalOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 3,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.1)'
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #10b981, #059669)',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-          fontWeight: 700
-        }}>
-          <AddIcon />
-          {tab === 'yerli' ? 'Yeni Yerli Makine Ekle' : 'Yeni İthal Makine Ekle'}
-        </DialogTitle>
-        
-        <DialogContent sx={{ p: 3 }}>
-          <Grid container spacing={3} sx={{ mt: 1 }}>
-            
-            {/* GTIP Kod ve Açıklama */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="GTIP Kodu"
-                value={makineFormData.gtipKodu || ''}
-                onChange={(e) => handleMakineFormChange('gtipKodu', e.target.value)}
-                error={!!makineFormErrors.gtipKodu}
-                helperText={makineFormErrors.gtipKodu}
-                placeholder="ör: 8417.10.10.00.00"
-              />
-            </Grid>
-            
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="GTIP Açıklama"
-                value={makineFormData.gtipAciklama || ''}
-                onChange={(e) => handleMakineFormChange('gtipAciklama', e.target.value)}
-                placeholder="GTIP kod açıklaması"
-              />
-            </Grid>
-
-            {/* Makine Adı */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Makine Adı ve Özelliği *"
-                value={makineFormData.adi || ''}
-                onChange={(e) => handleMakineFormChange('adi', e.target.value)}
-                error={!!makineFormErrors.adi}
-                helperText={makineFormErrors.adi || 'Makine/teçhizat adını detaylı giriniz'}
-                multiline
-                rows={2}
-                placeholder="ör: CNC Torna Tezgahı - Fanuc Kontrol Üniteli"
-              />
-            </Grid>
-
-            {/* Miktar ve Birim */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Miktar *"
-                type="number"
-                value={makineFormData.miktar || ''}
-                onChange={(e) => handleMakineFormChange('miktar', e.target.value)}
-                error={!!makineFormErrors.miktar}
-                helperText={makineFormErrors.miktar}
-                placeholder="ör: 5"
-                inputProps={{ min: 1 }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Birim *"
-                value={makineFormData.birim || ''}
-                onChange={(e) => handleMakineFormChange('birim', e.target.value)}
-                error={!!makineFormErrors.birim}
-                helperText={makineFormErrors.birim}
-                placeholder="ör: ADET"
-              />
-            </Grid>
-
-            {/* Fiyat Bilgileri */}
-            {tab === 'yerli' ? (
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Birim Fiyat (TL) *"
-                  type="number"
-                  value={makineFormData.birimFiyatiTl || ''}
-                  onChange={(e) => handleMakineFormChange('birimFiyatiTl', e.target.value)}
-                  error={!!makineFormErrors.birimFiyatiTl}
-                  helperText={makineFormErrors.birimFiyatiTl}
-                  placeholder="ör: 150000"
-                  inputProps={{ min: 0, step: 0.01 }}
-                  InputProps={{
-                    endAdornment: '₺'
-                  }}
-                />
-              </Grid>
-            ) : (
-              <>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="Birim Fiyat (FOB) *"
-                    type="number"
-                    value={makineFormData.birimFiyatiFob || ''}
-                    onChange={(e) => handleMakineFormChange('birimFiyatiFob', e.target.value)}
-                    error={!!makineFormErrors.birimFiyatiFob}
-                    helperText={makineFormErrors.birimFiyatiFob}
-                    placeholder="ör: 15000"
-                    inputProps={{ min: 0, step: 0.01 }}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} md={2}>
-                  <TextField
-                    fullWidth
-                    label="Döviz *"
-                    select
-                    value={makineFormData.doviz || 'USD'}
-                    onChange={(e) => handleMakineFormChange('doviz', e.target.value)}
-                    error={!!makineFormErrors.doviz}
-                    helperText={makineFormErrors.doviz}
-                  >
-                    <MenuItem value="USD">USD</MenuItem>
-                    <MenuItem value="EUR">EUR</MenuItem>
-                    <MenuItem value="GBP">GBP</MenuItem>
-                    <MenuItem value="JPY">JPY</MenuItem>
-                    <MenuItem value="TRY">TRY</MenuItem>
-                  </TextField>
-                </Grid>
-              </>
-            )}
-
-            {/* KDV/Muafiyet Durumu */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label={tab === 'yerli' ? 'KDV İstisnası' : 'KDV Muafiyeti'}
-                select
-                value={makineFormData[tab === 'yerli' ? 'kdvIstisnasi' : 'kdvMuafiyeti'] || ''}
-                onChange={(e) => handleMakineFormChange(tab === 'yerli' ? 'kdvIstisnasi' : 'kdvMuafiyeti', e.target.value)}
-              >
-                <MenuItem value="">Seçiniz</MenuItem>
-                <MenuItem value="EVET">EVET</MenuItem>
-                <MenuItem value="HAYIR">HAYIR</MenuItem>
-              </TextField>
-            </Grid>
-
-            {/* Makine Teçhizat Tipi */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Makine Teçhizat Tipi"
-                select
-                value={makineFormData.makineTechizatTipi || ''}
-                onChange={(e) => handleMakineFormChange('makineTechizatTipi', e.target.value)}
-              >
-                <MenuItem value="">Seçiniz</MenuItem>
-                <MenuItem value="Ana Makine">Ana Makine</MenuItem>
-                <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
-              </TextField>
-            </Grid>
-
-            {/* İthal için ek alanlar */}
-            {tab === 'ithal' && (
-              <>
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Gümrük Vergisi Muafiyeti"
-                    select
-                    value={makineFormData.gumrukVergisiMuafiyeti || ''}
-                    onChange={(e) => handleMakineFormChange('gumrukVergisiMuafiyeti', e.target.value)}
-                  >
-                    <MenuItem value="">Seçiniz</MenuItem>
-                    <MenuItem value="VAR">VAR</MenuItem>
-                    <MenuItem value="YOK">YOK</MenuItem>
-                  </TextField>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
-                    label="Kullanılmış Makine Kodu"
-                    value={makineFormData.kullanilmisKod || ''}
-                    onChange={(e) => handleMakineFormChange('kullanilmisKod', e.target.value)}
-                    placeholder="ör: 01"
-                  />
-                </Grid>
-              </>
-            )}
-
-            {/* Finansal Kiralama */}
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Finansal Kiralama"
-                select
-                value={makineFormData.finansalKiralamaMi || ''}
-                onChange={(e) => handleMakineFormChange('finansalKiralamaMi', e.target.value)}
-              >
-                <MenuItem value="">Seçiniz</MenuItem>
-                <MenuItem value="EVET">EVET</MenuItem>
-                <MenuItem value="HAYIR">HAYIR</MenuItem>
-              </TextField>
-            </Grid>
-
-            {makineFormData.finansalKiralamaMi === 'EVET' && (
-              <>
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="FK Adet"
-                    type="number"
-                    value={makineFormData.finansalKiralamaAdet || ''}
-                    onChange={(e) => handleMakineFormChange('finansalKiralamaAdet', e.target.value)}
-                    inputProps={{ min: 0 }}
-                  />
-                </Grid>
-
-                <Grid item xs={12} md={4}>
-                  <TextField
-                    fullWidth
-                    label="FK Şirket"
-                    value={makineFormData.finansalKiralamaSirket || ''}
-                    onChange={(e) => handleMakineFormChange('finansalKiralamaSirket', e.target.value)}
-                    placeholder="Finansal kiralama şirketi"
-                  />
-                </Grid>
-              </>
-            )}
-
-          </Grid>
-
-          {/* Hesaplanan Toplam Gösterimi */}
-          <Box sx={{ mt: 3, p: 2, background: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-            <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 600, mb: 1 }}>
-              📊 Hesaplanan Toplam
-            </Typography>
-            {tab === 'yerli' ? (
-              <Typography variant="h4" sx={{ color: '#059669', fontWeight: 700 }}>
-                {((Number(makineFormData.miktar) || 0) * (Number(makineFormData.birimFiyatiTl) || 0)).toLocaleString('tr-TR')} ₺
-              </Typography>
-            ) : (
-              <Box>
-                <Typography variant="h5" sx={{ color: '#059669', fontWeight: 700 }}>
-                  {((Number(makineFormData.miktar) || 0) * (Number(makineFormData.birimFiyatiFob) || 0)).toLocaleString('en-US')} {makineFormData.doviz || 'USD'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  * TL karşılığı otomatik hesaplanacaktır
-                </Typography>
-              </Box>
-            )}
-          </Box>
-
-        </DialogContent>
-
-        <DialogActions sx={{ p: 3, background: '#f8fafc' }}>
-          <Button 
-            onClick={() => setMakineModalOpen(false)}
-            variant="outlined"
-            sx={{ mr: 2 }}
-          >
-            İptal
-          </Button>
-          <Button
-            onClick={handleMakineFormSubmit}
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{
-              background: 'linear-gradient(135deg, #10b981, #059669)',
-              fontWeight: 600,
-              px: 4,
-              '&:hover': {
-                background: 'linear-gradient(135deg, #059669, #047857)'
-              }
-            }}
-          >
-            Makine Ekle
-          </Button>
         </DialogActions>
       </Dialog>
     </Box>
