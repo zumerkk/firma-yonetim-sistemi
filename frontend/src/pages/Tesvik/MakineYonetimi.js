@@ -139,34 +139,36 @@ const MakineYonetimi = () => {
     return ithalRows.filter(r => (r.adi||'').toLowerCase().includes(q) || (r.gtipKodu||'').toLowerCase().includes(q));
   }, [ithalRows, filterText]);
 
-  const totals = useMemo(()=>({
-    yerli: {
-      filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-      all: yerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
-    },
-    ithal: {
-      filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-      filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-      allUsd: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-      allTl: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
-    }
-  }), [filteredYerliRows, yerliRows, filteredIthalRows, ithalRows]);
+  // Totals hesaplama - şu an kullanılmıyor ama ileride gerekirse açılabilir
+  // const totals = useMemo(()=>({
+  //   yerli: {
+  //     filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
+  //     all: yerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+  //   },
+  //   ithal: {
+  //     filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
+  //     filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
+  //     allUsd: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
+  //     allTl: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+  //   }
+  // }), [filteredYerliRows, yerliRows, filteredIthalRows, ithalRows]);
 
-  const groupSummary = useMemo(()=>{
-    const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
-    const map = new Map();
-    const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (r.kullanilmisKod ? 'KULLANILMIŞ' : 'YENİ') : null;
-    if (!keyFn) return [];
-    for (const r of list) {
-      const k = keyFn(r);
-      const o = map.get(k) || { count:0, toplamTl:0, toplamUsd:0 };
-      o.count += 1;
-      o.toplamTl += numberOrZero(r.toplamTl);
-      o.toplamUsd += numberOrZero(r.toplamUsd);
-      map.set(k,o);
-    }
-    return Array.from(map.entries()).map(([k,v])=> ({ key:k, ...v }));
-  }, [tab, filteredYerliRows, filteredIthalRows, groupBy]);
+  // Group summary hesaplama - şu an kullanılmıyor ama ileride gerekirse açılabilir
+  // const groupSummary = useMemo(()=>{
+  //   const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
+  //   const map = new Map();
+  //   const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (r.kullanilmisKod ? 'KULLANILMIŞ' : 'YENİ') : null;
+  //   if (!keyFn) return [];
+  //   for (const r of list) {
+  //     const k = keyFn(r);
+  //     const o = map.get(k) || { count:0, toplamTl:0, toplamUsd:0 };
+  //     o.count += 1;
+  //     o.toplamTl += numberOrZero(r.toplamTl);
+  //     o.toplamUsd += numberOrZero(r.toplamUsd);
+  //     map.set(k,o);
+  //   }
+  //   return Array.from(map.entries()).map(([k,v])=> ({ key:k, ...v }));
+  // }, [tab, filteredYerliRows, filteredIthalRows, groupBy]);
 
   // Keyboard shortcuts
   useEffect(()=>{
@@ -408,14 +410,15 @@ const MakineYonetimi = () => {
     return { ...r, toplamUsd: usd, toplamTl: r.toplamTl ?? 0 };
   };
 
-  const addRow = () => {
+  const addRow = React.useCallback(() => {
     if (tab === 'yerli') setYerliRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyYerli(), siraNo: nextSira }]; });
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
-  };
-  const delRow = (id) => {
+  }, [tab]);
+  
+  const delRow = React.useCallback((id) => {
     if (tab === 'yerli') setYerliRows(rows => rows.filter(r => r.id !== id));
     else setIthalRows(rows => rows.filter(r => r.id !== id));
-  };
+  }, [tab]);
 
   const handleUploadComplete = (files) => {
     if (!uploadRowId) return;
@@ -617,11 +620,10 @@ const MakineYonetimi = () => {
     if (!tesvikId) return;
     const data = await tesvikService.get(tesvikId);
     // Muafiyetleri destek unsurlarından türet
-    const destekList = Array.isArray(data?.destekUnsurlari) ? data.destekUnsurlari : [];
-    const hasGumruk = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'gümrük vergisi muafiyeti');
-    const hasKdv = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'kdv istisnası' || (d?.destekUnsuru || '').toLowerCase() === 'kdv i̇stisnası');
-    setGumrukMuaf(!!hasGumruk);
-    setKdvMuaf(!!hasKdv);
+    // const destekList = Array.isArray(data?.destekUnsurlari) ? data.destekUnsurlari : [];
+    // const hasGumruk = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'gümrük vergisi muafiyeti');
+    // const hasKdv = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'kdv istisnası' || (d?.destekUnsuru || '').toLowerCase() === 'kdv i̇stisnası');
+    // Bu değerler şu an için kullanılmıyor - gerektiğinde açılabilir
     const yerli = (data?.makineListeleri?.yerli || []).map(r => ({
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
