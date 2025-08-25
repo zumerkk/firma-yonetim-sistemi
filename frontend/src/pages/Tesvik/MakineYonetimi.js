@@ -1388,6 +1388,97 @@ const MakineYonetimi = () => {
         <MenuItem onClick={()=> { setTplAnchor(null); saveTemplate(); }}>Aktif satırı şablona kaydet</MenuItem>
       </Menu>
 
+      {/* 🧩 Makine Ekleme Modalı */}
+      <Dialog open={makineModalOpen} onClose={()=> setMakineModalOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontWeight: 700 }}>
+          {tab==='yerli' ? 'Yeni Yerli Makine' : 'Yeni İthal Makine'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Grid container spacing={2}>
+            {/* GTIP */}
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="GTIP Kodu" value={makineFormData.gtipKodu||''} onChange={(e)=>handleMakineFormChange('gtipKodu', e.target.value)} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="GTIP Açıklama" value={makineFormData.gtipAciklama||''} onChange={(e)=>handleMakineFormChange('gtipAciklama', e.target.value)} />
+            </Grid>
+
+            {/* Ad, miktar, birim */}
+            <Grid item xs={12}>
+              <TextField fullWidth label="Makine Adı ve Özelliği *" value={makineFormData.adi||''} onChange={(e)=>handleMakineFormChange('adi', e.target.value)} error={!!makineFormErrors.adi} helperText={makineFormErrors.adi} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth type="number" label="Miktar *" value={makineFormData.miktar||''} onChange={(e)=>handleMakineFormChange('miktar', e.target.value)} error={!!makineFormErrors.miktar} helperText={makineFormErrors.miktar} />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <TextField fullWidth label="Birim *" value={makineFormData.birim||''} onChange={(e)=>handleMakineFormChange('birim', e.target.value)} error={!!makineFormErrors.birim} helperText={makineFormErrors.birim} />
+            </Grid>
+
+            {/* Fiyat & döviz */}
+            {tab==='yerli' ? (
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth type="number" label="Birim Fiyat (TL) *" value={makineFormData.birimFiyatiTl||''} onChange={(e)=>handleMakineFormChange('birimFiyatiTl', e.target.value)} error={!!makineFormErrors.birimFiyatiTl} helperText={makineFormErrors.birimFiyatiTl} />
+              </Grid>
+            ) : (
+              <>
+                <Grid item xs={12} md={4}>
+                  <TextField fullWidth type="number" label="Birim Fiyat (FOB) *" value={makineFormData.birimFiyatiFob||''} onChange={(e)=>handleMakineFormChange('birimFiyatiFob', e.target.value)} error={!!makineFormErrors.birimFiyatiFob} helperText={makineFormErrors.birimFiyatiFob} />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <TextField fullWidth select label="Döviz *" value={makineFormData.doviz||'USD'} onChange={(e)=>handleMakineFormChange('doviz', e.target.value)} error={!!makineFormErrors.doviz} helperText={makineFormErrors.doviz}>
+                    <MenuItem value="USD">USD</MenuItem>
+                    <MenuItem value="EUR">EUR</MenuItem>
+                    <MenuItem value="GBP">GBP</MenuItem>
+                    <MenuItem value="JPY">JPY</MenuItem>
+                    <MenuItem value="TRY">TRY</MenuItem>
+                  </TextField>
+                </Grid>
+              </>
+            )}
+
+            {/* Muafiyet alanları */}
+            {tab==='yerli' ? (
+              <Grid item xs={12} md={6}>
+                <TextField fullWidth select label="KDV İstisnası" value={makineFormData.kdvIstisnasi||''} onChange={(e)=>handleMakineFormChange('kdvIstisnasi', e.target.value)}>
+                  <MenuItem value="">Seçiniz</MenuItem>
+                  <MenuItem value="EVET">EVET</MenuItem>
+                  <MenuItem value="HAYIR">HAYIR</MenuItem>
+                </TextField>
+              </Grid>
+            ) : (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth select label="KDV Muafiyeti" value={makineFormData.kdvMuafiyeti||''} onChange={(e)=>handleMakineFormChange('kdvMuafiyeti', e.target.value)}>
+                    <MenuItem value="">Seçiniz</MenuItem>
+                    <MenuItem value="EVET">EVET</MenuItem>
+                    <MenuItem value="HAYIR">HAYIR</MenuItem>
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField fullWidth select label="Gümrük Vergisi Muafiyeti" value={makineFormData.gumrukVergisiMuafiyeti||''} onChange={(e)=>handleMakineFormChange('gumrukVergisiMuafiyeti', e.target.value)}>
+                    <MenuItem value="">Seçiniz</MenuItem>
+                    <MenuItem value="VAR">VAR</MenuItem>
+                    <MenuItem value="YOK">YOK</MenuItem>
+                  </TextField>
+                </Grid>
+              </>
+            )}
+          </Grid>
+
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="body2" color="text.secondary">
+            {tab==='yerli'
+              ? `Toplam: ${(((Number(makineFormData.miktar)||0) * (Number(makineFormData.birimFiyatiTl)||0))||0).toLocaleString('tr-TR')} ₺`
+              : `Toplam: ${(((Number(makineFormData.miktar)||0) * (Number(makineFormData.birimFiyatiFob)||0))||0).toLocaleString('en-US')} ${makineFormData.doviz||'USD'}`
+            }
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button variant="outlined" onClick={()=> setMakineModalOpen(false)}>İptal</Button>
+          <Button variant="contained" startIcon={<AddIcon/>} onClick={handleMakineFormSubmit}>Ekle</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Dosya önizleme dialog */}
       <Dialog open={previewOpen} onClose={()=> setPreviewOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Önizleme</DialogTitle>
