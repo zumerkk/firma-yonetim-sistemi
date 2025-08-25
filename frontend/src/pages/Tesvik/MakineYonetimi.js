@@ -186,65 +186,97 @@ const MakineYonetimi = () => {
   const updateIthal = (id, patch) => setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
-  const handleYerliCommit = (params) => {
-    const patch = { [params.field]: params.value };
-    updateYerli(params.id, patch);
+  // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
+  const processYerliRowUpdate = (newRow, oldRow) => {
+    console.log('🔧 Yerli row güncelleniyor:', newRow);
+    
+    // State'i güncelle
+    updateYerli(newRow.id, newRow);
+    
+    // Yeni row'u return et (ZORUNLU!)
+    return newRow;
   };
-  const handleIthalCommit = async (params) => {
-    const field = params.field;
-    const value = params.value;
-    const row = ithalRows.find(r => r.id === params.id) || {};
-    const next = { ...row, [field]: value };
-    // 1) USD'yi canlı hesapla (miktar/FOB değiştiğinde)
-    if (field === 'miktar' || field === 'birimFiyatiFob') {
-      const miktar = numberOrZero(field === 'miktar' ? value : next.miktar);
-      const fob = numberOrZero(field === 'birimFiyatiFob' ? value : next.birimFiyatiFob);
-      const usd = miktar * fob;
-      // çekirdek alan değiştiyse manuel TL resetle (yeniden otomatik hesaplansın)
-      updateIthal(params.id, { [field]: value, toplamUsd: usd, tlManuel: false });
-      // TRY ise TL = USD; değilse kur ile TL (manuel değilse)
-      if ((next.doviz || '').toUpperCase() === 'TRY') {
-        if (!next.tlManuel) updateIthal(params.id, { toplamTl: usd });
-      } else if (!next.tlManuel && next.doviz) {
-        try {
-          const key = `${next.doviz}->TRY`;
-          let rate = rateCache[key];
-          if (!rate) { rate = await currencyService.getRate(next.doviz, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
-          updateIthal(params.id, { toplamTl: Math.round(usd * (rate || 0)) });
-        } catch {}
+  const processIthalRowUpdate = async (newRow, oldRow) => {
+    console.log('🔧 İthal row güncelleniyor:', newRow);
+    
+    try {
+      // Değişen field'ları tespit et
+      const changedFields = Object.keys(newRow).filter(key => newRow[key] !== oldRow[key]);
+      console.log('📝 Değişen alanlar:', changedFields);
+      
+      // Miktar veya FOB değiştiyse USD'yi yeniden hesapla
+      if (changedFields.includes('miktar') || changedFields.includes('birimFiyatiFob')) {
+        const miktar = numberOrZero(newRow.miktar);
+        const fob = numberOrZero(newRow.birimFiyatiFob);
+        const usd = miktar * fob;
+        
+        console.log(`💰 USD hesaplanıyor: ${miktar} × ${fob} = ${usd}`);
+        
+        // USD güncelle ve manuel TL flag'ini sıfırla
+        const updatedRow = { ...newRow, toplamUsd: usd, tlManuel: false };
+        
+        // TRY ise direkt TL = USD
+        if ((newRow.doviz || '').toUpperCase() === 'TRY') {
+          updatedRow.toplamTl = usd;
+          console.log(`🇹🇷 TRY: TL = ${usd}`);
+        } 
+        // Başka döviz ise kur ile çevir
+        else if (newRow.doviz && !newRow.tlManuel) {
+          try {
+            const key = `${newRow.doviz}->TRY`;
+            let rate = rateCache[key];
+            if (!rate) { 
+              rate = await currencyService.getRate(newRow.doviz, 'TRY'); 
+              setRateCache(prev => ({ ...prev, [key]: rate })); 
+            }
+            updatedRow.toplamTl = Math.round(usd * (rate || 0));
+            console.log(`💱 ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
+          } catch (error) {
+            console.error('❌ Kur çevirme hatası:', error);
+          }
+        }
+        
+        // State'i güncelle
+        updateIthal(newRow.id, updatedRow);
+        return updatedRow;
       }
-      return;
-    }
-    // 2) Döviz değiştiğinde TL'yi güncelle (manuel değilse)
-    if (field === 'doviz') {
-      updateIthal(params.id, { doviz: value, tlManuel: false });
-      const miktar = numberOrZero(next.miktar);
-      const fob = numberOrZero(next.birimFiyatiFob);
-      const usd = miktar * fob;
-      if ((value || '').toUpperCase() === 'TRY') {
-        if (!next.tlManuel) updateIthal(params.id, { toplamUsd: usd, toplamTl: usd });
-      } else if (!next.tlManuel && value) {
-        try {
-          const key = `${value}->TRY`;
-          let rate = rateCache[key];
-          if (!rate) { rate = await currencyService.getRate(value, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
-          updateIthal(params.id, { toplamUsd: usd, toplamTl: Math.round(usd * (rate || 0)) });
-        } catch { updateIthal(params.id, { toplamUsd: usd }); }
-      } else {
-        updateIthal(params.id, { toplamUsd: usd });
+      // Döviz değiştiyse TL'yi güncelle (manuel değilse)
+      else if (changedFields.includes('doviz') && newRow.doviz && !newRow.tlManuel) {
+        const usd = numberOrZero(newRow.toplamUsd);
+        const updatedRow = { ...newRow };
+        
+        if (newRow.doviz.toUpperCase() === 'TRY') {
+          updatedRow.toplamTl = usd;
+          console.log(`🇹🇷 Döviz TRY'ye değişti: TL = ${usd}`);
+        } else {
+          try {
+            const key = `${newRow.doviz}->TRY`;
+            let rate = rateCache[key];
+            if (!rate) { 
+              rate = await currencyService.getRate(newRow.doviz, 'TRY'); 
+              setRateCache(prev => ({ ...prev, [key]: rate })); 
+            }
+            updatedRow.toplamTl = Math.round(usd * (rate || 0));
+            console.log(`💱 Döviz değişti ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
+          } catch (error) {
+            console.error('❌ Döviz kur çevirme hatası:', error);
+          }
+        }
+        
+        updateIthal(newRow.id, updatedRow);
+        return updatedRow;
       }
-      return;
-    }
-    // 3) TL elle düzenlendiyse manuel mod
-    if (field === 'toplamTl') {
-      const newVal = numberOrZero(value);
-      if (newVal !== numberOrZero(row.toplamTl)) {
-        updateIthal(params.id, { toplamTl: newVal, tlManuel: true });
+      else {
+        // Normal field değişikliği
+        updateIthal(newRow.id, newRow);
+        return newRow;
       }
-      return;
+      
+    } catch (error) {
+      console.error('❌ İthal row güncelleme hatası:', error);
+      // Hata durumunda eski row'u döndür
+      return oldRow;
     }
-    // Diğer alanlar için patch
-    updateIthal(params.id, { [field]: value });
   };
 
   const calcYerli = (r) => {
@@ -796,7 +828,7 @@ const MakineYonetimi = () => {
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
-        onCellEditCommit={handleYerliCommit}
+        processRowUpdate={processYerliRowUpdate}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
         density={density}
         columnVisibilityModel={columnVisibilityModel}
@@ -969,7 +1001,7 @@ const MakineYonetimi = () => {
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
-        onCellEditCommit={handleIthalCommit}
+        processRowUpdate={processIthalRowUpdate}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
         density={density}
         columnVisibilityModel={columnVisibilityModel}
