@@ -4897,6 +4897,457 @@ module.exports = {
       return res.status(500).json({ success:false, message:'Makine listeleri kaydedilemedi' });
     }
   },
+  
+  // 🆕 Makine Revizyon Başlat (pre-revizyon snapshot kaydet + düzenlemeye izin ver)
+  startMakineRevizyon: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { aciklama, revizeMuracaatTarihi } = req.body || {};
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+
+      const snapshot = {
+        revizeTuru: 'start',
+        aciklama: aciklama || 'Makine revizyonu başlatıldı',
+        yapanKullanici: req.user?._id,
+        revizeMuracaatTarihi: revizeMuracaatTarihi ? new Date(revizeMuracaatTarihi) : new Date(),
+        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
+        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
+      };
+      tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
+      tesvik.makineRevizyonlari.push(snapshot);
+      tesvik.sonGuncelleyen = req.user?._id;
+      await tesvik.save();
+      const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length-1];
+      res.json({ success:true, message:'Revizyon başlatıldı', data:{ revizeId: last.revizeId, revizeTarihi: last.revizeTarihi } });
+    } catch (error) {
+      console.error('startMakineRevizyon error:', error);
+      res.status(500).json({ success:false, message:'Revizyon başlatılamadı' });
+    }
+  },
+  
+  // 🆕 Makine Revizyon Finalize (post-revizyon snapshot kaydet)
+  finalizeMakineRevizyon: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { aciklama, revizeOnayTarihi } = req.body || {};
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+
+      const snapshot = {
+        revizeTuru: 'final',
+        aciklama: aciklama || 'Makine revizyonu finalize edildi',
+        yapanKullanici: req.user?._id,
+        revizeOnayTarihi: revizeOnayTarihi ? new Date(revizeOnayTarihi) : new Date(),
+        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
+        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
+      };
+      tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
+      tesvik.makineRevizyonlari.push(snapshot);
+      tesvik.sonGuncelleyen = req.user?._id;
+      await tesvik.save();
+      const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length-1];
+      res.json({ success:true, message:'Revizyon finalize edildi', data:{ revizeId: last.revizeId, revizeTarihi: last.revizeTarihi } });
+    } catch (error) {
+      console.error('finalizeMakineRevizyon error:', error);
+      res.status(500).json({ success:false, message:'Revizyon finalize edilemedi' });
+    }
+  },
+  
+  // 🆕 Makine Revizyon Listesi
+  listMakineRevizyonlari: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id)
+        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
+        .lean();
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      const revs = Array.isArray(tesvik.makineRevizyonlari) ? tesvik.makineRevizyonlari : [];
+      const sorted = [...revs].sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      res.json({ success:true, data: sorted });
+    } catch (error) {
+      console.error('listMakineRevizyonlari error:', error);
+      res.status(500).json({ success:false, message:'Revizyonlar alınamadı' });
+    }
+  },
+  
+  // 🆕 Makine Revizyonundan Dön (seçilen revizeId durumuna dön ve yeni "revert" snapshot oluştur)
+  revertMakineRevizyon: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { revizeId, aciklama } = req.body || {};
+      if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
+      if (!target) return res.status(404).json({ success:false, message:'Revizyon bulunamadı' });
+      // Eski halleri uygula
+      tesvik.makineListeleri.yerli = (target.yerli || []).map(r => ({...r}));
+      tesvik.makineListeleri.ithal = (target.ithal || []).map(r => ({...r}));
+      tesvik.markModified('makineListeleri');
+      // Yeni snapshot: revert
+      const snapshot = {
+        revizeTuru: 'revert',
+        aciklama: aciklama || `Revizyon geri dönüş: ${revizeId}`,
+        yapanKullanici: req.user?._id,
+        kaynakRevizeId: revizeId,
+        yerli: (target.yerli || []).map(r => ({...r})),
+        ithal: (target.ithal || []).map(r => ({...r}))
+      };
+      tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
+      tesvik.makineRevizyonlari.push(snapshot);
+      tesvik.sonGuncelleyen = req.user?._id;
+      await tesvik.save();
+      const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length-1];
+      res.json({ success:true, message:'Revizyon geri dönüş uygulandı', data:{ revizeId: last.revizeId, revizeTarihi: last.revizeTarihi }, makineListeleri: tesvik.makineListeleri });
+    } catch (error) {
+      console.error('revertMakineRevizyon error:', error);
+      res.status(500).json({ success:false, message:'Revizyon geri dönüşü uygulanamadı' });
+    }
+  },
+
+  // 🆕 Revize ETUYS Metası Güncelle
+  updateMakineRevizyonMeta: async (req, res) => {
+    try {
+      const { id } = req.params; // Tesvik Id
+      const { revizeId, meta } = req.body;
+      if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      const list = tesvik.makineRevizyonlari || [];
+      const idx = list.findIndex(r => r.revizeId === revizeId);
+      if (idx === -1) return res.status(404).json({ success:false, message:'Revizyon kaydı bulunamadı' });
+      const allowed = ['talepNo','belgeNo','belgeId','talepTipi','talepDetayi','durum','daire','basvuruTarihi','odemeTalebi','retSebebi'];
+      allowed.forEach(k => { if (meta && meta[k] !== undefined) list[idx][k] = meta[k]; });
+      tesvik.markModified('makineRevizyonlari');
+      await tesvik.save();
+      res.json({ success:true, message:'Revize meta güncellendi', data: tesvik.makineRevizyonlari[idx] });
+    } catch (error) {
+      console.error('updateMakineRevizyonMeta error:', error);
+      res.status(500).json({ success:false, message:'Revize meta güncellenemedi' });
+    }
+  },
+  
+  // 🧾 Makine Revizyon Excel Export (hücre bazlı farkları KIRMIZI ile vurgula)
+  exportMakineRevizyonExcel: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const Tesvik = require('../models/Tesvik');
+      const ExcelJS = require('exceljs');
+
+      const tesvik = await Tesvik.findById(id)
+        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
+        .lean();
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+
+      const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
+      revs.sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'FYS';
+      wb.created = new Date();
+
+      const redFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC0C0' } };
+      const headerStyle = { font:{ bold:true }, alignment:{ horizontal:'center' }, fill: { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE5E7EB' } } };
+
+      const addSheetFor = (name, type) => {
+        const ws = wb.addWorksheet(name);
+        const isYerli = type==='yerli';
+        const baseCols = [
+          { header:'Revize ID', key:'revizeId', width: 24 },
+          { header:'Revize Türü', key:'revizeTuru', width: 12 },
+          { header:'Revize Tarihi', key:'revizeTarihi', width: 18 },
+          { header:'Revize Kullanıcı', key:'revizeUser', width: 26 },
+          { header:'Müracaat Tarihi', key:'muracaat', width: 18 },
+          { header:'Onay Tarihi', key:'onay', width: 18 },
+          // ETUYS meta sütunları
+          { header:'Talep No', key:'talepNo', width: 14 },
+          { header:'Belge No', key:'belgeNo', width: 14 },
+          { header:'Belge Id', key:'belgeId', width: 16 },
+          { header:'Talep Tipi', key:'talepTipi', width: 22 },
+          { header:'Talep Detayı', key:'talepDetayi', width: 28 },
+          { header:'Durum', key:'durum', width: 16 },
+          { header:'Daire', key:'daire', width: 22 },
+          { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 },
+          { header:'Sıra No', key:'siraNo', width: 8 },
+          { header:'GTIP', key:'gtipKodu', width: 16 },
+          { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
+          { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
+          { header:'Miktar', key:'miktar', width: 10 },
+          { header:'Birim', key:'birim', width: 10 },
+          ...(isYerli ? [
+            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 14 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+            { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
+          ] : [
+            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
+            { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
+            { header:'Toplam ($)', key:'toplamUsd', width: 14 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+            { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
+            { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
+            { header:'Araç mı', key:'aracMi', width: 10 },
+            { header:'KDV Muafiyeti', key:'kdvMuafiyeti', width: 14 },
+            { header:'Gümrük Vergisi Muaf', key:'gumrukVergisiMuafiyeti', width: 18 },
+          ]),
+          { header:'Makine Teçhizat Tipi', key:'makineTechizatTipi', width: 18 },
+          { header:'FK mı?', key:'finansalKiralamaMi', width: 10 },
+          { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
+          { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
+          { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
+          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 14 },
+          { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
+          { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
+          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 }
+        ];
+        ws.columns = baseCols;
+        ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
+
+        // Önceki snapshot kıyaslaması için map
+        let prevMap = new Map();
+        revs.forEach((rev) => {
+          const list = Array.isArray(rev[type]) ? rev[type] : [];
+          // mevcut snapshot map'i kıyas için
+          const currMap = new Map();
+          list.forEach((r) => {
+            const key = r.rowId || `${r.siraNo}|${r.gtipKodu}|${r.adiVeOzelligi}|${r.birim}`;
+            currMap.set(key, r);
+            // Satırı yaz
+            const rowVals = {
+              revizeId: rev.revizeId,
+              revizeTuru: rev.revizeTuru,
+              revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+              revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+              muracaat: rev.revizeMuracaatTarihi ? new Date(rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
+              onay: rev.revizeOnayTarihi ? new Date(rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+              talepNo: rev.talepNo || '',
+              belgeNo: rev.belgeNo || '',
+              belgeId: rev.belgeId || '',
+              talepTipi: rev.talepTipi || '',
+              talepDetayi: rev.talepDetayi || '',
+              durum: rev.durum || '',
+              daire: rev.daire || '',
+              basvuruTarihi: rev.basvuruTarihi ? new Date(rev.basvuruTarihi).toLocaleDateString('tr-TR') : '',
+              siraNo: r.siraNo || 0,
+              gtipKodu: r.gtipKodu || '',
+              gtipAciklamasi: r.gtipAciklamasi || '',
+              adiVeOzelligi: r.adiVeOzelligi || '',
+              miktar: r.miktar || 0,
+              birim: r.birim || ''
+            };
+            if (isYerli) {
+              Object.assign(rowVals, {
+                birimFiyatiTl: r.birimFiyatiTl || 0,
+                toplamTl: r.toplamTutariTl || r.toplamTl || 0,
+                kdvIstisnasi: r.kdvIstisnasi || ''
+              });
+            } else {
+              Object.assign(rowVals, {
+                birimFiyatiFob: r.birimFiyatiFob || 0,
+                gumrukDovizKodu: r.gumrukDovizKodu || '',
+                toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
+                toplamTl: r.toplamTutarFobTl || r.toplamTl || 0,
+                kullanilmisMakine: r.kullanilmisMakine || '',
+                ckdSkdMi: r.ckdSkdMi || r.ckdSkd || '',
+                aracMi: r.aracMi || '',
+                kdvMuafiyeti: r.kdvMuafiyeti || '',
+                gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || ''
+              });
+            }
+            Object.assign(rowVals, {
+              makineTechizatTipi: r.makineTechizatTipi || '',
+              finansalKiralamaMi: r.finansalKiralamaMi || '',
+              finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+              finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+              gerceklesenAdet: r.gerceklesenAdet || 0,
+              gerceklesenTutar: r.gerceklesenTutar || 0,
+              iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+              iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+              iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0
+            });
+
+            const excelRow = ws.addRow(rowVals);
+            // Hücre bazlı fark boyama
+            const prev = prevMap.get(key);
+            if (prev) {
+              const compareFields = isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                            : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+              compareFields.forEach((field) => {
+                const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
+                if (!colIndex) return;
+                const prevVal = prev[field] ?? (field==='toplamTutarFobUsd' ? (prev.toplamUsd) : field==='toplamTutarFobTl' ? (prev.toplamTl) : undefined);
+                const currVal = r[field] ?? (field==='toplamTutarFobUsd' ? (r.toplamUsd) : field==='toplamTutarFobTl' ? (r.toplamTl) : undefined);
+                if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
+                  excelRow.getCell(colIndex).fill = redFill;
+                }
+              });
+            } else {
+              // Yeni satır: temel alanları vurgula (isteğe bağlı)
+              ['gtipKodu','adiVeOzelligi','miktar','birim'].forEach((k)=>{
+                const colIndex = ws.columns.findIndex(c => c.key === k) + 1;
+                if (colIndex) excelRow.getCell(colIndex).fill = redFill;
+              });
+            }
+          });
+          prevMap = currMap; // bir sonraki revizyon kıyas için
+        });
+        return ws;
+      };
+
+      addSheetFor('Yerli Revizyonları', 'yerli');
+      addSheetFor('İthal Revizyonları', 'ithal');
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const fileName = `makine_revizyon_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('exportMakineRevizyonExcel error:', error);
+      res.status(500).json({ success:false, message:'Revizyon Excel export sırasında hata oluştu' });
+    }
+  },
+  
+  // 🧾 Makine Revizyon İşlem Geçmişi Excel (alan bazlı tek tek değişiklik listesi)
+  exportMakineRevizyonHistoryExcel: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const Tesvik = require('../models/Tesvik');
+      const ExcelJS = require('exceljs');
+
+      const tesvik = await Tesvik.findById(id)
+        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
+        .lean();
+      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+
+      const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
+      revs.sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('İşlem Geçmişi');
+      ws.columns = [
+        { header:'Revize Sıra', key:'no', width: 10 },
+        { header:'Revize ID', key:'revizeId', width: 24 },
+        { header:'Tür', key:'tur', width: 10 },
+        { header:'Tarih', key:'tarih', width: 18 },
+        { header:'Kullanıcı', key:'user', width: 28 },
+        // ETUYS meta
+        { header:'Talep No', key:'talepNo', width: 14 },
+        { header:'Belge No', key:'belgeNo', width: 14 },
+        { header:'Belge Id', key:'belgeId', width: 16 },
+        { header:'Talep Tipi', key:'talepTipi', width: 22 },
+        { header:'Talep Detayı', key:'talepDetayi', width: 28 },
+        { header:'Durum', key:'durum', width: 16 },
+        { header:'Daire', key:'daire', width: 22 },
+        { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 },
+        { header:'Liste', key:'liste', width: 8 },
+        { header:'RowID', key:'rowId', width: 24 },
+        { header:'#', key:'siraNo', width: 6 },
+        { header:'GTIP', key:'gtip', width: 16 },
+        { header:'Ad', key:'ad', width: 32 },
+        { header:'Alan', key:'field', width: 24 },
+        { header:'Eski', key:'old', width: 28 },
+        { header:'Yeni', key:'new', width: 28 },
+        { header:'Değişim', key:'change', width: 12 }
+      ];
+      ws.getRow(1).font = { bold:true };
+      ws.autoFilter = 'A1:N1';
+
+      const compareYerliFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+      const compareIthalFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+
+      const mapByKey = (arr, type) => {
+        const out = new Map();
+        (arr||[]).forEach(r => {
+          const key = r.rowId || `${r.siraNo||0}|${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.birim||''}`;
+          out.set(key, r);
+        });
+        return out;
+      };
+
+      const pushChange = (no, rev, type, row, field, oldVal, newVal, changeType) => {
+        ws.addRow({
+          no,
+          revizeId: rev.revizeId,
+          tur: (rev.revizeTuru||'').toUpperCase(),
+          tarih: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+          user: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+          talepNo: rev.talepNo || '',
+          belgeNo: rev.belgeNo || '',
+          belgeId: rev.belgeId || '',
+          talepTipi: rev.talepTipi || '',
+          talepDetayi: rev.talepDetayi || '',
+          durum: rev.durum || '',
+          daire: rev.daire || '',
+          basvuruTarihi: rev.basvuruTarihi ? new Date(rev.basvuruTarihi).toLocaleDateString('tr-TR') : '',
+          liste: type.toUpperCase(),
+          rowId: row.rowId || '',
+          siraNo: row.siraNo || 0,
+          gtip: row.gtipKodu || '',
+          ad: row.adiVeOzelligi || '',
+          field,
+          old: oldVal,
+          new: newVal,
+          change: changeType
+        });
+      };
+
+      let seq = 0;
+      for (let i=1;i<revs.length;i++) {
+        const prev = revs[i-1];
+        const curr = revs[i];
+        seq++;
+        // Yerli
+        const pY = mapByKey(prev.yerli, 'yerli');
+        const cY = mapByKey(curr.yerli, 'yerli');
+        const yKeys = new Set([...Array.from(pY.keys()), ...Array.from(cY.keys())]);
+        yKeys.forEach(k => {
+          const a = pY.get(k); const b = cY.get(k);
+          if (a && !b) { pushChange(seq, curr, 'yerli', a, '-', JSON.stringify(a), '', 'removed'); return; }
+          if (!a && b) { pushChange(seq, curr, 'yerli', b, '-', '', JSON.stringify(b), 'added'); return; }
+          if (!a || !b) return;
+          compareYerliFields.forEach(f => {
+            const oldVal = a[f];
+            const newVal = b[f];
+            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+              pushChange(seq, curr, 'yerli', b, f, oldVal, newVal, 'modified');
+            }
+          });
+        });
+        // İthal
+        const pI = mapByKey(prev.ithal, 'ithal');
+        const cI = mapByKey(curr.ithal, 'ithal');
+        const iKeys = new Set([...Array.from(pI.keys()), ...Array.from(cI.keys())]);
+        iKeys.forEach(k => {
+          const a = pI.get(k); const b = cI.get(k);
+          if (a && !b) { pushChange(seq, curr, 'ithal', a, '-', JSON.stringify(a), '', 'removed'); return; }
+          if (!a && b) { pushChange(seq, curr, 'ithal', b, '-', '', JSON.stringify(b), 'added'); return; }
+          if (!a || !b) return;
+          compareIthalFields.forEach(f => {
+            const oldVal = f==='toplamTutarFobUsd' ? (a.toplamTutarFobUsd ?? a.toplamUsd) : f==='toplamTutarFobTl' ? (a.toplamTutarFobTl ?? a.toplamTl) : a[f];
+            const newVal = f==='toplamTutarFobUsd' ? (b.toplamTutarFobUsd ?? b.toplamUsd) : f==='toplamTutarFobTl' ? (b.toplamTutarFobTl ?? b.toplamTl) : b[f];
+            if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+              pushChange(seq, curr, 'ithal', b, f, oldVal, newVal, 'modified');
+            }
+          });
+        });
+      }
+
+      // finalize
+      const buffer = await wb.xlsx.writeBuffer();
+      const fileName = `makine_revizyon_islem_gecmisi_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('exportMakineRevizyonHistoryExcel error:', error);
+      res.status(500).json({ success:false, message:'İşlem geçmişi Excel oluşturulamadı' });
+    }
+  },
   // 🆕 Makine Talep/Karar API'leri
   setMakineTalepDurumu: async (req, res) => {
     try {

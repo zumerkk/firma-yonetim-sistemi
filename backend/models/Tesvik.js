@@ -186,6 +186,35 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   }
 }, { _id: false });
 
+// 🧾 Makine Revizyonu Snapshot Schema
+// Her revize başlangıcı/bitişi veya geri dönüş işleminde o anki makine listeleri saklanır
+const makineRevizyonSchema = new mongoose.Schema({
+  revizeId: { type: String, default: () => new mongoose.Types.ObjectId().toString(), index: true },
+  revizeTarihi: { type: Date, default: Date.now },
+  revizeTuru: { type: String, enum: ['start', 'final', 'revert'], default: 'start' },
+  aciklama: { type: String, trim: true, maxlength: 500 },
+  yapanKullanici: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // İsteğe bağlı revize süreç tarihleri
+  revizeMuracaatTarihi: { type: Date },
+  revizeOnayTarihi: { type: Date },
+  // ETUYS metadata (devlet sistemi ile uyum için)
+  talepNo: { type: String, trim: true },
+  belgeNo: { type: String, trim: true },
+  belgeId: { type: String, trim: true },
+  talepTipi: { type: String, trim: true },
+  talepDetayi: { type: String, trim: true },
+  durum: { type: String, trim: true },
+  daire: { type: String, trim: true },
+  basvuruTarihi: { type: Date },
+  odemeTalebi: { type: String, trim: true },
+  retSebebi: { type: String, trim: true },
+  // O anki makine listesi snapshot'ı
+  yerli: [makinaKalemiYerliSchema],
+  ithal: [makinaKalemiIthalSchema],
+  // Eğer bir revizyondan dönüldüyse kaynak bilgi
+  kaynakRevizeId: { type: String, trim: true }
+}, { _id: false });
+
 // 🎯 Destek Unsurları Schema
 const destekUnsurlariSchema = new mongoose.Schema({
   destekUnsuru: {
@@ -344,6 +373,9 @@ const tesvikSchema = new mongoose.Schema({
     yerli: [makinaKalemiYerliSchema],
     ithal: [makinaKalemiIthalSchema]
   },
+  
+  // 📝 Makine Revizyonları (snapshot listesi)
+  makineRevizyonlari: [makineRevizyonSchema],
   
   // 📝 Künye Bilgileri - Excel Şablonuna Uygun
   kunyeBilgileri: {

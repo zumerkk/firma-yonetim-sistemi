@@ -46,7 +46,7 @@ const destekSartEslesmeSchema = new mongoose.Schema({
 });
 
 // Index'ler
-destekSartEslesmeSchema.index({ destekTuru: 1 });
+// destekTuru alanı zaten field-level `index: true` ile tanımlı. Duplicate uyarısını önlemek için tekrar eklemiyoruz.
 destekSartEslesmeSchema.index({ aktif: 1 });
 
 // Güncelleme tarihini otomatik ayarla

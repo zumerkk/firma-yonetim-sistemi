@@ -31,6 +31,34 @@ const tesvikService = {
     const res = await api.get(`/tesvik/${id}/excel-export`, { responseType: 'blob', params: { includeColors: true } });
     return res;
   }
+  ,
+  // 🆕 Makine Revizyon Servisleri
+  async startMakineRevizyon(id, payload = {}) {
+    const res = await api.post(`/tesvik/${id}/makine-revizyon/start`, payload);
+    return res.data;
+  },
+  async finalizeMakineRevizyon(id, payload = {}) {
+    const res = await api.post(`/tesvik/${id}/makine-revizyon/finalize`, payload);
+    return res.data;
+  },
+  async listMakineRevizyonlari(id) {
+    const res = await api.get(`/tesvik/${id}/makine-revizyon/list`);
+    return res.data?.data || [];
+  },
+  async revertMakineRevizyon(id, revizeId, aciklama) {
+    const res = await api.post(`/tesvik/${id}/makine-revizyon/revert`, { revizeId, aciklama });
+    return res.data;
+  },
+  async exportMakineRevizyonExcel(id) {
+    return api.get(`/tesvik/${id}/makine-revizyon/excel-export`, { responseType: 'blob' });
+  },
+  async exportMakineRevizyonHistoryExcel(id) {
+    return api.get(`/tesvik/${id}/makine-revizyon/history-excel`, { responseType: 'blob' });
+  },
+  async updateMakineRevizyonMeta(id, revizeId, meta) {
+    const res = await api.patch(`/tesvik/${id}/makine-revizyon/meta`, { revizeId, meta });
+    return res.data;
+  }
 };
 
 export default tesvikService;

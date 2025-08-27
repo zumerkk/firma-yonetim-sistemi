@@ -35,6 +35,14 @@ const {
   addNewOption, // YENİ: Yeni seçenek ekleme
   getOptionsForType, // YENİ: Seçenekleri getirme
   getTesvikRevisions, // 🆕 Revizyon Geçmişi Getirme
+  // 🆕 Makine revizyon akışı
+  startMakineRevizyon,
+  finalizeMakineRevizyon,
+  listMakineRevizyonlari,
+  revertMakineRevizyon,
+  exportMakineRevizyonExcel,
+  exportMakineRevizyonHistoryExcel,
+  updateMakineRevizyonMeta,
   
   // 🎯 DİNAMİK VERİ YÖNETİMİ API'LERİ
   getDynamicDestekUnsurlari,
@@ -498,6 +506,22 @@ router.post('/:id/makine-talep', authenticate, checkPermission('belgeDuzenle'), 
 router.post('/:id/makine-karar', authenticate, checkPermission('belgeDuzenle'), setMakineKararDurumu);
 // 🆕 Makine Listeleri Kaydet (tam liste)
 router.post('/:id/makine-listeleri', authenticate, checkPermission('belgeDuzenle'), saveMakineListeleri);
+
+// 🆕 Makine Revizyon Akışı
+// Revizyon başlat: pre-snapshot al, düzenleme izni ver
+router.post('/:id/makine-revizyon/start', authenticate, checkPermission('belgeDuzenle'), startMakineRevizyon);
+// Revizyon finalize: post-snapshot al
+router.post('/:id/makine-revizyon/finalize', authenticate, checkPermission('belgeDuzenle'), finalizeMakineRevizyon);
+// Revizyon geçmişi: listele
+router.get('/:id/makine-revizyon/list', authenticate, checkPermission('raporGoruntule'), listMakineRevizyonlari);
+// Revizyon geri al: seçilen revizeId snapshot'ına dön ve yeni revert snapshot oluştur
+router.post('/:id/makine-revizyon/revert', authenticate, checkPermission('belgeDuzenle'), revertMakineRevizyon);
+// Revizyon Excel export: hücre değişiklikleri kırmızı
+router.get('/:id/makine-revizyon/excel-export', authenticate, checkPermission('raporGoruntule'), exportMakineRevizyonExcel);
+// Revizyon işlem geçmişi Excel export: alan bazlı değişiklik listesi
+router.get('/:id/makine-revizyon/history-excel', authenticate, checkPermission('raporGoruntule'), exportMakineRevizyonHistoryExcel);
+// Revize meta güncelle (ETUYS alanları)
+router.patch('/:id/makine-revizyon/meta', authenticate, checkPermission('belgeDuzenle'), updateMakineRevizyonMeta);
 
 // 📊 GET /api/tesvik/:id/revisions - Revizyon Geçmişi Getirme
 router.get('/:id/revisions', 
