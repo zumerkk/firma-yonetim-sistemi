@@ -190,7 +190,6 @@ const createTesvik = async (req, res) => {
         entityId: tesvik._id
       }
     });
-
     // Populate işlemi
     await tesvik.populate('firma', 'tamUnvan firmaId vergiNoTC');
     await tesvik.populate('olusturanKullanici', 'adSoyad email');
@@ -371,7 +370,6 @@ const getTesvik = async (req, res) => {
     });
   }
 };
-
 // ✏️ TEŞVİK GÜNCELLEME - PROFESSIONAL CHANGE TRACKING SYSTEM
 const updateTesvik = async (req, res) => {
   try {
@@ -719,8 +717,8 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.makinaTechizat.ithalMakina': 'İthal Makine',
     'maliHesaplamalar.makinaTechizat.yerliMakina': 'Yerli Makine',
     'maliHesaplamalar.makinaTechizat.toplamMakina': 'Toplam Makine',
-    'maliHesaplamalar.makinaTechizat.yeniMakina': 'Yeni Makine',
-    'maliHesaplamalar.makinaTechizat.kullanimisMakina': 'Kullanılmış Makine',
+    'maliHesaplamalar.makinaTechizat.yeniMakine': 'Yeni Makine',
+    'maliHesaplamalar.makinaTechizat.kullanimisMakine': 'Kullanılmış Makine',
     'makinaTechizat': 'Makine Teçhizat',
     
     // Diğer Yatırım Harcamaları - DOĞRU FIELD PATHS
@@ -747,7 +745,6 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'notlar.resmiAciklamalar': 'Resmi Açıklamalar',
     'sonGuncellemeNotlari': 'Son Güncelleme Notları'
   };
-
   // 🔍 Recursive comparison function
   const compareObjects = (oldObj, newObj, prefix = '') => {
     if (!oldObj && !newObj) return;
@@ -900,7 +897,6 @@ const updateTesvikDurum = async (req, res) => {
     });
   }
 };
-
 // 📝 REVİZYON EKLEME - Enhanced with Better Change Tracking
 const addTesvikRevizyon = async (req, res) => {
   try {
@@ -1102,7 +1098,6 @@ const getTesvikRevisions = async (req, res) => {
     });
   }
 };
-
 // 🎯 ======== DİNAMİK VERİ YÖNETİMİ API'LERİ ========
 
 // 📋 Dinamik Destek Unsurları Getirme
@@ -1273,7 +1268,6 @@ const getDynamicDestekSartlari = async (req, res) => {
     });
   }
 };
-
 // ➕ Yeni Destek Şartı Ekleme
 const addDestekSarti = async (req, res) => {
   try {
@@ -1457,7 +1451,6 @@ const addOzelSart = async (req, res) => {
     });
   }
 };
-
 // 📋 Dinamik Özel Şart Notları Getirme
 const getDynamicOzelSartNotlari = async (req, res) => {
   try {
@@ -1651,7 +1644,6 @@ const getDynamicOzelSartNotlariData = async () => {
 
   return [...staticOptions, ...formattedDynamic];
 };
-
 // 💰 MALİ HESAPLAMALAR OTOMATİK HESAPLAMA
 const calculateMaliHesaplamalar = async (req, res) => {
   try {
@@ -1813,7 +1805,6 @@ const searchTesvikler = async (req, res) => {
     });
   }
 };
-
 // 🗑️ TEŞVİK SİLME (Soft Delete)
 const deleteTesvik = async (req, res) => {
   try {
@@ -1967,7 +1958,6 @@ const getNextTesvikId = async (req, res) => {
     });
   }
 };
-
 // 🆔 SONRAKİ GM ID'Yİ AL - OTOMATIK GENERATION
 const getNextGmId = async (req, res) => {
   try {
@@ -2166,7 +2156,6 @@ const getNextGmIdValue = async () => {
   
   return `GM${new Date().getFullYear()}${nextNumber.toString().padStart(3, '0')}`;
 };
-
 const getNextTesvikIdValue = async () => {
   const year = new Date().getFullYear();
   const lastTesvik = await Tesvik.findOne(
@@ -2341,7 +2330,6 @@ const getU97KodlariOptions = () => [
   { kod: '0121.2.03', aciklama: 'Damızlık koyun yetiştiriciliği', kategori: 'Küçükbaş' },
   { kod: '0121.2.04', aciklama: 'Kıl keçisi', kategori: 'Küçükbaş' }
 ];
-
 // 🏭 OSB SEÇENEKLERİ - CSV'den real-time yükleme
 const getOsbListFromCSV = () => {
   try {
@@ -2531,7 +2519,6 @@ const getDestekSartlariOptions = () => [
   // Diğer Şartlar
   { value: '10 Yıl 6. Bölge', label: '10 Yıl 6. Bölge', kategori: '6. Bölge', yil: 10 }
 ];
-
 // 🎯 Destek Unsurları Template - Excel benzeri 8 alan yapısı
 const getDestekUnsurlariTemplate = () => [
   {
@@ -2714,7 +2701,6 @@ const getOzelSartNotlariOptions = () => [
   'İşyeri ruhsatı zorunlu',
   'Diğer özel şartlar için açıklama ekleyin'
 ];
-
 // 🎯 YENİ SEÇENEK EKLEME - Dinamik Dropdown Yönetimi
 const addNewOption = async (req, res) => {
   try {
@@ -2876,7 +2862,6 @@ const getOptionsForType = async (req, res) => {
     });
   }
 };
-
 // 🏢 ENTERPRISE SİSTEM REVİZYON EXCEL EXPORT
 // MongoDB'den tam veri çekme + CSV formatına tam uyum + Revizyon tracking + Professional export
 const exportRevizyonExcel = async (req, res) => {
@@ -3067,7 +3052,6 @@ const getCompleteTesvikData = async (id) => {
     throw error;
   }
 };
-
 // 📊 PHASE 2: CSV STRUCTURE VALIDATION
 const validateAndBuildCsvStructure = async () => {
   try {
@@ -3224,7 +3208,6 @@ const buildRevisionTrackingData = async (tesvik) => {
       isInitial: true,
       snapshot: initialSnapshot
     });
-    
     console.log('✅ İlk oluşturma kaydı eklendi');
     
     // 🔄 REVİZYON GEÇMİŞİ - Her revizyon için o andaki state'i kullan
@@ -3395,7 +3378,6 @@ const buildRevisionTrackingData = async (tesvik) => {
     throw error;
   }
 };
-
 // 🏗️ CSV DATA ROW BUILDER WITH SNAPSHOT - PROFESSIONAL DEBUG VERSION
 const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo = 0) => {
   try {
@@ -3597,7 +3579,6 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         keys: s ? Object.keys(s) : []
       }))
     });
-    
     for (let i = 0; i < 14; i++) {
       if (i < ozelSartlar.length && ozelSartlar[i] && 
           (ozelSartlar[i].kisaltma || ozelSartlar[i].notu || ozelSartlar[i].koşulMetni || ozelSartlar[i].aciklamaNotu)) {
@@ -3796,7 +3777,6 @@ const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
     return [];
   }
 };
-
 // 🏗️ CSV DATA ROW BUILDER - 156 SÜTUN TAM UYUMLU
 const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
   try {
@@ -3892,8 +3872,8 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0); // Schema'da nested
-    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0); // Schema'da nested
-    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakina || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakine || 0); // Schema'da nested
     row.push(0); // TOPLAM İTHAL MAKİNE ($) (schema'da yok)
     row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || tesvik.maliHesaplamalar?.finansman?.yabanciKaynaklar?.bankKredisi || 0); // Banka Kredisi
     row.push(tesvik.maliHesaplamalar?.finansman?.ozKaynak || 0); // Schema'da nested
@@ -3969,7 +3949,6 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         }
       }
     });
-    
     // 🎨 ENTERPRISE-LEVEL PROFESSIONAL STYLES - SECTION-BASED CORPORATE DESIGN
     const styles = {
             // 🏢 KÜNYE BİLGLERİ - Deep Blue Corporate Theme - FONTRENGİ SİYAH!
@@ -4351,7 +4330,6 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       
       return styles.kunyeLevel1; // Default
     };
-    
     // 🏆 ENTERPRISE-LEVEL KURUMSAL EXCEL ŞABLONU - AŞK OLACAKSIN!
     console.log(`🏆 [${exportId}] PROFESYONEL KURUMSAL ŞABLON OLUŞTURULUYOR...`);
     
@@ -4548,7 +4526,6 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       if (c === 7) cell.value = 'BELGE BİLGLERİ';
       cell.style = professionalStyles.kunye.level2;
     }
-    
     // Diğer ana bölümler
     const level2Sections = [
       { name: 'YATIRIM İLE İLGİLİ BİLGLER', start: 18, end: 34, style: professionalStyles.yatirim.level2 },
@@ -4930,7 +4907,6 @@ module.exports = {
       res.status(500).json({ success:false, message:'Revizyon başlatılamadı' });
     }
   },
-  
   // 🆕 Makine Revizyon Finalize (post-revizyon snapshot kaydet)
   finalizeMakineRevizyon: async (req, res) => {
     try {
@@ -5091,6 +5067,7 @@ module.exports = {
           { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
           { header:'Miktar', key:'miktar', width: 10 },
           { header:'Birim', key:'birim', width: 10 },
+          { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
           ...(isYerli ? [
             { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 14 },
             { header:'Toplam (TL)', key:'toplamTl', width: 14 },
@@ -5114,11 +5091,19 @@ module.exports = {
           { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 14 },
           { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
           { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
-          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 }
+          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 },
+          // UI ek alanlar
+          { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
+          { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
+          { header:'Talep Durumu', key:'talepDurum', width: 16 },
+          { header:'İstenen Adet', key:'talepIstenenAdet', width: 14 },
+          { header:'Talep Tarihi (Kalem)', key:'kalemTalepTarihi', width: 18 },
+          { header:'Karar Durumu', key:'kararDurumu', width: 16 },
+          { header:'Onaylanan Adet', key:'kararOnaylananAdet', width: 18 },
+          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 }
         ];
         ws.columns = baseCols;
         ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
-
         // Önceki snapshot kıyaslaması için map
         let prevMap = new Map();
         revs.forEach((rev) => {
@@ -5152,7 +5137,16 @@ module.exports = {
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
               miktar: r.miktar || 0,
-              birim: r.birim || ''
+              birim: r.birim || '',
+              birimAciklamasi: r.birimAciklamasi || '',
+              etuysSecili: r.etuysSecili ? 'EVET' : 'HAYIR',
+              dosyaSayisi: Array.isArray(r.dosyalar) ? r.dosyalar.length : 0,
+              talepDurum: r.talep?.durum || '',
+              talepIstenenAdet: r.talep?.istenenAdet ?? '',
+              kalemTalepTarihi: r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+              kararDurumu: r.karar?.kararDurumu || '',
+              kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
+              kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
             };
             if (isYerli) {
               Object.assign(rowVals, {
@@ -5189,13 +5183,40 @@ module.exports = {
             // Hücre bazlı fark boyama
             const prev = prevMap.get(key);
             if (prev) {
-              const compareFields = isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                            : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+              const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
               compareFields.forEach((field) => {
                 const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
                 if (!colIndex) return;
-                const prevVal = prev[field] ?? (field==='toplamTutarFobUsd' ? (prev.toplamUsd) : field==='toplamTutarFobTl' ? (prev.toplamTl) : undefined);
-                const currVal = r[field] ?? (field==='toplamTutarFobUsd' ? (r.toplamUsd) : field==='toplamTutarFobTl' ? (r.toplamTl) : undefined);
+                const prevVal = (()=>{
+                  if (field==='toplamTutarFobUsd') return prev.toplamUsd;
+                  if (field==='toplamTutarFobTl') return prev.toplamTl;
+                  if (field==='birimAciklamasi') return prev.birimAciklamasi;
+                  if (field==='etuysSecili') return prev.etuysSecili ? 'EVET' : 'HAYIR';
+                  if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
+                  if (field==='talepDurum') return prev.talep?.durum;
+                  if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
+                  if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+                  if (field==='kararDurumu') return prev.karar?.kararDurumu;
+                  if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
+                  if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+                  return prev[field];
+                })();
+                const currVal = (()=>{
+                  if (field==='toplamTutarFobUsd') return r.toplamUsd;
+                  if (field==='toplamTutarFobTl') return r.toplamTl;
+                  if (field==='birimAciklamasi') return r.birimAciklamasi;
+                  if (field==='etuysSecili') return r.etuysSecili ? 'EVET' : 'HAYIR';
+                  if (field==='dosyaSayisi') return Array.isArray(r.dosyalar) ? r.dosyalar.length : 0;
+                  if (field==='talepDurum') return r.talep?.durum;
+                  if (field==='talepIstenenAdet') return r.talep?.istenenAdet;
+                  if (field==='kalemTalepTarihi') return r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+                  if (field==='kararDurumu') return r.karar?.kararDurumu;
+                  if (field==='kararOnaylananAdet') return r.karar?.onaylananAdet;
+                  if (field==='kalemKararTarihi') return r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+                  return r[field];
+                })();
                 if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
                   excelRow.getCell(colIndex).fill = redFill;
                 }
@@ -5226,7 +5247,16 @@ module.exports = {
                 gtipAciklamasi: prevRow.gtipAciklamasi || '',
                 adiVeOzelligi: prevRow.adiVeOzelligi || '',
                 miktar: prevRow.miktar || 0,
-                birim: prevRow.birim || ''
+                birim: prevRow.birim || '',
+                birimAciklamasi: prevRow.birimAciklamasi || '',
+                etuysSecili: prevRow.etuysSecili ? 'EVET' : 'HAYIR',
+                dosyaSayisi: Array.isArray(prevRow.dosyalar) ? prevRow.dosyalar.length : 0,
+                talepDurum: prevRow.talep?.durum || '',
+                talepIstenenAdet: prevRow.talep?.istenenAdet ?? '',
+                kalemTalepTarihi: prevRow.talep?.talepTarihi ? new Date(prevRow.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+                kararDurumu: prevRow.karar?.kararDurumu || '',
+                kararOnaylananAdet: prevRow.karar?.onaylananAdet ?? '',
+                kalemKararTarihi: prevRow.karar?.kararTarihi ? new Date(prevRow.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
               };
               if (isYerli) {
                 Object.assign(rowVals, { birimFiyatiTl: prevRow.birimFiyatiTl||0, toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0, kdvIstisnasi: prevRow.kdvIstisnasi||'' });
@@ -5311,7 +5341,6 @@ module.exports = {
         });
         return out;
       };
-
       const pushChange = (no, rev, type, row, field, oldVal, newVal, changeType) => {
         ws.addRow({
           no,
@@ -5480,7 +5509,6 @@ module.exports = {
       message: 'Geçersiz teşvik ID\'si'
     });
   }
-  
   // Teşvik verisini getir
   const tesvik = await Tesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
@@ -5590,7 +5618,7 @@ module.exports = {
         ['Arazi/Arsa Bedeli:', tesvik.maliHesaplamalar?.araciArsaBedeli || 0],
         ['Yerli Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0],
         ['İthal Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0],
-        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0]
+        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0]
       ];
       
       finansalFields.forEach(fieldRow => {
@@ -5664,12 +5692,22 @@ module.exports = {
         { header: 'GTIP Açıklama', key: 'gtipAciklamasi', width: 40 },
         { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 30 },
         { header: 'Miktarı', key: 'miktar', width: 10 },
-        { header: 'Birimi', key: 'birim', width: 12 },
+        { header: 'Birim', key: 'birim', width: 10 },
+        { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
         { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 26 },
         { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 26 },
         { header: 'Menşe Döviz Cinsi (FOB)', key: 'gumrukDovizKodu', width: 22 },
         { header: 'KULLANILMIŞ MAKİNE (KOD)', key: 'kullanilmisMakine', width: 20 },
-        { header: 'KULLANILMIŞ MAKİNE (AÇIKLAMA)', key: 'kullanilmisMakineAciklama', width: 28 }
+        { header: 'KULLANILMIŞ MAKİNE (AÇIKLAMA)', key: 'kullanilmisMakineAciklama', width: 28 },
+        // UI ek alanlar
+        { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
+        { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
+        { header: 'Talep Durumu', key: 'talepDurum', width: 16 },
+        { header: 'İstenen Adet', key: 'talepIstenenAdet', width: 14 },
+        { header: 'Talep Tarihi (Kalem)', key: 'kalemTalepTarihi', width: 18 },
+        { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+        { header: 'Onaylanan Adet', key: 'kararOnaylananAdet', width: 18 },
+        { header: 'Karar Tarihi (Kalem)', key: 'kalemKararTarihi', width: 18 }
       ];
       if (Array.isArray(tesvik.makineListeleri?.ithal)) {
         tesvik.makineListeleri.ithal.forEach(r => {
@@ -5680,6 +5718,15 @@ module.exports = {
             adiVeOzelligi: r.adiVeOzelligi || '',
             miktar: r.miktar || 0,
             birim: r.birim || '',
+            birimAciklamasi: r.birimAciklamasi || '',
+            etuysSecili: r.etuysSecili ? 'EVET' : 'HAYIR',
+            dosyaSayisi: Array.isArray(r.dosyalar) ? r.dosyalar.length : 0,
+            talepDurum: r.talep?.durum || '',
+            talepIstenenAdet: r.talep?.istenenAdet ?? '',
+            kalemTalepTarihi: r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+            kararDurumu: r.karar?.kararDurumu || '',
+            kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
+            kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
             toplamTutarFobUsd: r.toplamTutarFobUsd || 0,
             toplamTutarFobTl: r.toplamTutarFobTl || 0,
             gumrukDovizKodu: r.gumrukDovizKodu || '',
@@ -5698,9 +5745,18 @@ module.exports = {
         { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 30 },
         { header: 'Miktarı', key: 'miktar', width: 10 },
         { header: 'Birimi', key: 'birim', width: 12 },
+        { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
         { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 26 },
         { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 26 },
-        { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 }
+        { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 },
+        { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
+        { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
+        { header: 'Talep Durumu', key: 'talepDurum', width: 16 },
+        { header: 'İstenen Adet', key: 'talepIstenenAdet', width: 14 },
+        { header: 'Talep Tarihi (Kalem)', key: 'kalemTalepTarihi', width: 18 },
+        { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+        { header: 'Onaylanan Adet', key: 'kararOnaylananAdet', width: 18 },
+        { header: 'Karar Tarihi (Kalem)', key: 'kalemKararTarihi', width: 18 }
       ];
       if (Array.isArray(tesvik.makineListeleri?.yerli)) {
         tesvik.makineListeleri.yerli.forEach(r => {
@@ -5711,6 +5767,15 @@ module.exports = {
             adiVeOzelligi: r.adiVeOzelligi || '',
             miktar: r.miktar || 0,
             birim: r.birim || '',
+            birimAciklamasi: r.birimAciklamasi || '',
+            etuysSecili: r.etuysSecili ? 'EVET' : 'HAYIR',
+            dosyaSayisi: Array.isArray(r.dosyalar) ? r.dosyalar.length : 0,
+            talepDurum: r.talep?.durum || '',
+            talepIstenenAdet: r.talep?.istenenAdet ?? '',
+            kalemTalepTarihi: r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+            kararDurumu: r.karar?.kararDurumu || '',
+            kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
+            kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
             birimFiyatiTl: r.birimFiyatiTl || 0,
             toplamTutariTl: r.toplamTutariTl || 0,
             kdvIstisnasi: r.kdvIstisnasi || ''
@@ -5843,7 +5908,6 @@ module.exports = {
       doc.text(`Toplam Sabit Yatırım: ${tesvik.finansalBilgiler?.toplamSabitYatirimTutari || 0} TL`);
       doc.text(`Arazi/Arsa Bedeli: ${tesvik.finansalBilgiler?.araziArsaBedeli || 0} TL`);
       doc.moveDown(0.5);
-      
       // Makine teçhizat TL
       doc.text(`Yerli Makine: ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerliMakine || 0} TL`);
       doc.text(`İthal Makine: ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithalMakine || 0} TL`);
