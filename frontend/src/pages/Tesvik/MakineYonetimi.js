@@ -820,7 +820,7 @@ const MakineYonetimi = () => {
       { field: 'birim', headerName: 'Birim', width: 240, renderCell: (p) => (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1 }}>
-              <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod, aciklama)=>{ if(!isReviseMode) return; updateYerli(p.row.id,{ birim: kod, birimAciklamasi: aciklama }); }} />
+              <UnitCurrencySearch display="chip" type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod, aciklama)=>{ if(!isReviseMode) return; updateYerli(p.row.id,{ birim: kod, birimAciklamasi: aciklama }); }} />
             </Box>
             <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
           </Stack>
@@ -1011,7 +1011,7 @@ const MakineYonetimi = () => {
       { field: 'birim', headerName: 'Birim', width: 240, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <UnitCurrencySearch type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{ birim:kod, birimAciklamasi: aciklama }); }} />
+            <UnitCurrencySearch display="chip" type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{ birim:kod, birimAciklamasi: aciklama }); }} />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>

@@ -1,6 +1,6 @@
 // 🔎 Generic modal selector for Unit or Currency codes (GTIPSuperSearch benzeri)
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemButton, Typography, InputAdornment, Chip, CircularProgress } from '@mui/material';
+import { Box, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button, ListItemButton, Typography, InputAdornment, Chip, CircularProgress, Tooltip } from '@mui/material';
 import { Search as SearchIcon } from '@mui/icons-material';
 import unitService from '../services/unitService';
 import currencyService from '../services/currencyService';
@@ -11,7 +11,7 @@ const debounce = (fn, wait = 250) => {
 };
 
 // type: 'unit' | 'currency' | 'used' | 'machineType'
-const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder }) => {
+const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder, display = 'input' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,13 +60,34 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
     } catch {}
   };
 
-  return (
-    <>
+  const ph = placeholder || (type === 'unit' ? 'Birim seç...' : type==='currency' ? 'Döviz seç...' : type==='machineType' ? 'Makine tipi seç...' : 'Seç...');
+
+  const renderPicker = () => {
+    if (display === 'chip') {
+      return (
+        <Tooltip title={selected ? `${selected.kod}${selected.aciklama ? ` — ${selected.aciklama}` : ''}` : ph} placement="top">
+          <Box onClick={() => setIsOpen(true)} role="button" tabIndex={0}
+            sx={{ display:'flex', alignItems:'center', gap:1, width:'100%', border:'1px solid', borderColor:'divider', borderRadius:1, px:1, py:0.5, cursor:'pointer', '&:hover':{ borderColor:'primary.main', boxShadow:1 } }}
+          >
+            <SearchIcon sx={{ color:'#3b82f6', fontSize:'1.1rem' }} />
+            {selected ? (
+              <>
+                <Chip label={selected.kod} size="small" color="primary" />
+                <Typography variant="body2" noWrap sx={{ color:'text.secondary', flex:1, minWidth:0 }}>{selected.aciklama || ''}</Typography>
+              </>
+            ) : (
+              <Typography variant="body2" sx={{ color:'text.disabled' }}>{ph}</Typography>
+            )}
+          </Box>
+        </Tooltip>
+      );
+    }
+    return (
       <TextField
         inputRef={inputRef}
         value={selected ? (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : '')) : ''}
         onClick={() => setIsOpen(true)}
-        placeholder={placeholder || (type === 'unit' ? 'Birim seç...' : type==='currency' ? 'Döviz seç...' : type==='machineType' ? 'Makine tipi seç...' : 'Seç...')}
+        placeholder={ph}
         size={size}
         fullWidth
         readOnly
@@ -80,6 +101,12 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
           endAdornment: loading ? <CircularProgress size={16} /> : null
         }}
       />
+    );
+  };
+
+  return (
+    <>
+      {renderPicker()}
 
       <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{type === 'unit' ? 'Birim Kodu Seç' : type === 'currency' ? 'Döviz Kodu Seç' : type === 'machineType' ? 'Makine Teçhizat Tipi Seç' : 'Kullanılmış Makine Seç'}</DialogTitle>
