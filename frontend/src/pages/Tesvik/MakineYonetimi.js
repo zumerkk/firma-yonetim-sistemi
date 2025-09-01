@@ -80,7 +80,7 @@ const MakineYonetimi = () => {
   const closeToast = () => setToast(t => ({ ...t, open:false }));
   // 🆕 Revize Metası Dialog state
   const [metaOpen, setMetaOpen] = useState(false);
-  const [metaForm, setMetaForm] = useState({ talepNo:'', belgeNo:'', belgeId:'', basvuruTarihi:'', odemeTalebi:'', retSebebi:'' });
+  const [metaForm, setMetaForm] = useState({ talepNo:'', belgeNo:'', belgeId:'', basvuruTarihi:'', odemeTalebi:'' });
   const getActiveRevize = ()=> (Array.isArray(revList) && revList.length>0 ? revList[0] : null);
   const openMeta = ()=>{
     const active = getActiveRevize();
@@ -90,11 +90,10 @@ const MakineYonetimi = () => {
         belgeNo: active.belgeNo || (selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''),
         belgeId: active.belgeId || (selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''),
         basvuruTarihi: active.basvuruTarihi ? new Date(active.basvuruTarihi).toISOString().slice(0,10) : (selectedTesvik?.belgeYonetimi?.belgeTarihi ? new Date(selectedTesvik.belgeYonetimi.belgeTarihi).toISOString().slice(0,10) : ''),
-        odemeTalebi: active.odemeTalebi||'',
-        retSebebi: active.retSebebi||''
+        odemeTalebi: active.odemeTalebi||''
       });
     } else {
-      setMetaForm({ talepNo:'', belgeNo:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), belgeId:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), basvuruTarihi:(selectedTesvik?.belgeYonetimi?.belgeTarihi ? new Date(selectedTesvik.belgeYonetimi.belgeTarihi).toISOString().slice(0,10) : ''), odemeTalebi:'', retSebebi:'' });
+      setMetaForm({ talepNo:'', belgeNo:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), belgeId:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), basvuruTarihi:(selectedTesvik?.belgeYonetimi?.belgeTarihi ? new Date(selectedTesvik.belgeYonetimi.belgeTarihi).toISOString().slice(0,10) : ''), odemeTalebi:'' });
     }
     setMetaOpen(true);
   };
@@ -381,7 +380,7 @@ const MakineYonetimi = () => {
       ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili }))
     };
     try { await tesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
-    // 2) DB’den güncel listeyi çek ve ilgili satırı yakala
+    // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
     const data = await tesvikService.get(selectedTesvik._id);
     const list = (liste==='yerli' ? (data?.makineListeleri?.yerli||[]) : (data?.makineListeleri?.ithal||[]));
     const key = (x)=> `${x.gtipKodu||''}|${x.adiVeOzelligi||''}|${Number(x.miktar)||0}|${x.birim||''}`;
@@ -966,36 +965,6 @@ const MakineYonetimi = () => {
           }}
         />
       ) },
-      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
-            updateIthal(p.row.id, { rowId: rid, talep });
-          }}
-        />
-      ) },
-      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-            updateIthal(p.row.id, { rowId: rid, karar });
-          }}
-        />
-      ) },
       { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
         <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
       )}
@@ -1143,7 +1112,8 @@ const MakineYonetimi = () => {
           </Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>
+      (
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.karar?.kararDurumu && (
             <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
@@ -1187,6 +1157,36 @@ const MakineYonetimi = () => {
             </span>
           </Tooltip>
         </Stack>
+      ) },
+      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('ithal', p.row);
+            if (!rid) return;
+            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+            updateIthal(p.row.id, { rowId: rid, talep });
+          }}
+        />
+      ) },
+      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('ithal', p.row);
+            if (!rid) return;
+            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+            updateIthal(p.row.id, { rowId: rid, karar });
+          }}
+        />
       ) },
       { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
         <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
