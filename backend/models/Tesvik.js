@@ -116,6 +116,8 @@ const makinaKalemiYerliSchema = new mongoose.Schema({
   iadeDevirSatisVarMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
   iadeDevirSatisAdet: { type: Number, default: 0 },
   iadeDevirSatisTutar: { type: Number, default: 0 },
+  // 🆕 ETUYS gönderim seçimi: yalnızca işaretlenen makineler ETUYS işlemlerine dahil edilir
+  etuysSecili: { type: Boolean, default: false },
   // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
   talep: {
     durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
@@ -171,6 +173,8 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   iadeDevirSatisVarMi: { type: String, enum: ['EVET', 'HAYIR', ''], default: '' },
   iadeDevirSatisAdet: { type: Number, default: 0 },
   iadeDevirSatisTutar: { type: Number, default: 0 },
+  // 🆕 ETUYS gönderim seçimi: yalnızca işaretlenen makineler ETUYS işlemlerine dahil edilir
+  etuysSecili: { type: Boolean, default: false },
   // 📦 Talep/Karar Süreci (Bakanlık onay-red-kısmi onay)
   talep: {
     durum: { type: String, enum: ['taslak', 'bakanliga_gonderildi', 'revize_istendi'], default: 'taslak' },
@@ -197,6 +201,10 @@ const makineRevizyonSchema = new mongoose.Schema({
   // İsteğe bağlı revize süreç tarihleri
   revizeMuracaatTarihi: { type: Date },
   revizeOnayTarihi: { type: Date },
+  // 🆕 Süreç görünürlüğü için faz tarihleri
+  hazirlikTarihi: { type: Date },
+  talepTarihi: { type: Date },
+  kararTarihi: { type: Date },
   // ETUYS metadata (devlet sistemi ile uyum için)
   talepNo: { type: String, trim: true },
   belgeNo: { type: String, trim: true },

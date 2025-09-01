@@ -69,22 +69,32 @@ const MakineYonetimi = () => {
   const [revList, setRevList] = useState([]);
   const [revertOpen, setRevertOpen] = useState(false);
   const [selectedRevizeId, setSelectedRevizeId] = useState('');
+  // 🗑️ Silinen satırları gösterme (UI içinde takip)
+  const [deletedRows, setDeletedRows] = useState([]); // { type:'yerli'|'ithal', row, date }
+  const [deletedOpen, setDeletedOpen] = useState(false);
+  // ⚙️ İşlem günlükleri (talep/karar/silme)
+  const [activityLog, setActivityLog] = useState([]); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
   // 🛎️ Bildirimler
   const [toast, setToast] = useState({ open:false, severity:'info', message:'' });
   const openToast = (severity, message) => setToast({ open:true, severity, message });
   const closeToast = () => setToast(t => ({ ...t, open:false }));
   // 🆕 Revize Metası Dialog state
   const [metaOpen, setMetaOpen] = useState(false);
-  const [metaForm, setMetaForm] = useState({ talepNo:'', belgeNo:'', belgeId:'', talepTipi:'', talepDetayi:'', durum:'', daire:'', basvuruTarihi:'', odemeTalebi:'', retSebebi:'' });
+  const [metaForm, setMetaForm] = useState({ talepNo:'', belgeNo:'', belgeId:'', basvuruTarihi:'', odemeTalebi:'', retSebebi:'' });
   const getActiveRevize = ()=> (Array.isArray(revList) && revList.length>0 ? revList[0] : null);
   const openMeta = ()=>{
     const active = getActiveRevize();
     if (active) {
       setMetaForm({
-        talepNo: active.talepNo||'', belgeNo: active.belgeNo||'', belgeId: active.belgeId||'', talepTipi: active.talepTipi||'', talepDetayi: active.talepDetayi||'', durum: active.durum||'', daire: active.daire||'', basvuruTarihi: active.basvuruTarihi ? new Date(active.basvuruTarihi).toISOString().slice(0,10) : '', odemeTalebi: active.odemeTalebi||'', retSebebi: active.retSebebi||''
+        talepNo: active.talepNo||'',
+        belgeNo: active.belgeNo || (selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''),
+        belgeId: active.belgeId || (selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''),
+        basvuruTarihi: active.basvuruTarihi ? new Date(active.basvuruTarihi).toISOString().slice(0,10) : (selectedTesvik?.belgeYonetimi?.belgeTarihi ? new Date(selectedTesvik.belgeYonetimi.belgeTarihi).toISOString().slice(0,10) : ''),
+        odemeTalebi: active.odemeTalebi||'',
+        retSebebi: active.retSebebi||''
       });
     } else {
-      setMetaForm({ talepNo:'', belgeNo:'', belgeId:'', talepTipi:'', talepDetayi:'', durum:'', daire:'', basvuruTarihi:'', odemeTalebi:'', retSebebi:'' });
+      setMetaForm({ talepNo:'', belgeNo:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), belgeId:(selectedTesvik?.tesvikId || selectedTesvik?.gmId || ''), basvuruTarihi:(selectedTesvik?.belgeYonetimi?.belgeTarihi ? new Date(selectedTesvik.belgeYonetimi.belgeTarihi).toISOString().slice(0,10) : ''), odemeTalebi:'', retSebebi:'' });
     }
     setMetaOpen(true);
   };
@@ -350,14 +360,39 @@ const MakineYonetimi = () => {
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
   };
   const delRow = (id) => {
-    if (tab === 'yerli') setYerliRows(rows => rows.filter(r => r.id !== id));
-    else setIthalRows(rows => rows.filter(r => r.id !== id));
+    if (tab === 'yerli') setYerliRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> [{ type:'yerli', row, date:new Date() }, ...list].slice(0,200)); setActivityLog(log=> [{ type:'sil', list:'yerli', row, payload:null, date:new Date() }, ...log].slice(0,200)); } return rows.filter(r => r.id !== id); });
+    else setIthalRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> [{ type:'ithal', row, date:new Date() }, ...list].slice(0,200)); setActivityLog(log=> [{ type:'sil', list:'ithal', row, payload:null, date:new Date() }, ...log].slice(0,200)); } return rows.filter(r => r.id !== id); });
   };
 
   const handleUploadComplete = (files) => {
     if (!uploadRowId) return;
     const map = (r) => r.id === uploadRowId ? { ...r, dosyalar: [...(r.dosyalar||[]), ...files] } : r;
     if (tab === 'yerli') setYerliRows(rows => rows.map(map)); else setIthalRows(rows => rows.map(map));
+  };
+
+  // 🛡️ Yardımcı: Satırın rowId'sini garanti altına al (gerekirse autosave yap)
+  const ensureRowId = async (liste, row) => {
+    // Eğer zaten rowId varsa döndür
+    if (row?.rowId) return row.rowId;
+    if (!selectedTesvik?._id) return null;
+    // 1) Mevcut ekranı DB'ye kaydet (rowId'ler backend tarafından üretilecek)
+    const payload = {
+      yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili })),
+      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili }))
+    };
+    try { await tesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
+    // 2) DB’den güncel listeyi çek ve ilgili satırı yakala
+    const data = await tesvikService.get(selectedTesvik._id);
+    const list = (liste==='yerli' ? (data?.makineListeleri?.yerli||[]) : (data?.makineListeleri?.ithal||[]));
+    const key = (x)=> `${x.gtipKodu||''}|${x.adiVeOzelligi||''}|${Number(x.miktar)||0}|${x.birim||''}`;
+    const targetKey = `${row.gtipKodu||''}|${row.adi||row.adiVeOzelligi||''}|${Number(row.miktar)||0}|${row.birim||''}`;
+    const found = list.find(x => key(x) === targetKey);
+    const newRowId = found?.rowId || null;
+    // 3) UI state'e rowId'yi uygula
+    if (newRowId) {
+      if (liste==='yerli') updateYerli(row.id, { rowId: newRowId }); else updateIthal(row.id, { rowId: newRowId });
+    }
+    return newRowId;
   };
 
   const openUpload = (rowId) => { setUploadRowId(rowId); setUploadOpen(true); };
@@ -553,6 +588,8 @@ const MakineYonetimi = () => {
   const loadTesvikMakineListeleri = async (tesvikId) => {
     if (!tesvikId) return;
     const data = await tesvikService.get(tesvikId);
+    // Detay ile seçili teşviki zenginleştir (belge tarihi gibi alanları meta için kullanacağız)
+    setSelectedTesvik(prev => ({ ...(prev||{}), ...(data||{}) }));
     // Muafiyetleri destek unsurlarından türet
     const destekList = Array.isArray(data?.destekUnsurlari) ? data.destekUnsurlari : [];
     const hasGumruk = destekList.some(d => (d?.destekUnsuru || '').toLowerCase() === 'gümrük vergisi muafiyeti');
@@ -581,7 +618,8 @@ const MakineYonetimi = () => {
       iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
       iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
       talep: r.talep || null,
-      karar: r.karar || null
+      karar: r.karar || null,
+      etuysSecili: !!r.etuysSecili
     }));
     const ithal = (data?.makineListeleri?.ithal || []).map(r => ({
       id: r.rowId || Math.random().toString(36).slice(2),
@@ -613,7 +651,8 @@ const MakineYonetimi = () => {
       iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
       iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
       talep: r.talep || null,
-      karar: r.karar || null
+      karar: r.karar || null,
+      etuysSecili: !!r.etuysSecili
     }));
     setYerliRows(yerli);
     setIthalRows(ithal);
@@ -721,9 +760,11 @@ const MakineYonetimi = () => {
     if (!selectedTesvik || selectionModel.length === 0) return;
     const list = tab === 'yerli' ? yerliRows : ithalRows;
     const apply = async (row) => {
-      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0 };
-      await tesvikService.setMakineTalep(selectedTesvik._id, { liste: tab, rowId: row.id, talep });
-      if (tab === 'yerli') updateYerli(row.id, { talep }); else updateIthal(row.id, { talep });
+      const rid = await ensureRowId(tab, row);
+      if (!rid) return;
+      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: new Date() };
+      await tesvikService.setMakineTalep(selectedTesvik._id, { liste: tab, rowId: rid, talep });
+      if (tab === 'yerli') updateYerli(row.id, { rowId: rid, talep }); else updateIthal(row.id, { rowId: rid, talep });
     };
     for (const id of selectionModel) {
       const row = list.find(r => r.id === id);
@@ -740,12 +781,15 @@ const MakineYonetimi = () => {
     }
     const list = tab === 'yerli' ? yerliRows : ithalRows;
     const apply = async (row) => {
+      const rid = await ensureRowId(tab, row);
+      if (!rid) return;
       const karar = {
         kararDurumu: type,
-        onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0)
+        onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
+        kararTarihi: new Date()
       };
-      await tesvikService.setMakineKarar(selectedTesvik._id, { liste: tab, rowId: row.id, karar });
-      if (tab === 'yerli') updateYerli(row.id, { karar }); else updateIthal(row.id, { karar });
+      await tesvikService.setMakineKarar(selectedTesvik._id, { liste: tab, rowId: rid, karar });
+      if (tab === 'yerli') updateYerli(row.id, { rowId: rid, karar }); else updateIthal(row.id, { rowId: rid, karar });
     };
     for (const id of selectionModel) {
       const row = list.find(r => r.id === id);
@@ -820,58 +864,137 @@ const MakineYonetimi = () => {
           )}
         </Box>
       )},
+      { field: 'etuysSecili', headerName: 'ETUYS', width: 80, sortable:false, renderCell:(p)=> (
+        <input type="checkbox" checked={!!p.row.etuysSecili} disabled={!isReviseMode} onChange={(e)=> updateYerli(p.row.id, { etuysSecili: e.target.checked })} />
+      ) },
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setYerliRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 140, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', width: 160, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.talep?.durum && (
-            <Chip size="small" label={p.row.talep.durum.replace(/_/g,' ').toUpperCase()} />
+            <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
+              <Chip size="small" label={`${p.row.talep.durum.replace(/_/g,' ').toUpperCase()}${p.row.talep.istenenAdet?` (${p.row.talep.istenenAdet})`:''}`} />
+            </Tooltip>
           )}
           <Tooltip title="Bakanlığa gönder">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0 };
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId:p.row.id, talep });
-                updateYerli(p.row.id, { talep });
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
+                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
+                updateYerli(p.row.id, { rowId: rid, talep });
+                setActivityLog(log=> [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200));
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 160, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.karar?.kararDurumu && (
-            <Chip size="small" label={p.row.karar.kararDurumu.toUpperCase()} />
+            <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
+              <Chip size="small" label={`${p.row.karar.kararDurumu.toUpperCase()}${Number.isFinite(Number(p.row.karar.onaylananAdet))?` (${p.row.karar.onaylananAdet})`:''}`} />
+            </Tooltip>
           )}
           <Tooltip title="Onay">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0 };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId:p.row.id, karar });
-                updateYerli(p.row.id, { karar });
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+                updateYerli(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)) };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId:p.row.id, karar });
-                updateYerli(p.row.id, { karar });
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+                updateYerli(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Red">
             <span>
               <IconButton size="small" color="error" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'red', onaylananAdet:0 };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId:p.row.id, karar });
-                updateYerli(p.row.id, { karar });
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+                updateYerli(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
         </Stack>
+      ) },
+      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('yerli', p.row);
+            if (!rid) return;
+            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
+            updateYerli(p.row.id, { rowId: rid, talep });
+          }}
+        />
+      ) },
+      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('yerli', p.row);
+            if (!rid) return;
+            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+            updateYerli(p.row.id, { rowId: rid, karar });
+          }}
+        />
+      ) },
+      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('ithal', p.row);
+            if (!rid) return;
+            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+            updateIthal(p.row.id, { rowId: rid, talep });
+          }}
+        />
+      ) },
+      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
+        <TextField
+          type="date"
+          size="small"
+          InputLabelProps={{ shrink: true }}
+          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
+          onChange={async(e)=>{
+            const rid = await ensureRowId('ithal', p.row);
+            if (!rid) return;
+            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
+            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+            updateIthal(p.row.id, { rowId: rid, karar });
+          }}
+        />
       ) },
       { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
         <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
@@ -993,54 +1116,73 @@ const MakineYonetimi = () => {
           )}
         </Box>
       )},
+      { field: 'etuysSecili', headerName: 'ETUYS', width: 80, sortable:false, renderCell:(p)=> (
+        <input type="checkbox" checked={!!p.row.etuysSecili} disabled={!isReviseMode} onChange={(e)=> updateIthal(p.row.id, { etuysSecili: e.target.checked })} />
+      ) },
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setIthalRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 140, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', width: 160, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.talep?.durum && (
-            <Chip size="small" label={p.row.talep.durum.replace(/_/g,' ').toUpperCase()} />
+            <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
+              <Chip size="small" label={`${p.row.talep.durum.replace(/_/g,' ').toUpperCase()}${p.row.talep.istenenAdet?` (${p.row.talep.istenenAdet})`:''}`} />
+            </Tooltip>
           )}
           <Tooltip title="Bakanlığa gönder">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0 };
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId:p.row.id, talep });
-                updateIthal(p.row.id, { talep });
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
+                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+                updateIthal(p.row.id, { rowId: rid, talep });
+                setActivityLog(log=> [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200));
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 160, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.karar?.kararDurumu && (
-            <Chip size="small" label={p.row.karar.kararDurumu.toUpperCase()} />
+            <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
+              <Chip size="small" label={`${p.row.karar.kararDurumu.toUpperCase()}${Number.isFinite(Number(p.row.karar.onaylananAdet))?` (${p.row.karar.onaylananAdet})`:''}`} />
+            </Tooltip>
           )}
           <Tooltip title="Onay">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0 };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId:p.row.id, karar });
-                updateIthal(p.row.id, { karar });
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+                updateIthal(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)) };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId:p.row.id, karar });
-                updateIthal(p.row.id, { karar });
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+                updateIthal(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Red">
             <span>
               <IconButton size="small" color="error" disabled={!selectedTesvik} onClick={async()=>{
-                const karar = { kararDurumu:'red', onaylananAdet:0 };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId:p.row.id, karar });
-                updateIthal(p.row.id, { karar });
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+                updateIthal(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1185,6 +1327,7 @@ const MakineYonetimi = () => {
             a.click(); window.URL.revokeObjectURL(url);
           })}>Belge Makine Excel İndir</Button>
           <Button size="small" variant="contained" disabled={!selectedTesvik} onClick={()=> setYerliRows([]) || setIthalRows([])}>Listeyi Temizle</Button>
+          {/* Seçili makineyi ETUYS için filtrelemeden gönderme opsiyonu daha sonra eklenecek */}
         </Stack>
       </Paper>
 
@@ -1249,7 +1392,8 @@ const MakineYonetimi = () => {
                     ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
                   };
                   await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-                  await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Revize finalize', revizeOnayTarihi: new Date() });
+                  // Onaya basınca onay tarihi yazsın (kararTarihi)
+                  await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Revize finalize', revizeOnayTarihi: new Date(), kararTarihi: new Date() });
                   setIsReviseMode(false);
                   const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
                   openToast('success', 'Revize başarıyla finalize edildi.');
@@ -1313,6 +1457,37 @@ const MakineYonetimi = () => {
         {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
       </Paper>
 
+      {/* 🗑️ Silinen Satırlar & İşlem Özeti */}
+      <Paper sx={{ p:2, mb:2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1 }}>Silinen Satırlar</Typography>
+        <Stack spacing={0.5} sx={{ maxHeight:180, overflow:'auto' }}>
+          {deletedRows.map((it, idx)=> (
+            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+              <Chip size="small" color="error" label="SİLİNDİ" />
+              <Chip size="small" label={it.type.toUpperCase()} />
+              <Chip size="small" label={`#${it.row.siraNo||0}`} />
+              <Box sx={{ flex:1 }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
+              <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
+            </Stack>
+          ))}
+          {deletedRows.length===0 && <Box sx={{ color:'text.secondary' }}>Silinen satır yok</Box>}
+        </Stack>
+        <Divider sx={{ my:1 }} />
+        <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1 }}>İşlem Özeti (Talep/Karar)</Typography>
+        <Stack spacing={0.5} sx={{ maxHeight:220, overflow:'auto' }}>
+          {activityLog.map((it, idx)=> (
+            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+              <Chip size="small" label={it.list.toUpperCase()} />
+              <Chip size="small" color={it.type==='talep'?'primary': it.type==='karar'?'success':'default'} label={it.type.toUpperCase()} />
+              <Box sx={{ flex:1 }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>
+              <Box>{it.type==='talep' ? `${(it.payload?.durum||'').replace(/_/g,' ')} ${it.payload?.istenenAdet?`(${it.payload.istenenAdet})`:''}` : it.type==='karar' ? `${(it.payload?.kararDurumu||'').replace(/_/g,' ')} ${Number.isFinite(Number(it.payload?.onaylananAdet))?`(${it.payload.onaylananAdet})`:''}` : ''}</Box>
+              <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
+            </Stack>
+          ))}
+          {activityLog.length===0 && <Box sx={{ color:'text.secondary' }}>İşlem yok</Box>}
+        </Stack>
+      </Paper>
+
       {/* Sütun görünürlük menüsü */}
       <Menu open={!!columnsAnchor} anchorEl={columnsAnchor} onClose={()=> setColumnsAnchor(null)}>
         {['gtipAciklama'].map((key)=> (
@@ -1360,14 +1535,12 @@ const MakineYonetimi = () => {
               <TextField label="Belge No" size="small" value={metaForm.belgeNo} onChange={(e)=> setMetaForm(v=>({ ...v, belgeNo:e.target.value }))} sx={{ flex:1 }} />
               <TextField label="Belge Id" size="small" value={metaForm.belgeId} onChange={(e)=> setMetaForm(v=>({ ...v, belgeId:e.target.value }))} sx={{ flex:1 }} />
             </Stack>
-            <TextField label="Talep Tipi" size="small" value={metaForm.talepTipi} onChange={(e)=> setMetaForm(v=>({ ...v, talepTipi:e.target.value }))} />
-            <TextField label="Talep Detayı" size="small" value={metaForm.talepDetayi} onChange={(e)=> setMetaForm(v=>({ ...v, talepDetayi:e.target.value }))} />
-            <Stack direction="row" spacing={1}>
-              <TextField label="Durum" size="small" value={metaForm.durum} onChange={(e)=> setMetaForm(v=>({ ...v, durum:e.target.value }))} sx={{ flex:1 }} />
-              <TextField label="Daire" size="small" value={metaForm.daire} onChange={(e)=> setMetaForm(v=>({ ...v, daire:e.target.value }))} sx={{ flex:1 }} />
-            </Stack>
             <TextField label="Başvuru Tarihi" type="date" size="small" InputLabelProps={{ shrink:true }} value={metaForm.basvuruTarihi} onChange={(e)=> setMetaForm(v=>({ ...v, basvuruTarihi:e.target.value }))} />
-            <TextField label="Ödeme Talebi" size="small" value={metaForm.odemeTalebi} onChange={(e)=> setMetaForm(v=>({ ...v, odemeTalebi:e.target.value }))} />
+            <Select size="small" value={metaForm.odemeTalebi||''} onChange={(e)=> setMetaForm(v=>({ ...v, odemeTalebi:e.target.value }))} displayEmpty>
+              <MenuItem value=""><em>Ödeme Talebi</em></MenuItem>
+              <MenuItem value="firma">Firma</MenuItem>
+              <MenuItem value="danisman">Danışman</MenuItem>
+            </Select>
             <TextField label="Ret Sebebi" size="small" value={metaForm.retSebebi} onChange={(e)=> setMetaForm(v=>({ ...v, retSebebi:e.target.value }))} />
           </Stack>
         </DialogContent>
@@ -1490,6 +1663,27 @@ const MakineYonetimi = () => {
             const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
             setIsReviseMode(true);
           }}>Geri Dön</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🗑️ Silinen Satırlar Dialog */}
+      <Dialog open={deletedOpen} onClose={()=> setDeletedOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Silinen Satırlar (revize sürecinde)</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1}>
+            {deletedRows.map((it, idx)=> (
+              <Stack key={idx} direction="row" spacing={1} alignItems="center">
+                <Chip size="small" label={it.type.toUpperCase()} />
+                <Chip size="small" label={`#${it.row.siraNo||0}`} />
+                <Box sx={{ flex:1 }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
+                <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
+              </Stack>
+            ))}
+            {deletedRows.length===0 && <Box sx={{ color:'text.secondary' }}>Kayıt yok</Box>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=> setDeletedOpen(false)}>Kapat</Button>
         </DialogActions>
       </Dialog>
     </Box>

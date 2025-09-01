@@ -4851,7 +4851,8 @@ module.exports = {
         gerceklesenTutar: nz(r.gerceklesenTutar),
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
-        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar)
+        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+        etuysSecili: !!r.etuysSecili
       }));
 
       // Map İthal
@@ -4883,7 +4884,8 @@ module.exports = {
         gerceklesenTutar: nz(r.gerceklesenTutar),
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
-        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar)
+        iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+        etuysSecili: !!r.etuysSecili
       }));
 
       tesvik.makineListeleri.yerli = yerliMapped;
@@ -4902,7 +4904,7 @@ module.exports = {
   startMakineRevizyon: async (req, res) => {
     try {
       const { id } = req.params;
-      const { aciklama, revizeMuracaatTarihi } = req.body || {};
+      const { aciklama, revizeMuracaatTarihi, hazirlikTarihi, talepTarihi } = req.body || {};
       const Tesvik = require('../models/Tesvik');
       const tesvik = await Tesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
@@ -4912,6 +4914,8 @@ module.exports = {
         aciklama: aciklama || 'Makine revizyonu başlatıldı',
         yapanKullanici: req.user?._id,
         revizeMuracaatTarihi: revizeMuracaatTarihi ? new Date(revizeMuracaatTarihi) : new Date(),
+        hazirlikTarihi: hazirlikTarihi ? new Date(hazirlikTarihi) : (tesvik?.belgeYonetimi?.belgeTarihi || new Date()),
+        talepTarihi: talepTarihi ? new Date(talepTarihi) : undefined,
         yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
         ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
       };
@@ -4931,7 +4935,7 @@ module.exports = {
   finalizeMakineRevizyon: async (req, res) => {
     try {
       const { id } = req.params;
-      const { aciklama, revizeOnayTarihi } = req.body || {};
+      const { aciklama, revizeOnayTarihi, kararTarihi, talepTarihi } = req.body || {};
       const Tesvik = require('../models/Tesvik');
       const tesvik = await Tesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
@@ -4941,6 +4945,9 @@ module.exports = {
         aciklama: aciklama || 'Makine revizyonu finalize edildi',
         yapanKullanici: req.user?._id,
         revizeOnayTarihi: revizeOnayTarihi ? new Date(revizeOnayTarihi) : new Date(),
+        kararTarihi: kararTarihi ? new Date(kararTarihi) : new Date(),
+        // Eğer talep tarihi belirtilmemişse finalize anını talep tarihi olarak da logla (müşteri isteği)
+        talepTarihi: talepTarihi ? new Date(talepTarihi) : new Date(),
         yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
         ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
       };
@@ -5022,7 +5029,8 @@ module.exports = {
       const list = tesvik.makineRevizyonlari || [];
       const idx = list.findIndex(r => r.revizeId === revizeId);
       if (idx === -1) return res.status(404).json({ success:false, message:'Revizyon kaydı bulunamadı' });
-      const allowed = ['talepNo','belgeNo','belgeId','talepTipi','talepDetayi','durum','daire','basvuruTarihi','odemeTalebi','retSebebi'];
+      // Form: talepNo, belgeNo, belgeId, basvuruTarihi, odemeTalebi, retSebebi
+      const allowed = ['talepNo','belgeNo','belgeId','basvuruTarihi','odemeTalebi','retSebebi'];
       allowed.forEach(k => { if (meta && meta[k] !== undefined) list[idx][k] = meta[k]; });
       tesvik.markModified('makineRevizyonlari');
       await tesvik.save();
@@ -5063,8 +5071,11 @@ module.exports = {
           { header:'Revize Türü', key:'revizeTuru', width: 12 },
           { header:'Revize Tarihi', key:'revizeTarihi', width: 18 },
           { header:'Revize Kullanıcı', key:'revizeUser', width: 26 },
-          { header:'Müracaat Tarihi', key:'muracaat', width: 18 },
-          { header:'Onay Tarihi', key:'onay', width: 18 },
+          { header:'Talep Tarihi', key:'muracaat', width: 18 },
+          { header:'Onay/Red Tarihi', key:'onay', width: 18 },
+          { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
+          { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
+          { header:'İşlem', key:'islem', width: 10 },
           // ETUYS meta sütunları
           { header:'Talep No', key:'talepNo', width: 14 },
           { header:'Belge No', key:'belgeNo', width: 14 },
@@ -5123,8 +5134,11 @@ module.exports = {
               revizeTuru: rev.revizeTuru,
               revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
               revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
-              muracaat: rev.revizeMuracaatTarihi ? new Date(rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
-              onay: rev.revizeOnayTarihi ? new Date(rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+              muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
+              onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+              hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
+              kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+              islem: '',
               talepNo: rev.talepNo || '',
               belgeNo: rev.belgeNo || '',
               belgeId: rev.belgeId || '',
@@ -5192,6 +5206,35 @@ module.exports = {
                 const colIndex = ws.columns.findIndex(c => c.key === k) + 1;
                 if (colIndex) excelRow.getCell(colIndex).fill = redFill;
               });
+            }
+          });
+          // Önceki snapshot'ta olup şu an olmayanlar: SİLİNDİ olarak yaz
+          prevMap.forEach((prevRow, prevKey) => {
+            if (!currMap.has(prevKey)) {
+              const rowVals = {
+                revizeId: rev.revizeId,
+                revizeTuru: rev.revizeTuru,
+                revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+                revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+                muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
+                onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+                hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
+                kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+                islem: 'SİLİNDİ',
+                siraNo: prevRow.siraNo || 0,
+                gtipKodu: prevRow.gtipKodu || '',
+                gtipAciklamasi: prevRow.gtipAciklamasi || '',
+                adiVeOzelligi: prevRow.adiVeOzelligi || '',
+                miktar: prevRow.miktar || 0,
+                birim: prevRow.birim || ''
+              };
+              if (isYerli) {
+                Object.assign(rowVals, { birimFiyatiTl: prevRow.birimFiyatiTl||0, toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0, kdvIstisnasi: prevRow.kdvIstisnasi||'' });
+              } else {
+                Object.assign(rowVals, { birimFiyatiFob: prevRow.birimFiyatiFob||0, gumrukDovizKodu: prevRow.gumrukDovizKodu||'', toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0, toplamTl: prevRow.toplamTutarFobTl||prevRow.toplamTl||0, kullanilmisMakine: prevRow.kullanilmisMakine||'', ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'', aracMi: prevRow.aracMi||'', kdvMuafiyeti: prevRow.kdvMuafiyeti||'', gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||'' });
+              }
+              const delRow = ws.addRow(rowVals);
+              delRow.eachCell((cell)=> { cell.fill = redFill; });
             }
           });
           prevMap = currMap; // bir sonraki revizyon kıyas için
