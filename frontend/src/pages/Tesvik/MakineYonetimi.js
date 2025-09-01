@@ -70,10 +70,10 @@ const MakineYonetimi = () => {
   const [revertOpen, setRevertOpen] = useState(false);
   const [selectedRevizeId, setSelectedRevizeId] = useState('');
   // 🗑️ Silinen satırları gösterme (UI içinde takip)
-  const [deletedRows, setDeletedRows] = useState([]); // { type:'yerli'|'ithal', row, date }
+  const [deletedRows, setDeletedRows] = useState(() => loadLS('mk_deleted', [])); // { type:'yerli'|'ithal', row, date }
   const [deletedOpen, setDeletedOpen] = useState(false);
   // ⚙️ İşlem günlükleri (talep/karar/silme)
-  const [activityLog, setActivityLog] = useState([]); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
+  const [activityLog, setActivityLog] = useState(() => loadLS('mk_activity', [])); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
   // 🛎️ Bildirimler
   const [toast, setToast] = useState({ open:false, severity:'info', message:'' });
   const openToast = (severity, message) => setToast({ open:true, severity, message });
@@ -140,6 +140,13 @@ const MakineYonetimi = () => {
         const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id);
         setRevList(Array.isArray(list) ? list.reverse() : []);
       } catch { setRevList([]); }
+      // Teşvik bazlı silinenler ve işlem loglarını yükle
+      try {
+        const del = loadLS(`mk_deleted_${selectedTesvik._id}`, loadLS('mk_deleted', []));
+        const act = loadLS(`mk_activity_${selectedTesvik._id}`, loadLS('mk_activity', []));
+        setDeletedRows(del);
+        setActivityLog(act);
+      } catch {}
       setIsReviseMode(false);
     })();
   }, [selectedTesvik]);
@@ -359,8 +366,8 @@ const MakineYonetimi = () => {
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
   };
   const delRow = (id) => {
-    if (tab === 'yerli') setYerliRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> [{ type:'yerli', row, date:new Date() }, ...list].slice(0,200)); setActivityLog(log=> [{ type:'sil', list:'yerli', row, payload:null, date:new Date() }, ...log].slice(0,200)); } return rows.filter(r => r.id !== id); });
-    else setIthalRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> [{ type:'ithal', row, date:new Date() }, ...list].slice(0,200)); setActivityLog(log=> [{ type:'sil', list:'ithal', row, payload:null, date:new Date() }, ...log].slice(0,200)); } return rows.filter(r => r.id !== id); });
+    if (tab === 'yerli') setYerliRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'yerli', row, date:new Date() }, ...list].slice(0,200); saveLS(`mk_deleted_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_deleted', next); return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'yerli', row, payload:null, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; }); } return rows.filter(r => r.id !== id); });
+    else setIthalRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'ithal', row, date:new Date() }, ...list].slice(0,200); saveLS(`mk_deleted_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_deleted', next); return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'ithal', row, payload:null, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; }); } return rows.filter(r => r.id !== id); });
   };
 
   const handleUploadComplete = (files) => {
@@ -884,7 +891,7 @@ const MakineYonetimi = () => {
                 const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
                 updateYerli(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -905,7 +912,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -917,7 +924,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -929,7 +936,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1106,7 +1113,7 @@ const MakineYonetimi = () => {
                 const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
                 updateIthal(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1128,7 +1135,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1140,7 +1147,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1152,7 +1159,7 @@ const MakineYonetimi = () => {
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200));
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
