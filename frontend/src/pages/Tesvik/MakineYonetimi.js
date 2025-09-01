@@ -70,10 +70,10 @@ const MakineYonetimi = () => {
   const [revertOpen, setRevertOpen] = useState(false);
   const [selectedRevizeId, setSelectedRevizeId] = useState('');
   // 🗑️ Silinen satırları gösterme (UI içinde takip)
-  const [deletedRows, setDeletedRows] = useState(() => loadLS('mk_deleted', [])); // { type:'yerli'|'ithal', row, date }
+  const [deletedRows, setDeletedRows] = useState([]); // { type:'yerli'|'ithal', row, date }
   const [deletedOpen, setDeletedOpen] = useState(false);
   // ⚙️ İşlem günlükleri (talep/karar/silme)
-  const [activityLog, setActivityLog] = useState(() => loadLS('mk_activity', [])); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
+  const [activityLog, setActivityLog] = useState([]); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
   // 🛎️ Bildirimler
   const [toast, setToast] = useState({ open:false, severity:'info', message:'' });
   const openToast = (severity, message) => setToast({ open:true, severity, message });
@@ -150,8 +150,8 @@ const MakineYonetimi = () => {
       setIsReviseMode(false);
     })();
   }, [selectedTesvik]);
-  useEffect(() => saveLS(`mk_${selectedTesvik?._id || 'global'}_yerli`, yerliRows), [yerliRows, selectedTesvik]);
-  useEffect(() => saveLS(`mk_${selectedTesvik?._id || 'global'}_ithal`, ithalRows), [ithalRows, selectedTesvik]);
+  useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows); }, [yerliRows, selectedTesvik]);
+  useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows); }, [ithalRows, selectedTesvik]);
 
   // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
   useEffect(() => {
