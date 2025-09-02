@@ -67,13 +67,13 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
       return (
         <Tooltip title={selected ? `${selected.kod}${selected.aciklama ? ` — ${selected.aciklama}` : ''}` : ph} placement="top">
           <Box onClick={() => setIsOpen(true)} role="button" tabIndex={0}
-            sx={{ display:'flex', alignItems:'center', gap:1, width:'100%', border:'1px solid', borderColor:'divider', borderRadius:1, px:1, py:0.5, cursor:'pointer', '&:hover':{ borderColor:'primary.main', boxShadow:1 } }}
+            sx={{ display:'flex', alignItems:'center', gap:1, width:'100%', border:'1px solid', borderColor:'divider', borderRadius:1.5, px:0.75, py:0.25, minHeight:32, cursor:'pointer', '&:hover':{ borderColor:'primary.main', boxShadow:1 } }}
           >
-            <SearchIcon sx={{ color:'#3b82f6', fontSize:'1.1rem' }} />
+            <SearchIcon sx={{ color:'#3b82f6', fontSize:'1.05rem' }} />
             {selected ? (
               <>
                 <Chip label={selected.kod} size="small" color="primary" />
-                <Typography variant="body2" noWrap sx={{ color:'text.secondary', flex:1, minWidth:0 }}>{selected.aciklama || ''}</Typography>
+                <Typography variant="body2" noWrap sx={{ color:'text.secondary', flex:1, minWidth:0, fontSize:'0.9rem' }}>{selected.aciklama || ''}</Typography>
               </>
             ) : (
               <Typography variant="body2" sx={{ color:'text.disabled' }}>{ph}</Typography>
