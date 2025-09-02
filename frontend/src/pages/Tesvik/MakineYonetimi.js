@@ -876,7 +876,7 @@ const MakineYonetimi = () => {
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setYerliRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 160, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', width: 200, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.talep?.durum && (
             <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
@@ -897,7 +897,7 @@ const MakineYonetimi = () => {
           </Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 220, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.karar?.kararDurumu && (
             <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
@@ -1100,7 +1100,7 @@ const MakineYonetimi = () => {
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setIthalRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 160, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', width: 200, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.talep?.durum && (
             <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
@@ -1121,7 +1121,7 @@ const MakineYonetimi = () => {
           </Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 180, sortable: false, renderCell: (p)=>
+      { field: 'karar', headerName: 'Karar', width: 220, sortable: false, renderCell: (p)=>
       (
         <Stack direction="row" spacing={0.5} alignItems="center">
           {p.row.karar?.kararDurumu && (
