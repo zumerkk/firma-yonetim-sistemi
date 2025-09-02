@@ -814,8 +814,12 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
-      { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: isReviseMode },
+      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 220, editable: true, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      ) },
+      { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 260, editable: isReviseMode, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      ) },
       { field: 'kdvIstisnasi', headerName: 'KDV Muafiyeti', width: 140, renderCell: (p) => (
         <Select size="small" value={p.row.kdvIstisnasi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { kdvIstisnasi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
@@ -823,7 +827,7 @@ const MakineYonetimi = () => {
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number' },
+      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'birim', headerName: 'Birim', width: 280, renderCell: (p) => (
           <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1, pr:1 }}>
@@ -833,7 +837,7 @@ const MakineYonetimi = () => {
           </Stack>
         ) },
       // birimAciklamasi kolonu kaldırıldı
-      { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: isReviseMode, type: 'number' },
+      { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
@@ -861,7 +865,7 @@ const MakineYonetimi = () => {
       ) },
       { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: isReviseMode, type: 'number' },
       { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: isReviseMode, type: 'number' },
-      { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
           <Button size="small" onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{isReviseMode?'Yükle':'Görüntüle'}</Button>
@@ -977,7 +981,7 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredYerliRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick
+      <DataGrid autoHeight rows={filteredYerliRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick rowHeight={44} headerHeight={44}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -1014,9 +1018,13 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 200, editable: true },
-      { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 220, editable: isReviseMode },
-      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number' },
+      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 220, editable: true, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      ) },
+      { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 260, editable: isReviseMode, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      ) },
+      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'birim', headerName: 'Birim', width: 280, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1, pr:1 }}>
@@ -1026,7 +1034,7 @@ const MakineYonetimi = () => {
         </Stack>
       ) },
       // birimAciklamasi kolonu kaldırıldı
-      { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: isReviseMode, type: 'number' },
+      { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'doviz', headerName: 'Döviz', width: 160, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
@@ -1035,11 +1043,11 @@ const MakineYonetimi = () => {
           <IconButton size="small" onClick={(e)=> openFavMenu(e,'currency', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
       ) },
-      { field: 'toplamUsd', headerName: '$', width: 110,
+      { field: 'toplamUsd', headerName: '$', width: 110, align:'right', headerAlign:'right',
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
-      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
       ) },
@@ -1202,7 +1210,7 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredIthalRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick
+      <DataGrid autoHeight rows={filteredIthalRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick rowHeight={44} headerHeight={44}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -1217,7 +1225,7 @@ const MakineYonetimi = () => {
           if (params.field === 'doviz' && !params.row.doviz) return 'error-cell';
           return '';
         }}
-        sx={{ '& .error-cell': { backgroundColor: '#fee2e2' }, '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' }, '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' }, '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' }, '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' } }}
+        sx={{ '& .error-cell': { backgroundColor: '#fee2e2' }, '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' }, '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' }, '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' }, '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' }, '& .MuiDataGrid-row.Mui-selected': { backgroundColor:'#eef2ff !important' } }}
       />
     );
   };
