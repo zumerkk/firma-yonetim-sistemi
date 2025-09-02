@@ -603,7 +603,6 @@ const updateTesvik = async (req, res) => {
     });
   }
 };
-
 // 🔍 PROFESSIONAL DEEP CHANGE DETECTION ALGORITHM
 const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
   const degisikenAlanlar = [];
@@ -952,7 +951,6 @@ const addTesvikRevizyon = async (req, res) => {
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = kullaniciNotu || `Revizyon eklendi: ${revizyonSebebi}`;
     tesvik.durumBilgileri.sonGuncellemeTarihi = new Date();
-
     // 💾 Kaydet - Bu nokta önemli, revizyon tracking için
     await tesvik.save();
     // Kaydettikten sonra revizyonlardan durumu türetip senkronize et
@@ -1604,7 +1602,6 @@ const getDynamicDestekSartlariData = async () => {
 
   return [...staticOptions, ...formattedDynamic];
 };
-
 // Dinamik Özel Şartlar Verisi (Template için)
 const getDynamicOzelSartlarData = async () => {
   const staticOptions = getOzelSartKisaltmalariOptions();
@@ -1920,7 +1917,6 @@ const deleteTesvik = async (req, res) => {
     });
   }
 };
-
 // SONRAKİ TEŞVİK ID'Yİ AL
 const getNextTesvikId = async (req, res) => {
   try {
@@ -2244,7 +2240,6 @@ const getYatirimTipiOptions = () => [
   { value: 'Nakil', label: 'Nakil', aciklama: 'Taşınma işlemi' },
   { value: 'Taşınma', label: 'Taşınma', aciklama: 'Yer değiştirme' }
 ];
-
 // 📊 KAPASİTE BİRİMLERİ - CSV'den gerçek veriler (Excel'deki tüm seçenekler)
 const getKapasiteBirimleriOptions = () => [
   // Temel birimler
@@ -2275,7 +2270,7 @@ const getKapasiteBirimleriOptions = () => [
 ];
 
 // 📦 U$97 KODLARI - CSV'den gerçek ürün kodları  
-const getU97KodlariOptions = () => [
+const getU97KodlariOptions = () => {
   // 0111 - TAHIL VE DİĞER BİTKİSEL ÜRÜNLER
   { kod: '0111.0.01', aciklama: 'Durum buğdayı (makarnalık buğday)', kategori: 'Tahıl' },
   { kod: '0111.0.02', aciklama: 'Yumuşak buğday ve diğer buğdaylar', kategori: 'Tahıl' },
@@ -2590,7 +2585,6 @@ const getOzelSartlarTemplate = () => [
     aciklama2: ''
   }
 ];
-
 // 🏢 FİRMAYA AİT TEŞVİKLER
 const getTesvikByFirma = async (req, res) => {
   try {
@@ -2933,7 +2927,6 @@ const exportRevizyonExcel = async (req, res) => {
     const duration = Date.now() - startTime;
     console.log(`🎉 [${exportId}] Export tamamlandı! Süre: ${duration}ms, Dosya: ${fileName}`);
     console.log(`📈 [${exportId}] Performans: ${revisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
-    
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`💥 [${exportId}] Export hatası! Süre: ${duration}ms`, error);
@@ -3310,7 +3303,6 @@ const buildRevisionTrackingData = async (tesvik) => {
               console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
             }
           }
-        }
         
         // CSV satırı oluştur
         const revizyonRow = await buildCsvDataRowWithSnapshot(revizyonSnapshot, revizyon, i + 1);
@@ -3625,7 +3617,6 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     const araziToplam = parseInt(
       (maliyetlenen.sn ?? hesaplananSn ?? araziGideri.toplam ?? finansal.araciArsaBedeli ?? 0)
     );
-    
     // Açıklama için otomatik oluştur veya varsa kullan
     const araziAciklama = finansal.araziAciklama || 
                          (metrekaresi > 0 ? `${metrekaresi} m² x ${birimFiyat} TL` : '');
@@ -3872,7 +3863,7 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0); // Schema'da nested
-    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0); // Schema'da nested
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakine || 0); // Schema'da nested
     row.push(0); // TOPLAM İTHAL MAKİNE ($) (schema'da yok)
     row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || tesvik.maliHesaplamalar?.finansman?.yabanciKaynaklar?.bankKredisi || 0); // Banka Kredisi
@@ -4263,7 +4254,6 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         }
       }
     };
-    
     // 🏗️ BUILD 4-LEVEL HEADER STRUCTURE WITH SECTION-BASED CORPORATE COLORS
     console.log(`📊 [${exportId}] 4 seviyeli kurumsal renk şemalı başlık yapısı oluşturuluyor...`);
     
@@ -4587,7 +4577,6 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       topLeftCell: 'A5',
       activeCell: 'A5'
     }];
-    
     console.log(`📊 [${exportId}] Başlık yapısı tamamlandı: ${csvStructure.totalColumns} sütun`);
     
     // 📊 POPULATE DATA ROWS WITH SECTION-BASED CORPORATE COLORS
@@ -5052,15 +5041,6 @@ module.exports = {
           { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
           { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
           { header:'İşlem', key:'islem', width: 10 },
-          // ETUYS meta sütunları
-          { header:'Talep No', key:'talepNo', width: 14 },
-          { header:'Belge No', key:'belgeNo', width: 14 },
-          { header:'Belge Id', key:'belgeId', width: 16 },
-          { header:'Talep Tipi', key:'talepTipi', width: 22 },
-          { header:'Talep Detayı', key:'talepDetayi', width: 28 },
-          { header:'Durum', key:'durum', width: 16 },
-          { header:'Daire', key:'daire', width: 22 },
-          { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 },
           { header:'Sıra No', key:'siraNo', width: 8 },
           { header:'GTIP', key:'gtipKodu', width: 16 },
           { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
@@ -5100,7 +5080,16 @@ module.exports = {
           { header:'Talep Tarihi (Kalem)', key:'kalemTalepTarihi', width: 18 },
           { header:'Karar Durumu', key:'kararDurumu', width: 16 },
           { header:'Onaylanan Adet', key:'kararOnaylananAdet', width: 18 },
-          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 }
+          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 },
+          // ETUYS meta sütunları (en sona taşındı)
+          { header:'Talep No', key:'talepNo', width: 14 },
+          { header:'Belge No', key:'belgeNo', width: 14 },
+          { header:'Belge Id', key:'belgeId', width: 16 },
+          { header:'Talep Tipi', key:'talepTipi', width: 22 },
+          { header:'Talep Detayı', key:'talepDetayi', width: 28 },
+          { header:'Durum', key:'durum', width: 16 },
+          { header:'Daire', key:'daire', width: 22 },
+          { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 }
         ];
         ws.columns = baseCols;
         ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
@@ -5285,7 +5274,6 @@ module.exports = {
       res.status(500).json({ success:false, message:'Revizyon Excel export sırasında hata oluştu' });
     }
   },
-  
   // 🧾 Makine Revizyon İşlem Geçmişi Excel (alan bazlı tek tek değişiklik listesi)
   exportMakineRevizyonHistoryExcel: async (req, res) => {
     try {
@@ -5308,7 +5296,6 @@ module.exports = {
         { header:'Tür', key:'tur', width: 10 },
         { header:'Tarih', key:'tarih', width: 18 },
         { header:'Kullanıcı', key:'user', width: 28 },
-        // ETUYS meta
         { header:'Talep No', key:'talepNo', width: 14 },
         { header:'Belge No', key:'belgeNo', width: 14 },
         { header:'Belge Id', key:'belgeId', width: 16 },
@@ -5633,7 +5620,6 @@ module.exports = {
       mainSheet.columns = [
         { width: 25 }, { width: 20 }, { width: 5 }, { width: 20 }, { width: 20 }, { width: 10 }, { width: 10 }
       ];
-      
       // Ürün bilgileri sayfası
       const urunSheet = workbook.addWorksheet('Ürün Bilgileri');
       
@@ -5985,7 +5971,6 @@ module.exports = {
           doc.moveDown(0.5);
         });
       }
-      
       // PDF'i sonlandır
       doc.end();
       
