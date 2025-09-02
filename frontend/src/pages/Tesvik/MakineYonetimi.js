@@ -9,7 +9,7 @@ import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 
@@ -993,8 +993,10 @@ const MakineYonetimi = () => {
         }}
         sx={{
           '& .error-cell': { backgroundColor: '#fee2e2' },
-          '& .MuiDataGrid-cell': { py: 0.5 },
-          '& .MuiDataGrid-columnHeaders': { py: 0.25 }
+          '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' },
+          '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' },
+          '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' },
+          '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' }
         }}
       />
     );
@@ -1215,7 +1217,7 @@ const MakineYonetimi = () => {
           if (params.field === 'doviz' && !params.row.doviz) return 'error-cell';
           return '';
         }}
-        sx={{ '& .error-cell': { backgroundColor: '#fee2e2' }, '& .MuiDataGrid-cell': { py: 0.5 }, '& .MuiDataGrid-columnHeaders': { py: 0.25 } }}
+        sx={{ '& .error-cell': { backgroundColor: '#fee2e2' }, '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' }, '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' }, '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' }, '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' } }}
       />
     );
   };
@@ -1362,7 +1364,7 @@ const MakineYonetimi = () => {
         </Menu>
       </Stack>
 
-      <Paper sx={{ p: 2, mb: 2, position: fullScreen ? 'fixed' : 'relative', inset: fullScreen ? 0 : 'auto', zIndex: fullScreen ? 1300 : 'auto', height: fullScreen ? '100vh' : 'auto', overflow: 'auto' }}>
+      <Paper sx={{ p: 2, mb: 2, position: fullScreen ? 'fixed' : 'relative', inset: fullScreen ? 0 : 'auto', zIndex: fullScreen ? 1300 : 'auto', height: fullScreen ? '100vh' : 'auto', overflow: 'auto', borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}>
         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
           <Tabs value={tab} onChange={(e,v)=>setTab(v)}>
             <Tab label="Yerli" value="yerli" />
@@ -1465,31 +1467,37 @@ const MakineYonetimi = () => {
       </Paper>
 
       {/* 🗑️ Silinen Satırlar & İşlem Özeti */}
-      <Paper sx={{ p:2, mb:2 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1 }}>Silinen Satırlar</Typography>
-        <Stack spacing={0.5} sx={{ maxHeight:180, overflow:'auto' }}>
+      <Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb:1 }}>
+          <DeleteOutlineIcon sx={{ color:'#ef4444' }} />
+          <Typography variant="subtitle2" sx={{ fontWeight:700 }}>Silinen Satırlar</Typography>
+        </Stack>
+        <Stack spacing={0.75} sx={{ maxHeight:180, overflow:'auto' }}>
           {deletedRows.map((it, idx)=> (
-            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+            <Paper key={idx} variant="outlined" sx={{ p:1, display:'flex', alignItems:'center', gap:1, borderRadius:1.5 }}>
               <Chip size="small" color="error" label="SİLİNDİ" />
               <Chip size="small" label={it.type.toUpperCase()} />
               <Chip size="small" label={`#${it.row.siraNo||0}`} />
-              <Box sx={{ flex:1 }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
+              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
               <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
-            </Stack>
+            </Paper>
           ))}
           {deletedRows.length===0 && <Box sx={{ color:'text.secondary' }}>Silinen satır yok</Box>}
         </Stack>
         <Divider sx={{ my:1 }} />
-        <Typography variant="subtitle2" sx={{ fontWeight:600, mb:1 }}>İşlem Özeti (Talep/Karar)</Typography>
-        <Stack spacing={0.5} sx={{ maxHeight:220, overflow:'auto' }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb:1 }}>
+          <TimelineIcon sx={{ color:'#10b981' }} />
+          <Typography variant="subtitle2" sx={{ fontWeight:700 }}>İşlem Özeti (Talep/Karar)</Typography>
+        </Stack>
+        <Stack spacing={0.75} sx={{ maxHeight:220, overflow:'auto' }}>
           {activityLog.map((it, idx)=> (
-            <Stack key={idx} direction="row" spacing={1} alignItems="center">
+            <Paper key={idx} variant="outlined" sx={{ p:1, display:'flex', alignItems:'center', gap:1, borderRadius:1.5 }}>
               <Chip size="small" label={it.list.toUpperCase()} />
               <Chip size="small" color={it.type==='talep'?'primary': it.type==='karar'?'success':'default'} label={it.type.toUpperCase()} />
-              <Box sx={{ flex:1 }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>
+              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>
               <Box>{it.type==='talep' ? `${(it.payload?.durum||'').replace(/_/g,' ')} ${it.payload?.istenenAdet?`(${it.payload.istenenAdet})`:''}` : it.type==='karar' ? `${(it.payload?.kararDurumu||'').replace(/_/g,' ')} ${Number.isFinite(Number(it.payload?.onaylananAdet))?`(${it.payload.onaylananAdet})`:''}` : ''}</Box>
               <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
-            </Stack>
+            </Paper>
           ))}
           {activityLog.length===0 && <Box sx={{ color:'text.secondary' }}>İşlem yok</Box>}
         </Stack>
