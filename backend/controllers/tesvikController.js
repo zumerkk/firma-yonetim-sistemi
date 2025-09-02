@@ -2270,7 +2270,7 @@ const getKapasiteBirimleriOptions = () => [
 ];
 
 // 📦 U$97 KODLARI - CSV'den gerçek ürün kodları  
-const getU97KodlariOptions = () => {
+const getU97KodlariOptions = () => [
   // 0111 - TAHIL VE DİĞER BİTKİSEL ÜRÜNLER
   { kod: '0111.0.01', aciklama: 'Durum buğdayı (makarnalık buğday)', kategori: 'Tahıl' },
   { kod: '0111.0.02', aciklama: 'Yumuşak buğday ve diğer buğdaylar', kategori: 'Tahıl' },
@@ -3141,7 +3141,6 @@ const validateAndBuildCsvStructure = async () => {
 
 // 📊 PHASE 3: PROFESSIONAL REVISION TRACKING ALGORITHM - FIXED!
 const buildRevisionTrackingData = async (tesvik) => {
-  try {
     console.log(`📊 PROFESSIONAL Revizyon tracking algoritması başlıyor...`);
     
     const revisionData = [];
@@ -3365,9 +3364,6 @@ const buildRevisionTrackingData = async (tesvik) => {
     
     return revisionData;
     
-  } catch (error) {
-    console.error('💥 PROFESSIONAL Revizyon tracking hatası:', error);
-    throw error;
   }
 };
 // 🏗️ CSV DATA ROW BUILDER WITH SNAPSHOT - PROFESSIONAL DEBUG VERSION
