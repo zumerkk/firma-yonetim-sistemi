@@ -66,7 +66,46 @@ const MakineYonetimi = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   // 🆕 Revizyon state'leri
   const [isReviseMode, setIsReviseMode] = useState(false);
+  const [isReviseStarted, setIsReviseStarted] = useState(false);
   const [revList, setRevList] = useState([]);
+
+  // Sıra numarası güncelleme fonksiyonu
+  const updateRowSiraNo = (type, rowId, newSiraNo) => {
+    if (type === 'yerli') {
+      updateYerli(rowId, { siraNo: Number(newSiraNo) || 0 });
+    } else {
+      updateIthal(rowId, { siraNo: Number(newSiraNo) || 0 });
+    }
+  };
+
+  // Makine verilerini yükle (teşvik ID'sine göre)
+  const loadMakineData = (tesvikId) => {
+    if (!tesvikId) return;
+    try {
+      // Teşvik bazlı yerli ve ithal verilerini localStorage'dan yükle
+      const yerli = loadLS(`mk_${tesvikId}_yerli`, []);
+      const ithal = loadLS(`mk_${tesvikId}_ithal`, []);
+      setYerliRows(yerli);
+      setIthalRows(ithal);
+    } catch (error) {
+      console.error('Makine verileri yüklenirken hata:', error);
+      setYerliRows([]);
+      setIthalRows([]);
+    }
+  };
+
+  // Tarihi HTML date input formatına çevir
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    try {
+      if (typeof date === 'string' && date.includes('-') && date.length === 10) {
+        return date; // Zaten doğru formatta
+      }
+      return new Date(date).toISOString().slice(0, 10);
+    } catch {
+      return '';
+    }
+  };
   const [revertOpen, setRevertOpen] = useState(false);
   const [selectedRevizeId, setSelectedRevizeId] = useState('');
   // 🗑️ Silinen satırları gösterme (UI içinde takip)
@@ -135,7 +174,12 @@ const MakineYonetimi = () => {
   // Seçili teşvik değişince revizyon listesini getir ve modu sıfırla
   useEffect(()=>{
     (async()=>{
-      if (!selectedTesvik?._id) { setRevList([]); setIsReviseMode(false); return; }
+      if (!selectedTesvik?._id) { 
+        setRevList([]); 
+        setIsReviseMode(false); 
+        setIsReviseStarted(false);
+        return; 
+      }
       try {
         const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id);
         setRevList(Array.isArray(list) ? list.reverse() : []);
@@ -147,7 +191,10 @@ const MakineYonetimi = () => {
         setDeletedRows(del);
         setActivityLog(act);
       } catch {}
+      // Makine verilerini yükle
+      loadMakineData(selectedTesvik._id);
       setIsReviseMode(false);
+      setIsReviseStarted(false);
     })();
   }, [selectedTesvik]);
   useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows); }, [yerliRows, selectedTesvik]);
@@ -252,8 +299,12 @@ const MakineYonetimi = () => {
     return ()=> window.removeEventListener('keydown', handler);
   }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
 
-  const updateYerli = (id, patch) => setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
-  const updateIthal = (id, patch) => setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
+  const updateYerli = (id, patch) => {
+    setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
+  };
+  const updateIthal = (id, patch) => {
+    setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
+  };
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
   // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
@@ -805,7 +856,19 @@ const MakineYonetimi = () => {
 
   const YerliGrid = () => {
     const cols = [
-      { field: 'siraNo', headerName: '#', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'siraNo', headerName: '#', width: 70, 
+        renderCell: (p) => (
+          <TextField 
+            size="small" 
+            value={p.row.siraNo || ''} 
+            onChange={(e) => isReviseMode && updateRowSiraNo('yerli', p.row.id, e.target.value)}
+            disabled={!isReviseMode}
+            type="number"
+            sx={{ width: '100%' }}
+            inputProps={{ min: 1, style: { textAlign: 'center' } }}
+          />
+        )
+      },
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
@@ -910,7 +973,7 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
@@ -922,7 +985,7 @@ const MakineYonetimi = () => {
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
@@ -934,7 +997,7 @@ const MakineYonetimi = () => {
           </Tooltip>
           <Tooltip title="Red">
             <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" color="error" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
@@ -946,36 +1009,70 @@ const MakineYonetimi = () => {
           </Tooltip>
         </Stack>
       ) },
-      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('yerli', p.row);
-            if (!rid) return;
-            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
-            updateYerli(p.row.id, { rowId: rid, talep });
-          }}
-        />
-      ) },
-      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('yerli', p.row);
-            if (!rid) return;
-            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
-            updateYerli(p.row.id, { rowId: rid, karar });
-          }}
-        />
-      ) },
+      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+        const TalepTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
+          
+          // Row değiştiğinde local value'yu güncelle
+          useEffect(() => {
+            setLocalValue(formatDateForInput(p.row.talep?.talepTarihi));
+          }, [p.row.talep?.talepTarihi]);
+
+          return (
+            <TextField
+              type="date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              disabled={!selectedTesvik}
+              value={localValue}
+              onChange={async(e)=>{
+                const newValue = e.target.value;
+                setLocalValue(newValue); // Hemen UI'da güncelle
+                
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) return;
+                const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
+                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
+                updateYerli(p.row.id, { rowId: rid, talep });
+                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+              }}
+            />
+          );
+        };
+        return <TalepTarihiCell />;
+      } },
+      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+        const KararTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
+          
+          // Row değiştiğinde local value'yu güncelle
+          useEffect(() => {
+            setLocalValue(formatDateForInput(p.row.karar?.kararTarihi));
+          }, [p.row.karar?.kararTarihi]);
+
+          return (
+            <TextField
+              type="date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'}
+              value={localValue}
+              onChange={async(e)=>{
+                const newValue = e.target.value;
+                setLocalValue(newValue); // Hemen UI'da güncelle
+                
+                const rid = await ensureRowId('yerli', p.row);
+                if (!rid) return;
+                const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+                updateYerli(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+              }}
+            />
+          );
+        };
+        return <KararTarihiCell />;
+      } },
       { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
         <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
       )}
@@ -1009,7 +1106,19 @@ const MakineYonetimi = () => {
   const IthalGrid = () => {
     const cols = [
       // Birim Açıklaması kolonu kaldırıldı (müşteri istemiyor)
-      { field: 'siraNo', headerName: '#', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'siraNo', headerName: '#', width: 70, 
+        renderCell: (p) => (
+          <TextField 
+            size="small" 
+            value={p.row.siraNo || ''} 
+            onChange={(e) => isReviseMode && updateRowSiraNo('ithal', p.row.id, e.target.value)}
+            disabled={!isReviseMode}
+            type="number"
+            sx={{ width: '100%' }}
+            inputProps={{ min: 1, style: { textAlign: 'center' } }}
+          />
+        )
+      },
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
@@ -1139,7 +1248,7 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
@@ -1151,7 +1260,7 @@ const MakineYonetimi = () => {
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
@@ -1163,7 +1272,7 @@ const MakineYonetimi = () => {
           </Tooltip>
           <Tooltip title="Red">
             <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" color="error" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
@@ -1175,36 +1284,70 @@ const MakineYonetimi = () => {
           </Tooltip>
         </Stack>
       ) },
-      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const talep = { ...(p.row.talep||{}), talepTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
-            updateIthal(p.row.id, { rowId: rid, talep });
-          }}
-        />
-      ) },
-      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> (
-        <TextField
-          type="date"
-          size="small"
-          InputLabelProps={{ shrink: true }}
-          value={(p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toISOString().slice(0,10) : '')}
-          onChange={async(e)=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const karar = { ...(p.row.karar||{}), kararTarihi: e.target.value ? new Date(e.target.value) : undefined };
-            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-            updateIthal(p.row.id, { rowId: rid, karar });
-          }}
-        />
-      ) },
+      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+        const TalepTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
+          
+          // Row değiştiğinde local value'yu güncelle
+          useEffect(() => {
+            setLocalValue(formatDateForInput(p.row.talep?.talepTarihi));
+          }, [p.row.talep?.talepTarihi]);
+
+          return (
+            <TextField
+              type="date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              disabled={!selectedTesvik}
+              value={localValue}
+              onChange={async(e)=>{
+                const newValue = e.target.value;
+                setLocalValue(newValue); // Hemen UI'da güncelle
+                
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) return;
+                const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
+                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+                updateIthal(p.row.id, { rowId: rid, talep });
+                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+              }}
+            />
+          );
+        };
+        return <TalepTarihiCell />;
+      } },
+      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+        const KararTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
+          
+          // Row değiştiğinde local value'yu güncelle
+          useEffect(() => {
+            setLocalValue(formatDateForInput(p.row.karar?.kararTarihi));
+          }, [p.row.karar?.kararTarihi]);
+
+          return (
+            <TextField
+              type="date"
+              size="small"
+              InputLabelProps={{ shrink: true }}
+              disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'}
+              value={localValue}
+              onChange={async(e)=>{
+                const newValue = e.target.value;
+                setLocalValue(newValue); // Hemen UI'da güncelle
+                
+                const rid = await ensureRowId('ithal', p.row);
+                if (!rid) return;
+                const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
+                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+                updateIthal(p.row.id, { rowId: rid, karar });
+                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+              }}
+            />
+          );
+        };
+        return <KararTarihiCell />;
+      } },
       { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
         <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
       )}
@@ -1382,19 +1525,40 @@ const MakineYonetimi = () => {
           {/* 🆕 Revizyon Aksiyonları */}
           <Tooltip title={isReviseMode ? 'Revize Modu Aktif' : 'Yeni Revize Başlat'}>
             <span>
-              <Button size="small" variant={isReviseMode?'contained':'outlined'} startIcon={<FiberNewIcon/>} disabled={!selectedTesvik} onClick={async()=>{
-                if (!selectedTesvik?._id) return;
-                const ok = window.confirm('Mevcut liste snapshot alınacak ve revize modu açılacak. Devam edilsin mi?');
-                if (!ok) return;
-                try {
-                  await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize başladı', revizeMuracaatTarihi: new Date() });
-                  setIsReviseMode(true);
-                  const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
-                  openToast('success', 'Revize başlatıldı. Düzenleme modu aktif.');
-                } catch (e) {
-                  openToast('error', 'Revize başlatılırken hata oluştu.');
-                }
-              }}>Yeni Revize</Button>
+              <Button size="small" 
+                variant={isReviseMode?'contained':'outlined'} 
+                startIcon={isReviseStarted ? <ClearIcon/> : <FiberNewIcon/>} 
+                color={isReviseStarted ? 'warning' : 'primary'}
+                disabled={!selectedTesvik} 
+                onClick={async()=>{
+                  if (!selectedTesvik?._id) return;
+                  
+                  // Eğer revize başlatılmışsa vazgeç seçeneği sun
+                  if (isReviseStarted) {
+                    const ok = window.confirm('Revizeden vazgeçilecek ve değişiklikler kaydedilmeyecek. Emin misiniz?');
+                    if (!ok) return;
+                    setIsReviseMode(false);
+                    setIsReviseStarted(false);
+                    // Eski verileri geri yükle
+                    if (selectedTesvik) {
+                      loadMakineData(selectedTesvik._id);
+                    }
+                    openToast('info', 'Revizeden vazgeçildi.');
+                    return;
+                  }
+                  
+                  const ok = window.confirm('Mevcut liste snapshot alınacak ve revize modu açılacak. Devam edilsin mi?');
+                  if (!ok) return;
+                  try {
+                    await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize başladı', revizeMuracaatTarihi: new Date() });
+                    setIsReviseMode(true);
+                    setIsReviseStarted(true);
+                    const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+                    openToast('success', 'Revize başlatıldı. Düzenleme modu aktif.');
+                  } catch (e) {
+                    openToast('error', 'Revize başlatılırken hata oluştu.');
+                  }
+                }}>{isReviseStarted ? 'Revizden Vazgeç' : 'Yeni Revize'}</Button>
             </span>
           </Tooltip>
           <Tooltip title="Revizeyi Finalize Et (post-snapshot)">
@@ -1412,6 +1576,7 @@ const MakineYonetimi = () => {
                   // Onaya basınca onay tarihi yazsın (kararTarihi)
                   await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Revize finalize', revizeOnayTarihi: new Date(), kararTarihi: new Date() });
                   setIsReviseMode(false);
+                  setIsReviseStarted(false);
                   const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
                   openToast('success', 'Revize başarıyla finalize edildi.');
                 } catch (e) {
