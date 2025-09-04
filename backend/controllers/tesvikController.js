@@ -5260,6 +5260,240 @@ module.exports = {
       addSheetFor('Yerli Revizyonları', 'yerli');
       addSheetFor('İthal Revizyonları', 'ithal');
 
+      // 🆕 Değişiklik Yapılanlar - yalnızca farklı olan satırları içeren birleşik sayfa
+      const addChangesOnlySheet = () => {
+        const ws = wb.addWorksheet('Değişiklik Yapılanlar');
+        const headerStyle = { font:{ bold:true }, alignment:{ horizontal:'center' }, fill: { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE5E7EB' } } };
+        // Birleşik (superset) kolonlar: hem yerli hem ithal alanlarını kapsar
+        const cols = [
+          { header:'Liste', key:'liste', width: 8 },
+          { header:'Revize ID', key:'revizeId', width: 24 },
+          { header:'Revize Türü', key:'revizeTuru', width: 12 },
+          { header:'Revize Tarihi', key:'revizeTarihi', width: 18 },
+          { header:'Revize Kullanıcı', key:'revizeUser', width: 26 },
+          { header:'Talep Tarihi', key:'muracaat', width: 18 },
+          { header:'Onay/Red Tarihi', key:'onay', width: 18 },
+          { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
+          { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
+          { header:'İşlem', key:'islem', width: 10 },
+          { header:'Sıra No', key:'siraNo', width: 8 },
+          { header:'GTIP', key:'gtipKodu', width: 16 },
+          { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
+          { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
+          { header:'Miktar', key:'miktar', width: 10 },
+          { header:'Birim', key:'birim', width: 10 },
+          { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
+          // Yerli özel
+          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 14 },
+          { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+          { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
+          // İthal özel
+          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
+          { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
+          { header:'Toplam ($)', key:'toplamUsd', width: 14 },
+          { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 14 },
+          { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
+          { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
+          { header:'Araç mı', key:'aracMi', width: 10 },
+          { header:'KDV Muafiyeti', key:'kdvMuafiyeti', width: 14 },
+          { header:'Gümrük Vergisi Muaf', key:'gumrukVergisiMuafiyeti', width: 18 },
+          // Ortak meta
+          { header:'Makine Teçhizat Tipi', key:'makineTechizatTipi', width: 18 },
+          { header:'FK mı?', key:'finansalKiralamaMi', width: 10 },
+          { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
+          { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
+          { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
+          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 14 },
+          { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
+          { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
+          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 },
+          { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
+          { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
+          { header:'Talep Durumu', key:'talepDurum', width: 16 },
+          { header:'İstenen Adet', key:'talepIstenenAdet', width: 14 },
+          { header:'Talep Tarihi (Kalem)', key:'kalemTalepTarihi', width: 18 },
+          { header:'Karar Durumu', key:'kararDurumu', width: 16 },
+          { header:'Onaylanan Adet', key:'kararOnaylananAdet', width: 18 },
+          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 },
+        ];
+        ws.columns = cols;
+        ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
+
+        const redFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC0C0' } };
+
+        const writeChangedFor = (type, label) => {
+          const isYerli = type==='yerli';
+          const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
+
+          let prevMap = new Map();
+          revs.forEach((rev) => {
+            const list = Array.isArray(rev[type]) ? rev[type] : [];
+            const currMap = new Map();
+            list.forEach((r) => {
+              const key = r.rowId || `${r.siraNo||0}|${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.birim||''}`;
+              currMap.set(key, r);
+              const prev = prevMap.get(key);
+              // Row değerlerini hazırla
+              const rowVals = {
+                liste: label,
+                revizeId: rev.revizeId,
+                revizeTuru: rev.revizeTuru,
+                revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+                revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+                muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
+                onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+                hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
+                kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+                islem: prev ? 'GÜNCELLENDİ' : 'EKLENDİ',
+                siraNo: r.siraNo || 0,
+                gtipKodu: r.gtipKodu || '',
+                gtipAciklamasi: r.gtipAciklamasi || '',
+                adiVeOzelligi: r.adiVeOzelligi || '',
+                miktar: r.miktar || 0,
+                birim: r.birim || '',
+                birimAciklamasi: r.birimAciklamasi || '',
+                birimFiyatiTl: r.birimFiyatiTl || 0,
+                toplamTl: (r.toplamTutariTl || r.toplamTl) || 0,
+                kdvIstisnasi: r.kdvIstisnasi || '',
+                birimFiyatiFob: r.birimFiyatiFob || 0,
+                gumrukDovizKodu: r.gumrukDovizKodu || '',
+                toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
+                toplamTlFob: r.toplamTutarFobTl || r.toplamTl || 0,
+                kullanilmisMakine: r.kullanilmisMakine || r.kullanilmisKod || '',
+                ckdSkdMi: r.ckdSkdMi || r.ckdSkd || '',
+                aracMi: r.aracMi || '',
+                kdvMuafiyeti: r.kdvMuafiyeti || '',
+                gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || '',
+                makineTechizatTipi: r.makineTechizatTipi || '',
+                finansalKiralamaMi: r.finansalKiralamaMi || '',
+                finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+                finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+                gerceklesenAdet: r.gerceklesenAdet || 0,
+                gerceklesenTutar: r.gerceklesenTutar || 0,
+                iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+                iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+                iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+                etuysSecili: r.etuysSecili ? 'EVET' : 'HAYIR',
+                dosyaSayisi: Array.isArray(r.dosyalar) ? r.dosyalar.length : 0,
+                talepDurum: r.talep?.durum || '',
+                talepIstenenAdet: r.talep?.istenenAdet ?? '',
+                kalemTalepTarihi: r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+                kararDurumu: r.karar?.kararDurumu || '',
+                kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
+                kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+              };
+
+              // Değişiklik var mı?
+              let hasDiff = !prev; // yeni satır
+              if (prev) {
+                hasDiff = compareFields.some(field => {
+                  const prevVal = (()=>{
+                    if (field==='toplamTutarFobUsd') return prev.toplamUsd;
+                    if (field==='toplamTutarFobTl') return prev.toplamTl;
+                    if (field==='birimAciklamasi') return prev.birimAciklamasi;
+                    if (field==='etuysSecili') return prev.etuysSecili ? 'EVET':'HAYIR';
+                    if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
+                    if (field==='talepDurum') return prev.talep?.durum;
+                    if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
+                    if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+                    if (field==='kararDurumu') return prev.karar?.kararDurumu;
+                    if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
+                    if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+                    return prev[field];
+                  })();
+                  const currVal = rowVals[field] ?? r[field];
+                  return JSON.stringify(prevVal) !== JSON.stringify(currVal);
+                });
+              }
+
+              if (hasDiff) {
+                const excelRow = ws.addRow(rowVals);
+                // Hücre bazlı farkları kırmızı ile boya
+                if (prev) {
+                  compareFields.forEach((field) => {
+                    const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
+                    if (!colIndex) return;
+                    const prevVal = (()=>{
+                      if (field==='toplamTutarFobUsd') return prev.toplamUsd;
+                      if (field==='toplamTutarFobTl') return prev.toplamTl;
+                      if (field==='birimAciklamasi') return prev.birimAciklamasi;
+                      if (field==='etuysSecili') return prev.etuysSecili ? 'EVET':'HAYIR';
+                      if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
+                      if (field==='talepDurum') return prev.talep?.durum;
+                      if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
+                      if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+                      if (field==='kararDurumu') return prev.karar?.kararDurumu;
+                      if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
+                      if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+                      return prev[field];
+                    })();
+                    const currVal = excelRow.getCell(colIndex).value;
+                    if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
+                      excelRow.getCell(colIndex).fill = redFill;
+                    }
+                  });
+                } else {
+                  // Yeni satır - temel alanları renklendir
+                  ['gtipKodu','adiVeOzelligi','miktar','birim'].forEach((k)=>{
+                    const colIndex = ws.columns.findIndex(c => c.key === k) + 1;
+                    if (colIndex) excelRow.getCell(colIndex).fill = redFill;
+                  });
+                }
+              }
+            });
+
+            // Silinenler
+            prevMap.forEach((prevRow, prevKey) => {
+              if (!currMap.has(prevKey)) {
+                const rowVals = {
+                  liste: label,
+                  revizeId: rev.revizeId,
+                  revizeTuru: rev.revizeTuru,
+                  revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+                  revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+                  muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
+                  onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+                  hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
+                  kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+                  islem: 'SİLİNDİ',
+                  siraNo: prevRow.siraNo || 0,
+                  gtipKodu: prevRow.gtipKodu || '',
+                  gtipAciklamasi: prevRow.gtipAciklamasi || '',
+                  adiVeOzelligi: prevRow.adiVeOzelligi || '',
+                  miktar: prevRow.miktar || 0,
+                  birim: prevRow.birim || '',
+                  birimAciklamasi: prevRow.birimAciklamasi || '',
+                  birimFiyatiTl: prevRow.birimFiyatiTl||0,
+                  toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0,
+                  kdvIstisnasi: prevRow.kdvIstisnasi||'',
+                  birimFiyatiFob: prevRow.birimFiyatiFob||0,
+                  gumrukDovizKodu: prevRow.gumrukDovizKodu||'',
+                  toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0,
+                  toplamTlFob: prevRow.toplamTutarFobTl||prevRow.toplamTl||0,
+                  kullanilmisMakine: prevRow.kullanilmisMakine||'',
+                  ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'',
+                  aracMi: prevRow.aracMi||'',
+                  kdvMuafiyeti: prevRow.kdvMuafiyeti||'',
+                  gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||''
+                };
+                const delRow = ws.addRow(rowVals);
+                delRow.eachCell((cell)=> { cell.fill = redFill; });
+              }
+            });
+            prevMap = currMap;
+          });
+        };
+
+        // Önce Yerli sonra İthal değişiklikleri yaz
+        writeChangedFor('yerli', 'YERLİ');
+        writeChangedFor('ithal', 'İTHAL');
+        return ws;
+      };
+
+      addChangesOnlySheet();
+
       const buffer = await wb.xlsx.writeBuffer();
       const fileName = `makine_revizyon_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0,10)}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
