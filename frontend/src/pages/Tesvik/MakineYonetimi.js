@@ -328,6 +328,12 @@ const MakineYonetimi = () => {
       // Değişen field'ları tespit et
       const changedFields = Object.keys(newRow).filter(key => newRow[key] !== oldRow[key]);
       console.log('📝 Değişen alanlar:', changedFields);
+      // TL elle düzenlendiyse manuel moda geçir ve değeri koru
+      if (changedFields.includes('toplamTl')) {
+        const updatedRow = { ...newRow, tlManuel: true, toplamTl: numberOrZero(newRow.toplamTl) };
+        updateIthal(newRow.id, updatedRow);
+        return updatedRow;
+      }
       
       // Miktar veya FOB değiştiyse USD'yi yeniden hesapla
       if (changedFields.includes('miktar') || changedFields.includes('birimFiyatiFob')) {
