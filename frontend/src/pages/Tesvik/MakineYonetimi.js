@@ -9,7 +9,7 @@ import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 
@@ -186,8 +186,9 @@ const MakineYonetimi = () => {
       } catch { setRevList([]); }
       // Teşvik bazlı silinenler ve işlem loglarını yükle
       try {
-        const del = loadLS(`mk_deleted_${selectedTesvik._id}`, loadLS('mk_deleted', []));
-        const act = loadLS(`mk_activity_${selectedTesvik._id}`, loadLS('mk_activity', []));
+        // Sadece geçerli belgeye ait lokaller yüklensin; global fallback kullanılmasın
+        const del = loadLS(`mk_deleted_${selectedTesvik._id}`, []);
+        const act = loadLS(`mk_activity_${selectedTesvik._id}`, []);
         setDeletedRows(del);
         setActivityLog(act);
       } catch {}
@@ -310,12 +311,15 @@ const MakineYonetimi = () => {
   // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
   const processYerliRowUpdate = (newRow, oldRow) => {
     console.log('🔧 Yerli row güncelleniyor:', newRow);
-    
-    // State'i güncelle
-    updateYerli(newRow.id, newRow);
-    
-    // Yeni row'u return et (ZORUNLU!)
-    return newRow;
+    const changedFields = Object.keys(newRow).filter(key => newRow[key] !== oldRow[key]);
+    let updatedRow = { ...newRow };
+    // Kullanıcı TL'yi elle girdiyse manuel moda geç
+    if (changedFields.includes('toplamTl')) {
+      updatedRow.tlYerliManuel = true;
+    }
+    // State'i güncelle (calcYerli tlYerliManuel=true ise mevcut TL'yi korur)
+    updateYerli(updatedRow.id, updatedRow);
+    return updatedRow;
   };
   const processIthalRowUpdate = async (newRow, oldRow) => {
     console.log('🔧 İthal row güncelleniyor:', newRow);
@@ -403,7 +407,8 @@ const MakineYonetimi = () => {
   const calcYerli = (r) => {
     const miktar = numberOrZero(r.miktar);
     const bf = numberOrZero(r.birimFiyatiTl);
-    return { ...r, toplamTl: miktar * bf };
+    const computed = miktar * bf;
+    return { ...r, toplamTl: r.tlYerliManuel ? (r.toplamTl ?? computed) : computed };
   };
   const calcIthal = (r) => {
     const miktar = numberOrZero(r.miktar);
@@ -417,8 +422,8 @@ const MakineYonetimi = () => {
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
   };
   const delRow = (id) => {
-    if (tab === 'yerli') setYerliRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'yerli', row, date:new Date() }, ...list].slice(0,200); saveLS(`mk_deleted_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_deleted', next); return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'yerli', row, payload:null, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; }); } return rows.filter(r => r.id !== id); });
-    else setIthalRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'ithal', row, date:new Date() }, ...list].slice(0,200); saveLS(`mk_deleted_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_deleted', next); return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'ithal', row, payload:null, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; }); } return rows.filter(r => r.id !== id); });
+    if (tab === 'yerli') setYerliRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'yerli', row, date:new Date() }, ...list].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_deleted_${selectedTesvik._id}`, next); } return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'yerli', row, payload:null, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; }); } return rows.filter(r => r.id !== id); });
+    else setIthalRows(rows => { const row = rows.find(r=> r.id===id); if (row && isReviseMode) { setDeletedRows(list=> { const next = [{ type:'ithal', row, date:new Date() }, ...list].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_deleted_${selectedTesvik._id}`, next); } return next; }); setActivityLog(log=> { const next = [{ type:'sil', list:'ithal', row, payload:null, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; }); } return rows.filter(r => r.id !== id); });
   };
 
   const handleUploadComplete = (files) => {
@@ -919,7 +924,7 @@ const MakineYonetimi = () => {
       { field: 'finansalKiralamaSirket', headerName: 'FK Şirket', width: 160, editable: isReviseMode },
       { field: 'gerceklesenAdet', headerName: 'Gerç. Adet', width: 110, editable: isReviseMode, type: 'number' },
       { field: 'gerceklesenTutar', headerName: 'Gerç. Tutar', width: 130, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış?', width: 150, renderCell: (p) => (
+      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış Var mı?', width: 150, renderCell: (p) => (
         <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
@@ -928,7 +933,7 @@ const MakineYonetimi = () => {
       ) },
       { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: isReviseMode, type: 'number' },
       { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: isReviseMode, type: 'number' },
-      { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
           <Button size="small" onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{isReviseMode?'Yükle':'Görüntüle'}</Button>
@@ -952,13 +957,13 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Bakanlığa gönder">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
                 updateYerli(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -973,37 +978,37 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Red">
             <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1034,7 +1039,7 @@ const MakineYonetimi = () => {
                 const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
                 updateYerli(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}
             />
           );
@@ -1066,7 +1071,7 @@ const MakineYonetimi = () => {
                 const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}
             />
           );
@@ -1156,12 +1161,43 @@ const MakineYonetimi = () => {
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
-      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right',
+        valueFormatter: (p)=> p.value?.toLocaleString('tr-TR'),
+        renderEditCell: (params)=>{
+          // Kullanıcı editlerken Enter ile onaylayıp manuel moda geçsin
+          return (
+            <TextField
+              size="small"
+              type="text"
+              defaultValue={params.value}
+              onKeyDown={(e)=>{
+                if (e.key === 'Enter') {
+                  const val = numberOrZero(e.currentTarget.value);
+                  setIthalRows(rows => rows.map(r => r.id === params.id ? { ...r, tlManuel: true, toplamTl: val } : r));
+                }
+              }}
+              inputProps={{ style:{ textAlign:'right' } }}
+            />
+          );
+        }
+      },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
       ) },
-      { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, editable: isReviseMode },
-      { field: 'aracMi', headerName: 'Araç mı?', width: 110, editable: isReviseMode },
+      { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, renderCell: (p)=> (
+        <Select size="small" value={p.row.ckdSkd || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { ckdSkd: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
+      { field: 'aracMi', headerName: 'Araç mı?', width: 110, renderCell: (p)=> (
+        <Select size="small" value={p.row.aracMi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { aracMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
+          <MenuItem value="">-</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+        </Select>
+      ) },
       { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
@@ -1226,13 +1262,13 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Bakanlığa gönder">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
                 updateIthal(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><SendIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1248,37 +1284,37 @@ const MakineYonetimi = () => {
           )}
           <Tooltip title="Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><CheckIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Kısmi Onay">
             <span>
-              <IconButton size="small" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><PercentIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Red">
             <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
                 const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}><ClearIcon fontSize="inherit"/></IconButton>
             </span>
           </Tooltip>
@@ -1309,7 +1345,7 @@ const MakineYonetimi = () => {
                 const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
                 updateIthal(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}
             />
           );
@@ -1341,7 +1377,7 @@ const MakineYonetimi = () => {
                 const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); saveLS(`mk_activity_${selectedTesvik?._id || 'global'}`, next); saveLS('mk_activity', next); return next; });
+                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
               }}
             />
           );
@@ -1358,6 +1394,12 @@ const MakineYonetimi = () => {
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processIthalRowUpdate}
+        onCellEditStop={(params, event)=>{
+          if (params.field === 'toplamTl' && event && event.key === 'Enter') {
+            const id = params.id;
+            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: numberOrZero(params.value) } : r));
+          }
+        }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
         density={density}
         columnVisibilityModel={columnVisibilityModel}
@@ -1590,19 +1632,19 @@ const MakineYonetimi = () => {
               <Button size="small" variant="outlined" startIcon={<RestoreIcon/>} disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)}>Eski Revizeye Dön</Button>
             </span>
           </Tooltip>
-          <Tooltip title="Revize Excel Çıktısı (değişiklikler kırmızı)"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
-            try {
-              const res = await tesvikService.exportMakineRevizyonExcel(selectedTesvik._id);
-              const blob = new Blob([res.data], { type: res.headers['content-type'] });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = `makine_revizyon_${selectedTesvik?.tesvikId || selectedTesvik?.gmId}.xlsx`;
-              a.click(); window.URL.revokeObjectURL(url);
-              openToast('success', 'Revize Excel indirildi.');
-            } catch (e) {
-              openToast('error', 'Revize Excel alınamadı.');
-            }
-          }}><HistoryIcon/></IconButton></span></Tooltip>
+          <Tooltip title="Revize Excel Çıktısı (değişiklikler kırmızı)"><span><Button size="small" startIcon={<TableViewIcon/>} sx={{ color:'#166534', borderColor:'#16a34a', backgroundColor:'#e7f6ec', '&:hover':{ backgroundColor:'#d9f0e0' } }} variant="outlined" disabled={!selectedTesvik} onClick={async()=>{
+             try {
+               const res = await tesvikService.exportMakineRevizyonExcel(selectedTesvik._id);
+               const blob = new Blob([res.data], { type: res.headers['content-type'] });
+               const url = window.URL.createObjectURL(blob);
+               const a = document.createElement('a');
+               a.href = url; a.download = `makine_revizyon_${selectedTesvik?.tesvikId || selectedTesvik?.gmId}.xlsx`;
+               a.click(); window.URL.revokeObjectURL(url);
+               openToast('success', 'Revize Excel indirildi.');
+             } catch (e) {
+               openToast('error', 'Revize Excel alınamadı.');
+             }
+           }}>Revize Excel</Button></span></Tooltip>
           <Tooltip title="İşlem Geçmişi Excel"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
             try {
               const res = await tesvikService.exportMakineRevizyonHistoryExcel(selectedTesvik._id);

@@ -39,7 +39,7 @@ const GTIPSuperSearch = ({ value, onChange, size = 'small', placeholder = 'GTIP 
   const listRef = useRef(null);
 
   // Gelişmiş modlar
-  const [showMode, setShowMode] = useState('all'); // all | recent | favorites | chapter
+  const [showMode, setShowMode] = useState('recent'); // all | recent | favorites | chapter (default: recent)
   const [displayLimit, setDisplayLimit] = useState(200); // backend limit (arttırılabilir)
   const [chapPrefix, setChapPrefix] = useState(''); // İlk 2 haneli bölüm filtresi
   const [recent, setRecent] = useState([]);
@@ -72,6 +72,8 @@ const GTIPSuperSearch = ({ value, onChange, size = 'small', placeholder = 'GTIP 
 
   useEffect(() => {
     if (isOpen) {
+      // Açılışta son kullanılanlar sekmesi gösterilsin
+      setShowMode('recent');
       debouncedSearch(searchTerm);
     }
   }, [isOpen, searchTerm, debouncedSearch]);
