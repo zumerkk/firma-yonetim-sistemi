@@ -420,7 +420,8 @@ const MakineYonetimi = () => {
     const miktar = numberOrZero(r.miktar);
     const fob = numberOrZero(r.birimFiyatiFob);
     const usd = miktar * fob;
-    return { ...r, toplamUsd: usd, toplamTl: r.toplamTl ?? 0 };
+    // TL manuel ise değeri koru; değilse mevcut kur mantığı devreye girecek (useEffect/processRowUpdate)
+    return { ...r, toplamUsd: usd, toplamTl: r.tlManuel ? (r.toplamTl ?? 0) : (r.toplamTl ?? 0) };
   };
 
   const addRow = () => {
@@ -1167,26 +1168,7 @@ const MakineYonetimi = () => {
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
-      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right',
-        valueFormatter: (p)=> p.value?.toLocaleString('tr-TR'),
-        renderEditCell: (params)=>{
-          // Kullanıcı editlerken Enter ile onaylayıp manuel moda geçsin
-          return (
-            <TextField
-              size="small"
-              type="text"
-              defaultValue={params.value}
-              onKeyDown={(e)=>{
-                if (e.key === 'Enter') {
-                  const val = numberOrZero(e.currentTarget.value);
-                  setIthalRows(rows => rows.map(r => r.id === params.id ? { ...r, tlManuel: true, toplamTl: val } : r));
-                }
-              }}
-              inputProps={{ style:{ textAlign:'right' } }}
-            />
-          );
-        }
-      },
+      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
       ) },
@@ -1400,10 +1382,12 @@ const MakineYonetimi = () => {
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processIthalRowUpdate}
-        onCellEditStop={(params, event)=>{
-          if (params.field === 'toplamTl' && event && event.key === 'Enter') {
+        onCellEditStop={(params)=>{
+          // Hücre edit commit olduğunda TL'yi manuel moda geçir ve değeri yaz
+          if (params.field === 'toplamTl') {
             const id = params.id;
-            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: numberOrZero(params.value) } : r));
+            const committed = numberOrZero(params.value);
+            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed } : r));
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
