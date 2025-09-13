@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
 import tesvikService from '../../services/tesvikService';
-import { Autocomplete, TextField, Divider } from '@mui/material';
+import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
 import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 
@@ -134,6 +134,9 @@ const MakineYonetimi = () => {
   // 🗑️ Silinen satırları gösterme (UI içinde takip)
   const [deletedRows, setDeletedRows] = useState([]); // { type:'yerli'|'ithal', row, date }
   const [deletedOpen, setDeletedOpen] = useState(false);
+  // Manuel kur dialog state'leri
+  const [manuelKurDialogOpen, setManuelKurDialogOpen] = useState(false);
+  const [manuelKurEditingRow, setManuelKurEditingRow] = useState(null);
   // ⚙️ İşlem günlükleri (talep/karar/silme)
   const [activityLog, setActivityLog] = useState([]); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
   // 🛎️ Bildirimler
@@ -371,12 +374,17 @@ const MakineYonetimi = () => {
         // USD güncelle ve manuel TL flag'ini sıfırla
         const updatedRow = { ...newRow, toplamUsd: usd, tlManuel: false };
         
+        // Manuel kur varsa önce onu kullan
+        if (newRow.kurManuel && Number(newRow.kurManuelDeger) > 0) {
+          updatedRow.toplamTl = Math.round(usd * Number(newRow.kurManuelDeger));
+          console.log(`📊 Manuel Kur: ${usd} × ${newRow.kurManuelDeger} = ${updatedRow.toplamTl} TL`);
+        }
         // TRY ise direkt TL = USD
-        if ((newRow.doviz || '').toUpperCase() === 'TRY') {
+        else if ((newRow.doviz || '').toUpperCase() === 'TRY') {
           updatedRow.toplamTl = usd;
           console.log(`🇹🇷 TRY: TL = ${usd}`);
         } 
-        // Başka döviz ise kur ile çevir
+        // Başka döviz ise otomatik kur ile çevir
         else if (newRow.doviz && !newRow.tlManuel) {
           try {
             const key = `${newRow.doviz}->TRY`;
@@ -399,7 +407,8 @@ const MakineYonetimi = () => {
       // Döviz değiştiyse TL'yi güncelle (manuel değilse)
       else if (changedFields.includes('doviz') && newRow.doviz && !newRow.tlManuel) {
         const usd = numberOrZero(newRow.toplamUsd);
-        const updatedRow = { ...newRow };
+        // Döviz değiştiğinde manuel kur bilgisini temizle
+        const updatedRow = { ...newRow, kurManuel: false, kurManuelDeger: 0 };
         
         if (newRow.doviz.toUpperCase() === 'TRY') {
           updatedRow.toplamTl = usd;
@@ -484,7 +493,7 @@ const MakineYonetimi = () => {
     // 1) Mevcut ekranı DB'ye kaydet (rowId'ler backend tarafından üretilecek)
     const payload = {
       yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili })),
-      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili }))
+      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili }))
     };
     try { await tesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
     // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
@@ -593,6 +602,9 @@ const MakineYonetimi = () => {
       { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 22 },
       { header: 'Menşei Döviz Birim Fiyatı (FOB)', key: 'birimFiyatiFob', width: 24, numFmt: '#,##0.00' },
       { header: 'Menşei Döviz Cinsi (FOB)', key: 'doviz', width: 18 },
+      { header: 'Manuel Kur', key: 'kurManuel', width: 12 },
+      { header: 'Manuel Kur Değeri', key: 'kurManuelDeger', width: 18, numFmt: '#,##0.0000' },
+      { header: 'Uygulanan Kur', key: 'uygulanankur', width: 16, numFmt: '#,##0.0000' },
       { header: 'Toplam Tutar (FOB $)', key: 'toplamUsd', width: 20, numFmt: '#,##0' },
       { header: 'Toplam Tutar (FOB TL)', key: 'toplamTl', width: 20, numFmt: '#,##0' },
       { header: 'KULLANILMIŞ MAKİNE', key: 'kullanilmisKod', width: 22 },
@@ -643,8 +655,26 @@ const MakineYonetimi = () => {
     const wsIthal = wb.addWorksheet('İthal');
     wsIthal.columns = ithalColumns;
     ithalRows.forEach((r) => {
+      // Manuel kur durumunu ve uygulanan kuru hesapla
+      let uygulanankur = 0;
+      if (r.kurManuel && r.kurManuelDeger > 0) {
+        uygulanankur = r.kurManuelDeger;
+      } else if (r.doviz && r.doviz !== 'TRY' && r.toplamUsd > 0 && r.toplamTl > 0) {
+        // Otomatik kuru hesapla
+        uygulanankur = r.toplamTl / r.toplamUsd;
+      } else if (r.doviz === 'TRY') {
+        uygulanankur = 1;
+      }
+      
+      // Satırı ekle
+      const rowData = { 
+        ...r, 
+        kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
+        uygulanankur: uygulanankur
+      };
+      const row = wsIthal.addRow(rowData);
+      
       // $'ı Excel formülüyle üret
-      const row = wsIthal.addRow({ ...r });
       const miktarCol = ithalColumns.findIndex(c => c.key === 'miktar') + 1;
       const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
@@ -652,6 +682,25 @@ const MakineYonetimi = () => {
     });
     ithalColumns.forEach((c, idx) => { if (c.numFmt) wsIthal.getColumn(idx + 1).numFmt = c.numFmt; });
     finalizeSheet(wsIthal, wsIthal.rowCount);
+    
+    // Manuel kur kolonlarını vurgula
+    const kurManuelCol = ithalColumns.findIndex(c => c.key === 'kurManuel') + 1;
+    const kurDegerCol = ithalColumns.findIndex(c => c.key === 'kurManuelDeger') + 1;
+    const uygulanankurCol = ithalColumns.findIndex(c => c.key === 'uygulanankur') + 1;
+    
+    // Başlık hücrelerini renklendir
+    wsIthal.getCell(1, kurManuelCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4ADE80' } };
+    wsIthal.getCell(1, kurDegerCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4ADE80' } };
+    wsIthal.getCell(1, uygulanankurCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF60A5FA' } };
+    
+    // Manuel kur kullanılan satırları vurgula
+    wsIthal.eachRow((row, rowNumber) => {
+      if (rowNumber > 1 && row.getCell(kurManuelCol).value === 'EVET') {
+        row.getCell(kurManuelCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        row.getCell(kurDegerCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
+        row.getCell(kurDegerCol).font = { bold: true, color: { argb: 'FF065F46' } };
+      }
+    });
     // Veri doğrulama sütunları: EVET/HAYIR + Makine Tipi
     const idxKdvI = ithalColumns.findIndex(c => c.key === 'kdvMuafiyeti') + 1;
     const idxGvI = ithalColumns.findIndex(c => c.key === 'gumrukVergisiMuafiyeti') + 1;
@@ -669,18 +718,47 @@ const MakineYonetimi = () => {
     totalRowI.getCell(colTl).value = { formula: `SUM(${colLetter(colTl)}2:${colLetter(colTl)}${wsIthal.rowCount - 1})` };
     totalRowI.font = { bold: true };
 
+    // Manuel kur istatistikleri
+    const manuelKurSayisi = ithalRows.filter(r => r.kurManuel).length;
+    const manuelKurOrtalama = manuelKurSayisi > 0 
+      ? ithalRows.filter(r => r.kurManuel).reduce((sum, r) => sum + (r.kurManuelDeger || 0), 0) / manuelKurSayisi
+      : 0;
+    
     // Özet sayfası
     const wsSummary = wb.addWorksheet('Özet');
-    wsSummary.columns = [ { header: 'Alan', key: 'k', width: 28 }, { header: 'Değer', key: 'v', width: 40 } ];
+    wsSummary.columns = [ { header: 'Alan', key: 'k', width: 35 }, { header: 'Değer', key: 'v', width: 45 } ];
     wsSummary.addRows([
       { k: 'Tarih', v: new Date().toLocaleString('tr-TR') },
       { k: 'Belge', v: selectedTesvik ? `${selectedTesvik.tesvikId || selectedTesvik.gmId} — ${selectedTesvik.yatirimciUnvan || selectedTesvik.firma?.tamUnvan || ''}` : '-' },
+      { k: '', v: '' }, // Boş satır
+      { k: 'YERLİ LİSTE', v: '' },
+      { k: 'Yerli Toplam Satır', v: yerliRows.length },
       { k: 'Yerli Toplam (TL)', v: yerliToplamTl },
+      { k: '', v: '' }, // Boş satır
+      { k: 'İTHAL LİSTE', v: '' },
+      { k: 'İthal Toplam Satır', v: ithalRows.length },
       { k: 'İthal Toplam ($)', v: ithalToplamUsd },
-      { k: 'İthal Toplam (TL)', v: ithalToplamTl }
+      { k: 'İthal Toplam (TL)', v: ithalToplamTl },
+      { k: '', v: '' }, // Boş satır
+      { k: 'DÖVİZ KURU BİLGİLERİ', v: '' },
+      { k: 'Manuel Kur Kullanılan Satır Sayısı', v: manuelKurSayisi },
+      { k: 'Ortalama Manuel Kur', v: manuelKurOrtalama > 0 ? manuelKurOrtalama.toFixed(4) : '-' },
+      { k: 'Manuel Kur Kullanım Oranı', v: ithalRows.length > 0 ? `%${((manuelKurSayisi / ithalRows.length) * 100).toFixed(1)}` : '-' }
     ]);
     wsSummary.getColumn(2).numFmt = '#,##0';
     wsSummary.getRow(1).font = { bold: true };
+    
+    // Başlık satırlarını vurgula
+    [4, 8, 13].forEach(rowNum => {
+      const row = wsSummary.getRow(rowNum);
+      row.font = { bold: true, size: 12 };
+      row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
+    });
+    
+    // Manuel kur bilgilerini vurgula
+    [14, 15, 16].forEach(rowNum => {
+      wsSummary.getRow(rowNum).getCell(1).font = { color: { argb: 'FF065F46' } };
+    });
 
     // Çıktıyı indir
     const buff = await wb.xlsx.writeBuffer();
@@ -740,6 +818,8 @@ const MakineYonetimi = () => {
       doviz: r.gumrukDovizKodu || '',
       toplamUsd: r.toplamTutarFobUsd || 0,
       toplamTl: r.toplamTutarFobTl || 0,
+      kurManuel: r.kurManuel || false,
+      kurManuelDeger: r.kurManuelDeger || 0,
       kdvIstisnasi: r.kdvIstisnasi || '',
       kullanilmisKod: r.kullanilmisMakine || '',
       kullanilmisAciklama: r.kullanilmisMakineAciklama || '',
@@ -1193,12 +1273,63 @@ const MakineYonetimi = () => {
       ) },
       // birimAciklamasi kolonu kaldırıldı
       { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
-      { field: 'doviz', headerName: 'Döviz', width: 160, renderCell: (p)=>(
+      { field: 'doviz', headerName: 'Döviz / Kur', width: 240, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
-          <Box sx={{ flex: 1 }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
             <UnitCurrencySearch type="currency" value={p.row.doviz} onChange={(kod)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{doviz:kod}); }} />
           </Box>
-          <IconButton size="small" onClick={(e)=> openFavMenu(e,'currency', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
+          {p.row.doviz && p.row.doviz !== 'TRY' && (
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              {p.row.kurManuel && p.row.kurManuelDeger > 0 && (
+                <Tooltip title={`Manuel Kur: ${p.row.kurManuelDeger}`}>
+                  <Chip 
+                    label={`₺${p.row.kurManuelDeger}`} 
+                    size="small" 
+                    color="success" 
+                    variant="filled"
+                    sx={{ 
+                      fontSize: '0.75rem', 
+                      height: '22px',
+                      fontWeight: 'bold',
+                      '& .MuiChip-label': { px: 1 }
+                    }}
+                  />
+                </Tooltip>
+              )}
+              <Tooltip title={!isReviseMode ? "Manuel kur girmek için revize modunu açın" : (p.row.kurManuel ? "Manuel Kur Düzenle" : "Manuel Kur Gir")}>
+                <span>
+                  <IconButton 
+                    size="small" 
+                    onClick={() => {
+                      if (!isReviseMode) {
+                        openToast('warning', 'Manuel kur girmek için önce revize modunu açın!');
+                        return;
+                      }
+                      setManuelKurEditingRow(p.row);
+                      setManuelKurDialogOpen(true);
+                    }}
+                    sx={{ 
+                      p: 0.5,
+                      color: p.row.kurManuel ? 'success.main' : 'primary.main',
+                      bgcolor: p.row.kurManuel ? 'success.light' : 'primary.light',
+                      border: '1px solid',
+                      borderColor: p.row.kurManuel ? 'success.main' : 'primary.main',
+                      opacity: !isReviseMode ? 0.6 : 1,
+                      '&:hover': { 
+                        bgcolor: p.row.kurManuel ? 'success.light' : 'primary.light',
+                        transform: 'scale(1.1)'
+                      }
+                    }}
+                  >
+                    <CurrencyExchangeIcon sx={{ fontSize: 20 }} />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Stack>
+          )}
+          <IconButton size="small" onClick={(e)=> openFavMenu(e,'currency', p.row.id)} sx={{ p: 0.5 }}>
+            <StarBorderIcon sx={{ fontSize: 18 }} />
+          </IconButton>
         </Stack>
       ) },
       { field: 'toplamUsd', headerName: '$', width: 110, align:'right', headerAlign:'right',
@@ -1206,11 +1337,21 @@ const MakineYonetimi = () => {
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
       { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
-        valueFormatter: (p)=> {
-          const row = p.api.getRow(p.id) || {};
-          const raw = row.__manualTLInput;
-          if (raw) return raw; // kullanıcı nasıl girdiyse öyle göster
-          return Number(numberOrZero(p.value)).toLocaleString('tr-TR');
+        renderCell: (p) => {
+          const value = p.value;
+          const row = p.row;
+          const formattedValue = row.__manualTLInput || Number(numberOrZero(value)).toLocaleString('tr-TR');
+          
+          if (row.kurManuel && row.kurManuelDeger) {
+            return (
+              <Tooltip title={`Manuel Kur: ${row.kurManuelDeger}`}>
+                <Box sx={{ textAlign: 'right' }}>
+                  <Typography variant="body2">{formattedValue}</Typography>
+                </Box>
+              </Tooltip>
+            );
+          }
+          return formattedValue;
         },
         preProcessEditCellProps: (params)=> {
           const raw = (params.props.value ?? '').toString();
@@ -1651,7 +1792,7 @@ const MakineYonetimi = () => {
                   // Revize bitmeden önce ekrandaki son hali veritabanına kaydet
                   const payload = {
                     yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
-                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
+                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
                   };
                   await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
                   // Onaya basınca onay tarihi yazsın (kararTarihi)
@@ -1708,7 +1849,7 @@ const MakineYonetimi = () => {
           <Tooltip title="Kaydet"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
             const payload = {
               yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar })),
-              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
+              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar }))
             };
             const res = await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
             if (res?.success) {
@@ -1926,7 +2067,7 @@ const MakineYonetimi = () => {
             const res = await tesvikService.revertMakineRevizyon(selectedTesvik._id, selectedRevizeId, 'Kullanıcı geri dönüşü');
             if (res?.makineListeleri) {
               setYerliRows((res.makineListeleri.yerli||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, toplamTl:r.toplamTutariTl })));
-              setIthalRows((res.makineListeleri.ithal||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, doviz:r.gumrukDovizKodu, toplamUsd:r.toplamTutarFobUsd, toplamTl:r.toplamTutarFobTl })));
+              setIthalRows((res.makineListeleri.ithal||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, doviz:r.gumrukDovizKodu, toplamUsd:r.toplamTutarFobUsd, toplamTl:r.toplamTutarFobTl, kurManuel:r.kurManuel||false, kurManuelDeger:r.kurManuelDeger||0 })));
             }
             setRevertOpen(false);
             const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
@@ -1953,6 +2094,136 @@ const MakineYonetimi = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={()=> setDeletedOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Manuel Kur Dialog */}
+      <Dialog open={manuelKurDialogOpen} onClose={() => setManuelKurDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.light', color: 'primary.main' }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <CurrencyExchangeIcon />
+            <Typography variant="h6">Manuel Döviz Kuru Girişi</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 2 }}>
+            <Alert severity="info" sx={{ '& .MuiAlert-message': { width: '100%' } }}>
+              <Stack spacing={1}>
+                <Typography variant="subtitle2">
+                  {manuelKurEditingRow?.doviz} için manuel kur belirleyebilirsiniz
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Otomatik kur yerine girdiğiniz değer kullanılacaktır
+                </Typography>
+              </Stack>
+            </Alert>
+            
+            <Stack spacing={2}>
+              <TextField
+                label={`${manuelKurEditingRow?.doviz || 'USD'} / TL Kuru`}
+                type="number"
+                fullWidth
+                size="large"
+                value={manuelKurEditingRow?.kurManuelDeger || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setManuelKurEditingRow(prev => ({ ...prev, kurManuelDeger: value, kurManuel: true }));
+                }}
+                inputProps={{ step: 0.0001, min: 0 }}
+                placeholder="0.0000"
+                helperText={`1 ${manuelKurEditingRow?.doviz || 'USD'} = ? TL`}
+                InputProps={{
+                  startAdornment: <Typography sx={{ mr: 1 }}>₺</Typography>,
+                }}
+                sx={{ 
+                  '& input': { 
+                    fontSize: '1.25rem',
+                    fontWeight: 'bold' 
+                  }
+                }}
+              />
+              
+              {manuelKurEditingRow?.kurManuelDeger > 0 && (
+                <Paper variant="outlined" sx={{ p: 2, bgcolor: 'grey.50' }}>
+                  <Stack spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      Hesaplanan Değerler:
+                    </Typography>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">
+                        Miktar: {manuelKurEditingRow?.miktar || 0} {manuelKurEditingRow?.birim || 'ADET'}
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold">
+                        x {manuelKurEditingRow?.birimFiyatiFob || 0} {manuelKurEditingRow?.doviz}
+                      </Typography>
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">
+                        Toplam FOB:
+                      </Typography>
+                      <Typography variant="body2" fontWeight="bold" color="primary">
+                        {((manuelKurEditingRow?.miktar || 0) * (manuelKurEditingRow?.birimFiyatiFob || 0)).toLocaleString('en-US')} {manuelKurEditingRow?.doviz}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">
+                        TL Karşılığı:
+                      </Typography>
+                      <Typography variant="body1" fontWeight="bold" color="success.main">
+                        ₺{((manuelKurEditingRow?.miktar || 0) * (manuelKurEditingRow?.birimFiyatiFob || 0) * (parseFloat(manuelKurEditingRow?.kurManuelDeger) || 0)).toLocaleString('tr-TR')}
+                      </Typography>
+                    </Stack>
+                  </Stack>
+                </Paper>
+              )}
+              
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!manuelKurEditingRow?.kurManuel}
+                    onChange={(e) => {
+                      setManuelKurEditingRow(prev => ({ ...prev, kurManuel: e.target.checked }));
+                    }}
+                  />
+                }
+                label={
+                  <Stack>
+                    <Typography variant="body2">Manuel kuru kullan</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      İşaretlenmezse otomatik kur kullanılır
+                    </Typography>
+                  </Stack>
+                }
+              />
+            </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'grey.50' }}>
+          <Button onClick={() => {
+            setManuelKurEditingRow(null);
+            setManuelKurDialogOpen(false);
+          }}>
+            İptal
+          </Button>
+          <Button 
+            variant="contained" 
+            size="large"
+            startIcon={<CheckIcon />}
+            onClick={() => {
+              if (manuelKurEditingRow) {
+                updateIthal(manuelKurEditingRow.id, {
+                  kurManuel: manuelKurEditingRow.kurManuel,
+                  kurManuelDeger: manuelKurEditingRow.kurManuelDeger,
+                  tlManuel: false
+                });
+              }
+              setManuelKurDialogOpen(false);
+            }}
+            disabled={!manuelKurEditingRow?.kurManuelDeger || parseFloat(manuelKurEditingRow.kurManuelDeger) <= 0}
+          >
+            Kuru Uygula
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

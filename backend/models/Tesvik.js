@@ -151,6 +151,9 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   gumrukDovizKodu: { type: String, trim: true, uppercase: true, maxlength: 10 },
   toplamTutarFobUsd: { type: Number, default: 0 },
   toplamTutarFobTl: { type: Number, default: 0 },
+  // Manuel kur girişi alanları
+  kurManuel: { type: Boolean, default: false },
+  kurManuelDeger: { type: Number, default: 0 },
   // Ek nitelikler
   // Kullanılmış makine alanı artık referans kod (ör: 1,2,3) veya açıklama tutulabilir
   kullanilmisMakine: { type: String, trim: true, maxlength: 50, default: '' },

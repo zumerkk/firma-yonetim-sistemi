@@ -4831,6 +4831,8 @@ module.exports = {
         gumrukDovizKodu: str(r.gumrukDovizKodu || r.doviz).toUpperCase(),
         toplamTutarFobUsd: nz(r.toplamTutarFobUsd || r.toplamUsd || (nz(r.miktar) * nz(r.birimFiyatiFob))),
         toplamTutarFobTl: nz(r.toplamTutarFobTl || r.toplamTl),
+        kurManuel: !!r.kurManuel,
+        kurManuelDeger: nz(r.kurManuelDeger),
         kullanilmisMakine: str(r.kullanilmisMakine || r.kullanilmisKod || ''),
         kullanilmisMakineAciklama: str(r.kullanilmisMakineAciklama || r.kullanilmisAciklama || ''),
         ckdSkdMi: str(r.ckdSkdMi || r.ckdSkd || ''),
@@ -5051,6 +5053,8 @@ module.exports = {
           ] : [
             { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
             { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
+            { header:'Manuel Kur', key:'kurManuel', width: 12 },
+            { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 16 },
             { header:'Toplam ($)', key:'toplamUsd', width: 14 },
             { header:'Toplam (TL)', key:'toplamTl', width: 14 },
             { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
@@ -5143,6 +5147,8 @@ module.exports = {
               Object.assign(rowVals, {
                 birimFiyatiFob: r.birimFiyatiFob || 0,
                 gumrukDovizKodu: r.gumrukDovizKodu || '',
+                kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
+                kurManuelDeger: r.kurManuelDeger || 0,
                 toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
                 toplamTl: r.toplamTutarFobTl || r.toplamTl || 0,
                 kullanilmisMakine: r.kullanilmisMakine || '',
@@ -5169,7 +5175,7 @@ module.exports = {
             const prev = prevMap.get(key);
             if (prev) {
               const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
                                            .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
               compareFields.forEach((field) => {
                 const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
@@ -5178,6 +5184,8 @@ module.exports = {
                   if (field==='toplamTutarFobUsd') return prev.toplamUsd;
                   if (field==='toplamTutarFobTl') return prev.toplamTl;
                   if (field==='birimAciklamasi') return prev.birimAciklamasi;
+                  if (field==='kurManuel') return prev.kurManuel ? 'EVET' : 'HAYIR';
+                  if (field==='kurManuelDeger') return prev.kurManuelDeger || 0;
                   if (field==='etuysSecili') return prev.etuysSecili ? 'EVET' : 'HAYIR';
                   if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
                   if (field==='talepDurum') return prev.talep?.durum;
@@ -5192,6 +5200,8 @@ module.exports = {
                   if (field==='toplamTutarFobUsd') return r.toplamUsd;
                   if (field==='toplamTutarFobTl') return r.toplamTl;
                   if (field==='birimAciklamasi') return r.birimAciklamasi;
+                  if (field==='kurManuel') return r.kurManuel ? 'EVET' : 'HAYIR';
+                  if (field==='kurManuelDeger') return r.kurManuelDeger || 0;
                   if (field==='etuysSecili') return r.etuysSecili ? 'EVET' : 'HAYIR';
                   if (field==='dosyaSayisi') return Array.isArray(r.dosyalar) ? r.dosyalar.length : 0;
                   if (field==='talepDurum') return r.talep?.durum;
@@ -5246,7 +5256,7 @@ module.exports = {
               if (isYerli) {
                 Object.assign(rowVals, { birimFiyatiTl: prevRow.birimFiyatiTl||0, toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0, kdvIstisnasi: prevRow.kdvIstisnasi||'' });
               } else {
-                Object.assign(rowVals, { birimFiyatiFob: prevRow.birimFiyatiFob||0, gumrukDovizKodu: prevRow.gumrukDovizKodu||'', toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0, toplamTl: prevRow.toplamTutarFobTl||prevRow.toplamTl||0, kullanilmisMakine: prevRow.kullanilmisMakine||'', ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'', aracMi: prevRow.aracMi||'', kdvMuafiyeti: prevRow.kdvMuafiyeti||'', gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||'' });
+                Object.assign(rowVals, { birimFiyatiFob: prevRow.birimFiyatiFob||0, gumrukDovizKodu: prevRow.gumrukDovizKodu||'', kurManuel: prevRow.kurManuel ? 'EVET' : 'HAYIR', kurManuelDeger: prevRow.kurManuelDeger || 0, toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0, toplamTl: prevRow.toplamTutarFobTl||prevRow.toplamTl||0, kullanilmisMakine: prevRow.kullanilmisMakine||'', ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'', aracMi: prevRow.aracMi||'', kdvMuafiyeti: prevRow.kdvMuafiyeti||'', gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||'' });
               }
               const delRow = ws.addRow(rowVals);
               delRow.eachCell((cell)=> { cell.fill = redFill; });
