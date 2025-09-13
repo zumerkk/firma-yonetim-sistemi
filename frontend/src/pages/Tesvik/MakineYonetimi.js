@@ -353,7 +353,9 @@ const MakineYonetimi = () => {
       console.log('📝 Değişen alanlar:', changedFields);
       // TL elle düzenlendiyse manuel moda geçir ve değeri koru
       if (changedFields.includes('toplamTl')) {
-        const updatedRow = { ...newRow, tlManuel: true, toplamTl: numberOrZero(newRow.toplamTl) };
+        const raw = (newRow.toplamTl ?? newRow.__manualTLInput ?? '').toString();
+        const parsed = parseTrCurrency(raw);
+        const updatedRow = { ...newRow, tlManuel: true, toplamTl: parsed, __manualTLInput: raw };
         updateIthal(newRow.id, updatedRow);
         return updatedRow;
       }
@@ -1199,7 +1201,12 @@ const MakineYonetimi = () => {
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
       { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
-        valueFormatter: (p)=> Number.isFinite(Number(p.value)) ? Number(p.value).toLocaleString('tr-TR') : (Number.isFinite(Number(parseTrCurrency(p.value))) ? Number(parseTrCurrency(p.value)).toLocaleString('tr-TR') : p.value),
+        valueFormatter: (p)=> {
+          const row = p.api.getRow(p.id) || {};
+          const raw = row.__manualTLInput;
+          if (raw) return raw; // kullanıcı nasıl girdiyse öyle göster
+          return Number(numberOrZero(p.value)).toLocaleString('tr-TR');
+        },
         preProcessEditCellProps: (params)=> {
           const raw = (params.props.value ?? '').toString();
           const parsed = parseTrCurrency(raw);
