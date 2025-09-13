@@ -42,7 +42,7 @@ const parseTrCurrency = (value) => {
 };
 
 const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -231,7 +231,7 @@ const MakineYonetimi = () => {
       let changed = false;
       const nextRows = await Promise.all(ithalRows.map(async (r) => {
         try {
-          if (r.tlManuel) return r; // manuel modda dokunma
+          if (r.tlManuel || (r.kurManuel && Number(parseTrCurrency(r.kurManuelDeger))>0)) return r; // manuel TL/kur modda dokunma
           const miktar = numberOrZero(r.miktar);
           const fob = numberOrZero(r.birimFiyatiFob);
           const usd = miktar * fob;
@@ -452,6 +452,11 @@ const MakineYonetimi = () => {
     const miktar = numberOrZero(r.miktar);
     const fob = numberOrZero(r.birimFiyatiFob);
     const usd = miktar * fob;
+    // Kur manuel girilmişse TL'yi o kurdan hesapla ve tlManuel'i de güvenceye al
+    if (r.kurManuel && Number.isFinite(Number(r.kurManuelDeger)) && Number(r.kurManuelDeger) > 0) {
+      const tl = Math.round(usd * Number(r.kurManuelDeger));
+      return { ...r, toplamUsd: usd, toplamTl: tl, tlManuel: true };
+    }
     // TL manuel ise değeri koru; değilse mevcut kur mantığı devreye girecek (useEffect/processRowUpdate)
     return { ...r, toplamUsd: usd, toplamTl: r.tlManuel ? (r.toplamTl ?? 0) : (r.toplamTl ?? 0) };
   };
@@ -920,6 +925,21 @@ const MakineYonetimi = () => {
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
+      ) },
+      { field: 'kurManuelDeger', headerName: 'Kur (manuel)', width: 140, align:'right', headerAlign:'right', renderCell:(p)=> (
+        <TextField size="small" placeholder="ör. 32,50" disabled={!isReviseMode} value={p.row.kurManuel ? (p.row.kurManuelDeger || '') : ''}
+          onChange={(e)=>{ if(!isReviseMode) return; const raw=e.target.value; setIthalRows(rows=> rows.map(r=> r.id===p.row.id ? { ...r, kurManuel:true, kurManuelDeger: raw } : r)); }}
+          onBlur={()=>{ setIthalRows(rows=> rows.map(r=> r.id===p.row.id ? calcIthal(r) : r)); }}
+          sx={{ width:'100%' }} inputProps={{ style:{ textAlign:'right' } }} />
+      ) },
+      { field: 'kurManuel', headerName: 'Kur Manuel?', width: 120, renderCell: (p)=> (
+        <Select size="small" value={p.row.kurManuel ? 'EVET' : 'HAYIR'} disabled={!isReviseMode} onChange={(e)=>{
+          const ev = e.target.value === 'EVET';
+          setIthalRows(rows=> rows.map(r=> r.id===p.row.id ? (ev ? calcIthal({ ...r, kurManuel:true }) : { ...r, kurManuel:false }) : r));
+        }} displayEmpty fullWidth>
+          <MenuItem value="HAYIR">HAYIR</MenuItem>
+          <MenuItem value="EVET">EVET</MenuItem>
+        </Select>
       ) },
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 220, editable: true, renderCell:(p)=> (
         <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
