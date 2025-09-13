@@ -18,6 +18,29 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
   return isNaN(n) ? 0 : n;
 };
 
+// 🇹🇷 Türkçe sayı girişini güvenle parse et (786.861 => 786861, 1.651.332 => 1651332, 10,5 => 10.5)
+const parseTrCurrency = (value) => {
+  const str = (value ?? '').toString().trim();
+  if (!str) return 0;
+  if (str.includes('.') && str.includes(',')) {
+    const normalized = str.replace(/\./g, '').replace(',', '.');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (str.includes(',') && !str.includes('.')) {
+    const normalized = str.replace(',', '.');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  }
+  if (/^\d{1,3}(\.\d{3})+$/.test(str)) {
+    const normalized = str.replace(/\./g, '');
+    const n = Number(normalized);
+    return Number.isFinite(n) ? n : 0;
+  }
+  const n = Number(str);
+  return Number.isFinite(n) ? n : 0;
+};
+
 const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
@@ -387,7 +410,9 @@ const MakineYonetimi = () => {
               rate = await currencyService.getRate(newRow.doviz, 'TRY'); 
               setRateCache(prev => ({ ...prev, [key]: rate })); 
             }
-            updatedRow.toplamTl = Math.round(usd * (rate || 0));
+            // Her zaman yakınsayan yuvarlama: .5 ve üzeri yukarı
+            const tlRaw = usd * (rate || 0);
+            updatedRow.toplamTl = Math.round(tlRaw);
             console.log(`💱 Döviz değişti ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
           } catch (error) {
             console.error('❌ Döviz kur çevirme hatası:', error);
@@ -1386,7 +1411,7 @@ const MakineYonetimi = () => {
           // Hücre edit commit olduğunda TL'yi manuel moda geçir ve değeri yaz
           if (params.field === 'toplamTl') {
             const id = params.id;
-            const committed = numberOrZero(params.value);
+            const committed = parseTrCurrency(params.value);
             setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed } : r));
           }
         }}
