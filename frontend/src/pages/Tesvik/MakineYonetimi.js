@@ -412,7 +412,12 @@ const MakineYonetimi = () => {
             }
             // Her zaman yakınsayan yuvarlama: .5 ve üzeri yukarı
             const tlRaw = usd * (rate || 0);
-            updatedRow.toplamTl = Math.round(tlRaw);
+            // Eğer kullanıcı daha önce TL'yi string olarak girdi ise aynen gösterilecek formatı koru
+            if (updatedRow.__manualTLInput) {
+              updatedRow.toplamTl = parseTrCurrency(updatedRow.__manualTLInput);
+            } else {
+              updatedRow.toplamTl = Math.round(tlRaw);
+            }
             console.log(`💱 Döviz değişti ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
           } catch (error) {
             console.error('❌ Döviz kur çevirme hatası:', error);
@@ -1193,7 +1198,14 @@ const MakineYonetimi = () => {
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
-      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
+        valueFormatter: (p)=> Number.isFinite(Number(p.value)) ? Number(p.value).toLocaleString('tr-TR') : (Number.isFinite(Number(parseTrCurrency(p.value))) ? Number(parseTrCurrency(p.value)).toLocaleString('tr-TR') : p.value),
+        preProcessEditCellProps: (params)=> {
+          const raw = (params.props.value ?? '').toString();
+          const parsed = parseTrCurrency(raw);
+          return { ...params.props, value: raw, error: !Number.isFinite(parsed) };
+        }
+      },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
         <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
       ) },
@@ -1412,7 +1424,7 @@ const MakineYonetimi = () => {
           if (params.field === 'toplamTl') {
             const id = params.id;
             const committed = parseTrCurrency(params.value);
-            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed } : r));
+            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed, __manualTLInput: (params.value ?? '').toString() } : r));
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
