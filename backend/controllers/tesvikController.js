@@ -4814,7 +4814,20 @@ module.exports = {
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
         iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
-        etuysSecili: !!r.etuysSecili
+        etuysSecili: !!r.etuysSecili,
+        // Talep/karar bilgilerini koru
+        talep: r.talep ? {
+          durum: r.talep.durum || 'taslak',
+          istenenAdet: nz(r.talep.istenenAdet),
+          talepTarihi: r.talep.talepTarihi ? new Date(r.talep.talepTarihi) : undefined,
+          talepNotu: str(r.talep.talepNotu || '')
+        } : undefined,
+        karar: r.karar ? {
+          kararDurumu: r.karar.kararDurumu || 'beklemede',
+          onaylananAdet: nz(r.karar.onaylananAdet),
+          kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined,
+          kararNotu: str(r.karar.kararNotu || '')
+        } : undefined
       }));
 
       // Map İthal
@@ -4829,6 +4842,7 @@ module.exports = {
         birimAciklamasi: str(r.birimAciklamasi || r.birimAciklama || ''),
         birimFiyatiFob: nz(r.birimFiyatiFob),
         gumrukDovizKodu: str(r.gumrukDovizKodu || r.doviz).toUpperCase(),
+        dovizAciklamasi: str(r.dovizAciklamasi || ''),
         toplamTutarFobUsd: nz(r.toplamTutarFobUsd || r.toplamUsd || (nz(r.miktar) * nz(r.birimFiyatiFob))),
         toplamTutarFobTl: nz(r.toplamTutarFobTl || r.toplamTl),
         kurManuel: !!r.kurManuel,
@@ -4849,7 +4863,20 @@ module.exports = {
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
         iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
-        etuysSecili: !!r.etuysSecili
+        etuysSecili: !!r.etuysSecili,
+        // Talep/karar bilgilerini koru
+        talep: r.talep ? {
+          durum: r.talep.durum || 'taslak',
+          istenenAdet: nz(r.talep.istenenAdet),
+          talepTarihi: r.talep.talepTarihi ? new Date(r.talep.talepTarihi) : undefined,
+          talepNotu: str(r.talep.talepNotu || '')
+        } : undefined,
+        karar: r.karar ? {
+          kararDurumu: r.karar.kararDurumu || 'beklemede',
+          onaylananAdet: nz(r.karar.onaylananAdet),
+          kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined,
+          kararNotu: str(r.karar.kararNotu || '')
+        } : undefined
       }));
 
       tesvik.makineListeleri.yerli = yerliMapped;
@@ -4873,15 +4900,39 @@ module.exports = {
       const tesvik = await Tesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
+      // Debug: Talep/karar verilerini kontrol et
+      const yerliWithTalepKarar = tesvik.makineListeleri?.yerli?.filter(r => r.talep || r.karar) || [];
+      const ithalWithTalepKarar = tesvik.makineListeleri?.ithal?.filter(r => r.talep || r.karar) || [];
+      if (yerliWithTalepKarar.length > 0 || ithalWithTalepKarar.length > 0) {
+        console.log(`📋 [DEBUG] startMakineRevizyon - Talep/Karar bulunan satırlar:`, {
+          yerli: yerliWithTalepKarar.length,
+          ithal: ithalWithTalepKarar.length
+        });
+      }
+
       const snapshot = {
         revizeTuru: 'start',
         aciklama: aciklama || 'Makine revizyonu başlatıldı',
         yapanKullanici: req.user?._id,
-        revizeMuracaatTarihi: revizeMuracaatTarihi ? new Date(revizeMuracaatTarihi) : new Date(),
-        hazirlikTarihi: hazirlikTarihi ? new Date(hazirlikTarihi) : (tesvik?.belgeYonetimi?.belgeTarihi || new Date()),
+        revizeMuracaatTarihi: revizeMuracaatTarihi ? new Date(revizeMuracaatTarihi) : undefined,
+        hazirlikTarihi: hazirlikTarihi ? new Date(hazirlikTarihi) : undefined,
         talepTarihi: talepTarihi ? new Date(talepTarihi) : undefined,
-        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
-        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
+        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => {
+          const obj = r.toObject ? r.toObject() : r;
+          return {
+            ...obj,
+            talep: obj.talep ? { ...obj.talep } : undefined,
+            karar: obj.karar ? { ...obj.karar } : undefined
+          };
+        }) : [],
+        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => {
+          const obj = r.toObject ? r.toObject() : r;
+          return {
+            ...obj,
+            talep: obj.talep ? { ...obj.talep } : undefined,
+            karar: obj.karar ? { ...obj.karar } : undefined
+          };
+        }) : []
       };
       tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
       tesvik.makineRevizyonlari.push(snapshot);
@@ -4907,12 +4958,25 @@ module.exports = {
         revizeTuru: 'final',
         aciklama: aciklama || 'Makine revizyonu finalize edildi',
         yapanKullanici: req.user?._id,
-        revizeOnayTarihi: revizeOnayTarihi ? new Date(revizeOnayTarihi) : new Date(),
-        kararTarihi: kararTarihi ? new Date(kararTarihi) : new Date(),
-        // Eğer talep tarihi belirtilmemişse finalize anını talep tarihi olarak da logla (müşteri isteği)
-        talepTarihi: talepTarihi ? new Date(talepTarihi) : new Date(),
-        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => ({...r.toObject?.()||r})) : [],
-        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => ({...r.toObject?.()||r})) : []
+        revizeOnayTarihi: revizeOnayTarihi ? new Date(revizeOnayTarihi) : undefined,
+        kararTarihi: kararTarihi ? new Date(kararTarihi) : undefined,
+        talepTarihi: talepTarihi ? new Date(talepTarihi) : undefined,
+        yerli: Array.isArray(tesvik.makineListeleri?.yerli) ? tesvik.makineListeleri.yerli.map(r => {
+          const obj = r.toObject ? r.toObject() : r;
+          return {
+            ...obj,
+            talep: obj.talep ? { ...obj.talep } : undefined,
+            karar: obj.karar ? { ...obj.karar } : undefined
+          };
+        }) : [],
+        ithal: Array.isArray(tesvik.makineListeleri?.ithal) ? tesvik.makineListeleri.ithal.map(r => {
+          const obj = r.toObject ? r.toObject() : r;
+          return {
+            ...obj,
+            talep: obj.talep ? { ...obj.talep } : undefined,
+            karar: obj.karar ? { ...obj.karar } : undefined
+          };
+        }) : []
       };
       tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
       tesvik.makineRevizyonlari.push(snapshot);
@@ -4956,8 +5020,16 @@ module.exports = {
       const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
       if (!target) return res.status(404).json({ success:false, message:'Revizyon bulunamadı' });
       // Eski halleri uygula
-      tesvik.makineListeleri.yerli = (target.yerli || []).map(r => ({...r}));
-      tesvik.makineListeleri.ithal = (target.ithal || []).map(r => ({...r}));
+      tesvik.makineListeleri.yerli = (target.yerli || []).map(r => ({
+        ...r,
+        talep: r.talep ? { ...r.talep } : undefined,
+        karar: r.karar ? { ...r.karar } : undefined
+      }));
+      tesvik.makineListeleri.ithal = (target.ithal || []).map(r => ({
+        ...r,
+        talep: r.talep ? { ...r.talep } : undefined,
+        karar: r.karar ? { ...r.karar } : undefined
+      }));
       tesvik.markModified('makineListeleri');
       // Yeni snapshot: revert
       const snapshot = {
@@ -4965,8 +5037,16 @@ module.exports = {
         aciklama: aciklama || `Revizyon geri dönüş: ${revizeId}`,
         yapanKullanici: req.user?._id,
         kaynakRevizeId: revizeId,
-        yerli: (target.yerli || []).map(r => ({...r})),
-        ithal: (target.ithal || []).map(r => ({...r}))
+        yerli: (target.yerli || []).map(r => ({
+          ...r,
+          talep: r.talep ? { ...r.talep } : undefined,
+          karar: r.karar ? { ...r.karar } : undefined
+        })),
+        ithal: (target.ithal || []).map(r => ({
+          ...r,
+          talep: r.talep ? { ...r.talep } : undefined,
+          karar: r.karar ? { ...r.karar } : undefined
+        }))
       };
       tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
       tesvik.makineRevizyonlari.push(snapshot);
@@ -5026,6 +5106,26 @@ module.exports = {
       const redFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC0C0' } };
       const headerStyle = { font:{ bold:true }, alignment:{ horizontal:'center' }, fill: { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE5E7EB' } } };
 
+      // Helper fonksiyon: Alan de\u011ferini al
+      const getFieldValue = (obj, field) => {
+        if (field==='toplamTutarFobUsd') return obj.toplamTutarFobUsd ?? obj.toplamUsd;
+        if (field==='toplamTutarFobTl') return obj.toplamTutarFobTl ?? obj.toplamTl;
+        if (field==='toplamTutariTl') return obj.toplamTutariTl ?? obj.toplamTl;
+        if (field==='birimAciklamasi') return obj.birimAciklamasi || '';
+        if (field==='dovizAciklamasi') return obj.dovizAciklamasi || '';
+        if (field==='kurManuel') return obj.kurManuel ? 'EVET' : 'HAYIR';
+        if (field==='kurManuelDeger') return obj.kurManuelDeger || 0;
+        if (field==='etuysSecili') return obj.etuysSecili ? 'EVET' : 'HAYIR';
+        if (field==='dosyaSayisi') return Array.isArray(obj.dosyalar) ? obj.dosyalar.length : 0;
+        if (field==='talepDurum') return obj.talep?.durum;
+        if (field==='talepIstenenAdet') return obj.talep?.istenenAdet;
+        if (field==='kalemTalepTarihi') return obj.talep?.talepTarihi ? new Date(obj.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+        if (field==='kararDurumu') return obj.karar?.kararDurumu;
+        if (field==='kararOnaylananAdet') return obj.karar?.onaylananAdet;
+        if (field==='kalemKararTarihi') return obj.karar?.kararTarihi ? new Date(obj.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+        return obj[field];
+      };
+
       const addSheetFor = (name, type) => {
         const ws = wb.addWorksheet(name);
         const isYerli = type==='yerli';
@@ -5053,6 +5153,7 @@ module.exports = {
           ] : [
             { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
             { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
+            { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
             { header:'Manuel Kur', key:'kurManuel', width: 12 },
             { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 16 },
             { header:'Toplam ($)', key:'toplamUsd', width: 14 },
@@ -5094,22 +5195,68 @@ module.exports = {
         ws.columns = baseCols;
         ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
         // Önceki snapshot kıyaslaması için map
+        // Yalnızca FINAL snapshot'ları işle; hiç final yoksa tüm snapshot'ları kullan
+        const iterateRevs = Array.isArray(revs) && revs.some(r=> r.revizeTuru==='final')
+          ? revs.filter(r=> r.revizeTuru==='final')
+          : revs;
+
+        // En güncel (mevcut) makine listelerini anahtara göre map'le.
+        // Böylece snapshot'ta talep/karar boş ise güncel listedeki değerlerle doldurabiliriz.
+        const makeKey = (x) => x?.rowId || (x?.siraNo ? `sira_${x.siraNo}` : `${x?.gtipKodu||''}|${x?.adiVeOzelligi||''}|${x?.miktar||0}`);
+        const latestMap = new Map();
+        const latestArr = Array.isArray(tesvik.makineListeleri?.[type]) ? tesvik.makineListeleri[type] : [];
+        latestArr.forEach(x => latestMap.set(makeKey(x), x));
         let prevMap = new Map();
-        revs.forEach((rev) => {
+        iterateRevs.forEach((rev) => {
           const list = Array.isArray(rev[type]) ? rev[type] : [];
+          // Revize genel (üst) talep/onay tarihleri boşsa, satırlarda varsa bunları kullan
+          const revMuracaat = rev.talepTarihi || rev.revizeMuracaatTarihi || (list.find(x => x?.talep?.talepTarihi)?.talep?.talepTarihi);
+          const revOnay = rev.kararTarihi || rev.revizeOnayTarihi || (list.find(x => x?.karar?.kararTarihi)?.karar?.kararTarihi);
           // mevcut snapshot map'i kıyas için
           const currMap = new Map();
           list.forEach((r) => {
-            const key = r.rowId || `${r.siraNo}|${r.gtipKodu}|${r.adiVeOzelligi}|${r.birim}`;
+            // Debug: talep/karar verilerini kontrol et
+            if (r.talep || r.karar) {
+              console.log(`📋 [DEBUG] Makine satırı talep/karar:`, {
+                gtip: r.gtipKodu,
+                talep: r.talep,
+                karar: r.karar
+              });
+            }
+            // rowId varsa kullan, yoksa sıra numarasını veya gtip+ad kombinasyonunu kullan
+            const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.miktar||0}`);
             currMap.set(key, r);
+            
+            // Sadece değişen veya yeni satırları yaz
+            const prev = prevMap.get(key);
+            let hasChange = !prev; // Yeni satır
+            
+            // Eğer önceki revizyonda varsa, değişiklikleri kontrol et
+            if (prev) {
+              const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
+              
+              for (const field of compareFields) {
+                const prevVal = getFieldValue(prev, field);
+                const currVal = getFieldValue(r, field);
+                if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
+                  hasChange = true;
+                  break;
+                }
+              }
+            }
+            
+            // Tüm satırları yaz (değişiklik kontrolü sadece boyama için kullanılacak)
+            
             // Satırı yaz
             const rowVals = {
               revizeId: rev.revizeId,
               revizeTuru: rev.revizeTuru,
               revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
               revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
-              muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
-              onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+              muracaat: revMuracaat ? new Date(revMuracaat).toLocaleDateString('tr-TR') : '',
+              onay: revOnay ? new Date(revOnay).toLocaleDateString('tr-TR') : '',
               hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
               kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
               islem: '',
@@ -5130,12 +5277,13 @@ module.exports = {
               birimAciklamasi: r.birimAciklamasi || '',
               etuysSecili: r.etuysSecili ? 'EVET' : 'HAYIR',
               dosyaSayisi: Array.isArray(r.dosyalar) ? r.dosyalar.length : 0,
-              talepDurum: r.talep?.durum || '',
-              talepIstenenAdet: r.talep?.istenenAdet ?? '',
-              kalemTalepTarihi: r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-              kararDurumu: r.karar?.kararDurumu || '',
-              kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
-              kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+              // Snapshot'ta boşsa güncel listedeki talep/karar ile doldur
+              talepDurum: (r.talep || latestMap.get(key)?.talep)?.durum || '',
+              talepIstenenAdet: (r.talep || latestMap.get(key)?.talep)?.istenenAdet ?? '',
+              kalemTalepTarihi: (r.talep || latestMap.get(key)?.talep)?.talepTarihi ? new Date((r.talep || latestMap.get(key)?.talep).talepTarihi).toLocaleDateString('tr-TR') : '',
+              kararDurumu: (r.karar || latestMap.get(key)?.karar)?.kararDurumu || '',
+              kararOnaylananAdet: (r.karar || latestMap.get(key)?.karar)?.onaylananAdet ?? '',
+              kalemKararTarihi: (r.karar || latestMap.get(key)?.karar)?.kararTarihi ? new Date((r.karar || latestMap.get(key)?.karar).kararTarihi).toLocaleDateString('tr-TR') : ''
             };
             if (isYerli) {
               Object.assign(rowVals, {
@@ -5147,6 +5295,7 @@ module.exports = {
               Object.assign(rowVals, {
                 birimFiyatiFob: r.birimFiyatiFob || 0,
                 gumrukDovizKodu: r.gumrukDovizKodu || '',
+                dovizAciklamasi: r.dovizAciklamasi || '',
                 kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
                 kurManuelDeger: r.kurManuelDeger || 0,
                 toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
@@ -5172,94 +5321,95 @@ module.exports = {
 
             const excelRow = ws.addRow(rowVals);
             // Hücre bazlı fark boyama
-            const prev = prevMap.get(key);
             if (prev) {
-              const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+              const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                           : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
                                            .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
               compareFields.forEach((field) => {
-                const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
-                if (!colIndex) return;
-                const prevVal = (()=>{
-                  if (field==='toplamTutarFobUsd') return prev.toplamUsd;
-                  if (field==='toplamTutarFobTl') return prev.toplamTl;
-                  if (field==='birimAciklamasi') return prev.birimAciklamasi;
-                  if (field==='kurManuel') return prev.kurManuel ? 'EVET' : 'HAYIR';
-                  if (field==='kurManuelDeger') return prev.kurManuelDeger || 0;
-                  if (field==='etuysSecili') return prev.etuysSecili ? 'EVET' : 'HAYIR';
-                  if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
-                  if (field==='talepDurum') return prev.talep?.durum;
-                  if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
-                  if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
-                  if (field==='kararDurumu') return prev.karar?.kararDurumu;
-                  if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
-                  if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
-                  return prev[field];
-                })();
-                const currVal = (()=>{
-                  if (field==='toplamTutarFobUsd') return r.toplamUsd;
-                  if (field==='toplamTutarFobTl') return r.toplamTl;
-                  if (field==='birimAciklamasi') return r.birimAciklamasi;
-                  if (field==='kurManuel') return r.kurManuel ? 'EVET' : 'HAYIR';
-                  if (field==='kurManuelDeger') return r.kurManuelDeger || 0;
-                  if (field==='etuysSecili') return r.etuysSecili ? 'EVET' : 'HAYIR';
-                  if (field==='dosyaSayisi') return Array.isArray(r.dosyalar) ? r.dosyalar.length : 0;
-                  if (field==='talepDurum') return r.talep?.durum;
-                  if (field==='talepIstenenAdet') return r.talep?.istenenAdet;
-                  if (field==='kalemTalepTarihi') return r.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
-                  if (field==='kararDurumu') return r.karar?.kararDurumu;
-                  if (field==='kararOnaylananAdet') return r.karar?.onaylananAdet;
-                  if (field==='kalemKararTarihi') return r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
-                  return r[field];
-                })();
-                if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
-                  excelRow.getCell(colIndex).fill = redFill;
+                const prevVal = getFieldValue(prev, field);
+                const currVal = getFieldValue(r, field);
+                
+                // Değerleri string'e dönüştürerek karşılaştır (undefined ve null kontrolü)
+                const prevStr = prevVal === undefined || prevVal === null ? '' : String(prevVal);
+                const currStr = currVal === undefined || currVal === null ? '' : String(currVal);
+                
+                if (prevStr !== currStr) {
+                  // Excel column key'ini bul
+                  let excelKey = field;
+                  // Alan adı eşleştirmeleri
+                  if (field === 'toplamTutariTl') excelKey = 'toplamTl';
+                  else if (field === 'toplamTutarFobUsd') excelKey = 'toplamUsd';
+                  else if (field === 'toplamTutarFobTl') excelKey = 'toplamTl';
+                  else if (field === 'talepDurum') excelKey = 'talepDurum';
+                  else if (field === 'talepIstenenAdet') excelKey = 'talepIstenenAdet';
+                  else if (field === 'kalemTalepTarihi') excelKey = 'kalemTalepTarihi';
+                  else if (field === 'kararDurumu') excelKey = 'kararDurumu';
+                  else if (field === 'kararOnaylananAdet') excelKey = 'kararOnaylananAdet';
+                  else if (field === 'kalemKararTarihi') excelKey = 'kalemKararTarihi';
+                  
+                  // Sütun index'ini bul
+                  const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
+                  if (colIndex > 0) {
+                    excelRow.getCell(colIndex).fill = redFill;
+                    console.log(`✓ Değişiklik algılandı: ${field} (${excelKey}) - Eski: "${prevStr}", Yeni: "${currStr}", Sütun: ${colIndex}`);
+                  } else {
+                    console.log(`✗ Değişiklik algılandı ama sütun bulunamadı: ${field} (${excelKey})`);
+                  }
                 }
               });
             } else {
-              // Yeni satır: temel alanları vurgula (isteğe bağlı)
-              ['gtipKodu','adiVeOzelligi','miktar','birim'].forEach((k)=>{
-                const colIndex = ws.columns.findIndex(c => c.key === k) + 1;
-                if (colIndex) excelRow.getCell(colIndex).fill = redFill;
+              // Yeni satırlar için tüm dolu alanları kırmızı boyama
+              const fieldsToCheck = isYerli 
+                ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTl','kdvIstisnasi']
+                : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','toplamUsd','toplamTl'];
+              
+              fieldsToCheck.forEach((field) => {
+                let excelKey = field;
+                // Alan adı eşleştirmeleri
+                if (field === 'toplamTutariTl' || field === 'toplamTl') excelKey = 'toplamTl';
+                else if (field === 'toplamTutarFobUsd' || field === 'toplamUsd') excelKey = 'toplamUsd';
+                
+                const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
+                if (colIndex > 0 && rowVals[excelKey]) {
+                  excelRow.getCell(colIndex).fill = redFill;
+                }
               });
             }
           });
-          // Önceki snapshot'ta olup şu an olmayanlar: SİLİNDİ olarak yaz
+            // Silinen satırlar için kontrol
           prevMap.forEach((prevRow, prevKey) => {
             if (!currMap.has(prevKey)) {
-              const rowVals = {
-                revizeId: rev.revizeId,
-                revizeTuru: rev.revizeTuru,
-                revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
-                revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
-                muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
-                onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
-                hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
-                kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
-                islem: 'SİLİNDİ',
-                siraNo: prevRow.siraNo || 0,
-                gtipKodu: prevRow.gtipKodu || '',
-                gtipAciklamasi: prevRow.gtipAciklamasi || '',
-                adiVeOzelligi: prevRow.adiVeOzelligi || '',
-                miktar: prevRow.miktar || 0,
-                birim: prevRow.birim || '',
-                birimAciklamasi: prevRow.birimAciklamasi || '',
-                etuysSecili: prevRow.etuysSecili ? 'EVET' : 'HAYIR',
-                dosyaSayisi: Array.isArray(prevRow.dosyalar) ? prevRow.dosyalar.length : 0,
-                talepDurum: prevRow.talep?.durum || '',
-                talepIstenenAdet: prevRow.talep?.istenenAdet ?? '',
-                kalemTalepTarihi: prevRow.talep?.talepTarihi ? new Date(prevRow.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-                kararDurumu: prevRow.karar?.kararDurumu || '',
-                kararOnaylananAdet: prevRow.karar?.onaylananAdet ?? '',
-                kalemKararTarihi: prevRow.karar?.kararTarihi ? new Date(prevRow.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
-              };
-              if (isYerli) {
-                Object.assign(rowVals, { birimFiyatiTl: prevRow.birimFiyatiTl||0, toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0, kdvIstisnasi: prevRow.kdvIstisnasi||'' });
-              } else {
-                Object.assign(rowVals, { birimFiyatiFob: prevRow.birimFiyatiFob||0, gumrukDovizKodu: prevRow.gumrukDovizKodu||'', kurManuel: prevRow.kurManuel ? 'EVET' : 'HAYIR', kurManuelDeger: prevRow.kurManuelDeger || 0, toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0, toplamTl: prevRow.toplamTutarFobTl||prevRow.toplamTl||0, kullanilmisMakine: prevRow.kullanilmisMakine||'', ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'', aracMi: prevRow.aracMi||'', kdvMuafiyeti: prevRow.kdvMuafiyeti||'', gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||'' });
+              // Sıra numarası ile de kontrol et
+              const found = Array.from(currMap.values()).find(r => 
+                (r.siraNo && prevRow.siraNo && r.siraNo === prevRow.siraNo) ||
+                (r.gtipKodu === prevRow.gtipKodu && r.adiVeOzelligi === prevRow.adiVeOzelligi)
+              );
+              if (!found) {
+                // Gerçekten silinmiş
+                const rowVals = {
+                  revizeId: rev.revizeId,
+                  revizeTuru: rev.revizeTuru,
+                  revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
+                  revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
+                  muracaat: (rev.talepTarihi) ? new Date(rev.talepTarihi).toLocaleDateString('tr-TR') : '',
+                  onay: (rev.kararTarihi) ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+                  hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
+                  kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
+                  islem: 'SİLİNDİ',
+                  siraNo: prevRow.siraNo || 0,
+                  gtipKodu: prevRow.gtipKodu || '',
+                  gtipAciklamasi: prevRow.gtipAciklamasi || '',
+                  adiVeOzelligi: prevRow.adiVeOzelligi || '',
+                  miktar: prevRow.miktar || 0,
+                  birim: prevRow.birim || '',
+                  birimAciklamasi: prevRow.birimAciklamasi || ''
+                };
+                const delRow = ws.addRow(rowVals);
+                // Tüm satırı kırmızı boya
+                for (let i = 1; i <= ws.columns.length; i++) {
+                  delRow.getCell(i).fill = redFill;
+                }
               }
-              const delRow = ws.addRow(rowVals);
-              delRow.eachCell((cell)=> { cell.fill = redFill; });
             }
           });
           prevMap = currMap; // bir sonraki revizyon kıyas için
@@ -5300,6 +5450,7 @@ module.exports = {
           // İthal özel
           { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
           { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
+          { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
           { header:'Toplam ($)', key:'toplamUsd', width: 14 },
           { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 14 },
           { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
@@ -5333,16 +5484,20 @@ module.exports = {
 
         const writeChangedFor = (type, label) => {
           const isYerli = type==='yerli';
-          const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
+          const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
+                                           : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
                                            .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
 
           let prevMap = new Map();
-          revs.forEach((rev) => {
+          // Yalnızca FINAL snapshot'ları dolaş; hiç final yoksa tüm snapshot'ları kullan
+          const revList = Array.isArray(revs) && revs.some(r=> r.revizeTuru==='final')
+            ? revs.filter(r=> r.revizeTuru==='final')
+            : revs;
+          revList.forEach((rev) => {
             const list = Array.isArray(rev[type]) ? rev[type] : [];
             const currMap = new Map();
             list.forEach((r) => {
-              const key = r.rowId || `${r.siraNo||0}|${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.birim||''}`;
+              const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu||''}|${r.adiVeOzelligi||''}`);
               currMap.set(key, r);
               const prev = prevMap.get(key);
               // Row değerlerini hazırla
@@ -5352,8 +5507,8 @@ module.exports = {
                 revizeTuru: rev.revizeTuru,
                 revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
                 revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
-                muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
-                onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
+                muracaat: (rev.talepTarihi) ? new Date(rev.talepTarihi).toLocaleDateString('tr-TR') : '',
+                onay: (rev.kararTarihi) ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
                 hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
                 kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
                 islem: prev ? 'GÜNCELLENDİ' : 'EKLENDİ',
@@ -5369,6 +5524,7 @@ module.exports = {
                 kdvIstisnasi: r.kdvIstisnasi || '',
                 birimFiyatiFob: r.birimFiyatiFob || 0,
                 gumrukDovizKodu: r.gumrukDovizKodu || '',
+                dovizAciklamasi: r.dovizAciklamasi || '',
                 toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
                 toplamTlFob: r.toplamTutarFobTl || r.toplamTl || 0,
                 kullanilmisMakine: r.kullanilmisMakine || r.kullanilmisKod || '',
@@ -5399,21 +5555,8 @@ module.exports = {
               let hasDiff = !prev; // yeni satır
               if (prev) {
                 hasDiff = compareFields.some(field => {
-                  const prevVal = (()=>{
-                    if (field==='toplamTutarFobUsd') return prev.toplamUsd;
-                    if (field==='toplamTutarFobTl') return prev.toplamTl;
-                    if (field==='birimAciklamasi') return prev.birimAciklamasi;
-                    if (field==='etuysSecili') return prev.etuysSecili ? 'EVET':'HAYIR';
-                    if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
-                    if (field==='talepDurum') return prev.talep?.durum;
-                    if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
-                    if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
-                    if (field==='kararDurumu') return prev.karar?.kararDurumu;
-                    if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
-                    if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
-                    return prev[field];
-                  })();
-                  const currVal = rowVals[field] ?? r[field];
+                  const prevVal = getFieldValue(prev, field);
+                  const currVal = getFieldValue(r, field);
                   return JSON.stringify(prevVal) !== JSON.stringify(currVal);
                 });
               }
@@ -5423,25 +5566,24 @@ module.exports = {
                 // Hücre bazlı farkları kırmızı ile boya
                 if (prev) {
                   compareFields.forEach((field) => {
-                    const colIndex = ws.columns.findIndex(c => c.key === field) + 1;
-                    if (!colIndex) return;
-                    const prevVal = (()=>{
-                      if (field==='toplamTutarFobUsd') return prev.toplamUsd;
-                      if (field==='toplamTutarFobTl') return prev.toplamTl;
-                      if (field==='birimAciklamasi') return prev.birimAciklamasi;
-                      if (field==='etuysSecili') return prev.etuysSecili ? 'EVET':'HAYIR';
-                      if (field==='dosyaSayisi') return Array.isArray(prev.dosyalar) ? prev.dosyalar.length : 0;
-                      if (field==='talepDurum') return prev.talep?.durum;
-                      if (field==='talepIstenenAdet') return prev.talep?.istenenAdet;
-                      if (field==='kalemTalepTarihi') return prev.talep?.talepTarihi ? new Date(prev.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
-                      if (field==='kararDurumu') return prev.karar?.kararDurumu;
-                      if (field==='kararOnaylananAdet') return prev.karar?.onaylananAdet;
-                      if (field==='kalemKararTarihi') return prev.karar?.kararTarihi ? new Date(prev.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
-                      return prev[field];
-                    })();
-                    const currVal = excelRow.getCell(colIndex).value;
+                    const prevVal = getFieldValue(prev, field);
+                    const currVal = getFieldValue(r, field);
                     if (JSON.stringify(prevVal) !== JSON.stringify(currVal)) {
-                      excelRow.getCell(colIndex).fill = redFill;
+                      // Excel column key'ini bul
+                      let excelKey = field;
+                      // Alan adı eşleştirmeleri
+                      if (field === 'toplamTutariTl') excelKey = 'toplamTl';
+                      else if (field === 'toplamTutarFobUsd') excelKey = 'toplamUsd';
+                      else if (field === 'toplamTutarFobTl') excelKey = 'toplamTlFob';
+                      
+                      // Sütun index'ini bul
+                      const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
+                      if (colIndex > 0) {
+                        excelRow.getCell(colIndex).fill = redFill;
+                        console.log(`✓ Değişiklik Yapılanlar - Değişiklik algılandı: ${field} (${excelKey}) - Sütun: ${colIndex}`);
+                      } else {
+                        console.log(`✗ Değişiklik Yapılanlar - Sütun bulunamadı: ${field} (${excelKey})`);
+                      }
                     }
                   });
                 } else {
@@ -5454,44 +5596,7 @@ module.exports = {
               }
             });
 
-            // Silinenler
-            prevMap.forEach((prevRow, prevKey) => {
-              if (!currMap.has(prevKey)) {
-                const rowVals = {
-                  liste: label,
-                  revizeId: rev.revizeId,
-                  revizeTuru: rev.revizeTuru,
-                  revizeTarihi: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
-                  revizeUser: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
-                  muracaat: (rev.talepTarihi || rev.revizeMuracaatTarihi) ? new Date(rev.talepTarihi || rev.revizeMuracaatTarihi).toLocaleDateString('tr-TR') : '',
-                  onay: (rev.kararTarihi || rev.revizeOnayTarihi) ? new Date(rev.kararTarihi || rev.revizeOnayTarihi).toLocaleDateString('tr-TR') : '',
-                  hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
-                  kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
-                  islem: 'SİLİNDİ',
-                  siraNo: prevRow.siraNo || 0,
-                  gtipKodu: prevRow.gtipKodu || '',
-                  gtipAciklamasi: prevRow.gtipAciklamasi || '',
-                  adiVeOzelligi: prevRow.adiVeOzelligi || '',
-                  miktar: prevRow.miktar || 0,
-                  birim: prevRow.birim || '',
-                  birimAciklamasi: prevRow.birimAciklamasi || '',
-                  birimFiyatiTl: prevRow.birimFiyatiTl||0,
-                  toplamTl: prevRow.toplamTutariTl||prevRow.toplamTl||0,
-                  kdvIstisnasi: prevRow.kdvIstisnasi||'',
-                  birimFiyatiFob: prevRow.birimFiyatiFob||0,
-                  gumrukDovizKodu: prevRow.gumrukDovizKodu||'',
-                  toplamUsd: prevRow.toplamTutarFobUsd||prevRow.toplamUsd||0,
-                  toplamTlFob: prevRow.toplamTutarFobTl||prevRow.toplamTl||0,
-                  kullanilmisMakine: prevRow.kullanilmisMakine||'',
-                  ckdSkdMi: prevRow.ckdSkdMi||prevRow.ckdSkd||'',
-                  aracMi: prevRow.aracMi||'',
-                  kdvMuafiyeti: prevRow.kdvMuafiyeti||'',
-                  gumrukVergisiMuafiyeti: prevRow.gumrukVergisiMuafiyeti||''
-                };
-                const delRow = ws.addRow(rowVals);
-                delRow.eachCell((cell)=> { cell.fill = redFill; });
-              }
-            });
+            // Silinen satırları raporlamıyoruz (yalnızca güncellenenler gösterilsin)
             prevMap = currMap;
           });
         };
@@ -5558,12 +5663,12 @@ module.exports = {
       ws.autoFilter = 'A1:N1';
 
       const compareYerliFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
-      const compareIthalFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiFob','gumrukDovizKodu','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+      const compareIthalFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
 
       const mapByKey = (arr, type) => {
         const out = new Map();
         (arr||[]).forEach(r => {
-          const key = r.rowId || `${r.siraNo||0}|${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.birim||''}`;
+          const key = r.rowId || `${r.gtipKodu||''}|${r.adiVeOzelligi||''}`;
           out.set(key, r);
         });
         return out;
@@ -5667,10 +5772,22 @@ module.exports = {
         );
       }
       if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
+      
+      // Mevcut talep durumu
+      const currentDurum = arr[idx].talep?.durum || 'taslak';
+      const newDurum = talep?.durum || currentDurum;
+      
+      // Durum değişiyorsa ve taslak'tan farklı bir duruma geçiyorsa otomatik tarih ata
+      let autoTalepTarihi = arr[idx].talep?.talepTarihi;
+      if (newDurum !== currentDurum && newDurum !== 'taslak' && !talep?.talepTarihi) {
+        autoTalepTarihi = new Date();
+        console.log(`🗓️ Talep durumu değişti (${currentDurum} → ${newDurum}), tarih atandı:`, autoTalepTarihi);
+      }
+      
       arr[idx].talep = {
-        durum: talep?.durum || arr[idx].talep?.durum || 'taslak',
+        durum: newDurum,
         istenenAdet: talep?.istenenAdet ?? arr[idx].talep?.istenenAdet ?? 0,
-        talepTarihi: talep?.talepTarihi || new Date(),
+        talepTarihi: talep?.talepTarihi || autoTalepTarihi || undefined,
         talepNotu: talep?.talepNotu || ''
       };
       if (!arr[idx].rowId) {
@@ -5703,10 +5820,22 @@ module.exports = {
         );
       }
       if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
+      
+      // Mevcut karar durumu
+      const currentKarar = arr[idx].karar?.kararDurumu || 'beklemede';
+      const newKarar = karar?.kararDurumu || currentKarar;
+      
+      // Durum değişiyorsa ve beklemede'den farklı bir duruma geçiyorsa otomatik tarih ata
+      let autoKararTarihi = arr[idx].karar?.kararTarihi;
+      if (newKarar !== currentKarar && newKarar !== 'beklemede' && !karar?.kararTarihi) {
+        autoKararTarihi = new Date();
+        console.log(`🗓️ Karar durumu değişti (${currentKarar} → ${newKarar}), tarih atandı:`, autoKararTarihi);
+      }
+      
       arr[idx].karar = {
-        kararDurumu: karar?.kararDurumu || arr[idx].karar?.kararDurumu || 'beklemede',
+        kararDurumu: newKarar,
         onaylananAdet: karar?.onaylananAdet ?? arr[idx].karar?.onaylananAdet ?? 0,
-        kararTarihi: karar?.kararTarihi || new Date(),
+        kararTarihi: karar?.kararTarihi || autoKararTarihi || undefined,
         kararNotu: karar?.kararNotu || ''
       };
       if (!arr[idx].rowId) {
