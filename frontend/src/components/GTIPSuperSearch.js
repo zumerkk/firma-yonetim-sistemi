@@ -16,7 +16,8 @@ import {
   IconButton,
   CircularProgress,
   Chip,
-  Badge
+  Badge,
+  Tooltip
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon, Close as CloseIcon, Star as StarIcon, AccessTime as AccessTimeIcon, FilterList as FilterListIcon } from '@mui/icons-material';
 import gtipService from '../services/gtipService';
@@ -29,7 +30,14 @@ const debounce = (fn, wait = 300) => {
   };
 };
 
-const GTIPSuperSearch = ({ value, onChange, size = 'small', placeholder = 'GTIP kodu seç...' }) => {
+const GTIPSuperSearch = ({ 
+  value, 
+  onChange, 
+  size = 'small', 
+  placeholder = 'GTIP kodu seç...', 
+  disabled = false,
+  disableMessage = 'GTIP girişi için revize talebi başlatmanız gerekmektedir'
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -145,41 +153,56 @@ const GTIPSuperSearch = ({ value, onChange, size = 'small', placeholder = 'GTIP 
     }
   };
 
+  const textFieldContent = (
+    <TextField
+      inputRef={inputRef}
+      value={selected ? (selected.kod + (selected.aciklama ? ` - ${selected.aciklama.substring(0, 40)}...` : '')) : ''}
+      onClick={() => !disabled && setIsOpen(true)}
+      placeholder={disabled ? disableMessage : placeholder}
+      size={size}
+      fullWidth
+      readOnly
+      disabled={disabled}
+      aria-label="GTIP kodu seç"
+      role="button"
+      sx={{
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        '& .MuiOutlinedInput-root': {
+          backgroundColor: disabled ? '#f3f4f6' : '#ffffff',
+          fontSize: '0.875rem',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          '& fieldset': { borderColor: disabled ? '#d1d5db' : '#e5e7eb' },
+          '&:hover': { backgroundColor: disabled ? '#f3f4f6' : '#f8fafc' },
+          '&.Mui-disabled': {
+            '& fieldset': { borderColor: '#d1d5db' },
+            backgroundColor: '#f3f4f6'
+          }
+        }
+      }}
+      InputProps={{
+        startAdornment: (
+          <InputAdornment position="start">
+            <SearchIcon sx={{ color: disabled ? '#9ca3af' : '#3b82f6', fontSize: '1.2rem' }} />
+          </InputAdornment>
+        ),
+        endAdornment: selected && (
+          <InputAdornment position="end">
+            <Chip label="Seçildi" size="small" color="primary" sx={{ fontSize: '0.7rem', height: 20 }} />
+          </InputAdornment>
+        )
+      }}
+    />
+  );
+
   return (
     <>
-      <TextField
-        inputRef={inputRef}
-        value={selected ? (selected.kod + (selected.aciklama ? ` - ${selected.aciklama.substring(0, 40)}...` : '')) : ''}
-        onClick={() => setIsOpen(true)}
-        placeholder={placeholder}
-        size={size}
-        fullWidth
-        readOnly
-        aria-label="GTIP kodu seç"
-        role="button"
-        sx={{
-          cursor: 'pointer',
-          '& .MuiOutlinedInput-root': {
-            backgroundColor: '#ffffff',
-            fontSize: '0.875rem',
-            cursor: 'pointer',
-            '& fieldset': { borderColor: '#e5e7eb' },
-            '&:hover': { backgroundColor: '#f8fafc' }
-          }
-        }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: '#3b82f6', fontSize: '1.2rem' }} />
-            </InputAdornment>
-          ),
-          endAdornment: selected && (
-            <InputAdornment position="end">
-              <Chip label="Seçildi" size="small" color="primary" sx={{ fontSize: '0.7rem', height: 20 }} />
-            </InputAdornment>
-          )
-        }}
-      />
+      {disabled ? (
+        <Tooltip title={disableMessage} placement="top">
+          <span style={{ width: '100%', display: 'inline-block' }}>
+            {textFieldContent}
+          </span>
+        </Tooltip>
+      ) : textFieldContent}
 
       <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="lg" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

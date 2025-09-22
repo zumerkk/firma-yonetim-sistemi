@@ -317,7 +317,7 @@ const MakineYonetimi = () => {
   useEffect(()=>{
     const handler = (e)=>{
       if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
-      if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); addRow(); }
+      if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); if(isReviseStarted) addRow(); else openToast('warning', 'Satır eklemek için önce revize talebi başlatmanız gerekmektedir.'); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1) { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) setRowClipboard(row); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v' && selectionModel.length===1 && rowClipboard) { e.preventDefault(); const id=selectionModel[0]; if(tab==='yerli') setYerliRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); else setIthalRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); }
       if (e.key==='Delete' && selectionModel.length>0) { e.preventDefault(); selectionModel.forEach(id=> delRow(id)); }
@@ -471,6 +471,10 @@ const MakineYonetimi = () => {
   };
 
   const addRow = () => {
+    if (!isReviseStarted) {
+      openToast('warning', 'Satır eklemek için önce revize talebi başlatmanız gerekmektedir.');
+      return;
+    }
     if (tab === 'yerli') setYerliRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyYerli(), siraNo: nextSira }]; });
     else setIthalRows(rows => { const nextSira = (rows[rows.length-1]?.siraNo || rows.length) + 1; return [...rows, { ...emptyIthal(), siraNo: nextSira }]; });
   };
@@ -1035,7 +1039,17 @@ const MakineYonetimi = () => {
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ if(!isReviseMode) return; const patch = { gtipKodu: kod, gtipAciklama: aciklama }; if (!p.row.adi) patch.adi = aciklama; updateYerli(p.row.id, patch); }} />
+            <GTIPSuperSearch 
+              value={p.row.gtipKodu} 
+              onChange={(kod, aciklama)=>{ 
+                if(!isReviseMode) return; 
+                const patch = { gtipKodu: kod, gtipAciklama: aciklama }; 
+                if (!p.row.adi) patch.adi = aciklama; 
+                updateYerli(p.row.id, patch); 
+              }} 
+              disabled={!isReviseStarted}
+              disableMessage="GTIP girişi için revize talebi başlatmanız gerekmektedir"
+            />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
@@ -1285,7 +1299,17 @@ const MakineYonetimi = () => {
       { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch value={p.row.gtipKodu} onChange={(kod, aciklama)=>{ if(!isReviseMode) return; const patch = { gtipKodu: kod, gtipAciklama: aciklama }; if (!p.row.adi) patch.adi = aciklama; updateIthal(p.row.id, patch); }} />
+            <GTIPSuperSearch 
+              value={p.row.gtipKodu} 
+              onChange={(kod, aciklama)=>{ 
+                if(!isReviseMode) return; 
+                const patch = { gtipKodu: kod, gtipAciklama: aciklama }; 
+                if (!p.row.adi) patch.adi = aciklama; 
+                updateIthal(p.row.id, patch); 
+              }} 
+              disabled={!isReviseStarted}
+              disableMessage="GTIP girişi için revize talebi başlatmanız gerekmektedir"
+            />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
         </Stack>
@@ -1873,7 +1897,19 @@ const MakineYonetimi = () => {
             }
           }}><VisibilityIcon/></IconButton></span></Tooltip>
           <Tooltip title="Revize Metası (ETUYS)"><span><IconButton disabled={!selectedTesvik} onClick={openMeta}><BookmarksIcon/></IconButton></span></Tooltip>
-          <Tooltip title="Satır Ekle"><IconButton onClick={addRow}><AddIcon/></IconButton></Tooltip>
+          <Tooltip title={isReviseStarted ? "Satır Ekle" : "Satır eklemek için revize talebi başlatın"}>
+            <span>
+              <IconButton 
+                onClick={addRow} 
+                disabled={!isReviseStarted}
+                sx={{
+                  color: isReviseStarted ? 'inherit' : 'action.disabled'
+                }}
+              >
+                <AddIcon/>
+              </IconButton>
+            </span>
+          </Tooltip>
           <Tooltip title="Kurları (TCMB) al ve TL hesapla"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
           <Tooltip title="İçe Aktar"><label><input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} /><IconButton component="span"><ImportIcon/></IconButton></label></Tooltip>
           <Tooltip title="Dışa Aktar"><IconButton onClick={exportExcel}><ExportIcon/></IconButton></Tooltip>

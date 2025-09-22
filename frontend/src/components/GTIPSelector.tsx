@@ -11,6 +11,8 @@ interface GTIPSelectorProps {
   placeholder?: string;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
+  disableMessage?: string;
 }
 
 const GTIPSelector: React.FC<GTIPSelectorProps> = ({
@@ -18,7 +20,9 @@ const GTIPSelector: React.FC<GTIPSelectorProps> = ({
   onChange,
   placeholder = 'GTIP kodu seçin veya arayın...',
   className = '',
-  required = false
+  required = false,
+  disabled = false,
+  disableMessage = 'GTIP girişi için revize talebi başlatmanız gerekmektedir'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -37,6 +41,7 @@ const GTIPSelector: React.FC<GTIPSelectorProps> = ({
   }, [searchTerm, isOpen]);
 
   const handleSelect = (code: string) => {
+    if (disabled) return;
     setSelectedCode(code);
     onChange(code);
     setIsOpen(false);
@@ -69,17 +74,24 @@ const GTIPSelector: React.FC<GTIPSelectorProps> = ({
       
       <div className="relative">
         <div 
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer bg-white flex items-center justify-between"
-          onClick={() => setIsOpen(!isOpen)}
+          className={`w-full px-3 py-2 border rounded-lg flex items-center justify-between ${
+            disabled 
+              ? 'border-gray-200 bg-gray-100 cursor-not-allowed' 
+              : 'border-gray-300 bg-white cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-transparent hover:bg-gray-50'
+          }`}
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          title={disabled ? disableMessage : ''}
         >
           <div className="flex items-center flex-1">
-            <Search className="w-4 h-4 text-gray-400 mr-2" />
-            <span className={selectedCode ? 'text-gray-900' : 'text-gray-500'}>
-              {selectedCode || placeholder}
+            <Search className={`w-4 h-4 mr-2 ${disabled ? 'text-gray-300' : 'text-gray-400'}`} />
+            <span className={`${
+              disabled ? 'text-gray-400' : (selectedCode ? 'text-gray-900' : 'text-gray-500')
+            }`}>
+              {disabled ? disableMessage : (selectedCode || placeholder)}
             </span>
           </div>
           
-          {selectedCode && (
+          {selectedCode && !disabled && (
             <button
               type="button"
               onClick={(e) => {
@@ -93,7 +105,7 @@ const GTIPSelector: React.FC<GTIPSelectorProps> = ({
           )}
         </div>
 
-        {isOpen && (
+        {isOpen && !disabled && (
           <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-hidden">
             <div className="p-3 border-b border-gray-200">
               <div className="relative">
