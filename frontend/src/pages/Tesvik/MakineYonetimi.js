@@ -598,7 +598,9 @@ const MakineYonetimi = () => {
       { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
       { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
-      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' }
+      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
+      { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
     ];
 
     const ithalColumns = [
@@ -627,7 +629,9 @@ const MakineYonetimi = () => {
       { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
       { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
-      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' }
+      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
+      { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
     ];
 
     // Yerli sayfası
@@ -635,7 +639,12 @@ const MakineYonetimi = () => {
     wsYerli.columns = yerliColumns;
     yerliRows.forEach((r) => {
       // Toplam TL'yi Excel içinde formülle üretelim
-      const row = wsYerli.addRow({ ...r, toplamTl: undefined });
+      const row = wsYerli.addRow({ 
+        ...r, 
+        toplamTl: undefined,
+        muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+      });
       const miktarCol = yerliColumns.findIndex(c => c.key === 'miktar') + 1;
       const bfCol = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
       const toplamCol = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
@@ -679,7 +688,9 @@ const MakineYonetimi = () => {
       const rowData = { 
         ...r, 
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
-        uygulanankur: uygulanankur
+        uygulanankur: uygulanankur,
+        muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
       };
       const row = wsIthal.addRow(rowData);
       
@@ -957,7 +968,7 @@ const MakineYonetimi = () => {
     const apply = async (row) => {
       const rid = await ensureRowId(tab, row);
       if (!rid) return;
-      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0 };
+      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: row?.talep?.talepTarihi ? row.talep.talepTarihi : new Date() };
       const result = await tesvikService.setMakineTalep(selectedTesvik._id, { liste: tab, rowId: rid, talep });
       // Backend'ten gelen güncel veriyi kullan
       if (result?.data?.makineListeleri) {
@@ -995,7 +1006,8 @@ const MakineYonetimi = () => {
       if (!rid) return;
       const karar = {
         kararDurumu: type,
-        onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0)
+        onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
+        kararTarihi: row?.karar?.kararTarihi ? row.karar.kararTarihi : new Date()
       };
       const result = await tesvikService.setMakineKarar(selectedTesvik._id, { liste: tab, rowId: rid, karar });
       // Backend'ten gelen güncel veriyi kullan
@@ -1132,7 +1144,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0  };
+                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
                 updateYerli(p.row.id, { rowId: rid, talep });
                 setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1153,7 +1165,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0 };
+                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1165,7 +1177,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)) };
+                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1177,7 +1189,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'red', onaylananAdet:0 };
+                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1501,7 +1513,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0  };
+                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
                 updateIthal(p.row.id, { rowId: rid, talep });
                 setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1523,7 +1535,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0 };
+                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1535,7 +1547,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)) };
+                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -1547,7 +1559,7 @@ const MakineYonetimi = () => {
               <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'red', onaylananAdet:0 };
+                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
