@@ -321,13 +321,16 @@ firmaSchema.statics.findByFirmaId = function(firmaId) {
 };
 
 firmaSchema.statics.searchFirmalar = function(searchTerm) {
-  const regex = new RegExp(searchTerm, 'i');
+  const upperSearchTerm = searchTerm.toUpperCase();
+  const regex = new RegExp(upperSearchTerm, 'i');
+  const originalRegex = new RegExp(searchTerm, 'i');
+  
   return this.find({
     $or: [
       { tamUnvan: regex },
       { firmaId: regex },
-      { vergiNoTC: regex },
-      { ilkIrtibatKisi: regex }
+      { vergiNoTC: originalRegex },
+      { ilkIrtibatKisi: originalRegex }
     ],
     aktif: true
   }).sort({ tamUnvan: 1 });

@@ -538,7 +538,7 @@ const searchFirmalar = async (req, res) => {
       if (field === 'vergiNoTC') {
         filter.vergiNoTC = { $regex: q, $options: 'i' };
       } else if (field === 'tamUnvan') {
-        filter.tamUnvan = { $regex: q, $options: 'i' };
+        filter.tamUnvan = { $regex: q.toUpperCase(), $options: 'i' };
       } else if (field === 'firmaId') {
         filter.firmaId = { $regex: q.toUpperCase(), $options: 'i' };
       } else {
@@ -590,7 +590,7 @@ const searchByField = async (req, res) => {
         filter.firmaId = value.toUpperCase();
         break;
       case 'tamUnvan':
-        filter.tamUnvan = { $regex: value, $options: 'i' };
+        filter.tamUnvan = { $regex: value.toUpperCase(), $options: 'i' };
         break;
       default:
         return sendError(res, 'Geçersiz arama alanı', 400);
