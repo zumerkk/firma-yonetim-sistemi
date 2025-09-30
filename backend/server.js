@@ -24,12 +24,17 @@ const importRoutes = require('./routes/import');
 const activityRoutes = require('./routes/activity');
 const notificationRoutes = require('./routes/notification');
 const tesvikRoutes = require('./routes/tesvik'); // 🏆 Teşvik sistemi routes
+const yeniTesvikRoutes = require('./routes/yeniTesvik'); // 🆕 Yeni Teşvik sistemi routes
+
 const adminRoutes = require('./routes/admin'); // 🔐 Admin panel routes
 const reportRoutes = require('./routes/reports'); // 📊 Report system routes
 const fileRoutes = require('./routes/files'); // 📁 File management routes
 const us97Routes = require('./routes/us97'); // 📦 US 97 Kodları sistemi
 const gtipRoutes = require('./routes/gtip'); // 🏷️ GTIP Kodları API
 const destekSartRoutes = require('./routes/destekSart'); // 🎯 Destek-Şart Eşleştirmesi sistemi
+const destekSinifiRoutes = require('./routes/destekSinifi'); // 🎯 Destek Sınıfı sistemi
+const oecdKategoriRoutes = require('./routes/oecdKategori'); // 🌍 OECD Kategori sistemi
+const naceRoutes = require('./routes/nace'); // 🌐 NACE 6-lı Kodları API
 const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
 
 const app = express();
@@ -211,13 +216,18 @@ app.use('/api/activity', activityRoutes);
 app.use('/api/activities', activityRoutes); // Frontend compatibility
 app.use('/api/notifications', notificationRoutes); // Bildirim sistemi
 app.use('/api/tesvik', tesvikRoutes); // 🏆 Teşvik Belge Sistemi
+app.use('/api/yeni-tesvik', yeniTesvikRoutes); // 🆕 Yeni Teşvik Belge Sistemi
+
 app.use('/api/admin', adminRoutes); // 🔐 Admin Panel Sistemi
 app.use('/api/reports', reportRoutes); // 📊 Report Sistemi
 app.use('/api/files', fileRoutes); // 📁 File Management Sistemi
   app.use('/api/us97', us97Routes); // 📦 US 97 Kodları API
   app.use('/api/gtip', gtipRoutes); // 🏷️ GTIP Kodları API
 app.use('/api/destek-sart', destekSartRoutes); // 🎯 Destek-Şart Eşleştirmesi API
+app.use('/api/destek-sinifi', destekSinifiRoutes); // 🎯 Destek Sınıfı API
+app.use('/api/oecd-kategori', oecdKategoriRoutes); // 🌍 OECD Kategori API
 app.use('/api/lookup', lookupRoutes); // 🔎 Unit & Currency lookup API
+app.use('/api/nace', naceRoutes); // 🌐 NACE 6-lı Kodları API
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {

@@ -29,6 +29,14 @@ import TesvikForm from '../pages/Tesvik/TesvikForm';
 import TesvikDetail from '../pages/Tesvik/TesvikDetail';
 import MakineYonetimi from '../pages/Tesvik/MakineYonetimi';
 
+// 🆕 Yeni Teşvik Sistemi Pages
+import YeniTesvikDashboard from '../pages/YeniTesvik/YeniTesvikDashboard';
+import YeniTesvikList from '../pages/YeniTesvik/YeniTesvikList'; 
+import YeniTesvikForm from '../pages/YeniTesvik/YeniTesvikForm';
+import YeniTesvikDetail from '../pages/YeniTesvik/YeniTesvikDetail';
+
+
+
 // 📊 Dashboard Bileşenleri
 import TesvikAnalyticsDashboard from './Dashboard/TesvikDashboard';
 
@@ -133,6 +141,40 @@ const AppRouter = () => {
           <MakineYonetimi />
         </ProtectedRoute>
       } />
+
+      {/* 🆕 Yeni Teşvik Sistemi */}
+      <Route path="/yeni-tesvik" element={
+        <ProtectedRoute>
+          <YeniTesvikDashboard />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/yeni-tesvik/liste" element={
+        <ProtectedRoute>
+          <YeniTesvikList />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/yeni-tesvik/yeni" element={
+        <ProtectedRoute permission="belgeEkle">
+          <YeniTesvikForm />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/yeni-tesvik/:id" element={
+        <ProtectedRoute>
+          <YeniTesvikDetail />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/yeni-tesvik/:id/duzenle" element={
+        <ProtectedRoute permission="belgeDuzenle">
+          <YeniTesvikForm />
+        </ProtectedRoute>
+      } />
+
+    
+
       
       {/* 📋 Diğer Sayfalar */}
       <Route path="/son-islemler" element={

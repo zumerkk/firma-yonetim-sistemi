@@ -43,6 +43,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   const { user } = useAuth();
   const [firmaMenuOpen, setFirmaMenuOpen] = React.useState(true);
   const [tesvikMenuOpen, setTesvikMenuOpen] = React.useState(true);
+  const [yeniTesvikMenuOpen, setYeniTesvikMenuOpen] = React.useState(true);
+
   const [testMenuOpen, setTestMenuOpen] = React.useState(true);
 
   // 🎯 Corporate Professional Menu Items
@@ -91,6 +93,36 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#7c3aed',
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
       description: 'Makine/Teçhizat kayıt ve yönetimi',
+      isNew: true
+    }
+  ];
+
+  // 🆕 Yeni Teşvik Sistemi Menu Items
+  const yeniTesvikMenuItems = [
+    {
+      text: 'Yeni Teşvik Dashboard',
+      icon: <DashboardIcon />,
+      path: '/yeni-tesvik',
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      description: 'Yeni teşvik kontrol paneli'
+    },
+    {
+      text: 'Yeni Teşvik Listesi',
+      icon: <ListIcon />,
+      path: '/yeni-tesvik/liste',
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      description: 'Tüm yeni teşvikleri görüntüle'
+    },
+    {
+      text: 'Yeni Teşvik Ekle',
+      icon: <AddIcon />,
+      path: '/yeni-tesvik/yeni',
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      permission: 'belgeEkle',
+      description: 'Yeni sistem teşvik belgesi',
       isNew: true
     }
   ];
@@ -584,6 +616,115 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           height: 1
         }} />
 
+        {/* 🆕 YENİ TEŞVİK SİSTEMİ - GOVERNMENT UPDATES */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography 
+            variant="overline" 
+            sx={{ 
+              px: 3, 
+              mb: 1,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.08em',
+              display: 'block'
+            }}
+          >
+            🆕 YENİ TEŞVİK SİSTEMİ
+            <Chip
+              label="GÜNCEL"
+              size="small"
+              sx={{
+                ml: 1,
+                height: 16,
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #059669, #047857)',
+                color: 'white',
+                border: 'none',
+                '& .MuiChip-label': {
+                  px: 0.5
+                }
+              }}
+            />
+          </Typography>
+          <List sx={{ px: 0, py: 0 }}>
+            <ListItem disablePadding sx={{ mb: 0.75, px: 2 }}>
+              <ListItemButton
+                onClick={() => setYeniTesvikMenuOpen(!yeniTesvikMenuOpen)}
+                sx={{
+                  borderRadius: 2,
+                  background: 'rgba(5, 150, 105, 0.05)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(5, 150, 105, 0.12)',
+                  transition: 'all 0.25s ease',
+                  py: 1.25,
+                  px: 1.5,
+                  minHeight: 56,
+                  '&:hover': {
+                    background: 'rgba(5, 150, 105, 0.08)',
+                    transform: 'translateX(1px)',
+                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.1)'
+                  }
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 42, mr: 1 }}>
+                  <Avatar sx={{
+                    width: 32,
+                    height: 32,
+                    background: 'linear-gradient(135deg, #064e3b, #059669)',
+                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.15)'
+                  }}>
+                    <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
+                  </Avatar>
+                </ListItemIcon>
+                <ListItemText 
+                  primary={
+                    <Typography variant="body2" sx={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#1e293b',
+                      lineHeight: 1.2
+                    }}>
+                      Yeni Teşvik Sistemi
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption" sx={{
+                      fontSize: '0.7rem',
+                      color: '#64748b',
+                      lineHeight: 1.1
+                    }}>
+                      Güncellenmiş teşvik yönetimi
+                    </Typography>
+                  }
+                />
+                <Avatar sx={{
+                  width: 18,
+                  height: 18,
+                  background: 'rgba(5, 150, 105, 0.12)',
+                  color: '#059669'
+                }}>
+                  {yeniTesvikMenuOpen ? <ExpandLess sx={{ fontSize: 12 }} /> : <ExpandMore sx={{ fontSize: 12 }} />}
+                </Avatar>
+              </ListItemButton>
+            </ListItem>
+            
+            <Collapse in={yeniTesvikMenuOpen} timeout="auto" unmountOnExit>
+              <Box sx={{ pl: 1.5 }}>
+                {yeniTesvikMenuItems.map(renderMenuItem)}
+              </Box>
+            </Collapse>
+          </List>
+        </Box>
+
+        <Divider sx={{ 
+          mx: 3, 
+          my: 1.5,
+          background: 'rgba(226, 232, 240, 0.5)',
+          height: 1
+        }} />
+
         {/* 🧪 TEST (Geliştiriliyor) - DEVELOPMENT FEATURES */}
         <Box sx={{ mb: 1.5 }}>
           <Typography 
@@ -600,16 +741,17 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           >
             TEST (Geliştiriliyor)
             <Chip
-              label="BETA"
+              label="PASIF"
               size="small"
               sx={{
                 ml: 1,
                 height: 16,
                 fontSize: '0.625rem',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                background: 'linear-gradient(135deg, #9ca3af, #6b7280)',
                 color: 'white',
                 border: 'none',
+                opacity: 0.7,
                 '& .MuiChip-label': {
                   px: 0.5
                 }
@@ -619,20 +761,26 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           <List sx={{ px: 0, py: 0 }}>
             <ListItem disablePadding sx={{ mb: 0.75, px: 2 }}>
               <ListItemButton
-                onClick={() => setTestMenuOpen(!testMenuOpen)}
+                disabled
                 sx={{
                   borderRadius: 2,
-                  background: 'rgba(245, 158, 11, 0.05)',
+                  background: 'rgba(107, 114, 128, 0.03)',
                   backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(245, 158, 11, 0.12)',
+                  border: '1px solid rgba(107, 114, 128, 0.08)',
                   transition: 'all 0.25s ease',
                   py: 1.25,
                   px: 1.5,
                   minHeight: 56,
+                  opacity: 0.6,
+                  cursor: 'not-allowed',
                   '&:hover': {
-                    background: 'rgba(245, 158, 11, 0.08)',
-                    transform: 'translateX(1px)',
-                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.1)'
+                    background: 'rgba(107, 114, 128, 0.05)',
+                    transform: 'none',
+                    boxShadow: 'none'
+                  },
+                  '&.Mui-disabled': {
+                    opacity: 0.6,
+                    color: 'inherit'
                   }
                 }}
               >
@@ -640,10 +788,11 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.15)'
+                    background: 'linear-gradient(135deg, #9ca3af, #6b7280)',
+                    boxShadow: '0 2px 8px rgba(107, 114, 128, 0.1)',
+                    opacity: 0.7
                   }}>
-                    <BugReportIcon sx={{ fontSize: 16, color: 'white' }} />
+                    <BugReportIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />
                   </Avatar>
                 </ListItemIcon>
                 <ListItemText 
@@ -651,8 +800,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                     <Typography variant="body2" sx={{
                       fontSize: '0.875rem',
                       fontWeight: 600,
-                      color: '#1e293b',
-                      lineHeight: 1.2
+                      color: '#9ca3af',
+                      lineHeight: 1.2,
+                      opacity: 0.8
                     }}>
                       TEST (Geliştiriliyor)
                     </Typography>
@@ -660,8 +810,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   secondary={
                     <Typography variant="caption" sx={{
                       fontSize: '0.7rem',
-                      color: '#64748b',
-                      lineHeight: 1.1
+                      color: '#9ca3af',
+                      lineHeight: 1.1,
+                      opacity: 0.7
                     }}>
                       Geliştirme özellikleri
                     </Typography>
@@ -670,8 +821,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 <Avatar sx={{
                   width: 18,
                   height: 18,
-                  background: 'rgba(245, 158, 11, 0.12)',
-                  color: '#f59e0b'
+                  background: 'rgba(107, 114, 128, 0.08)',
+                  color: '#9ca3af',
+                  opacity: 0.7
                 }}>
                   {testMenuOpen ? <ExpandLess sx={{ fontSize: 12 }} /> : <ExpandMore sx={{ fontSize: 12 }} />}
                 </Avatar>
@@ -882,4 +1034,4 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   );
 };
 
-export default Sidebar; 
+export default Sidebar;

@@ -1,4 +1,4 @@
-// 🏆 TEŞVIK FORM - ENTERPRISE EDITION  
+// 🆕 YENİ TEŞVİK FORM - ENTERPRISE EDITION  
 // Excel şablonu 1:1 aynısı - GM ID otomatik, tüm firmalar, U$97 kodları
 // Mali hesaplamalar + ürün bilgileri + destek unsurları + özel şartlar
 
@@ -74,14 +74,14 @@ import { osbListesi, osbIlleri } from '../../data/osbData';
 // 🏪 Serbest Bölgeler Import
 import { serbestBolgeler, serbestBolgeKategorileri } from '../../data/serbestBolgeData';
 // 🚀 US 97 Kodları ULTRA-FAST Search Component
-import US97SuperSearch from '../../components/US97SuperSearch';
+import NaceSuperSearch from '../../components/NaceSuperSearch';
 import gtipService from '../../services/gtipService';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 // 📏 Kapasite Birimleri Import  
 import { kapasiteBirimleri } from '../../data/kapasiteData';
 
-const TesvikForm = () => {
+const YeniTesvikForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
@@ -381,7 +381,7 @@ const TesvikForm = () => {
                 return;
               }
               const tesvikId = id || formData._id;
-              const res = await axios.get(`/tesvik/${tesvikId}/excel-export`, { responseType: 'blob' });
+              const res = await axios.get(`/yeni-tesvik/${tesvikId}/excel-export`, { responseType: 'blob' });
               const url = window.URL.createObjectURL(new Blob([res.data]));
               const a = document.createElement('a');
               a.href = url;
@@ -504,7 +504,8 @@ const TesvikForm = () => {
       cazibeMerkezi2018: '', // Cazibe Merkezi Mi? (2018/11201) (Evet/Hayır)
       cazibeMerkeziDeprem: '', // Cazibe Merkezi Deprem Nedeni (Evet/Hayır)
       hamleMi: '', // HAMLE MI? (Evet/Hayır)
-      vergiIndirimsizDestek: '' // Vergi İndirimsiz Destek Talebi (Evet/Hayır)
+      // vergiIndirimsizDestek: '' // Kaldırıldı
+      oecdKategori: ''
     },
     
     // 💰 Yatırım İle İlgili Bilgiler - Bölüm 2  
@@ -630,9 +631,12 @@ const TesvikForm = () => {
     destekSartlariOptions: [],
     ozelSartKisaltmalari: [],
     ozelSartNotlari: [],
+    oecdKategorileri: [],
     nextGmId: '',
     nextTesvikId: ''
   });
+
+  // DESTEK SINIFI seçenekleri artık tamamen backend template API'sinden (DB) gelir
 
   const [activeStep, setActiveStep] = useState(0);
 
@@ -693,7 +697,7 @@ const TesvikForm = () => {
       // console.log('🔥 Loading template data from new API...');
       
       // API endpoint'i kullan - tüm veriler tek çağrıda!
-      const response = await axios.get('/tesvik/templates');
+      const response = await axios.get('/yeni-tesvik/templates');
 
       if (response.data.success) {
         const data = response.data.data;
@@ -722,6 +726,7 @@ const TesvikForm = () => {
           u97Kodlari: data.u97Kodlari || [],
           destekUnsurlariOptions: data.destekUnsurlariOptions || [],
           destekSartlariOptions: data.destekSartlariOptions || [],
+          oecdKategorileri: data.oecdKategorileri || [],
           ozelSartKisaltmalari: data.ozelSartKisaltmalari || [],
           ozelSartNotlari: data.ozelSartNotlari || [],
           nextGmId: data.nextGmId || '',
@@ -812,7 +817,7 @@ const TesvikForm = () => {
   const loadTesvikData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/tesvik/${id}`);
+      const response = await axios.get(`/yeni-tesvik/${id}`);
       
       if (response.data.success) {
         const backendData = response.data.data;
@@ -1090,7 +1095,7 @@ const TesvikForm = () => {
 
       console.log(`🆕 Yeni seçenek ekleniyor: ${addOptionModal.type}`, payload);
 
-      const response = await axios.post(`/tesvik/add-option/${addOptionModal.type}`, payload);
+      const response = await axios.post(`/yeni-tesvik/add-option/${addOptionModal.type}`, payload);
 
       if (response.data.success) {
         // Başarı mesajı
@@ -1681,7 +1686,7 @@ const TesvikForm = () => {
     if (!value || value.length < 3) return; // En az 3 karakter
     
     try {
-      const response = await axios.post('/tesvik/dynamic/destek-unsuru', {
+      const response = await axios.post('/yeni-tesvik/dynamic/destek-unsuru', {
         value: value.trim(),
         label: value.trim(),
         kategori: 'Diğer',
@@ -1691,7 +1696,7 @@ const TesvikForm = () => {
       if (response.data.success) {
         // CRITICAL FIX: Template data'yı yenile!
         try {
-          const templateResponse = await axios.get('/tesvik/templates');
+          const templateResponse = await axios.get('/yeni-tesvik/templates');
           if (templateResponse.data.success) {
             setTemplateData(templateResponse.data.data);
           }
@@ -1719,7 +1724,7 @@ const TesvikForm = () => {
     if (!value || value.length < 3) return;
     
     try {
-      const response = await axios.post('/tesvik/dynamic/destek-sarti', {
+      const response = await axios.post('/yeni-tesvik/dynamic/destek-sarti', {
         value: value.trim(),
         label: value.trim(),
         kategori: 'Diğer'
@@ -1754,11 +1759,11 @@ const TesvikForm = () => {
       const aciklama = value.length > 10 ? value.trim() : `${kisaltma} Açıklaması`;
       
       console.log(`📡 [DEBUG] Backend'e POST isteği gönderiliyor:`, {
-        endpoint: '/tesvik/dynamic/ozel-sart',
+        endpoint: '/yeni-tesvik/dynamic/ozel-sart',
         data: { kisaltma, aciklama, kategori: 'Diğer' }
       });
       
-      const response = await axios.post('/tesvik/dynamic/ozel-sart', {
+      const response = await axios.post('/yeni-tesvik/dynamic/ozel-sart', {
         kisaltma: kisaltma,
         aciklama: aciklama,
         kategori: 'Diğer'
@@ -1771,7 +1776,7 @@ const TesvikForm = () => {
         
         // CRITICAL FIX: Template data'yı da yenile!
         try {
-          const templateResponse = await axios.get('/tesvik/templates');
+          const templateResponse = await axios.get('/yeni-tesvik/templates');
           if (templateResponse.data.success) {
             setTemplateData(templateResponse.data.data);
             console.log(`✅ [DEBUG] Template data yenilendi - Özel şart sayısı:`, 
@@ -1806,7 +1811,7 @@ const TesvikForm = () => {
     if (!value || value.length < 5) return;
     
     try {
-      const response = await axios.post('/tesvik/dynamic/ozel-sart-notu', {
+      const response = await axios.post('/yeni-tesvik/dynamic/ozel-sart-notu', {
         value: value.trim(),
         label: value.trim(),
         kategori: 'Diğer'
@@ -1893,7 +1898,7 @@ const TesvikForm = () => {
       console.log('📊 Excel çıktı hazırlanıyor...', format, 'Teşvik ID:', tesvikId);
       setLoading(true);
       
-      const response = await axios.get(`/tesvik/${tesvikId}/excel-export`, {
+      const response = await axios.get(`/yeni-tesvik/${tesvikId}/excel-export`, {
         responseType: 'blob',
         params: { format }
       });
@@ -2082,7 +2087,7 @@ const TesvikForm = () => {
       
       console.log('🔄 Mapped data to backend format:', mappedData);
       
-      const url = isEdit ? `/tesvik/${id}` : '/tesvik';
+      const url = isEdit ? `/yeni-tesvik/${id}` : '/yeni-tesvik';
       const method = isEdit ? 'put' : 'post';
       
       const response = await axios[method](url, mappedData);
@@ -2090,7 +2095,7 @@ const TesvikForm = () => {
       if (response.data.success) {
         setSuccess(isEdit ? 'Teşvik başarıyla güncellendi' : 'Teşvik başarıyla oluşturuldu');
         setTimeout(() => {
-          navigate('/tesvik/liste');
+          navigate('/yeni-tesvik/liste');
         }, 2000);
       }
     } catch (error) {
@@ -2790,9 +2795,11 @@ const TesvikForm = () => {
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' }
                   }}
                 >
-                  {templateData.dayandigiKanunlar?.map((kanun) => (
+                  {[
+                    { value: '29.05.2025 -2025/9903', label: '29.05.2025 -2025/9903' }
+                  ].map((kanun) => (
                     <MenuItem key={kanun.value} value={kanun.value}>
-                          {kanun.label}
+                      {kanun.label}
                     </MenuItem>
                   ))}
                 </Select>
@@ -2878,11 +2885,11 @@ const TesvikForm = () => {
           {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
           <Grid container spacing={3}>
             
-            {/* ROW 1: YATIRIM KONUI - 290 NACE Kodu Dropdown */}
+            {/* ROW 1: Yatırım Konusu - 290 NACE Kodu Dropdown */}
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-yatirimKonusu-label">
-                  🏭 YATIRIM KONUI (NACE Kodu Seçiniz)
+                  🏭 Yatırım Konusu (NACE KODU SEÇİNİZ)
                 </InputLabel>
                 <Select
                 id="tesvikForm-yatirimKonusu"
@@ -2890,7 +2897,7 @@ const TesvikForm = () => {
                   labelId="tesvikForm-yatirimKonusu-label"
                 value={formData.yatirimBilgileri1.yatirimKonusu}
                 onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
-                  label="🏭 YATIRIM KONUI (NACE Kodu Seçiniz)"
+                  label="🏭 Yatırım Konusu (NACE KODU SEÇİNİZ)"
                 sx={{
                     backgroundColor: '#ffffff',
                     fontWeight: 500,
@@ -2933,19 +2940,19 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
             
-            {/* ROW 2: DİNAMİK J-CNS ALANLARI - Başlangıç 1, Max 4 */}
+            {/* ROW 2: DİNAMİK CİNS ALANLARI - Başlangıç 1, Max 4 */}
             {Array.from({ length: cinsSayisi }, (_, index) => (
               <Grid item xs={12} sm={6} md={3} key={`cins-${index + 1}`}>
                 <Box sx={{ position: 'relative' }}>
               <FormControl fullWidth>
-                    <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>J-CNS({index + 1})</InputLabel>
+                    <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>CİNS({index + 1})</InputLabel>
                 <Select
                       id={`tesvikForm-cins${index + 1}`}
                       name={`cins${index + 1}`}
                       labelId={`tesvikForm-cins${index + 1}-label`}
                       value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
                       onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
-                      label={`J-CNS(${index + 1})`}
+                      label={`CİNS(${index + 1})`}
                       sx={{
                         backgroundColor: '#ffffff',
                         '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
@@ -2985,7 +2992,7 @@ const TesvikForm = () => {
             </Grid>
             ))}
             
-            {/* Add J-CNS butonu - sadece max sayıya ulaşılmamışsa göster */}
+            {/* Add CİNS butonu - sadece max sayıya ulaşılmamışsa göster */}
             {cinsSayisi < 4 && (
               <Grid item xs={12} sm={6} md={3}>
                 <Button
@@ -3004,7 +3011,7 @@ const TesvikForm = () => {
                     }
                   }}
                 >
-                  J-CNS Ekle ({cinsSayisi}/4)
+                  CİNS Ekle ({cinsSayisi}/4)
                 </Button>
             </Grid>
             )}
@@ -3177,26 +3184,28 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            {/* ROW 3.7: VERGİ İNDİRİMSİZ DESTEK TALEBİ */}
-            <Grid item xs={12} sm={6} md={4}>
+            {/* ROW 3.7: OECD (ORTA - YÜKSEK) */}
+            <Grid item xs={12} sm={12} md={8}>
               <FormControl fullWidth>
-                <InputLabel id="tesvikForm-vergiIndirimsizDestek-label">💰 Vergi İndirimsiz Destek Talebi</InputLabel>
+                <InputLabel id="tesvikForm-oecdKategori-label">🌍 OECD (ORTA - YÜKSEK)</InputLabel>
                 <Select
-                  id="tesvikForm-vergiIndirimsizDestek"
-                  name="vergiIndirimsizDestek"
-                  labelId="tesvikForm-vergiIndirimsizDestek-label"
-                  value={formData.yatirimBilgileri1.vergiIndirimsizDestek}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.vergiIndirimsizDestek', e.target.value)}
-                  label="💰 Vergi İndirimsiz Destek Talebi"
+                  id="tesvikForm-oecdKategori"
+                  name="oecdKategori"
+                  labelId="tesvikForm-oecdKategori-label"
+                  value={formData.yatirimBilgileri1.oecdKategori || ''}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.oecdKategori', e.target.value)}
+                  label="🌍 OECD (ORTA - YÜKSEK)"
                   sx={{
                     backgroundColor: '#ffffff',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
                   }}
                 >
-                  <MenuItem value="">Seçiniz...</MenuItem>
-                  <MenuItem value="evet">✅ EVET</MenuItem>
-                  <MenuItem value="hayir">❌ HAYIR</MenuItem>
+                  {templateData.oecdKategorileri?.map((kat) => (
+                    <MenuItem key={(kat.value || kat.kod)} value={(kat.value || kat.kod)}>
+                      {kat.label || kat.aciklama}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -3945,9 +3954,9 @@ const TesvikForm = () => {
                   {/* 🔍 US97 CODE SEARCH */}
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
-                      🏷️ US97 Ürün Kodu
+                      🏷️ NACE Ürün Kodu
                     </Typography>
-                    <US97SuperSearch
+                    <NaceSuperSearch
                       value={urun.kod || ''}
                       onChange={(selectedKod, selectedAciklama) => {
                         handleUrunChange(index, 'kod', selectedKod);
@@ -3959,7 +3968,7 @@ const TesvikForm = () => {
                         }
                       }}
                       size="medium"
-                      placeholder="US97 kodları ara..."
+                      placeholder="NACE kodları ara..."
                     />
                   </Grid>
                   
@@ -6018,4 +6027,4 @@ const TesvikForm = () => {
   );
 };
 
-export default TesvikForm;
+export default YeniTesvikForm;

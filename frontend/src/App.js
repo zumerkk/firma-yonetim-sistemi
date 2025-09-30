@@ -17,6 +17,7 @@ import { TesvikProvider } from './contexts/TesvikContext';
 
 
 
+
 // 🎨 Corporate Muted Professional Theme
 const theme = createTheme({
   palette: {
@@ -88,7 +89,7 @@ function App() {
                 v7_startTransition: true,
                 v7_relativeSplatPath: true
               }}>
-              <AppRouter />
+                <AppRouter />
               </Router>
             </TesvikProvider>
           </NotificationProvider>

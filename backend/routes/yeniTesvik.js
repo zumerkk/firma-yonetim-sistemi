@@ -1,6 +1,6 @@
-// 🏆 TEŞVİK SİSTEMİ ROUTES - ENTERPRISE EDITION
-// Excel + Word şablonu analizine göre tam kapsamlı API endpoint'leri
-// Devlet standartları + renk kodlaması + durum takibi
+// 🏆 YENİ TEŞVİK SİSTEMİ ROUTES - ENTERPRISE EDITION
+// Hükümet güncellemeleri ile yeni teşvik sistemi API endpoint'leri
+// Dijital dönüşüm + yeşil teknoloji + stratejik yatırım desteği
 
 const express = require('express');
 const router = express.Router();
@@ -53,7 +53,7 @@ const {
   addOzelSart,
   getDynamicOzelSartNotlari,
   addOzelSartNotu
-} = require('../controllers/tesvikController');
+} = require('../controllers/yeniTesvikController');
 
 // Middleware
 const { authenticate, authorize, checkPermission } = require('../middleware/auth');
@@ -82,7 +82,7 @@ router.get('/analytics', authenticate, authorize('admin'), getTesvikAnalytics);
 router.get('/dashboard', authenticate, async (req, res) => {
   try {
     const { period = '2024' } = req.query;
-    const Tesvik = require('../models/Tesvik');
+    const YeniTesvik = require('../models/YeniTesvik');
     
     // Tarih filtresi
     let dateFilter = {};

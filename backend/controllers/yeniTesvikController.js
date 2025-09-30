@@ -1,8 +1,8 @@
-// 🏆 TEŞVİK CONTROLLER - ENTERPRISE EDITION
-// Excel + Word şablonu analizine göre tam kapsamlı controller
-// Mali hesaplamalar + renk kodlaması + durum yönetimi + revizyon takibi
+// 🏆 YENİ TEŞVİK CONTROLLER - ENTERPRISE EDITION
+// Yeni teşvik sistemi için gelişmiş controller
+// Bonus hesaplamaları + yeni alanlar + mali hesaplamalar + durum yönetimi
 
-const Tesvik = require('../models/Tesvik');
+const YeniTesvik = require('../models/YeniTesvik');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
@@ -139,7 +139,7 @@ const createTesvik = async (req, res) => {
     }
 
     // Yeni teşvik oluştur
-    const tesvik = new Tesvik({
+    const tesvik = new YeniTesvik({
       ...tesvikData,
       firmaId: firma.firmaId,
       yatirimciUnvan: tesvikData.yatirimciUnvan || firma.tamUnvan,
@@ -260,7 +260,7 @@ const getTesvikler = async (req, res) => {
     const skip = (parseInt(sayfa) - 1) * parseInt(limit);
 
     const [tesvikler, toplam] = await Promise.all([
-      Tesvik.find(query)
+      YeniTesvik.find(query)
         .populate('firma', 'tamUnvan firmaId vergiNoTC firmaIl')
         .populate('olusturanKullanici', 'adSoyad email')
         .populate('sonGuncelleyen', 'adSoyad email')
@@ -269,7 +269,7 @@ const getTesvikler = async (req, res) => {
         .limit(parseInt(limit))
         .lean(),
       
-      Tesvik.countDocuments(query)
+      YeniTesvik.countDocuments(query)
     ]);
 
     res.json({
@@ -307,10 +307,10 @@ const getTesvik = async (req, res) => {
     let tesvik;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       // MongoDB ObjectId
-      tesvik = await Tesvik.findById(id);
+      tesvik = await YeniTesvik.findById(id);
     } else {
       // TesvikId (TES2024001 format)
-      tesvik = await Tesvik.findByTesvikId(id);
+      tesvik = await YeniTesvik.findByTesvikId(id);
     }
 
     if (!tesvik || !tesvik.aktif) {
@@ -387,7 +387,7 @@ const updateTesvik = async (req, res) => {
     }
 
     // Teşviki getir - eski haliyle
-    const tesvik = await Tesvik.findById(id)
+    const tesvik = await YeniTesvik.findById(id)
       .populate('firma', 'tamUnvan firmaId')
       .populate('olusturanKullanici', 'adSoyad email');
 
@@ -814,7 +814,7 @@ const updateTesvikDurum = async (req, res) => {
     const { id } = req.params;
     const { yeniDurum, aciklama, kullaniciNotu } = req.body;
 
-    const tesvik = await Tesvik.findById(id);
+    const tesvik = await YeniTesvik.findById(id);
     if (!tesvik || !tesvik.aktif) {
       return res.status(404).json({
         success: false,
@@ -911,7 +911,7 @@ const addTesvikRevizyon = async (req, res) => {
     }
 
     // Teşviği populate ile birlikte getir - detaylı bilgiler için
-    const tesvik = await Tesvik.findById(id)
+    const tesvik = await YeniTesvik.findById(id)
       .populate('firma', 'tamUnvan firmaId')
       .populate('olusturanKullanici', 'adSoyad email');
 
@@ -996,7 +996,7 @@ const addTesvikRevizyon = async (req, res) => {
     });
 
     // 🔄 Güncellenmiş teşviki tekrar getir - son haliyle
-    const updatedTesvik = await Tesvik.findById(id)
+    const updatedTesvik = await YeniTesvik.findById(id)
       .populate('firma', 'tamUnvan firmaId')
       .populate('olusturanKullanici', 'adSoyad email')
       .lean();
@@ -1010,12 +1010,12 @@ const addTesvikRevizyon = async (req, res) => {
         revizyonSebebi,
         yeniDurum: yeniDurum || tesvik.durumBilgileri?.genelDurum,
         eklenmeTarihi: new Date(),
-        toplamRevizyonSayisi: updatedTesvik.revizyonlar?.length || 0,
+        toplamRevizyonSayisi: updatedYeniTesvik.revizyonlar?.length || 0,
         // 📊 Debug için ek bilgiler
         debug: {
           degisikenAlanlarSayisi: (degisikenAlanlar || []).length,
-          tesvikDurumu: updatedTesvik.durumBilgileri?.genelDurum,
-          aktifDurum: updatedTesvik.aktif
+          tesvikDurumu: updatedYeniTesvik.durumBilgileri?.genelDurum,
+          aktifDurum: updatedYeniTesvik.aktif
         }
       }
     });
@@ -1040,12 +1040,12 @@ const getTesvikRevisions = async (req, res) => {
     let tesvik;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       // ObjectId format (24 karakter hex)
-      tesvik = await Tesvik.findById(id)
+      tesvik = await YeniTesvik.findById(id)
         .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
         .select('tesvikId revizyonlar aktif');
     } else {
       // TesvikId format (TES20250007 gibi)
-      tesvik = await Tesvik.findOne({ tesvikId: id })
+      tesvik = await YeniTesvik.findOne({ tesvikId: id })
         .populate('revizyonlar.yapanKullanici', 'adSoyad email rol')
         .select('tesvikId revizyonlar aktif');
     }
@@ -1752,7 +1752,7 @@ const getDurumRenkleri = async (req, res) => {
 // 📊 TEŞVİK İSTATİSTİKLERİ
 const getTesvikStats = async (req, res) => {
   try {
-    const stats = await Tesvik.getStatistics();
+    const stats = await YeniTesvik.getStatistics();
     
     res.json({
       success: true,
@@ -1782,7 +1782,7 @@ const searchTesvikler = async (req, res) => {
       });
     }
 
-    const tesvikler = await Tesvik.searchTesvikler(q)
+    const tesvikler = await YeniTesvik.searchTesvikler(q)
       .populate('firma', 'tamUnvan firmaId')
       .select('tesvikId gmId yatirimciUnvan durumBilgileri createdAt')
       .limit(50);
@@ -1807,7 +1807,7 @@ const deleteTesvik = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const tesvik = await Tesvik.findById(id);
+    const tesvik = await YeniTesvik.findById(id);
     if (!tesvik) {
       return res.status(404).json({
         success: false,
@@ -1921,15 +1921,15 @@ const deleteTesvik = async (req, res) => {
 const getNextTesvikId = async (req, res) => {
   try {
     const year = new Date().getFullYear();
-    const lastTesvik = await Tesvik.findOne(
+    const lastTesvik = await YeniTesvik.findOne(
       { tesvikId: new RegExp(`^TES${year}`) },
       { tesvikId: 1 },
       { sort: { tesvikId: -1 } }
     );
     
     let nextNumber = 1;
-    if (lastTesvik && lastTesvik.tesvikId) {
-      const currentNumber = parseInt(lastTesvik.tesvikId.slice(7));
+    if (lastTesvik && lastYeniTesvik.tesvikId) {
+      const currentNumber = parseInt(lastYeniTesvik.tesvikId.slice(7));
       nextNumber = currentNumber + 1;
     }
     
@@ -1960,7 +1960,7 @@ const getNextGmId = async (req, res) => {
     console.log('🔍 Finding next available GM ID...');
     
     // Son GM ID'yi bul
-    const lastTesvik = await Tesvik.findOne(
+    const lastTesvik = await YeniTesvik.findOne(
       { gmId: { $exists: true, $ne: '' } },
       { gmId: 1 },
       { sort: { gmId: -1 } }
@@ -1968,9 +1968,9 @@ const getNextGmId = async (req, res) => {
     
     let nextNumber = 1;
     
-    if (lastTesvik && lastTesvik.gmId) {
+    if (lastTesvik && lastYeniTesvik.gmId) {
       // GM ID format: GM2024001, GM2024002, etc.
-      const match = lastTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
+      const match = lastYeniTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
       if (match) {
         const year = parseInt(match[1]);
         const currentNumber = parseInt(match[2]);
@@ -2137,15 +2137,15 @@ const getTesvikFormTemplate = async (req, res) => {
 
 // 🔧 Helper Functions for Template Data
 const getNextGmIdValue = async () => {
-  const lastTesvik = await Tesvik.findOne(
+  const lastTesvik = await YeniTesvik.findOne(
     { gmId: { $exists: true, $ne: '' } },
     { gmId: 1 },
     { sort: { gmId: -1 } }
   );
   
   let nextNumber = 1;
-  if (lastTesvik && lastTesvik.gmId) {
-    const match = lastTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
+  if (lastTesvik && lastYeniTesvik.gmId) {
+    const match = lastYeniTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
     if (match) {
       const year = parseInt(match[1]);
       const currentNumber = parseInt(match[2]);
@@ -2159,15 +2159,15 @@ const getNextGmIdValue = async () => {
 };
 const getNextTesvikIdValue = async () => {
   const year = new Date().getFullYear();
-  const lastTesvik = await Tesvik.findOne(
+  const lastTesvik = await YeniTesvik.findOne(
     { tesvikId: new RegExp(`^TES${year}`) },
     { tesvikId: 1 },
     { sort: { tesvikId: -1 } }
   );
   
   let nextNumber = 1;
-  if (lastTesvik && lastTesvik.tesvikId) {
-    const currentNumber = parseInt(lastTesvik.tesvikId.slice(7));
+  if (lastTesvik && lastYeniTesvik.tesvikId) {
+    const currentNumber = parseInt(lastYeniTesvik.tesvikId.slice(7));
     nextNumber = currentNumber + 1;
   }
   
@@ -2623,7 +2623,7 @@ const getTesvikByFirma = async (req, res) => {
   try {
     const { firmaId } = req.params;
     
-    const tesvikler = await Tesvik.find({ firma: firmaId, aktif: true })
+    const tesvikler = await YeniTesvik.find({ firma: firmaId, aktif: true })
       .populate('olusturanKullanici', 'adSoyad')
       .select('tesvikId gmId durumBilgileri istihdam maliHesaplamalar createdAt')
       .sort({ createdAt: -1 });
@@ -2656,7 +2656,7 @@ const bulkUpdateDurum = async (req, res) => {
       });
     }
 
-    const updateResult = await Tesvik.updateMany(
+    const updateResult = await YeniTesvik.updateMany(
       { _id: { $in: tesvikIds }, aktif: true },
       {
         'durumBilgileri.genelDurum': yeniDurum,
@@ -3038,7 +3038,7 @@ const getCompleteTesvikData = async (id) => {
     const query = isObjectId ? { _id: id } : { tesvikId: id };
     
     // Complete data with all relations
-    const tesvik = await Tesvik.findOne(query)
+    const tesvik = await YeniTesvik.findOne(query)
       .populate({
         path: 'firma',
         select: 'tamUnvan firmaId vergiNoTC firmaIl firmaIlce aktif etuysYetkiBitis dysYetkiBitis createdAt'
@@ -4817,8 +4817,8 @@ module.exports = {
     try {
       const { id } = req.params; // Tesvik Id
       const { yerli = [], ithal = [] } = req.body || {};
-      const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const YeniTesvik = require('../models/YeniTesvik');
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
       // Normalize helpers
@@ -4930,7 +4930,7 @@ module.exports = {
       const { id } = req.params;
       const { aciklama, revizeMuracaatTarihi, hazirlikTarihi, talepTarihi } = req.body || {};
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
       // Debug: Talep/karar verilerini kontrol et
@@ -4984,7 +4984,7 @@ module.exports = {
       const { id } = req.params;
       const { aciklama, revizeOnayTarihi, kararTarihi, talepTarihi } = req.body || {};
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
       const snapshot = {
@@ -5028,7 +5028,7 @@ module.exports = {
     try {
       const { id } = req.params;
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id)
+      const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
@@ -5048,7 +5048,7 @@ module.exports = {
       const { revizeId, aciklama } = req.body || {};
       if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
       if (!target) return res.status(404).json({ success:false, message:'Revizyon bulunamadı' });
@@ -5100,7 +5100,7 @@ module.exports = {
       const { revizeId, meta } = req.body;
       if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const list = tesvik.makineRevizyonlari || [];
       const idx = list.findIndex(r => r.revizeId === revizeId);
@@ -5124,7 +5124,7 @@ module.exports = {
       const Tesvik = require('../models/Tesvik');
       const ExcelJS = require('exceljs');
 
-      const tesvik = await Tesvik.findById(id)
+      const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
@@ -5659,7 +5659,7 @@ module.exports = {
       const Tesvik = require('../models/Tesvik');
       const ExcelJS = require('exceljs');
 
-      const tesvik = await Tesvik.findById(id)
+      const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
@@ -5792,7 +5792,7 @@ module.exports = {
       const { liste, rowId, talep, match } = req.body; // liste: 'yerli' | 'ithal'
       if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];
       let idx = arr.findIndex(r => r.rowId === rowId);
@@ -5840,7 +5840,7 @@ module.exports = {
       const { liste, rowId, karar, match } = req.body; // kararDurumu, onaylananAdet, kararNotu
       if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];
       let idx = arr.findIndex(r => r.rowId === rowId);
@@ -5899,7 +5899,7 @@ module.exports = {
     });
   }
   // Teşvik verisini getir
-  const tesvik = await Tesvik.findById(id)
+  const tesvik = await YeniTesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
         .lean();
         
@@ -6244,7 +6244,7 @@ module.exports = {
       console.log(`📄 PDF export başlatılıyor: ${id}`);
       
       // Teşvik verisini getir
-      const tesvik = await Tesvik.findById(id)
+      const tesvik = await YeniTesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
         .lean();
         
@@ -6392,7 +6392,7 @@ module.exports = {
       const { id } = req.params;
       
       // Teşvik kaydını bul
-      const tesvik = await Tesvik.findById(id).populate('revizyonlar.user', 'name email');
+      const tesvik = await YeniTesvik.findById(id).populate('revizyonlar.user', 'name email');
       
       if (!tesvik) {
         return res.status(404).json({
