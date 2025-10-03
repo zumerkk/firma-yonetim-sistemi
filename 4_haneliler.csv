@@ -1,0 +1,652 @@
+Kod;Tanım
+01.11;Tahılların (pirinç hariç), baklagillerin ve yağlı tohumların yetiştirilmesi
+01.12;Çeltik (kabuklu pirinç) yetiştirilmesi
+01.13;Sebze, kavun-karpuz, kök ve yumru sebzelerin yetiştirilmesi
+01.14;Şeker kamışı yetiştirilmesi
+01.15;Tütün yetiştirilmesi
+01.16;Lifli bitkilerin yetiştirilmesi
+01.19;Tek yıllık (uzun ömürlü olmayan) diğer bitkisel ürünlerin yetiştirilmesi
+01.21;Üzüm yetiştirilmesi
+01.22;Tropikal ve subtropikal meyvelerin yetiştirilmesi
+01.23;Turunçgillerin yetiştirilmesi
+01.24;Yumuşak çekirdekli meyvelerin ve sert çekirdekli meyvelerin yetiştirilmesi
+01.25;Diğer ağaç ve çalı meyvelerinin ve sert kabuklu meyvelerin yetiştirilmesi
+01.26;Yağlı meyvelerin yetiştirilmesi
+01.27;İçecek üretiminde kullanılan bitkisel ürünlerin yetiştirilmesi
+01.28;Baharatlık, aromatik (ıtırlı), uyuşturucu nitelikte ve farmasötik (eczacılıkla ilgili) bitkisel ürünlerin yetiştirilmesi
+01.29;Diğer çok yıllık (uzun ömürlü) bitkisel ürünlerin yetiştirilmesi
+01.30;Dikim için bitki yetiştirilmesi
+01.41;Sütü sağılan büyükbaş hayvan yetiştiriciliği
+01.42;Diğer sığır ve manda yetiştiriciliği
+01.43;At ve at benzeri diğer hayvan yetiştiriciliği
+01.44;Deve ve devegillerin yetiştiriciliği
+01.45;Koyun ve keçi yetiştiriciliği
+01.46;Domuz yetiştiriciliği
+01.47;Kümes hayvanları yetiştiriciliği
+01.48;Diğer hayvan yetiştiriciliği
+01.50;Karma çiftçilik
+01.61;Bitkisel üretimi destekleyici faaliyetler
+01.62;Hayvan üretimini destekleyici faaliyetler
+01.63;Hasat sonrası bitkisel ürünler ile ilgili faaliyetler ve çoğaltma için tohumun işlenmesi
+01.70;Avcılık, tuzakla avlanma ve ilgili hizmet faaliyetleri
+02.10;Orman yetiştirme (silvikültür) ve diğer ormancılık faaliyetleri
+02.20;Endüstriyel ve yakacak odun üretimi
+02.30;Tabii olarak yetişen odun dışı orman ürünlerinin toplanması
+02.40;Ormancılık için destekleyici faaliyetler
+03.11;Deniz balıkçılığı
+03.12;Tatlı su balıkçılığı
+03.21;Deniz ürünleri yetiştiriciliği
+03.22;Tatlı su ürünleri yetiştiriciliği
+03.30;Balıkçılık ve su ürünleri yetiştiriciliği için destekleyici faaliyetler
+05.10;Taş kömürü madenciliği
+05.20;Linyit madenciliği
+06.10;Ham petrol çıkarımı
+06.20;Doğal gaz çıkarımı
+07.10;Demir cevherleri madenciliği
+07.21;Uranyum ve toryum cevherleri madenciliği
+07.29;Diğer demir dışı metal cevherleri madenciliği
+08.11;Süs taşı, kireç taşı, alçı taşı, arduvaz ve diğer taşların taş ocakçılığı
+08.12;Çakıl ve kum ocaklarının işletilmesi ve kil ve kaolin madenciliği
+08.91;Kimyasal ve gübreleme amaçlı mineral madenciliği
+08.92;Turba çıkarımı
+08.93;Tuz çıkarımı
+08.99;Başka yerde sınıflandırılmamış diğer madencilik ve taş ocakçılığı
+09.10;Petrol ve doğal gaz çıkarımını destekleyici faaliyetler
+09.90;Madencilik ve taş ocakçılığını destekleyici diğer faaliyetler
+10.11;Etin işlenmesi ve saklanması (mezbahacılık) (kümes hayvanlarının eti hariç)
+10.12;Kümes hayvanları etlerinin işlenmesi ve saklanması
+10.13;Et ve kümes hayvanları etlerinden üretilen ürünlerin imalatı
+10.20;Balık, kabuklu deniz hayvanları ve yumuşakçaların işlenmesi ve saklanması
+10.31;Patatesin işlenmesi ve saklanması
+10.32;Sebze ve meyve suyu imalatı
+10.39;Meyve ve sebzelerin diğer şekillerde işlenmesi ve korunması
+10.41;Sıvı ve katı yağ imalatı
+10.42;Margarin ve benzeri yenilebilir katı yağların imalatı
+10.51;Süt ürünleri imalatı
+10.52;Dondurma ve diğer yenilebilir buzların imalatı
+10.61;Öğütülmüş hububat ve sebze ürünleri imalatı
+10.62;Nişasta ve nişastalı ürünlerin imalatı
+10.71;Ekmek, taze pastane ürünleri ve taze kek imalatı
+10.72;Peksimet, bisküvi, dayanıklı pastane ürünleri ve kek imalatı
+10.73;Makarna, şehriye, kuskus ve benzeri unlu mamullerin imalatı
+10.81;Şeker imalatı
+10.82;Kakao, çikolata ve şekerleme imalatı
+10.83;Kahve ve çayın işlenmesi
+10.84;Baharat, sos, sirke ve diğer çeşni maddelerinin imalatı
+10.85;Hazır yemeklerin imalatı
+10.86;Homojenize gıda müstahzarları ve diyetetik gıdaların imalatı
+10.89;Başka yerde sınıflandırılmamış diğer gıda maddelerinin imalatı
+10.91;Çiftlik hayvanları için hazır yem imalatı
+10.92;Ev hayvanları için hazır gıda imalatı
+11.01;Alkollü içeceklerin damıtılması, arıtılması ve harmanlanması
+11.02;Üzümden şarap imalatı
+11.03;Elma şarabı ve diğer fermente meyve içeceklerinin imalatı
+11.04;Diğer damıtılmamış fermente içeceklerin imalatı
+11.05;Bira imalatı
+11.06;Malt imalatı
+11.07;Alkolsüz içecek ve şişelenmiş su imalatı
+12.00;Tütün ürünleri imalatı
+13.10;Tekstil elyafının hazırlanması ve bükülmesi
+13.20;Dokuma
+13.30;Tekstil ürünlerinin bitirilmesi
+13.91;Örgü (triko) veya tığ işi (kroşe) kumaşların imalatı
+13.92;Ev tekstili ve hazır mefruşat ürünleri imalatı
+13.93;Halı ve kilim imalatı
+13.94;Halat, urgan, kınnap ve ağ imalatı
+13.95;Dokusuz kumaşların ve dokusuz kumaştan yapılan ürünlerin imalatı
+13.96;Diğer teknik ve endüstriyel tekstillerin imalatı
+13.99;Başka yerde sınıflandırılmamış diğer tekstillerin imalatı
+14.10;Örme (trikotaj) ve tığ işi (kroşe) giyim eşyası imalatı
+14.21;Dış giyim imalatı
+14.22;İç giyim imalatı
+14.23;İş giysisi imalatı
+14.24;Deri giysi ve kürk giysi imalatı
+14.29;Başka yerde sınıflandırılmamış diğer giyim eşyası ve aksesuarların imalatı
+15.11;Deri ve kürkün tabaklanması, işlenmesi ve boyanması
+15.12;Bavul, el çantası, saraçlık ve koşum takımı imalatı (her tür malzemeden)
+15.20;Ayakkabı, bot, terlik vb. imalatı
+16.11;Ağaçların biçilmesi ve planyalanması
+16.12;Ahşabın işlenmesi ve bitirilmesi
+16.21;Ahşap kaplama paneli ve ağaç esaslı panel imalatı
+16.22;Birleştirilmiş parke yer döşemelerinin imalatı
+16.23;Diğer bina doğramacılığı ve marangozluk ürünlerinin imalatı
+16.24;Ahşap konteyner imalatı
+16.25;Ahşap kapı ve pencere imalatı
+16.26;Bitkisel biyokütleden katı yakıt imalatı
+16.27;Ahşap ürünlerin bitirilmesi
+16.28;"Diğer ağaç ürünleri imalatı
+17.11;Kağıt hamuru imalatı
+17.12;Kağıt ve mukavva imalatı
+17.21;Oluklu kağıt ve mukavva imalatı ile kağıt ve mukavvadan yapılan muhafazaların imalatı
+17.22;Kağıttan yapılan ev eşyası, sıhhi malzemeler ve tuvalet malzemeleri imalatı
+17.23;Kağıt kırtasiye ürünleri imalatı
+17.24;Duvar kağıdı imalatı
+17.25;Kağıt ve mukavvadan diğer ürünlerin imalatı
+18.11;Gazetelerin basımı
+18.12;Diğer matbaacılık
+18.13;Basım ve yayım öncesi hizmetler
+18.14;Ciltçilik ve ilgili hizmetler
+18.20;Kayıtlı medyanın çoğaltılması
+19.10;Kok fırını ürünlerinin imalatı
+19.20;Rafine edilmiş petrol ve fosil yakıt ürünleri imalatı
+20.11;Sanayi gazları imalatı
+20.12;Boya maddeleri ve pigment imalatı
+20.13;Diğer inorganik temel kimyasal maddelerin imalatı
+20.14;Diğer organik temel kimyasalların imalatı
+20.15;Kimyasal gübre ve azot bileşiklerinin imalatı
+20.16;Birincil formda plastik ham maddelerin imalatı
+20.17;Birincil formda sentetik kauçuk imalatı
+20.20;Haşere ilaçları, dezenfektanlar ve diğer zirai-kimyasal ürünlerin imalatı
+20.30;Boya, vernik ve benzeri kaplayıcı maddeler ile matbaa mürekkebi ve macun imalatı
+20.41;Sabun ve deterjan ile temizlik ve parlatıcı preparatlarının (müstahzarlarının) imalatı
+20.42;Parfümlerin, kozmetiklerin ve kişisel bakım preparatlarının (müstahzarlarının) imalatı
+20.51;Sıvı biyoyakıt imalatı
+20.59;Başka yerde sınıflandırılmamış diğer kimyasal ürünlerin imalatı
+20.60;Suni veya sentetik elyaf imalatı
+21.10;Temel eczacılık ürünleri imalatı
+21.20;Eczacılığa ilişkin preparatların (müstahzarların) imalatı
+22.11;Kauçuk lastiklerin imalatı, lastiğe sırt geçirilmesi (kaplanması) ve yeniden işlenmesi ve iç lastik imalatı
+22.12;Diğer kauçuk ürünlerin imalatı
+22.21;Plastik tabaka, levha, tüp ve profil imalatı
+22.22;Plastik ambalaj malzemeleri imalatı
+22.23;Plastikten kapı ve pencere imalatı
+22.24;Plastikten inşaat malzemeleri imalatı
+22.25;Plastik ürünlerin işlenmesi ve bitirilmesi
+22.26;Diğer plastik ürünlerin imalatı
+23.11;Düz cam imalatı
+23.12;Düz camın şekillendirilmesi ve işlenmesi
+23.13;Çukur cam imalatı
+23.14;Cam elyafı imalatı
+23.15;Diğer camların imalatı ve işlenmesi (teknik amaçlı cam eşyalar dahil)
+23.20;Ateşe dayanıklı (refrakter) ürünlerin imalatı
+23.31;Seramik karo ve kaldırım taşları imalatı
+23.32;Fırınlanmış kilden tuğla, karo ve inşaat malzemeleri imalatı
+23.41;Seramik ev ve süs eşyaları imalatı
+23.42;Seramik sıhhi ürünlerin imalatı
+23.43;Seramik yalıtkanların (izolatörlerin) ve yalıtkan bağlantı parçalarının imalatı
+23.44;Diğer teknik seramik ürünlerin imalatı
+23.45;Diğer seramik ürünlerin imalatı
+23.51;Çimento imalatı
+23.52;Kireç ve alçı imalatı
+23.61;İnşaat amaçlı beton ürünlerin imalatı
+23.62;İnşaat amaçlı alçı ürünlerin imalatı
+23.63;Hazır beton imalatı
+23.64;Toz harç imalatı
+23.65;Lif ve çimento karışımlı ürünlerin imalatı
+23.66;Beton, çimento ve alçıdan diğer eşyaların imalatı
+23.70;Taş ve mermerin kesilmesi, şekil verilmesi ve bitirilmesi
+23.91;Aşındırıcı ürünlerin imalatı
+23.99;Başka yerde sınıflandırılmamış metalik olmayan diğer mineral ürünlerin imalatı
+24.10;Ana demir ve çelik ürünleri ile ferro alaşımların imalatı
+24.20;Çelikten tüpler, borular, içi boş profiller ve benzeri bağlantı parçalarının imalatı
+24.31;Barların soğuk çekilmesi
+24.32;Dar şeritlerin soğuk haddelenmesi
+24.33;Soğuk şekillendirme veya katlama
+24.34;Tellerin soğuk çekilmesi
+24.41;Değerli metal üretimi
+24.42;Alüminyum üretimi
+24.43;Kurşun, çinko ve kalay üretimi
+24.44;Bakır üretimi
+24.45;Demir dışı diğer metallerin üretimi
+24.46;Nükleer yakıtların işlenmesi
+24.51;Demir döküm
+24.52;Çelik dökümü
+24.53;Hafif metallerin dökümü
+24.54;Diğer demir dışı metallerin dökümü
+25.11;Metal yapı ve yapı parçaları imalatı
+25.12;Metalden kapı ve pencere imalatı
+25.21;Merkezi ısıtma radyatörleri, buhar jeneratörleri ve sıcak su kazanlarının (boylerleri) imalatı
+25.22;Metalden diğer tank, rezervuar ve konteynerler imalatı
+25.30;Silah ve mühimmat (cephane) imalatı
+25.40;Metallerin dövülmesi, şekil verilmesi ve toz metalürjisi
+25.51;Metallerin kaplanması
+25.52;Metallerin ısıl işlemi
+25.53;Metallerin makinede işlenmesi ve şekil verilmesi
+25.61;Çatal-bıçak takımı ve diğer kesici aletlerin imalatı
+25.62;Kilit ve menteşe imalatı
+25.63;El aletleri, takım tezgahı uçları, testere ağızları vb. imalatı
+25.91;Çelik varil ve benzer muhafazaların imalatı
+25.92;Metalden hafif paketleme malzemeleri imalatı
+25.93;Tel ürünleri, zincir ve yayların imalatı
+25.94;Bağlantı malzemelerinin ve vida makinesi ürünlerinin imalatı
+25.99;Başka yerde sınıflandırılmamış diğer fabrikasyon metal ürünlerin imalatı
+26.11;Elektronik bileşenlerin imalatı
+26.12;Yüklü elektronik kart imalatı
+26.20;Bilgisayar ve bilgisayar çevre birimleri imalatı
+26.30;İletişim ekipmanlarının imalatı
+26.40;Tüketici elektroniği ürünlerinin imalatı
+26.51;Ölçme, test ve seyrüsefer (navigasyon) amaçlı alet ve cihazların imalatı
+26.52;Kol saatlerinin, masa ve duvar saatlerinin ve benzerlerinin imalatı
+26.60;Işınlama, elektro medikal ve elektro terapi ile ilgili cihazların imalatı
+26.70;Optik aletlerin, manyetik ve optik medyanın ve fotoğrafik ekipmanların imalatı
+27.11;Elektrik motorları, jeneratörler ve transformatörlerin imalatı
+27.12;Elektrik dağıtım ve kontrol cihazları imalatı
+27.20;Akümülatör ve pil imalatı
+27.31;Fiber optik kabloların imalatı
+27.32;Diğer elektronik ve elektrikli teller ve kabloların imalatı
+27.33;Kablolamada kullanılan gereçlerin imalatı
+27.40;Aydınlatma ekipmanları imalatı
+27.51;Elektrikli ev aletlerinin imalatı
+27.52;Elektriksiz ev aletlerinin imalatı
+27.90;Diğer elektrikli ekipmanların imalatı
+28.11;Motor ve türbin imalatı (hava taşıtı, motorlu kara taşıtı ve motosiklet motorları hariç)
+28.12;Akışkan gücü ile çalışan ekipmanların imalatı
+28.13;Diğer pompaların ve kompresörlerin imalatı
+28.14;Diğer musluk ve valf/vana imalatı
+28.15;Rulman, dişli/dişli takımı, şanzıman ve tahrik elemanlarının imalatı
+28.21;Fırınlar, sobalar ve sabit ev ısıtma ekipmanlarının imalatı
+28.22;Kaldırma ve taşıma ekipmanları imalatı
+28.23;Büro makine ve ekipmanları imalatı (bilgisayarlar ve çevre birimleri hariç)
+28.24;Motorlu veya pnömatik (hava basınçlı) el aletlerinin imalatı
+28.25;Ev dışı iklimlendirme ekipmanlarının imalatı
+28.29;Başka yerde sınıflandırılmamış diğer genel amaçlı makinelerin imalatı
+28.30;Tarım ve ormancılık makinelerinin imalatı
+28.41;Metal şekillendirme makineleri ve metal işlemeye yönelik takım tezgahlarının imalatı
+28.42;Diğer takım tezgahlarının imalatı
+28.91;Metalürji makineleri imalatı
+28.92;Maden, taş ocağı ve inşaat makineleri imalatı
+28.93;Gıda, içecek ve tütün işleme makineleri imalatı
+28.94;Tekstil, giyim eşyası ve deri üretiminde kullanılan makinelerin imalatı
+28.95;Kağıt ve mukavva üretiminde kullanılan makinelerin imalatı
+28.96;Plastik ve kauçuk makinelerinin imalatı
+28.97;Katmanlı (eklemeli) imalat makineleri imalatı
+28.99;Başka yerde sınıflandırılmamış diğer özel amaçlı makinelerin imalatı
+29.10;Motorlu kara taşıtlarının imalatı
+29.20;"Motorlu kara taşıtları gövdesi ve karoseri (kaporta) imalatı
+29.31;Motorlu kara taşıtları için elektrik ve elektronik donanımların imalatı
+29.32;Motorlu kara taşıtları için diğer parça ve aksesuarların imalatı
+30.11;Sivil gemilerin ve yüzer yapıların inşası
+30.12;Eğlence ve spor amaçlı teknelerin yapımı
+30.13;Askeri gemilerin ve teknelerin inşası
+30.20;Demir yolu lokomotifleri ve vagonlarının imalatı
+30.31;Sivil hava ve uzay araçları ve ilgili makinelerin imalatı
+30.32;Askeri hava ve uzay araçları ve ilgili makinelerin imalatı
+30.40;Askeri kara savaş araçlarının imalatı
+30.91;Motosiklet imalatı
+30.92;Bisiklet ve engelli aracı imalatı
+30.99;Başka yerde sınıflandırılmamış diğer ulaşım ekipmanlarının imalatı
+31.00;Mobilya imalatı
+32.11;Madeni para basımı
+32.12;Mücevher ve benzeri eşyaların imalatı
+32.13;İmitasyon (taklit) takılar ve ilgili eşyaların imalatı
+32.20;Müzik aletleri imalatı
+32.30;Spor malzemeleri imalatı
+32.40;Oyun ve oyuncak imalatı
+32.50;Tıbbi ve dişçilik ile ilgili araç ve gereçlerin imalatı
+32.91;Süpürge ve fırça imalatı
+32.99;Başka yerde sınıflandırılmamış diğer imalatlar
+33.11;Fabrikasyon metal ürünlerin onarım ve bakımı
+33.12;Makinelerin onarım ve bakımı
+33.13;Elektronik ve optik ekipmanların onarım ve bakımı
+33.14;Elektrikli ekipmanların onarım ve bakımı
+33.15;Sivil gemilerin ve teknelerin onarım ve bakımı
+33.16;Sivil hava taşıtları ve uzay araçlarının onarım ve bakımı
+33.17;Diğer sivil ulaşım ekipmanlarının onarım ve bakımı
+33.18;Askeri savaş araçlarının, gemilerin, teknelerin, hava ve uzay araçlarının onarım ve bakımı
+33.19;Diğer ekipmanların onarım ve bakımı
+33.20;Sanayi makine ve ekipmanlarının kurulumu
+35.11;Yenilenemeyen kaynaklardan elektrik üretimi
+35.12;Yenilenebilir kaynaklardan elektrik üretimi
+35.13;Elektrik enerjisinin iletimi
+35.14;Elektrik enerjisinin dağıtımı
+35.15;Elektrik enerjisinin ticareti
+35.16;Elektriğin depolanması
+35.21;Gaz imalatı
+35.22;Ana şebeke üzerinden gaz yakıtların dağıtımı
+35.23;Ana şebeke üzerinden gaz ticareti
+35.24;Gazın depolanması (şebeke tedarik hizmetlerinin bir parçası olarak)
+35.30;Buhar ve iklimlendirme temini
+35.40;Elektrik enerjisi ve doğal gaz aracılarının ve komisyoncularının faaliyetleri
+36.00;Suyun toplanması, arıtılması ve dağıtılması
+37.00;Kanalizasyon
+38.11;Tehlikesiz atıkların toplanması
+38.12;Tehlikeli atıkların toplanması
+38.21;Materyallerin geri kazanımı
+38.22;Enerji geri kazanımı
+38.23;Diğer atık geri kazanımı
+38.31;Enerji geri kazanımı olmaksızın atıkların yakılması
+38.32;Atıkların düzenli veya kalıcı olarak depolanması
+38.33;Diğer atıkların bertarafı
+39.00;İyileştirme faaliyetleri ve diğer atık yönetimi hizmeti faaliyetleri
+41.00;İkamet amaçlı olan ve ikamet amaçlı olmayan binaların inşaatı
+42.11;Kara yolları ve otoyolların inşaatı
+42.12;Demir yolları ve metroların inşaatı
+42.13;Köprüler ve tünellerin inşaatı
+42.21;Akışkanlar için hizmet projelerinin inşaatı
+42.22;Elektrik ve telekomünikasyon için hizmet projelerinin inşaatı
+42.91;Su projeleri inşaatı
+42.99;Başka yerde sınıflandırılmamış bina dışı diğer yapılara ait projelerin inşaatı
+43.11;Yıkım işleri (binaların ve diğer yapıların yıkılması ve sökülmesi)
+43.12;Şantiyenin hazırlanması
+43.13;Test sondajı ve delme
+43.21;Elektrik tesisatı
+43.22;Sıhhi tesisat, ısıtma ve iklimlendirme tesisatı
+43.23;Yalıtım tesisatı
+43.24;Diğer inşaat tesisatı
+43.31;Sıva işleri
+43.32;Doğrama tesisatı
+43.33;Yer ve duvar kaplama
+43.34;Boya ve cam işleri
+43.35;İnşaatlardaki diğer bütünleyici ve tamamlayıcı işler
+43.41;Çatı işleri
+43.42;Bina inşaatlarındaki diğer özel inşaat faaliyetleri
+43.50;Bina dışı yapılardaki özel inşaat faaliyetleri
+43.60;Özel inşaat hizmetleri için aracılık hizmeti faaliyetleri
+43.91;Duvarcılık ve tuğla, briket vb. döşeme faaliyetleri
+43.99;Başka yerde sınıflandırılmamış diğer özel inşaat faaliyetleri
+46.11;Tarımsal ham maddelerin, canlı hayvanların, tekstil ham maddelerinin ve yarı mamul malların toptan satışı ile ilgili aracıların faaliyetleri
+46.12;Yakıtların, maden cevherlerinin, metallerin ve endüstriyel kimyasalların toptan satışı ile ilgili aracıların faaliyetleri
+46.13;Kereste ve inşaat malzemelerinin toptan satışı ile ilgili aracıların faaliyetleri
+46.14;Makine, sanayi araç ve gereçleri ile deniz ve hava taşıtlarının toptan satışı ile ilgili aracıların faaliyetleri
+46.15;Mobilya, ev eşyaları, hırdavat ve madeni eşyaların toptan satışı ile ilgili aracıların faaliyetleri
+46.16;Tekstil, giysi, kürk, ayakkabı ve deri eşyaların toptan satışı ile ilgili aracıların faaliyetleri
+46.17;Gıda, içecek ve tütün toptan satışı ile ilgili aracıların faaliyetleri
+46.18;Belirli diğer ürünlerin toptan satışı ile ilgili aracıların faaliyetleri
+46.19;Uzmanlaşmamış toptan ticaret ile ilgili aracıların faaliyetleri
+46.21;Tahıl, işlenmemiş tütün, tohum ve hayvan yemi toptan ticareti
+46.22;Çiçeklerin ve bitkilerin toptan ticareti
+46.23;Canlı hayvanların toptan ticareti
+46.24;Ham deri, post ve deri toptan ticareti
+46.31;Meyve ve sebzelerin toptan ticareti
+46.32;Et ve et ürünleri ile balık ve balık ürünlerinin toptan ticareti
+46.33;Süt ürünleri, yumurta ve yenilebilir sıvı ve katı yağların toptan ticareti
+46.34;İçeceklerin toptan ticareti
+46.35;Tütün ürünlerinin toptan ticareti
+46.36;Şeker, çikolata ve şekerleme toptan ticareti
+46.37;Kahve, çay, kakao ve baharat toptan ticareti
+46.38;Diğer gıda maddelerinin toptan ticareti
+46.39;Uzmanlaşmamış gıda, içecek ve tütün toptan ticareti
+46.41;Tekstil ürünlerinin toptan ticareti
+46.42;Giysi ve ayakkabı toptan ticareti
+46.43;Elektrikli ev aletleri toptan ticareti
+46.44;Porselen ve cam eşya ile temizlik maddelerinin toptan ticareti
+46.45;Parfüm ve kozmetik ürünlerinin toptan ticareti
+46.46;Eczacılık ve medikal ürünlerin toptan ticareti
+46.47;Ev, büro ve dükkan mobilyası ile halı ve aydınlatma ekipmanlarının toptan ticareti
+46.48;Saat ve mücevher toptan ticareti
+46.49;Diğer ev eşyalarının toptan ticareti
+46.50;Bilgi ve iletişim teknolojisi teçhizatının toptan ticareti
+46.61;Tarımsal amaçlı makine ve ekipmanlar ile aksam ve parçalarının toptan ticareti
+46.62;Takım tezgahlarının toptan ticareti
+46.63;Madencilik, bina ve bina dışı inşaat makinelerinin toptan ticareti
+46.64;Diğer makine ve ekipmanların toptan ticareti
+46.71;Motorlu kara taşıtlarının toptan ticareti
+46.72;Motorlu kara taşıtlarının parça ve aksesuarlarının toptan ticareti
+46.73;Motosikletlerin, motosiklet parçalarının ve aksesuarlarının toptan ticareti
+46.81;Katı, sıvı ve gazlı yakıtlar ile bunlarla ilgili ürünlerin toptan ticareti
+46.82;Metallerin ve metal cevherlerinin toptan ticareti
+46.83;Ağaç, inşaat malzemesi ve sıhhi teçhizat toptan ticareti
+46.84;Hırdavat, sıhhi tesisat ve ısıtma tesisatı malzemelerinin toptan ticareti
+46.85;Kimyasal ürünlerin toptan ticareti
+46.86;Diğer ara ürünlerin toptan ticareti
+46.87;Atık ve hurda toptan ticareti
+46.89;Başka yerde sınıflandırılmamış uzmanlaşmış diğer toptan ticaret
+46.90;Uzmanlaşmamış toptan ticaret
+47.11;Uzmanlaşmamış gıda, içecek veya tütün ağırlıklı perakende ticaret
+47.12;Uzmanlaşmamış diğer perakende ticaret
+47.21;Meyve ve sebze perakende ticareti
+47.22;Et ve et ürünlerinin perakende ticareti
+47.23;Balık, kabuklu hayvanlar ve yumuşakçaların perakende ticareti
+47.24;Ekmek, pasta ve şekerleme perakende ticareti
+47.25;İçeceklerin perakende ticareti
+47.26;Tütün ürünlerinin perakende ticareti
+47.27;Diğer gıda ürünlerinin perakende ticareti
+47.30;Otomotiv yakıtının perakende ticareti
+47.40;Bilgi ve iletişim teknolojisi teçhizatının perakende ticareti
+47.51;Tekstil ürünleri perakende ticareti
+47.52;Hırdavat, inşaat malzemeleri, boya ve cam perakende ticareti
+47.53;Halı, kilim, duvar ve yer kaplamalarının perakende ticareti
+47.54;Elektrikli ev aletlerinin perakende ticareti
+47.55;Mobilya, aydınlatma teçhizatı, sofra takımları ve diğer ev eşyalarının perakende ticareti
+47.61;Kitap perakende ticareti
+47.62;Gazeteler ile diğer periyodik yayınlar ve kırtasiye ürünlerinin perakende ticareti
+47.63;Spor malzemelerinin perakende ticareti
+47.64;Oyunlar ve oyuncakların perakende ticareti
+47.69;Başka yerde sınıflandırılmamış kültür ve eğlence (rekreasyon) ürünlerinin perakende ticareti
+47.71;Giyim eşyalarının perakende ticareti
+47.72;Ayakkabı ve deri eşyaların perakende ticareti
+47.73;Eczacılık ürünlerinin perakende ticareti
+47.74;Medikal ve ortopedik ürünlerin perakende ticareti
+47.75;Kozmetik ve kişisel bakım malzemelerinin perakende ticareti
+47.76;Çiçek, bitki, gübre, ev hayvanları ve ev hayvanları yemleri perakende ticareti
+47.77;Saat ve mücevher perakende ticareti
+47.78;Diğer yeni malların perakende ticareti
+47.79;Kullanılmış malların perakende ticareti
+47.81;Motorlu kara taşıtlarının perakende ticareti
+47.82;Motorlu kara taşıtlarının parça ve aksesuarlarının perakende ticareti
+47.83;Motosikletlerin, motosiklet parçalarının ve aksesuarlarının perakende ticareti
+47.91;Uzmanlaşmamış perakende ticaret için aracılık hizmeti faaliyetleri
+47.92;Uzmanlaşmış perakende ticaret için aracılık hizmeti faaliyetleri
+49.11;Demir yolu ile yolcu taşımacılığı (ağır raylı sistem)
+49.12;Diğer demir yolu ile yolcu taşımacılığı
+49.20;Demir yolu ile yük taşımacılığı
+49.31;Kara yoluyla tarifeli yolcu taşımacılığı
+49.32;Kara yoluyla tarifesiz yolcu taşımacılığı
+49.33;Sürücülü araç ile isteğe bağlı yolcu taşıma hizmeti faaliyetleri
+49.34;Teleferik ve telesiyejlerle yolcu taşımacılığı
+49.39;Başka yerde sınıflandırılmamış kara taşımacılığı ile yapılan diğer yolcu taşımacılığı
+49.41;Kara yolu ile yük taşımacılığı
+49.42;Ev ve iş yerlerine verilen taşımacılık hizmetleri
+49.50;Boru hattı taşımacılığı
+50.10;Deniz ve kıyı sularında yolcu taşımacılığı
+50.20;Deniz ve kıyı sularında yük taşımacılığı
+50.30;İç sularda yolcu taşımacılığı
+50.40;İç sularda yük taşımacılığı
+51.10;Hava yolu ile yolcu taşımacılığı
+51.21;Hava yolu ile yük taşımacılığı
+51.22;Uzay taşımacılığı
+52.10;Depolama ve ambarlama
+52.21;Kara taşımacılığını destekleyici hizmet faaliyetleri
+52.22;Su yolu taşımacılığını destekleyici hizmet faaliyetleri
+52.23;Hava yolu taşımacılığını destekleyici hizmet faaliyetleri
+52.24;Kargo yükleme boşaltma (elleçleme) hizmetleri
+52.25;Lojistik hizmet faaliyetleri
+52.26;Taşımacılığa yönelik diğer destekleyici faaliyetler
+52.31;Yük taşımacılığına yönelik aracılık hizmeti faaliyetleri
+52.32;Yolcu taşımacılığına yönelik aracılık hizmeti faaliyetleri
+53.10;Evrensel hizmet yükümlülüğü altında postacılık faaliyetleri
+53.20;Diğer posta ve kurye faaliyetleri
+53.30;Posta ve kurye faaliyetlerine yönelik aracılık hizmeti faaliyetleri
+55.10;Oteller ve benzeri konaklama yerleri
+55.20;Tatil ve diğer kısa süreli konaklama yerleri
+55.30;Kamp alanları ve karavan parkları
+55.40;Konaklama için aracılık hizmeti faaliyetleri
+55.90;Diğer konaklama yerleri
+56.11;Lokantaların faaliyetleri
+56.12;Seyyar yemek hizmeti faaliyetleri
+56.21;Özel günlerde dışarıya yemek hizmeti sunan işletmelerin faaliyetleri
+56.22;Sözleşmeli yemek hizmeti faaliyetleri ve diğer yemek hizmeti faaliyetleri
+56.30;İçecek sunum hizmetleri
+56.40;Yiyecek ve içecek hizmetleri faaliyetleri için aracılık hizmeti faaliyetleri
+58.11;Kitapların yayımı
+58.12;Gazetelerin yayımlanması
+58.13;Dergi ve süreli yayınların yayımlanması
+58.19;Diğer yayımcılık faaliyetleri (yazılım programlarının yayımı hariç)
+58.21;Video oyunlarının yayımlanması
+58.29;Diğer yazılım programlarının yayımlanması
+59.11;Sinema filmi, video ve televizyon programları yapım faaliyetleri
+59.12;Sinema filmi, video ve televizyon programları çekim sonrası faaliyetleri
+59.13;Sinema filmi ve video dağıtım faaliyetleri
+59.14;Sinema filmi gösterim faaliyetleri
+59.20;Ses kaydı ve müzik yayıncılığı faaliyetleri
+60.10;Radyo yayıncılığı ve ses dağıtım faaliyetleri
+60.20;Televizyon programcılığı, yayıncılığı ve video dağıtım faaliyetleri
+60.31;Haber ajanslarının faaliyetleri
+60.39;Diğer içerik dağıtım faaliyetleri
+61.10;Kablolu, kablosuz ve uydu telekomünikasyon faaliyetleri
+61.20;Telekomünikasyon ürünlerinin yeniden satışı ve telekomünikasyon için aracılık hizmeti faaliyetleri
+61.90;Diğer telekomünikasyon faaliyetleri
+62.10;Bilgisayar programlama faaliyetleri
+62.20;Bilgisayar danışmanlığı ve bilgisayar birimleri (sistemleri) yönetimi faaliyetleri
+62.90;Diğer bilgi teknolojisi ve bilgisayar hizmet faaliyetleri
+63.10;Bilgi işlem altyapısı, veri işleme, barındırma ve ilgili faaliyetler
+63.91;Web arama portalı faaliyetleri
+63.92;Diğer bilgi hizmeti faaliyetleri
+64.11;Merkez bankası faaliyetleri
+64.19;Diğer parasal aracılık faaliyetleri
+64.21;Holding şirketlerinin faaliyetleri
+64.22;Finansman tedarik şirketlerinin faaliyetleri
+64.31;Para piyasası ve para piyasası dışı yatırım fonlarının faaliyetleri
+64.32;Servet yönetim şirketleri (trustlar), emlak ve acente hesaplarının faaliyetleri
+64.91;Finansal kiralama
+64.92;Diğer kredi verme faaliyetleri
+64.99;Başka yerde sınıflandırılmamış diğer finansal hizmet faaliyetleri (Sigorta ve emeklilik fonları hariç)
+65.11;Hayat sigortası
+65.12;Hayat sigortası dışındaki sigortalar
+65.20;Reasürans
+65.30;Emeklilik fonları
+66.11;Finansal piyasaların yönetimi
+66.12;Menkul kıymetler ve emtia sözleşmeleri aracılığı
+66.19;Finansal hizmetlere yardımcı diğer faaliyetler (Sigorta ve emeklilik fonları hariç)
+66.21;Risk ve hasar değerlemesi
+66.22;Sigorta acentelerinin ve aracılarının faaliyetleri
+66.29;Başka yerde sınıflandırılmamış sigorta ve emeklilik fonlarına yardımcı faaliyetler
+66.30;Fon yönetimi faaliyetleri
+68.11;Kendine ait gayrimenkulün alınıp satılması
+68.12;Yapı projelerinin geliştirilmesi
+68.20;Kendine ait veya kiralanan gayrimenkulün kiralanması ve işletilmesi
+68.31;Gayrimenkul faaliyetleri için aracılık hizmeti faaliyetleri
+68.32;Bir ücret veya sözleşme temeline dayalı olan diğer gayrimenkul faaliyetleri
+69.10;Hukuk faaliyetleri
+69.20;"Muhasebe, defter tutma ve denetim faaliyetleri
+70.10;İdare merkezi faaliyetleri
+70.20;İşletme ve diğer idari danışmanlık faaliyetleri
+71.11;Mimarlık faaliyetleri
+71.12;Mühendislik faaliyetleri ve ilgili teknik danışmanlık
+71.20;Teknik test ve analiz faaliyetleri
+72.10;Doğal bilimler ve mühendislikle ilgili araştırma ve deneysel geliştirme faaliyetleri
+72.20;Sosyal bilimlerle ve beşeri bilimlerle ilgili araştırma ve deneysel geliştirme faaliyetleri
+73.11;Reklam ajanslarının faaliyetleri
+73.12;Çeşitli medya reklamları için alan ve zamanın bir ücret veya sözleşmeye dayalı olarak satışı
+73.20;Piyasa ve kamuoyu araştırma faaliyetleri
+73.30;Halkla ilişkiler ve iletişim faaliyetleri
+74.11;Endüstriyel ürün ve moda tasarımı faaliyetleri
+74.12;Grafik tasarım ve görsel iletişim faaliyetleri
+74.13;İç tasarım faaliyetleri
+74.14;Diğer uzmanlaşmış tasarım faaliyetleri
+74.20;Fotoğrafçılık faaliyetleri
+74.30;Tercüme ve sözlü tercüme faaliyetleri
+74.91;Patent aracılığı ve pazarlama hizmeti faaliyetleri
+74.99;Başka yerde sınıflandırılmamış diğer mesleki, bilimsel ve teknik faaliyetler
+75.00;Veterinerlik hizmetleri
+77.11;Motorlu hafif kara taşıtlarının ve arabaların kiralanması ve leasingi
+77.12;Kamyonların kiralanması ve leasingi
+77.21;Eğlence ve spor eşyalarının kiralanması ve leasingi
+77.22;Diğer kişisel eşyaların ve ev eşyalarının kiralanması ve leasingi
+77.31;Tarımsal makine ve ekipmanların kiralanması ve leasingi
+77.32;Bina ve bina dışı inşaatlarda kullanılan makine ve ekipmanların kiralanması ve leasingi
+77.33;Büro makine, ekipman ve bilgisayarlarının kiralanması ve leasingi
+77.34;Su yolu taşımacılığı ekipmanının kiralanması ve leasingi
+77.35;Hava taşımacılığı araçlarının kiralanması ve leasingi
+77.39;Başka yerde sınıflandırılmamış diğer makine, ekipman ve maddi malların kiralanması ve leasingi
+77.40;Fikri mülkiyet haklarının ve benzer ürünlerin leasingi (Telif hakkı alınmış olan çalışmalar hariç)
+77.51;Otomobillerin, motorlu karavanların ve römorkların kiralanması ve leasingine ilişkin aracılık hizmeti faaliyetleri
+77.52;Diğer maddi varlıkların ve finans dışı maddi olmayan varlıkların kiralanması ve leasingi için aracılık hizmeti faaliyetleri
+78.10;İş bulma acentelerinin faaliyetleri
+78.20;Geçici iş bulma acenteleri ile diğer insan kaynaklarının sağlanması faaliyetleri
+79.11;Seyahat acentesi faaliyetleri (yolcu taşımacılığı için olanlar hariç)
+79.12;Tur operatörü faaliyetleri
+79.90;Diğer rezervasyon hizmetleri ve ilgili faaliyetler
+80.01;Soruşturma ve özel güvenlik faaliyetleri
+80.09;Başka yerde sınıflandırılmamış güvenlik faaliyetleri
+81.10;Tesis bünyesindeki kombine destek hizmetleri
+81.21;Binaların genel temizliği
+81.22;Diğer bina ve endüstriyel temizlik faaliyetleri
+81.23;Diğer temizlik faaliyetleri
+81.30;Çevre düzenlemesi ve bakımı faaliyetleri
+82.10;Büro yönetimi ve destek faaliyetleri
+82.20;Çağrı merkezlerinin faaliyetleri
+82.30;Kongre ve ticari gösteri organizasyonu
+82.40;Başka yerde sınıflandırılmamış işletme destek hizmetleri için aracılık hizmeti faaliyetleri
+82.91;Tahsilat ve kredi kayıt bürolarının faaliyetleri
+82.92;Paketleme faaliyetleri
+82.99;Başka yerde sınıflandırılmamış diğer işletme destek hizmeti faaliyetleri
+84.11;Genel kamu idaresi faaliyetleri
+84.12;Sağlık, eğitim, kültürel hizmetler ve diğer sosyal hizmetlerin düzenlenmesi
+84.13;İş etkinliğinin artırılmasına yönelik katkı ve düzenleme faaliyetleri
+84.21;Dışişleri ile ilgili hizmetler
+84.22;Savunma faaliyetleri
+84.23;Adalet ve yargı organlarının faaliyetleri
+84.24;Kamu düzeni ve güvenliği ile ilgili faaliyetler
+84.25;İtfaiye hizmetleri
+84.30;Zorunlu sosyal güvenlik faaliyetleri
+85.10;Okul öncesi eğitim
+85.20;İlköğretim
+85.31;Genel ortaöğretim
+85.32;Mesleki orta öğretim
+85.33;Ortaöğretim sonrası yükseköğretim derecesinde olmayan eğitim
+85.40;Yükseköğretim
+85.51;Spor ve eğlence (rekreasyon) eğitimi
+85.52;Kültürel eğitim
+85.53;Sürücü kursu faaliyetleri
+85.59;Başka yerde sınıflandırılmamış diğer eğitim
+85.61;Kurslara ve eğitmenlere yönelik aracılık hizmeti faaliyetleri
+85.69;Başka yerde sınıflandırılmamış eğitim destek faaliyetleri
+86.10;Hastane hizmetleri
+86.21;Genel hekimlik uygulama faaliyetleri
+86.22;Tıp uzmanlarının faaliyetleri
+86.23;Dişçilik ile ilgili uygulama ve bakım faaliyetleri
+86.91;Tanı amaçlı görüntüleme hizmetleri ve tıbbi laboratuvar faaliyetleri
+86.92;Ambulansla hasta taşıma
+86.93;Psikolog ve psikoterapistlerin faaliyetleri (tıp doktorları hariç)
+86.94;Hemşirelik ve ebelik faaliyetleri
+86.95;Fizyoterapi hizmetleri (tıp doktorları dışında yetkili kişilerce sağlanan fizyoterapi, ergoterapi vb. alanlardaki hizmetler) (hastane dışı)
+86.96;Geleneksel, tamamlayıcı ve alternatif tıp faaliyetleri
+86.97;Tıp, dişçilik ve diğer insan sağlığı hizmetlerine yönelik aracılık hizmeti faaliyetleri
+86.99;Başka yerde sınıflandırılmamış diğer insan sağlığı faaliyetleri
+87.10;Hemşireli yatılı bakım faaliyetleri
+87.20;Zihinsel rahatsızlığı veya madde kullanımı teşhisi olan kişilere yönelik yatılı bakım faaliyetleri
+87.30;Yaşlılara veya bedensel engellilere yönelik yatılı bakım faaliyetleri
+87.91;Yatılı bakım faaliyetleri için aracılık hizmeti faaliyetleri
+87.99;Başka yerde sınıflandırılmamış diğer yatılı bakım faaliyetleri
+88.10;Yaşlılar veya engelliler için barınacak yer sağlanmaksızın verilen sosyal hizmetler
+88.91;Çocuk gündüz bakım (kreş) faaliyetleri
+88.99;Başka yerde sınıflandırılmamış barınacak yer sağlanmaksızın verilen diğer sosyal yardım faaliyetleri
+90.11;Edebiyat eseri oluşturma ve müzikal kompozisyon faaliyetleri
+90.12;Görsel sanatlar yaratıcılık faaliyetleri
+90.13;Diğer sanatsal yaratıcılık faaliyetleri
+90.20;Gösteri sanatları faaliyetleri
+90.31;Sanat tesislerinin ve alanlarının (mekanlarının) işletilmesi
+90.39;Sanat ve gösteri sanatlarına yönelik diğer destek faaliyetleri
+91.11;Kütüphane faaliyetleri
+91.12;Arşiv faaliyetleri
+91.21;Müze ve koleksiyonculuk faaliyetleri
+91.22;Tarihi alan ve anıt faaliyetleri
+91.30;Kültürel mirasın konservasyonu, restorasyonu ve diğer destek faaliyetleri
+91.41;Botanik ve hayvanat bahçesi faaliyetleri
+91.42;Tabiatı koruma faaliyetleri
+92.00;Kumar ve müşterek bahis faaliyetleri
+93.11;Spor tesislerinin işletilmesi
+93.12;Spor kulüplerinin faaliyetleri
+93.13;Fitness merkezlerinin faaliyetleri
+93.19;Başka yerde sınıflandırılmamış spor faaliyetleri
+93.21;Eğlence parkları ve tema parklarının faaliyetleri
+93.29;Başka yerde sınıflandırılmamış eğlence ve dinlence (rekreasyon) faaliyetleri
+94.11;İş ve işveren kuruluşlarının faaliyetleri
+94.12;Profesyonel meslek kuruluşlarının faaliyetleri
+94.20;Sendikaların faaliyetleri
+94.91;Dini kuruluşların faaliyetleri
+94.92;Siyasi kuruluşların faaliyetleri
+94.99;Başka yerde sınıflandırılmamış diğer üye olunan kuruluşların faaliyetleri
+95.10;Bilgisayarların ve iletişim ekipmanlarının onarım ve bakımı
+95.21;Tüketici elektroniği ürünlerinin onarım ve bakımı
+95.22;Evde kullanılan cihazlar ile ev ve bahçe gereçlerinin onarım ve bakımı
+95.23;Ayakkabı ve deri eşyaların onarım ve bakımı
+95.24;Mobilya ve ev döşemelerinin onarım ve bakımı
+95.25;Saatlerin ve mücevherlerin onarım ve bakımı
+95.29;Başka yerde sınıflandırılmamış kişisel eşyaların ve ev eşyalarının onarım ve bakımı
+95.31;Motorlu kara taşıtlarının onarım ve bakımı
+95.32;Motosikletlerin onarım ve bakımı
+95.40;Bilgisayarların, kişisel eşyalar ve ev eşyalarının, motorlu kara taşıtlarının ve motosikletlerin onarım ve bakımı için aracılık hizmeti faaliyetleri
+96.10;Tekstil ve kürk ürünlerinin yıkanması ve temizlenmesi
+96.21;Kuaförlük ve berberlik faaliyetleri
+96.22;Güzellik bakımı faaliyetleri
+96.23;Günlük spa, sauna ve buhar banyosu faaliyetleri
+96.30;Cenaze işleri ile ilgili faaliyetler
+96.40;Kişisel hizmetler için aracılık hizmeti faaliyetleri
+96.91;Ev içi kişisel hizmet faaliyetlerinin sağlanması
+96.99;Başka yerde sınıflandırılmamış diğer kişisel hizmet faaliyetleri
+97.00;Ev içi çalışan personelin işverenleri olarak hanehalklarının faaliyetleri
+98.10;Hanehalkları tarafından kendi kullanımlarına yönelik olarak üretilen ayrım yapılmamış mallar
+98.20;Hanehalkları tarafından kendi kullanımlarına yönelik olarak üretilen ayrım yapılmamış hizmetler
+99.00;Uluslararası örgütler ve temsilciliklerinin faaliyetleri

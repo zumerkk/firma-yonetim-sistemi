@@ -577,11 +577,9 @@ router.patch('/:id/restore',
 // 💡 GET /api/tesvik/dashboard/widgets - Dashboard Widget Verileri
 router.get('/dashboard/widgets', authenticate, async (req, res) => {
   try {
-    console.log('📊 Dashboard widgets endpoint çağrıldı...');
-    const Tesvik = require('../models/Tesvik');
-    
-    console.log('🔍 Tesvik model yüklendi, sorguları başlatıyorum...');
-    
+    console.log('📊 Yeni Teşvik Dashboard widgets endpoint çağrıldı...');
+    const YeniTesvik = require('../models/YeniTesvik');
+
     const [
       toplamTesvik,
       aktifTesvik,
@@ -591,79 +589,47 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
       durumDagilimi,
       ilBazindaDagilim
     ] = await Promise.all([
-      // 1. Toplam teşvik sayısı (sadece aktif olanlar)
-      Tesvik.countDocuments({ aktif: true }).then(count => {
-        console.log('📈 Toplam teşvik:', count);
-        return count;
-      }),
-      
-      // 2. Aktif teşvik sayısı  
-      Tesvik.countDocuments({ aktif: true }).then(count => {
-        console.log('✅ Aktif teşvik:', count);
-        return count;
-      }),
-      
-      // 3. Bekleyen teşvik sayısı (sadece aktif olanlar)
-      Tesvik.countDocuments({ 
+      // 1. Toplam yeni teşvik sayısı (sadece aktif)
+      YeniTesvik.countDocuments({ aktif: true }),
+      // 2. Aktif yeni teşvik sayısı
+      YeniTesvik.countDocuments({ aktif: true }),
+      // 3. Bekleyen yeni teşvik sayısı
+      YeniTesvik.countDocuments({
         aktif: true,
-        'durumBilgileri.genelDurum': { 
-          $in: ['inceleniyor', 'onay_bekliyor', 'ek_belge_istendi'] 
-        } 
-      }).then(count => {
-        console.log('⏳ Bekleyen teşvik:', count);
-        return count;
+        'durumBilgileri.genelDurum': { $in: ['inceleniyor', 'onay_bekliyor', 'ek_belge_istendi'] }
       }),
-      
-      // 4. Onaylanan teşvik sayısı (sadece aktif olanlar)
-      Tesvik.countDocuments({ 
+      // 4. Onaylanan yeni teşvik sayısı
+      YeniTesvik.countDocuments({
         aktif: true,
-        'durumBilgileri.genelDurum': 'onaylandi' 
-      }).then(count => {
-        console.log('🎯 Onaylanan teşvik:', count);
-        return count;
+        'durumBilgileri.genelDurum': 'onaylandi'
       }),
-      
-      // 5. Son 5 teşvik (kullanıcı bilgileri ile)
-      Tesvik.find({ aktif: true })
+      // 5. Son 5 yeni teşvik
+      YeniTesvik.find({ aktif: true })
         .sort({ createdAt: -1 })
         .limit(5)
         .select('tesvikId yatirimciUnvan durumBilgileri createdAt firmaId olusturanKullanici')
-        .populate('olusturanKullanici', 'adSoyad email rol') // 👤 Ekleyen kullanıcı bilgisi
-        .populate('firma', 'tamUnvan firmaId') // 🏢 Firma bilgisi
-        .then(result => {
-          console.log('📋 Son eklenenler:', result?.length || 0);
-          if (result?.length > 0) {
-            console.log('👤 İlk teşviği ekleyen:', result[0]?.olusturanKullanici?.adSoyad || 'Bilinmiyor');
-          }
-          return result;
-        }),
-      
-      // 6. Durum dağılımı
-      Tesvik.aggregate([
+        .populate('olusturanKullanici', 'adSoyad email rol')
+        .populate('firma', 'tamUnvan firmaId'),
+      // 6. Durum dağılımı (yeni)
+      YeniTesvik.aggregate([
         { $match: { aktif: true } },
         { $group: { _id: '$durumBilgileri.genelDurum', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
-      ]).then(result => {
-        console.log('📊 Durum dağılımı:', result?.length || 0, 'adet');
-        return result;
-      }),
-      
-      // 7. İl bazında dağılım
-      Tesvik.aggregate([
+      ]),
+      // 7. İl bazında dağılım (yeni)
+      YeniTesvik.aggregate([
         { $match: { aktif: true } },
-        { $group: { _id: '$yatirimBilgileri.yerinIl', count: { $sum: 1 } } },
+        { $group: { _id: '$yatirimBilgileri.yatirim2.il', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 }
-      ]).then(result => {
-        console.log('🌍 İl dağılımı:', result?.length || 0, 'adet');
-        return result;
-      })
+      ])
     ]);
 
     res.json({
       success: true,
-      message: 'Dashboard widget verileri getirildi',
+      message: 'Yeni Teşvik dashboard widget verileri getirildi',
       data: {
+        source: 'new',
         ozet: {
           toplamTesvik,
           aktifTesvik,
@@ -676,19 +642,11 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
         ilBazindaDagilim
       }
     });
-    
-    console.log('✅ Dashboard widget verileri başarıyla hazırlandı');
-    
   } catch (error) {
-    console.error('🚨 Dashboard widget hatası - DETAY:');
-    console.error('Hata mesajı:', error.message);
-    console.error('Hata stack:', error.stack);
-    console.error('Hata adı:', error.name);
-    
+    console.error('🚨 Yeni Teşvik Dashboard widget hatası:', error);
     res.status(500).json({
       success: false,
-      message: 'Widget verileri alınırken hata oluştu',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+      message: 'Yeni teşvik widget verileri alınırken hata oluştu'
     });
   }
 });
@@ -696,35 +654,34 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
 // 🔔 GET /api/tesvik/alerts/süresi-dolacaklar - Süresi Dolacak Teşvikler
 router.get('/alerts/suresi-dolacaklar', authenticate, async (req, res) => {
   try {
-    const Tesvik = require('../models/Tesvik');
+    const YeniTesvik = require('../models/YeniTesvik');
     const { gunSayisi = 30 } = req.query;
-    
+
     const alertTarihi = new Date();
     alertTarihi.setDate(alertTarihi.getDate() + parseInt(gunSayisi));
-    
-    const suresiDolacaklar = await Tesvik.find({
+
+    const suresiDolacaklar = await YeniTesvik.find({
       aktif: true,
       'belgeYonetimi.belgebitisTarihi': {
         $lte: alertTarihi,
         $gte: new Date()
       }
     })
-    .populate('firma', 'tamUnvan firmaId')
-    .select('tesvikId yatirimciUnvan belgeYonetimi.belgebitisTarihi durumBilgileri')
-    .sort({ 'belgeYonetimi.belgebitisTarihi': 1 });
+      .populate('firma', 'tamUnvan firmaId')
+      .select('tesvikId yatirimciUnvan belgeYonetimi.belgebitisTarihi durumBilgileri')
+      .sort({ 'belgeYonetimi.belgebitisTarihi': 1 });
 
     res.json({
       success: true,
-      message: `${gunSayisi} gün içinde süresi dolacak teşvikler`,
+      message: `${gunSayisi} gün içinde süresi dolacak yeni teşvikler`,
       data: suresiDolacaklar,
       count: suresiDolacaklar.length
     });
-    
   } catch (error) {
-    console.error('🚨 Süre alert hatası:', error);
+    console.error('🚨 Yeni teşviklerde süre alert hatası:', error);
     res.status(500).json({
       success: false,
-      message: 'Süre uyarıları alınırken hata oluştu'
+      message: 'Yeni teşvikler için süre uyarıları alınırken hata oluştu'
     });
   }
 });

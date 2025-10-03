@@ -67,8 +67,7 @@ import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
 import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
-// 🏭 Yatırım Konusu NACE Kodları Import
-import { yatirimKonusuKodlari, yatirimKonusuKategorileri } from '../../data/yatirimKonusuData';
+// 🏭 Yatırım Konusu OECD 4 Haneli Kodları artık API'den çekiliyor (templateData.yatirimKonusuKodlari)
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
 // 🏪 Serbest Bölgeler Import
@@ -626,6 +625,7 @@ const YeniTesvikForm = () => {
     kapasiteBirimleri: [],
     osbOptions: [],
     yatirimKonusuKategorileri: [],
+    yatirimKonusuKodlari: [], // 🆕 OECD 4 Haneli Kodları
     u97Kodlari: [],
     destekUnsurlariOptions: [],
     destekSartlariOptions: [],
@@ -699,6 +699,18 @@ const YeniTesvikForm = () => {
       // API endpoint'i kullan - tüm veriler tek çağrıda!
       const response = await axios.get('/yeni-tesvik/templates');
 
+      // 🆕 OECD 4 Haneli Kodları API'den çek
+      let oecdKod4HaneliData = [];
+      try {
+        const oecdResponse = await axios.get('/lookup/oecd-4-haneli');
+        if (oecdResponse.data.success) {
+          oecdKod4HaneliData = oecdResponse.data.data || [];
+          console.log('✅ OECD 4 Haneli kodları yüklendi:', oecdKod4HaneliData.length);
+        }
+      } catch (oecdError) {
+        console.error('⚠️ OECD 4 Haneli kodları yüklenemedi:', oecdError);
+      }
+
       if (response.data.success) {
         const data = response.data.data;
         console.log('✅ Template data loaded:', {
@@ -709,7 +721,8 @@ const YeniTesvikForm = () => {
           belgeDurumlari: data.belgeDurumlari?.map(d => d.value),
           yatirimTipleri: data.yatirimTipleri?.map(d => d.value),
           destekUnsurlariOptions: data.destekUnsurlariOptions?.map(d => d.value),
-          destekSartlariOptions: data.destekSartlariOptions?.map(d => d.value)
+          destekSartlariOptions: data.destekSartlariOptions?.map(d => d.value),
+          oecdKod4Haneli: oecdKod4HaneliData.length
         });
         
         setTemplateData({
@@ -723,6 +736,7 @@ const YeniTesvikForm = () => {
           kapasiteBirimleri: data.kapasiteBirimleri || [],
           osbOptions: data.osbOptions || [],
           yatirimKonusuKategorileri: data.yatirimKonusuKategorileri || [],
+          yatirimKonusuKodlari: oecdKod4HaneliData, // 🆕 OECD 4 Haneli Kodları
           u97Kodlari: data.u97Kodlari || [],
           destekUnsurlariOptions: data.destekUnsurlariOptions || [],
           destekSartlariOptions: data.destekSartlariOptions || [],
@@ -2889,7 +2903,7 @@ const YeniTesvikForm = () => {
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-yatirimKonusu-label">
-                  🏭 Yatırım Konusu (NACE KODU SEÇİNİZ)
+                  🏭 Yatırım Konusu (OECD 4 HANELİ KOD SEÇİNİZ)
                 </InputLabel>
                 <Select
                 id="tesvikForm-yatirimKonusu"
@@ -2897,7 +2911,7 @@ const YeniTesvikForm = () => {
                   labelId="tesvikForm-yatirimKonusu-label"
                 value={formData.yatirimBilgileri1.yatirimKonusu}
                 onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
-                  label="🏭 Yatırım Konusu (NACE KODU SEÇİNİZ)"
+                  label="🏭 Yatırım Konusu (OECD 4 HANELİ KOD SEÇİNİZ)"
                 sx={{
                     backgroundColor: '#ffffff',
                     fontWeight: 500,
@@ -2906,36 +2920,25 @@ const YeniTesvikForm = () => {
                   }}
                 >
                   <MenuItem value="">
-                    <em>NACE kodunu seçiniz...</em>
+                    <em>OECD 4 haneli kodu seçiniz...</em>
                   </MenuItem>
-                  {yatirimKonusuKategorileri.map((kategori) => [
-                    <MenuItem key={`kategori-${kategori}`} disabled sx={{ 
-                      fontWeight: 'bold', 
-                      color: '#16a085',
-                      fontSize: '0.9rem',
-                      backgroundColor: '#f0f9f0',
-                      textTransform: 'uppercase'
-                    }}>
-                      📂 {kategori}
-                    </MenuItem>,
-                    ...yatirimKonusuKodlari
-                      .filter(item => item.kategori === kategori)
-                      .map((item) => (
-                        <MenuItem key={item.kod} value={item.kod} sx={{ pl: 3 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb' }}>
-                              {item.kod} - {item.aciklama.substring(0, 60)}
-                              {item.aciklama.length > 60 && '...'}
-                            </Typography>
-                            {item.aciklama.length > 60 && (
-                              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                                {item.aciklama.substring(60)}
-                              </Typography>
-                            )}
-                          </Box>
-                        </MenuItem>
-                      ))
-                  ]).flat()}
+                  {/* 🆕 OECD 4 Haneli Kodları - API'den çekilen veriler */}
+                  {templateData.yatirimKonusuKodlari && templateData.yatirimKonusuKodlari.length > 0 ? (
+                    templateData.yatirimKonusuKodlari.map((item) => (
+                      <MenuItem key={item.kod} value={item.kod}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb' }}>
+                            {item.kod} - {item.tanim.substring(0, 70)}
+                            {item.tanim.length > 70 && '...'}
+                          </Typography>
+                        </Box>
+                      </MenuItem>
+                    ))
+                  ) : (
+                    <MenuItem disabled>
+                      <em>Kodlar yükleniyor...</em>
+                    </MenuItem>
+                  )}
                 </Select>
               </FormControl>
             </Grid>

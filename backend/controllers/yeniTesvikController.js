@@ -2144,8 +2144,8 @@ const getNextGmIdValue = async () => {
   );
   
   let nextNumber = 1;
-  if (lastTesvik && lastYeniTesvik.gmId) {
-    const match = lastYeniTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
+  if (lastTesvik && lastTesvik.gmId) {
+    const match = lastTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
     if (match) {
       const year = parseInt(match[1]);
       const currentNumber = parseInt(match[2]);
@@ -2166,8 +2166,8 @@ const getNextTesvikIdValue = async () => {
   );
   
   let nextNumber = 1;
-  if (lastTesvik && lastYeniTesvik.tesvikId) {
-    const currentNumber = parseInt(lastYeniTesvik.tesvikId.slice(7));
+  if (lastTesvik && lastTesvik.tesvikId) {
+    const currentNumber = parseInt(lastTesvik.tesvikId.slice(7));
     nextNumber = currentNumber + 1;
   }
   

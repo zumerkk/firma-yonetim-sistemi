@@ -3335,6 +3335,7 @@ const buildRevisionTrackingData = async (tesvik) => {
               console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
             }
           }
+        }
         
         // CSV satırı oluştur
         const revizyonRow = await buildCsvDataRowWithSnapshot(revizyonSnapshot, revizyon, i + 1);
@@ -3396,8 +3397,6 @@ const buildRevisionTrackingData = async (tesvik) => {
     console.log(`   • Toplam değişiklik: ${totalChanges} alan`);
     
     return revisionData;
-    
-  }
 };
 // 🏗️ CSV DATA ROW BUILDER WITH SNAPSHOT - PROFESSIONAL DEBUG VERSION
 const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo = 0) => {

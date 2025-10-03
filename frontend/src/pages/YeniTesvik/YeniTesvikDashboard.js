@@ -248,11 +248,24 @@ const YeniTesvikDashboard = () => {
               gap: 2
             }}>
               <EmojiEventsIcon sx={{ fontSize: 32, color: '#dc2626' }} />
-              Belge Teşvik Sistemi
+              Yeni Teşvik Dashboard
+              <Chip 
+                label="Yalnızca Yeni Kayıtlar" 
+                size="small" 
+                sx={{ bgcolor: '#ecfdf5', color: '#065f46', border: '1px solid #10b981' }}
+              />
             </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Teşvik belgelerini yönetin, durumları takip edin ve raporlar alın
-            </Typography>
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Bu panelde yalnızca Yeni Teşvik sisteminde oluşturulan belgeler gösterilir.
+            </Alert>
+            <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+              <Button variant="contained" size="small" disabled sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>
+                Yeni Sistem
+              </Button>
+              <Button variant="outlined" size="small" onClick={() => navigate('/tesvik')}>
+                Legacy Sistem
+              </Button>
+            </Box>
           </Box>
 
           {error && (

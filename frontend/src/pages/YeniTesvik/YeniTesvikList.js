@@ -354,11 +354,20 @@ const YeniTesvikList = () => {
                 gap: 2
               }}>
                 <EmojiEventsIcon sx={{ fontSize: 32, color: '#dc2626' }} />
-                Teşvik Listesi
+                Yeni Teşvik Listesi
+                <Chip label="Yalnızca Yeni Kayıtlar" size="small" sx={{ bgcolor: '#ecfdf5', color: '#065f46', border: '1px solid #10b981' }} />
               </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Toplam {pagination.totalCount} teşvik kaydı
-              </Typography>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                Bu sayfada yalnızca Yeni Teşvik sisteminde oluşturulan belgeler listelenir. Toplam {pagination.totalCount} yeni kayıt.
+              </Alert>
+              <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                <Button variant="contained" size="small" disabled sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>
+                  Yeni Sistem
+                </Button>
+                <Button variant="outlined" size="small" onClick={() => navigate('/tesvik/liste')}>
+                  Legacy Sistem
+                </Button>
+              </Box>
             </Box>
             
             <Box sx={{ display: 'flex', gap: 2 }}>

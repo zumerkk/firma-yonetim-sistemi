@@ -4,6 +4,7 @@ const UnitCode = require('../models/UnitCode');
 const CurrencyCode = require('../models/CurrencyCode');
 const UsedMachineCode = require('../models/UsedMachineCode');
 const MachineTypeCode = require('../models/MachineTypeCode');
+const OecdKod4Haneli = require('../models/OecdKod4Haneli');
 
 // GET /api/lookup/unit?search=SET&limit=50
 const searchUnits = async (req, res) => {
@@ -136,6 +137,38 @@ module.exports.searchMachineTypes = async (req, res) => {
   } catch (e) {
     console.error('❌ MachineType search error:', e);
     return res.status(500).json({ success: false, message: 'Makine tipi arama hatası' });
+  }
+};
+
+// GET /api/lookup/oecd-4-haneli?search=...
+// Yeni Teşvik Sistemi için OECD 4 Haneli Kodları (XX.XX formatı)
+module.exports.searchOecdKod4Haneli = async (req, res) => {
+  try {
+    const { search = '', limit = 100 } = req.query;
+    
+    let data;
+    if (search && search.trim()) {
+      // Arama varsa searchCodes kullan
+      data = await OecdKod4Haneli.searchCodes(search, parseInt(limit) || 100);
+    } else {
+      // Arama yoksa tüm aktif kodları getir
+      data = await OecdKod4Haneli.getAllActive();
+    }
+    
+    return res.json({ 
+      success: true, 
+      count: data.length, 
+      data: data.map(item => ({
+        _id: item._id,
+        kod: item.kod,
+        tanim: item.tanim,
+        aktif: item.aktif,
+        kullanimSayisi: item.kullanimSayisi
+      }))
+    });
+  } catch (e) {
+    console.error('❌ OECD 4 Haneli search error:', e);
+    return res.status(500).json({ success: false, message: 'OECD 4 Haneli kod arama hatası' });
   }
 };
 
