@@ -3,6 +3,7 @@
 // Gelişmiş özellikler + bonus hesaplama sistemi
 
 const mongoose = require('mongoose');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // 💰 Mali Hesaplamalar Schema
 const maliHesaplamalarSchema = new mongoose.Schema({
@@ -1399,13 +1400,14 @@ tesvikSchema.statics.getStatistics = async function() {
 };
 
 tesvikSchema.statics.searchTesvikler = function(searchTerm) {
-  const regex = new RegExp(searchTerm, 'i');
+  // Türkçe karakter duyarsız regex oluştur
+  const turkishRegex = createTurkishInsensitiveRegex(searchTerm);
   return this.find({
     $or: [
-      { tesvikId: regex },
-      { gmId: regex },
-      { yatirimciUnvan: regex },
-      { 'yatirimBilgileri.yatirimKonusu': regex }
+      { tesvikId: turkishRegex },
+      { gmId: turkishRegex },
+      { yatirimciUnvan: turkishRegex },
+      { 'yatirimBilgileri.yatirimKonusu': turkishRegex }
     ],
     aktif: true
   }).sort({ createdAt: -1 });

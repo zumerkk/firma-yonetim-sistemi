@@ -68,6 +68,8 @@ import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
 import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
 // 🏭 Yatırım Konusu NACE Kodları Import
+// 🔤 Türkçe Karakter Utils
+import { turkishIncludes } from '../../utils/turkishUtils';
 import { yatirimKonusuKodlari, yatirimKonusuKategorileri } from '../../data/yatirimKonusuData';
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -2276,13 +2278,12 @@ const TesvikForm = () => {
             }
           }}
           filterOptions={(options, { inputValue }) => {
-            // Çoklu arama: Firma ID, Ünvan, Vergi No
+            // Çoklu arama: Firma ID, Ünvan, Vergi No - Türkçe karakter duyarsız
             const filtered = options.filter(option => {
-              const searchText = inputValue.toLowerCase();
               return (
-                option.firmaId.toLowerCase().includes(searchText) ||
-                option.tamUnvan.toLowerCase().includes(searchText) ||
-                (option.vergiNoTC && option.vergiNoTC.includes(searchText))
+                turkishIncludes(option.firmaId, inputValue) ||
+                turkishIncludes(option.tamUnvan, inputValue) ||
+                (option.vergiNoTC && turkishIncludes(option.vergiNoTC, inputValue))
               );
             });
             return filtered;

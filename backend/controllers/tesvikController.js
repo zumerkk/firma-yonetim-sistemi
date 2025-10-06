@@ -8,6 +8,7 @@ const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
 const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const { validationResult } = require('express-validator');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -242,14 +243,14 @@ const getTesvikler = async (req, res) => {
       if (tarihBitis) query.createdAt.$lte = new Date(tarihBitis);
     }
     
-    // Arama filtresi
+    // Arama filtresi - Türkçe karakter duyarsız
     if (search) {
-      const searchRegex = new RegExp(search, 'i');
+      const turkishRegex = createTurkishInsensitiveRegex(search);
       query.$or = [
-        { tesvikId: searchRegex },
-        { gmId: searchRegex },
-        { yatirimciUnvan: searchRegex },
-        { 'yatirimBilgileri.yatirimKonusu': searchRegex }
+        { tesvikId: turkishRegex },
+        { gmId: turkishRegex },
+        { yatirimciUnvan: turkishRegex },
+        { 'yatirimBilgileri.yatirimKonusu': turkishRegex }
       ];
     }
 

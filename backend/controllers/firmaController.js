@@ -11,6 +11,7 @@ const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs-extra');
 const path = require('path');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // 🎯 Success Response Helper
 const sendSuccess = (res, data, message = 'İşlem başarılı', statusCode = 200) => {
@@ -260,13 +261,14 @@ const getFirmalar = async (req, res) => {
       filter.anaFaaliyetKonusu = anaFaaliyetKonusu;
     }
 
-    // Arama filtresi
+    // Arama filtresi - Türkçe karakter duyarsız
     if (arama) {
+      const turkishRegex = createTurkishInsensitiveRegex(arama);
       filter.$or = [
-        { tamUnvan: { $regex: arama, $options: 'i' } },
-        { vergiNoTC: { $regex: arama, $options: 'i' } },
-        { firmaId: { $regex: arama, $options: 'i' } },
-        { ilkIrtibatKisi: { $regex: arama, $options: 'i' } }
+        { tamUnvan: turkishRegex },
+        { vergiNoTC: turkishRegex },
+        { firmaId: turkishRegex },
+        { ilkIrtibatKisi: turkishRegex }
       ];
     }
 
@@ -520,7 +522,7 @@ const deleteFirma = async (req, res) => {
   }
 };
 
-// 🔍 Firma Arama
+// 🔍 Firma Arama - Türkçe Karakter Duyarsız
 const searchFirmalar = async (req, res) => {
   try {
     const { q, field } = req.query;
@@ -530,17 +532,18 @@ const searchFirmalar = async (req, res) => {
     }
 
     let firmalar = [];
+    const turkishRegex = createTurkishInsensitiveRegex(q);
 
     if (field) {
-      // Belirli alanda arama
+      // Belirli alanda arama - Türkçe karakter duyarsız
       const filter = { aktif: true };
       
       if (field === 'vergiNoTC') {
-        filter.vergiNoTC = { $regex: q, $options: 'i' };
+        filter.vergiNoTC = turkishRegex;
       } else if (field === 'tamUnvan') {
-        filter.tamUnvan = { $regex: q.toUpperCase(), $options: 'i' };
+        filter.tamUnvan = turkishRegex;
       } else if (field === 'firmaId') {
-        filter.firmaId = { $regex: q.toUpperCase(), $options: 'i' };
+        filter.firmaId = turkishRegex;
       } else {
         return sendError(res, 'Geçersiz arama alanı', 400);
       }
@@ -551,7 +554,7 @@ const searchFirmalar = async (req, res) => {
         .limit(20)
         .lean();
     } else {
-      // Genel arama
+      // Genel arama - Türkçe karakter duyarsız
       firmalar = await Firma.searchFirmalar(q)
         .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi')
         .limit(20)
@@ -571,7 +574,7 @@ const searchFirmalar = async (req, res) => {
   }
 };
 
-// 🔍 Tek Alan Araması
+// 🔍 Tek Alan Araması - Türkçe Karakter Duyarsız
 const searchByField = async (req, res) => {
   try {
     const { field, value } = req.params;
@@ -581,16 +584,17 @@ const searchByField = async (req, res) => {
     }
 
     let filter = { aktif: true };
+    const turkishRegex = createTurkishInsensitiveRegex(value);
 
     switch (field) {
       case 'vergiNoTC':
-        filter.vergiNoTC = value;
+        filter.vergiNoTC = turkishRegex;
         break;
       case 'firmaId':
-        filter.firmaId = value.toUpperCase();
+        filter.firmaId = turkishRegex;
         break;
       case 'tamUnvan':
-        filter.tamUnvan = { $regex: value.toUpperCase(), $options: 'i' };
+        filter.tamUnvan = turkishRegex;
         break;
       default:
         return sendError(res, 'Geçersiz arama alanı', 400);

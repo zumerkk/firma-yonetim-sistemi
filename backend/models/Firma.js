@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // 👥 Yetkili Kişi Schema - Enterprise Format
 const yetkiliKisiSchema = new mongoose.Schema({
@@ -321,16 +322,15 @@ firmaSchema.statics.findByFirmaId = function(firmaId) {
 };
 
 firmaSchema.statics.searchFirmalar = function(searchTerm) {
-  const upperSearchTerm = searchTerm.toUpperCase();
-  const regex = new RegExp(upperSearchTerm, 'i');
-  const originalRegex = new RegExp(searchTerm, 'i');
+  // Türkçe karakter duyarsız regex oluştur
+  const turkishRegex = createTurkishInsensitiveRegex(searchTerm);
   
   return this.find({
     $or: [
-      { tamUnvan: regex },
-      { firmaId: regex },
-      { vergiNoTC: originalRegex },
-      { ilkIrtibatKisi: originalRegex }
+      { tamUnvan: turkishRegex },
+      { firmaId: turkishRegex },
+      { vergiNoTC: turkishRegex },
+      { ilkIrtibatKisi: turkishRegex }
     ],
     aktif: true
   }).sort({ tamUnvan: 1 });
