@@ -713,6 +713,30 @@ const YeniTesvikForm = () => {
         console.error('⚠️ OECD 4 Haneli kodları yüklenemedi:', oecdError);
       }
 
+      // 🎓 Dinamik Destek Unsurları API'den çek (Öğrenen Sistem)
+      let dinamikDestekUnsurlari = [];
+      try {
+        const destekResponse = await axios.get('/lookup/destek-unsuru');
+        if (destekResponse.data.success) {
+          dinamikDestekUnsurlari = destekResponse.data.data || [];
+          console.log('✅ Dinamik destek unsurları yüklendi:', dinamikDestekUnsurlari.length);
+        }
+      } catch (destekError) {
+        console.error('⚠️ Dinamik destek unsurları yüklenemedi:', destekError);
+      }
+
+      // 🏷️ Dinamik Özel Şartlar API'den çek (Öğrenen Sistem)
+      let dinamikOzelSartlar = [];
+      try {
+        const ozelSartResponse = await axios.get('/lookup/ozel-sart');
+        if (ozelSartResponse.data.success) {
+          dinamikOzelSartlar = ozelSartResponse.data.data || [];
+          console.log('✅ Dinamik özel şartlar yüklendi:', dinamikOzelSartlar.length);
+        }
+      } catch (ozelSartError) {
+        console.error('⚠️ Dinamik özel şartlar yüklenemedi:', ozelSartError);
+      }
+
       if (response.data.success) {
         const data = response.data.data;
         console.log('✅ Template data loaded:', {
@@ -727,6 +751,33 @@ const YeniTesvikForm = () => {
           oecdKod4Haneli: oecdKod4HaneliData.length
         });
         
+        // 🎯 CSV verileriyle dinamik verileri birleştir (Akıllı Öğrenme)
+        const mergedDestekUnsurlari = [
+          ...(data.destekUnsurlariOptions || []),
+          ...dinamikDestekUnsurlari.map(item => ({
+            value: item.value,
+            label: item.label,
+            kategori: item.kategori,
+            renk: item.renk,
+            isDynamic: true // Dinamik eklenen işaretle
+          }))
+        ];
+
+        const mergedOzelSartlar = [
+          ...(data.ozelSartKisaltmalari || []),
+          ...dinamikOzelSartlar.map(item => ({
+            kisaltma: item.kisaltma,
+            aciklama: item.aciklama,
+            kategori: item.kategori,
+            isDynamic: true // Dinamik eklenen işaretle
+          }))
+        ];
+
+        console.log('🔄 Birleştirilmiş veriler:', {
+          destekUnsurlari: mergedDestekUnsurlari.length,
+          ozelSartlar: mergedOzelSartlar.length
+        });
+
         setTemplateData({
           firmalar: data.firmalar || [],
           durumlar: data.durumlar || [],
@@ -740,10 +791,10 @@ const YeniTesvikForm = () => {
           yatirimKonusuKategorileri: data.yatirimKonusuKategorileri || [],
           yatirimKonusuKodlari: oecdKod4HaneliData, // 🆕 OECD 4 Haneli Kodları
           u97Kodlari: data.u97Kodlari || [],
-          destekUnsurlariOptions: data.destekUnsurlariOptions || [],
+          destekUnsurlariOptions: mergedDestekUnsurlari, // 🎓 CSV + Dinamik
           destekSartlariOptions: data.destekSartlariOptions || [],
           oecdKategorileri: data.oecdKategorileri || [],
-          ozelSartKisaltmalari: data.ozelSartKisaltmalari || [],
+          ozelSartKisaltmalari: mergedOzelSartlar, // 🎓 CSV + Dinamik
           ozelSartNotlari: data.ozelSartNotlari || [],
           nextGmId: data.nextGmId || '',
           nextTesvikId: data.nextTesvikId || ''
@@ -1006,23 +1057,17 @@ const YeniTesvikForm = () => {
             tesvikOrani: backendData.kunyeBilgileri?.tesvikOrani || 0
           },
           
-          // 🎯 Destek Unsurları - Backend formatından frontend formatına çevir
-          destekUnsurlari: backendData.destekUnsurlari?.map(destek => ({
-            index: destek._id || Math.random().toString(36).substr(2, 9),
-            // 🔧 Problematik değerleri temizle
-            destekUnsuru: cleanProblematicValue(destek.destekUnsuru),
-            sartlari: cleanProblematicValue(destek.sarti),
-            aciklama: destek.aciklama || ''
-          })) || [],
+          // 🎯 Destek Unsurları - YENİ SİSTEMDE ESKİ BELGEDEN YÜKLEME YOK
+          // Müşteri talebi: Yeni teşvik sisteminde her zaman temiz başlasın
+          destekUnsurlari: [
+            { index: 1, destekUnsuru: '', sartlari: '' }
+          ],
           
-          // ⚖️ Özel Şartlar - Backend formatından frontend formatına çevir 
-          ozelSartlar: backendData.ozelSartlar?.map(sart => ({
-            index: sart.koşulNo || Math.random().toString(36).substr(2, 9),
-            // 🔧 DOĞRU MAPPİNG: Backend koşulMetni → Frontend kisaltma (Ana metin)
-            kisaltma: cleanProblematicValue(sart.koşulMetni) || '',
-            // 🔧 DOĞRU MAPPİNG: Backend aciklamaNotu → Frontend notu (Açıklama)
-            notu: cleanProblematicValue(sart.aciklamaNotu) || ''
-          })) || []
+          // ⚖️ Özel Şartlar - YENİ SİSTEMDE ESKİ BELGEDEN YÜKLEME YOK
+          // Müşteri talebi: Yeni teşvik sisteminde her zaman temiz başlasın
+          ozelSartlar: [
+            { index: 1, kisaltma: '', notu: '' }
+          ]
         };
         
         console.log('🔄 Backend data mapped to frontend format:', mappedData);
@@ -1050,21 +1095,13 @@ const YeniTesvikForm = () => {
         // Ürün bilgileri satır sayısını ayarla - DÜZELTME: Single row olmalı edit'te
         setUrunSayisi(1); // ✅ Kullanıcı isteği: Edit'te 1 satır başlasın
         
-        // Destek unsurları satır sayısını hesapla
-        const destekCount = Math.max(1, mappedData.destekUnsurlari?.length || 1);
-        setDestekSayisi(destekCount);
-        console.log('🎯 Destek unsurları yüklendi:', {
-          count: destekCount,
-          data: mappedData.destekUnsurlari
-        });
+        // 🆕 Destek unsurları - YENİ SİSTEMDE HER ZAMAN 1 BOŞ SATIRLA BAŞLA
+        setDestekSayisi(1);
+        console.log('🎯 Destek unsurları yeni sistemde temiz başlatıldı: 1 boş satır');
 
-        // Özel şartlar satır sayısını hesapla
-        const ozelSartCount = Math.max(1, mappedData.ozelSartlar?.length || 1);
-        setOzelSartSayisi(ozelSartCount);
-        console.log('⚖️ Özel şartlar yüklendi:', {
-          count: ozelSartCount,
-          data: mappedData.ozelSartlar
-        });
+        // 🆕 Özel şartlar - YENİ SİSTEMDE HER ZAMAN 1 BOŞ SATIRLA BAŞLA
+        setOzelSartSayisi(1);
+        console.log('⚖️ Özel şartlar yeni sistemde temiz başlatıldı: 1 boş satır');
       }
     } catch (error) {
       console.error('🚨 Teşvik data hatası:', error);
@@ -1695,14 +1732,16 @@ const YeniTesvikForm = () => {
     });
   };
 
-  // 🎯 ======== DİNAMİK VERİ EKLEME FONKSİYONLARI ========
+  // 🎯 ======== DİNAMİK ÖĞRENEN SİSTEM - VERİ EKLEME FONKSİYONLARI ========
 
-  // Yeni Destek Unsuru Ekleme
+  // 📚 Yeni Destek Unsuru Ekleme (Akıllı Öğrenme)
   const addNewDestekUnsuru = async (value) => {
     if (!value || value.length < 3) return; // En az 3 karakter
     
     try {
-      const response = await axios.post('/yeni-tesvik/dynamic/destek-unsuru', {
+      console.log('🎓 Sistem yeni destek unsuru öğreniyor:', value);
+      
+      const response = await axios.post('/lookup/destek-unsuru', {
         value: value.trim(),
         label: value.trim(),
         kategori: 'Diğer',
@@ -1710,7 +1749,9 @@ const YeniTesvikForm = () => {
       });
 
       if (response.data.success) {
-        // CRITICAL FIX: Template data'yı yenile!
+        console.log('✅ Yeni destek unsuru sisteme kaydedildi:', response.data);
+        
+        // Template data'yı yenile
         try {
           const templateResponse = await axios.get('/yeni-tesvik/templates');
           if (templateResponse.data.success) {
@@ -1735,20 +1776,24 @@ const YeniTesvikForm = () => {
     }
   };
 
-  // Yeni Destek Şartı Ekleme
+  // 📋 Yeni Destek Şartı Ekleme (Akıllı Öğrenme) - ✅ AKTİF
   const addNewDestekSarti = async (value) => {
     if (!value || value.length < 3) return;
     
     try {
-      const response = await axios.post('/yeni-tesvik/dynamic/destek-sarti', {
+      console.log('🎓 Sistem yeni destek şartı öğreniyor:', value);
+      
+      const response = await axios.post('/lookup/destek-sarti', {
         value: value.trim(),
         label: value.trim(),
         kategori: 'Diğer'
       });
 
       if (response.data.success) {
+        console.log('✅ Yeni destek şartı sisteme kaydedildi:', response.data);
+        
+        // Template data'yı yenile
         await loadInitialData();
-        console.log('✅ Yeni destek şartı eklendi:', value);
         setSuccess(`✅ "${value}" destek şartı sisteme eklendi!`);
       }
     } catch (error) {
@@ -1761,12 +1806,12 @@ const YeniTesvikForm = () => {
     }
   };
 
-  // Yeni Özel Şart Ekleme - ENHANCED DEBUG
+  // 🏷️ Yeni Özel Şart Ekleme (Akıllı Öğrenme)
   const addNewOzelSart = async (value) => {
-    console.log(`🆕 [DEBUG] addNewOzelSart çağrıldı:`, { value, length: value?.length });
+    console.log(`🎓 Sistem yeni özel şart öğreniyor:`, { value, length: value?.length });
     
     if (!value || value.length < 2) {
-      console.log(`❌ [DEBUG] Value çok kısa, eklenmedi:`, value);
+      console.log(`⚠️ Değer çok kısa, minimum 2 karakter gerekli:`, value);
       return;
     }
     
@@ -1774,12 +1819,12 @@ const YeniTesvikForm = () => {
       const kisaltma = value.trim().toUpperCase();
       const aciklama = value.length > 10 ? value.trim() : `${kisaltma} Açıklaması`;
       
-      console.log(`📡 [DEBUG] Backend'e POST isteği gönderiliyor:`, {
-        endpoint: '/yeni-tesvik/dynamic/ozel-sart',
+      console.log(`📡 Backend'e POST isteği gönderiliyor:`, {
+        endpoint: '/lookup/ozel-sart',
         data: { kisaltma, aciklama, kategori: 'Diğer' }
       });
       
-      const response = await axios.post('/yeni-tesvik/dynamic/ozel-sart', {
+      const response = await axios.post('/lookup/ozel-sart', {
         kisaltma: kisaltma,
         aciklama: aciklama,
         kategori: 'Diğer'
@@ -2220,17 +2265,25 @@ const YeniTesvikForm = () => {
         />
       </Grid>
       
-      {/* TALEP/SONUÇ */}
+      {/* TALEP/SONUÇ - DROPDOWN SEÇİM */}
       <Grid item xs={12} md={6}>
         <TextField
           id="tesvikForm-talepSonuc"
           name="talepSonuc"
           fullWidth
+          select
           label="TALEP/SONUÇ"
           value={formData.kunyeBilgileri?.talepSonuc || ''}
           onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
-          placeholder="Talep sonucu giriniz..."
-        />
+          helperText="Belge türünü seçiniz"
+        >
+          <MenuItem value="">
+            <em>Seçiniz...</em>
+          </MenuItem>
+          <MenuItem value="Taslak">Taslak</MenuItem>
+          <MenuItem value="Talep">Talep</MenuItem>
+          <MenuItem value="Sonuç">Sonuç</MenuItem>
+        </TextField>
       </Grid>
       
       {/* REVIZE ID */}
@@ -5473,13 +5526,14 @@ const YeniTesvikForm = () => {
             <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
-                label="Taşıma ve Sigorta G."
+                label="Montaj Giderleri"
                 type="number"
                 value={formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri}
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
+                helperText="Taşıma, Sigorta ve Montaj Giderleri"
               />
             </Grid>
             <Grid item xs={12} md={2}>

@@ -603,13 +603,14 @@ router.get('/dashboard/widgets', authenticate, async (req, res) => {
         aktif: true,
         'durumBilgileri.genelDurum': 'onaylandi'
       }),
-      // 5. Son 5 yeni teşvik
+      // 5. Son 5 yeni teşvik - POPULATE FIX
       YeniTesvik.find({ aktif: true })
+        .populate('olusturanKullanici', 'adSoyad email rol')
+        .populate('firma', 'tamUnvan firmaId')
+        .select('tesvikId yatirimciUnvan durumBilgileri createdAt firmaId olusturanKullanici firma')
         .sort({ createdAt: -1 })
         .limit(5)
-        .select('tesvikId yatirimciUnvan durumBilgileri createdAt firmaId olusturanKullanici')
-        .populate('olusturanKullanici', 'adSoyad email rol')
-        .populate('firma', 'tamUnvan firmaId'),
+        .lean(),
       // 6. Durum dağılımı (yeni)
       YeniTesvik.aggregate([
         { $match: { aktif: true } },

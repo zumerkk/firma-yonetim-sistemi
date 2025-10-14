@@ -34,6 +34,7 @@ import YeniTesvikDashboard from '../pages/YeniTesvik/YeniTesvikDashboard';
 import YeniTesvikList from '../pages/YeniTesvik/YeniTesvikList'; 
 import YeniTesvikForm from '../pages/YeniTesvik/YeniTesvikForm';
 import YeniTesvikDetail from '../pages/YeniTesvik/YeniTesvikDetail';
+import YeniMakineYonetimi from '../pages/YeniTesvik/MakineYonetimi';
 
 
 
@@ -173,7 +174,12 @@ const AppRouter = () => {
         </ProtectedRoute>
       } />
 
-    
+      {/* 🛠️ Yeni Teşvik - Makine Teçhizat Yönetimi */}
+      <Route path="/yeni-tesvik/makine-yonetimi" element={
+        <ProtectedRoute>
+          <YeniMakineYonetimi />
+        </ProtectedRoute>
+      } />
 
       
       {/* 📋 Diğer Sayfalar */}

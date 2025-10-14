@@ -124,6 +124,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       permission: 'belgeEkle',
       description: 'Yeni sistem teşvik belgesi',
       isNew: true
+    },
+    {
+      text: 'Makine Teçhizat Yönetimi',
+      icon: <EmojiEventsIcon />,
+      path: '/yeni-tesvik/makine-yonetimi',
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      description: 'Makine/Teçhizat kayıt ve yönetimi',
+      isNew: true
     }
   ];
 

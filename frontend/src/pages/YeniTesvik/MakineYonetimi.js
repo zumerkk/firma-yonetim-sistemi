@@ -3,7 +3,7 @@ import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Too
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
-import yeniTesvikService from '../../services/yeni-yeniTesvikService';
+import yeniTesvikService from '../../services/yeniTesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
 import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';

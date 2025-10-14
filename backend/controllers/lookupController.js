@@ -6,6 +6,14 @@ const UsedMachineCode = require('../models/UsedMachineCode');
 const MachineTypeCode = require('../models/MachineTypeCode');
 const OecdKod4Haneli = require('../models/OecdKod4Haneli');
 
+// 🆕 Dinamik Seçenekler - Öğrenen Sistem
+const { 
+  DestekUnsuru, 
+  DestekSarti, 
+  OzelSart, 
+  OzelSartNotu 
+} = require('../models/DynamicOptions');
+
 // GET /api/lookup/unit?search=SET&limit=50
 const searchUnits = async (req, res) => {
   try {
@@ -169,6 +177,328 @@ module.exports.searchOecdKod4Haneli = async (req, res) => {
   } catch (e) {
     console.error('❌ OECD 4 Haneli search error:', e);
     return res.status(500).json({ success: false, message: 'OECD 4 Haneli kod arama hatası' });
+  }
+};
+
+// ========================================
+// 🎯 DİNAMİK ÖĞRENEN SİSTEM - DESTEK UNSURLARI & ÖZEL ŞARTLAR
+// ========================================
+
+// 📚 GET /api/lookup/destek-unsuru - Destek Unsurlarını Getir (Arama + Öğrenme)
+module.exports.getDestekUnsurlari = async (req, res) => {
+  try {
+    const { search = '', limit = 100, kategori } = req.query;
+    
+    const query = { aktif: true };
+    
+    // Kategori filtresi
+    if (kategori) {
+      query.kategori = kategori;
+    }
+    
+    // Arama filtresi
+    if (search && search.trim()) {
+      query.$or = [
+        { value: new RegExp(search, 'i') },
+        { label: new RegExp(search, 'i') }
+      ];
+    }
+    
+    const data = await DestekUnsuru.find(query)
+      .sort({ kullanimSayisi: -1, createdAt: -1 }) // En çok kullanılanlar önce
+      .limit(parseInt(limit))
+      .lean();
+    
+    return res.json({
+      success: true,
+      count: data.length,
+      data: data.map(item => ({
+        _id: item._id,
+        value: item.value,
+        label: item.label,
+        kategori: item.kategori,
+        renk: item.renk,
+        kullanimSayisi: item.kullanimSayisi
+      }))
+    });
+  } catch (e) {
+    console.error('❌ Destek Unsuru arama hatası:', e);
+    return res.status(500).json({ success: false, message: 'Destek unsurları alınırken hata oluştu' });
+  }
+};
+
+// 📝 POST /api/lookup/destek-unsuru - Yeni Destek Unsuru Ekle (Öğrenme)
+module.exports.addDestekUnsuru = async (req, res) => {
+  try {
+    const { value, label, kategori = 'Diğer', renk = '#6B7280' } = req.body;
+    
+    if (!value || !label) {
+      return res.status(400).json({
+        success: false,
+        message: 'Destek unsuru bilgileri eksik'
+      });
+    }
+    
+    // Aynı value zaten var mı kontrol et
+    const existing = await DestekUnsuru.findOne({ value: value.trim() });
+    if (existing) {
+      // Varsa kullanım sayısını artır
+      await existing.incrementUsage();
+      return res.json({
+        success: true,
+        message: 'Mevcut destek unsuru kullanıldı',
+        data: existing,
+        isNew: false
+      });
+    }
+    
+    // Yeni ekle
+    const newDestekUnsuru = new DestekUnsuru({
+      value: value.trim(),
+      label: label.trim(),
+      kategori,
+      renk,
+      ekleyenKullanici: req.user._id,
+      kullanimSayisi: 1 // İlk kullanım
+    });
+    
+    await newDestekUnsuru.save();
+    
+    console.log(`✅ Yeni destek unsuru öğrenildi: ${value} (${req.user.adSoyad})`);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'Yeni destek unsuru sisteme kaydedildi',
+      data: newDestekUnsuru,
+      isNew: true
+    });
+  } catch (e) {
+    console.error('❌ Destek unsuru ekleme hatası:', e);
+    
+    // Duplicate key hatası
+    if (e.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu destek unsuru zaten mevcut'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Destek unsuru eklenirken hata oluştu' 
+    });
+  }
+};
+
+// 🏷️ GET /api/lookup/ozel-sart - Özel Şartları Getir (Arama + Öğrenme)
+module.exports.getOzelSartlar = async (req, res) => {
+  try {
+    const { search = '', limit = 100, kategori } = req.query;
+    
+    const query = { aktif: true };
+    
+    // Kategori filtresi
+    if (kategori) {
+      query.kategori = kategori;
+    }
+    
+    // Arama filtresi
+    if (search && search.trim()) {
+      query.$or = [
+        { kisaltma: new RegExp(search, 'i') },
+        { aciklama: new RegExp(search, 'i') }
+      ];
+    }
+    
+    const data = await OzelSart.find(query)
+      .sort({ kullanimSayisi: -1, createdAt: -1 }) // En çok kullanılanlar önce
+      .limit(parseInt(limit))
+      .lean();
+    
+    return res.json({
+      success: true,
+      count: data.length,
+      data: data.map(item => ({
+        _id: item._id,
+        kisaltma: item.kisaltma,
+        aciklama: item.aciklama,
+        kategori: item.kategori,
+        kullanimSayisi: item.kullanimSayisi
+      }))
+    });
+  } catch (e) {
+    console.error('❌ Özel Şart arama hatası:', e);
+    return res.status(500).json({ success: false, message: 'Özel şartlar alınırken hata oluştu' });
+  }
+};
+
+// 📋 GET /api/lookup/destek-sarti - Destek Şartlarını Getir (Arama + Öğrenme)
+module.exports.getDestekSartlari = async (req, res) => {
+  try {
+    const { search = '', limit = 100, kategori } = req.query;
+    
+    const query = { aktif: true };
+    
+    // Kategori filtresi
+    if (kategori) {
+      query.kategori = kategori;
+    }
+    
+    // Arama filtresi
+    if (search && search.trim()) {
+      query.$or = [
+        { value: new RegExp(search, 'i') },
+        { label: new RegExp(search, 'i') }
+      ];
+    }
+    
+    const data = await DestekSarti.find(query)
+      .sort({ kullanimSayisi: -1, createdAt: -1 }) // En çok kullanılanlar önce
+      .limit(parseInt(limit))
+      .lean();
+    
+    return res.json({
+      success: true,
+      count: data.length,
+      data: data.map(item => ({
+        _id: item._id,
+        value: item.value,
+        label: item.label,
+        kategori: item.kategori,
+        yuzde: item.yuzde,
+        yil: item.yil,
+        kullanimSayisi: item.kullanimSayisi
+      }))
+    });
+  } catch (e) {
+    console.error('❌ Destek Şartı arama hatası:', e);
+    return res.status(500).json({ success: false, message: 'Destek şartları alınırken hata oluştu' });
+  }
+};
+
+// 📝 POST /api/lookup/destek-sarti - Yeni Destek Şartı Ekle (Öğrenme)
+module.exports.addDestekSarti = async (req, res) => {
+  try {
+    const { value, label, kategori = 'Diğer', yuzde, yil } = req.body;
+    
+    if (!value || !label) {
+      return res.status(400).json({
+        success: false,
+        message: 'Destek şartı bilgileri eksik'
+      });
+    }
+    
+    // Aynı value zaten var mı kontrol et
+    const existing = await DestekSarti.findOne({ value: value.trim() });
+    if (existing) {
+      // Varsa kullanım sayısını artır
+      await existing.incrementUsage();
+      return res.json({
+        success: true,
+        message: 'Mevcut destek şartı kullanıldı',
+        data: existing,
+        isNew: false
+      });
+    }
+    
+    // Yeni ekle
+    const newDestekSarti = new DestekSarti({
+      value: value.trim(),
+      label: label.trim(),
+      kategori,
+      yuzde: yuzde || undefined,
+      yil: yil || undefined,
+      ekleyenKullanici: req.user._id,
+      kullanimSayisi: 1 // İlk kullanım
+    });
+    
+    await newDestekSarti.save();
+    
+    console.log(`✅ Yeni destek şartı öğrenildi: ${value} (${req.user.adSoyad})`);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'Yeni destek şartı sisteme kaydedildi',
+      data: newDestekSarti,
+      isNew: true
+    });
+  } catch (e) {
+    console.error('❌ Destek şartı ekleme hatası:', e);
+    
+    // Duplicate key hatası
+    if (e.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu destek şartı zaten mevcut'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Destek şartı eklenirken hata oluştu' 
+    });
+  }
+};
+
+// 📝 POST /api/lookup/ozel-sart - Yeni Özel Şart Ekle (Öğrenme)
+module.exports.addOzelSart = async (req, res) => {
+  try {
+    const { kisaltma, aciklama, kategori = 'Diğer' } = req.body;
+    
+    if (!kisaltma || !aciklama) {
+      return res.status(400).json({
+        success: false,
+        message: 'Özel şart bilgileri eksik'
+      });
+    }
+    
+    // Aynı kısaltma zaten var mı kontrol et
+    const existing = await OzelSart.findOne({ kisaltma: kisaltma.trim().toUpperCase() });
+    if (existing) {
+      // Varsa kullanım sayısını artır
+      await existing.incrementUsage();
+      return res.json({
+        success: true,
+        message: 'Mevcut özel şart kullanıldı',
+        data: existing,
+        isNew: false
+      });
+    }
+    
+    // Yeni ekle
+    const newOzelSart = new OzelSart({
+      kisaltma: kisaltma.trim().toUpperCase(),
+      aciklama: aciklama.trim(),
+      kategori,
+      ekleyenKullanici: req.user._id,
+      kullanimSayisi: 1 // İlk kullanım
+    });
+    
+    await newOzelSart.save();
+    
+    console.log(`✅ Yeni özel şart öğrenildi: ${kisaltma} (${req.user.adSoyad})`);
+    
+    return res.status(201).json({
+      success: true,
+      message: 'Yeni özel şart sisteme kaydedildi',
+      data: newOzelSart,
+      isNew: true
+    });
+  } catch (e) {
+    console.error('❌ Özel şart ekleme hatası:', e);
+    
+    // Duplicate key hatası
+    if (e.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bu özel şart zaten mevcut'
+      });
+    }
+    
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Özel şart eklenirken hata oluştu' 
+    });
   }
 };
 
