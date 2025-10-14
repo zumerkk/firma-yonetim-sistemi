@@ -329,12 +329,13 @@ const YeniTesvikDetail = () => {
     }
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 🔔 Liste ekranından revizyon başlatıldıysa modalı otomatik aç
+  // 🔔 Liste ekranından revizyon başlatıldıysa modalı otomatik aç ve düzenleme moduna yönlendir
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('revizyon') === '1') {
         setRevizyonModalOpen(true);
+        setAfterRevisionAction('goEdit'); // ✅ Revizyon kaydedildikten sonra düzenleme sayfasına git
       }
     } catch (e) {}
   }, []);
