@@ -1011,12 +1011,12 @@ const addTesvikRevizyon = async (req, res) => {
         revizyonSebebi,
         yeniDurum: yeniDurum || tesvik.durumBilgileri?.genelDurum,
         eklenmeTarihi: new Date(),
-        toplamRevizyonSayisi: updatedYeniTesvik.revizyonlar?.length || 0,
+        toplamRevizyonSayisi: updatedTesvik.revizyonlar?.length || 0,
         // 📊 Debug için ek bilgiler
         debug: {
           degisikenAlanlarSayisi: (degisikenAlanlar || []).length,
-          tesvikDurumu: updatedYeniTesvik.durumBilgileri?.genelDurum,
-          aktifDurum: updatedYeniTesvik.aktif
+          tesvikDurumu: updatedTesvik.durumBilgileri?.genelDurum,
+          aktifDurum: updatedTesvik.aktif
         }
       }
     });
