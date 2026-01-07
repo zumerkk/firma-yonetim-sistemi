@@ -1057,22 +1057,36 @@ const YeniTesvikForm = () => {
           },
           
           // 🎯 Destek Unsurları - BACKEND'DEN YÜKLE (Revize modunda mevcut veriler korunur)
-          destekUnsurlari: backendData.destekUnsurlari && backendData.destekUnsurlari.length > 0
-            ? backendData.destekUnsurlari.map((destek, idx) => ({
+          destekUnsurlari: (() => {
+            console.log('📥 [DEBUG] Backend destekUnsurlari RAW:', JSON.stringify(backendData.destekUnsurlari, null, 2));
+            if (backendData.destekUnsurlari && backendData.destekUnsurlari.length > 0) {
+              const mapped = backendData.destekUnsurlari.map((destek, idx) => ({
                 index: idx + 1,
                 destekUnsuru: destek.destekUnsuru || '',
                 sartlari: destek.sarti || '' // Backend: sarti → Frontend: sartlari
-              }))
-            : [{ index: 1, destekUnsuru: '', sartlari: '' }],
+              }));
+              console.log('✅ [DEBUG] Destek unsurları mapped:', mapped);
+              return mapped;
+            }
+            console.log('⚠️ [DEBUG] Destek unsurları boş - default değer kullanılıyor');
+            return [{ index: 1, destekUnsuru: '', sartlari: '' }];
+          })(),
           
           // ⚖️ Özel Şartlar - BACKEND'DEN YÜKLE (Revize modunda mevcut veriler korunur)
-          ozelSartlar: backendData.ozelSartlar && backendData.ozelSartlar.length > 0
-            ? backendData.ozelSartlar.map((sart, idx) => ({
+          ozelSartlar: (() => {
+            console.log('📥 [DEBUG] Backend ozelSartlar RAW:', JSON.stringify(backendData.ozelSartlar, null, 2));
+            if (backendData.ozelSartlar && backendData.ozelSartlar.length > 0) {
+              const mapped = backendData.ozelSartlar.map((sart, idx) => ({
                 index: idx + 1,
                 kisaltma: sart.koşulMetni || '', // Backend: koşulMetni → Frontend: kisaltma
                 notu: sart.aciklamaNotu || '' // Backend: aciklamaNotu → Frontend: notu
-              }))
-            : [{ index: 1, kisaltma: '', notu: '' }]
+              }));
+              console.log('✅ [DEBUG] Özel şartlar mapped:', mapped);
+              return mapped;
+            }
+            console.log('⚠️ [DEBUG] Özel şartlar boş - default değer kullanılıyor');
+            return [{ index: 1, kisaltma: '', notu: '' }];
+          })()
         };
         
         console.log('🔄 Backend data mapped to frontend format:', mappedData);
@@ -2125,23 +2139,33 @@ const YeniTesvikForm = () => {
           }))
         },
         
-        // 🔧 Destek Unsurları model formatına çevir - GÜÇLENLED
-        destekUnsurlari: formData.destekUnsurlari?.filter(d => 
-          d && d.destekUnsuru && d.destekUnsuru.trim() !== '' && d.sartlari && d.sartlari.trim() !== ''
-        ).map(destek => ({
-          destekUnsuru: destek.destekUnsuru.trim(),
-          sarti: destek.sartlari.trim(), // Frontend: sartlari → Backend: sarti
-          aciklama: destek.aciklama?.trim() || ''
-        })) || [],
+        // 🔧 Destek Unsurları model formatına çevir - ✅ FİXED: En az destekUnsuru dolu olmalı
+        destekUnsurlari: (() => {
+          console.log('📤 [DEBUG] formData.destekUnsurlari BEFORE filter:', JSON.stringify(formData.destekUnsurlari, null, 2));
+          const filtered = formData.destekUnsurlari?.filter(d => 
+            d && d.destekUnsuru && d.destekUnsuru.trim() !== ''
+          ) || [];
+          console.log('📤 [DEBUG] Destek unsurları AFTER filter:', filtered.length, 'kayıt');
+          return filtered.map(destek => ({
+            destekUnsuru: destek.destekUnsuru.trim(),
+            sarti: (destek.sartlari?.trim() || '-'),
+            aciklama: destek.aciklama?.trim() || ''
+          }));
+        })(),
         
-        // 🔧 Özel Şartlar model formatına çevir - DOĞRU MAPPİNG
-        ozelSartlar: formData.ozelSartlar?.filter(s => 
-          s && (s.kisaltma?.trim() || s.notu?.trim())
-        ).map((sart, index) => ({
-          koşulNo: index + 1, // Backend: koşulNo (required) - otomatik ID
-          koşulMetni: (sart.kisaltma?.trim() || ''), // Frontend kisaltma → Backend koşulMetni
-          aciklamaNotu: (sart.notu?.trim() || '') // Frontend notu → Backend aciklamaNotu
-        })) || []
+        // 🔧 Özel Şartlar model formatına çevir - ✅ FİXED: kisaltma zorunlu (backend required)
+        ozelSartlar: (() => {
+          console.log('📤 [DEBUG] formData.ozelSartlar BEFORE filter:', JSON.stringify(formData.ozelSartlar, null, 2));
+          const filtered = formData.ozelSartlar?.filter(s => 
+            s && s.kisaltma && s.kisaltma.trim() !== ''
+          ) || [];
+          console.log('📤 [DEBUG] Özel şartlar AFTER filter:', filtered.length, 'kayıt');
+          return filtered.map((sart, index) => ({
+            koşulNo: index + 1,
+            koşulMetni: sart.kisaltma.trim(),
+            aciklamaNotu: (sart.notu?.trim() || '')
+          }));
+        })()
       };
       
              // Frontend-specific alanları kaldır

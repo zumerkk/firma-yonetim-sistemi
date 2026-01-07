@@ -312,9 +312,10 @@ const destekUnsurlariSchema = new mongoose.Schema({
   },
   sarti: {
     type: String,
-    required: true,
+    required: false, // ✅ FİXED: Opsiyonel yapıldı - bazı destek unsurlarında şart girilmeyebilir
     trim: true,
-    maxlength: 500
+    maxlength: 500,
+    default: '-' // Boş kalırsa '-' olarak kaydedilir
   },
   aciklama: {
     type: String,
