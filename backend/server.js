@@ -98,9 +98,42 @@ const connectDB = async () => {
     // Modern Mongoose artık bu seçenekleri otomatik olarak kullanıyor
     const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/firma-yonetim');
     console.log(`✅ MongoDB Bağlandı: ${conn.connection.host}`);
+    
+    // 🔧 FIX: Problematik unique index'leri temizle
+    await cleanupProblematicIndexes(conn);
+    
   } catch (error) {
     console.error('❌ MongoDB bağlantı hatası:', error.message);
     process.exit(1);
+  }
+};
+
+// 🔧 Problematik Index Temizleme - belgeYonetimi.belgeId unique index'i kaldır
+const cleanupProblematicIndexes = async (conn) => {
+  try {
+    const db = conn.connection.db;
+    const collection = db.collection('yenitesvik');
+    
+    // Mevcut index'leri al
+    const indexes = await collection.indexes();
+    
+    // belgeYonetimi.belgeId_1 index'ini ara
+    const problematicIndex = indexes.find(idx => 
+      idx.key && idx.key['belgeYonetimi.belgeId'] && idx.unique === true
+    );
+    
+    if (problematicIndex) {
+      console.log(`🔧 Problematik index bulundu: ${problematicIndex.name}`);
+      await collection.dropIndex(problematicIndex.name);
+      console.log(`✅ Index başarıyla kaldırıldı: ${problematicIndex.name}`);
+    } else {
+      console.log('✅ Problematik index bulunamadı - temiz');
+    }
+  } catch (error) {
+    // Index yoksa veya zaten kaldırılmışsa hata vermesin
+    if (error.code !== 27) { // 27 = IndexNotFound
+      console.log('⚠️ Index temizleme sırasında hata (yoksayıldı):', error.message);
+    }
   }
 };
 

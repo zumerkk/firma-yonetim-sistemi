@@ -139,6 +139,27 @@ const createTesvik = async (req, res) => {
       tesvikData.urunler = normalizeAndMergeUrunler(tesvikData.urunler);
     }
 
+    // 🔧 DUPLICATE BelgeId KONTROLÜ - Aynı belgeId ile teşvik var mı?
+    const belgeId = tesvikData.belgeYonetimi?.belgeId?.trim();
+    if (belgeId && belgeId !== '') {
+      const existingTesvik = await YeniTesvik.findOne({ 
+        'belgeYonetimi.belgeId': belgeId,
+        aktif: true 
+      });
+      
+      if (existingTesvik) {
+        console.log(`⚠️ Duplicate belgeId tespit edildi: ${belgeId} - Mevcut teşvik: ${existingTesvik.tesvikId}`);
+        return res.status(409).json({
+          success: false,
+          message: `Bu Belge ID (${belgeId}) ile zaten bir teşvik kaydı mevcut`,
+          error: 'DUPLICATE_BELGE_ID',
+          existingTesvikId: existingTesvik.tesvikId,
+          existingTesvikFirma: existingTesvik.yatirimciUnvan,
+          suggestion: 'Mevcut teşvik kaydını düzenlemek için teşvik listesine gidin veya farklı bir Belge ID girin.'
+        });
+      }
+    }
+
     // Yeni teşvik oluştur
     const tesvik = new YeniTesvik({
       ...tesvikData,
@@ -203,6 +224,40 @@ const createTesvik = async (req, res) => {
 
   } catch (error) {
     console.error('🚨 Teşvik oluşturma hatası:', error);
+    
+    // 🔧 MongoDB Duplicate Key Error Handler (E11000)
+    if (error.code === 11000) {
+      // Duplicate key - hangi alan olduğunu tespit et
+      const keyPattern = error.keyPattern || {};
+      const keyValue = error.keyValue || {};
+      
+      if (keyPattern['belgeYonetimi.belgeId']) {
+        const duplicateBelgeId = keyValue['belgeYonetimi.belgeId'];
+        // Mevcut teşviki bul
+        const existingTesvik = await YeniTesvik.findOne({ 
+          'belgeYonetimi.belgeId': duplicateBelgeId,
+          aktif: true 
+        }).select('tesvikId yatirimciUnvan');
+        
+        return res.status(409).json({
+          success: false,
+          message: `Bu Belge ID (${duplicateBelgeId}) ile zaten bir teşvik kaydı mevcut`,
+          error: 'DUPLICATE_BELGE_ID',
+          existingTesvikId: existingTesvik?.tesvikId || 'Bilinmiyor',
+          existingTesvikFirma: existingTesvik?.yatirimciUnvan || 'Bilinmiyor',
+          suggestion: 'Mevcut teşvik kaydını düzenlemek için teşvik listesine gidin veya farklı bir Belge ID girin.'
+        });
+      }
+      
+      // Diğer duplicate key hataları
+      return res.status(409).json({
+        success: false,
+        message: 'Bu bilgilerle zaten bir kayıt mevcut',
+        error: 'DUPLICATE_KEY',
+        details: error.message
+      });
+    }
+    
     res.status(500).json({
       success: false,
       message: 'Teşvik oluşturulurken hata oluştu',

@@ -351,20 +351,23 @@ const ozelSartlarSchema = new mongoose.Schema({
 }, { _id: false });
 
 // 📋 Belge Yönetimi Schema - Excel'deki tüm belge alanları
+// 🔧 FIX: unique kaldırıldı - subdocument'larda unique index sorunlu, controller'da kontrol edilecek
+// 🔧 FIX: required kaldırıldı - taslak teşvik oluşturma için belgeId/belgeNo boş bırakılabilmeli
 const belgeYonetimiSchema = new mongoose.Schema({
   belgeId: {
     type: String,
-    required: true,
-    unique: true,
+    required: false,  // Taslak için opsiyonel
     trim: true,
-    index: true
+    sparse: true,     // Boş değerlere izin ver
+    default: ''
   },
   belgeNo: {
     type: String,
-    required: true,
-    trim: true
+    required: false,  // Taslak için opsiyonel
+    trim: true,
+    default: ''
   },
-  belgeTarihi: { type: Date, required: true },
+  belgeTarihi: { type: Date, required: false },  // Taslak için opsiyonel
   dayandigiKanun: {
     type: String,
     trim: true,

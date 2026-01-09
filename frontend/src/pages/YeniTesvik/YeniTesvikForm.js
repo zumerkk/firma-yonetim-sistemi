@@ -2197,7 +2197,14 @@ const YeniTesvikForm = () => {
       // Detaylı hata mesajları göster
       let errorMessage = 'Kaydetme sırasında hata oluştu';
       
-      if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
+      // 🔧 DUPLICATE_BELGE_ID hatası özel mesajı
+      if (error.response?.data?.error === 'DUPLICATE_BELGE_ID') {
+        const { existingTesvikId, existingTesvikFirma, suggestion } = error.response.data;
+        errorMessage = `❌ Bu Belge ID ile zaten bir teşvik kaydı mevcut!\n\n` +
+          `📋 Mevcut Teşvik: ${existingTesvikId}\n` +
+          `🏢 Firma: ${existingTesvikFirma}\n\n` +
+          `💡 ${suggestion || 'Mevcut teşvik kaydını düzenlemek için teşvik listesine gidin veya farklı bir Belge ID girin.'}`;
+      } else if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         // Validation errors
         const validationErrors = error.response.data.errors.map(err => `• ${err.msg || err.message}`).join('\n');
         errorMessage = `Girilen bilgilerde hatalar var:\n\n${validationErrors}`;
