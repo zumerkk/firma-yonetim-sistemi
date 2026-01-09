@@ -41,8 +41,8 @@ const parseTrCurrency = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -496,8 +496,8 @@ const MakineYonetimi = () => {
     if (!selectedTesvik?._id) return null;
     // 1) Mevcut ekranı DB'ye kaydet (rowId'ler backend tarafından üretilecek)
     const payload = {
-      yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar })),
-      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar }))
+      yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar })),
+      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar }))
     };
     try { await tesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
     // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
@@ -580,8 +580,9 @@ const MakineYonetimi = () => {
 
     // Alan setleri
     const yerliColumns = [
-      { header: 'Sıra No', key: 'siraNo', width: 10 },
-      { header: 'GTIP No', key: 'gtipKodu', width: 16 },
+      { header: 'Sıra No', key: 'siraNo', width: 8 },
+      { header: 'Makine ID', key: 'makineId', width: 12 },
+      { header: 'GTIP No', key: 'gtipKodu', width: 14 },
       { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
       { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
       { header: 'Miktarı', key: 'miktar', width: 12, numFmt: '#,##0' },
@@ -604,7 +605,8 @@ const MakineYonetimi = () => {
     ];
 
     const ithalColumns = [
-      { header: 'Sıra No', key: 'siraNo', width: 10 },
+      { header: 'Sıra No', key: 'siraNo', width: 8 },
+      { header: 'Makine ID', key: 'makineId', width: 12 },
       { header: 'GTIP No', key: 'gtipKodu', width: 16 },
       { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
       { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
@@ -804,6 +806,7 @@ const MakineYonetimi = () => {
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
       siraNo: r.siraNo || 0,
+      makineId: r.makineId || '',
       gtipKodu: r.gtipKodu || '',
       gtipAciklama: r.gtipAciklamasi || '',
       adi: r.adiVeOzelligi || '',
@@ -829,6 +832,7 @@ const MakineYonetimi = () => {
       id: r.rowId || Math.random().toString(36).slice(2),
       rowId: r.rowId,
       siraNo: r.siraNo || 0,
+      makineId: r.makineId || '',
       gtipKodu: r.gtipKodu || '',
       gtipAciklama: r.gtipAciklamasi || '',
       adi: r.adiVeOzelligi || '',
@@ -1033,9 +1037,21 @@ const MakineYonetimi = () => {
     }
   };
 
+  // 🎯 Kompakt Input Stilleri
+  const compactInputSx = { 
+    '& .MuiInputBase-root': { fontSize: '0.68rem', py: 0, height: 22 },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e8eaed' },
+    '& input': { py: '2px', px: '4px' }
+  };
+  const compactSelectSx = { 
+    fontSize: '0.68rem', 
+    '& .MuiSelect-select': { py: '2px', px: '4px', minHeight: 'auto' },
+    '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e8eaed' }
+  };
+
   const YerliGrid = () => {
     const cols = [
-      { field: 'siraNo', headerName: '#', width: 70, 
+      { field: 'siraNo', headerName: '#', width: 40, 
         renderCell: (p) => (
           <TextField 
             size="small" 
@@ -1043,13 +1059,25 @@ const MakineYonetimi = () => {
             onChange={(e) => isReviseMode && updateRowSiraNo('yerli', p.row.id, e.target.value)}
             disabled={!isReviseMode}
             type="number"
-            sx={{ width: '100%' }}
+            sx={{ ...compactInputSx, width: '100%' }}
             inputProps={{ min: 1, style: { textAlign: 'center' } }}
           />
         )
       },
-      { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
+      { field: 'makineId', headerName: 'M.ID', width: 65, 
+        renderCell: (p) => (
+          <TextField 
+            size="small" 
+            value={p.row.makineId || ''} 
+            onChange={(e) => isReviseMode && updateYerli(p.row.id, { makineId: e.target.value })}
+            disabled={!isReviseMode}
+            placeholder="-"
+            sx={{ ...compactInputSx, width: '100%' }}
+          />
+        )
+      },
+      { field: 'gtipKodu', headerName: 'GTIP', width: 140, renderCell: (p) => (
+        <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
             <GTIPSuperSearch 
               value={p.row.gtipKodu} 
@@ -1060,46 +1088,45 @@ const MakineYonetimi = () => {
                 updateYerli(p.row.id, patch); 
               }} 
               disabled={!isReviseStarted}
-              disableMessage="GTIP girişi için revize talebi başlatmanız gerekmektedir"
+              disableMessage="Revize başlatın"
             />
           </Box>
-          <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
+          <IconButton size="small" sx={{ p: 0.25 }} onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></IconButton>
         </Stack>
       ) },
-      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 220, editable: true, renderCell:(p)=> (
-        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      { field: 'gtipAciklama', headerName: 'GTIP Açıklama', width: 150, editable: true, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%', fontSize: '0.68rem' }}>{p.value||''}</Box></Tooltip>
       ) },
-      { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 260, editable: isReviseMode, renderCell:(p)=> (
-        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
+      { field: 'adi', headerName: 'Adı', flex: 1, minWidth: 180, editable: isReviseMode, renderCell:(p)=> (
+        <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%', fontSize: '0.68rem' }}>{p.value||''}</Box></Tooltip>
       ) },
-      { field: 'kdvIstisnasi', headerName: 'KDV Muafiyeti', width: 140, renderCell: (p) => (
-        <Select size="small" value={p.row.kdvIstisnasi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { kdvIstisnasi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
-          <MenuItem value="">-</MenuItem>
-          <MenuItem value="EVET">EVET</MenuItem>
-          <MenuItem value="HAYIR">HAYIR</MenuItem>
+      { field: 'kdvIstisnasi', headerName: 'KDV', width: 65, renderCell: (p) => (
+        <Select size="small" value={p.row.kdvIstisnasi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { kdvIstisnasi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
+          <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
+          <MenuItem value="EVET" sx={{ fontSize: '0.68rem' }}>E</MenuItem>
+          <MenuItem value="HAYIR" sx={{ fontSize: '0.68rem' }}>H</MenuItem>
         </Select>
       ) },
-      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
-      { field: 'birim', headerName: 'Birim', width: 280, renderCell: (p) => (
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
-            <Box sx={{ flex: 1, pr:1 }}>
+      { field: 'miktar', headerName: 'Adet', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'birim', headerName: 'Birim', width: 160, renderCell: (p) => (
+          <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%' }}>
+            <Box sx={{ flex: 1 }}>
               <UnitCurrencySearch display="chip" type="unit" value={{ kod: p.row.birim, aciklama: p.row.birimAciklamasi }} onChange={(kod, aciklama)=>{ if(!isReviseMode) return; updateYerli(p.row.id,{ birim: kod, birimAciklamasi: aciklama }); }} />
             </Box>
-            <IconButton size="small" onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
+            <IconButton size="small" sx={{ p: 0.25 }} onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></IconButton>
           </Stack>
         ) },
-      // birimAciklamasi kolonu kaldırıldı
-      { field: 'birimFiyatiTl', headerName: 'BF (TL)', width: 120, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
-      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
-        <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
-          <MenuItem value="">-</MenuItem>
-          <MenuItem value="Ana Makine">Ana Makine</MenuItem>
-          <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
+      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'makineTechizatTipi', headerName: 'Tip', width: 85, renderCell: (p)=> (
+        <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
+          <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
+          <MenuItem value="Ana Makine" sx={{ fontSize: '0.68rem' }}>Ana</MenuItem>
+          <MenuItem value="Yardımcı Makine" sx={{ fontSize: '0.68rem' }}>Yard.</MenuItem>
         </Select>
       ) },
-      { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p) => (
-        <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
-          <MenuItem value="">-</MenuItem>
+      { field: 'finansalKiralamaMi', headerName: 'FK', width: 55, renderCell: (p) => (
+        <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
+          <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
@@ -1262,18 +1289,18 @@ const MakineYonetimi = () => {
         };
         return <KararTarihiCell />;
       } },
-      { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
-        <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
+      { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
+        <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredYerliRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick rowHeight={44} headerHeight={44}
+      <DataGrid autoHeight rows={filteredYerliRows} columns={cols} pageSize={20} rowsPerPageOptions={[15, 20, 30, 50]} disableSelectionOnClick rowHeight={28} headerHeight={28}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processYerliRowUpdate}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
-        density={density}
+        density="compact"
         columnVisibilityModel={columnVisibilityModel}
         onColumnVisibilityModelChange={(m)=> setColumnVisibilityModel(m)}
         getCellClassName={(params)=>{
@@ -1282,11 +1309,37 @@ const MakineYonetimi = () => {
           return '';
         }}
         sx={{
-          '& .error-cell': { backgroundColor: '#fee2e2' },
-          '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' },
-          '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' },
-          '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' },
-          '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' }
+          border: 'none',
+          fontSize: '0.7rem',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          '& .error-cell': { backgroundColor: '#fef2f2' },
+          '& .MuiDataGrid-columnHeaders': { 
+            backgroundColor: '#f8f9fa', 
+            borderBottom: '1px solid #e8eaed',
+            minHeight: '28px !important',
+            maxHeight: '28px !important'
+          },
+          '& .MuiDataGrid-columnHeader': { py: 0 },
+          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: '0.68rem', color: '#5f6368' },
+          '& .MuiDataGrid-cell': { 
+            py: 0, 
+            borderBottom: '1px solid #f1f3f4',
+            fontSize: '0.7rem',
+            color: '#202124'
+          },
+          '& .MuiDataGrid-row': { 
+            minHeight: '28px !important',
+            maxHeight: '28px !important',
+            '&:hover': { backgroundColor: '#f8f9fa' },
+            '&.Mui-selected': { backgroundColor: '#e8f0fe !important' }
+          },
+          '& .MuiDataGrid-footerContainer': { 
+            minHeight: 32, 
+            borderTop: '1px solid #e8eaed',
+            '& .MuiTablePagination-root': { fontSize: '0.7rem' }
+          },
+          '& .MuiCheckbox-root': { p: 0.25 },
+          '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 }
         }}
       />
     );
@@ -1295,7 +1348,7 @@ const MakineYonetimi = () => {
   const IthalGrid = () => {
     const cols = [
       // Birim Açıklaması kolonu kaldırıldı (müşteri istemiyor)
-      { field: 'siraNo', headerName: '#', width: 70, 
+      { field: 'siraNo', headerName: '#', width: 50, 
         renderCell: (p) => (
           <TextField 
             size="small" 
@@ -1304,11 +1357,24 @@ const MakineYonetimi = () => {
             disabled={!isReviseMode}
             type="number"
             sx={{ width: '100%' }}
-            inputProps={{ min: 1, style: { textAlign: 'center' } }}
+            inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '0.75rem' } }}
           />
         )
       },
-      { field: 'gtipKodu', headerName: 'GTIP', width: 200, renderCell: (p) => (
+      { field: 'makineId', headerName: 'Makine ID', width: 90, 
+        renderCell: (p) => (
+          <TextField 
+            size="small" 
+            value={p.row.makineId || ''} 
+            onChange={(e) => isReviseMode && updateIthal(p.row.id, { makineId: e.target.value })}
+            disabled={!isReviseMode}
+            placeholder="ID"
+            sx={{ width: '100%' }}
+            inputProps={{ style: { textAlign: 'center', fontSize: '0.75rem', fontWeight: 600 } }}
+          />
+        )
+      },
+      { field: 'gtipKodu', headerName: 'GTIP', width: 180, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
             <GTIPSuperSearch 
@@ -1632,18 +1698,17 @@ const MakineYonetimi = () => {
         };
         return <KararTarihiCell />;
       } },
-      { field: 'actions', headerName: '', width: 60, renderCell: (p)=>(
-        <IconButton color="error" onClick={()=>delRow(p.row.id)}><DeleteIcon/></IconButton>
+      { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
+        <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredIthalRows} columns={cols} pageSize={10} rowsPerPageOptions={[10]} disableSelectionOnClick rowHeight={44} headerHeight={44}
+      <DataGrid autoHeight rows={filteredIthalRows} columns={cols} pageSize={20} rowsPerPageOptions={[15, 20, 30, 50]} disableSelectionOnClick rowHeight={28} headerHeight={28}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processIthalRowUpdate}
         onCellEditStop={(params)=>{
-          // Hücre edit commit olduğunda TL'yi manuel moda geçir ve değeri yaz
           if (params.field === 'toplamTl') {
             const id = params.id;
             const committed = parseTrCurrency(params.value);
@@ -1651,7 +1716,7 @@ const MakineYonetimi = () => {
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
-        density={density}
+        density="compact"
         columnVisibilityModel={columnVisibilityModel}
         onColumnVisibilityModelChange={(m)=> setColumnVisibilityModel(m)}
         getCellClassName={(params)=>{
@@ -1660,288 +1725,595 @@ const MakineYonetimi = () => {
           if (params.field === 'doviz' && !params.row.doviz) return 'error-cell';
           return '';
         }}
-        sx={{ '& .error-cell': { backgroundColor: '#fee2e2' }, '& .MuiDataGrid-columnHeaders': { py: 0.25, backgroundColor:'#f8fafc', borderBottom:'1px solid #e5e7eb' }, '& .MuiDataGrid-cell': { py: 0.5, borderBottom:'1px dashed #f1f5f9' }, '& .MuiDataGrid-row:nth-of-type(odd)': { backgroundColor:'#fcfcfd' }, '& .MuiDataGrid-row:hover': { backgroundColor:'#f5faff' }, '& .MuiDataGrid-row.Mui-selected': { backgroundColor:'#eef2ff !important' } }}
+        sx={{
+          border: 'none',
+          fontSize: '0.7rem',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          '& .error-cell': { backgroundColor: '#fef2f2' },
+          '& .MuiDataGrid-columnHeaders': { 
+            backgroundColor: '#f8f9fa', 
+            borderBottom: '1px solid #e8eaed',
+            minHeight: '28px !important',
+            maxHeight: '28px !important'
+          },
+          '& .MuiDataGrid-columnHeader': { py: 0 },
+          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: '0.68rem', color: '#5f6368' },
+          '& .MuiDataGrid-cell': { 
+            py: 0, 
+            borderBottom: '1px solid #f1f3f4',
+            fontSize: '0.7rem',
+            color: '#202124'
+          },
+          '& .MuiDataGrid-row': { 
+            minHeight: '28px !important',
+            maxHeight: '28px !important',
+            '&:hover': { backgroundColor: '#f8f9fa' },
+            '&.Mui-selected': { backgroundColor: '#e8f0fe !important' }
+          },
+          '& .MuiDataGrid-footerContainer': { 
+            minHeight: 32, 
+            borderTop: '1px solid #e8eaed',
+            '& .MuiTablePagination-root': { fontSize: '0.7rem' }
+          },
+          '& .MuiCheckbox-root': { p: 0.25 },
+          '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 }
+        }}
       />
     );
   };
 
-  return (
-    <Box sx={{ p: 3 }}>
-      {/* 🧭 Navigasyon Butonları */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {/* Ana Sayfa ve Geri Dönüş Butonları */}
-          <Button
-            variant="outlined"
-            startIcon={<HomeIcon />}
-            onClick={() => navigate('/')}
-            sx={{
-              color: '#10b981',
-              borderColor: '#10b981',
-              fontWeight: 600,
-              '&:hover': {
-                backgroundColor: '#f0fdf4',
-                borderColor: '#10b981'
-              }
-            }}
-          >
-            Ana Sayfa
-          </Button>
-          
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/tesvik')}
-            sx={{
-              color: '#8b5cf6',
-              borderColor: '#8b5cf6',
-              fontWeight: 600,
-              '&:hover': {
-                backgroundColor: '#faf5ff',
-                borderColor: '#8b5cf6'
-              }
-            }}
-          >
-            Teşvikler
-          </Button>
-        </Box>
+  // 🎨 PREMIUM ENTERPRISE THEME - Modern & Professional (Eski Sistem)
+  const theme = {
+    // Primary colors - Koyu mor/lacivert tema
+    primary: '#1e1b4b',
+    primaryLight: '#312e81',
+    accent: '#6366f1',
+    accentLight: '#818cf8',
+    accentGlow: 'rgba(99, 102, 241, 0.15)',
+    
+    // Backgrounds
+    bg: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0e7ff 100%)',
+    bgSolid: '#f8fafc',
+    card: '#ffffff',
+    cardHover: '#fafbff',
+    
+    // Borders & Shadows
+    border: '#e0e7ff',
+    borderLight: '#eef2ff',
+    shadow: '0 1px 3px rgba(30, 27, 75, 0.04), 0 4px 12px rgba(30, 27, 75, 0.06)',
+    shadowHover: '0 4px 16px rgba(30, 27, 75, 0.08), 0 8px 24px rgba(30, 27, 75, 0.12)',
+    shadowInner: 'inset 0 1px 2px rgba(30, 27, 75, 0.05)',
+    
+    // Text
+    text: { 
+      primary: '#1e1b4b', 
+      secondary: '#4338ca', 
+      muted: '#a5b4fc',
+      light: '#c7d2fe'
+    },
+    
+    // Status colors
+    success: '#10b981',
+    successLight: '#d1fae5',
+    successDark: '#059669',
+    warning: '#f59e0b',
+    warningLight: '#fef3c7',
+    warningDark: '#d97706',
+    error: '#ef4444',
+    errorLight: '#fee2e2',
+    errorDark: '#dc2626',
+    info: '#06b6d4',
+    infoLight: '#cffafe',
+    
+    // Gradients
+    gradientPrimary: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+    gradientAccent: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+    gradientSuccess: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    gradientWarning: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    gradientError: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+    gradientSubtle: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+    
+    // Special
+    yerli: { bg: '#10b981', light: '#d1fae5', text: '#065f46' },
+    ithal: { bg: '#f59e0b', light: '#fef3c7', text: '#92400e' }
+  };
 
-        {/* Breadcrumb Navigasyon */}
-        <Breadcrumbs
-          separator="›"
-          sx={{ 
-            color: '#64748b',
-            '& .MuiBreadcrumbs-separator': { color: '#d1d5db' }
-          }}
-        >
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => navigate('/')}
-            sx={{ 
-              color: '#64748b', 
-              minWidth: 'auto',
-              '&:hover': { color: '#10b981', backgroundColor: 'transparent' }
-            }}
-          >
-            Ana Sayfa
-          </Button>
-          <Button
-            variant="text"
-            size="small"
-            onClick={() => navigate('/tesvik')}
-            sx={{ 
-              color: '#64748b', 
-              minWidth: 'auto',
-              '&:hover': { color: '#8b5cf6', backgroundColor: 'transparent' }
-            }}
-          >
-            Teşvikler
-          </Button>
-          <Typography variant="body2" sx={{ color: '#1f2937', fontWeight: 600 }}>
-            Makine Yönetimi
-          </Typography>
-        </Breadcrumbs>
+  return (
+    <Box sx={{ 
+      background: theme.bg, 
+      minHeight: '100vh', 
+      p: { xs: 1, sm: 1.5, md: 2 }
+    }}>
+      {/* 🏢 CLEAN MINIMAL HEADER */}
+      <Box sx={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        mb: 2,
+        pb: 1.5,
+        borderBottom: `1px solid ${theme.border}`
+      }}>
+        {/* Left - Navigation & Title */}
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Stack direction="row" spacing={0.5}>
+            <IconButton 
+              size="small" 
+              onClick={() => navigate('/')} 
+              sx={{ 
+                color: theme.text.muted, 
+                '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
+                transition: 'all 0.2s'
+              }}
+            >
+              <HomeIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              onClick={() => navigate('/tesvik')} 
+              sx={{ 
+                color: theme.text.muted, 
+                '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
+                transition: 'all 0.2s'
+              }}
+            >
+              <ArrowBackIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Stack>
+          
+          <Divider orientation="vertical" flexItem />
+          
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box sx={{ 
+              width: 36, 
+              height: 36, 
+              borderRadius: 1.5, 
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
+            }}>
+              <BuildIcon sx={{ fontSize: 20, color: '#fff' }} />
+            </Box>
+            <Box>
+              <Typography sx={{ color: theme.text.primary, fontWeight: 700, fontSize: '1rem', lineHeight: 1.2, letterSpacing: '-0.01em' }}>
+                Makine Teçhizat Yönetimi
+              </Typography>
+              <Typography sx={{ color: theme.text.muted, fontSize: '0.7rem', fontWeight: 500 }}>
+                Eski Belge Sistemi
+              </Typography>
+            </Box>
+            {isReviseMode && (
+              <Chip 
+                label="REVİZE MODU" 
+                size="small" 
+                sx={{ 
+                  bgcolor: theme.warningLight,
+                  color: theme.warningDark,
+                  fontSize: '0.6rem', 
+                  height: 22,
+                  fontWeight: 700,
+                  border: `1px solid ${theme.warning}`,
+                  '& .MuiChip-label': { px: 1 }
+                }} 
+              />
+            )}
+          </Stack>
+        </Stack>
+        
+        {/* Right - Summary Stats */}
+        <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ 
+            bgcolor: theme.successLight,
+            border: `1px solid ${theme.success}30`,
+            px: 1.5, 
+            py: 0.5, 
+            borderRadius: 1.5
+          }}>
+            <Typography sx={{ color: theme.successDark, fontWeight: 700, fontSize: '0.8rem' }}>
+              Yerli: {yerliToplamTl.toLocaleString('tr-TR')} ₺
+            </Typography>
+          </Box>
+          <Box sx={{ 
+            bgcolor: theme.warningLight,
+            border: `1px solid ${theme.warning}30`,
+            px: 1.5, 
+            py: 0.5, 
+            borderRadius: 1.5
+          }}>
+            <Typography sx={{ color: theme.warningDark, fontWeight: 700, fontSize: '0.8rem' }}>
+              İthal: {ithalToplamUsd.toLocaleString('en-US')} $
+            </Typography>
+          </Box>
+        </Stack>
       </Box>
 
-      <Typography variant="h5" sx={{ mb: 2, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <BuildIcon sx={{ color: '#dc2626' }} />
-        Makine Teçhizat Yönetimi
-      </Typography>
-
-      {/* Belge Seçimi */}
-      <Paper sx={{ p:2, mb:2 }}>
-        <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Teşvik Belgesi Seç</Typography>
-        <Autocomplete
-          options={tesvikOptions}
-          size="small"
-          getOptionLabel={(o)=> o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
-          isOptionEqualToValue={(o, v)=> (o?._id || o?.id) === (v?._id || v?.id)}
-          filterOptions={(x)=>x}
-          openOnFocus
-          onInputChange={(e, val)=> searchTesvik(val)}
-          value={selectedTesvik}
-          onChange={(e, val)=> { setSelectedTesvik(val); loadTesvikMakineListeleri(val?._id); }}
-          renderInput={(params)=> <TextField {...params} placeholder="Tesvik ID / GM ID / Ünvan ara..." />}
-          loading={loadingTesvik}
-          renderOption={(props, option)=> (
-            <li {...props} key={option._id}>
-              {option.tesvikId || option.gmId} — {option.yatirimciUnvan || option.firma?.tamUnvan || ''}
-            </li>
-          )}
-        />
-        <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-          <Button size="small" variant="outlined" disabled={!selectedTesvik} onClick={()=> tesvikService.exportMakineExcel(selectedTesvik._id).then((res)=>{
-            const blob = new Blob([res.data], { type: res.headers['content-type'] });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = `tesvik_${selectedTesvik?.tesvikId || selectedTesvik?.gmId}_makine.xlsx`;
-            a.click(); window.URL.revokeObjectURL(url);
-          })}>Belge Makine Excel İndir</Button>
-          <Button size="small" variant="contained" disabled={!selectedTesvik} onClick={()=> setYerliRows([]) || setIthalRows([])}>Listeyi Temizle</Button>
-          {/* Seçili makineyi ETUYS için filtrelemeden gönderme opsiyonu daha sonra eklenecek */}
+      {/* 📋 BELGE SEÇİMİ - Premium Card */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 1.5, 
+          mb: 1.5, 
+          border: `1px solid ${theme.border}`,
+          borderRadius: 2,
+          bgcolor: theme.card,
+          boxShadow: theme.shadow,
+          transition: 'all 0.2s ease',
+          '&:hover': { boxShadow: theme.shadowHover }
+        }}
+      >
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1,
+            px: 1.5,
+            py: 0.75,
+            borderRadius: 1,
+            bgcolor: theme.accentGlow,
+            border: `1px solid ${theme.accent}20`
+          }}>
+            <Typography sx={{ color: theme.text.secondary, fontWeight: 600, fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Belge
+            </Typography>
+          </Box>
+          <Autocomplete
+            options={tesvikOptions}
+            size="small"
+            sx={{ 
+              flex: 1, 
+              maxWidth: 450,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 1.5,
+                bgcolor: '#fff',
+                transition: 'all 0.2s',
+                '&:hover': { boxShadow: '0 2px 8px rgba(99, 102, 241, 0.1)' },
+                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' }
+              }
+            }}
+            getOptionLabel={(o)=> o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
+            isOptionEqualToValue={(o, v)=> (o?._id || o?.id) === (v?._id || v?.id)}
+            filterOptions={(x)=>x}
+            openOnFocus
+            onInputChange={(e, val)=> searchTesvik(val)}
+            value={selectedTesvik}
+            onChange={(e, val)=> { setSelectedTesvik(val); loadTesvikMakineListeleri(val?._id); }}
+            renderInput={(params)=> <TextField {...params} placeholder="Teşvik ara..." size="small" sx={{ '& .MuiInputBase-root': { fontSize: '0.75rem', py: 0 } }} />}
+            loading={loadingTesvik}
+            renderOption={(props, option)=> (
+              <li {...props} key={option._id} style={{ fontSize: '0.75rem', padding: '6px 12px', borderBottom: '1px solid #eef2ff' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label={option.tesvikId || option.gmId} size="small" sx={{ fontSize: '0.65rem', height: 20, bgcolor: theme.accentGlow, color: theme.accent, fontWeight: 600 }} />
+                  <span style={{ color: '#6366f1' }}>{option.yatirimciUnvan || ''}</span>
+                </Box>
+              </li>
+            )}
+          />
+          <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border }} />
+          <Stack direction="row" spacing={0.5}>
+            <Tooltip title="Excel İndir" arrow>
+              <span>
+                <IconButton 
+                  size="small" 
+                  disabled={!selectedTesvik} 
+                  onClick={()=> tesvikService.exportMakineExcel(selectedTesvik._id).then((res)=>{
+                    const blob = new Blob([res.data], { type: res.headers['content-type'] });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a'); a.href = url; a.download = `tesvik_${selectedTesvik?.tesvikId}_makine.xlsx`; a.click();
+                  })}
+                  sx={{ 
+                    color: theme.success,
+                    '&:hover': { bgcolor: theme.successLight }
+                  }}
+                >
+                  <ExportIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Listeyi Temizle" arrow>
+              <span>
+                <IconButton 
+                  size="small" 
+                  disabled={!selectedTesvik} 
+                  onClick={()=> setYerliRows([]) || setIthalRows([])}
+                  sx={{ 
+                    color: theme.error,
+                    '&:hover': { bgcolor: theme.errorLight }
+                  }}
+                >
+                  <DeleteIcon sx={{ fontSize: 18 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
         </Stack>
       </Paper>
 
-      <Stack direction="row" spacing={1} sx={{ mb: 2, position: 'sticky', top: 0, zIndex: 2, backgroundColor: 'background.paper', py: 1 }}>
-        <Chip label={`Yerli Toplam: ${yerliToplamTl.toLocaleString('tr-TR')} ₺`} color="primary" variant="outlined" />
-        <Chip label={`İthal Toplam: ${ithalToplamUsd.toLocaleString('en-US')} $`} color="secondary" variant="outlined" />
-        <Chip label={`İthal Toplam (TL): ${ithalToplamTl.toLocaleString('tr-TR')} ₺`} color="secondary" variant="outlined" />
-        <Box sx={{ flex: 1 }} />
-        <TextField size="small" placeholder="Satır ara (Ad/GTIP)" value={filterText} onChange={(e)=> setFilterText(e.target.value)} sx={{ width: 260 }} />
-        <Tooltip title="Kur Hesapla (TCMB)">
-          <span>
-            <IconButton onClick={recalcIthalTotals} disabled={(ithalRows||[]).length===0}>
-              <RecalcIcon/>
-            </IconButton>
-          </span>
-        </Tooltip>
-        <Tooltip title="Toplu İşlemler">
-          <IconButton onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon/></IconButton>
-        </Tooltip>
-        <Menu open={!!bulkMenuAnchor} onClose={()=> setBulkMenuAnchor(null)} anchorEl={bulkMenuAnchor}>
-          <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkTalep(); }}>Seçilenlere Talep Gönder</MenuItem>
-          <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('onay'); }}>Seçilenleri Onayla</MenuItem>
-          <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('kismi_onay'); }}>Seçilenlere Kısmi Onay</MenuItem>
-          <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('red'); }}>Seçilenleri Reddet</MenuItem>
-        </Menu>
-      </Stack>
+      {/* 🔧 ANA ÇALIŞMA ALANI - Premium Workspace */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          border: `1px solid ${theme.border}`,
+          borderRadius: 2,
+          bgcolor: theme.card,
+          position: fullScreen ? 'fixed' : 'relative', 
+          inset: fullScreen ? 0 : 'auto', 
+          zIndex: fullScreen ? 1300 : 'auto', 
+          height: fullScreen ? '100vh' : 'auto',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          boxShadow: theme.shadow,
+          transition: 'box-shadow 0.3s ease'
+        }}
+      >
+        {/* Toolbar - Premium */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          px: 1.5,
+          py: 0.75,
+          background: theme.gradientSubtle,
+          borderBottom: `1px solid ${theme.border}`,
+          gap: 1
+        }}>
+          {/* Premium Tabs */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 0.5,
+            p: 0.5,
+            bgcolor: '#eef2ff',
+            borderRadius: 1.5
+          }}>
+            <Button 
+              size="small" 
+              onClick={()=>setTab('yerli')}
+              sx={{ 
+                minWidth: 'auto', 
+                px: 2, 
+                py: 0.5,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: tab === 'yerli' ? '#fff' : theme.text.secondary,
+                background: tab === 'yerli' ? theme.gradientSuccess : 'transparent',
+                borderRadius: 1,
+                boxShadow: tab === 'yerli' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
+                transition: 'all 0.2s ease',
+                '&:hover': { 
+                  background: tab === 'yerli' ? theme.gradientSuccess : 'rgba(16, 185, 129, 0.1)',
+                  transform: 'translateY(-1px)'
+                }
+              }}
+            >
+              Yerli ({yerliRows.length})
+            </Button>
+            <Button 
+              size="small"
+              onClick={()=>setTab('ithal')}
+              sx={{ 
+                minWidth: 'auto', 
+                px: 2, 
+                py: 0.5,
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                color: tab === 'ithal' ? '#fff' : theme.text.secondary,
+                background: tab === 'ithal' ? theme.gradientWarning : 'transparent',
+                borderRadius: 1,
+                boxShadow: tab === 'ithal' ? '0 2px 8px rgba(245, 158, 11, 0.3)' : 'none',
+                transition: 'all 0.2s ease',
+                '&:hover': { 
+                  background: tab === 'ithal' ? theme.gradientWarning : 'rgba(245, 158, 11, 0.1)',
+                  transform: 'translateY(-1px)'
+                }
+              }}
+            >
+              İthal ({ithalRows.length})
+            </Button>
+          </Box>
 
-      <Paper sx={{ p: 2, mb: 2, position: fullScreen ? 'fixed' : 'relative', inset: fullScreen ? 0 : 'auto', zIndex: fullScreen ? 1300 : 'auto', height: fullScreen ? '100vh' : 'auto', overflow: 'auto', borderRadius: 2, boxShadow: '0 8px 24px rgba(0,0,0,0.06)' }}>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-          <Tabs value={tab} onChange={(e,v)=>setTab(v)}>
-            <Tab label="Yerli" value="yerli" />
-            <Tab label="İthal" value="ithal" />
-          </Tabs>
+          <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border, mx: 0.5 }} />
+
+          {/* Search - Enhanced */}
+          <TextField 
+            size="small" 
+            placeholder="Ara..." 
+            value={filterText} 
+            onChange={(e)=> setFilterText(e.target.value)} 
+            sx={{ 
+              width: 160,
+              '& .MuiInputBase-root': { 
+                fontSize: '0.7rem', 
+                height: 28, 
+                bgcolor: '#fff',
+                borderRadius: 1.5,
+                transition: 'all 0.2s',
+                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
+                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' }
+              },
+              '& .MuiOutlinedInput-notchedOutline': { borderColor: theme.border }
+            }} 
+          />
+
           <Box sx={{ flex: 1 }} />
-          {/* 🆕 Revizyon Aksiyonları */}
-          <Tooltip title={isReviseMode ? 'Revize Modu Aktif' : 'Yeni Revize Başlat'}>
-            <span>
-              <Button size="small" 
-                variant={isReviseMode?'contained':'outlined'} 
-                startIcon={isReviseStarted ? <ClearIcon/> : <FiberNewIcon/>} 
-                color={isReviseStarted ? 'warning' : 'primary'}
+
+          {/* Revize Actions - Premium */}
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            {!isReviseStarted ? (
+              <Button 
+                size="small" 
+                variant="outlined"
                 disabled={!selectedTesvik} 
                 onClick={async()=>{
                   if (!selectedTesvik?._id) return;
-                  
-                  // Eğer revize başlatılmışsa vazgeç seçeneği sun
-                  if (isReviseStarted) {
-                    const ok = window.confirm('Revizeden vazgeçilecek ve değişiklikler kaydedilmeyecek. Emin misiniz?');
-                    if (!ok) return;
-                    setIsReviseMode(false);
-                    setIsReviseStarted(false);
-                    // Eski verileri geri yükle
-                    if (selectedTesvik) {
-                      loadMakineData(selectedTesvik._id);
-                    }
-                    openToast('info', 'Revizeden vazgeçildi.');
-                    return;
-                  }
-                  
-                  const ok = window.confirm('Mevcut liste snapshot alınacak ve revize modu açılacak. Devam edilsin mi?');
+                  const ok = window.confirm('Revize başlat?');
                   if (!ok) return;
                   try {
-                    await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize başladı' });
-                    setIsReviseMode(true);
-                    setIsReviseStarted(true);
+                    await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
+                    setIsReviseMode(true); setIsReviseStarted(true);
                     const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
-                    openToast('success', 'Revize başlatıldı. Düzenleme modu aktif.');
-                  } catch (e) {
-                    openToast('error', 'Revize başlatılırken hata oluştu.');
+                    openToast('success', 'Revize başladı');
+                  } catch (e) { openToast('error', 'Hata'); }
+                }}
+                sx={{ 
+                  fontSize: '0.68rem',
+                  py: 0.5,
+                  px: 1.5,
+                  borderRadius: 1.5,
+                  fontWeight: 600,
+                  color: theme.accent,
+                  borderColor: theme.accent,
+                  '&:hover': { 
+                    bgcolor: theme.accentGlow,
+                    borderColor: theme.accent
                   }
-                }}>{isReviseStarted ? 'Revizden Vazgeç' : 'Yeni Revize'}</Button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Revizeyi Finalize Et (post-snapshot)">
-            <span>
-              <Button size="small" variant="outlined" startIcon={<CheckIcon/>} disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
-                const ok = window.confirm('Revize sonlandırılacak ve son hali snapshot olarak kaydedilecek. Onaylıyor musun?');
-                if (!ok) return;
-                try {
-                  // Revize bitmeden önce ekrandaki son hali veritabanına kaydet
-                  const payload = {
-                    yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
-                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
-                  };
-                  await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-                  // Onaya basınca onay tarihi yazsın (kararTarihi)
-                  await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Revize finalize' });
-                  setIsReviseMode(false);
-                  setIsReviseStarted(false);
-                  const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
-                  openToast('success', 'Revize başarıyla finalize edildi.');
-                } catch (e) {
-                  openToast('error', 'Revize finalize edilirken hata oluştu.');
-                }
-              }}>Revizeyi Bitir</Button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Eski Revizeye Dön">
-            <span>
-              <Button size="small" variant="outlined" startIcon={<RestoreIcon/>} disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)}>Eski Revizeye Dön</Button>
-            </span>
-          </Tooltip>
-          <Tooltip title="Revize Excel Çıktısı (değişiklikler kırmızı)"><span><Button size="small" startIcon={<TableViewIcon/>} sx={{ color:'#166534', borderColor:'#16a34a', backgroundColor:'#e7f6ec', '&:hover':{ backgroundColor:'#d9f0e0' } }} variant="outlined" disabled={!selectedTesvik} onClick={async()=>{
-             try {
-               const res = await tesvikService.exportMakineRevizyonExcel(selectedTesvik._id);
-               const blob = new Blob([res.data], { type: res.headers['content-type'] });
-               const url = window.URL.createObjectURL(blob);
-               const a = document.createElement('a');
-               a.href = url; a.download = `makine_revizyon_${selectedTesvik?.tesvikId || selectedTesvik?.gmId}.xlsx`;
-               a.click(); window.URL.revokeObjectURL(url);
-               openToast('success', 'Revize Excel indirildi.');
-             } catch (e) {
-               openToast('error', 'Revize Excel alınamadı.');
-             }
-           }}>Revize Excel</Button></span></Tooltip>
-          <Tooltip title="İşlem Geçmişi Excel"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
-            try {
-              const res = await tesvikService.exportMakineRevizyonHistoryExcel(selectedTesvik._id);
-              const blob = new Blob([res.data], { type: res.headers['content-type'] });
-              const url = window.URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url; a.download = `makine_revizyon_islem_gecmisi_${selectedTesvik?.tesvikId || selectedTesvik?.gmId}.xlsx`;
-              a.click(); window.URL.revokeObjectURL(url);
-              openToast('success', 'İşlem geçmişi Excel indirildi.');
-            } catch (e) {
-              openToast('error', 'İşlem geçmişi Excel alınamadı.');
-            }
-          }}><VisibilityIcon/></IconButton></span></Tooltip>
-          <Tooltip title="Revize Metası (ETUYS)"><span><IconButton disabled={!selectedTesvik} onClick={openMeta}><BookmarksIcon/></IconButton></span></Tooltip>
-          <Tooltip title={isReviseStarted ? "Satır Ekle" : "Satır eklemek için revize talebi başlatın"}>
-            <span>
-              <IconButton 
-                onClick={addRow} 
-                disabled={!isReviseStarted}
-                sx={{
-                  color: isReviseStarted ? 'inherit' : 'action.disabled'
                 }}
               >
-                <AddIcon/>
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Kurları (TCMB) al ve TL hesapla"><span><IconButton onClick={recalcIthalTotals} disabled={tab!== 'ithal'}><RecalcIcon/></IconButton></span></Tooltip>
-          <Tooltip title="İçe Aktar"><label><input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} /><IconButton component="span"><ImportIcon/></IconButton></label></Tooltip>
-          <Tooltip title="Dışa Aktar"><IconButton onClick={exportExcel}><ExportIcon/></IconButton></Tooltip>
-          <Tooltip title="Sütunlar"><IconButton onClick={(e)=> setColumnsAnchor(e.currentTarget)}><ViewColumnIcon/></IconButton></Tooltip>
-          <Tooltip title={density==='compact'?'Geniş görünüm':'Kompakt görünüm'}><IconButton onClick={()=> setDensity(density==='compact'?'standard':'compact')}><VisibilityIcon/></IconButton></Tooltip>
-          <Tooltip title={fullScreen?'Tam ekranı kapat':'Tam ekran'}><IconButton onClick={()=> setFullScreen(v=>!v)}>{fullScreen ? <FullscreenExitIcon/> : <FullscreenIcon/>}</IconButton></Tooltip>
-          <Tooltip title="Kaydet"><span><IconButton disabled={!selectedTesvik} onClick={async()=>{
-            const payload = {
-              yerli: yerliRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
-              ithal: ithalRows.map(r=>({ siraNo:r.siraNo, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
-            };
-            const res = await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-            if (res?.success) {
-              alert('Makine listeleri kaydedildi.');
-            }
-          }}><CheckIcon/></IconButton></span></Tooltip>
-        </Stack>
+                Revize
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  size="small" 
+                  disabled={!selectedTesvik} 
+                  onClick={async()=>{
+                    const ok = window.confirm('Revize bitir?');
+                    if (!ok) return;
+                    try {
+                      const payload = {
+                        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
+                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
+                      };
+                      await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+                      await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Finalize' });
+                      setIsReviseMode(false); setIsReviseStarted(false);
+                      openToast('success', 'Revize tamamlandı');
+                    } catch { openToast('error', 'Hata'); }
+                  }} 
+                  sx={{ 
+                    fontSize: '0.68rem',
+                    py: 0.5,
+                    px: 1.5,
+                    borderRadius: 1.5,
+                    fontWeight: 600,
+                    color: '#fff',
+                    background: theme.gradientSuccess,
+                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
+                    '&:hover': { 
+                      background: theme.gradientSuccess,
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
+                    }
+                  }}
+                >
+                  Bitir
+                </Button>
+                <Button 
+                  size="small" 
+                  onClick={()=>{ setIsReviseMode(false); setIsReviseStarted(false); if(selectedTesvik) loadMakineData(selectedTesvik._id); openToast('info','Vazgeçildi'); }} 
+                  sx={{ 
+                    fontSize: '0.68rem',
+                    py: 0.5,
+                    px: 1.5,
+                    borderRadius: 1.5,
+                    fontWeight: 600,
+                    color: theme.warning,
+                    border: `1px solid ${theme.warning}`,
+                    '&:hover': { 
+                      bgcolor: theme.warningLight
+                    }
+                  }}
+                >
+                  İptal
+                </Button>
+              </>
+            )}
+          </Stack>
 
-        {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+          <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border, mx: 0.5 }} />
+
+          {/* Action Icons - Premium Toolbar */}
+          <Stack 
+            direction="row" 
+            spacing={0.25}
+            sx={{ 
+              bgcolor: '#eef2ff',
+              borderRadius: 1.5,
+              p: 0.5,
+              '& .MuiIconButton-root': { 
+                p: 0.75,
+                borderRadius: 1,
+                transition: 'all 0.2s ease',
+                '&:hover': { 
+                  bgcolor: theme.accentGlow,
+                  transform: 'scale(1.05)'
+                }
+              }
+            }}
+          >
+            <Tooltip title="Satır Ekle" arrow><span>
+              <IconButton size="small" onClick={addRow} disabled={!isReviseStarted} sx={{ color: theme.success }}>
+                <AddIcon sx={{ fontSize: 17 }}/>
+              </IconButton>
+            </span></Tooltip>
+            <Tooltip title="Kur Hesapla" arrow><span>
+              <IconButton size="small" onClick={recalcIthalTotals} disabled={tab!=='ithal'} sx={{ color: '#06b6d4' }}>
+                <RecalcIcon sx={{ fontSize: 17 }}/>
+              </IconButton>
+            </span></Tooltip>
+            <Tooltip title="İçe Aktar" arrow>
+              <label>
+                <input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} />
+                <IconButton component="span" size="small" sx={{ color: theme.accent }}>
+                  <ImportIcon sx={{ fontSize: 17 }}/>
+                </IconButton>
+              </label>
+            </Tooltip>
+            <Tooltip title="Dışa Aktar" arrow>
+              <IconButton size="small" onClick={exportExcel} sx={{ color: theme.success }}>
+                <ExportIcon sx={{ fontSize: 17 }}/>
+              </IconButton>
+            </Tooltip>
+            <Divider orientation="vertical" flexItem sx={{ mx: 0.5, borderColor: theme.border }} />
+            <Tooltip title="Sütunlar" arrow>
+              <IconButton size="small" onClick={(e)=> setColumnsAnchor(e.currentTarget)} sx={{ color: theme.text.secondary }}>
+                <ViewColumnIcon sx={{ fontSize: 17 }}/>
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Tam Ekran" arrow>
+              <IconButton size="small" onClick={()=> setFullScreen(v=>!v)} sx={{ color: theme.text.secondary }}>
+                {fullScreen ? <FullscreenExitIcon sx={{ fontSize: 17 }}/> : <FullscreenIcon sx={{ fontSize: 17 }}/>}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Kaydet" arrow><span>
+              <IconButton 
+                size="small" 
+                disabled={!selectedTesvik} 
+                onClick={async()=>{
+                  const payload = {
+                    yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
+                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
+                  };
+                  const res = await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+              if (res?.success) openToast('success', 'Kaydedildi');
+            }}><CheckIcon sx={{ fontSize: 16 }}/></IconButton></span></Tooltip>
+            <Tooltip title="Eski Revize"><span><IconButton size="small" disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)}><RestoreIcon sx={{ fontSize: 16 }}/></IconButton></span></Tooltip>
+            <Tooltip title="Toplu İşlem"><IconButton size="small" onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon sx={{ fontSize: 16 }}/></IconButton></Tooltip>
+          </Stack>
+        </Box>
+
+        {/* DataGrid Area */}
+        <Box sx={{ flex: 1, overflow: 'auto', p: 0.5 }}>
+          {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+        </Box>
       </Paper>
+
+      {/* Bulk Menu */}
+      <Menu open={!!bulkMenuAnchor} onClose={()=> setBulkMenuAnchor(null)} anchorEl={bulkMenuAnchor} PaperProps={{ sx: { fontSize: '0.75rem' } }}>
+        <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkTalep(); }} sx={{ fontSize: '0.75rem', py: 0.5 }}>Seçilenlere Talep</MenuItem>
+        <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('onay'); }} sx={{ fontSize: '0.75rem', py: 0.5 }}>Onayla</MenuItem>
+        <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('kismi_onay'); }} sx={{ fontSize: '0.75rem', py: 0.5 }}>Kısmi Onay</MenuItem>
+        <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('red'); }} sx={{ fontSize: '0.75rem', py: 0.5, color: theme.error }}>Reddet</MenuItem>
+      </Menu>
 
       {/* 🗑️ Silinen Satırlar & İşlem Özeti */}
       <Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>

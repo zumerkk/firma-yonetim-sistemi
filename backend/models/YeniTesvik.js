@@ -172,6 +172,8 @@ const makinaKalemiYerliSchema = new mongoose.Schema({
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   // 🆕 Sıra numarası (otomatik atanır, manuel düzenlenebilir)
   siraNo: { type: Number, default: 0 },
+  // 🆕 Bakanlık Makine ID (Bakanlık portalından gelen benzersiz makine kimliği)
+  makineId: { type: String, trim: true, maxlength: 20, default: '' },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },
@@ -215,6 +217,8 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   rowId: { type: String, default: () => new mongoose.Types.ObjectId().toString() },
   // 🆕 Sıra numarası (otomatik atanır, manuel düzenlenebilir)
   siraNo: { type: Number, default: 0 },
+  // 🆕 Bakanlık Makine ID (Bakanlık portalından gelen benzersiz makine kimliği)
+  makineId: { type: String, trim: true, maxlength: 20, default: '' },
   gtipKodu: { type: String, trim: true, maxlength: 20 },
   gtipAciklamasi: { type: String, trim: true, maxlength: 1000 },
   adiVeOzelligi: { type: String, trim: true, maxlength: 500 },

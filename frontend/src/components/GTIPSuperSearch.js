@@ -101,7 +101,7 @@ const GTIPSuperSearch = ({
   const [copiedCode, setCopiedCode] = useState(null);
   const inputRef = useRef(null);
   const searchInputRef = useRef(null);
-  
+
   // localStorage
   const [recent, setRecent] = useState([]);
   const [favorites, setFavorites] = useState([]);
@@ -449,9 +449,9 @@ const GTIPSuperSearch = ({
                   <InputAdornment position="end">
                     {loading && <CircularProgress size={20} />}
                     {searchTerm && !loading && (
-                      <IconButton size="small" onClick={() => setSearchTerm('')}>
-                        <ClearIcon />
-                      </IconButton>
+                    <IconButton size="small" onClick={() => setSearchTerm('')}>
+                      <ClearIcon />
+                    </IconButton>
                     )}
                   </InputAdornment>
                 )
@@ -518,7 +518,7 @@ const GTIPSuperSearch = ({
                 label="Kategoriler"
               />
             </Tabs>
-          </Box>
+                    </Box>
 
           {/* Tab Content */}
           <Box sx={{ height: 400, overflow: 'auto' }}>
@@ -538,13 +538,13 @@ const GTIPSuperSearch = ({
                     <Typography variant="caption">
                       En az 2 karakter girin veya kategorilerden seçin
                     </Typography>
-                  </Box>
+            </Box>
                 ) : (
                   <List disablePadding>
                     {results.map((item, idx) => renderGTIPItem(item, idx))}
                   </List>
                 )}
-              </Box>
+                    </Box>
             )}
 
             {/* Tab 1: Recent */}
@@ -560,7 +560,7 @@ const GTIPSuperSearch = ({
                     {recent.map((item, idx) => renderGTIPItem(item, idx))}
                   </List>
                 )}
-              </Box>
+            </Box>
             )}
 
             {/* Tab 2: Favorites */}
@@ -571,8 +571,8 @@ const GTIPSuperSearch = ({
                     <StarBorderIcon sx={{ fontSize: 48, mb: 2, opacity: 0.5 }} />
                     <Typography variant="body1">Henüz favori eklenmemiş</Typography>
                     <Typography variant="caption">Yıldız ikonuna tıklayarak favorilere ekleyin</Typography>
-                  </Box>
-                ) : (
+            </Box>
+          ) : (
                   <List disablePadding>
                     {favorites.map((item, idx) => renderGTIPItem(item, idx, false))}
                   </List>
@@ -623,9 +623,9 @@ const GTIPSuperSearch = ({
                     </Paper>
                   ))}
                 </Box>
-              </Box>
-            )}
-          </Box>
+                </Box>
+              )}
+            </Box>
         </DialogContent>
 
         {/* Footer */}
