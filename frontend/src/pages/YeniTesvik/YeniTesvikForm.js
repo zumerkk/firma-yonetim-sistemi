@@ -850,6 +850,53 @@ const YeniTesvikForm = () => {
     }
   };
 
+  // 📋 Kopyala-Yapıştır Date Handler - Çeşitli tarih formatlarını destekler
+  const handleDatePaste = (e, fieldPath) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text').trim();
+    
+    // Çeşitli tarih formatlarını dene
+    let parsedDate = null;
+    
+    // Format: dd.mm.yyyy veya dd/mm/yyyy
+    const dmyMatch = pastedText.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if (dmyMatch) {
+      const [, day, month, year] = dmyMatch;
+      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // Format: yyyy-mm-dd
+    const ymdMatch = pastedText.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (!parsedDate && ymdMatch) {
+      const [, year, month, day] = ymdMatch;
+      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // Format: mm/dd/yyyy
+    const mdyMatch = pastedText.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!parsedDate && mdyMatch) {
+      const [, month, day, year] = mdyMatch;
+      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    }
+    
+    // ISO Format: yyyy-mm-ddTHH:mm:ss
+    if (!parsedDate) {
+      const isoDate = new Date(pastedText);
+      if (!isNaN(isoDate.getTime())) {
+        parsedDate = isoDate;
+      }
+    }
+    
+    if (parsedDate && !isNaN(parsedDate.getTime())) {
+      // yyyy-MM-dd formatına çevir
+      const formattedDate = parsedDate.toISOString().split('T')[0];
+      handleFieldChange(fieldPath, formattedDate);
+    } else {
+      // Geçersiz format - ham metni dene
+      console.warn('Geçersiz tarih formatı:', pastedText);
+    }
+  };
+
   // 🔧 Problematik Değer Temizleme Utility
   const cleanProblematicValue = (value) => {
     if (!value) return '';
@@ -1496,33 +1543,7 @@ const YeniTesvikForm = () => {
     });
   };
 
-  // 📅 YENİ EKLENDİ - TARİH ALANLARI KOPYALA-YAPIŞTIR ÖZELLİĞİ
-  // Clipboard'dan tarih verisi okuma ve format dönüştürme
-  const handleDatePaste = async (fieldPath) => {
-    try {
-      // Clipboard'dan veri oku
-      const clipboardText = await navigator.clipboard.readText();
-      
-      if (!clipboardText || !clipboardText.trim()) {
-        setError('Panoda tarih verisi bulunamadı!');
-        return;
-      }
-
-      // Tarih formatlarını parse et
-      const dateValue = parseClipboardDate(clipboardText.trim());
-      
-      if (dateValue) {
-        // Form alanını güncelle
-        handleFieldChange(fieldPath, dateValue);
-        setSuccess(`📅 Tarih başarıyla yapıştırıldı: ${dateValue}`);
-      } else {
-        setError('Geçerli bir tarih formatı tanınmadı! (DD/MM/YYYY, DD.MM.YYYY, YYYY-MM-DD destekleniyor)');
-      }
-    } catch (error) {
-      setError('Kopyalama izni reddedildi veya hata oluştu!');
-      console.error('Clipboard okuma hatası:', error);
-    }
-  };
+  // 📅 parseClipboardDate artık doğrudan handleDatePaste içinden kullanılıyor (yukarıda tanımlı)
 
   // 📅 Gelişmiş tarih formatları parser - Excel copy-paste uyumlu
   const parseClipboardDate = (dateString) => {
@@ -2713,6 +2734,7 @@ const YeniTesvikForm = () => {
                   type="date"
                   value={formData.belgeYonetimi.belgeTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeTarihi')}
                   InputLabelProps={{ shrink: true }}
                     sx={{ backgroundColor: '#fff' }}
                   />
@@ -2731,6 +2753,7 @@ const YeniTesvikForm = () => {
                   type="date"
                   value={formData.belgeYonetimi.belgeMuracaatTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeMuracaatTarihi')}
                   InputLabelProps={{ shrink: true }}
                     sx={{ backgroundColor: '#fff' }}
                   />
@@ -2765,6 +2788,7 @@ const YeniTesvikForm = () => {
                   type="date"
                   value={formData.belgeYonetimi.belgeBaslamaTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBaslamaTarihi')}
                   InputLabelProps={{ shrink: true }}
                     sx={{ backgroundColor: '#fff' }}
                   />
@@ -2783,6 +2807,7 @@ const YeniTesvikForm = () => {
                   type="date"
                   value={formData.belgeYonetimi.belgeBitisTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBitisTarihi')}
                   InputLabelProps={{ shrink: true }}
                     sx={{ backgroundColor: '#fff' }}
                   />
@@ -2801,6 +2826,7 @@ const YeniTesvikForm = () => {
                   type="date"
                   value={formData.belgeYonetimi.uzatimTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
+                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.uzatimTarihi')}
                   InputLabelProps={{ shrink: true }}
                     sx={{ backgroundColor: '#fff' }}
                   />
@@ -4696,7 +4722,7 @@ const YeniTesvikForm = () => {
           </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Banka Kredisi:</Typography>
+                  <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yabancı Kaynak:</Typography>
                   <TextField size="small" fullWidth type="number"
                     value={formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi}
                     onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', parseFloat(e.target.value) || 0)}

@@ -1237,7 +1237,7 @@ const MakineYonetimi = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
           useEffect(() => { setLocalValue(formatDateForInput(p.row.karar?.kararTarihi)); }, [p.row.karar?.kararTarihi]);
           return (
-            <TextField type="date" size="small" disabled={!selectedTesvik || p.row.talep?.durum !== 'bakanliga_gonderildi'} value={localValue}
+            <TextField type="date" size="small" disabled={!selectedTesvik} value={localValue}
               sx={{ ...compactInputSx, '& input': { fontSize: '0.6rem', py: 0, px: 0.5 } }}
               onChange={async(e)=>{
                 const newValue = e.target.value;
@@ -1582,7 +1582,7 @@ const MakineYonetimi = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
           useEffect(() => { setLocalValue(formatDateForInput(p.row.karar?.kararTarihi)); }, [p.row.karar?.kararTarihi]);
           return (
-            <TextField type="date" size="small" disabled={!selectedTesvik || p.row.talep?.durum !== 'bakanliga_gonderildi'} value={localValue}
+            <TextField type="date" size="small" disabled={!selectedTesvik} value={localValue}
               sx={{ ...compactInputSx, '& input': { fontSize: '0.6rem', py: 0, px: 0.5 } }}
               onChange={async(e)=>{
                 const newValue = e.target.value;
@@ -2224,23 +2224,6 @@ const MakineYonetimi = () => {
                 {fullScreen ? <FullscreenExitIcon sx={{ fontSize: 17 }}/> : <FullscreenIcon sx={{ fontSize: 17 }}/>}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Kaydet" arrow><span>
-              <IconButton 
-                size="small" 
-                disabled={!selectedTesvik} 
-                onClick={async()=>{
-                  const payload = {
-                    yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
-                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
-                  };
-                  const res = await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-                  if (res?.success) openToast('success', 'Kaydedildi');
-                }}
-                sx={{ color: theme.success }}
-              >
-                <CheckIcon sx={{ fontSize: 17 }}/>
-              </IconButton>
-            </span></Tooltip>
             <Tooltip title="Eski Revize" arrow><span>
               <IconButton size="small" disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)} sx={{ color: theme.warning }}>
                 <RestoreIcon sx={{ fontSize: 17 }}/>

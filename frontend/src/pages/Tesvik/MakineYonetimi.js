@@ -1271,7 +1271,7 @@ const MakineYonetimi = () => {
               type="date"
               size="small"
               InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'}
+              disabled={!selectedTesvik}
               value={localValue}
               onChange={async(e)=>{
                 const newValue = e.target.value;
@@ -1680,7 +1680,7 @@ const MakineYonetimi = () => {
               type="date"
               size="small"
               InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'}
+              disabled={!selectedTesvik}
               value={localValue}
               onChange={async(e)=>{
                 const newValue = e.target.value;
@@ -2284,18 +2284,6 @@ const MakineYonetimi = () => {
                 {fullScreen ? <FullscreenExitIcon sx={{ fontSize: 17 }}/> : <FullscreenIcon sx={{ fontSize: 17 }}/>}
               </IconButton>
             </Tooltip>
-            <Tooltip title="Kaydet" arrow><span>
-              <IconButton 
-                size="small" 
-                disabled={!selectedTesvik} 
-                onClick={async()=>{
-                  const payload = {
-                    yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
-                    ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
-                  };
-                  const res = await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-              if (res?.success) openToast('success', 'Kaydedildi');
-            }}><CheckIcon sx={{ fontSize: 16 }}/></IconButton></span></Tooltip>
             <Tooltip title="Eski Revize"><span><IconButton size="small" disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)}><RestoreIcon sx={{ fontSize: 16 }}/></IconButton></span></Tooltip>
             <Tooltip title="Toplu İşlem"><IconButton size="small" onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon sx={{ fontSize: 16 }}/></IconButton></Tooltip>
           </Stack>
