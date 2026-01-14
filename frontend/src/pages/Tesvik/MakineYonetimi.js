@@ -1159,72 +1159,94 @@ const MakineYonetimi = () => {
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setYerliRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 200, sortable: false, renderCell: (p)=>(
-        <Stack direction="row" spacing={0.5} alignItems="center">
+      { field: 'talep', headerName: 'Talep', width: 90, sortable: false, renderCell: (p)=>(
+        <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
-            <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
-              <Chip size="small" label={`${p.row.talep.durum.replace(/_/g,' ').toUpperCase()}${p.row.talep.istenenAdet?` (${p.row.talep.istenenAdet})`:''}`} />
+            <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  fontSize: '0.62rem', 
+                  fontWeight: 700,
+                  bgcolor: '#dbeafe',
+                  color: '#1d4ed8',
+                  border: '1px solid #3b82f6',
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={p.row.talep.istenenAdet||0} 
+              />
             </Tooltip>
           )}
-          <Tooltip title="Bakanlığa gönder">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
-                updateYerli(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><SendIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
+          <Tooltip title="Gönder"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
+              const rid = await ensureRowId('yerli', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
+              await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
+              updateYerli(p.row.id, { rowId: rid, talep });
+              setActivityLog(log=> { const next = [{ type:'talep', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><SendIcon sx={{ fontSize: 12 }}/></IconButton>
+          </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 220, sortable: false, renderCell: (p)=>(
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          {p.row.karar?.kararDurumu && (
-            <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
-              <Chip size="small" label={`${p.row.karar.kararDurumu.toUpperCase()}${Number.isFinite(Number(p.row.karar.onaylananAdet))?` (${p.row.karar.onaylananAdet})`:''}`} />
+      { field: 'karar', headerName: 'Karar', width: 95, sortable: false, renderCell: (p)=>{
+        // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
+        const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
+        const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
+        const kararAdi = kararKodu === 1 ? 'ONAY' : kararKodu === 2 ? 'KISMİ' : kararKodu === 3 ? 'RED' : '';
+        return (
+        <Stack direction="row" spacing={0.25} alignItems="center">
+          {kararKodu && (
+            <Tooltip title={`${kararAdi} - Onaylanan: ${p.row.karar.onaylananAdet||0} adet`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  minWidth: 22,
+                  fontSize: '0.65rem', 
+                  fontWeight: 800,
+                  bgcolor: kararRenk.bg,
+                  color: kararRenk.color,
+                  border: `1.5px solid ${kararRenk.border}`,
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={kararKodu} 
+              />
             </Tooltip>
           )}
-          <Tooltip title="Onay">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
-                updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><CheckIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Kısmi Onay">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
-                updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><PercentIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Red">
-            <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
-                updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><ClearIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
+          <Tooltip title="Onayla (1)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('yerli', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+              updateYerli(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><CheckIcon sx={{ fontSize: 12, color: '#10b981' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Kısmi (2)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('yerli', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+              updateYerli(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><PercentIcon sx={{ fontSize: 12, color: '#f59e0b' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Red (3)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('yerli', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+              updateYerli(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><ClearIcon sx={{ fontSize: 12, color: '#ef4444' }}/></IconButton>
+          </span></Tooltip>
         </Stack>
-      ) },
+      )} },
       { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
@@ -1576,73 +1598,94 @@ const MakineYonetimi = () => {
       { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setIthalRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 200, sortable: false, renderCell: (p)=>(
-        <Stack direction="row" spacing={0.5} alignItems="center">
+      { field: 'talep', headerName: 'Talep', width: 90, sortable: false, renderCell: (p)=>(
+        <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
-            <Tooltip title={`Talep Tarihi: ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : '-'}`}>
-              <Chip size="small" label={`${p.row.talep.durum.replace(/_/g,' ').toUpperCase()}${p.row.talep.istenenAdet?` (${p.row.talep.istenenAdet})`:''}`} />
+            <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  fontSize: '0.62rem', 
+                  fontWeight: 700,
+                  bgcolor: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #f59e0b',
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={p.row.talep.istenenAdet||0} 
+              />
             </Tooltip>
           )}
-          <Tooltip title="Bakanlığa gönder">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
-                updateIthal(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><SendIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
+          <Tooltip title="Gönder"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: p.row?.talep?.talepTarihi ? p.row.talep.talepTarihi : new Date() };
+              await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+              updateIthal(p.row.id, { rowId: rid, talep });
+              setActivityLog(log=> { const next = [{ type:'talep', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><SendIcon sx={{ fontSize: 12 }}/></IconButton>
+          </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 220, sortable: false, renderCell: (p)=>
-      (
-        <Stack direction="row" spacing={0.5} alignItems="center">
-          {p.row.karar?.kararDurumu && (
-            <Tooltip title={`Karar Tarihi: ${p.row.karar?.kararTarihi ? new Date(p.row.karar.kararTarihi).toLocaleDateString('tr-TR') : '-'}`}>
-              <Chip size="small" label={`${p.row.karar.kararDurumu.toUpperCase()}${Number.isFinite(Number(p.row.karar.onaylananAdet))?` (${p.row.karar.onaylananAdet})`:''}`} />
+      { field: 'karar', headerName: 'Karar', width: 95, sortable: false, renderCell: (p)=>{
+        // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
+        const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
+        const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
+        const kararAdi = kararKodu === 1 ? 'ONAY' : kararKodu === 2 ? 'KISMİ' : kararKodu === 3 ? 'RED' : '';
+        return (
+        <Stack direction="row" spacing={0.25} alignItems="center">
+          {kararKodu && (
+            <Tooltip title={`${kararAdi} - Onaylanan: ${p.row.karar.onaylananAdet||0} adet`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  minWidth: 22,
+                  fontSize: '0.65rem', 
+                  fontWeight: 800,
+                  bgcolor: kararRenk.bg,
+                  color: kararRenk.color,
+                  border: `1.5px solid ${kararRenk.border}`,
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={kararKodu} 
+              />
             </Tooltip>
           )}
-          <Tooltip title="Onay">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-                updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><CheckIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Kısmi Onay">
-            <span>
-              <IconButton size="small" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-                updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><PercentIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Red">
-            <span>
-              <IconButton size="small" color="error" disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
-                const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-                updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}><ClearIcon fontSize="inherit"/></IconButton>
-            </span>
-          </Tooltip>
+          <Tooltip title="Onayla (1)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><CheckIcon sx={{ fontSize: 12, color: '#10b981' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Kısmi (2)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.max(0, Math.floor((Number(p.row.miktar)||0)/2)), kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><PercentIcon sx={{ fontSize: 12, color: '#f59e0b' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Red (3)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || !p.row.talep?.durum || p.row.talep.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) { alert('Satır kimliği oluşturulamadı. Lütfen tekrar deneyin.'); return; }
+              const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: p.row?.karar?.kararTarihi ? p.row.karar.kararTarihi : new Date() };
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}><ClearIcon sx={{ fontSize: 12, color: '#ef4444' }}/></IconButton>
+          </span></Tooltip>
         </Stack>
-      ) },
+      )} },
       { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));

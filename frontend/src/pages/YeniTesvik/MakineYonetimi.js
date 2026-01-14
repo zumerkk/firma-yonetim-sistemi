@@ -601,7 +601,12 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
+      { header: 'Talep Adedi', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
+      { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 14 },
+      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 14, numFmt: '#,##0' },
+      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 18 }
     ];
 
     const ithalColumns = [
@@ -633,24 +638,66 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
+      { header: 'Talep Adedi', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
+      { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 14 },
+      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 14, numFmt: '#,##0' },
+      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 18 }
     ];
+
+    // Karar kodu helper
+    const getKararKodu = (karar) => karar?.kararDurumu === 'onay' ? 1 : karar?.kararDurumu === 'kismi_onay' ? 2 : karar?.kararDurumu === 'red' ? 3 : '';
+    const getKararAdi = (karar) => karar?.kararDurumu === 'onay' ? 'ONAY' : karar?.kararDurumu === 'kismi_onay' ? 'KISMİ' : karar?.kararDurumu === 'red' ? 'RED' : '';
+    // Renk kodları: 1=Yeşil, 2=Sarı, 3=Kırmızı
+    const kararRenkler = { 1: 'FF22C55E', 2: 'FFEAB308', 3: 'FFEF4444' };
+    const kararBgRenkler = { 1: 'FFDCFCE7', 2: 'FFFEF9C3', 3: 'FFFEE2E2' };
 
     // Yerli sayfası
     const wsYerli = wb.addWorksheet('Yerli');
     wsYerli.columns = yerliColumns;
+    const yerliKararKoduCol = yerliColumns.findIndex(c => c.key === 'kararKodu') + 1;
+    const yerliKararDurumuCol = yerliColumns.findIndex(c => c.key === 'kararDurumu') + 1;
+    
     yerliRows.forEach((r) => {
+      // Karar kodunu hesapla
+      const kararKodu = getKararKodu(r.karar);
+      const kararAdi = getKararAdi(r.karar);
+      
       // Toplam TL'yi Excel içinde formülle üretelim
       const row = wsYerli.addRow({ 
         ...r, 
         toplamTl: undefined,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
+        talepAdedi: r?.talep?.istenenAdet || '',
+        kararKodu: kararKodu,
+        kararDurumu: kararAdi,
+        onaylananAdet: r?.karar?.onaylananAdet || '',
+        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       });
       const miktarCol = yerliColumns.findIndex(c => c.key === 'miktar') + 1;
       const bfCol = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
       const toplamCol = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
       row.getCell(toplamCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(bfCol)}${row.number}` };
+      
+      // Karar durumuna göre renklendirme
+      if (kararKodu && kararRenkler[kararKodu]) {
+        row.getCell(yerliKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(yerliKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu].replace('FF', 'FF') } };
+        row.getCell(yerliKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(yerliKararDurumuCol).font = { bold: true };
+      }
+      
+      // Silinmiş/Değiştirilmiş satırları vurgula
+      const degisiklikCol = yerliColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
+      if (r.silindi) {
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+      } else if (r.degistirildi) {
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
+      }
     });
     // Numara formatlarını uygula
     yerliColumns.forEach((c, idx) => { if (c.numFmt) wsYerli.getColumn(idx + 1).numFmt = c.numFmt; });
@@ -674,6 +721,9 @@ const MakineYonetimi = () => {
     // İthal sayfası
     const wsIthal = wb.addWorksheet('İthal');
     wsIthal.columns = ithalColumns;
+    const ithalKararKoduCol = ithalColumns.findIndex(c => c.key === 'kararKodu') + 1;
+    const ithalKararDurumuCol = ithalColumns.findIndex(c => c.key === 'kararDurumu') + 1;
+    
     ithalRows.forEach((r) => {
       // Manuel kur durumunu ve uygulanan kuru hesapla
       let uygulanankur = 0;
@@ -686,13 +736,22 @@ const MakineYonetimi = () => {
         uygulanankur = 1;
       }
       
+      // Karar kodunu hesapla
+      const kararKodu = getKararKodu(r.karar);
+      const kararAdi = getKararAdi(r.karar);
+      
       // Satırı ekle
       const rowData = { 
         ...r, 
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
+        talepAdedi: r?.talep?.istenenAdet || '',
+        kararKodu: kararKodu,
+        kararDurumu: kararAdi,
+        onaylananAdet: r?.karar?.onaylananAdet || '',
+        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       };
       const row = wsIthal.addRow(rowData);
       
@@ -701,6 +760,24 @@ const MakineYonetimi = () => {
       const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
       row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
+      
+      // Karar durumuna göre renklendirme
+      if (kararKodu && kararRenkler[kararKodu]) {
+        row.getCell(ithalKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(ithalKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu].replace('FF', 'FF') } };
+        row.getCell(ithalKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(ithalKararDurumuCol).font = { bold: true };
+      }
+      
+      // Silinmiş/Değiştirilmiş satırları vurgula
+      const degisiklikCol = ithalColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
+      if (r.silindi) {
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+      } else if (r.degistirildi) {
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
+      }
     });
     ithalColumns.forEach((c, idx) => { if (c.numFmt) wsIthal.getColumn(idx + 1).numFmt = c.numFmt; });
     finalizeSheet(wsIthal, wsIthal.rowCount);
@@ -746,6 +823,14 @@ const MakineYonetimi = () => {
       ? ithalRows.filter(r => r.kurManuel).reduce((sum, r) => sum + (r.kurManuelDeger || 0), 0) / manuelKurSayisi
       : 0;
     
+    // Karar istatistikleri
+    const yerliOnay = yerliRows.filter(r => r.karar?.kararDurumu === 'onay').length;
+    const yerliKismi = yerliRows.filter(r => r.karar?.kararDurumu === 'kismi_onay').length;
+    const yerliRed = yerliRows.filter(r => r.karar?.kararDurumu === 'red').length;
+    const ithalOnay = ithalRows.filter(r => r.karar?.kararDurumu === 'onay').length;
+    const ithalKismi = ithalRows.filter(r => r.karar?.kararDurumu === 'kismi_onay').length;
+    const ithalRed = ithalRows.filter(r => r.karar?.kararDurumu === 'red').length;
+    
     // Özet sayfası
     const wsSummary = wb.addWorksheet('Özet');
     wsSummary.columns = [ { header: 'Alan', key: 'k', width: 35 }, { header: 'Değer', key: 'v', width: 45 } ];
@@ -756,31 +841,56 @@ const MakineYonetimi = () => {
       { k: 'YERLİ LİSTE', v: '' },
       { k: 'Yerli Toplam Satır', v: yerliRows.length },
       { k: 'Yerli Toplam (TL)', v: yerliToplamTl },
+      { k: '✅ Onay (Kod: 1)', v: yerliOnay },
+      { k: '⚠️ Kısmi Onay (Kod: 2)', v: yerliKismi },
+      { k: '❌ Red (Kod: 3)', v: yerliRed },
       { k: '', v: '' }, // Boş satır
       { k: 'İTHAL LİSTE', v: '' },
       { k: 'İthal Toplam Satır', v: ithalRows.length },
       { k: 'İthal Toplam ($)', v: ithalToplamUsd },
       { k: 'İthal Toplam (TL)', v: ithalToplamTl },
+      { k: '✅ Onay (Kod: 1)', v: ithalOnay },
+      { k: '⚠️ Kısmi Onay (Kod: 2)', v: ithalKismi },
+      { k: '❌ Red (Kod: 3)', v: ithalRed },
       { k: '', v: '' }, // Boş satır
       { k: 'DÖVİZ KURU BİLGİLERİ', v: '' },
       { k: 'Manuel Kur Kullanılan Satır Sayısı', v: manuelKurSayisi },
       { k: 'Ortalama Manuel Kur', v: manuelKurOrtalama > 0 ? manuelKurOrtalama.toFixed(4) : '-' },
-      { k: 'Manuel Kur Kullanım Oranı', v: ithalRows.length > 0 ? `%${((manuelKurSayisi / ithalRows.length) * 100).toFixed(1)}` : '-' }
+      { k: 'Manuel Kur Kullanım Oranı', v: ithalRows.length > 0 ? `%${((manuelKurSayisi / ithalRows.length) * 100).toFixed(1)}` : '-' },
+      { k: '', v: '' }, // Boş satır
+      { k: 'KARAR KODLARI', v: '' },
+      { k: '1 = ONAY (Yeşil)', v: 'Tam onay verilmiş' },
+      { k: '2 = KISMİ (Sarı)', v: 'Kısmi onay verilmiş' },
+      { k: '3 = RED (Kırmızı)', v: 'Reddedilmiş' }
     ]);
     wsSummary.getColumn(2).numFmt = '#,##0';
     wsSummary.getRow(1).font = { bold: true };
     
     // Başlık satırlarını vurgula
-    [4, 8, 13].forEach(rowNum => {
+    [4, 11, 19, 24].forEach(rowNum => {
       const row = wsSummary.getRow(rowNum);
       row.font = { bold: true, size: 12 };
       row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
     });
     
     // Manuel kur bilgilerini vurgula
-    [14, 15, 16].forEach(rowNum => {
+    [20, 21, 22].forEach(rowNum => {
       wsSummary.getRow(rowNum).getCell(1).font = { color: { argb: 'FF065F46' } };
     });
+    
+    // Karar satırlarını renklendir
+    // Yerli karar satırları (7, 8, 9)
+    wsSummary.getRow(7).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; cell.font = { bold: true, color: { argb: 'FF15803D' } }; });
+    wsSummary.getRow(8).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }; cell.font = { bold: true, color: { argb: 'FFA16207' } }; });
+    wsSummary.getRow(9).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; cell.font = { bold: true, color: { argb: 'FFDC2626' } }; });
+    // İthal karar satırları (15, 16, 17)
+    wsSummary.getRow(15).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; cell.font = { bold: true, color: { argb: 'FF15803D' } }; });
+    wsSummary.getRow(16).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }; cell.font = { bold: true, color: { argb: 'FFA16207' } }; });
+    wsSummary.getRow(17).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; cell.font = { bold: true, color: { argb: 'FFDC2626' } }; });
+    // Karar kod açıklamaları (25, 26, 27)
+    wsSummary.getRow(25).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } }; });
+    wsSummary.getRow(26).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF9C3' } }; });
+    wsSummary.getRow(27).eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; });
 
     // Çıktıyı indir
     const buff = await wb.xlsx.writeBuffer();
@@ -1156,11 +1266,23 @@ const MakineYonetimi = () => {
       { field: 'copy', headerName: '', width: 30, sortable: false, renderCell: (p)=> (
         <IconButton size="small" sx={{ p: 0.25 }} onClick={()=> isReviseMode && setYerliRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon sx={{ fontSize: 12 }}/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 100, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', width: 85, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
-            <Tooltip title={`${p.row.talep.durum} - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
-              <Chip size="small" sx={{ height: 16, fontSize: '0.58rem', '& .MuiChip-label': { px: 0.5 } }} label={`${p.row.talep.istenenAdet||0}`} />
+            <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  fontSize: '0.62rem', 
+                  fontWeight: 700,
+                  bgcolor: '#dbeafe',
+                  color: '#1d4ed8',
+                  border: '1px solid #3b82f6',
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={p.row.talep.istenenAdet||0} 
+              />
             </Tooltip>
           )}
           <Tooltip title="Gönder"><span>
@@ -1175,14 +1297,32 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 100, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 90, sortable: false, renderCell: (p)=>{
+        // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
+        const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
+        const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
+        const kararAdi = kararKodu === 1 ? 'ONAY' : kararKodu === 2 ? 'KISMİ' : kararKodu === 3 ? 'RED' : '';
+        return (
         <Stack direction="row" spacing={0.25} alignItems="center">
-          {p.row.karar?.kararDurumu && (
-            <Tooltip title={`${p.row.karar.kararDurumu} (${p.row.karar.onaylananAdet||0})`}>
-              <Chip size="small" sx={{ height: 16, fontSize: '0.58rem', bgcolor: p.row.karar.kararDurumu==='onay'?'#d1fae5':p.row.karar.kararDurumu==='red'?'#fee2e2':'#fef3c7', '& .MuiChip-label': { px: 0.5 } }} label={`${p.row.karar.onaylananAdet||0}`} />
+          {kararKodu && (
+            <Tooltip title={`${kararAdi} - Onaylanan: ${p.row.karar.onaylananAdet||0} adet`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  minWidth: 22,
+                  fontSize: '0.65rem', 
+                  fontWeight: 800,
+                  bgcolor: kararRenk.bg,
+                  color: kararRenk.color,
+                  border: `1.5px solid ${kararRenk.border}`,
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={kararKodu} 
+              />
             </Tooltip>
           )}
-          <Tooltip title="Onayla"><span>
+          <Tooltip title="Onayla (1)"><span>
             <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
               const rid = await ensureRowId('yerli', p.row);
               if (!rid) return;
@@ -1191,7 +1331,7 @@ const MakineYonetimi = () => {
               updateYerli(p.row.id, { rowId: rid, karar });
             }}><CheckIcon sx={{ fontSize: 12, color: '#10b981' }}/></IconButton>
           </span></Tooltip>
-          <Tooltip title="Kısmi"><span>
+          <Tooltip title="Kısmi (2)"><span>
             <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
               const rid = await ensureRowId('yerli', p.row);
               if (!rid) return;
@@ -1200,7 +1340,7 @@ const MakineYonetimi = () => {
               updateYerli(p.row.id, { rowId: rid, karar });
             }}><PercentIcon sx={{ fontSize: 12, color: '#f59e0b' }}/></IconButton>
           </span></Tooltip>
-          <Tooltip title="Red"><span>
+          <Tooltip title="Red (3)"><span>
             <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
               const rid = await ensureRowId('yerli', p.row);
               if (!rid) return;
@@ -1210,7 +1350,7 @@ const MakineYonetimi = () => {
             }}><ClearIcon sx={{ fontSize: 12, color: '#ef4444' }}/></IconButton>
           </span></Tooltip>
         </Stack>
-      ) },
+      )} },
       { field: 'talepTarihi', headerName: 'T.Tarih', width: 90, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
@@ -1525,45 +1665,87 @@ const MakineYonetimi = () => {
       { field: 'talep', headerName: 'Talep', width: 85, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
-            <Chip size="small" sx={{ height: 16, fontSize: '0.58rem', '& .MuiChip-label': { px: 0.5 } }} label={`${p.row.talep.istenenAdet||0}`} />
+            <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  fontSize: '0.62rem', 
+                  fontWeight: 700,
+                  bgcolor: '#fef3c7',
+                  color: '#92400e',
+                  border: '1px solid #f59e0b',
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={p.row.talep.istenenAdet||0} 
+              />
+            </Tooltip>
           )}
-          <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
-            await yeniTesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
-            updateIthal(p.row.id, { rowId: rid, talep });
-          }}><SendIcon sx={{ fontSize: 12 }}/></IconButton>
+          <Tooltip title="Gönder"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              const talep = { durum:'bakanliga_gonderildi', istenenAdet: Number(p.row.miktar)||0, talepTarihi: new Date() };
+              await yeniTesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+              updateIthal(p.row.id, { rowId: rid, talep });
+            }}><SendIcon sx={{ fontSize: 12 }}/></IconButton>
+          </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 95, sortable: false, renderCell: (p)=>(
+      { field: 'karar', headerName: 'Karar', width: 90, sortable: false, renderCell: (p)=>{
+        // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
+        const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
+        const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
+        const kararAdi = kararKodu === 1 ? 'ONAY' : kararKodu === 2 ? 'KISMİ' : kararKodu === 3 ? 'RED' : '';
+        return (
         <Stack direction="row" spacing={0.25} alignItems="center">
-          {p.row.karar?.kararDurumu && (
-            <Chip size="small" sx={{ height: 16, fontSize: '0.58rem', bgcolor: p.row.karar.kararDurumu==='onay'?'#d1fae5':p.row.karar.kararDurumu==='red'?'#fee2e2':'#fef3c7', '& .MuiChip-label': { px: 0.5 } }} label={`${p.row.karar.onaylananAdet||0}`} />
+          {kararKodu && (
+            <Tooltip title={`${kararAdi} - Onaylanan: ${p.row.karar.onaylananAdet||0} adet`}>
+              <Chip 
+                size="small" 
+                sx={{ 
+                  height: 18, 
+                  minWidth: 22,
+                  fontSize: '0.65rem', 
+                  fontWeight: 800,
+                  bgcolor: kararRenk.bg,
+                  color: kararRenk.color,
+                  border: `1.5px solid ${kararRenk.border}`,
+                  '& .MuiChip-label': { px: 0.5 } 
+                }} 
+                label={kararKodu} 
+              />
+            </Tooltip>
           )}
-          <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
-            await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-            updateIthal(p.row.id, { rowId: rid, karar });
-          }}><CheckIcon sx={{ fontSize: 12, color: '#10b981' }}/></IconButton>
-          <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.floor((Number(p.row.miktar)||0)/2), kararTarihi: new Date() };
-            await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-            updateIthal(p.row.id, { rowId: rid, karar });
-          }}><PercentIcon sx={{ fontSize: 12, color: '#f59e0b' }}/></IconButton>
-          <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
-            const rid = await ensureRowId('ithal', p.row);
-            if (!rid) return;
-            const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
-            await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-            updateIthal(p.row.id, { rowId: rid, karar });
-          }}><ClearIcon sx={{ fontSize: 12, color: '#ef4444' }}/></IconButton>
+          <Tooltip title="Onayla (1)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              const karar = { kararDurumu:'onay', onaylananAdet:Number(p.row.miktar)||0, kararTarihi: new Date() };
+              await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+            }}><CheckIcon sx={{ fontSize: 12, color: '#10b981' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Kısmi (2)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              const karar = { kararDurumu:'kismi_onay', onaylananAdet: Math.floor((Number(p.row.miktar)||0)/2), kararTarihi: new Date() };
+              await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+            }}><PercentIcon sx={{ fontSize: 12, color: '#f59e0b' }}/></IconButton>
+          </span></Tooltip>
+          <Tooltip title="Red (3)"><span>
+            <IconButton size="small" sx={{ p: 0.25 }} disabled={!selectedTesvik || !isReviseMode || p.row.talep?.durum !== 'bakanliga_gonderildi'} onClick={async()=>{
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              const karar = { kararDurumu:'red', onaylananAdet:0, kararTarihi: new Date() };
+              await yeniTesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+            }}><ClearIcon sx={{ fontSize: 12, color: '#ef4444' }}/></IconButton>
+          </span></Tooltip>
         </Stack>
-      ) },
+      )} },
       { field: 'talepTarihi', headerName: 'T.Tarih', width: 85, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
