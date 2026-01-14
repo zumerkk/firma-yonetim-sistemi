@@ -2691,156 +2691,148 @@ const YeniTesvikForm = () => {
           <Box sx={{ p: 2 }}>
             <Grid container spacing={1.5}>
               {/* Belge Id */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 70 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 80, flexShrink: 0 }}>
                     Belge Id:
                   </Typography>
-              <TextField
-                fullWidth
+                  <TextField
                     size="small"
-                value={formData.belgeYonetimi.belgeId}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeId', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    value={formData.belgeYonetimi.belgeId}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeId', e.target.value)}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 120 }}
                   />
                 </Box>
-            </Grid>
+              </Grid>
             
               {/* Belge No */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 70 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 80, flexShrink: 0 }}>
                     Belge No:
                   </Typography>
-              <TextField
-                fullWidth
+                  <TextField
                     size="small"
-                value={formData.belgeYonetimi.belgeNo}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeNo', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    value={formData.belgeYonetimi.belgeNo}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeNo', e.target.value)}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 120 }}
                   />
                 </Box>
-            </Grid>
+              </Grid>
             
               {/* Belge Tarihi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 80 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 90, flexShrink: 0 }}>
                     Belge Tarihi:
                   </Typography>
-                <TextField
-                  fullWidth
+                  <TextField
                     size="small"
-                  type="date"
-                  value={formData.belgeYonetimi.belgeTarihi}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeTarihi')}
-                  InputLabelProps={{ shrink: true }}
-                    sx={{ backgroundColor: '#fff' }}
-                  />
-              </Box>
-            </Grid>
-            
-              {/* Müracaat Tarihi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 100 }}>
-                    Müracaat Tarihi:
-                  </Typography>
-                <TextField
-                  fullWidth
-                    size="small"
-                  type="date"
-                  value={formData.belgeYonetimi.belgeMuracaatTarihi}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeMuracaatTarihi')}
-                  InputLabelProps={{ shrink: true }}
-                    sx={{ backgroundColor: '#fff' }}
-                  />
-              </Box>
-            </Grid>
-            
-              {/* Müracaat Sayısı */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 100 }}>
-                    Müracaat Sayısı:
-                  </Typography>
-              <TextField
-                fullWidth
-                    size="small"
-                value={formData.belgeYonetimi.belgeMuracaatNo}
-                onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatNo', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    type="date"
+                    value={formData.belgeYonetimi.belgeTarihi}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeTarihi')}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
                   />
                 </Box>
-            </Grid>
+              </Grid>
+            
+              {/* Müracaat Tarihi */}
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110, flexShrink: 0 }}>
+                    Müracaat Tarihi:
+                  </Typography>
+                  <TextField
+                    size="small"
+                    type="date"
+                    value={formData.belgeYonetimi.belgeMuracaatTarihi}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeMuracaatTarihi')}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
+                  />
+                </Box>
+              </Grid>
+            
+              {/* Müracaat Sayısı */}
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110, flexShrink: 0 }}>
+                    Müracaat Sayısı:
+                  </Typography>
+                  <TextField
+                    size="small"
+                    value={formData.belgeYonetimi.belgeMuracaatNo}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatNo', e.target.value)}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 100 }}
+                  />
+                </Box>
+              </Grid>
             
               {/* Belge Başlama Tarihi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Belge Başlama Tarihi:
                   </Typography>
-                <TextField
-                  fullWidth
+                  <TextField
                     size="small"
-                  type="date"
-                  value={formData.belgeYonetimi.belgeBaslamaTarihi}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBaslamaTarihi')}
-                  InputLabelProps={{ shrink: true }}
-                    sx={{ backgroundColor: '#fff' }}
+                    type="date"
+                    value={formData.belgeYonetimi.belgeBaslamaTarihi}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBaslamaTarihi')}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
                   />
-              </Box>
-            </Grid>
+                </Box>
+              </Grid>
       
               {/* Belge Bitiş Tarihi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 115, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Belge Bitiş Tarihi:
                   </Typography>
-                <TextField
-                  fullWidth
+                  <TextField
                     size="small"
-                  type="date"
-                  value={formData.belgeYonetimi.belgeBitisTarihi}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBitisTarihi')}
-                  InputLabelProps={{ shrink: true }}
-                    sx={{ backgroundColor: '#fff' }}
+                    type="date"
+                    value={formData.belgeYonetimi.belgeBitisTarihi}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.belgeBitisTarihi')}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
                   />
-              </Box>
-            </Grid>
+                </Box>
+              </Grid>
             
               {/* Süre Uzatım Tarihi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Süre Uzatım Tarihi:
                   </Typography>
-                <TextField
-                  fullWidth
+                  <TextField
                     size="small"
-                  type="date"
-                  value={formData.belgeYonetimi.uzatimTarihi}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
-                  onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.uzatimTarihi')}
-                  InputLabelProps={{ shrink: true }}
-                    sx={{ backgroundColor: '#fff' }}
+                    type="date"
+                    value={formData.belgeYonetimi.uzatimTarihi}
+                    onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
+                    onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.uzatimTarihi')}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
                   />
-              </Box>
-            </Grid>
+                </Box>
+              </Grid>
             
               {/* OECD (Orta-Yüksek) */}
               <Grid item xs={12}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     OECD (Orta-Yüksek):
-                              </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
+                  </Typography>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
+                    <Select
                       value={formData.yatirimBilgileri1.oecdKategori || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.oecdKategori', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2848,21 +2840,21 @@ const YeniTesvikForm = () => {
                       {templateData.oecdKategorileri?.map((kat) => (
                         <MenuItem key={(kat.value || kat.kod)} value={(kat.value || kat.kod)}>
                           {kat.label || kat.aciklama}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-                      </Box>
-      </Grid>
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
 
               {/* Destekleme Sınıfı */}
-      <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120 }}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120, flexShrink: 0 }}>
                     Destekleme Sınıfı:
-          </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
+                  </Typography>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
+                    <Select
                       value={formData.yatirimBilgileri1.destekSinifi}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2870,46 +2862,46 @@ const YeniTesvikForm = () => {
                       {templateData.destekSiniflari?.map((sinif) => (
                         <MenuItem key={sinif.value} value={sinif.value}>
                           {sinif.label}
-                  </MenuItem>
+                        </MenuItem>
                       ))}
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
             
               {/* Öncelikli Yatırım */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Öncelikli Yatırım:
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
-                  value={formData.belgeYonetimi.oncelikliYatirim || ''}
-                  onChange={(e) => {
-                    handleFieldChange('belgeYonetimi.oncelikliYatirim', e.target.value);
-                    if (e.target.value === 'hayır' || e.target.value === '') {
-                      handleFieldChange('belgeYonetimi.oncelikliYatirimTuru', '');
-                    }
-                  }}
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.belgeYonetimi.oncelikliYatirim || ''}
+                      onChange={(e) => {
+                        handleFieldChange('belgeYonetimi.oncelikliYatirim', e.target.value);
+                        if (e.target.value === 'hayır' || e.target.value === '') {
+                          handleFieldChange('belgeYonetimi.oncelikliYatirimTuru', '');
+                        }
+                      }}
                       sx={{ backgroundColor: '#fff' }}
                     >
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayır">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* Büyük Ölçekli */}
-            <Grid item xs={12} md={6}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 90 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 90, flexShrink: 0 }}>
                     Büyük Ölçekli:
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
                       value={formData.yatirimBilgileri1.buyukOlcekli || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.buyukOlcekli', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2917,179 +2909,176 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-      </Grid>
+              </Grid>
             
               {/* Cazibe Merkezi Mi */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 120, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Cazibe Merkezi Mi:
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
-                  value={formData.yatirimBilgileri1.cazibeMerkeziMi}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziMi', e.target.value)}
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.yatirimBilgileri1.cazibeMerkeziMi}
+                      onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziMi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* Ada */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 40 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 40, flexShrink: 0 }}>
                     Ada:
-                              </Typography>
+                  </Typography>
                   <TextField
-                    fullWidth
                     size="small"
                     value={formData.yatirimBilgileri2.ada || ''}
                     onChange={(e) => handleFieldChange('yatirimBilgileri2.ada', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 80 }}
                   />
                 </Box>
-      </Grid>
+              </Grid>
 
               {/* Parsel */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 50 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 50, flexShrink: 0 }}>
                     Parsel:
-                              </Typography>
+                  </Typography>
                   <TextField
-                    fullWidth
                     size="small"
                     value={formData.yatirimBilgileri2.parsel || ''}
                     onChange={(e) => handleFieldChange('yatirimBilgileri2.parsel', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 80 }}
                   />
-                            </Box>
-      </Grid>
+                </Box>
+              </Grid>
 
               {/* Belge Müracaat Talep Tipi */}
-      <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 160 }}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 160, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Belge Müracaat Talep Tipi:
-          </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
+                  </Typography>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
+                    <Select
                       value={formData.kunyeBilgileri?.talepSonuc || ''}
                       onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="Taslak">TASLAK</MenuItem>
                       <MenuItem value="Talep">TALEP</MenuItem>
                       <MenuItem value="Sonuç">YATIRIM TEŞVİK BELGESİ</MenuItem>
-                </Select>
-              </FormControl>
-                      </Box>
-            </Grid>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
 
               {/* Enerji Üretim Kaynağı */}
-      <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130 }}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                     Enerji Üretim Kaynağı:
-          </Typography>
-              <TextField
-                fullWidth
+                  </Typography>
+                  <TextField
                     size="small"
-                value={formData.yatirimBilgileri1.enerjiUretimKaynagi}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.enerjiUretimKaynagi', e.target.value)}
-                    sx={{ backgroundColor: '#fff' }}
+                    value={formData.yatirimBilgileri1.enerjiUretimKaynagi}
+                    onChange={(e) => handleFieldChange('yatirimBilgileri1.enerjiUretimKaynagi', e.target.value)}
+                    sx={{ backgroundColor: '#fff', flex: 1, minWidth: 150 }}
                   />
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* Cazibe Merkezi (2018/11201) */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 170, fontSize: '0.75rem' }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: { xs: 140, sm: 170 }, flexShrink: 0, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     Cazibe Merkezi Mi? (2018/11201):
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
-                  value={formData.yatirimBilgileri1.cazibeMerkezi2018}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkezi2018', e.target.value)}
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.yatirimBilgileri1.cazibeMerkezi2018}
+                      onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkezi2018', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* Cazibe Merkezi Deprem Nedeni */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 180, fontSize: '0.75rem' }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: { xs: 150, sm: 180 }, flexShrink: 0, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     Cazibe Merkezi Deprem Nedeni:
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
-                  value={formData.yatirimBilgileri1.cazibeMerkeziDeprem}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziDeprem', e.target.value)}
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.yatirimBilgileri1.cazibeMerkeziDeprem}
+                      onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziDeprem', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* HAMLE MI? */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 70 }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 80, flexShrink: 0 }}>
                     HAMLE MI?:
                   </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
-                  value={formData.yatirimBilgileri1.hamleMi}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.hamleMi', e.target.value)}
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.yatirimBilgileri1.hamleMi}
+                      onChange={(e) => handleFieldChange('yatirimBilgileri1.hamleMi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
 
               {/* Vergi İndirimsiz Destek Talebi */}
-            <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 180, fontSize: '0.75rem' }}>
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: { xs: 150, sm: 180 }, flexShrink: 0, fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     Vergi İndirimsiz Destek Talebi:
-                        </Typography>
-                  <FormControl fullWidth size="small">
-                <Select
+                  </Typography>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
                       value={formData.yatirimBilgileri1.vergiIndirimsizDestekTalebi || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.vergiIndirimsizDestekTalebi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
-                >
-                  <MenuItem value="">Seçiniz...</MenuItem>
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
-              </FormControl>
+                    </Select>
+                  </FormControl>
                 </Box>
-            </Grid>
+              </Grid>
       
               {/* Savunma Sanayi Projesi */}
             <Grid item xs={12} md={6}>
