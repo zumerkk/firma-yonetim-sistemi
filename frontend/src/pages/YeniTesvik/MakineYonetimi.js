@@ -1258,7 +1258,14 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredYerliRows} columns={cols} pageSize={20} rowsPerPageOptions={[15, 20, 30, 50]} disableSelectionOnClick rowHeight={32} headerHeight={36}
+      <DataGrid 
+        rows={filteredYerliRows} 
+        columns={cols} 
+        pageSize={100} 
+        rowsPerPageOptions={[50, 100, 200]} 
+        disableSelectionOnClick 
+        rowHeight={32} 
+        headerHeight={36}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -1273,11 +1280,12 @@ const MakineYonetimi = () => {
           return '';
         }}
         sx={{
+          height: '100%',
+          width: '100%',
           border: '1px solid #e2e8f0',
           borderRadius: 2,
           fontSize: '0.72rem',
           fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
@@ -1603,7 +1611,14 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid autoHeight rows={filteredIthalRows} columns={cols} pageSize={20} rowsPerPageOptions={[15, 20, 30, 50]} disableSelectionOnClick rowHeight={32} headerHeight={36}
+      <DataGrid 
+        rows={filteredIthalRows} 
+        columns={cols} 
+        pageSize={100} 
+        rowsPerPageOptions={[50, 100, 200]} 
+        disableSelectionOnClick 
+        rowHeight={32} 
+        headerHeight={36}
         checkboxSelection
         selectionModel={selectionModel}
         onSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -1626,11 +1641,12 @@ const MakineYonetimi = () => {
           return '';
         }}
         sx={{
+          height: '100%',
+          width: '100%',
           border: '1px solid #e2e8f0',
           borderRadius: 2,
           fontSize: '0.72rem',
           fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          overflow: 'hidden',
           boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
@@ -1761,16 +1777,21 @@ const MakineYonetimi = () => {
   return (
     <Box sx={{ 
       background: theme.bg, 
-      minHeight: '100vh', 
-      p: { xs: 1, sm: 1.5, md: 2 }
+      height: '100vh',
+      maxHeight: '100vh',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column',
+      p: { xs: 0.5, sm: 1, md: 1.5 }
     }}>
       {/* 🏢 CLEAN MINIMAL HEADER */}
       <Box sx={{ 
         display: 'flex', 
         alignItems: 'center', 
         justifyContent: 'space-between',
-        mb: 2,
-        pb: 1.5,
+        mb: 1,
+        pb: 1,
+        flexShrink: 0,
         borderBottom: `1px solid ${theme.border}`
       }}>
         {/* Left - Navigation & Title */}
@@ -1872,8 +1893,9 @@ const MakineYonetimi = () => {
       <Paper 
         elevation={0} 
         sx={{ 
-          p: 1.5, 
-          mb: 1.5, 
+          p: 1, 
+          mb: 1, 
+          flexShrink: 0,
           border: `1px solid ${theme.border}`,
           borderRadius: 2,
           bgcolor: theme.card,
@@ -1979,7 +2001,9 @@ const MakineYonetimi = () => {
           position: fullScreen ? 'fixed' : 'relative', 
           inset: fullScreen ? 0 : 'auto', 
           zIndex: fullScreen ? 1300 : 'auto', 
+          flex: fullScreen ? 'none' : 1,
           height: fullScreen ? '100vh' : 'auto',
+          minHeight: 0,
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
@@ -2240,11 +2264,16 @@ const MakineYonetimi = () => {
         {/* DataGrid Area - Premium Container */}
         <Box sx={{ 
           flex: 1, 
-          overflow: 'auto', 
+          minHeight: 0,
+          overflow: 'hidden', 
           p: 1,
+          display: 'flex',
+          flexDirection: 'column',
           background: 'linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%)'
         }}>
-          {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+          <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+            {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+          </Box>
         </Box>
       </Paper>
 
