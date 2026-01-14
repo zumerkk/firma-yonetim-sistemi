@@ -601,7 +601,12 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
+      { header: 'Talep Adedi', key: 'talepAdedi', width: 14, numFmt: '#,##0' },
+      { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 16, numFmt: '#,##0' },
+      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 20 }
     ];
 
     const ithalColumns = [
@@ -633,24 +638,91 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 }
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
+      { header: 'Talep Adedi', key: 'talepAdedi', width: 14, numFmt: '#,##0' },
+      { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 16, numFmt: '#,##0' },
+      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 20 }
     ];
+
+    // Karar kodu helper - Enterprise Excel Export
+    const getKararKodu = (karar) => karar?.kararDurumu === 'onay' ? 1 : karar?.kararDurumu === 'kismi_onay' ? 2 : karar?.kararDurumu === 'red' ? 3 : '';
+    // Karar durumu adı + kod parantez içinde: "ONAY (1)", "KISMİ (2)", "RED (3)", "beklemede"
+    const getKararAdi = (karar) => {
+      if (karar?.kararDurumu === 'onay') return 'ONAY (1)';
+      if (karar?.kararDurumu === 'kismi_onay') return 'KISMİ (2)';
+      if (karar?.kararDurumu === 'red') return 'RED (3)';
+      return 'beklemede';
+    };
+    // Renk kodları: 1=Yeşil, 2=Sarı, 3=Kırmızı
+    const kararRenkler = { 1: 'FF22C55E', 2: 'FFEAB308', 3: 'FFEF4444' };
+    const kararBgRenkler = { 1: 'FFDCFCE7', 2: 'FFFEF9C3', 3: 'FFFEE2E2' };
+    // Beklemede renk
+    const beklemedeBgRenk = 'FFF3F4F6';
+    const beklemedeFontRenk = 'FF6B7280';
 
     // Yerli sayfası
     const wsYerli = wb.addWorksheet('Yerli');
     wsYerli.columns = yerliColumns;
+    const yerliKararKoduCol = yerliColumns.findIndex(c => c.key === 'kararKodu') + 1;
+    const yerliKararDurumuCol = yerliColumns.findIndex(c => c.key === 'kararDurumu') + 1;
+    
     yerliRows.forEach((r) => {
+      // Karar kodunu hesapla
+      const kararKodu = getKararKodu(r.karar);
+      const kararAdi = getKararAdi(r.karar);
+      
       // Toplam TL'yi Excel içinde formülle üretelim
       const row = wsYerli.addRow({ 
         ...r, 
         toplamTl: undefined,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
+        talepAdedi: r?.talep?.istenenAdet || '',
+        kararKodu: kararKodu,
+        kararDurumu: kararAdi,
+        onaylananAdet: r?.karar?.onaylananAdet || '',
+        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       });
       const miktarCol = yerliColumns.findIndex(c => c.key === 'miktar') + 1;
       const bfCol = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
       const toplamCol = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
       row.getCell(toplamCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(bfCol)}${row.number}` };
+      
+      // Karar durumuna göre renklendirme - Enterprise Level
+      if (kararKodu && kararRenkler[kararKodu]) {
+        // Karar kodu hücresi
+        row.getCell(yerliKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(yerliKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+        // Karar durumu hücresi (artık "ONAY (1)" formatında)
+        row.getCell(yerliKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(yerliKararDurumuCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+      } else if (!kararKodu && r.karar) {
+        // Beklemede durumu
+        row.getCell(yerliKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(yerliKararKoduCol).font = { color: { argb: beklemedeFontRenk } };
+        row.getCell(yerliKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(yerliKararDurumuCol).font = { color: { argb: beklemedeFontRenk } };
+      }
+      
+      // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
+      const degisiklikCol = yerliColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
+      if (r.silindi) {
+        // Silinen satır: Tüm satır açık kırmızı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        });
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+      } else if (r.degistirildi) {
+        // Değiştirilen satır: Tüm satır açık sarı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } };
+        });
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
+      }
     });
     // Numara formatlarını uygula
     yerliColumns.forEach((c, idx) => { if (c.numFmt) wsYerli.getColumn(idx + 1).numFmt = c.numFmt; });
@@ -674,6 +746,9 @@ const MakineYonetimi = () => {
     // İthal sayfası
     const wsIthal = wb.addWorksheet('İthal');
     wsIthal.columns = ithalColumns;
+    const ithalKararKoduCol = ithalColumns.findIndex(c => c.key === 'kararKodu') + 1;
+    const ithalKararDurumuCol = ithalColumns.findIndex(c => c.key === 'kararDurumu') + 1;
+    
     ithalRows.forEach((r) => {
       // Manuel kur durumunu ve uygulanan kuru hesapla
       let uygulanankur = 0;
@@ -686,13 +761,22 @@ const MakineYonetimi = () => {
         uygulanankur = 1;
       }
       
+      // Karar kodunu hesapla
+      const kararKodu = getKararKodu(r.karar);
+      const kararAdi = getKararAdi(r.karar);
+      
       // Satırı ekle
       const rowData = { 
         ...r, 
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
-        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : ''
+        onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
+        talepAdedi: r?.talep?.istenenAdet || '',
+        kararKodu: kararKodu,
+        kararDurumu: kararAdi,
+        onaylananAdet: r?.karar?.onaylananAdet || '',
+        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       };
       const row = wsIthal.addRow(rowData);
       
@@ -701,6 +785,40 @@ const MakineYonetimi = () => {
       const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
       row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
+      
+      // Karar durumuna göre renklendirme - Enterprise Level
+      if (kararKodu && kararRenkler[kararKodu]) {
+        // Karar kodu hücresi
+        row.getCell(ithalKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(ithalKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+        // Karar durumu hücresi (artık "ONAY (1)" formatında)
+        row.getCell(ithalKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
+        row.getCell(ithalKararDurumuCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+      } else if (!kararKodu && r.karar) {
+        // Beklemede durumu
+        row.getCell(ithalKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(ithalKararKoduCol).font = { color: { argb: beklemedeFontRenk } };
+        row.getCell(ithalKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(ithalKararDurumuCol).font = { color: { argb: beklemedeFontRenk } };
+      }
+      
+      // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
+      const degisiklikCol = ithalColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
+      if (r.silindi) {
+        // Silinen satır: Tüm satır açık kırmızı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        });
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+      } else if (r.degistirildi) {
+        // Değiştirilen satır: Tüm satır açık sarı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } };
+        });
+        row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+        row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
+      }
     });
     ithalColumns.forEach((c, idx) => { if (c.numFmt) wsIthal.getColumn(idx + 1).numFmt = c.numFmt; });
     finalizeSheet(wsIthal, wsIthal.rowCount);
@@ -765,13 +883,28 @@ const MakineYonetimi = () => {
       { k: 'DÖVİZ KURU BİLGİLERİ', v: '' },
       { k: 'Manuel Kur Kullanılan Satır Sayısı', v: manuelKurSayisi },
       { k: 'Ortalama Manuel Kur', v: manuelKurOrtalama > 0 ? manuelKurOrtalama.toFixed(4) : '-' },
-      { k: 'Manuel Kur Kullanım Oranı', v: ithalRows.length > 0 ? `%${((manuelKurSayisi / ithalRows.length) * 100).toFixed(1)}` : '-' }
+      { k: 'Manuel Kur Kullanım Oranı', v: ithalRows.length > 0 ? `%${((manuelKurSayisi / ithalRows.length) * 100).toFixed(1)}` : '-' },
+      { k: '', v: '' },
+      { k: 'KARAR DURUMU İSTATİSTİKLERİ (YERLİ)', v: '' },
+      { k: 'Onaylanan Adet (Yerli)', v: yerliRows.filter(r => r.karar?.kararDurumu === 'onay').length },
+      { k: 'Kısmi Onaylanan Adet (Yerli)', v: yerliRows.filter(r => r.karar?.kararDurumu === 'kismi_onay').length },
+      { k: 'Reddedilen Adet (Yerli)', v: yerliRows.filter(r => r.karar?.kararDurumu === 'red').length },
+      { k: '', v: '' },
+      { k: 'KARAR DURUMU İSTATİSTİKLERİ (İTHAL)', v: '' },
+      { k: 'Onaylanan Adet (İthal)', v: ithalRows.filter(r => r.karar?.kararDurumu === 'onay').length },
+      { k: 'Kısmi Onaylanan Adet (İthal)', v: ithalRows.filter(r => r.karar?.kararDurumu === 'kismi_onay').length },
+      { k: 'Reddedilen Adet (İthal)', v: ithalRows.filter(r => r.karar?.kararDurumu === 'red').length },
+      { k: '', v: '' },
+      { k: 'KARAR KODLARI', v: '' },
+      { k: '1: ONAY', v: '' },
+      { k: '2: KISMİ ONAY', v: '' },
+      { k: '3: RED', v: '' }
     ]);
     wsSummary.getColumn(2).numFmt = '#,##0';
     wsSummary.getRow(1).font = { bold: true };
     
     // Başlık satırlarını vurgula
-    [4, 8, 13].forEach(rowNum => {
+    [4, 8, 13, 17, 22].forEach(rowNum => {
       const row = wsSummary.getRow(rowNum);
       row.font = { bold: true, size: 12 };
       row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
@@ -779,6 +912,11 @@ const MakineYonetimi = () => {
     
     // Manuel kur bilgilerini vurgula
     [14, 15, 16].forEach(rowNum => {
+      wsSummary.getRow(rowNum).getCell(1).font = { color: { argb: 'FF065F46' } };
+    });
+    
+    // Karar durumu istatistiklerini vurgula
+    [18, 19, 20, 23, 24, 25].forEach(rowNum => {
       wsSummary.getRow(rowNum).getCell(1).font = { color: { argb: 'FF065F46' } };
     });
 

@@ -646,12 +646,21 @@ const MakineYonetimi = () => {
       { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 18 }
     ];
 
-    // Karar kodu helper
+    // Karar kodu helper - Enterprise Excel Export
     const getKararKodu = (karar) => karar?.kararDurumu === 'onay' ? 1 : karar?.kararDurumu === 'kismi_onay' ? 2 : karar?.kararDurumu === 'red' ? 3 : '';
-    const getKararAdi = (karar) => karar?.kararDurumu === 'onay' ? 'ONAY' : karar?.kararDurumu === 'kismi_onay' ? 'KISMİ' : karar?.kararDurumu === 'red' ? 'RED' : '';
+    // Karar durumu adı + kod parantez içinde: "ONAY (1)", "KISMİ (2)", "RED (3)", "beklemede"
+    const getKararAdi = (karar) => {
+      if (karar?.kararDurumu === 'onay') return 'ONAY (1)';
+      if (karar?.kararDurumu === 'kismi_onay') return 'KISMİ (2)';
+      if (karar?.kararDurumu === 'red') return 'RED (3)';
+      return 'beklemede';
+    };
     // Renk kodları: 1=Yeşil, 2=Sarı, 3=Kırmızı
     const kararRenkler = { 1: 'FF22C55E', 2: 'FFEAB308', 3: 'FFEF4444' };
     const kararBgRenkler = { 1: 'FFDCFCE7', 2: 'FFFEF9C3', 3: 'FFFEE2E2' };
+    // Beklemede renk
+    const beklemedeBgRenk = 'FFF3F4F6';
+    const beklemedeFontRenk = 'FF6B7280';
 
     // Yerli sayfası
     const wsYerli = wb.addWorksheet('Yerli');
@@ -681,20 +690,36 @@ const MakineYonetimi = () => {
       const toplamCol = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
       row.getCell(toplamCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(bfCol)}${row.number}` };
       
-      // Karar durumuna göre renklendirme
+      // Karar durumuna göre renklendirme - Enterprise Level
       if (kararKodu && kararRenkler[kararKodu]) {
+        // Karar kodu hücresi
         row.getCell(yerliKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
-        row.getCell(yerliKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu].replace('FF', 'FF') } };
+        row.getCell(yerliKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+        // Karar durumu hücresi (artık "ONAY (1)" formatında)
         row.getCell(yerliKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
-        row.getCell(yerliKararDurumuCol).font = { bold: true };
+        row.getCell(yerliKararDurumuCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+      } else if (!kararKodu && r.karar) {
+        // Beklemede durumu
+        row.getCell(yerliKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(yerliKararKoduCol).font = { color: { argb: beklemedeFontRenk } };
+        row.getCell(yerliKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(yerliKararDurumuCol).font = { color: { argb: beklemedeFontRenk } };
       }
       
-      // Silinmiş/Değiştirilmiş satırları vurgula
+      // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
       const degisiklikCol = yerliColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
       if (r.silindi) {
+        // Silinen satır: Tüm satır açık kırmızı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
       } else if (r.degistirildi) {
+        // Değiştirilen satır: Tüm satır açık sarı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } };
+        });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
       }
@@ -761,20 +786,36 @@ const MakineYonetimi = () => {
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
       row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
       
-      // Karar durumuna göre renklendirme
+      // Karar durumuna göre renklendirme - Enterprise Level
       if (kararKodu && kararRenkler[kararKodu]) {
+        // Karar kodu hücresi
         row.getCell(ithalKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
-        row.getCell(ithalKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu].replace('FF', 'FF') } };
+        row.getCell(ithalKararKoduCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+        // Karar durumu hücresi (artık "ONAY (1)" formatında)
         row.getCell(ithalKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: kararBgRenkler[kararKodu] } };
-        row.getCell(ithalKararDurumuCol).font = { bold: true };
+        row.getCell(ithalKararDurumuCol).font = { bold: true, color: { argb: kararRenkler[kararKodu] } };
+      } else if (!kararKodu && r.karar) {
+        // Beklemede durumu
+        row.getCell(ithalKararKoduCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(ithalKararKoduCol).font = { color: { argb: beklemedeFontRenk } };
+        row.getCell(ithalKararDurumuCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: beklemedeBgRenk } };
+        row.getCell(ithalKararDurumuCol).font = { color: { argb: beklemedeFontRenk } };
       }
       
-      // Silinmiş/Değiştirilmiş satırları vurgula
+      // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
       const degisiklikCol = ithalColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
       if (r.silindi) {
+        // Silinen satır: Tüm satır açık kırmızı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
+        });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
       } else if (r.degistirildi) {
+        // Değiştirilen satır: Tüm satır açık sarı arka plan
+        row.eachCell((cell) => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } };
+        });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FF92400E' } };
       }
