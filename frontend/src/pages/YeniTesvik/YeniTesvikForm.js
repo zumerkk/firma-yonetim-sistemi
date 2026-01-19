@@ -692,6 +692,24 @@ const YeniTesvikForm = () => {
     }
   }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 🔧 FIX: formData değiştiğinde satır sayılarını senkronize et (revize modunda timing sorununu çözer)
+  useEffect(() => {
+    if (isEdit && formData.ozelSartlar && formData.ozelSartlar.length > 0) {
+      const actualOzelSartCount = formData.ozelSartlar.filter(s => s && (s.kisaltma || s.notu)).length;
+      if (actualOzelSartCount > 0 && actualOzelSartCount !== ozelSartSayisi) {
+        console.log('🔄 Özel şart sayısı senkronize ediliyor:', actualOzelSartCount);
+        setOzelSartSayisi(Math.max(1, actualOzelSartCount));
+      }
+    }
+    if (isEdit && formData.destekUnsurlari && formData.destekUnsurlari.length > 0) {
+      const actualDestekCount = formData.destekUnsurlari.filter(d => d && d.destekUnsuru).length;
+      if (actualDestekCount > 0 && actualDestekCount !== destekSayisi) {
+        console.log('🔄 Destek unsuru sayısı senkronize ediliyor:', actualDestekCount);
+        setDestekSayisi(Math.max(1, actualDestekCount));
+      }
+    }
+  }, [isEdit, formData.ozelSartlar, formData.destekUnsurlari]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadInitialData = async () => {
     try {
       setLoading(true);

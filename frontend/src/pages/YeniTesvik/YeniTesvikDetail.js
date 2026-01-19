@@ -817,14 +817,14 @@ const YeniTesvikDetail = () => {
                     fontSize: '0.8rem',
                     mb: 0.5
                   }}>
-                    {tesvik.yatirimBilgileri?.yatirimKonusu || tesvik.yatirimBilgileri2?.yatirimKonusu || '-'}
+                    {tesvik.yatirimBilgileri?.yatirimKonusu || '-'}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     color: '#64748b',
                     fontSize: '0.6rem',
                     display: 'block'
                   }}>
-                    {(tesvik.yatirimBilgileri?.destekSinifi || tesvik.yatirimBilgileri2?.destekSinifi || '-')} - {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')}
+                    {(tesvik.yatirimBilgileri?.destekSinifi || '-')} - {(tesvik.yatirimBilgileri?.yerinIl || '-')}
                   </Typography>
                 </Box>
               </Paper>
@@ -882,7 +882,7 @@ const YeniTesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Konusu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri2?.yatirimKonusu || '1513'}
+                    {tesvik.yatirimBilgileri?.yatirimKonusu || '-'}
                     </Typography>
                 </Box>
               </Grid>
@@ -890,7 +890,7 @@ const YeniTesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#fef7ff', borderRadius: 1, border: '1px solid #e9d5ff' }}>
                   <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>Destek Sınıfı</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#8b5cf6', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri2?.destekSinifi || 'Bölgesel'}
+                    {tesvik.yatirimBilgileri?.destekSinifi || '-'}
                         </Typography>
                 </Box>
                       </Grid>
@@ -898,7 +898,7 @@ const YeniTesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
                   <Typography variant="caption" sx={{ color: '#1d4ed8', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Lokasyonu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb', fontSize: '0.8rem' }}>
-                    {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || tesvik.yatirimBilgileri2?.ilce || '-')}
+                    {(tesvik.yatirimBilgileri?.yerinIl || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || '-')}
                         </Typography>
                 </Box>
                       </Grid>
@@ -906,7 +906,7 @@ const YeniTesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
                   <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {(tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-').toString().substring(0, 25)}
+                    {(tesvik.yatirimBilgileri?.yatirimAdresi1 || '-').toString().substring(0, 25)}
                         </Typography>
                 </Box>
                       </Grid>
