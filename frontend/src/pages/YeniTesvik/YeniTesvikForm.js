@@ -979,7 +979,7 @@ const YeniTesvikForm = () => {
             toplamSabitYatirimTutari: backendData.maliHesaplamalar?.toplamSabitYatirim || 0,
             
             araziArsaBedeli: {
-              aciklama: 'Arazi Arsa Bedeli Açıklaması',
+              aciklama: backendData.maliHesaplamalar?.araziArsaBedeli?.aciklama || backendData.maliHesaplamalar?.maliyetlenen?.aciklama || '',
               metrekaresi: backendData.maliHesaplamalar?.maliyetlenen?.sl || 0,
               birimFiyatiTl: backendData.maliHesaplamalar?.maliyetlenen?.sm || 0,
               araziArsaBedeli: backendData.maliHesaplamalar?.araciArsaBedeli || backendData.maliHesaplamalar?.maliyetlenen?.sn || 0
@@ -1001,7 +1001,7 @@ const YeniTesvikForm = () => {
             },
             
             binaInsaatGiderleri: {
-              aciklama: 'Bina İnşaat Gideri Açıklaması',
+              aciklama: backendData.maliHesaplamalar?.binaInsaatGideri?.aciklama || '',
               anaBinaVeTesisleri: backendData.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0,
               yardimciIsBinaVeIcareBinalari: backendData.maliHesaplamalar?.binaInsaatGideri?.yardimciBinaGideri || 0,
               yeraltiAnaGalerileri: 0,
@@ -1042,6 +1042,7 @@ const YeniTesvikForm = () => {
             cazibeMerkeziDeprem: backendData.yatirimBilgileri?.cazibeMerkeziDeprem || '',
             hamleMi: backendData.yatirimBilgileri?.hamleMi || '',
             vergiIndirimsizDestek: backendData.yatirimBilgileri?.vergiIndirimsizDestek || '',
+            vergiIndirimsizDestekTalebi: backendData.yatirimBilgileri?.vergiIndirimsizDestek || '', // Form field mapping
             // 🔧 Problematik değerleri temizle
             cins1: cleanProblematicValue(backendData.yatirimBilgileri?.sCinsi1),
             cins2: cleanProblematicValue(backendData.yatirimBilgileri?.tCinsi2),
@@ -1110,6 +1111,9 @@ const YeniTesvikForm = () => {
             sorguBaglantisi: backendData.kunyeBilgileri?.sorguBaglantisi || '',
             yatirimci: backendData.kunyeBilgileri?.yatirimci || '',
             yatirimciUnvan: backendData.kunyeBilgileri?.yatirimciUnvan || backendData.yatirimciUnvan || '',
+            // 🔧 EKSİK ALANLAR EKLENDİ
+            sgkSicilNo: backendData.kunyeBilgileri?.sgkSicilNo || '',
+            sermayeTuru: backendData.kunyeBilgileri?.sermayeTuru || backendData.firmaBilgileri?.sermayeTuru || '',
             // 🔧 YENİ ALANLAR - Excel detayları (Date formatları düzeltildi) 
             kararTarihi: formatDateForInput(backendData.kunyeBilgileri?.kararTarihi) || '',
             kararSayisi: cleanProblematicValue(backendData.kunyeBilgileri?.kararSayisi),
@@ -2108,8 +2112,9 @@ const YeniTesvikForm = () => {
           yatiriminTutari: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
           araciArsaBedeli: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
           
-          // Maliyetlenen (Araç Arsa Bedeli Detayları)
+          // Maliyetlenen (Arazi-Arsa Bedeli Detayları)
           maliyetlenen: {
+            aciklama: formData.finansalBilgiler?.araziArsaBedeli?.aciklama || '',
             sl: formData.finansalBilgiler?.araziArsaBedeli?.metrekaresi || 0,
             sm: formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl || 0,
             sn: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0
@@ -2117,6 +2122,7 @@ const YeniTesvikForm = () => {
           
           // Bina İnşaat Giderleri
           binaInsaatGideri: {
+            aciklama: formData.finansalBilgiler?.binaInsaatGiderleri?.aciklama || '',
             anaBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.anaBinaVeTesisleri || 0,
             yardimciBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari || 0,
             toplamBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.toplamBinaInsaatGideri || 0

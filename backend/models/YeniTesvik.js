@@ -14,15 +14,17 @@ const maliHesaplamalarSchema = new mongoose.Schema({
     toplam: { type: Number, default: 0 }
   },
   
-  // Maliyetlenen
+  // Maliyetlenen (Arazi-Arsa Bedeli)
   maliyetlenen: {
-    sl: { type: Number, default: 0 }, // Sayı
-    sm: { type: Number, default: 0 }, // Sayı
-    sn: { type: Number, default: 0 } // SL*SM Çarp
+    aciklama: { type: String, trim: true, maxlength: 500, default: '' }, // Arazi-Arsa Bedeli Açıklaması
+    sl: { type: Number, default: 0 }, // Metrekaresi
+    sm: { type: Number, default: 0 }, // Birim Fiyatı
+    sn: { type: Number, default: 0 } // SL*SM = Arazi-Arsa Bedeli
   },
   
   // Bina İnşaat Giderleri
   binaInsaatGideri: {
+    aciklama: { type: String, trim: true, maxlength: 500, default: '' }, // Bina İnşaat Gideri Açıklaması
     so: { type: Number, default: 0 }, // Manuel meden
     anaBinaGideri: { type: Number, default: 0 },
     yardimciBinaGideri: { type: Number, default: 0 },
@@ -480,6 +482,7 @@ const tesvikSchema = new mongoose.Schema({
     yatirimci: { type: String, trim: true },
     yatirimciUnvan: { type: String, trim: true },
     sgkSicilNo: { type: String, trim: true }, // 🆕 Excel'den eklendi
+    sermayeTuru: { type: String, trim: true, default: '' }, // 🆕 Sermaye Türü eklendi
     kararTarihi: { type: Date },
     kararSayisi: { type: String, trim: true },
     yonetmelikMaddesi: { type: String, trim: true },
