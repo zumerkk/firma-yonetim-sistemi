@@ -905,11 +905,21 @@ const YeniTesvikDetail = () => {
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
                   <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {(tesvik.yatirimBilgileri?.yatirimAdresi1 || '-').toString().substring(0, 25)}
-                        </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', wordBreak: 'break-word' }} title={tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}>
+                    {tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}
+                  </Typography>
+                  {tesvik.yatirimBilgileri?.yatirimAdresi2 && (
+                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
+                      {tesvik.yatirimBilgileri.yatirimAdresi2}
+                    </Typography>
+                  )}
+                  {tesvik.yatirimBilgileri?.yatirimAdresi3 && (
+                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
+                      {tesvik.yatirimBilgileri.yatirimAdresi3}
+                    </Typography>
+                  )}
                 </Box>
-                      </Grid>
+              </Grid>
                     </Grid>
                   </Paper>
 
@@ -1033,7 +1043,12 @@ const YeniTesvikDetail = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 📦 Ürün Bilgileri & US97 Kodları
                   </Typography>
-              <Chip label="+3 ürün daha" size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
+              {tesvik.urunler && tesvik.urunler.length > 6 && (
+                <Chip label={`+${tesvik.urunler.length - 6} ürün daha`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
+              )}
+              {tesvik.urunler && tesvik.urunler.length > 0 && tesvik.urunler.length <= 6 && (
+                <Chip label={`${tesvik.urunler.length} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
+              )}
             </Box>
             
             {/* Kompakt Ürün Listesi */}
@@ -1053,9 +1068,9 @@ const YeniTesvikDetail = () => {
                         <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.65rem' }}>
                           Ürün #{index + 1}
                         </Typography>
-                        {urun.us97Kodu && (
+                        {urun.u97Kodu && (
                           <Chip 
-                            label={urun.us97Kodu} 
+                            label={urun.u97Kodu} 
                             size="small" 
                       sx={{
                               backgroundColor: '#fef7ff', 
@@ -1079,27 +1094,27 @@ const YeniTesvikDetail = () => {
                         WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical'
                       }}>
-                        {urun.urunAdi || 'Hazır Paketlenmiş - Dondurulmuş Kızartmalık Patates'}
+                        {urun.urunAdi || '-'}
                       </Typography>
                       
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
-                            {urun.mevcut?.toLocaleString() || '300.000'}
+                            {urun.mevcutKapasite?.toLocaleString('tr-TR') || '0'}
                         </Typography>
                           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>Mevcut</Typography>
                             </Box>
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body2" sx={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.8rem' }}>
-                            +{urun.ilave?.toLocaleString() || '1.900.000'}
+                            +{urun.ilaveKapasite?.toLocaleString('tr-TR') || '0'}
                         </Typography>
                           <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>İlave</Typography>
                         </Box>
                         <Box sx={{ textAlign: 'center' }}>
                           <Typography variant="body1" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem' }}>
-                            {urun.toplam?.toLocaleString() || '2.200.000'}
+                            {urun.toplamKapasite?.toLocaleString('tr-TR') || '0'}
                         </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.birim || 'KG/YIL'}</Typography>
+                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.kapasiteBirimi || '-'}</Typography>
                       </Box>
                   </Box>
                     </Paper>
@@ -1115,57 +1130,51 @@ const YeniTesvikDetail = () => {
             )}
           </Paper>
 
-          {/* 🛡️ DESTEK UNSURLARI - KOMPAKT */}
+          {/* 🛡️ DESTEK UNSURLARI - DİNAMİK */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#8b5cf6' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 🛡️ Destek Unsurları
-                      </Typography>
-      </Box>
-
-            {/* Default Destek Unsurları */}
-            <Grid container spacing={0.5}>
-              <Grid item xs={12} sm={6}>
-                <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
-                      Sigorta Primi İşveren Hissesi
               </Typography>
-                    <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
+              {tesvik?.destekUnsurlari && tesvik.destekUnsurlari.length > 0 && (
+                <Chip label={`${tesvik.destekUnsurlari.length} unsur`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
+              )}
             </Box>
-                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
-                    7 Yıl ve En Fazla Yatırım Tutarının %35'i (5. Bölge)
-                      </Typography>
-                    </Paper>
-                  </Grid>
-              <Grid item xs={12} sm={6}>
-                <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
-                      Vergi İndirimi
-                      </Typography>
-                    <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
+
+            {/* Dinamik Destek Unsurları */}
+            <Grid container spacing={0.5}>
+              {(tesvik?.destekUnsurlari && tesvik.destekUnsurlari.length > 0) ? (
+                tesvik.destekUnsurlari.map((destek, idx) => (
+                  <Grid item xs={12} sm={6} key={idx}>
+                    <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
+                          {destek?.destekUnsuru || '-'}
+                        </Typography>
+                        <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
                       </Box>
-                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
-                    Yatırıma Katkı Oranı:%40 - Vergi İndirim %80 (5. Bölge)
-                      </Typography>
+                      {destek?.sarti && (
+                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
+                          {destek.sarti}
+                        </Typography>
+                      )}
+                      {destek?.aciklama && (
+                        <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.6rem', mt: 0.25, display: 'block', fontStyle: 'italic' }}>
+                          {destek.aciklama}
+                        </Typography>
+                      )}
                     </Paper>
                   </Grid>
-              <Grid item xs={12} sm={6}>
-                <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
-                      Faiz Desteği
-                      </Typography>
-                    <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
-                  </Box>
-                  <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
-                    TL 5 Puan - Döviz 2 Puan (En Fazla 1.4 Milyon TL yararlanılır)(5. Bölge)
-                      </Typography>
-                    </Paper>
-                  </Grid>
-          </Grid>
+                ))
+              ) : (
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                    Destek unsuru bulunmuyor.
+                  </Typography>
+                </Grid>
+              )}
+            </Grid>
           </Paper>
 
           {/* ⚖️ ÖZEL ŞARTLAR - DİNAMİK + AÇIKLAMA */}
@@ -1175,7 +1184,10 @@ const YeniTesvikDetail = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 ⚖️ Özel Şartlar
               </Typography>
-                      </Box>
+              {tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0 && (
+                <Chip label={`${tesvik.ozelSartlar.length} şart`} size="small" sx={{ ml: 'auto', backgroundColor: '#fffbeb', color: '#d97706', fontSize: '0.6rem', height: 20 }} />
+              )}
+            </Box>
 
             <Grid container spacing={0.75}>
               {(tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0) ? (
