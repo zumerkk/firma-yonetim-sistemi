@@ -823,6 +823,10 @@ const TesvikForm = () => {
         const mappedData = {
           ...backendData,
           
+          // 🏢 Firma - Backend'den populate edilmiş obje geliyor, ID'yi çıkar
+          firma: typeof backendData.firma === 'object' ? backendData.firma?._id : (backendData.firma || ''),
+          yatirimciUnvan: backendData.yatirimciUnvan || backendData.firma?.tamUnvan || '',
+          
           // 📄 Belge Yönetimi - Date formatlarını düzelt
           belgeYonetimi: {
             belgeId: backendData.belgeYonetimi?.belgeId || '',
@@ -845,7 +849,7 @@ const TesvikForm = () => {
             toplamSabitYatirimTutari: backendData.maliHesaplamalar?.toplamSabitYatirim || 0,
             
             araziArsaBedeli: {
-              aciklama: 'Arazi Arsa Bedeli Açıklaması',
+              aciklama: backendData.maliHesaplamalar?.araziArsaBedeli?.aciklama || backendData.maliHesaplamalar?.maliyetlenen?.aciklama || '',
               metrekaresi: backendData.maliHesaplamalar?.maliyetlenen?.sl || 0,
               birimFiyatiTl: backendData.maliHesaplamalar?.maliyetlenen?.sm || 0,
               araziArsaBedeli: backendData.maliHesaplamalar?.araciArsaBedeli || backendData.maliHesaplamalar?.maliyetlenen?.sn || 0
@@ -867,7 +871,7 @@ const TesvikForm = () => {
             },
             
             binaInsaatGiderleri: {
-              aciklama: 'Bina İnşaat Gideri Açıklaması',
+              aciklama: backendData.maliHesaplamalar?.binaInsaatGideri?.aciklama || '',
               anaBinaVeTesisleri: backendData.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0,
               yardimciIsBinaVeIcareBinalari: backendData.maliHesaplamalar?.binaInsaatGideri?.yardimciBinaGideri || 0,
               yeraltiAnaGalerileri: 0,
@@ -976,6 +980,9 @@ const TesvikForm = () => {
             sorguBaglantisi: backendData.kunyeBilgileri?.sorguBaglantisi || '',
             yatirimci: backendData.kunyeBilgileri?.yatirimci || '',
             yatirimciUnvan: backendData.kunyeBilgileri?.yatirimciUnvan || backendData.yatirimciUnvan || '',
+            // 🔧 EKSİK ALANLAR EKLENDİ
+            sgkSicilNo: backendData.kunyeBilgileri?.sgkSicilNo || '',
+            sermayeTuru: backendData.kunyeBilgileri?.sermayeTuru || backendData.firmaBilgileri?.sermayeTuru || '',
             // 🔧 YENİ ALANLAR - Excel detayları (Date formatları düzeltildi) 
             kararTarihi: formatDateForInput(backendData.kunyeBilgileri?.kararTarihi) || '',
             kararSayisi: cleanProblematicValue(backendData.kunyeBilgileri?.kararSayisi),

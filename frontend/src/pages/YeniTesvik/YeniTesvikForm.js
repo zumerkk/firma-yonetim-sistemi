@@ -957,6 +957,10 @@ const YeniTesvikForm = () => {
         const mappedData = {
           ...backendData,
           
+          // 🏢 Firma - Backend'den populate edilmiş obje geliyor, ID'yi çıkar
+          firma: typeof backendData.firma === 'object' ? backendData.firma?._id : (backendData.firma || ''),
+          yatirimciUnvan: backendData.yatirimciUnvan || backendData.firma?.tamUnvan || '',
+          
           // 📄 Belge Yönetimi - Date formatlarını düzelt
           belgeYonetimi: {
             belgeId: backendData.belgeYonetimi?.belgeId || '',
@@ -1043,6 +1047,7 @@ const YeniTesvikForm = () => {
             hamleMi: backendData.yatirimBilgileri?.hamleMi || '',
             vergiIndirimsizDestek: backendData.yatirimBilgileri?.vergiIndirimsizDestek || '',
             vergiIndirimsizDestekTalebi: backendData.yatirimBilgileri?.vergiIndirimsizDestek || '', // Form field mapping
+            oecdKategori: backendData.yatirimBilgileri?.oecdKategori || '', // 🆕 OECD Kategori
             // 🔧 Problematik değerleri temizle
             cins1: cleanProblematicValue(backendData.yatirimBilgileri?.sCinsi1),
             cins2: cleanProblematicValue(backendData.yatirimBilgileri?.tCinsi2),
@@ -2074,7 +2079,8 @@ const YeniTesvikForm = () => {
           cazibeMerkezi2018: formData.yatirimBilgileri1?.cazibeMerkezi2018 || '',
           cazibeMerkeziDeprem: formData.yatirimBilgileri1?.cazibeMerkeziDeprem || '',
           hamleMi: formData.yatirimBilgileri1?.hamleMi || '',
-          vergiIndirimsizDestek: formData.yatirimBilgileri1?.vergiIndirimsizDestek || '',
+          vergiIndirimsizDestek: formData.yatirimBilgileri1?.vergiIndirimsizDestek || formData.yatirimBilgileri1?.vergiIndirimsizDestekTalebi || '',
+          oecdKategori: formData.yatirimBilgileri1?.oecdKategori || '', // 🆕 OECD Kategori kaydı
 
           sCinsi1: formData.yatirimBilgileri1?.cins1 || '',
           tCinsi2: formData.yatirimBilgileri1?.cins2 || '',

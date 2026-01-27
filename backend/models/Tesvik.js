@@ -474,6 +474,11 @@ const tesvikSchema = new mongoose.Schema({
       default: '',
       trim: true
     },
+    oecdKategori: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     sCinsi1: { type: String, trim: true },
     tCinsi2: { type: String, trim: true },
     uCinsi3: { type: String, trim: true },
