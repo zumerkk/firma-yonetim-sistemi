@@ -391,9 +391,9 @@ const belgeYonetimiSchema = new mongoose.Schema({
   },
   belgeMuracaatTarihi: { type: Date },
   belgeBaslamaTarihi: { type: Date },
-  belgebitisTarihi: { type: Date },
+  belgeBitisTarihi: { type: Date }, // 🔧 FIX: belgebitisTarihi → belgeBitisTarihi (camelCase)
   uzatimTarihi: { type: Date },
-  mudebbirUzatimTarihi: { type: Date },
+  mucbirUzumaTarihi: { type: Date }, // 🔧 FIX: mudebbirUzatimTarihi → mucbirUzumaTarihi (frontend ile uyumlu)
   // 🏆 Öncelikli Yatırım Alanları
   oncelikliYatirim: {
     type: String,
@@ -856,12 +856,23 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
     ithalKalemler.filter(r => !!r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobTl || 0) || 0), 0)
   );
 
-  makina.yerliMakina = yerliToplamTl;
-  makina.ithalMakina = ithalToplamTl;
-  makina.toplamMakina = yerliToplamTl + ithalToplamTl;
-  makina.yeniMakina = yeniToplam;
-  makina.kullanimisMakina = kullanilmisToplam;
-  makina.toplamYeniMakina = yeniToplam + kullanilmisToplam;
+  // 🔧 FIX: Sadece makineListeleri dolu ise hesaplanan değerleri kullan
+  // Boşsa kullanıcının manuel girdiği değerleri koru
+  const hasMakineListesi = yerliKalemler.length > 0 || ithalKalemler.length > 0;
+  
+  if (hasMakineListesi) {
+    // MakineListeleri'nden hesapla
+    makina.yerliMakina = yerliToplamTl;
+    makina.ithalMakina = ithalToplamTl;
+    makina.toplamMakina = yerliToplamTl + ithalToplamTl;
+    makina.yeniMakina = yeniToplam;
+    makina.kullanimisMakina = kullanilmisToplam;
+    makina.toplamYeniMakina = yeniToplam + kullanilmisToplam;
+  } else {
+    // Kullanıcının manuel girdiği değerleri koru, sadece toplamı hesapla
+    makina.toplamMakina = (makina.yerliMakina || 0) + (makina.ithalMakina || 0);
+    makina.toplamYeniMakina = (makina.yeniMakina || 0) + (makina.kullanimisMakina || 0);
+  }
   
   // Finansman toplam
   const finansman = this.maliHesaplamalar.finansman;

@@ -973,9 +973,11 @@ const YeniTesvikForm = () => {
             belgeDurumu: backendData.belgeYonetimi?.belgeDurumu || '',
             belgeMuracaatTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeMuracaatTarihi) || '',
             belgeBaslamaTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBaslamaTarihi) || '',
-            belgeBitisTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBitisTarihi) || '',
+            // 🔧 Geriye uyumluluk: Eski field ismi (belgebitisTarihi) ve yeni (belgeBitisTarihi)
+            belgeBitisTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBitisTarihi || backendData.belgeYonetimi?.belgebitisTarihi) || '',
             uzatimTarihi: formatDateForInput(backendData.belgeYonetimi?.uzatimTarihi) || '',
-            mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi) || '',
+            // 🔧 Geriye uyumluluk: Eski field ismi (mudebbirUzatimTarihi) ve yeni (mucbirUzumaTarihi)
+            mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi || backendData.belgeYonetimi?.mudebbirUzatimTarihi) || '',
             oncelikliYatirim: backendData.belgeYonetimi?.oncelikliYatirim || '', // 🏆 Öncelikli Yatırım
             oncelikliYatirimTuru: backendData.belgeYonetimi?.oncelikliYatirimTuru || '' // 🏆 Öncelikli Yatırım Türü
           },
@@ -2246,6 +2248,10 @@ const YeniTesvikForm = () => {
        delete mappedData.ozelSartlar_frontend;
       
       console.log('🔄 Mapped data to backend format:', mappedData);
+      console.log('🔍 DEBUG SAVE - Kritik Alanlar:');
+      console.log('  - belgeYonetimi.belgeBitisTarihi:', mappedData.belgeYonetimi?.belgeBitisTarihi);
+      console.log('  - maliHesaplamalar.makinaTechizat:', mappedData.maliHesaplamalar?.makinaTechizat);
+      console.log('  - formData.finansalBilgiler.makineTeçhizatGiderleri:', formData.finansalBilgiler?.makineTeçhizatGiderleri);
       
       const url = isEdit ? `/yeni-tesvik/${id}` : '/yeni-tesvik';
       const method = isEdit ? 'put' : 'post';

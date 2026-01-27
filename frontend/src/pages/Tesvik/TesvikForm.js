@@ -840,9 +840,11 @@ const TesvikForm = () => {
             belgeDurumu: backendData.belgeYonetimi?.belgeDurumu || '',
             belgeMuracaatTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeMuracaatTarihi) || '',
             belgeBaslamaTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBaslamaTarihi) || '',
-            belgeBitisTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBitisTarihi) || '',
+            // 🔧 Geriye uyumluluk: Eski field ismi (belgebitisTarihi) ve yeni (belgeBitisTarihi)
+            belgeBitisTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBitisTarihi || backendData.belgeYonetimi?.belgebitisTarihi) || '',
             uzatimTarihi: formatDateForInput(backendData.belgeYonetimi?.uzatimTarihi) || '',
-            mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi) || '',
+            // 🔧 Geriye uyumluluk: Eski field ismi (mudebbirUzatimTarihi) ve yeni (mucbirUzumaTarihi)
+            mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi || backendData.belgeYonetimi?.mudebbirUzatimTarihi) || '',
             oncelikliYatirim: backendData.belgeYonetimi?.oncelikliYatirim || '', // 🏆 Öncelikli Yatırım
             oncelikliYatirimTuru: backendData.belgeYonetimi?.oncelikliYatirimTuru || '' // 🏆 Öncelikli Yatırım Türü
           },
