@@ -471,6 +471,7 @@ const TesvikForm = () => {
       yatirimci: '',
       yatirimciUnvan: '',
       sgkSicilNo: '', // 🆕 YENİ ALAN - Excel'den eklendi
+      sermayeTuru: '', // 🆕 EKSİK ALAN EKLENDİ
       // 🔧 EKSİK ALANLAR EKLENDİ - Excel detayları
       kararTarihi: '',
       kararSayisi: '',
@@ -506,7 +507,9 @@ const TesvikForm = () => {
       cazibeMerkezi2018: '', // Cazibe Merkezi Mi? (2018/11201) (Evet/Hayır)
       cazibeMerkeziDeprem: '', // Cazibe Merkezi Deprem Nedeni (Evet/Hayır)
       hamleMi: '', // HAMLE MI? (Evet/Hayır)
-      vergiIndirimsizDestek: '' // Vergi İndirimsiz Destek Talebi (Evet/Hayır)
+      vergiIndirimsizDestek: '', // Vergi İndirimsiz Destek Talebi
+      vergiIndirimsizDestekTalebi: '', // 🆕 Form field alias
+      oecdKategori: '' // 🆕 OECD Kategori
     },
     
     // 💰 Yatırım İle İlgili Bilgiler - Bölüm 2  

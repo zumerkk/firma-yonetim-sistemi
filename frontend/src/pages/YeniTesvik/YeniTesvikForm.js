@@ -470,6 +470,7 @@ const YeniTesvikForm = () => {
       yatirimci: '',
       yatirimciUnvan: '',
       sgkSicilNo: '', // 🆕 YENİ ALAN - Excel'den eklendi
+      sermayeTuru: '', // 🆕 EKSİK ALAN EKLENDİ
       // 🔧 EKSİK ALANLAR EKLENDİ - Excel detayları
       kararTarihi: '',
       kararSayisi: '',
@@ -505,7 +506,8 @@ const YeniTesvikForm = () => {
       cazibeMerkezi2018: '', // Cazibe Merkezi Mi? (2018/11201) (Evet/Hayır)
       cazibeMerkeziDeprem: '', // Cazibe Merkezi Deprem Nedeni (Evet/Hayır)
       hamleMi: '', // HAMLE MI? (Evet/Hayır)
-      // vergiIndirimsizDestek: '' // Kaldırıldı
+      vergiIndirimsizDestek: '', // 🆕 EKSİK ALAN EKLENDİ
+      vergiIndirimsizDestekTalebi: '', // 🆕 EKSİK ALAN EKLENDİ (Form field)
       oecdKategori: ''
     },
     
@@ -1163,7 +1165,22 @@ const YeniTesvikForm = () => {
           })()
         };
         
+        // 🔍 DEBUG: Tüm kritik alanları logla
         console.log('🔄 Backend data mapped to frontend format:', mappedData);
+        console.log('🔍 DEBUG - Kritik Alanlar:');
+        console.log('  - firma:', mappedData.firma);
+        console.log('  - sermayeTuru:', mappedData.kunyeBilgileri?.sermayeTuru);
+        console.log('  - sgkSicilNo:', mappedData.kunyeBilgileri?.sgkSicilNo);
+        console.log('  - belgeBitisTarihi:', mappedData.belgeYonetimi?.belgeBitisTarihi);
+        console.log('  - vergiIndirimsizDestekTalebi:', mappedData.yatirimBilgileri1?.vergiIndirimsizDestekTalebi);
+        console.log('  - araziArsaBedeli.aciklama:', mappedData.finansalBilgiler?.araziArsaBedeli?.aciklama);
+        console.log('  - binaInsaatGiderleri.aciklama:', mappedData.finansalBilgiler?.binaInsaatGiderleri?.aciklama);
+        console.log('  - makinaTechizat.ithal:', mappedData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal);
+        console.log('  - makinaTechizat.yerli:', mappedData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.yerli);
+        console.log('🔍 DEBUG - Raw Backend Data:');
+        console.log('  - backendData.kunyeBilgileri:', backendData.kunyeBilgileri);
+        console.log('  - backendData.belgeYonetimi:', backendData.belgeYonetimi);
+        console.log('  - backendData.maliHesaplamalar:', backendData.maliHesaplamalar);
         setFormData(mappedData);
         
         // 🔢 Dinamik alan sayılarını hesapla
