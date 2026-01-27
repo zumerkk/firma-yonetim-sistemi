@@ -269,7 +269,7 @@ const ozelSartlarSchema = new mongoose.Schema({
   aciklamaNotu: {
     type: String,
     trim: true,
-    maxlength: 500
+    maxlength: 2000  // Uzun resmi açıklamalar için artırıldı
   },
   durum: {
     type: String,
