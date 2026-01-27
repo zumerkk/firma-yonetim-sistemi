@@ -1043,91 +1043,106 @@ const TesvikDetail = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 📦 Ürün Bilgileri & US97 Kodları
                   </Typography>
-              {tesvik.urunler && tesvik.urunler.length > 6 && (
-                <Chip label={`+${tesvik.urunler.length - 6} ürün daha`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
-              )}
-              {tesvik.urunler && tesvik.urunler.length > 0 && tesvik.urunler.length <= 6 && (
-                <Chip label={`${tesvik.urunler.length} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
-              )}
+              {(() => {
+                const validCount = (tesvik.urunler || []).filter(u => 
+                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim())) && 
+                  ((Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0)
+                ).length;
+                return validCount > 0 ? (
+                  <Chip label={validCount > 6 ? `+${validCount - 6} ürün daha` : `${validCount} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
+                ) : null;
+              })()}
             </Box>
             
-            {/* Kompakt Ürün Listesi */}
-            {tesvik.urunler && tesvik.urunler.length > 0 ? (
-              <Grid container spacing={0.5}>
-                {tesvik.urunler.slice(0, 6).map((urun, index) => (
-                  <Grid item xs={12} sm={6} md={4} key={index}>
-                    <Paper sx={{ 
-                      p: 1, 
-                      backgroundColor: '#fafbfc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: 1,
-                      transition: 'all 0.2s ease',
-                      '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.65rem' }}>
-                          Ürün #{index + 1}
-                        </Typography>
-                        {urun.u97Kodu && (
-                          <Chip 
-                            label={urun.u97Kodu} 
-                            size="small" 
-                      sx={{
-                              backgroundColor: '#fef7ff', 
-                              color: '#8b5cf6',
-                              fontWeight: 500,
-                              fontSize: '0.6rem',
-                              height: 18
-                            }} 
-                          />
-                        )}
-                    </Box>
-                    
-                      <Typography variant="body2" sx={{ 
-                        mb: 0.5, 
-                        fontWeight: 500, 
-                        fontSize: '0.75rem',
-                        minHeight: 32,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
+            {/* Kompakt Ürün Listesi - SADECE GEÇERLİ VERİSİ OLAN ÜRÜNLER */}
+            {(() => {
+              // Geçerli ürünleri filtrele: En az kod VEYA ad olmalı VE kapasite > 0 olmalı
+              const validUrunler = (tesvik.urunler || []).filter(urun => {
+                const hasCode = !!(urun.u97Kodu || urun.us97Kodu);
+                const hasName = !!(urun.urunAdi && urun.urunAdi.trim());
+                const hasCapacity = (Number(urun.mevcutKapasite) || 0) > 0 || 
+                                   (Number(urun.ilaveKapasite) || 0) > 0 || 
+                                   (Number(urun.toplamKapasite) || 0) > 0;
+                return (hasCode || hasName) && hasCapacity;
+              });
+              
+              return validUrunler.length > 0 ? (
+                <Grid container spacing={0.5}>
+                  {validUrunler.slice(0, 6).map((urun, index) => (
+                    <Grid item xs={12} sm={6} md={4} key={index}>
+                      <Paper sx={{ 
+                        p: 1, 
+                        backgroundColor: '#fafbfc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: 1,
+                        transition: 'all 0.2s ease',
+                        '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }
                       }}>
-                        {urun.urunAdi || '-'}
-                      </Typography>
-                      
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
-                            {urun.mevcutKapasite?.toLocaleString('tr-TR') || '0'}
-                        </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>Mevcut</Typography>
-                            </Box>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.8rem' }}>
-                            +{urun.ilaveKapasite?.toLocaleString('tr-TR') || '0'}
-                        </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>İlave</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.65rem' }}>
+                            Ürün #{index + 1}
+                          </Typography>
+                          {(urun.u97Kodu || urun.us97Kodu) && (
+                            <Chip 
+                              label={urun.u97Kodu || urun.us97Kodu} 
+                              size="small" 
+                              sx={{
+                                backgroundColor: '#fef7ff', 
+                                color: '#8b5cf6',
+                                fontWeight: 500,
+                                fontSize: '0.6rem',
+                                height: 18
+                              }} 
+                            />
+                          )}
                         </Box>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="body1" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem' }}>
-                            {urun.toplamKapasite?.toLocaleString('tr-TR') || '0'}
+                        
+                        <Typography variant="body2" sx={{ 
+                          mb: 0.5, 
+                          fontWeight: 500, 
+                          fontSize: '0.75rem',
+                          minHeight: 32,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}>
+                          {urun.urunAdi || '-'}
                         </Typography>
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.kapasiteBirimi || '-'}</Typography>
-                      </Box>
-                  </Box>
-                    </Paper>
-            </Grid>
-                ))}
-              </Grid>
-            ) : (
-              <Paper sx={{ p: 1, backgroundColor: '#f9fafb', textAlign: 'center', borderRadius: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                  Henüz ürün bilgisi tanımlanmamış
-                </Typography>
-              </Paper>
-            )}
+                        
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
+                              {(Number(urun.mevcutKapasite) || 0).toLocaleString('tr-TR')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>Mevcut</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.8rem' }}>
+                              +{(Number(urun.ilaveKapasite) || 0).toLocaleString('tr-TR')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>İlave</Typography>
+                          </Box>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="body1" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem' }}>
+                              {(Number(urun.toplamKapasite) || 0).toLocaleString('tr-TR')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.kapasiteBirimi || '-'}</Typography>
+                          </Box>
+                        </Box>
+                      </Paper>
+                    </Grid>
+                  ))}
+                </Grid>
+              ) : (
+                <Paper sx={{ p: 1, backgroundColor: '#f9fafb', textAlign: 'center', borderRadius: 1 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                    Henüz ürün bilgisi tanımlanmamış
+                  </Typography>
+                </Paper>
+              );
+            })()}
           </Paper>
 
           {/* 🛡️ DESTEK UNSURLARI - DİNAMİK */}
@@ -1191,23 +1206,29 @@ const TesvikDetail = () => {
 
             <Grid container spacing={0.75}>
               {(tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0) ? (
-                tesvik.ozelSartlar.map((sart, idx) => (
-                  <Grid item xs={12} sm={6} md={4} key={idx}>
-                    <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                        {`Şart #${sart?.koşulNo || idx + 1}`}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem', display: 'block' }}>
-                        {sart?.koşulMetni || '-'}
-                      </Typography>
-                      {sart?.aciklamaNotu ? (
-                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
-                          {sart.aciklamaNotu}
+                tesvik.ozelSartlar.map((sart, idx) => {
+                  // Multiple field name desteği - backend'den gelen farklı formatlara uyum
+                  const sartMetni = sart?.koşulMetni || sart?.kisaltma || sart?.sart || sart?.metin || '-';
+                  const sartAciklama = sart?.aciklamaNotu || sart?.notu || sart?.aciklama || sart?.description || '';
+                  
+                  return (
+                    <Grid item xs={12} sm={6} md={4} key={idx}>
+                      <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
+                          {`Şart #${sart?.koşulNo || idx + 1}`}
                         </Typography>
-                      ) : null}
-                    </Paper>
-                  </Grid>
-                ))
+                        <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem', display: 'block' }}>
+                          {sartMetni}
+                        </Typography>
+                        {sartAciklama && sartAciklama.trim() !== '' && (
+                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+                            📝 {sartAciklama}
+                          </Typography>
+                        )}
+                      </Paper>
+                    </Grid>
+                  );
+                })
               ) : (
                 <Grid item xs={12}>
                   <Typography variant="caption" sx={{ color: '#64748b' }}>
