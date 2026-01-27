@@ -4106,6 +4106,19 @@ const YeniTesvikForm = () => {
                       handleOzelSartChange(index, 'kisaltma', '');
                     }
                   }}
+                  onInputChange={(event, newInputValue, reason) => {
+                    // FreeSolo için: Kullanıcı yazarken veya blur olduğunda değeri kaydet
+                    if (reason === 'input' || reason === 'clear') {
+                      handleOzelSartChange(index, 'kisaltma', newInputValue || '');
+                    }
+                  }}
+                  onBlur={(event) => {
+                    // Blur olduğunda mevcut input değerini kaydet (freeSolo için kritik)
+                    const inputValue = event.target.value;
+                    if (inputValue && inputValue.trim()) {
+                      handleOzelSartChange(index, 'kisaltma', inputValue.trim());
+                    }
+                  }}
                   options={templateData.ozelSartKisaltmalari || []}
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
@@ -4131,7 +4144,7 @@ const YeniTesvikForm = () => {
                     <TextField
                       {...params}
                       label="Özel Şart Kısaltma"
-                      placeholder="Kısaltma seçin veya yeni ekleyin..."
+                      placeholder="Kısaltma seçin veya yeni ekleyin (örn: Nakil, Ruhsat)..."
                       sx={{
                         backgroundColor: '#ffffff',
                         '& .MuiOutlinedInput-root': {
@@ -4173,6 +4186,19 @@ const YeniTesvikForm = () => {
                       handleOzelSartChange(index, 'notu', '');
                     }
                   }}
+                  onInputChange={(event, newInputValue, reason) => {
+                    // FreeSolo için: Kullanıcı yazarken veya blur olduğunda değeri kaydet
+                    if (reason === 'input' || reason === 'clear') {
+                      handleOzelSartChange(index, 'notu', newInputValue || '');
+                    }
+                  }}
+                  onBlur={(event) => {
+                    // Blur olduğunda mevcut input değerini kaydet (freeSolo için kritik)
+                    const inputValue = event.target.value;
+                    if (inputValue && inputValue.trim()) {
+                      handleOzelSartChange(index, 'notu', inputValue.trim());
+                    }
+                  }}
                   options={templateData.ozelSartNotlari || []}
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
@@ -4192,8 +4218,8 @@ const YeniTesvikForm = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Özel Şart Notu 📝"
-                      placeholder="Not seçin veya yeni ekleyin..."
+                      label="Özel Şart Notu / Açıklama 📝"
+                      placeholder="Açıklama yazın veya seçin..."
                       sx={{
                         backgroundColor: '#ffffff',
                         '& .MuiOutlinedInput-root': {
