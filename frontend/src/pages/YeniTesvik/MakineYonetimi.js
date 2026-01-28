@@ -352,41 +352,77 @@ const MakineYonetimi = () => {
   // 🔧 Scroll pozisyonunu korumak için ref'ler
   const yerliGridRef = useRef(null);
   const ithalGridRef = useRef(null);
-  const scrollPositionRef = useRef({ top: 0, left: 0 });
+  const yerliScrollRef = useRef({ top: 0, left: 0 });
+  const ithalScrollRef = useRef({ top: 0, left: 0 });
+  const isRestoringScroll = useRef(false);
 
-  // Scroll pozisyonunu kaydet
-  const saveScrollPosition = useCallback(() => {
-    const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
-    const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
-    if (scroller) {
-      scrollPositionRef.current = { top: scroller.scrollTop, left: scroller.scrollLeft };
-    }
-  }, [tab]);
+  // Scroll event listener - sürekli pozisyon takibi
+  useEffect(() => {
+    const setupScrollListener = (gridRef, scrollRef) => {
+      const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
+      if (!scroller) return null;
+      
+      const handleScroll = () => {
+        if (!isRestoringScroll.current) {
+          scrollRef.current = { top: scroller.scrollTop, left: scroller.scrollLeft };
+        }
+      };
+      
+      scroller.addEventListener('scroll', handleScroll);
+      return () => scroller.removeEventListener('scroll', handleScroll);
+    };
+    
+    const cleanupYerli = setupScrollListener(yerliGridRef, yerliScrollRef);
+    const cleanupIthal = setupScrollListener(ithalGridRef, ithalScrollRef);
+    
+    return () => {
+      cleanupYerli?.();
+      cleanupIthal?.();
+    };
+  }, [yerliRows.length, ithalRows.length]); // Grid render olduğunda listener'ı yeniden kur
 
-  // Scroll pozisyonunu restore et
+  // Scroll pozisyonunu restore et - daha güçlü versiyon
   const restoreScrollPosition = useCallback(() => {
     const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
-    requestAnimationFrame(() => {
+    const scrollRef = tab === 'yerli' ? yerliScrollRef : ithalScrollRef;
+    const { top, left } = scrollRef.current;
+    
+    isRestoringScroll.current = true;
+    
+    // Birden fazla frame bekleyerek scroll'u restore et
+    const restore = () => {
       const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
       if (scroller) {
-        scroller.scrollTop = scrollPositionRef.current.top;
-        scroller.scrollLeft = scrollPositionRef.current.left;
+        scroller.scrollTop = top;
+        scroller.scrollLeft = left;
       }
-    });
+    };
+    
+    // Hemen, sonra 50ms, sonra 100ms, 150ms'de tekrar dene (DataGrid render cycle'ı için)
+    requestAnimationFrame(restore);
+    setTimeout(restore, 50);
+    setTimeout(restore, 100);
+    setTimeout(() => {
+      restore();
+      isRestoringScroll.current = false;
+    }, 150);
   }, [tab]);
 
+  // Eski saveScrollPosition - artık otomatik takip var ama uyumluluk için kalıyor
+  const saveScrollPosition = useCallback(() => {
+    // Artık scroll event listener ile otomatik kaydediliyor
+  }, []);
+
   const updateYerli = useCallback((id, patch) => {
-    saveScrollPosition();
     setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
     // Scroll pozisyonunu restore et
-    setTimeout(restoreScrollPosition, 0);
-  }, [saveScrollPosition, restoreScrollPosition]);
+    restoreScrollPosition();
+  }, [restoreScrollPosition]);
 
   const updateIthal = useCallback((id, patch) => {
-    saveScrollPosition();
     setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
-    setTimeout(restoreScrollPosition, 0);
-  }, [saveScrollPosition, restoreScrollPosition]);
+    restoreScrollPosition();
+  }, [restoreScrollPosition]);
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
   // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
@@ -1912,7 +1948,7 @@ const MakineYonetimi = () => {
             const committed = parseTrCurrency(params.value);
             saveScrollPosition();
             setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed, __manualTLInput: (params.value ?? '').toString() } : r));
-            setTimeout(restoreScrollPosition, 0);
+            restoreScrollPosition();
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
