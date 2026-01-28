@@ -349,12 +349,44 @@ const MakineYonetimi = () => {
     return ()=> window.removeEventListener('keydown', handler);
   }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
 
-  const updateYerli = (id, patch) => {
+  // 🔧 Scroll pozisyonunu korumak için ref'ler
+  const yerliGridRef = useRef(null);
+  const ithalGridRef = useRef(null);
+  const scrollPositionRef = useRef({ top: 0, left: 0 });
+
+  // Scroll pozisyonunu kaydet
+  const saveScrollPosition = useCallback(() => {
+    const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
+    const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
+    if (scroller) {
+      scrollPositionRef.current = { top: scroller.scrollTop, left: scroller.scrollLeft };
+    }
+  }, [tab]);
+
+  // Scroll pozisyonunu restore et
+  const restoreScrollPosition = useCallback(() => {
+    const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
+    requestAnimationFrame(() => {
+      const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
+      if (scroller) {
+        scroller.scrollTop = scrollPositionRef.current.top;
+        scroller.scrollLeft = scrollPositionRef.current.left;
+      }
+    });
+  }, [tab]);
+
+  const updateYerli = useCallback((id, patch) => {
+    saveScrollPosition();
     setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
-  };
-  const updateIthal = (id, patch) => {
+    // Scroll pozisyonunu restore et
+    setTimeout(restoreScrollPosition, 0);
+  }, [saveScrollPosition, restoreScrollPosition]);
+
+  const updateIthal = useCallback((id, patch) => {
+    saveScrollPosition();
     setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
-  };
+    setTimeout(restoreScrollPosition, 0);
+  }, [saveScrollPosition, restoreScrollPosition]);
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
   // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
@@ -1462,6 +1494,7 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
+      <Box ref={yerliGridRef} sx={{ height: '100%', width: '100%' }}>
       <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
@@ -1560,6 +1593,7 @@ const MakineYonetimi = () => {
           }
         }}
       />
+      </Box>
     );
   };
 
@@ -1858,6 +1892,7 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
+      <Box ref={ithalGridRef} sx={{ height: '100%', width: '100%' }}>
       <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
@@ -1875,7 +1910,9 @@ const MakineYonetimi = () => {
           if (params.field === 'toplamTl') {
             const id = params.id;
             const committed = parseTrCurrency(params.value);
+            saveScrollPosition();
             setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed, __manualTLInput: (params.value ?? '').toString() } : r));
+            setTimeout(restoreScrollPosition, 0);
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
@@ -1964,6 +2001,7 @@ const MakineYonetimi = () => {
           }
         }}
       />
+      </Box>
     );
   };
   // 🎨 PREMIUM ENTERPRISE THEME - Modern & Professional
