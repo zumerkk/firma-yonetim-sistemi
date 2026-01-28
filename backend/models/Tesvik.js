@@ -243,9 +243,10 @@ const destekUnsurlariSchema = new mongoose.Schema({
   },
   sarti: {
     type: String,
-    required: true,
+    required: false, // 🔧 FIX: Şart opsiyonel - required: true → false
     trim: true,
-    maxlength: 500
+    maxlength: 500,
+    default: ''
   },
   aciklama: {
     type: String,

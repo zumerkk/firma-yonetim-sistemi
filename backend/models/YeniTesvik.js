@@ -321,7 +321,7 @@ const destekUnsurlariSchema = new mongoose.Schema({
     required: false, // ✅ FİXED: Opsiyonel yapıldı - bazı destek unsurlarında şart girilmeyebilir
     trim: true,
     maxlength: 500,
-    default: '-' // Boş kalırsa '-' olarak kaydedilir
+    default: '' // 🔧 FIX: '-' → '' (boş string)
   },
   aciklama: {
     type: String,
