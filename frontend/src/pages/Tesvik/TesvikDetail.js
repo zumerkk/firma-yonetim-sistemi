@@ -855,14 +855,14 @@ const TesvikDetail = () => {
                     fontSize: '1rem',
                     mb: 0.25
                   }}>
-                    {tesvik.istihdam?.toplamKisi || '41'}
+                    {tesvik.istihdam?.toplamKisi ?? 0}
                   </Typography>
                   <Typography variant="caption" sx={{ 
                     color: '#10b981',
                     fontSize: '0.6rem',
                     fontWeight: 600
                   }}>
-                    +{tesvik.istihdam?.ilaveKisi || '30'} İlave
+                    +{tesvik.istihdam?.ilaveKisi ?? 0} İlave
                   </Typography>
                 </Box>
               </Paper>
@@ -935,7 +935,7 @@ const TesvikDetail = () => {
                       <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#fef7ff', borderRadius: 1, border: '1px solid #e9d5ff', textAlign: 'center' }}>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: '#f59e0b', fontSize: '1.5rem' }}>
-                    {tesvik.istihdam?.toplamKisi || '41'}
+                    {tesvik.istihdam?.toplamKisi ?? 0}
                         </Typography>
                   <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>
                     Toplam İstihdam
@@ -945,7 +945,7 @@ const TesvikDetail = () => {
                       <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0', textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981', fontSize: '1.2rem' }}>
-                    {tesvik.istihdam?.mevcutKisi || '11'}
+                    {tesvik.istihdam?.mevcutKisi ?? 0}
                         </Typography>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>
                     Mevcut Kişi
@@ -955,7 +955,7 @@ const TesvikDetail = () => {
                       <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#ecfdf5', borderRadius: 1, border: '1px solid #a7f3d0', textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.2rem' }}>
-                    +{tesvik.istihdam?.ilaveKisi || '30'}
+                    +{tesvik.istihdam?.ilaveKisi ?? 0}
                         </Typography>
                   <Typography variant="caption" sx={{ color: '#047857', fontSize: '0.65rem', fontWeight: 500 }}>
                     İlave Kişi
@@ -1159,8 +1159,10 @@ const TesvikDetail = () => {
 
             {/* Dinamik Destek Unsurları */}
             <Grid container spacing={0.5}>
-              {(tesvik?.destekUnsurlari && tesvik.destekUnsurlari.length > 0) ? (
-                tesvik.destekUnsurlari.map((destek, idx) => (
+              {(tesvik?.destekUnsurlari && tesvik.destekUnsurlari.filter(d => d?.destekUnsuru).length > 0) ? (
+                tesvik.destekUnsurlari
+                  .filter(destek => destek?.destekUnsuru) // Sadece dolu olanları göster
+                  .map((destek, idx) => (
                   <Grid item xs={12} sm={6} key={idx}>
                     <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1169,9 +1171,10 @@ const TesvikDetail = () => {
                         </Typography>
                         <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
                       </Box>
-                      {destek?.sarti && (
+                      {/* 🔧 FIX: Hem sarti hem sartlari field'larını kontrol et */}
+                      {(destek?.sarti || destek?.sartlari) && (
                         <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
-                          {destek.sarti}
+                          {destek.sarti || destek.sartlari}
                         </Typography>
                       )}
                       {destek?.aciklama && (

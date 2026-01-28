@@ -602,7 +602,8 @@ const TesvikForm = () => {
       digerYatirimHarcamalari: {
         yardimciIslMakTeçGid: '',        // Yardımcı İşl. Mak. Teç. Gid.
         ithalatVeGumGiderleri: '',       // İthalat ve Güm.Giderleri
-        tasimaVeSigortaGiderleri: '',    // Taşıma ve Sigorta G.(Monta) Giderleri
+        tasimaVeSigortaGiderleri: '',    // Taşıma ve Sigorta G.
+        montajGiderleri: '',             // 🆕 Montaj Giderleri
         etudVeProjeGiderleri: '',        // Etüd ve Proje Giderleri
         digerGiderleri: '',              // Diğer Giderleri
         toplamDigerYatirimHarcamalari: '' // TOPLAM DİĞER YATIRIM HARCAMALARI
@@ -900,6 +901,7 @@ const TesvikForm = () => {
               yardimciIslMakTeçGid: backendData.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0,
               ithalatVeGumGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0,
               tasimaVeSigortaGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0,
+              montajGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.et || 0, // 🆕 Montaj Giderleri
               etudVeProjeGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0,
               digerGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0,
               toplamDigerYatirimHarcamalari: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0
@@ -2025,6 +2027,7 @@ const TesvikForm = () => {
             eu: formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid || 0,
             ev: formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri || 0,
             ew: formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri || 0,
+            et: formData.finansalBilgiler?.digerYatirimHarcamalari?.montajGiderleri || 0, // 🆕 Montaj Giderleri
             ex: formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri || 0,
             ey: formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri || 0,
             ez: formData.finansalBilgiler?.digerYatirimHarcamalari?.toplamDigerYatirimHarcamalari || 0
@@ -3039,6 +3042,8 @@ const TesvikForm = () => {
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
                   }}
                 >
+                  {/* 🆕 Varsayılan GENEL seçeneği */}
+                  <MenuItem value="GENEL">GENEL</MenuItem>
                   {templateData.destekSiniflari?.map((sinif) => (
                     <MenuItem key={sinif.value} value={sinif.value}>
                       {sinif.label}
@@ -4924,9 +4929,10 @@ const TesvikForm = () => {
     const yardimciIsl = toNumber(finansal.digerYatirimHarcamalari?.yardimciIslMakTeçGid);
     const ithalatGum = toNumber(finansal.digerYatirimHarcamalari?.ithalatVeGumGiderleri);
     const tasimaSignorta = toNumber(finansal.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri);
+    const montajGid = toNumber(finansal.digerYatirimHarcamalari?.montajGiderleri); // 🆕 Montaj Giderleri
     const etudProje = toNumber(finansal.digerYatirimHarcamalari?.etudVeProjeGiderleri);
     const digerGider = toNumber(finansal.digerYatirimHarcamalari?.digerGiderleri);
-    const toplamDiger = yardimciIsl + ithalatGum + tasimaSignorta + etudProje + digerGider;
+    const toplamDiger = yardimciIsl + ithalatGum + tasimaSignorta + montajGid + etudProje + digerGider;
     
     // 6. TOPLAM SABİT YATIRIM TUTARI = Arazi + Bina + Makine(TL) + Diğer
     const toplamSabitYatirim = araziTotal + toplamBina + toplamMakineTL + toplamDiger;
@@ -5048,6 +5054,7 @@ const TesvikForm = () => {
     formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri,
+    formData.finansalBilgiler?.digerYatirimHarcamalari?.montajGiderleri, // 🆕 Montaj Giderleri
     formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri
     // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
@@ -5505,6 +5512,19 @@ const TesvikForm = () => {
                 onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseFloat(e.target.value) || 0)}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', val))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            {/* 🆕 Montaj Giderleri */}
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="Montaj Giderleri"
+                type="number"
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseFloat(e.target.value) || 0)}
+                onFocus={handleNumberFieldFocus}
+                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', val))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
