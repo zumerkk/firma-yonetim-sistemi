@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
@@ -41,8 +41,8 @@ const parseTrCurrency = (value) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
-const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
+const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '' , makineTechizatTipi:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: [], silinmeTarihi: null });
+const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: '', aracMi: '', makineTechizatTipi:'', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: [], silinmeTarihi: null });
 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
@@ -55,8 +55,10 @@ const MakineYonetimi = () => {
   const [selectedTesvik, setSelectedTesvik] = useState(null);
   const [tesvikOptions, setTesvikOptions] = useState([]);
   const [loadingTesvik, setLoadingTesvik] = useState(false);
-  const [yerliRows, setYerliRows] = useState(() => loadLS('mk_yerli', []));
-  const [ithalRows, setIthalRows] = useState(() => loadLS('mk_ithal', []));
+  // 🔧 FIX: Başlangıçta boş başla, teşvik seçildiğinde localStorage'dan yükle
+  // Bu şekilde makine ID'leri teşvik bazlı kalıcı olacak
+  const [yerliRows, setYerliRows] = useState([]);
+  const [ithalRows, setIthalRows] = useState([]);
   const [uploadRowId, setUploadRowId] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectionModel, setSelectionModel] = useState([]);
@@ -224,8 +226,29 @@ const MakineYonetimi = () => {
       setIsReviseStarted(false);
     })();
   }, [selectedTesvik]);
-  useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows); }, [yerliRows, selectedTesvik]);
-  useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows); }, [ithalRows, selectedTesvik]);
+  // 🔧 Debounced localStorage save - scroll pozisyonunu korumak için
+  const saveTimeoutYerliRef = useRef(null);
+  const saveTimeoutIthalRef = useRef(null);
+  
+  useEffect(() => { 
+    if (!selectedTesvik?._id) return;
+    // Önceki timeout'u temizle
+    if (saveTimeoutYerliRef.current) clearTimeout(saveTimeoutYerliRef.current);
+    // 1.5 saniye gecikme ile kaydet (scroll pozisyonunu korur)
+    saveTimeoutYerliRef.current = setTimeout(() => {
+      saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows);
+    }, 1500);
+    return () => { if (saveTimeoutYerliRef.current) clearTimeout(saveTimeoutYerliRef.current); };
+  }, [yerliRows, selectedTesvik]);
+  
+  useEffect(() => { 
+    if (!selectedTesvik?._id) return;
+    if (saveTimeoutIthalRef.current) clearTimeout(saveTimeoutIthalRef.current);
+    saveTimeoutIthalRef.current = setTimeout(() => {
+      saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows);
+    }, 1500);
+    return () => { if (saveTimeoutIthalRef.current) clearTimeout(saveTimeoutIthalRef.current); };
+  }, [ithalRows, selectedTesvik]);
 
   // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
   useEffect(() => {
@@ -1286,15 +1309,15 @@ const MakineYonetimi = () => {
       { field: 'finansalKiralamaSirket', headerName: 'FK Şrk', width: 80, editable: isReviseMode },
       { field: 'gerceklesenAdet', headerName: 'G.Adet', width: 55, editable: isReviseMode, type: 'number' },
       { field: 'gerceklesenTutar', headerName: 'G.Tutar', width: 70, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisVarMi', headerName: 'İDS', width: 55, renderCell: (p) => (
+      { field: 'iadeDevirSatisVarMi', headerName: 'DVR', width: 55, renderCell: (p) => (
         <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
           <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="EVET" sx={{ fontSize: '0.68rem' }}>E</MenuItem>
           <MenuItem value="HAYIR" sx={{ fontSize: '0.68rem' }}>H</MenuItem>
         </Select>
       ) },
-      { field: 'iadeDevirSatisAdet', headerName: 'İDS#', width: 55, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisTutar', headerName: 'İDS₺', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisAdet', headerName: 'DVR#', width: 55, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', width: 70, editable: isReviseMode, type: 'number' },
       { field: 'toplamTl', headerName: 'Toplam', width: 90, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: '📎', width: 70, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
@@ -1442,6 +1465,7 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
+        getRowId={(row) => row.id || row.rowId || row.makineId || Math.random().toString(36).slice(2)}
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
@@ -1683,15 +1707,15 @@ const MakineYonetimi = () => {
       { field: 'finansalKiralamaSirket', headerName: 'FK Şrk', width: 70, editable: isReviseMode },
       { field: 'gerceklesenAdet', headerName: 'G.#', width: 45, editable: isReviseMode, type: 'number' },
       { field: 'gerceklesenTutar', headerName: 'G.₺', width: 60, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisVarMi', headerName: 'İDS', width: 50, renderCell: (p)=> (
+      { field: 'iadeDevirSatisVarMi', headerName: 'DVR', width: 50, renderCell: (p)=> (
         <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
           <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="EVET" sx={{ fontSize: '0.68rem' }}>E</MenuItem>
           <MenuItem value="HAYIR" sx={{ fontSize: '0.68rem' }}>H</MenuItem>
         </Select>
       ) },
-      { field: 'iadeDevirSatisAdet', headerName: 'İDS#', width: 50, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisTutar', headerName: 'İDS₺', width: 60, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisAdet', headerName: 'DVR#', width: 50, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', width: 60, editable: isReviseMode, type: 'number' },
       { field: 'dosya', headerName: '📎', width: 55, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
           <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 36, py: 0.25, px: 0.5 }} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+'}</Button>
@@ -1837,6 +1861,7 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
+        getRowId={(row) => row.id || row.rowId || row.makineId || Math.random().toString(36).slice(2)}
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
