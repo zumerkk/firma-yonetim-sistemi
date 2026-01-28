@@ -2069,12 +2069,12 @@ const TesvikForm = () => {
           }))
         },
         
-        // 🔧 Destek Unsurları model formatına çevir - GÜÇLENLED
+        // 🔧 Destek Unsurları model formatına çevir - FIX: Şart opsiyonel
         destekUnsurlari: formData.destekUnsurlari?.filter(d => 
-          d && d.destekUnsuru && d.destekUnsuru.trim() !== '' && d.sartlari && d.sartlari.trim() !== ''
+          d && d.destekUnsuru && d.destekUnsuru.trim() !== '' // Sadece destekUnsuru dolu olması yeterli
         ).map(destek => ({
           destekUnsuru: destek.destekUnsuru.trim(),
-          sarti: destek.sartlari.trim(), // Frontend: sartlari → Backend: sarti
+          sarti: destek.sartlari?.trim() || '', // Frontend: sartlari → Backend: sarti (opsiyonel)
           aciklama: destek.aciklama?.trim() || ''
         })) || [],
         
