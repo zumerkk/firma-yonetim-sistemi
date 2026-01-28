@@ -16,7 +16,7 @@ const maliHesaplamalarSchema = new mongoose.Schema({
   
   // Maliyetlenen (Arazi-Arsa Bedeli)
   maliyetlenen: {
-    aciklama: { type: String, trim: true, maxlength: 500, default: '' }, // Arazi-Arsa Bedeli Açıklaması
+    aciklama: { type: String, trim: true, maxlength: 2000, default: '' }, // 🔧 FIX: 500 → 2000 (Arazi-Arsa Bedeli Açıklaması)
     sl: { type: Number, default: 0 }, // Metrekaresi
     sm: { type: Number, default: 0 }, // Birim Fiyatı
     sn: { type: Number, default: 0 } // SL*SM = Arazi-Arsa Bedeli
@@ -24,7 +24,7 @@ const maliHesaplamalarSchema = new mongoose.Schema({
   
   // Bina İnşaat Giderleri
   binaInsaatGideri: {
-    aciklama: { type: String, trim: true, maxlength: 500, default: '' }, // Bina İnşaat Gideri Açıklaması
+    aciklama: { type: String, trim: true, maxlength: 2000, default: '' }, // 🔧 FIX: 500 → 2000 (Bina İnşaat Gideri Açıklaması)
     so: { type: Number, default: 0 }, // Manuel meden
     anaBinaGideri: { type: Number, default: 0 },
     yardimciBinaGideri: { type: Number, default: 0 },
