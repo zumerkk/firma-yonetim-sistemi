@@ -354,7 +354,8 @@ const MakineYonetimi = () => {
   const ithalGridRef = useRef(null);
   const yerliScrollRef = useRef({ top: 0, left: 0 });
   const ithalScrollRef = useRef({ top: 0, left: 0 });
-  const isRestoringScroll = useRef(false);
+  const pendingScrollRestore = useRef(false);
+  const scrollRestoreTimers = useRef([]);
 
   // Scroll event listener - sürekli pozisyon takibi
   useEffect(() => {
@@ -363,49 +364,64 @@ const MakineYonetimi = () => {
       if (!scroller) return null;
       
       const handleScroll = () => {
-        if (!isRestoringScroll.current) {
+        // Sadece pending restore yokken pozisyonu kaydet
+        if (!pendingScrollRestore.current) {
           scrollRef.current = { top: scroller.scrollTop, left: scroller.scrollLeft };
         }
       };
       
-      scroller.addEventListener('scroll', handleScroll);
+      scroller.addEventListener('scroll', handleScroll, { passive: true });
       return () => scroller.removeEventListener('scroll', handleScroll);
     };
     
-    const cleanupYerli = setupScrollListener(yerliGridRef, yerliScrollRef);
-    const cleanupIthal = setupScrollListener(ithalGridRef, ithalScrollRef);
+    // Biraz gecikme ile listener kur (DOM hazır olsun)
+    const timer = setTimeout(() => {
+      setupScrollListener(yerliGridRef, yerliScrollRef);
+      setupScrollListener(ithalGridRef, ithalScrollRef);
+    }, 100);
     
-    return () => {
-      cleanupYerli?.();
-      cleanupIthal?.();
-    };
-  }, [yerliRows.length, ithalRows.length]); // Grid render olduğunda listener'ı yeniden kur
+    return () => clearTimeout(timer);
+  }, [selectedTesvik?._id]); // Sadece teşvik değiştiğinde yeniden kur
 
-  // Scroll pozisyonunu restore et - daha güçlü versiyon
+  // Scroll pozisyonunu restore et - AGGRESSIVE VERSION
   const restoreScrollPosition = useCallback(() => {
     const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
     const scrollRef = tab === 'yerli' ? yerliScrollRef : ithalScrollRef;
     const { top, left } = scrollRef.current;
     
-    isRestoringScroll.current = true;
+    // Önceki timer'ları temizle
+    scrollRestoreTimers.current.forEach(t => clearTimeout(t));
+    scrollRestoreTimers.current = [];
     
-    // Birden fazla frame bekleyerek scroll'u restore et
+    pendingScrollRestore.current = true;
+    
     const restore = () => {
       const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
-      if (scroller) {
+      if (scroller && (scroller.scrollTop !== top || scroller.scrollLeft !== left)) {
         scroller.scrollTop = top;
         scroller.scrollLeft = left;
       }
     };
     
-    // Hemen, sonra 50ms, sonra 100ms, 150ms'de tekrar dene (DataGrid render cycle'ı için)
-    requestAnimationFrame(restore);
-    setTimeout(restore, 50);
-    setTimeout(restore, 100);
-    setTimeout(() => {
+    // Çok agresif restore - DataGrid'in virtual scrolling'i için
+    // İlk frame
+    requestAnimationFrame(() => {
       restore();
-      isRestoringScroll.current = false;
-    }, 150);
+      requestAnimationFrame(restore);
+    });
+    
+    // Çoklu timeout'lar - DataGrid render cycle'ını yakala
+    [0, 10, 25, 50, 75, 100, 150, 200, 300].forEach(delay => {
+      const timer = setTimeout(restore, delay);
+      scrollRestoreTimers.current.push(timer);
+    });
+    
+    // Final temizlik
+    const finalTimer = setTimeout(() => {
+      restore();
+      pendingScrollRestore.current = false;
+    }, 350);
+    scrollRestoreTimers.current.push(finalTimer);
   }, [tab]);
 
   // Eski saveScrollPosition - artık otomatik takip var ama uyumluluk için kalıyor
