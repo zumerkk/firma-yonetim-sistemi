@@ -286,9 +286,11 @@ const belgeYonetimiSchema = new mongoose.Schema({
   belgeId: {
     type: String,
     required: true,
-    unique: true,
+    // 🔧 FIX: unique: true KALDIRILDI - aynı belgeId farklı teşviklerde kullanılabilir
+    // Duplicate key error önleme
     trim: true,
-    index: true
+    index: true,
+    sparse: true // Boş değerlere izin ver
   },
   belgeNo: {
     type: String,

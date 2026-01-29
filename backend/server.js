@@ -110,29 +110,35 @@ const connectDB = async () => {
 
 // 🔧 Problematik Index Temizleme - belgeYonetimi.belgeId unique index'i kaldır
 const cleanupProblematicIndexes = async (conn) => {
-  try {
-    const db = conn.connection.db;
-    const collection = db.collection('yenitesvik');
-    
-    // Mevcut index'leri al
-    const indexes = await collection.indexes();
-    
-    // belgeYonetimi.belgeId_1 index'ini ara
-    const problematicIndex = indexes.find(idx => 
-      idx.key && idx.key['belgeYonetimi.belgeId'] && idx.unique === true
-    );
-    
-    if (problematicIndex) {
-      console.log(`🔧 Problematik index bulundu: ${problematicIndex.name}`);
-      await collection.dropIndex(problematicIndex.name);
-      console.log(`✅ Index başarıyla kaldırıldı: ${problematicIndex.name}`);
-    } else {
-      console.log('✅ Problematik index bulunamadı - temiz');
-    }
-  } catch (error) {
-    // Index yoksa veya zaten kaldırılmışsa hata vermesin
-    if (error.code !== 27) { // 27 = IndexNotFound
-      console.log('⚠️ Index temizleme sırasında hata (yoksayıldı):', error.message);
+  const db = conn.connection.db;
+  
+  // 🔧 Hem tesviks hem de yenitesvik collection'larını temizle
+  const collections = ['tesviks', 'yenitesvik'];
+  
+  for (const collectionName of collections) {
+    try {
+      const collection = db.collection(collectionName);
+      
+      // Mevcut index'leri al
+      const indexes = await collection.indexes();
+      
+      // belgeYonetimi.belgeId_1 unique index'ini ara
+      const problematicIndex = indexes.find(idx => 
+        idx.key && idx.key['belgeYonetimi.belgeId'] && idx.unique === true
+      );
+      
+      if (problematicIndex) {
+        console.log(`🔧 [${collectionName}] Problematik index bulundu: ${problematicIndex.name}`);
+        await collection.dropIndex(problematicIndex.name);
+        console.log(`✅ [${collectionName}] Index başarıyla kaldırıldı: ${problematicIndex.name}`);
+      } else {
+        console.log(`✅ [${collectionName}] Problematik index bulunamadı - temiz`);
+      }
+    } catch (error) {
+      // Index yoksa veya zaten kaldırılmışsa hata vermesin
+      if (error.code !== 27) { // 27 = IndexNotFound
+        console.log(`⚠️ [${collectionName}] Index temizleme sırasında hata (yoksayıldı):`, error.message);
+      }
     }
   }
 };
