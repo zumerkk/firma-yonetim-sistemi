@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
@@ -48,6 +48,47 @@ const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
 };
 const saveLS = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+// 🔧 DebouncedTextField - Sadece blur'da günceller, scroll sıfırlanmasını önler
+const DebouncedTextField = React.memo(({ value, onCommit, disabled, type, placeholder, sx, inputProps }) => {
+  const [localValue, setLocalValue] = React.useState(value ?? '');
+  const inputRef = React.useRef(null);
+  
+  // Parent'tan gelen değer değiştiğinde local'i güncelle (ama sadece focus dışındayken)
+  React.useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setLocalValue(value ?? '');
+    }
+  }, [value]);
+  
+  const handleBlur = () => {
+    if (onCommit && localValue !== value) {
+      onCommit(localValue);
+    }
+  };
+  
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur();
+    }
+  };
+  
+  return (
+    <TextField
+      inputRef={inputRef}
+      size="small"
+      value={localValue}
+      onChange={(e) => setLocalValue(e.target.value)}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      disabled={disabled}
+      type={type}
+      placeholder={placeholder}
+      sx={sx}
+      inputProps={inputProps}
+    />
+  );
+});
 
 const MakineYonetimi = () => {
   const navigate = useNavigate(); // 🧭 Navigasyon hook'u
@@ -145,6 +186,74 @@ const MakineYonetimi = () => {
   const [toast, setToast] = useState({ open:false, severity:'info', message:'' });
   const openToast = (severity, message) => setToast({ open:true, severity, message });
   const closeToast = () => setToast(t => ({ ...t, open:false }));
+  
+  // 🚀 ENTERPRISE: Auto-save ve sync state'leri
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle' | 'syncing' | 'synced' | 'error'
+  const autoSaveTimeoutRef = useRef(null);
+  
+  // 🚀 ENTERPRISE: Batch işlemleri için state
+  const [batchEditOpen, setBatchEditOpen] = useState(false);
+  const [batchEditField, setBatchEditField] = useState('');
+  const [batchEditValue, setBatchEditValue] = useState('');
+  const [quickStatsOpen, setQuickStatsOpen] = useState(false);
+  
+  // 🚀 ENTERPRISE: Auto-save to DB (3 saniye debounce)
+  const autoSaveToDb = useCallback(async () => {
+    if (!selectedTesvik?._id || !isReviseStarted) return;
+    
+    setIsSaving(true);
+    setSyncStatus('syncing');
+    
+    try {
+      const payload = {
+        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar })),
+        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar }))
+      };
+      await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+      setSyncStatus('synced');
+      // 2 saniye sonra idle'a dön
+      setTimeout(() => setSyncStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Auto-save error:', error);
+      setSyncStatus('error');
+      openToast('error', 'Otomatik kayıt başarısız');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [selectedTesvik, yerliRows, ithalRows, isReviseStarted]);
+  
+  // 🚀 ENTERPRISE: Değişiklik takibi (auto-save devre dışı - sadece manuel kaydet)
+  useEffect(() => {
+    if (!selectedTesvik?._id || !isReviseStarted) return;
+    setHasUnsavedChanges(true);
+  }, [yerliRows, ithalRows, selectedTesvik, isReviseStarted]);
+  
+  // 🚀 ENTERPRISE: Batch edit uygula
+  const applyBatchEdit = useCallback(() => {
+    if (!batchEditField || selectionModel.length === 0) return;
+    
+    const updateFn = (rows) => rows.map(r => {
+      if (!selectionModel.includes(r.id)) return r;
+      return { ...r, [batchEditField]: batchEditValue };
+    });
+    
+    if (tab === 'yerli') {
+      setYerliRows(updateFn);
+    } else {
+      setIthalRows(updateFn);
+    }
+    
+    setBatchEditOpen(false);
+    setBatchEditField('');
+    setBatchEditValue('');
+    openToast('success', `${selectionModel.length} satır güncellendi`);
+  }, [batchEditField, batchEditValue, selectionModel, tab]);
+  
   // 🆕 Revize Metası Dialog state
   const [metaOpen, setMetaOpen] = useState(false);
   const [metaForm, setMetaForm] = useState({ talepNo:'', belgeNo:'', belgeId:'', basvuruTarihi:'', odemeTalebi:'' });
@@ -220,8 +329,8 @@ const MakineYonetimi = () => {
         setDeletedRows(del);
         setActivityLog(act);
       } catch {}
-      // Makine verilerini yükle
-      loadMakineData(selectedTesvik._id);
+      // NOT: Makine verileri loadTesvikMakineListeleri fonksiyonuyla veritabanından yükleniyor
+      // localStorage sadece önbellek olarak kullanılıyor, veritabanı öncelikli
       setIsReviseMode(false);
       setIsReviseStarted(false);
     })();
@@ -249,6 +358,21 @@ const MakineYonetimi = () => {
     }, 1500);
     return () => { if (saveTimeoutIthalRef.current) clearTimeout(saveTimeoutIthalRef.current); };
   }, [ithalRows, selectedTesvik]);
+
+  // 🚨 Sayfa kapatılırken/yenilenirken verileri anında kaydet (veri kaybını önle)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (selectedTesvik?._id) {
+        // Debounce timeout'larını iptal et ve anında kaydet
+        if (saveTimeoutYerliRef.current) clearTimeout(saveTimeoutYerliRef.current);
+        if (saveTimeoutIthalRef.current) clearTimeout(saveTimeoutIthalRef.current);
+        saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows);
+        saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [selectedTesvik, yerliRows, ithalRows]);
 
   // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
   useEffect(() => {
@@ -336,37 +460,90 @@ const MakineYonetimi = () => {
     return Array.from(map.entries()).map(([k,v])=> ({ key:k, ...v }));
   }, [tab, filteredYerliRows, filteredIthalRows, groupBy]);
 
-  // Keyboard shortcuts
+  // 🚀 ENTERPRISE: Enhanced Keyboard shortcuts
   useEffect(()=>{
     const handler = (e)=>{
+      // ? veya Shift+/ - Yardım
       if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
+      
+      // Ctrl+Enter - Yeni satır ekle
       if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); if(isReviseStarted) addRow(); else openToast('warning', 'Satır eklemek için önce revize talebi başlatmanız gerekmektedir.'); }
-      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1) { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) setRowClipboard(row); }
-      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v' && selectionModel.length===1 && rowClipboard) { e.preventDefault(); const id=selectionModel[0]; if(tab==='yerli') setYerliRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); else setIthalRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); }
-      if (e.key==='Delete' && selectionModel.length>0) { e.preventDefault(); selectionModel.forEach(id=> delRow(id)); }
+      
+      // Ctrl+S - Manuel kaydet
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s') { 
+        e.preventDefault(); 
+        if (isReviseStarted && hasUnsavedChanges) {
+          autoSaveToDb();
+          openToast('info', 'Kaydediliyor...');
+        } else if (!isReviseStarted) {
+          openToast('warning', 'Kaydetmek için önce revize başlatın');
+        }
+      }
+      
+      // Ctrl+B - Toplu düzenleme (seçim varsa)
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='b' && selectionModel.length > 0 && isReviseStarted) { 
+        e.preventDefault(); 
+        setBatchEditOpen(true); 
+      }
+      
+      // Ctrl+I - İstatistikleri göster
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='i') { 
+        e.preventDefault(); 
+        setQuickStatsOpen(true); 
+      }
+      
+      // Tab değiştirme: Ctrl+1 (Yerli), Ctrl+2 (İthal)
+      if ((e.ctrlKey||e.metaKey) && e.key==='1') { e.preventDefault(); setTab('yerli'); }
+      if ((e.ctrlKey||e.metaKey) && e.key==='2') { e.preventDefault(); setTab('ithal'); }
+      
+      // Ctrl+A - Tümünü seç (aktif tabda)
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='a' && document.activeElement?.tagName !== 'INPUT') { 
+        e.preventDefault(); 
+        const list = tab === 'yerli' ? yerliRows : ithalRows;
+        setSelectionModel(list.map(r => r.id));
+      }
+      
+      // Escape - Seçimi temizle
+      if (e.key === 'Escape' && selectionModel.length > 0) { 
+        e.preventDefault(); 
+        setSelectionModel([]); 
+      }
+      
+      // Kopyala/Yapıştır
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1 && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) { setRowClipboard(row); openToast('info', 'Satır kopyalandı'); } }
+      if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='v' && selectionModel.length===1 && rowClipboard && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); const id=selectionModel[0]; if(tab==='yerli') setYerliRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); else setIthalRows(rows=>{const idx=rows.findIndex(r=>r.id===id); const ins={...rowClipboard,id:Math.random().toString(36).slice(2)}; return [...rows.slice(0,idx+1),ins,...rows.slice(idx+1)];}); openToast('success', 'Satır yapıştırıldı'); }
+      
+      // Delete - Seçili satırları sil
+      if (e.key==='Delete' && selectionModel.length>0 && document.activeElement?.tagName !== 'INPUT') { e.preventDefault(); selectionModel.forEach(id=> delRow(id)); setSelectionModel([]); }
     };
     window.addEventListener('keydown', handler);
     return ()=> window.removeEventListener('keydown', handler);
-  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
+  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard, isReviseStarted, hasUnsavedChanges, autoSaveToDb]);
 
-  // 🔧 Scroll pozisyonunu korumak için ref'ler
+  // 🔧 SCROLL POZİSYONU KORUMA - YENİ YAKLAŞIM
+  // DataGrid container ref'leri
   const yerliGridRef = useRef(null);
   const ithalGridRef = useRef(null);
-  const yerliScrollRef = useRef({ top: 0, left: 0 });
-  const ithalScrollRef = useRef({ top: 0, left: 0 });
-  const pendingScrollRestore = useRef(false);
-  const scrollRestoreTimers = useRef([]);
+  // Scroll pozisyonlarını sakla
+  const scrollPositionRef = useRef({ yerli: { top: 0, left: 0 }, ithal: { top: 0, left: 0 } });
+  // Render sayacı - scroll restore tetiklemek için
+  const renderCountRef = useRef(0);
+  // Restore işlemi sırasında scroll event'lerini yoksay
+  const isRestoringRef = useRef(false);
 
-  // Scroll event listener - sürekli pozisyon takibi
+  // Scroll event listener - pozisyon takibi (sürekli)
   useEffect(() => {
-    const setupScrollListener = (gridRef, scrollRef) => {
+    const setupScrollListener = (gridRef, type) => {
       const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
       if (!scroller) return null;
       
       const handleScroll = () => {
-        // Sadece pending restore yokken pozisyonu kaydet
-        if (!pendingScrollRestore.current) {
-          scrollRef.current = { top: scroller.scrollTop, left: scroller.scrollLeft };
+        // Restore sırasında kaydetme
+        if (!isRestoringRef.current) {
+          scrollPositionRef.current[type] = { 
+            top: scroller.scrollTop, 
+            left: scroller.scrollLeft 
+          };
         }
       };
       
@@ -374,71 +551,58 @@ const MakineYonetimi = () => {
       return () => scroller.removeEventListener('scroll', handleScroll);
     };
     
-    // Biraz gecikme ile listener kur (DOM hazır olsun)
+    // DOM hazır olduğunda listener'ları kur
     const timer = setTimeout(() => {
-      setupScrollListener(yerliGridRef, yerliScrollRef);
-      setupScrollListener(ithalGridRef, ithalScrollRef);
-    }, 100);
+      const cleanupYerli = setupScrollListener(yerliGridRef, 'yerli');
+      const cleanupIthal = setupScrollListener(ithalGridRef, 'ithal');
+      return () => {
+        cleanupYerli?.();
+        cleanupIthal?.();
+      };
+    }, 50);
     
     return () => clearTimeout(timer);
-  }, [selectedTesvik?._id]); // Sadece teşvik değiştiğinde yeniden kur
+  }, [selectedTesvik?._id]);
 
-  // Scroll pozisyonunu restore et - AGGRESSIVE VERSION
-  const restoreScrollPosition = useCallback(() => {
+  // 🔧 KRİTİK: useLayoutEffect ile her render sonrası scroll pozisyonunu geri yükle
+  // Bu, DOM güncellemesinden SONRA ama paint'ten ÖNCE çalışır
+  useLayoutEffect(() => {
+    renderCountRef.current += 1;
+    
     const gridRef = tab === 'yerli' ? yerliGridRef : ithalGridRef;
-    const scrollRef = tab === 'yerli' ? yerliScrollRef : ithalScrollRef;
-    const { top, left } = scrollRef.current;
+    const savedPosition = scrollPositionRef.current[tab];
+    const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
     
-    // Önceki timer'ları temizle
-    scrollRestoreTimers.current.forEach(t => clearTimeout(t));
-    scrollRestoreTimers.current = [];
-    
-    pendingScrollRestore.current = true;
-    
-    const restore = () => {
-      const scroller = gridRef.current?.querySelector('.MuiDataGrid-virtualScroller');
-      if (scroller && (scroller.scrollTop !== top || scroller.scrollLeft !== left)) {
-        scroller.scrollTop = top;
-        scroller.scrollLeft = left;
-      }
-    };
-    
-    // Çok agresif restore - DataGrid'in virtual scrolling'i için
-    // İlk frame
-    requestAnimationFrame(() => {
-      restore();
-      requestAnimationFrame(restore);
-    });
-    
-    // Çoklu timeout'lar - DataGrid render cycle'ını yakala
-    [0, 10, 25, 50, 75, 100, 150, 200, 300].forEach(delay => {
-      const timer = setTimeout(restore, delay);
-      scrollRestoreTimers.current.push(timer);
-    });
-    
-    // Final temizlik
-    const finalTimer = setTimeout(() => {
-      restore();
-      pendingScrollRestore.current = false;
-    }, 350);
-    scrollRestoreTimers.current.push(finalTimer);
-  }, [tab]);
+    if (scroller && (savedPosition.top > 0 || savedPosition.left > 0)) {
+      isRestoringRef.current = true;
+      
+      // Hemen restore et
+      scroller.scrollTop = savedPosition.top;
+      scroller.scrollLeft = savedPosition.left;
+      
+      // Kısa bir süre sonra restore flag'ini kaldır
+      requestAnimationFrame(() => {
+        scroller.scrollTop = savedPosition.top;
+        scroller.scrollLeft = savedPosition.left;
+        setTimeout(() => {
+          isRestoringRef.current = false;
+        }, 50);
+      });
+    }
+  }, [yerliRows, ithalRows, tab]);
 
-  // Eski saveScrollPosition - artık otomatik takip var ama uyumluluk için kalıyor
-  const saveScrollPosition = useCallback(() => {
-    // Artık scroll event listener ile otomatik kaydediliyor
-  }, []);
+  // Eski fonksiyon uyumluluk için (artık kullanılmıyor)
+  const saveScrollPosition = useCallback(() => {}, []);
+  const restoreScrollPosition = useCallback(() => {}, []);
 
+  // 🔧 OPTIMIZED: updateYerli ve updateIthal - functional update pattern
   const updateYerli = useCallback((id, patch) => {
     setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
-    // Scroll pozisyonunu restore et
-    restoreScrollPosition();
-  }, [restoreScrollPosition]);
+  }, []);
 
   const updateIthal = useCallback((id, patch) => {
     setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
-    restoreScrollPosition();
-  }, [restoreScrollPosition]);
+  }, []);
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
   // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
@@ -603,8 +767,8 @@ const MakineYonetimi = () => {
     if (!selectedTesvik?._id) return null;
     // 1) Mevcut ekranı DB'ye kaydet (rowId'ler backend tarafından üretilecek)
     const payload = {
-      yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar })),
-      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar }))
+      yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar })),
+      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep:r.talep, karar:r.karar }))
     };
     try { await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
     // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
@@ -1082,6 +1246,7 @@ const MakineYonetimi = () => {
       iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
       iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
       iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+      silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
       talep: r.talep || null,
       karar: r.karar || null,
       etuysSecili: !!r.etuysSecili
@@ -1118,12 +1283,37 @@ const MakineYonetimi = () => {
       iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
       iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
       iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+      silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
       talep: r.talep || null,
       karar: r.karar || null,
       etuysSecili: !!r.etuysSecili
     }));
-    setYerliRows(yerli);
-    setIthalRows(ithal);
+    
+    // 🔧 LocalStorage'dan kaydedilmiş siraNo ve makineId değerlerini al ve birleştir
+    const lsYerli = loadLS(`mk_${tesvikId}_yerli`, []);
+    const lsIthal = loadLS(`mk_${tesvikId}_ithal`, []);
+    
+    // Veritabanı verisini localStorage ile birleştir (siraNo ve makineId için localStorage öncelikli)
+    const mergedYerli = yerli.map((row, idx) => {
+      const lsRow = lsYerli.find(ls => ls.rowId === row.rowId || ls.gtipKodu === row.gtipKodu);
+      return {
+        ...row,
+        siraNo: lsRow?.siraNo || row.siraNo || (idx + 1), // localStorage > DB > index+1
+        makineId: lsRow?.makineId || row.makineId || ''
+      };
+    });
+    
+    const mergedIthal = ithal.map((row, idx) => {
+      const lsRow = lsIthal.find(ls => ls.rowId === row.rowId || ls.gtipKodu === row.gtipKodu);
+      return {
+        ...row,
+        siraNo: lsRow?.siraNo || row.siraNo || (idx + 1), // localStorage > DB > index+1
+        makineId: lsRow?.makineId || row.makineId || ''
+      };
+    });
+    
+    setYerliRows(mergedYerli);
+    setIthalRows(mergedIthal);
   };
 
   const searchTesvik = async (q) => {
@@ -1311,10 +1501,9 @@ const MakineYonetimi = () => {
     const cols = [
       { field: 'siraNo', headerName: '#', width: 40, 
         renderCell: (p) => (
-          <TextField 
-            size="small" 
+          <DebouncedTextField 
             value={p.row.siraNo || ''} 
-            onChange={(e) => isReviseMode && updateRowSiraNo('yerli', p.row.id, e.target.value)}
+            onCommit={(val) => isReviseMode && updateRowSiraNo('yerli', p.row.id, val)}
             disabled={!isReviseMode}
             type="number"
             sx={{ ...compactInputSx, width: '100%' }}
@@ -1322,16 +1511,42 @@ const MakineYonetimi = () => {
           />
         )
       },
-      { field: 'makineId', headerName: 'M.ID', width: 65, 
+      { field: 'makineId', headerName: 'M.ID', width: 80, 
         renderCell: (p) => (
-          <TextField 
-            size="small" 
-            value={p.row.makineId || ''} 
-            onChange={(e) => isReviseMode && updateYerli(p.row.id, { makineId: e.target.value })}
-            disabled={!isReviseMode}
-            placeholder="-"
-            sx={{ ...compactInputSx, width: '100%' }}
-          />
+          <Tooltip title={p.row.makineId ? `Makine ID: ${p.row.makineId}` : 'Bakanlık Makine ID girilmemiş'} arrow>
+            <Box sx={{ width: '100%', position: 'relative' }}>
+              <DebouncedTextField 
+                value={p.row.makineId || ''} 
+                onCommit={(val) => isReviseMode && updateYerli(p.row.id, { makineId: val })}
+                disabled={!isReviseMode}
+                placeholder="ID gir"
+                sx={{ 
+                  ...compactInputSx, 
+                  width: '100%',
+                  '& .MuiInputBase-input': {
+                    bgcolor: !p.row.makineId && isReviseStarted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                    borderRadius: 0.5,
+                    fontWeight: p.row.makineId ? 600 : 400,
+                    color: p.row.makineId ? '#10b981' : '#94a3b8',
+                    '&::placeholder': { color: '#f59e0b', opacity: 0.7 }
+                  }
+                }}
+              />
+              {!p.row.makineId && isReviseStarted && (
+                <Box sx={{ 
+                  position: 'absolute', 
+                  right: 2, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  width: 6, 
+                  height: 6, 
+                  borderRadius: '50%', 
+                  bgcolor: '#f59e0b',
+                  boxShadow: '0 0 4px rgba(245, 158, 11, 0.5)'
+                }} />
+              )}
+            </Box>
+          </Tooltip>
         )
       },
       { field: 'gtipKodu', headerName: 'GTIP', width: 140, renderCell: (p) => (
@@ -1541,6 +1756,26 @@ const MakineYonetimi = () => {
         };
         return <KararTarihiCell />;
       } },
+      { field: 'silinmeTarihi', headerName: 'S.Tarih', width: 90, sortable: false, renderCell: (p) => {
+        const SilinmeTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.silinmeTarihi));
+          useEffect(() => { setLocalValue(formatDateForInput(p.row.silinmeTarihi)); }, [p.row.silinmeTarihi]);
+          return (
+            <TextField type="date" size="small" disabled={!isReviseMode} value={localValue}
+              sx={{ ...compactInputSx, '& input': { fontSize: '0.6rem', py: 0, px: 0.5 } }}
+              onBlur={(e) => {
+                if (!isReviseMode) return;
+                const newValue = e.target.value;
+                if (newValue !== formatDateForInput(p.row.silinmeTarihi)) {
+                  updateYerli(p.row.id, { silinmeTarihi: newValue ? new Date(newValue) : null });
+                }
+              }}
+              onChange={(e) => setLocalValue(e.target.value)}
+            />
+          );
+        };
+        return <SilinmeTarihiCell />;
+      } },
       { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
         <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
       )}
@@ -1655,10 +1890,9 @@ const MakineYonetimi = () => {
       // Birim Açıklaması kolonu kaldırıldı (müşteri istemiyor)
       { field: 'siraNo', headerName: '#', width: 40, 
         renderCell: (p) => (
-          <TextField 
-            size="small" 
+          <DebouncedTextField 
             value={p.row.siraNo || ''} 
-            onChange={(e) => isReviseMode && updateRowSiraNo('ithal', p.row.id, e.target.value)}
+            onCommit={(val) => isReviseMode && updateRowSiraNo('ithal', p.row.id, val)}
             disabled={!isReviseMode}
             type="number"
             sx={{ ...compactInputSx, width: '100%' }}
@@ -1666,16 +1900,42 @@ const MakineYonetimi = () => {
           />
         )
       },
-      { field: 'makineId', headerName: 'M.ID', width: 65, 
+      { field: 'makineId', headerName: 'M.ID', width: 80, 
         renderCell: (p) => (
-          <TextField 
-            size="small" 
-            value={p.row.makineId || ''} 
-            onChange={(e) => isReviseMode && updateIthal(p.row.id, { makineId: e.target.value })}
-            disabled={!isReviseMode}
-            placeholder="-"
-            sx={{ ...compactInputSx, width: '100%' }}
-          />
+          <Tooltip title={p.row.makineId ? `Makine ID: ${p.row.makineId}` : 'Bakanlık Makine ID girilmemiş'} arrow>
+            <Box sx={{ width: '100%', position: 'relative' }}>
+              <DebouncedTextField 
+                value={p.row.makineId || ''} 
+                onCommit={(val) => isReviseMode && updateIthal(p.row.id, { makineId: val })}
+                disabled={!isReviseMode}
+                placeholder="ID gir"
+                sx={{ 
+                  ...compactInputSx, 
+                  width: '100%',
+                  '& .MuiInputBase-input': {
+                    bgcolor: !p.row.makineId && isReviseStarted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+                    borderRadius: 0.5,
+                    fontWeight: p.row.makineId ? 600 : 400,
+                    color: p.row.makineId ? '#10b981' : '#94a3b8',
+                    '&::placeholder': { color: '#f59e0b', opacity: 0.7 }
+                  }
+                }}
+              />
+              {!p.row.makineId && isReviseStarted && (
+                <Box sx={{ 
+                  position: 'absolute', 
+                  right: 2, 
+                  top: '50%', 
+                  transform: 'translateY(-50%)',
+                  width: 6, 
+                  height: 6, 
+                  borderRadius: '50%', 
+                  bgcolor: '#f59e0b',
+                  boxShadow: '0 0 4px rgba(245, 158, 11, 0.5)'
+                }} />
+              )}
+            </Box>
+          </Tooltip>
         )
       },
       { field: 'gtipKodu', headerName: 'GTIP', width: 140, renderCell: (p) => (
@@ -1940,6 +2200,26 @@ const MakineYonetimi = () => {
         };
         return <KararTarihiCell />;
       } },
+      { field: 'silinmeTarihi', headerName: 'S.Tarih', width: 85, sortable: false, renderCell: (p) => {
+        const SilinmeTarihiCell = () => {
+          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.silinmeTarihi));
+          useEffect(() => { setLocalValue(formatDateForInput(p.row.silinmeTarihi)); }, [p.row.silinmeTarihi]);
+          return (
+            <TextField type="date" size="small" disabled={!isReviseMode} value={localValue}
+              sx={{ ...compactInputSx, '& input': { fontSize: '0.6rem', py: 0, px: 0.5 } }}
+              onBlur={(e) => {
+                if (!isReviseMode) return;
+                const newValue = e.target.value;
+                if (newValue !== formatDateForInput(p.row.silinmeTarihi)) {
+                  updateIthal(p.row.id, { silinmeTarihi: newValue ? new Date(newValue) : null });
+                }
+              }}
+              onChange={(e) => setLocalValue(e.target.value)}
+            />
+          );
+        };
+        return <SilinmeTarihiCell />;
+      } },
       { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
         <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
       )}
@@ -1964,9 +2244,7 @@ const MakineYonetimi = () => {
           if (params.field === 'toplamTl') {
             const id = params.id;
             const committed = parseTrCurrency(params.value);
-            saveScrollPosition();
             setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed, __manualTLInput: (params.value ?? '').toString() } : r));
-            restoreScrollPosition();
           }
         }}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
@@ -2438,7 +2716,138 @@ const MakineYonetimi = () => {
             }} 
           />
 
+          {/* 🚀 ENTERPRISE: Auto-save Status Indicator */}
+          {isReviseStarted && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 0.5,
+              px: 1,
+              py: 0.25,
+              borderRadius: 1,
+              bgcolor: syncStatus === 'syncing' ? 'rgba(59, 130, 246, 0.1)' : 
+                       syncStatus === 'synced' ? 'rgba(16, 185, 129, 0.1)' : 
+                       syncStatus === 'error' ? 'rgba(239, 68, 68, 0.1)' : 
+                       hasUnsavedChanges ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
+              transition: 'all 0.3s ease'
+            }}>
+              <Box sx={{ 
+                width: 6, 
+                height: 6, 
+                borderRadius: '50%',
+                bgcolor: syncStatus === 'syncing' ? '#3b82f6' : 
+                         syncStatus === 'synced' ? '#10b981' : 
+                         syncStatus === 'error' ? '#ef4444' : 
+                         hasUnsavedChanges ? '#f59e0b' : '#94a3b8',
+                animation: syncStatus === 'syncing' ? 'pulse 1s infinite' : 'none',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 1 },
+                  '50%': { opacity: 0.4 }
+                }
+              }} />
+              <Typography variant="caption" sx={{ 
+                fontSize: '0.6rem', 
+                color: syncStatus === 'syncing' ? '#3b82f6' : 
+                       syncStatus === 'synced' ? '#10b981' : 
+                       syncStatus === 'error' ? '#ef4444' : 
+                       hasUnsavedChanges ? '#f59e0b' : '#94a3b8',
+                fontWeight: 500
+              }}>
+                {syncStatus === 'syncing' ? 'Kaydediliyor...' : 
+                 syncStatus === 'synced' ? 'Kaydedildi' : 
+                 syncStatus === 'error' ? 'Hata!' : 
+                 hasUnsavedChanges ? 'Değişiklik var' : 
+                 lastSaved ? `Son: ${lastSaved.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}` : ''}
+              </Typography>
+            </Box>
+          )}
+
+          {/* 🚀 ENTERPRISE: Batch Actions (seçim varsa) */}
+          {selectionModel.length > 0 && isReviseStarted && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Chip 
+                label={`${selectionModel.length} seçili`} 
+                size="small" 
+                sx={{ 
+                  fontSize: '0.6rem', 
+                  height: 20, 
+                  bgcolor: theme.accentGlow, 
+                  color: theme.accent,
+                  fontWeight: 600
+                }} 
+              />
+              <Tooltip title="Toplu Düzenle" arrow>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setBatchEditOpen(true)}
+                  sx={{ color: theme.accent, '&:hover': { bgcolor: theme.accentGlow } }}
+                >
+                  <BuildIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Seçilenleri Sil" arrow>
+                <IconButton 
+                  size="small" 
+                  onClick={() => {
+                    if (window.confirm(`${selectionModel.length} satırı silmek istediğinize emin misiniz?`)) {
+                      selectionModel.forEach(id => delRow(id));
+                      setSelectionModel([]);
+                    }
+                  }}
+                  sx={{ color: theme.error, '&:hover': { bgcolor: theme.errorLight } }}
+                >
+                  <DeleteIcon sx={{ fontSize: 14 }} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          )}
+
           <Box sx={{ flex: 1 }} />
+
+          {/* 🚀 ENTERPRISE: Manual Save Button */}
+          {isReviseStarted && (
+            <Tooltip title={hasUnsavedChanges ? "Şimdi Kaydet (Ctrl+S)" : "Tüm değişiklikler kaydedildi"} arrow>
+              <span>
+                <IconButton 
+                  size="small" 
+                  onClick={autoSaveToDb}
+                  disabled={!hasUnsavedChanges || isSaving}
+                  sx={{ 
+                    color: hasUnsavedChanges ? theme.accent : '#94a3b8',
+                    '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {isSaving ? (
+                    <Box sx={{ 
+                      width: 16, 
+                      height: 16, 
+                      border: '2px solid', 
+                      borderColor: `${theme.accent} transparent transparent transparent`,
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      '@keyframes spin': { '100%': { transform: 'rotate(360deg)' } }
+                    }} />
+                  ) : (
+                    <CheckIcon sx={{ fontSize: 16 }} />
+                  )}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+
+          {/* 🚀 ENTERPRISE: Quick Stats Button */}
+          <Tooltip title="Hızlı İstatistikler (Ctrl+I)" arrow>
+            <IconButton 
+              size="small" 
+              onClick={() => setQuickStatsOpen(true)}
+              sx={{ color: theme.text.secondary, '&:hover': { color: theme.accent } }}
+            >
+              <TableViewIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+
+          <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border, mx: 0.5 }} />
 
           {/* Revize Actions - Premium */}
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -2484,8 +2893,8 @@ const MakineYonetimi = () => {
                     if (!ok) return;
                     try {
                       const payload = {
-                        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar })),
-                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep:r.talep, karar:r.karar }))
+                        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep:r.talep, karar:r.karar })),
+                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep:r.talep, karar:r.karar }))
                       };
                       await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload);
                       await yeniTesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Finalize' });
@@ -2840,6 +3249,208 @@ const MakineYonetimi = () => {
         </DialogActions>
       </Dialog>
 
+      {/* 🚀 ENTERPRISE: Batch Edit Dialog */}
+      <Dialog open={batchEditOpen} onClose={() => setBatchEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <BuildIcon sx={{ color: theme.accent }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Toplu Düzenleme</Typography>
+            <Chip label={`${selectionModel.length} satır`} size="small" sx={{ ml: 'auto', bgcolor: theme.accentGlow, color: theme.accent }} />
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Seçili satırların belirli bir alanını toplu olarak güncelleyin.
+            </Typography>
+            <Select
+              size="small"
+              fullWidth
+              value={batchEditField}
+              onChange={(e) => setBatchEditField(e.target.value)}
+              displayEmpty
+            >
+              <MenuItem value=""><em>Alan seçin...</em></MenuItem>
+              {tab === 'yerli' ? (
+                <>
+                  <MenuItem value="makineId">Makine ID</MenuItem>
+                  <MenuItem value="birim">Birim</MenuItem>
+                  <MenuItem value="kdvIstisnasi">KDV İstisnası</MenuItem>
+                  <MenuItem value="makineTechizatTipi">Makine Teçhizat Tipi</MenuItem>
+                  <MenuItem value="finansalKiralamaMi">Finansal Kiralama</MenuItem>
+                </>
+              ) : (
+                <>
+                  <MenuItem value="makineId">Makine ID</MenuItem>
+                  <MenuItem value="birim">Birim</MenuItem>
+                  <MenuItem value="doviz">Döviz</MenuItem>
+                  <MenuItem value="kullanilmisKod">Kullanılmış Makine</MenuItem>
+                  <MenuItem value="makineTechizatTipi">Makine Teçhizat Tipi</MenuItem>
+                  <MenuItem value="kdvMuafiyeti">KDV Muafiyeti</MenuItem>
+                  <MenuItem value="gumrukVergisiMuafiyeti">Gümrük Vergisi Muafiyeti</MenuItem>
+                </>
+              )}
+            </Select>
+            {batchEditField && (
+              <TextField
+                size="small"
+                fullWidth
+                label="Yeni Değer"
+                value={batchEditValue}
+                onChange={(e) => setBatchEditValue(e.target.value)}
+                placeholder={batchEditField === 'kdvIstisnasi' || batchEditField === 'kdvMuafiyeti' || batchEditField === 'gumrukVergisiMuafiyeti' ? 'EVET veya HAYIR' : 'Değer girin...'}
+                helperText={batchEditField === 'makineId' ? 'Bakanlık portalından gelen makine kimliği' : ''}
+              />
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setBatchEditOpen(false)} sx={{ color: theme.text.secondary }}>İptal</Button>
+          <Button 
+            variant="contained" 
+            disabled={!batchEditField || !batchEditValue}
+            onClick={applyBatchEdit}
+            sx={{ 
+              background: theme.gradientSuccess,
+              '&:hover': { background: theme.gradientSuccess, opacity: 0.9 }
+            }}
+          >
+            Uygula ({selectionModel.length} satır)
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🚀 ENTERPRISE: Quick Stats Dialog */}
+      <Dialog open={quickStatsOpen} onClose={() => setQuickStatsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <TableViewIcon sx={{ color: theme.accent }} />
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Hızlı İstatistikler</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mt: 1 }}>
+            {/* Yerli Özet */}
+            <Paper sx={{ p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: '#10b981', fontWeight: 600, mb: 1 }}>YERLİ MAKİNE</Typography>
+              <Stack spacing={0.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Kalem:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{yerliRows.length}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Miktar:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{yerliRows.reduce((s, r) => s + numberOrZero(r.miktar), 0).toLocaleString('tr-TR')}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Tutar:</Typography>
+                  <Typography variant="body2" fontWeight={600} color="#10b981">{yerliToplamTl.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₺</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Makine ID Eksik:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={yerliRows.filter(r => !r.makineId).length > 0 ? '#f59e0b' : '#10b981'}>
+                    {yerliRows.filter(r => !r.makineId).length}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+
+            {/* İthal Özet */}
+            <Paper sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: '#f59e0b', fontWeight: 600, mb: 1 }}>İTHAL MAKİNE</Typography>
+              <Stack spacing={0.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Kalem:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{ithalRows.length}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Miktar:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{ithalRows.reduce((s, r) => s + numberOrZero(r.miktar), 0).toLocaleString('tr-TR')}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam FOB $:</Typography>
+                  <Typography variant="body2" fontWeight={600} color="#f59e0b">${ithalToplamUsd.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam FOB TL:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{ithalToplamTl.toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₺</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Makine ID Eksik:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={ithalRows.filter(r => !r.makineId).length > 0 ? '#f59e0b' : '#10b981'}>
+                    {ithalRows.filter(r => !r.makineId).length}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+
+            {/* Genel Özet */}
+            <Paper sx={{ p: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: '#3b82f6', fontWeight: 600, mb: 1 }}>GENEL ÖZET</Typography>
+              <Stack spacing={0.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Kalem:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{yerliRows.length + ithalRows.length}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Toplam Yatırım:</Typography>
+                  <Typography variant="body2" fontWeight={600} color="#3b82f6">{(yerliToplamTl + ithalToplamTl).toLocaleString('tr-TR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} ₺</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Revizyon Sayısı:</Typography>
+                  <Typography variant="body2" fontWeight={600}>{revList.length}</Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Aktif Revize:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={isReviseStarted ? '#10b981' : '#94a3b8'}>
+                    {isReviseStarted ? 'Evet' : 'Hayır'}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+
+            {/* Veri Kalitesi */}
+            <Paper sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1 }}>VERİ KALİTESİ</Typography>
+              <Stack spacing={0.5}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">GTIP Eksik:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={[...yerliRows, ...ithalRows].filter(r => !r.gtipKodu).length > 0 ? '#ef4444' : '#10b981'}>
+                    {[...yerliRows, ...ithalRows].filter(r => !r.gtipKodu).length}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Birim Eksik:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={[...yerliRows, ...ithalRows].filter(r => !r.birim).length > 0 ? '#ef4444' : '#10b981'}>
+                    {[...yerliRows, ...ithalRows].filter(r => !r.birim).length}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Sıfır Miktarlı:</Typography>
+                  <Typography variant="body2" fontWeight={600} color={[...yerliRows, ...ithalRows].filter(r => !numberOrZero(r.miktar)).length > 0 ? '#f59e0b' : '#10b981'}>
+                    {[...yerliRows, ...ithalRows].filter(r => !numberOrZero(r.miktar)).length}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body2" color="text.secondary">Tamamlılık:</Typography>
+                  <Typography variant="body2" fontWeight={600} color="#8b5cf6">
+                    {(() => {
+                      const total = yerliRows.length + ithalRows.length;
+                      if (total === 0) return '-%';
+                      const complete = [...yerliRows, ...ithalRows].filter(r => r.gtipKodu && r.adi && r.birim && numberOrZero(r.miktar) > 0).length;
+                      return `%${Math.round((complete / total) * 100)}`;
+                    })()}
+                  </Typography>
+                </Box>
+              </Stack>
+            </Paper>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setQuickStatsOpen(false)} variant="contained" sx={{ background: theme.gradient }}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* 🗑️ Silinen Satırlar Dialog */}
       <Dialog open={deletedOpen} onClose={()=> setDeletedOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Silinen Satırlar (revize sürecinde)</DialogTitle>
@@ -2988,6 +3599,125 @@ const MakineYonetimi = () => {
           >
             Kuru Uygula
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 🚀 ENTERPRISE: Keyboard Shortcuts Help Dialog */}
+      <Dialog open={helpOpen} onClose={() => setHelpOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ pb: 1, borderBottom: `1px solid ${theme.border}` }}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Box sx={{ 
+              width: 32, 
+              height: 32, 
+              borderRadius: 1, 
+              bgcolor: theme.accentGlow, 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: theme.accent,
+              fontWeight: 700,
+              fontSize: '0.9rem'
+            }}>
+              ?
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>Klavye Kısayolları</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent sx={{ p: 0 }}>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ color: theme.accent, fontWeight: 600, mb: 1 }}>GENEL</Typography>
+            <Stack spacing={0.5} sx={{ mb: 2 }}>
+              {[
+                { keys: '?', desc: 'Yardım menüsünü aç' },
+                { keys: 'Ctrl + S', desc: 'Değişiklikleri kaydet' },
+                { keys: 'Ctrl + I', desc: 'İstatistikleri göster' },
+                { keys: 'Ctrl + 1', desc: 'Yerli sekmesine geç' },
+                { keys: 'Ctrl + 2', desc: 'İthal sekmesine geç' },
+                { keys: 'Escape', desc: 'Seçimi temizle' },
+              ].map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ 
+                    minWidth: 90, 
+                    px: 1, 
+                    py: 0.25, 
+                    bgcolor: '#f1f5f9', 
+                    borderRadius: 0.5, 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#475569',
+                    textAlign: 'center'
+                  }}>
+                    {item.keys}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
+                </Box>
+              ))}
+            </Stack>
+
+            <Typography variant="subtitle2" sx={{ color: '#10b981', fontWeight: 600, mb: 1 }}>SATIR İŞLEMLERİ</Typography>
+            <Stack spacing={0.5} sx={{ mb: 2 }}>
+              {[
+                { keys: 'Ctrl + Enter', desc: 'Yeni satır ekle (revize modunda)' },
+                { keys: 'Ctrl + A', desc: 'Tüm satırları seç' },
+                { keys: 'Ctrl + C', desc: 'Seçili satırı kopyala' },
+                { keys: 'Ctrl + V', desc: 'Satırı yapıştır' },
+                { keys: 'Delete', desc: 'Seçili satırları sil' },
+              ].map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ 
+                    minWidth: 90, 
+                    px: 1, 
+                    py: 0.25, 
+                    bgcolor: 'rgba(16, 185, 129, 0.1)', 
+                    borderRadius: 0.5, 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#10b981',
+                    textAlign: 'center'
+                  }}>
+                    {item.keys}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
+                </Box>
+              ))}
+            </Stack>
+
+            <Typography variant="subtitle2" sx={{ color: '#f59e0b', fontWeight: 600, mb: 1 }}>TOPLU İŞLEMLER</Typography>
+            <Stack spacing={0.5}>
+              {[
+                { keys: 'Ctrl + B', desc: 'Toplu düzenleme (seçim varsa)' },
+              ].map((item, idx) => (
+                <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box sx={{ 
+                    minWidth: 90, 
+                    px: 1, 
+                    py: 0.25, 
+                    bgcolor: 'rgba(245, 158, 11, 0.1)', 
+                    borderRadius: 0.5, 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    color: '#f59e0b',
+                    textAlign: 'center'
+                  }}>
+                    {item.keys}
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">{item.desc}</Typography>
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+          
+          <Box sx={{ p: 2, bgcolor: '#f8fafc', borderTop: `1px solid ${theme.border}` }}>
+            <Typography variant="caption" color="text.secondary">
+              <strong>İpucu:</strong> Revize modunda düzenleme yapabilirsiniz. Değişikliklerinizi kaydetmek için <strong>Ctrl+S</strong> kullanın veya "Bitir" butonuna tıklayın.
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setHelpOpen(false)} variant="contained" sx={{ background: theme.gradient }}>Anladım</Button>
         </DialogActions>
       </Dialog>
     </Box>

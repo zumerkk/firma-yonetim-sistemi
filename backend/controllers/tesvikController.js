@@ -2929,13 +2929,18 @@ const exportRevizyonExcel = async (req, res) => {
     console.log(`⏱️  [${exportId}] Phase 3: Revizyon tracking algoritması başladı`);
     
     const revisionData = await buildRevisionTrackingData(tesvik);
-    console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${revisionData.length} satır`);
-    console.log(`🔍 [${exportId}] Toplam değişiklik: ${revisionData.reduce((sum, r) => sum + r.changesCount, 0)} alan`);
+    
+    // 🔒 Null/undefined güvenlik kontrolü
+    const safeRevisionData = Array.isArray(revisionData) ? revisionData : [];
+    
+    console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${safeRevisionData.length} satır`);
+    const totalChanges = safeRevisionData.reduce((sum, r) => sum + (r?.changesCount || 0), 0);
+    console.log(`🔍 [${exportId}] Toplam değişiklik: ${totalChanges} alan`);
     
     // 📊 PHASE 4: PROFESSIONAL EXCEL EXPORT
     console.log(`⏱️  [${exportId}] Phase 4: Professional Excel export başladı`);
     
-    const workbook = await createProfessionalWorkbook(csvStructure, revisionData, includeColors, exportId);
+    const workbook = await createProfessionalWorkbook(csvStructure, safeRevisionData, includeColors, exportId);
     
     console.log(`✅ [${exportId}] Excel workbook oluşturuldu`);
     
@@ -2948,19 +2953,19 @@ const exportRevizyonExcel = async (req, res) => {
     // Response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.setHeader('X-Revision-Rows', revisionData.length.toString());
+    res.setHeader('X-Revision-Rows', safeRevisionData.length.toString());
     res.setHeader('X-Export-ID', exportId);
     res.setHeader('X-Export-Duration', `${Date.now() - startTime}ms`);
     
     // Activity log
-    await logExportActivity(tesvik, req.user, exportId, revisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
+    await logExportActivity(tesvik, req.user, exportId, safeRevisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
     
     // Send Excel file
     res.send(excelBuffer);
     
     const duration = Date.now() - startTime;
     console.log(`🎉 [${exportId}] Export tamamlandı! Süre: ${duration}ms, Dosya: ${fileName}`);
-    console.log(`📈 [${exportId}] Performans: ${revisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
+    console.log(`📈 [${exportId}] Performans: ${safeRevisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`💥 [${exportId}] Export hatası! Süre: ${duration}ms`, error);
@@ -5121,16 +5126,42 @@ module.exports = {
   exportMakineRevizyonExcel: async (req, res) => {
     try {
       const { id } = req.params;
-      const Tesvik = require('../models/Tesvik');
+      
+      // 🔒 ID Validasyonu
+      if (!id || id === 'undefined' || id === 'null') {
+        console.error('❌ exportMakineRevizyonExcel: Geçersiz ID:', id);
+        return res.status(400).json({ success: false, message: 'Geçersiz teşvik ID\'si' });
+      }
+      
+      // Tesvik modeli zaten dosya başında import edildi, gereksiz tekrar import kaldırıldı
       const ExcelJS = require('exceljs');
+      
+      console.log(`📊 Makine Revizyon Excel export başlatılıyor: ${id}`);
 
       const tesvik = await Tesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      
+      if (!tesvik) {
+        console.error('❌ exportMakineRevizyonExcel: Teşvik bulunamadı:', id);
+        return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      }
+      
+      console.log(`✅ Teşvik bulundu: ${tesvik.tesvikId || tesvik.gmId || id}`);
 
+      // 📋 Revizyon verilerini güvenli şekilde al
       const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
-      revs.sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      
+      // 📝 Revizyon yoksa bilgilendirici log
+      if (revs.length === 0) {
+        console.log('⚠️ Makine revizyonu bulunamadı, boş Excel oluşturuluyor');
+      }
+      
+      revs.sort((a, b) => {
+        const dateA = a?.revizeTarihi ? new Date(a.revizeTarihi) : new Date(0);
+        const dateB = b?.revizeTarihi ? new Date(b.revizeTarihi) : new Date(0);
+        return dateA - dateB;
+      });
 
       const wb = new ExcelJS.Workbook();
       wb.creator = 'FYS';

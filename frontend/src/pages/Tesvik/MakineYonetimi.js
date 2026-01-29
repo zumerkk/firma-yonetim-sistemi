@@ -55,8 +55,10 @@ const MakineYonetimi = () => {
   const [selectedTesvik, setSelectedTesvik] = useState(null);
   const [tesvikOptions, setTesvikOptions] = useState([]);
   const [loadingTesvik, setLoadingTesvik] = useState(false);
-  const [yerliRows, setYerliRows] = useState(() => loadLS('mk_yerli', []));
-  const [ithalRows, setIthalRows] = useState(() => loadLS('mk_ithal', []));
+  // 🔧 FIX: Başlangıçta boş başla, teşvik seçildiğinde localStorage'dan yükle
+  // Bu şekilde makine ID'leri teşvik bazlı kalıcı olacak (YeniTesvik ile tutarlı)
+  const [yerliRows, setYerliRows] = useState([]);
+  const [ithalRows, setIthalRows] = useState([]);
   const [uploadRowId, setUploadRowId] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectionModel, setSelectionModel] = useState([]);

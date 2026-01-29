@@ -92,32 +92,70 @@ const createTesvik = async (req, res) => {
     if (tesvikData.makineListeleri) {
       const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
+        .map((r, idx) => ({
+          rowId: r.rowId || undefined,
+          siraNo: Number(r.siraNo) || (idx + 1),
+          makineId: (r.makineId || '').toString().trim(),
           gtipKodu: (r.gtipKodu || '').trim(),
           gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
           adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
           miktar: Number(r.miktar) || 0,
           birim: (r.birim || '').trim(),
+          birimAciklamasi: (r.birimAciklamasi || '').trim(),
           birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
           toplamTutariTl: Number(r.toplamTutariTl) || 0,
-          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase(),
+          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
+          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
+          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
+          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
+          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
+          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
+          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
+          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
+          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
+          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
+          talep: r.talep || undefined,
+          karar: r.karar || undefined,
+          etuysSecili: !!r.etuysSecili
         }));
       const normalizeIthal = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
+        .map((r, idx) => ({
+          rowId: r.rowId || undefined,
+          siraNo: Number(r.siraNo) || (idx + 1),
+          makineId: (r.makineId || '').toString().trim(),
           gtipKodu: (r.gtipKodu || '').trim(),
           gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
           adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
           miktar: Number(r.miktar) || 0,
           birim: (r.birim || '').trim(),
+          birimAciklamasi: (r.birimAciklamasi || '').trim(),
           birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
           gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
           toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
           toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
-          // Kullanılmış makine alanı: modal artık kod döndürüyor (örn: 1,2,3). Eski EVET/HAYIR değerleri de korunur.
+          kurManuel: !!r.kurManuel,
+          kurManuelDeger: Number(r.kurManuelDeger) || 0,
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          kullanilmisMakineAciklama: (r.kullanilmisMakineAciklama || '').trim(),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
+          kdvMuafiyeti: (r.kdvMuafiyeti || '').toUpperCase(),
+          gumrukVergisiMuafiyeti: (r.gumrukVergisiMuafiyeti || '').toUpperCase(),
+          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
+          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
+          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
+          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
+          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
+          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
+          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
+          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
+          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
+          talep: r.talep || undefined,
+          karar: r.karar || undefined,
+          etuysSecili: !!r.etuysSecili
         }));
       tesvikData.makineListeleri = {
         yerli: normalizeYerli(tesvikData.makineListeleri.yerli),
@@ -482,31 +520,70 @@ const updateTesvik = async (req, res) => {
     if (filteredUpdateData.makineListeleri) {
       const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
+        .map((r, idx) => ({
+          rowId: r.rowId || undefined,
+          siraNo: Number(r.siraNo) || (idx + 1),
+          makineId: (r.makineId || '').toString().trim(),
           gtipKodu: (r.gtipKodu || '').trim(),
           gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
           adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
           miktar: Number(r.miktar) || 0,
           birim: (r.birim || '').trim(),
+          birimAciklamasi: (r.birimAciklamasi || '').trim(),
           birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
           toplamTutariTl: Number(r.toplamTutariTl) || 0,
-          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase(),
+          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
+          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
+          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
+          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
+          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
+          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
+          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
+          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
+          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
+          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
+          talep: r.talep || undefined,
+          karar: r.karar || undefined,
+          etuysSecili: !!r.etuysSecili
         }));
       const normalizeIthal = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
+        .map((r, idx) => ({
+          rowId: r.rowId || undefined,
+          siraNo: Number(r.siraNo) || (idx + 1),
+          makineId: (r.makineId || '').toString().trim(),
           gtipKodu: (r.gtipKodu || '').trim(),
           gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
           adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
           miktar: Number(r.miktar) || 0,
           birim: (r.birim || '').trim(),
+          birimAciklamasi: (r.birimAciklamasi || '').trim(),
           birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
           gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
           toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
           toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
+          kurManuel: !!r.kurManuel,
+          kurManuelDeger: Number(r.kurManuelDeger) || 0,
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          kullanilmisMakineAciklama: (r.kullanilmisMakineAciklama || '').trim(),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
+          kdvMuafiyeti: (r.kdvMuafiyeti || '').toUpperCase(),
+          gumrukVergisiMuafiyeti: (r.gumrukVergisiMuafiyeti || '').toUpperCase(),
+          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
+          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
+          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
+          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
+          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
+          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
+          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
+          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
+          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
+          talep: r.talep || undefined,
+          karar: r.karar || undefined,
+          etuysSecili: !!r.etuysSecili
         }));
       tesvik.makineListeleri = {
         yerli: normalizeYerli(filteredUpdateData.makineListeleri.yerli),
@@ -2984,13 +3061,18 @@ const exportRevizyonExcel = async (req, res) => {
     console.log(`⏱️  [${exportId}] Phase 3: Revizyon tracking algoritması başladı`);
     
     const revisionData = await buildRevisionTrackingData(tesvik);
-    console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${revisionData.length} satır`);
-    console.log(`🔍 [${exportId}] Toplam değişiklik: ${revisionData.reduce((sum, r) => sum + r.changesCount, 0)} alan`);
+    
+    // 🔒 Null/undefined güvenlik kontrolü
+    const safeRevisionData = Array.isArray(revisionData) ? revisionData : [];
+    
+    console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${safeRevisionData.length} satır`);
+    const totalChanges = safeRevisionData.reduce((sum, r) => sum + (r?.changesCount || 0), 0);
+    console.log(`🔍 [${exportId}] Toplam değişiklik: ${totalChanges} alan`);
     
     // 📊 PHASE 4: PROFESSIONAL EXCEL EXPORT
     console.log(`⏱️  [${exportId}] Phase 4: Professional Excel export başladı`);
     
-    const workbook = await createProfessionalWorkbook(csvStructure, revisionData, includeColors, exportId);
+    const workbook = await createProfessionalWorkbook(csvStructure, safeRevisionData, includeColors, exportId);
     
     console.log(`✅ [${exportId}] Excel workbook oluşturuldu`);
     
@@ -3003,19 +3085,19 @@ const exportRevizyonExcel = async (req, res) => {
     // Response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.setHeader('X-Revision-Rows', revisionData.length.toString());
+    res.setHeader('X-Revision-Rows', safeRevisionData.length.toString());
     res.setHeader('X-Export-ID', exportId);
     res.setHeader('X-Export-Duration', `${Date.now() - startTime}ms`);
     
     // Activity log
-    await logExportActivity(tesvik, req.user, exportId, revisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
+    await logExportActivity(tesvik, req.user, exportId, safeRevisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
     
     // Send Excel file
     res.send(excelBuffer);
     
     const duration = Date.now() - startTime;
     console.log(`🎉 [${exportId}] Export tamamlandı! Süre: ${duration}ms, Dosya: ${fileName}`);
-    console.log(`📈 [${exportId}] Performans: ${revisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
+    console.log(`📈 [${exportId}] Performans: ${safeRevisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`💥 [${exportId}] Export hatası! Süre: ${duration}ms`, error);
@@ -3290,6 +3372,7 @@ const buildRevisionTrackingData = async (tesvik) => {
       snapshot: initialSnapshot
     });
     console.log('✅ İlk oluşturma kaydı eklendi');
+    console.log(`🔢 revisionData.length şu anda: ${revisionData.length}`);
     
     // 🔄 REVİZYON GEÇMİŞİ - Her revizyon için o andaki state'i kullan
     if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
@@ -3392,7 +3475,7 @@ const buildRevisionTrackingData = async (tesvik) => {
             }
           }
         
-        // CSV satırı oluştur
+        // CSV satırı oluştur - HER KOŞULDA ÇALIŞMALI
         const revizyonRow = await buildCsvDataRowWithSnapshot(revizyonSnapshot, revizyon, i + 1);
         
         // Önceki satırla değişiklikleri karşılaştır
@@ -3450,6 +3533,7 @@ const buildRevisionTrackingData = async (tesvik) => {
     console.log(`   • İlk oluşturma: 1`);
     console.log(`   • Revizyonlar: ${revisionData.length - 1}`);
     console.log(`   • Toplam değişiklik: ${totalChanges} alan`);
+    console.log(`🔙 Return edilecek revisionData.length: ${revisionData.length}`);
     
     return revisionData;
     
@@ -4885,6 +4969,7 @@ module.exports = {
       const yerliMapped = (Array.isArray(yerli) ? yerli : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+        makineId: str(r.makineId || ''),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
@@ -4903,6 +4988,7 @@ module.exports = {
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
         iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+        silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
         etuysSecili: !!r.etuysSecili,
         // Talep/karar bilgilerini koru
         talep: r.talep ? {
@@ -4923,6 +5009,7 @@ module.exports = {
       const ithalMapped = (Array.isArray(ithal) ? ithal : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+        makineId: str(r.makineId || ''),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
@@ -4952,6 +5039,7 @@ module.exports = {
         iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
         iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
         iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+        silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
         etuysSecili: !!r.etuysSecili,
         // Talep/karar bilgilerini koru
         talep: r.talep ? {
@@ -4985,7 +5073,7 @@ module.exports = {
     try {
       const { id } = req.params;
       const { aciklama, revizeMuracaatTarihi, hazirlikTarihi, talepTarihi } = req.body || {};
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
@@ -5039,7 +5127,7 @@ module.exports = {
     try {
       const { id } = req.params;
       const { aciklama, revizeOnayTarihi, kararTarihi, talepTarihi } = req.body || {};
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
 
@@ -5083,7 +5171,7 @@ module.exports = {
   listMakineRevizyonlari: async (req, res) => {
     try {
       const { id } = req.params;
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
@@ -5103,7 +5191,7 @@ module.exports = {
       const { id } = req.params;
       const { revizeId, aciklama } = req.body || {};
       if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
@@ -5155,7 +5243,7 @@ module.exports = {
       const { id } = req.params; // Tesvik Id
       const { revizeId, meta } = req.body;
       if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const list = tesvik.makineRevizyonlari || [];
@@ -5177,16 +5265,42 @@ module.exports = {
   exportMakineRevizyonExcel: async (req, res) => {
     try {
       const { id } = req.params;
-      const Tesvik = require('../models/Tesvik');
+      
+      // 🔒 ID Validasyonu
+      if (!id || id === 'undefined' || id === 'null') {
+        console.error('❌ exportMakineRevizyonExcel: Geçersiz ID:', id);
+        return res.status(400).json({ success: false, message: 'Geçersiz teşvik ID\'si' });
+      }
+      
+      // YeniTesvik modeli zaten dosya başında import edildi
       const ExcelJS = require('exceljs');
+      
+      console.log(`📊 Makine Revizyon Excel export başlatılıyor: ${id}`);
 
       const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      
+      if (!tesvik) {
+        console.error('❌ exportMakineRevizyonExcel: Teşvik bulunamadı:', id);
+        return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      }
+      
+      console.log(`✅ Teşvik bulundu: ${tesvik.tesvikId || tesvik.gmId || id}`);
 
+      // 📋 Revizyon verilerini güvenli şekilde al
       const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
-      revs.sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      
+      // 📝 Revizyon yoksa bilgilendirici yanıt dön
+      if (revs.length === 0) {
+        console.log('⚠️ Makine revizyonu bulunamadı, boş Excel oluşturuluyor');
+      }
+      
+      revs.sort((a, b) => {
+        const dateA = a?.revizeTarihi ? new Date(a.revizeTarihi) : new Date(0);
+        const dateB = b?.revizeTarihi ? new Date(b.revizeTarihi) : new Date(0);
+        return dateA - dateB;
+      });
 
       const wb = new ExcelJS.Workbook();
       wb.creator = 'FYS';
@@ -5712,7 +5826,7 @@ module.exports = {
   exportMakineRevizyonHistoryExcel: async (req, res) => {
     try {
       const { id } = req.params;
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const ExcelJS = require('exceljs');
 
       const tesvik = await YeniTesvik.findById(id)
@@ -5847,7 +5961,7 @@ module.exports = {
       const { id } = req.params; // Tesvik Id
       const { liste, rowId, talep, match } = req.body; // liste: 'yerli' | 'ithal'
       if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];
@@ -5895,7 +6009,7 @@ module.exports = {
       const { id } = req.params; // Tesvik Id
       const { liste, rowId, karar, match } = req.body; // kararDurumu, onaylananAdet, kararNotu
       if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
-      const Tesvik = require('../models/Tesvik');
+      // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];

@@ -231,10 +231,24 @@ const YeniTesvikDetail = () => {
       setExportingRevizyon(true);
       console.log('🚀 Revizyon Excel export başlatılıyor:', tesvik._id);
       
+      // 🔒 ID kontrolü
+      if (!tesvik?._id) {
+        throw new Error('Teşvik ID bulunamadı');
+      }
+      
       // Axios ile Revizyon Excel dosyası indirme
       const response = await api.get(`/yeni-tesvik/${tesvik._id}/revizyon-excel-export?includeColors=true`, {
         responseType: 'blob'
       });
+
+      // 🔍 Response type kontrolü - hata durumunda JSON dönebilir
+      const contentType = response.headers['content-type'];
+      if (contentType && contentType.includes('application/json')) {
+        // Hata yanıtı - blob'u JSON'a parse et
+        const errorText = await response.data.text();
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || 'Excel oluşturulurken hata oluştu');
+      }
 
       // Dosya adını response header'dan al
       const contentDisposition = response.headers['content-disposition'];
@@ -263,7 +277,28 @@ const YeniTesvikDetail = () => {
       
     } catch (error) {
       console.error('❌ Revizyon export hatası:', error);
-      alert(`Revizyon Excel export hatası: ${error.response?.data?.message || error.message}`);
+      
+      // 🔍 Hata mesajını daha detaylı göster
+      let errorMessage = 'Bilinmeyen hata';
+      
+      if (error.response) {
+        // Server hatası
+        if (error.response.data instanceof Blob) {
+          try {
+            const text = await error.response.data.text();
+            const json = JSON.parse(text);
+            errorMessage = json.message || `Sunucu hatası (${error.response.status})`;
+          } catch {
+            errorMessage = `Sunucu hatası (${error.response.status})`;
+          }
+        } else {
+          errorMessage = error.response.data?.message || `Sunucu hatası (${error.response.status})`;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(`Revizyon Excel export hatası: ${errorMessage}`);
     } finally {
       setExportingRevizyon(false);
     }
