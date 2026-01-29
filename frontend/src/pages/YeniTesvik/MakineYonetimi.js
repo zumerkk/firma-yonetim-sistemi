@@ -1551,6 +1551,7 @@ const MakineYonetimi = () => {
         rows={filteredYerliRows} 
         columns={cols} 
         getRowId={(row) => row.id}
+        disableVirtualization
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
@@ -1949,6 +1950,7 @@ const MakineYonetimi = () => {
         rows={filteredIthalRows} 
         columns={cols} 
         getRowId={(row) => row.id}
+        disableVirtualization
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
