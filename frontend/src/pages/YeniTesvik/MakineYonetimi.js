@@ -1534,7 +1534,7 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
-        getRowId={(row) => row.id || row.rowId || row.makineId || Math.random().toString(36).slice(2)}
+        getRowId={(row) => row.id}
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
@@ -1932,7 +1932,7 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
-        getRowId={(row) => row.id || row.rowId || row.makineId || Math.random().toString(36).slice(2)}
+        getRowId={(row) => row.id}
         pageSize={100} 
         rowsPerPageOptions={[50, 100, 200]} 
         disableSelectionOnClick 
