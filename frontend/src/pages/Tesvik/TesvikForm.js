@@ -3042,8 +3042,9 @@ const TesvikForm = () => {
                       '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
                   }}
                 >
-                  {/* 🆕 Varsayılan GENEL seçeneği */}
+                  {/* 🆕 Varsayılan GENEL ve BÖLGESEL seçenekleri */}
                   <MenuItem value="GENEL">GENEL</MenuItem>
+                  <MenuItem value="BÖLGESEL">BÖLGESEL</MenuItem>
                   {templateData.destekSiniflari?.map((sinif) => (
                     <MenuItem key={sinif.value} value={sinif.value}>
                       {sinif.label}
