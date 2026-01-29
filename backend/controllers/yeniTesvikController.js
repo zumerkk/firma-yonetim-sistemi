@@ -5342,7 +5342,10 @@ module.exports = {
           { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
           { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
           { header:'İşlem', key:'islem', width: 10 },
+          { header:'Durum', key:'durum', width: 12 },
+          { header:'Silinme Tarihi', key:'silinmeTarihi', width: 16 },
           { header:'Sıra No', key:'siraNo', width: 8 },
+          { header:'Makine ID', key:'makineId', width: 12 },
           { header:'GTIP', key:'gtipKodu', width: 16 },
           { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
           { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
@@ -5452,6 +5455,11 @@ module.exports = {
             
             // Tüm satırları yaz (değişiklik kontrolü sadece boyama için kullanılacak)
             
+            // Silinme durumunu belirle
+            const isSilindi = !!r.silinmeTarihi;
+            const durumText = isSilindi ? 'SİLİNDİ' : 'AKTİF';
+            const silinmeTarihiText = r.silinmeTarihi ? new Date(r.silinmeTarihi).toLocaleDateString('tr-TR') : '';
+            
             // Satırı yaz
             const rowVals = {
               revizeId: rev.revizeId,
@@ -5463,15 +5471,17 @@ module.exports = {
               hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
               kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
               islem: '',
+              durum: durumText,
+              silinmeTarihi: silinmeTarihiText,
               talepNo: rev.talepNo || '',
               belgeNo: rev.belgeNo || '',
               belgeId: rev.belgeId || '',
               talepTipi: rev.talepTipi || '',
               talepDetayi: rev.talepDetayi || '',
-              durum: rev.durum || '',
               daire: rev.daire || '',
               basvuruTarihi: rev.basvuruTarihi ? new Date(rev.basvuruTarihi).toLocaleDateString('tr-TR') : '',
               siraNo: r.siraNo || 0,
+              makineId: r.makineId || '',
               gtipKodu: r.gtipKodu || '',
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
@@ -5523,6 +5533,14 @@ module.exports = {
             });
 
             const excelRow = ws.addRow(rowVals);
+            
+            // Silinme tarihi varsa tüm satırı kırmızı yap
+            if (isSilindi) {
+              for (let i = 1; i <= ws.columns.length; i++) {
+                excelRow.getCell(i).fill = redFill;
+              }
+            }
+            
             // Hücre bazlı fark boyama
             if (prev) {
               const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
@@ -5588,7 +5606,8 @@ module.exports = {
                 (r.gtipKodu === prevRow.gtipKodu && r.adiVeOzelligi === prevRow.adiVeOzelligi)
               );
               if (!found) {
-                // Gerçekten silinmiş
+                // Gerçekten silinmiş - silinme tarihini revize tarihinden al
+                const silinmeTarihiText = rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleDateString('tr-TR') : '';
                 const rowVals = {
                   revizeId: rev.revizeId,
                   revizeTuru: rev.revizeTuru,
@@ -5599,7 +5618,10 @@ module.exports = {
                   hazirlikTarihi: rev.hazirlikTarihi ? new Date(rev.hazirlikTarihi).toLocaleDateString('tr-TR') : '',
                   kararTarihi: rev.kararTarihi ? new Date(rev.kararTarihi).toLocaleDateString('tr-TR') : '',
                   islem: 'SİLİNDİ',
+                  durum: 'SİLİNDİ',
+                  silinmeTarihi: silinmeTarihiText,
                   siraNo: prevRow.siraNo || 0,
+                  makineId: prevRow.makineId || '',
                   gtipKodu: prevRow.gtipKodu || '',
                   gtipAciklamasi: prevRow.gtipAciklamasi || '',
                   adiVeOzelligi: prevRow.adiVeOzelligi || '',

@@ -871,6 +871,8 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
+      { header: 'Durum', key: 'durum', width: 14 },
+      { header: 'Silinme Tarihi', key: 'silinmeTarihi', width: 16 },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
       { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
       { header: 'Talep Adedi', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
@@ -908,6 +910,8 @@ const MakineYonetimi = () => {
       { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
       { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
       { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
+      { header: 'Durum', key: 'durum', width: 14 },
+      { header: 'Silinme Tarihi', key: 'silinmeTarihi', width: 16 },
       { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
       { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
       { header: 'Talep Adedi', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
@@ -944,17 +948,24 @@ const MakineYonetimi = () => {
       const kararKodu = getKararKodu(r.karar);
       const kararAdi = getKararAdi(r.karar);
       
+      // Silinme durumunu belirle
+      const isSilindi = !!r.silinmeTarihi;
+      const durumText = isSilindi ? 'SİLİNDİ' : 'AKTİF';
+      const silinmeTarihiText = r.silinmeTarihi ? new Date(r.silinmeTarihi).toLocaleDateString('tr-TR') : '';
+      
       // Toplam TL'yi Excel içinde formülle üretelim
       const row = wsYerli.addRow({ 
         ...r, 
         toplamTl: undefined,
+        durum: durumText,
+        silinmeTarihi: silinmeTarihiText,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
         onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
         talepAdedi: r?.talep?.istenenAdet || '',
         kararKodu: kararKodu,
         kararDurumu: kararAdi,
         onaylananAdet: r?.karar?.onaylananAdet || '',
-        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
+        degisiklikDurumu: isSilindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       });
       const miktarCol = yerliColumns.findIndex(c => c.key === 'miktar') + 1;
       const bfCol = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
@@ -979,13 +990,20 @@ const MakineYonetimi = () => {
       
       // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
       const degisiklikCol = yerliColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
-      if (r.silindi) {
+      const durumCol = yerliColumns.findIndex(c => c.key === 'durum') + 1;
+      const silinmeTarihiCol = yerliColumns.findIndex(c => c.key === 'silinmeTarihi') + 1;
+      
+      if (isSilindi) {
         // Silinen satır: Tüm satır açık kırmızı arka plan
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
         });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+        row.getCell(durumCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(durumCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+        row.getCell(silinmeTarihiCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(silinmeTarihiCol).font = { bold: true, color: { argb: 'FFDC2626' } };
       } else if (r.degistirildi) {
         // Değiştirilen satır: Tüm satır açık sarı arka plan
         row.eachCell((cell) => {
@@ -1036,18 +1054,25 @@ const MakineYonetimi = () => {
       const kararKodu = getKararKodu(r.karar);
       const kararAdi = getKararAdi(r.karar);
       
+      // Silinme durumunu belirle
+      const isSilindi = !!r.silinmeTarihi;
+      const durumText = isSilindi ? 'SİLİNDİ' : 'AKTİF';
+      const silinmeTarihiText = r.silinmeTarihi ? new Date(r.silinmeTarihi).toLocaleDateString('tr-TR') : '';
+      
       // Satırı ekle
       const rowData = { 
         ...r, 
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
+        durum: durumText,
+        silinmeTarihi: silinmeTarihiText,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
         onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
         talepAdedi: r?.talep?.istenenAdet || '',
         kararKodu: kararKodu,
         kararDurumu: kararAdi,
         onaylananAdet: r?.karar?.onaylananAdet || '',
-        degisiklikDurumu: r.silindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
+        degisiklikDurumu: isSilindi ? '🗑️ SİLİNDİ' : r.degistirildi ? '✏️ DEĞİŞTİ' : ''
       };
       const row = wsIthal.addRow(rowData);
       
@@ -1075,13 +1100,20 @@ const MakineYonetimi = () => {
       
       // Silinmiş/Değiştirilmiş satırları vurgula - Tüm satır renklendir
       const degisiklikCol = ithalColumns.findIndex(c => c.key === 'degisiklikDurumu') + 1;
-      if (r.silindi) {
+      const durumCol = ithalColumns.findIndex(c => c.key === 'durum') + 1;
+      const silinmeTarihiCol = ithalColumns.findIndex(c => c.key === 'silinmeTarihi') + 1;
+      
+      if (isSilindi) {
         // Silinen satır: Tüm satır açık kırmızı arka plan
         row.eachCell((cell) => {
           cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE5E5' } };
         });
         row.getCell(degisiklikCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
         row.getCell(degisiklikCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+        row.getCell(durumCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(durumCol).font = { bold: true, color: { argb: 'FFDC2626' } };
+        row.getCell(silinmeTarihiCol).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+        row.getCell(silinmeTarihiCol).font = { bold: true, color: { argb: 'FFDC2626' } };
       } else if (r.degistirildi) {
         // Değiştirilen satır: Tüm satır açık sarı arka plan
         row.eachCell((cell) => {
