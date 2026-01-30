@@ -22,6 +22,7 @@ function turkishToAscii(str = '') {
 function deriveKategori(label) {
   if (!label) return 'Genel';
   const l = label.toUpperCase('tr-TR');
+  if (l.includes('BÖLGESEL')) return 'Bölgesel';
   if (l.includes('ÖNCELİKLİ')) return 'Öncelikli';
   if (l.includes('HEDEF')) return 'Hedef';
   if (l.includes('STRATEJ')) return 'Stratejik';
@@ -69,12 +70,15 @@ function readCsvDestekSiniflari() {
 
 // Fallback statik veriler (CSV bulunamazsa)
 const fallbackVerileri = [
+  { kod: 'BOLGESEL', aciklama: 'BÖLGESEL', kategori: 'Bölgesel' },
+  { kod: 'BOLGESEL_ONCELIKLI_YATIRIM', aciklama: 'BÖLGESEL - ÖNCELİKLİ YATIRIM', kategori: 'Bölgesel' },
   { kod: 'ONCELIKLI_YATIRIMLAR', aciklama: 'ÖNCELİKLİ YATIRIMLAR', kategori: 'Öncelikli' },
   { kod: 'ONCELIKLI_YATIRIMLAR_ALT_BOLGE', aciklama: 'ÖNCELİKLİ YATIRIMLAR-Alt Bölge', kategori: 'Öncelikli' },
   { kod: 'HEDEF_YATIRIMLAR', aciklama: 'HEDEF YATIRIMLAR', kategori: 'Hedef' },
   { kod: 'HEDEF_YATIRIMLAR_ALT_BOLGE', aciklama: 'HEDEF YATIRIMLAR-Alt Bölge', kategori: 'Hedef' },
   { kod: 'STRATEJIK_HAMLE', aciklama: 'STRATEJİK HAMLE', kategori: 'Stratejik' },
-  { kod: 'STRATEJIK_HAMLE_ALT_BOLGE', aciklama: 'STRATEJİK HAMLE-Alt Bölge', kategori: 'Stratejik' }
+  { kod: 'STRATEJIK_HAMLE_ALT_BOLGE', aciklama: 'STRATEJİK HAMLE-Alt Bölge', kategori: 'Stratejik' },
+  { kod: 'GENEL', aciklama: 'GENEL', kategori: 'Genel' }
 ];
 
 async function seedDestekSiniflari() {

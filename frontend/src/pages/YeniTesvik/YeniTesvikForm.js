@@ -140,6 +140,7 @@ const YeniTesvikForm = () => {
 
   // 🛠️ Makine Listesi yardımcıları
   const emptyMakineYerli = () => ({
+    makineId: '',
     gtipKodu: '',
     gtipAciklamasi: '',
     adiVeOzelligi: '',
@@ -151,6 +152,7 @@ const YeniTesvikForm = () => {
   });
 
   const emptyMakineIthal = () => ({
+    makineId: '',
     gtipKodu: '',
     gtipAciklamasi: '',
     adiVeOzelligi: '',
@@ -162,7 +164,9 @@ const YeniTesvikForm = () => {
     toplamTutarFobTl: '',
     kullanilmisMakine: '',
     ckdSkdMi: '',
-    aracMi: ''
+    aracMi: '',
+    kdvMuafiyeti: '',
+    gumrukVergisiMuafiyeti: ''
   });
 
   const [makineTab, setMakineTab] = useState('yerli');
@@ -312,9 +316,36 @@ const YeniTesvikForm = () => {
                     </Select>
                   </FormControl>
                 </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>KDV İstisnası</InputLabel>
+                    <Select label="KDV İstisnası" value={row.kdvMuafiyeti || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'kdvMuafiyeti', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>GV İstisnası</InputLabel>
+                    <Select label="GV İstisnası" value={row.gumrukVergisiMuafiyeti || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'gumrukVergisiMuafiyeti', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
               </>
             ) : (
               <>
+                <Grid item xs={6} md={2}>
+                  <TextField fullWidth label="Makine ID" value={row.makineId || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'makineId', e.target.value)}
+                    placeholder="Bakanlık M. ID" />
+                </Grid>
                 <Grid item xs={6} md={2}>
                   <TextField fullWidth label="Miktar" value={row.miktar || ''}
                     onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
@@ -327,11 +358,11 @@ const YeniTesvikForm = () => {
                     placeholder="Birim seç..."
                   />
                 </Grid>
-                <Grid item xs={6} md={3}>
+                <Grid item xs={6} md={2}>
                   <TextField fullWidth label="Birim Fiyatı (TL) (KDV Hariç)" value={row.birimFiyatiTl || ''}
                     onChange={(e) => updateMakineField(tip, idx, 'birimFiyatiTl', e.target.value)} />
                 </Grid>
-                <Grid item xs={6} md={3}>
+                <Grid item xs={6} md={2}>
                   <TextField fullWidth label="Toplam Tutar (TL) (KDV Hariç)" value={row.toplamTutariTl || ''}
                     onChange={(e) => updateMakineField(tip, idx, 'toplamTutariTl', e.target.value)} />
                 </Grid>
@@ -1077,6 +1108,7 @@ const YeniTesvikForm = () => {
           // 🛠️ Makine Listeleri (backend → frontend mapping)
           makineListeleri: {
             yerli: (backendData.makineListeleri?.yerli || []).map(r => ({
+              makineId: r.makineId || '',
               gtipKodu: r.gtipKodu || '',
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
@@ -1087,6 +1119,7 @@ const YeniTesvikForm = () => {
               kdvIstisnasi: r.kdvIstisnasi || ''
             })),
             ithal: (backendData.makineListeleri?.ithal || []).map(r => ({
+              makineId: r.makineId || '',
               gtipKodu: r.gtipKodu || '',
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
@@ -1098,7 +1131,9 @@ const YeniTesvikForm = () => {
               toplamTutarFobTl: r.toplamTutarFobTl?.toString() || r.toplamTutariTl?.toString() || '',
               kullanilmisMakine: r.kullanilmisMakine || '',
               ckdSkdMi: r.ckdSkdMi || '',
-              aracMi: r.aracMi || ''
+              aracMi: r.aracMi || '',
+              kdvMuafiyeti: r.kdvMuafiyeti || '',
+              gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || ''
             }))
           },
           
@@ -2184,6 +2219,7 @@ const YeniTesvikForm = () => {
         // 🛠️ Makine Listeleri (frontend → backend mapping)
         makineListeleri: {
           yerli: ((formData.makineListeleri && formData.makineListeleri.yerli) || []).map(r => ({
+            makineId: r.makineId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
             adiVeOzelligi: r.adiVeOzelligi || '',
@@ -2194,6 +2230,7 @@ const YeniTesvikForm = () => {
             kdvIstisnasi: r.kdvIstisnasi || ''
           })),
           ithal: ((formData.makineListeleri && formData.makineListeleri.ithal) || []).map(r => ({
+            makineId: r.makineId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
             adiVeOzelligi: r.adiVeOzelligi || '',
@@ -2205,7 +2242,9 @@ const YeniTesvikForm = () => {
             toplamTutarFobTl: parseInt(r.toplamTutarFobTl) || 0,
             kullanilmisMakine: r.kullanilmisMakine || '',
             ckdSkdMi: r.ckdSkdMi || '',
-            aracMi: r.aracMi || ''
+            aracMi: r.aracMi || '',
+            kdvMuafiyeti: r.kdvMuafiyeti || '',
+            gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || ''
           }))
         },
         

@@ -134,9 +134,9 @@ export const oncelikliYatirimTurleri = [
   {
     id: 'n',
     kod: 'OY-017',
-    baslik: 'Tebliğ Teknik Şart ve Standartları (1)',
-    aciklama: 'Tebliğ ile belirlenecek teknik şart ve standartlar - Kategori 1',
-    kategori: 'Teknik Standart',
+    baslik: 'Yüksek Teknolojili Sanayi Ürünleri',
+    aciklama: 'Yüksek teknolojili sanayi ürünleri imalatına yönelik yatırımlar',
+    kategori: 'Teknoloji',
     aktif: true
   },
   {
