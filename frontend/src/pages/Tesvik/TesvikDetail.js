@@ -913,22 +913,12 @@ const TesvikDetail = () => {
                   </Typography>
             </Box>
             <Grid container spacing={1}>
-              {/* Satır 1: Yatırım Konusu, OECD, Destek Sınıfı, Yatırım Lokasyonu */}
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Konusu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri?.yatirimKonusu || tesvik.yatirimBilgileri2?.yatirimKonusu || '-'}
-                  </Typography>
-                </Box>
-              </Grid>
-              {/* 🌍 OECD (Orta-Yüksek) */}
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#ecfdf5', borderRadius: 1, border: '1px solid #a7f3d0' }}>
-                  <Typography variant="caption" sx={{ color: '#047857', fontSize: '0.65rem', fontWeight: 500 }}>🌍 OECD (Orta-Yüksek)</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#059669', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri?.oecdKategori || '-'}
-                  </Typography>
+                    {tesvik.yatirimBilgileri2?.yatirimKonusu || '1513'}
+                    </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
@@ -940,25 +930,40 @@ const TesvikDetail = () => {
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
+                <Box sx={{ p: 1, backgroundColor: '#f0f9ff', borderRadius: 1, border: '1px solid #bae6fd' }}>
+                  <Typography variant="caption" sx={{ color: '#0369a1', fontSize: '0.65rem', fontWeight: 500 }}>🌍 OECD (Orta-Yüksek)</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284c7', fontSize: '0.8rem' }}>
+                    {tesvik.yatirimBilgileri?.oecdKategori || '-'}
+                  </Typography>
+                </Box>
+              </Grid>
+              <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
                   <Typography variant="caption" sx={{ color: '#1d4ed8', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Lokasyonu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb', fontSize: '0.8rem' }}>
                     {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || tesvik.yatirimBilgileri2?.ilce || '-')}
-                  </Typography>
+                        </Typography>
                 </Box>
-              </Grid>
-              {/* Satır 2: Yatırım Adresi (Tam Genişlik) */}
-              <Grid item xs={12}>
+                      </Grid>
+              <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
                   <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', wordBreak: 'break-word' }} title={tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-'}>
                     {tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-'}
-                    {(tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2) && ` • ${tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2}`}
-                    {(tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3) && ` • ${tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3}`}
                   </Typography>
+                  {(tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2) && (
+                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
+                      {tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2}
+                    </Typography>
+                  )}
+                  {(tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3) && (
+                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
+                      {tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3}
+                    </Typography>
+                  )}
                 </Box>
               </Grid>
-            </Grid>
+                    </Grid>
                   </Paper>
 
           {/* 👥 İSTİHDAM BİLGİLERİ */}
