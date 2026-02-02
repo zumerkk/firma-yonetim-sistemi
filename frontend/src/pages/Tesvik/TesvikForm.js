@@ -636,6 +636,7 @@ const TesvikForm = () => {
     destekSartlariOptions: [],
     ozelSartKisaltmalari: [],
     ozelSartNotlari: [],
+    oecdKategorileri: [], // 🌍 OECD Kategorileri
     nextGmId: '',
     nextTesvikId: ''
   });
@@ -730,6 +731,7 @@ const TesvikForm = () => {
           destekSartlariOptions: data.destekSartlariOptions || [],
           ozelSartKisaltmalari: data.ozelSartKisaltmalari || [],
           ozelSartNotlari: data.ozelSartNotlari || [],
+          oecdKategorileri: data.oecdKategorileri || [], // 🌍 OECD Kategorileri
           nextGmId: data.nextGmId || '',
           nextTesvikId: data.nextTesvikId || ''
         });
@@ -919,6 +921,7 @@ const TesvikForm = () => {
             cazibeMerkeziDeprem: backendData.yatirimBilgileri?.cazibeMerkeziDeprem || '',
             hamleMi: backendData.yatirimBilgileri?.hamleMi || '',
             vergiIndirimsizDestek: backendData.yatirimBilgileri?.vergiIndirimsizDestek || '',
+            oecdKategori: backendData.yatirimBilgileri?.oecdKategori || '', // 🌍 OECD Kategori
             // 🔧 Problematik değerleri temizle
             cins1: cleanProblematicValue(backendData.yatirimBilgileri?.sCinsi1),
             cins2: cleanProblematicValue(backendData.yatirimBilgileri?.tCinsi2),
@@ -1961,6 +1964,7 @@ const TesvikForm = () => {
           cazibeMerkeziDeprem: formData.yatirimBilgileri1?.cazibeMerkeziDeprem || '',
           hamleMi: formData.yatirimBilgileri1?.hamleMi || '',
           vergiIndirimsizDestek: formData.yatirimBilgileri1?.vergiIndirimsizDestek || '',
+          oecdKategori: formData.yatirimBilgileri1?.oecdKategori || '', // 🌍 OECD Kategori
 
           sCinsi1: formData.yatirimBilgileri1?.cins1 || '',
           tCinsi2: formData.yatirimBilgileri1?.cins2 || '',
@@ -3025,7 +3029,63 @@ const TesvikForm = () => {
             </Grid>
             )}
             
-            {/* ROW 3: DESTEK SINIFI */}
+            {/* ROW 3: OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
+            {/* 🌍 OECD (Orta-Yüksek) - Autocomplete (Dropdown + Manuel Giriş) */}
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                freeSolo
+                id="tesvikForm-oecdKategori"
+                options={templateData.oecdKategorileri || []}
+                getOptionLabel={(option) => {
+                  // String ise direkt döndür (manuel giriş)
+                  if (typeof option === 'string') return option;
+                  // Object ise label veya aciklama döndür
+                  return option.label || option.aciklama || '';
+                }}
+                value={formData.yatirimBilgileri1.oecdKategori || ''}
+                onChange={(event, newValue) => {
+                  // Seçilen obje veya string değeri al
+                  const value = typeof newValue === 'string' 
+                    ? newValue 
+                    : (newValue?.value || newValue?.kod || newValue?.label || newValue?.aciklama || '');
+                  handleFieldChange('yatirimBilgileri1.oecdKategori', value);
+                }}
+                onInputChange={(event, newInputValue, reason) => {
+                  // Manuel yazım durumunda da kaydet
+                  if (reason === 'input') {
+                    handleFieldChange('yatirimBilgileri1.oecdKategori', newInputValue);
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="🌍 OECD (Orta-Yüksek)"
+                    placeholder="Seçin veya manuel yazın..."
+                    sx={{
+                      backgroundColor: '#ffffff',
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
+                      }
+                    }}
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.value || option.kod || option.label}>
+                    {option.label || option.aciklama}
+                  </li>
+                )}
+                isOptionEqualToValue={(option, value) => {
+                  if (typeof value === 'string') {
+                    return (option.value || option.kod || option.label || option.aciklama) === value;
+                  }
+                  return option.value === value.value || option.kod === value.kod;
+                }}
+                sx={{ width: '100%' }}
+              />
+            </Grid>
+
+            {/* 🎯 DESTEK SINIFI Dropdown */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-destekSinifi-label" htmlFor="tesvikForm-destekSinifi">DESTEK SINIFI 🎯</InputLabel>
@@ -3038,8 +3098,8 @@ const TesvikForm = () => {
                   label="DESTEK SINIFI 🎯"
                   sx={{
                     backgroundColor: '#ffffff',
-                                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
-                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
                   }}
                 >
                   {/* 🆕 Varsayılan GENEL ve BÖLGESEL seçenekleri */}
@@ -3052,7 +3112,7 @@ const TesvikForm = () => {
                   ))}
                 </Select>
               </FormControl>
-      </Grid>
+            </Grid>
             
             {/* ✨ YENİ PROFESYONEL ALANLAR - Resimden Eklenenler */}
             
