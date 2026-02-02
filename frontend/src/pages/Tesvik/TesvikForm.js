@@ -3030,7 +3030,7 @@ const TesvikForm = () => {
             )}
             
             {/* ROW 3: OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
-            {/* 🌍 OECD (Orta-Yüksek) - Autocomplete (Dropdown + Manuel Giriş) */}
+            {/* 🌍 OECD (Orta-Yüksek) - Dropdown + Manuel Giriş */}
             <Grid item xs={12} md={6}>
               <Autocomplete
                 freeSolo
@@ -3040,14 +3040,19 @@ const TesvikForm = () => {
                   // String ise direkt döndür (manuel giriş)
                   if (typeof option === 'string') return option;
                   // Object ise label veya aciklama döndür
-                  return option.label || option.aciklama || '';
+                  return option?.label || option?.aciklama || '';
                 }}
-                value={formData.yatirimBilgileri1.oecdKategori || ''}
+                value={
+                  // Mevcut değeri bul veya string olarak kullan
+                  templateData.oecdKategorileri?.find(
+                    (kat) => (kat.value || kat.kod) === formData.yatirimBilgileri1.oecdKategori
+                  ) || formData.yatirimBilgileri1.oecdKategori || null
+                }
                 onChange={(event, newValue) => {
-                  // Seçilen obje veya string değeri al
+                  // Object seçildiyse value/kod kullan, string ise direkt kullan
                   const value = typeof newValue === 'string' 
                     ? newValue 
-                    : (newValue?.value || newValue?.kod || newValue?.label || newValue?.aciklama || '');
+                    : (newValue?.value || newValue?.kod || '');
                   handleFieldChange('yatirimBilgileri1.oecdKategori', value);
                 }}
                 onInputChange={(event, newInputValue, reason) => {
@@ -3071,15 +3076,15 @@ const TesvikForm = () => {
                   />
                 )}
                 renderOption={(props, option) => (
-                  <li {...props} key={option.value || option.kod || option.label}>
-                    {option.label || option.aciklama}
+                  <li {...props} key={option?.value || option?.kod || option}>
+                    {option?.label || option?.aciklama || option}
                   </li>
                 )}
                 isOptionEqualToValue={(option, value) => {
                   if (typeof value === 'string') {
-                    return (option.value || option.kod || option.label || option.aciklama) === value;
+                    return (option?.value || option?.kod || option) === value;
                   }
-                  return option.value === value.value || option.kod === value.kod;
+                  return (option?.value || option?.kod) === (value?.value || value?.kod);
                 }}
                 sx={{ width: '100%' }}
               />
