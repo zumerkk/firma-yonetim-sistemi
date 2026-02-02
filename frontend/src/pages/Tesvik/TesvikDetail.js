@@ -977,6 +977,15 @@ const TesvikDetail = () => {
                   )}
                 </Box>
               </Grid>
+              {/* 📋 Belge Müracaat Talep Tipi */}
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ p: 1, backgroundColor: '#fdf4ff', borderRadius: 1, border: '1px solid #f0abfc' }}>
+                  <Typography variant="caption" sx={{ color: '#a21caf', fontSize: '0.65rem', fontWeight: 500 }}>📋 Belge Müracaat Talep Tipi</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#c026d3', fontSize: '0.8rem' }}>
+                    {tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || '-'}
+                  </Typography>
+                </Box>
+              </Grid>
                     </Grid>
                   </Paper>
 
