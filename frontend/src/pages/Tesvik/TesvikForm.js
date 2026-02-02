@@ -453,6 +453,7 @@ const TesvikForm = () => {
       belgeTarihi: '',
       dayandigiKanun: '',
       belgeMuracaatNo: '',
+      belgeMuracaatTalepTipi: '', // 📋 Müracaat Talep Tipi
       belgeDurumu: '',
       belgeMuracaatTarihi: '',
       belgeBaslamaTarihi: '',
@@ -840,6 +841,7 @@ const TesvikForm = () => {
             belgeTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeTarihi) || '',
             dayandigiKanun: backendData.belgeYonetimi?.dayandigiKanun || '',
             belgeMuracaatNo: backendData.belgeYonetimi?.belgeMuracaatNo || '',
+            belgeMuracaatTalepTipi: backendData.belgeYonetimi?.belgeMuracaatTalepTipi || '', // 📋 Müracaat Talep Tipi
             belgeDurumu: backendData.belgeYonetimi?.belgeDurumu || '',
             belgeMuracaatTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeMuracaatTarihi) || '',
             belgeBaslamaTarihi: formatDateForInput(backendData.belgeYonetimi?.belgeBaslamaTarihi) || '',
@@ -2560,7 +2562,7 @@ const TesvikForm = () => {
             </Grid>
             
             {/* MÜRACAAT SAYISI */}
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="MÜRACAAT SAYISI 📊"
@@ -2574,6 +2576,44 @@ const TesvikForm = () => {
                     '&.Mui-focused': { borderColor: '#d97706' }
                   }
                 }}
+              />
+            </Grid>
+
+            {/* 📋 BELGE MÜRACAAT TALEP TİPİ */}
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                freeSolo
+                id="tesvikForm-belgeMuracaatTalepTipi"
+                options={[
+                  'YATIRIM TEŞVİK BELGESİ',
+                  'YATIRIM TEŞVİK BELGESİ REVİZE',
+                  'SÜRE UZATIMI',
+                  'TAMAMLAMA VİZESİ',
+                  'İPTAL TALEBİ'
+                ]}
+                value={formData.belgeYonetimi.belgeMuracaatTalepTipi || ''}
+                onChange={(event, newValue) => {
+                  handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newValue || '');
+                }}
+                onInputChange={(event, newInputValue, reason) => {
+                  if (reason === 'input') {
+                    handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newInputValue);
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="📋 Belge Müracaat Talep Tipi"
+                    placeholder="Seçin veya manuel yazın..."
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: '#ffffff',
+                        '&:hover': { borderColor: '#16a085' },
+                        '&.Mui-focused': { borderColor: '#16a085' }
+                      }
+                    }}
+                  />
+                )}
               />
             </Grid>
             
@@ -3035,25 +3075,20 @@ const TesvikForm = () => {
               <Autocomplete
                 freeSolo
                 id="tesvikForm-oecdKategori"
-                options={templateData.oecdKategorileri || []}
-                getOptionLabel={(option) => {
-                  // String ise direkt döndür (manuel giriş)
-                  if (typeof option === 'string') return option;
-                  // Object ise label veya aciklama döndür
-                  return option?.label || option?.aciklama || '';
-                }}
-                value={
-                  // Mevcut değeri bul veya string olarak kullan
-                  templateData.oecdKategorileri?.find(
-                    (kat) => (kat.value || kat.kod) === formData.yatirimBilgileri1.oecdKategori
-                  ) || formData.yatirimBilgileri1.oecdKategori || null
-                }
+                options={[
+                  // 📋 loecd-Tablo 1.csv'den gelen OECD kodları
+                  '24 Kimyasal Madde',
+                  '29 B.Y.S. Makine ve Teçhizat',
+                  '31 B.Y.S. Elektrikli Makine Ve Cihazlar',
+                  '34 Motorlu Kara Taşıtları',
+                  '352 Demiryolu ve Tramvay Lokomotifleri ile Vagonlarının',
+                  '359 B.Y.S. Ulaşım Araçları',
+                  // Backend'den gelen ek kategoriler
+                  ...(templateData.oecdKategorileri || []).map(kat => kat?.label || kat?.aciklama || kat)
+                ].filter((v, i, a) => v && a.indexOf(v) === i)} // Duplicate'ları temizle
+                value={formData.yatirimBilgileri1.oecdKategori || ''}
                 onChange={(event, newValue) => {
-                  // Object seçildiyse value/kod kullan, string ise direkt kullan
-                  const value = typeof newValue === 'string' 
-                    ? newValue 
-                    : (newValue?.value || newValue?.kod || '');
-                  handleFieldChange('yatirimBilgileri1.oecdKategori', value);
+                  handleFieldChange('yatirimBilgileri1.oecdKategori', newValue || '');
                 }}
                 onInputChange={(event, newInputValue, reason) => {
                   // Manuel yazım durumunda da kaydet
@@ -3075,17 +3110,6 @@ const TesvikForm = () => {
                     }}
                   />
                 )}
-                renderOption={(props, option) => (
-                  <li {...props} key={option?.value || option?.kod || option}>
-                    {option?.label || option?.aciklama || option}
-                  </li>
-                )}
-                isOptionEqualToValue={(option, value) => {
-                  if (typeof value === 'string') {
-                    return (option?.value || option?.kod || option) === value;
-                  }
-                  return (option?.value || option?.kod) === (value?.value || value?.kod);
-                }}
                 sx={{ width: '100%' }}
               />
             </Grid>

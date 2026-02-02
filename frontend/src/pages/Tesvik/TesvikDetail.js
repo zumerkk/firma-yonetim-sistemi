@@ -636,7 +636,7 @@ const TesvikDetail = () => {
                 </Typography>
                 
                 {/* Kompakt Status Badge */}
-                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
+                <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5, flexWrap: 'wrap' }}>
                   <Chip
                     label={tesvik.durumBilgileri?.genelDurum?.replace('_', ' ')}
                     size="small"
@@ -648,6 +648,20 @@ const TesvikDetail = () => {
                       height: 22
                     }}
                   />
+                  {/* 📋 Müracaat Talep Tipi Badge */}
+                  {tesvik.belgeYonetimi?.belgeMuracaatTalepTipi && (
+                    <Chip
+                      label={`📋 ${tesvik.belgeYonetimi.belgeMuracaatTalepTipi}`}
+                      size="small"
+                      sx={{
+                        background: '#0284c7',
+                        color: 'white',
+                        fontWeight: 500,
+                        fontSize: '0.7rem',
+                        height: 22
+                      }}
+                    />
+                  )}
                 </Box>
               </Box>
             </Box>

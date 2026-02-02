@@ -1,0 +1,959 @@
+;;;;
+;İL KOD;İLADI;İLCEKOD;İLCEADI
+;1;Adana;1757;Aladağ
+;1;Adana;1219;Ceyhan
+;1;Adana;2033;Çukurova
+;1;Adana;1329;Feke
+;1;Adana;1806;İmamoğlu
+;1;Adana;1437;Karaisalı
+;1;Adana;1443;Karataş
+;1;Adana;1486;Kozan
+;1;Adana;1580;Pozantı
+;1;Adana;1588;Saimbeyli
+;1;Adana;2032;Sarıçam
+;1;Adana;1104;Seyhan
+;1;Adana;1687;Tufanbeyli
+;1;Adana;1734;Yumurtalık
+;1;Adana;1748;Yüreğir
+;2;Adıyaman;1105;Adıyaman Merkez
+;2;Adıyaman;1182;Besni
+;2;Adıyaman;1246;Çelikhan
+;2;Adıyaman;1347;Gerger
+;2;Adıyaman;1354;Gölbaşı / Adıyaman
+;2;Adıyaman;1425;Kahta
+;2;Adıyaman;1592;Samsat
+;2;Adıyaman;1985;Sincik
+;2;Adıyaman;1989;Tut
+;3;Afyonkarahisar;1108;Afyonkarahisar Merkez
+;3;Afyonkarahisar;1771;Başmakçı
+;3;Afyonkarahisar;1773;Bayat / Afyonkarahisar
+;3;Afyonkarahisar;1200;Bolvadin
+;3;Afyonkarahisar;1239;Çay
+;3;Afyonkarahisar;1906;Çobanlar
+;3;Afyonkarahisar;1267;Dazkırı
+;3;Afyonkarahisar;1281;Dinar
+;3;Afyonkarahisar;1306;Emirdağ
+;3;Afyonkarahisar;1923;Evciler
+;3;Afyonkarahisar;1944;Hocalar
+;3;Afyonkarahisar;1404;İhsaniye
+;3;Afyonkarahisar;1809;İscehisar
+;3;Afyonkarahisar;1961;Kızılören
+;3;Afyonkarahisar;1594;Sandıklı
+;3;Afyonkarahisar;1626;Sinanpaşa
+;3;Afyonkarahisar;1639;Sultandağı
+;3;Afyonkarahisar;1664;Şuhut
+;4;Ağrı;1111;Ağrı Merkez
+;4;Ağrı;1283;Diyadin
+;4;Ağrı;1287;Doğubayazıt
+;4;Ağrı;1301;Eleşkirt
+;4;Ağrı;1379;Hamur
+;4;Ağrı;1568;Patnos
+;4;Ağrı;1667;Taşlıçay
+;4;Ağrı;1691;Tutak
+;5;Amasya;1134;Amasya Merkez
+;5;Amasya;1363;Göynücek
+;5;Amasya;1368;Gümüşhacıköy
+;5;Amasya;1938;Hamamözü
+;5;Amasya;1524;Merzifon
+;5;Amasya;1641;Suluova
+;5;Amasya;1668;Taşova
+;6;Ankara;1872;Akyurt
+;6;Ankara;1130;Altındağ
+;6;Ankara;1157;Ayaş
+;6;Ankara;1167;Bala
+;6;Ankara;1187;Beypazarı
+;6;Ankara;1227;Çamlıdere
+;6;Ankara;1231;Çankaya
+;6;Ankara;1260;Çubuk
+;6;Ankara;1302;Elmadağ
+;6;Ankara;1922;Etimesgut
+;6;Ankara;1924;Evren
+;6;Ankara;1744;Gölbaşı / Ankara
+;6;Ankara;1365;Güdül
+;6;Ankara;1387;Haymana
+;6;Ankara;1427;Kalecik
+;6;Ankara;1815;Kazan
+;6;Ankara;1745;Keçiören
+;6;Ankara;1473;Kızılcahamam
+;6;Ankara;1746;Mamak
+;6;Ankara;1539;Nallıhan
+;6;Ankara;1578;Polatlı
+;6;Ankara;2034;Pursaklar
+;6;Ankara;1747;Sincan
+;6;Ankara;1658;Şereflikoçhisar
+;6;Ankara;1723;Yenimahalle
+;7;Antalya;1121;Akseki
+;7;Antalya;2035;Aksu / Antalya
+;7;Antalya;1126;Alanya
+;7;Antalya;1811;Demre
+;7;Antalya;2036;Döşemealtı
+;7;Antalya;1303;Elmalı
+;7;Antalya;1333;Finike
+;7;Antalya;1337;Gazipaşa
+;7;Antalya;1370;Gündoğmuş
+;7;Antalya;1946;İbradı
+;7;Antalya;1451;Kaş
+;7;Antalya;1959;Kemer / Antalya
+;7;Antalya;2037;Kepez
+;7;Antalya;2038;Konyaaltı
+;7;Antalya;1483;Korkuteli
+;7;Antalya;1492;Kumluca
+;7;Antalya;1512;Manavgat
+;7;Antalya;2039;Muratpaşa
+;7;Antalya;1616;Serik
+;8;Artvin;1145;Ardanuç
+;8;Artvin;1147;Arhavi
+;8;Artvin;1152;Artvin Merkez
+;8;Artvin;1202;Borçka
+;8;Artvin;1395;Hopa
+;8;Artvin;1828;Murgul
+;8;Artvin;1653;Şavşat
+;8;Artvin;1736;Yusufeli
+;9;Aydın;1159;Aydın Merkez
+;9;Aydın;1206;Bozdoğan
+;9;Aydın;1781;Buharkent
+;9;Aydın;1256;Çine
+;9;Aydın;2000;Didim
+;9;Aydın;1348;Germencik
+;9;Aydın;1807;İncirliova
+;9;Aydın;1435;Karacasu
+;9;Aydın;1957;Karpuzlu
+;9;Aydın;1479;Koçarlı
+;9;Aydın;1968;Köşk
+;9;Aydın;1497;Kuşadası
+;9;Aydın;1498;Kuyucak
+;9;Aydın;1542;Nazilli
+;9;Aydın;1637;Söke
+;9;Aydın;1640;Sultanhisar
+;9;Aydın;1724;Yenipazar / Aydın
+;10;Balıkesir;1161;Ayvalık
+;10;Balıkesir;1168;Balıkesir Merkez
+;10;Balıkesir;1169;Balya
+;10;Balıkesir;1171;Bandırma
+;10;Balıkesir;1191;Bigadiç
+;10;Balıkesir;1216;Burhaniye
+;10;Balıkesir;1291;Dursunbey
+;10;Balıkesir;1294;Edremit / Balıkesir
+;10;Balıkesir;1310;Erdek
+;10;Balıkesir;1928;Gömeç
+;10;Balıkesir;1360;Gönen / Balıkesir
+;10;Balıkesir;1384;Havran
+;10;Balıkesir;1418;İvrindi
+;10;Balıkesir;1462;Kepsut
+;10;Balıkesir;1514;Manyas
+;10;Balıkesir;1824;Marmara
+;10;Balıkesir;1608;Savaştepe
+;10;Balıkesir;1619;Sındırgı
+;10;Balıkesir;1644;Susurluk
+;11;Bilecik;1192;Bilecik Merkez
+;11;Bilecik;1210;Bozüyük
+;11;Bilecik;1359;Gölpazarı
+;11;Bilecik;1948;İnhisar
+;11;Bilecik;1559;Osmaneli
+;11;Bilecik;1571;Pazaryeri
+;11;Bilecik;1636;Söğüt
+;11;Bilecik;1857;Yenipazar / Bilecik
+;12;Bingöl;1750;Adaklı
+;12;Bingöl;1193;Bingöl Merkez
+;12;Bingöl;1344;Genç
+;12;Bingöl;1446;Karlıova
+;12;Bingöl;1475;Kiğı
+;12;Bingöl;1633;Solhan
+;12;Bingöl;1855;Yayladere
+;12;Bingöl;1996;Yedisu
+;13;Bitlis;1106;Adilcevaz
+;13;Bitlis;1112;Ahlat
+;13;Bitlis;1196;Bitlis Merkez
+;13;Bitlis;1798;Güroymak
+;13;Bitlis;1394;Hizan
+;13;Bitlis;1537;Mutki
+;13;Bitlis;1669;Tatvan
+;14;Bolu;1199;Bolu Merkez
+;14;Bolu;1916;Dörtdivan
+;14;Bolu;1346;Gerede
+;14;Bolu;1364;Göynük
+;14;Bolu;1466;Kıbrıscık
+;14;Bolu;1522;Mengen
+;14;Bolu;1531;Mudurnu
+;14;Bolu;1610;Seben
+;14;Bolu;1997;Yeniçağa
+;15;Burdur;1109;Ağlasun
+;15;Burdur;1874;Altınyayla / Burdur
+;15;Burdur;1211;Bucak
+;15;Burdur;1215;Burdur Merkez
+;15;Burdur;1899;Çavdır
+;15;Burdur;1903;Çeltikçi
+;15;Burdur;1357;Gölhisar
+;15;Burdur;1813;Karamanlı
+;15;Burdur;1816;Kemer / Burdur
+;15;Burdur;1672;Tefenni
+;15;Burdur;1728;Yeşilova
+;16;Bursa;1783;Büyükorhan
+;16;Bursa;1343;Gemlik
+;16;Bursa;1935;Gürsu
+;16;Bursa;1799;Harmancık
+;16;Bursa;1411;İnegöl
+;16;Bursa;1420;İznik
+;16;Bursa;1434;Karacabey
+;16;Bursa;1457;Keles
+;16;Bursa;1960;Kestel
+;16;Bursa;1530;Mudanya
+;16;Bursa;1535;Mustafakemalpaşa
+;16;Bursa;1829;Nilüfer
+;16;Bursa;1553;Orhaneli
+;16;Bursa;1554;Orhangazi
+;16;Bursa;1832;Osmangazi
+;16;Bursa;1725;Yenişehir / Bursa
+;16;Bursa;1859;Yıldırım
+;17;Çanakkale;1160;Ayvacık / Çanakkale
+;17;Çanakkale;1180;Bayramiç
+;17;Çanakkale;1190;Biga
+;17;Çanakkale;1205;Bozcaada
+;17;Çanakkale;1229;Çan
+;17;Çanakkale;1230;Çanakkale Merkez
+;17;Çanakkale;1293;Eceabat
+;17;Çanakkale;1326;Ezine
+;17;Çanakkale;1340;Gelibolu
+;17;Çanakkale;1408;Gökçeada
+;17;Çanakkale;1503;Lapseki
+;17;Çanakkale;1722;Yenice / Çanakkale
+;18;Çankırı;1765;Atkaracalar
+;18;Çankırı;1885;Bayramören
+;18;Çankırı;1232;Çankırı Merkez
+;18;Çankırı;1248;Çerkeş
+;18;Çankırı;1300;Eldivan
+;18;Çankırı;1399;Ilgaz
+;18;Çankırı;1817;Kızılırmak
+;18;Çankırı;1963;Korgun
+;18;Çankırı;1494;Kurşunlu
+;18;Çankırı;1555;Orta
+;18;Çankırı;1649;Şabanözü
+;18;Çankırı;1718;Yapraklı
+;19;Çorum;1124;Alaca
+;19;Çorum;1177;Bayat / Çorum
+;19;Çorum;1778;Boğazkale
+;19;Çorum;1259;Çorum Merkez
+;19;Çorum;1911;Dodurga
+;19;Çorum;1414;İskilip
+;19;Çorum;1445;Kargı
+;19;Çorum;1972;Laçin
+;19;Çorum;1520;Mecitözü
+;19;Çorum;1976;Oğuzlar
+;19;Çorum;1556;Ortaköy / Çorum
+;19;Çorum;1558;Osmancık
+;19;Çorum;1642;Sungurlu
+;19;Çorum;1850;Uğurludağ
+;20;Denizli;1102;Acıpayam
+;20;Denizli;1871;Akköy
+;20;Denizli;1769;Babadağ
+;20;Denizli;1881;Baklan
+;20;Denizli;1774;Bekilli
+;20;Denizli;1888;Beyağaç
+;20;Denizli;1889;Bozkurt / Denizli
+;20;Denizli;1214;Buldan
+;20;Denizli;1224;Çal
+;20;Denizli;1226;Çameli
+;20;Denizli;1233;Çardak
+;20;Denizli;1257;Çivril
+;20;Denizli;1271;Denizli Merkez
+;20;Denizli;1371;Güney
+;20;Denizli;1803;Honaz
+;20;Denizli;1426;Kale / Denizli
+;20;Denizli;1597;Sarayköy
+;20;Denizli;1840;Serinhisar
+;20;Denizli;1670;Tavas
+;21;Diyarbakır;2040;Bağlar
+;21;Diyarbakır;1195;Bismil
+;21;Diyarbakır;1249;Çermik
+;21;Diyarbakır;1253;Çınar
+;21;Diyarbakır;1263;Çüngüş
+;21;Diyarbakır;1278;Dicle
+;21;Diyarbakır;1791;Eğil
+;21;Diyarbakır;1315;Ergani
+;21;Diyarbakır;1381;Hani
+;21;Diyarbakır;1389;Hazro
+;21;Diyarbakır;2041;Kayapınar
+;21;Diyarbakır;1962;Kocaköy
+;21;Diyarbakır;1490;Kulp
+;21;Diyarbakır;1504;Lice
+;21;Diyarbakır;1624;Silvan
+;21;Diyarbakır;2042;Sur
+;21;Diyarbakır;2043;Yenişehir / Diyarbakır
+;22;Edirne;1295;Edirne Merkez
+;22;Edirne;1307;Enez
+;22;Edirne;1385;Havsa
+;22;Edirne;1412;İpsala
+;22;Edirne;1464;Keşan
+;22;Edirne;1502;Lalapaşa
+;22;Edirne;1523;Meriç
+;22;Edirne;1988;Süloğlu
+;22;Edirne;1705;Uzunköprü
+;23;Elazığ;1110;Ağın
+;23;Elazığ;1873;Alacakaya
+;23;Elazığ;1762;Arıcak
+;23;Elazığ;1173;Baskil
+;23;Elazığ;1298;Elazığ Merkez
+;23;Elazığ;1438;Karakoçan
+;23;Elazığ;1455;Keban
+;23;Elazığ;1820;Kovancılar
+;23;Elazığ;1506;Maden
+;23;Elazığ;1566;Palu
+;23;Elazığ;1631;Sivrice
+;24;Erzincan;1243;Çayırlı
+;24;Erzincan;1318;Erzincan Merkez
+;24;Erzincan;1406;İliç
+;24;Erzincan;1459;Kemah
+;24;Erzincan;1460;Kemaliye
+;24;Erzincan;1977;Otlukbeli
+;24;Erzincan;1583;Refahiye
+;24;Erzincan;1675;Tercan
+;24;Erzincan;1853;Üzümlü
+;25;Erzurum;1153;Aşkale
+;25;Erzurum;1945;Aziziye
+;25;Erzurum;1235;Çat
+;25;Erzurum;1392;Hınıs
+;25;Erzurum;1396;Horasan
+;25;Erzurum;1416;İspir
+;25;Erzurum;1812;Karaçoban
+;25;Erzurum;1444;Karayazı
+;25;Erzurum;1967;Köprüköy
+;25;Erzurum;1540;Narman
+;25;Erzurum;1550;Oltu
+;25;Erzurum;1551;Olur
+;25;Erzurum;2044;Palandöken
+;25;Erzurum;1567;Pasinler
+;25;Erzurum;1865;Pazaryolu
+;25;Erzurum;1657;Şenkaya
+;25;Erzurum;1674;Tekman
+;25;Erzurum;1683;Tortum
+;25;Erzurum;1851;Uzundere
+;25;Erzurum;2045;Yakutiye
+;26;Eskişehir;1759;Alpu
+;26;Eskişehir;1777;Beylikova
+;26;Eskişehir;1255;Çifteler
+;26;Eskişehir;1934;Günyüzü
+;26;Eskişehir;1939;Han
+;26;Eskişehir;1808;İnönü
+;26;Eskişehir;1508;Mahmudiye
+;26;Eskişehir;1973;Mihalgazi
+;26;Eskişehir;1527;Mihalıççık
+;26;Eskişehir;2046;Odunpazarı
+;26;Eskişehir;1599;Sarıcakaya
+;26;Eskişehir;1618;Seyitgazi
+;26;Eskişehir;1632;Sivrihisar
+;26;Eskişehir;2047;Tepebaşı
+;27;Gaziantep;1139;Araban
+;27;Gaziantep;1415;İslahiye
+;27;Gaziantep;1956;Karkamış
+;27;Gaziantep;1546;Nizip
+;27;Gaziantep;1974;Nurdağı
+;27;Gaziantep;1549;Oğuzeli
+;27;Gaziantep;1841;Şahinbey
+;27;Gaziantep;1844;Şehitkamil
+;27;Gaziantep;1720;Yavuzeli
+;28;Giresun;1133;Alucra
+;28;Giresun;1212;Bulancak
+;28;Giresun;1893;Çamoluk
+;28;Giresun;1894;Çanakçı
+;28;Giresun;1272;Dereli
+;28;Giresun;1912;Doğankent
+;28;Giresun;1320;Espiye
+;28;Giresun;1324;Eynesil
+;28;Giresun;1352;Giresun Merkez
+;28;Giresun;1361;Görele
+;28;Giresun;1930;Güce
+;28;Giresun;1465;Keşap
+;28;Giresun;1837;Piraziz
+;28;Giresun;1654;Şebinkarahisar
+;28;Giresun;1678;Tirebolu
+;28;Giresun;1854;Yağlıdere
+;29;Gümüşhane;1369;Gümüşhane Merkez
+;29;Gümüşhane;1458;Kelkit
+;29;Gümüşhane;1822;Köse
+;29;Gümüşhane;1971;Kürtün
+;29;Gümüşhane;1660;Şiran
+;29;Gümüşhane;1684;Torul
+;30;Hakkari;1261;Çukurca
+;30;Hakkari;1377;Hakkari Merkez
+;30;Hakkari;1656;Şemdinli
+;30;Hakkari;1737;Yüksekova
+;31;Hatay;1131;Altınözü
+;31;Hatay;1887;Belen
+;31;Hatay;1289;Dörtyol
+;31;Hatay;1792;Erzin
+;31;Hatay;1382;Hassa
+;31;Hatay;1383;Hatay Merkez
+;31;Hatay;1413;İskenderun
+;31;Hatay;1468;Kırıkhan
+;31;Hatay;1970;Kumlu
+;31;Hatay;1585;Reyhanlı
+;31;Hatay;1591;Samandağ
+;31;Hatay;1721;Yayladağı
+;32;Isparta;1755;Aksu / Isparta
+;32;Isparta;1154;Atabey
+;32;Isparta;1297;Eğirdir
+;32;Isparta;1341;Gelendost
+;32;Isparta;1929;Gönen / Isparta
+;32;Isparta;1401;Isparta Merkez
+;32;Isparta;1456;Keçiborlu
+;32;Isparta;1615;Senirkent
+;32;Isparta;1648;Sütçüler
+;32;Isparta;1651;Şarkikaraağaç
+;32;Isparta;1699;Uluborlu
+;32;Isparta;1717;Yalvaç
+;32;Isparta;2001;Yenişarbademli
+;33;Mersin;2064;Akdeniz
+;33;Mersin;1135;Anamur
+;33;Mersin;1766;Aydıncık / Mersin
+;33;Mersin;1779;Bozyazı
+;33;Mersin;1892;Çamlıyayla
+;33;Mersin;1311;Erdemli
+;33;Mersin;1366;Gülnar
+;33;Mersin;2065;Mezitli
+;33;Mersin;1536;Mut
+;33;Mersin;1621;Silifke
+;33;Mersin;1665;Tarsus
+;33;Mersin;2066;Toroslar
+;33;Mersin;2067;Yenişehir / Mersin
+;34;İstanbul;1103;Adalar
+;34;İstanbul;2048;Arnavutköy
+;34;İstanbul;2049;Ataşehir
+;34;İstanbul;2003;Avcılar
+;34;İstanbul;2004;Bağcılar
+;34;İstanbul;2005;Bahçelievler
+;34;İstanbul;1166;Bakırköy
+;34;İstanbul;2050;Başakşehir
+;34;İstanbul;1886;Bayrampaşa
+;34;İstanbul;1183;Beşiktaş
+;34;İstanbul;1185;Beykoz
+;34;İstanbul;2051;Beylikdüzü
+;34;İstanbul;1186;Beyoğlu
+;34;İstanbul;1782;Büyükçekmece
+;34;İstanbul;1237;Çatalca
+;34;İstanbul;2052;Çekmeköy
+;34;İstanbul;2016;Esenler
+;34;İstanbul;2053;Esenyurt
+;34;İstanbul;1325;Eyüp
+;34;İstanbul;1327;Fatih
+;34;İstanbul;1336;Gaziosmanpaşa
+;34;İstanbul;2010;Güngören
+;34;İstanbul;1421;Kadıköy
+;34;İstanbul;1810;Kağıthane
+;34;İstanbul;1449;Kartal
+;34;İstanbul;1823;Küçükçekmece
+;34;İstanbul;2012;Maltepe
+;34;İstanbul;1835;Pendik
+;34;İstanbul;2054;Sancaktepe
+;34;İstanbul;1604;Sarıyer
+;34;İstanbul;1622;Silivri
+;34;İstanbul;2014;Sultanbeyli
+;34;İstanbul;2055;Sultangazi
+;34;İstanbul;1659;Şile
+;34;İstanbul;1663;Şişli
+;34;İstanbul;2015;Tuzla
+;34;İstanbul;1852;Ümraniye
+;34;İstanbul;1708;Üsküdar
+;34;İstanbul;1739;Zeytinburnu
+;35;İzmir;1128;Aliağa
+;35;İzmir;2006;Balçova
+;35;İzmir;1178;Bayındır
+;35;İzmir;2056;Bayraklı
+;35;İzmir;1181;Bergama
+;35;İzmir;1776;Beydağ
+;35;İzmir;1203;Bornova
+;35;İzmir;1780;Buca
+;35;İzmir;1251;Çeşme
+;35;İzmir;2007;Çiğli
+;35;İzmir;1280;Dikili
+;35;İzmir;1334;Foça
+;35;İzmir;2009;Gaziemir
+;35;İzmir;2018;Güzelbahçe
+;35;İzmir;2057;Karabağlar
+;35;İzmir;1432;Karaburun
+;35;İzmir;1448;Karşıyaka
+;35;İzmir;1461;Kemalpaşa
+;35;İzmir;1467;Kınık
+;35;İzmir;1477;Kiraz
+;35;İzmir;1819;Konak
+;35;İzmir;1826;Menderes
+;35;İzmir;1521;Menemen
+;35;İzmir;2013;Narlıdere
+;35;İzmir;1563;Ödemiş
+;35;İzmir;1611;Seferihisar
+;35;İzmir;1612;Selçuk
+;35;İzmir;1677;Tire
+;35;İzmir;1682;Torbalı
+;35;İzmir;1703;Urla
+;36;Kars;1756;Akyaka
+;36;Kars;1149;Arpaçay
+;36;Kars;1279;Digor
+;36;Kars;1424;Kağızman
+;36;Kars;1447;Kars Merkez
+;36;Kars;1601;Sarıkamış
+;36;Kars;1614;Selim
+;36;Kars;1645;Susuz
+;37;Kastamonu;1101;Abana
+;37;Kastamonu;1867;Ağlı
+;37;Kastamonu;1140;Araç
+;37;Kastamonu;1162;Azdavay
+;37;Kastamonu;1208;Bozkurt / Kastamonu
+;37;Kastamonu;1221;Cide
+;37;Kastamonu;1238;Çatalzeytin
+;37;Kastamonu;1264;Daday
+;37;Kastamonu;1277;Devrekani
+;37;Kastamonu;1915;Doğanyurt
+;37;Kastamonu;1940;Hanönü
+;37;Kastamonu;1805;İhsangazi
+;37;Kastamonu;1410;İnebolu
+;37;Kastamonu;1450;Kastamonu Merkez
+;37;Kastamonu;1499;Küre
+;37;Kastamonu;1836;Pınarbaşı / Kastamonu
+;37;Kastamonu;1984;Seydiler
+;37;Kastamonu;1845;Şenpazar
+;37;Kastamonu;1666;Taşköprü
+;37;Kastamonu;1685;Tosya
+;38;Kayseri;1752;Akkışla
+;38;Kayseri;1218;Bünyan
+;38;Kayseri;1275;Develi
+;38;Kayseri;1330;Felahiye
+;38;Kayseri;1936;Hacılar
+;38;Kayseri;1409;İncesu
+;38;Kayseri;1863;Kocasinan
+;38;Kayseri;1864;Melikgazi
+;38;Kayseri;1978;Özvatan
+;38;Kayseri;1576;Pınarbaşı / Kayseri
+;38;Kayseri;1603;Sarıoğlan
+;38;Kayseri;1605;Sarız
+;38;Kayseri;1846;Talas
+;38;Kayseri;1680;Tomarza
+;38;Kayseri;1715;Yahyalı
+;38;Kayseri;1727;Yeşilhisar
+;39;Kırklareli;1163;Babaeski
+;39;Kırklareli;1270;Demirköy
+;39;Kırklareli;1471;Kırklareli Merkez
+;39;Kırklareli;1480;Kofçaz
+;39;Kırklareli;1505;Lüleburgaz
+;39;Kırklareli;1572;Pehlivanköy
+;39;Kırklareli;1577;Pınarhisar
+;39;Kırklareli;1714;Vize
+;40;Kırşehir;1869;Akçakent
+;40;Kırşehir;1754;Akpınar
+;40;Kırşehir;1890;Boztepe
+;40;Kırşehir;1254;Çiçekdağı
+;40;Kırşehir;1429;Kaman
+;40;Kırşehir;1472;Kırşehir Merkez
+;40;Kırşehir;1529;Mucur
+;41;Kocaeli;2058;Başiskele
+;41;Kocaeli;2059;Çayırova
+;41;Kocaeli;2060;Darıca
+;41;Kocaeli;2030;Derince
+;41;Kocaeli;2061;Dilovası
+;41;Kocaeli;1338;Gebze
+;41;Kocaeli;1355;Gölcük
+;41;Kocaeli;2062;İzmit
+;41;Kocaeli;1430;Kandıra
+;41;Kocaeli;1440;Karamürsel
+;41;Kocaeli;2063;Kartepe
+;41;Kocaeli;1821;Körfez
+;42;Konya;1868;Ahırlı
+;42;Konya;1753;Akören
+;42;Konya;1122;Akşehir
+;42;Konya;1760;Altınekin
+;42;Konya;1188;Beyşehir
+;42;Konya;1207;Bozkır
+;42;Konya;1222;Cihanbeyli
+;42;Konya;1902;Çeltik
+;42;Konya;1262;Çumra
+;42;Konya;1907;Derbent
+;42;Konya;1789;Derebucak
+;42;Konya;1285;Doğanhisar
+;42;Konya;1920;Emirgazi
+;42;Konya;1312;Ereğli / Konya
+;42;Konya;1933;Güneysınır
+;42;Konya;1375;Hadim
+;42;Konya;1937;Halkapınar
+;42;Konya;1804;Hüyük
+;42;Konya;1400;Ilgın
+;42;Konya;1422;Kadınhanı
+;42;Konya;1441;Karapınar
+;42;Konya;1814;Karatay
+;42;Konya;1491;Kulu
+;42;Konya;1827;Meram
+;42;Konya;1598;Sarayönü
+;42;Konya;1839;Selçuklu
+;42;Konya;1617;Seydişehir
+;42;Konya;1848;Taşkent
+;42;Konya;1990;Tuzlukçu
+;42;Konya;1994;Yalıhüyük
+;42;Konya;1735;Yunak
+;43;Kütahya;1132;Altıntaş
+;43;Kütahya;1764;Aslanapa
+;43;Kütahya;1898;Çavdarhisar
+;43;Kütahya;1288;Domaniç
+;43;Kütahya;1790;Dumlupınar
+;43;Kütahya;1304;Emet
+;43;Kütahya;1339;Gediz
+;43;Kütahya;1802;Hisarcık
+;43;Kütahya;1500;Kütahya Merkez
+;43;Kütahya;1979;Pazarlar
+;43;Kütahya;1625;Simav
+;43;Kütahya;1843;Şaphane
+;43;Kütahya;1671;Tavşanlı
+;44;Malatya;1114;Akçadağ
+;44;Malatya;1143;Arapgir
+;44;Malatya;1148;Arguvan
+;44;Malatya;1772;Battalgazi
+;44;Malatya;1265;Darende
+;44;Malatya;1286;Doğanşehir
+;44;Malatya;1914;Doğanyol
+;44;Malatya;1390;Hekimhan
+;44;Malatya;1953;Kale / Malatya
+;44;Malatya;1969;Kuluncak
+;44;Malatya;1509;Malatya Merkez
+;44;Malatya;1582;Pütürge
+;44;Malatya;1995;Yazıhan
+;44;Malatya;1729;Yeşilyurt / Malatya
+;45;Manisa;1751;Ahmetli
+;45;Manisa;1118;Akhisar
+;45;Manisa;1127;Alaşehir
+;45;Manisa;1269;Demirci
+;45;Manisa;1793;Gölmarmara
+;45;Manisa;1362;Gördes
+;45;Manisa;1470;Kırkağaç
+;45;Manisa;1965;Köprübaşı / Manisa
+;45;Manisa;1489;Kula
+;45;Manisa;1513;Manisa Merkez
+;45;Manisa;1590;Salihli
+;45;Manisa;1600;Sarıgöl
+;45;Manisa;1606;Saruhanlı
+;45;Manisa;1613;Selendi
+;45;Manisa;1634;Soma
+;45;Manisa;1689;Turgutlu
+;46;Kahramanmaraş;1107;Afşin
+;46;Kahramanmaraş;1136;Andırın
+;46;Kahramanmaraş;1785;Çağlıyancerit
+;46;Kahramanmaraş;1919;Ekinözü
+;46;Kahramanmaraş;1299;Elbistan
+;46;Kahramanmaraş;1353;Göksun
+;46;Kahramanmaraş;1515;Kahramanmaraş Merkez
+;46;Kahramanmaraş;1975;Nurhak
+;46;Kahramanmaraş;1570;Pazarcık
+;46;Kahramanmaraş;1694;Türkoğlu
+;47;Mardin;1787;Dargeçit
+;47;Mardin;1273;Derik
+;47;Mardin;1474;Kızıltepe
+;47;Mardin;1516;Mardin Merkez
+;47;Mardin;1519;Mazıdağı
+;47;Mardin;1526;Midyat
+;47;Mardin;1547;Nusaybin
+;47;Mardin;1564;Ömerli
+;47;Mardin;1609;Savur
+;47;Mardin;2002;Yeşilli
+;48;Muğla;1197;Bodrum
+;48;Muğla;1742;Dalaman
+;48;Muğla;1266;Datça
+;48;Muğla;1331;Fethiye
+;48;Muğla;1958;Kavaklıdere
+;48;Muğla;1488;Köyceğiz
+;48;Muğla;1517;Marmaris
+;48;Muğla;1528;Milas
+;48;Muğla;1532;Muğla Merkez
+;48;Muğla;1831;Ortaca
+;48;Muğla;1695;Ula
+;48;Muğla;1719;Yatağan
+;49;Muş;1213;Bulanık
+;49;Muş;1801;Hasköy
+;49;Muş;1964;Korkut
+;49;Muş;1510;Malazgirt
+;49;Muş;1534;Muş Merkez
+;49;Muş;1711;Varto
+;50;Nevşehir;1749;Acıgöl
+;50;Nevşehir;1155;Avanos
+;50;Nevşehir;1274;Derinkuyu
+;50;Nevşehir;1367;Gülşehir
+;50;Nevşehir;1374;Hacıbektaş
+;50;Nevşehir;1485;Kozaklı
+;50;Nevşehir;1543;Nevşehir Merkez
+;50;Nevşehir;1707;Ürgüp
+;51;Niğde;1876;Altunhisar
+;51;Niğde;1201;Bor
+;51;Niğde;1225;Çamardı
+;51;Niğde;1904;Çiftlik
+;51;Niğde;1544;Niğde Merkez
+;51;Niğde;1700;Ulukışla
+;52;Ordu;1119;Akkuş
+;52;Ordu;1158;Aybastı
+;52;Ordu;1891;Çamaş
+;52;Ordu;1897;Çatalpınar
+;52;Ordu;1900;Çaybaşı
+;52;Ordu;1328;Fatsa
+;52;Ordu;1358;Gölköy
+;52;Ordu;1795;Gülyalı
+;52;Ordu;1797;Gürgentepe
+;52;Ordu;1947;İkizce
+;52;Ordu;1950;Kabadüz
+;52;Ordu;1951;Kabataş
+;52;Ordu;1482;Korgan
+;52;Ordu;1493;Kumru
+;52;Ordu;1525;Mesudiye
+;52;Ordu;1552;Ordu Merkez
+;52;Ordu;1573;Perşembe
+;52;Ordu;1696;Ulubey / Ordu
+;52;Ordu;1706;Ünye
+;53;Rize;1146;Ardeşen
+;53;Rize;1228;Çamlıhemşin
+;53;Rize;1241;Çayeli
+;53;Rize;1908;Derepazarı
+;53;Rize;1332;Fındıklı
+;53;Rize;1796;Güneysu
+;53;Rize;1943;Hemşin
+;53;Rize;1405;İkizdere
+;53;Rize;1949;İyidere
+;53;Rize;1428;Kalkandere
+;53;Rize;1569;Pazar / Rize
+;53;Rize;1586;Rize Merkez
+;54;Sakarya;2068;Adapazarı
+;54;Sakarya;1123;Akyazı
+;54;Sakarya;2069;Arifiye
+;54;Sakarya;2070;Erenler
+;54;Sakarya;1925;Ferizli
+;54;Sakarya;1351;Geyve
+;54;Sakarya;1391;Hendek
+;54;Sakarya;1955;Karapürçek
+;54;Sakarya;1442;Karasu
+;54;Sakarya;1453;Kaynarca
+;54;Sakarya;1818;Kocaali
+;54;Sakarya;1833;Pamukova
+;54;Sakarya;1595;Sapanca
+;54;Sakarya;2071;Serdivan
+;54;Sakarya;1986;Söğütlü
+;54;Sakarya;1847;Taraklı
+;55;Samsun;1125;Alaçam
+;55;Samsun;1763;Asarcık
+;55;Samsun;2072;Atakum
+;55;Samsun;1879;Ayvacık / Samsun
+;55;Samsun;1164;Bafra
+;55;Samsun;2073;Canik
+;55;Samsun;1234;Çarşamba
+;55;Samsun;1386;Havza
+;55;Samsun;2074;İlkadım
+;55;Samsun;1452;Kavak
+;55;Samsun;1501;Ladik
+;55;Samsun;1830;Ondokuzmayıs
+;55;Samsun;1838;Salıpazarı
+;55;Samsun;1849;Tekkeköy
+;55;Samsun;1676;Terme
+;55;Samsun;1712;Vezirköprü
+;55;Samsun;1993;Yakakent
+;56;Siirt;1878;Aydınlar
+;56;Siirt;1179;Baykan
+;56;Siirt;1317;Eruh
+;56;Siirt;1495;Kurtalan
+;56;Siirt;1575;Pervari
+;56;Siirt;1620;Siirt Merkez
+;56;Siirt;1662;Şirvan
+;57;Sinop;1156;Ayancık
+;57;Sinop;1204;Boyabat
+;57;Sinop;1910;Dikmen
+;57;Sinop;1290;Durağan
+;57;Sinop;1314;Erfelek
+;57;Sinop;1349;Gerze
+;57;Sinop;1981;Saraydüzü
+;57;Sinop;1627;Sinop Merkez
+;57;Sinop;1693;Türkeli
+;58;Sivas;1870;Akıncılar
+;58;Sivas;1875;Altınyayla / Sivas
+;58;Sivas;1282;Divriği
+;58;Sivas;1913;Doğanşar
+;58;Sivas;1342;Gemerek
+;58;Sivas;1927;Gölova
+;58;Sivas;1373;Gürün
+;58;Sivas;1376;Hafik
+;58;Sivas;1407;İmranlı
+;58;Sivas;1431;Kangal
+;58;Sivas;1484;Koyulhisar
+;58;Sivas;1628;Sivas Merkez
+;58;Sivas;1646;Suşehri
+;58;Sivas;1650;Şarkışla
+;58;Sivas;1991;Ulaş
+;58;Sivas;1731;Yıldızeli
+;58;Sivas;1738;Zara
+;59;Tekirdağ;1250;Çerkezköy
+;59;Tekirdağ;1258;Çorlu
+;59;Tekirdağ;1388;Hayrabolu
+;59;Tekirdağ;1511;Malkara
+;59;Tekirdağ;1825;Marmaraereğlisi
+;59;Tekirdağ;1538;Muratlı
+;59;Tekirdağ;1596;Saray / Tekirdağ
+;59;Tekirdağ;1652;Şarköy
+;59;Tekirdağ;1673;Tekirdağ Merkez
+;60;Tokat;1129;Almus
+;60;Tokat;1151;Artova
+;60;Tokat;1883;Başçiftlik
+;60;Tokat;1308;Erbaa
+;60;Tokat;1545;Niksar
+;60;Tokat;1834;Pazar / Tokat
+;60;Tokat;1584;Reşadiye
+;60;Tokat;1987;Sulusaray
+;60;Tokat;1679;Tokat Merkez
+;60;Tokat;1690;Turhal
+;60;Tokat;1858;Yeşilyurt / Tokat
+;60;Tokat;1740;Zile
+;61;Trabzon;1113;Akçaabat
+;61;Trabzon;1141;Araklı
+;61;Trabzon;1150;Arsin
+;61;Trabzon;1775;Beşikdüzü
+;61;Trabzon;1896;Çarşıbaşı
+;61;Trabzon;1244;Çaykara
+;61;Trabzon;1909;Dernekpazarı
+;61;Trabzon;1917;Düzköy
+;61;Trabzon;1942;Hayrat
+;61;Trabzon;1966;Köprübaşı / Trabzon
+;61;Trabzon;1507;Maçka
+;61;Trabzon;1548;Of
+;61;Trabzon;1647;Sürmene
+;61;Trabzon;1842;Şalpazarı
+;61;Trabzon;1681;Tonya
+;61;Trabzon;1686;Trabzon Merkez
+;61;Trabzon;1709;Vakfıkebir
+;61;Trabzon;1732;Yomra
+;62;Tunceli;1247;Çemişgezek
+;62;Tunceli;1397;Hozat
+;62;Tunceli;1518;Mazgirt
+;62;Tunceli;1541;Nazımiye
+;62;Tunceli;1562;Ovacık / Tunceli
+;62;Tunceli;1574;Pertek
+;62;Tunceli;1581;Pülümür
+;62;Tunceli;1688;Tunceli Merkez
+;63;Şanlıurfa;1115;Akçakale
+;63;Şanlıurfa;1194;Birecik
+;63;Şanlıurfa;1209;Bozova
+;63;Şanlıurfa;1220;Ceylanpınar
+;63;Şanlıurfa;1378;Halfeti
+;63;Şanlıurfa;1800;Harran
+;63;Şanlıurfa;1393;Hilvan
+;63;Şanlıurfa;1630;Siverek
+;63;Şanlıurfa;1643;Suruç
+;63;Şanlıurfa;1702;Şanlıurfa Merkez
+;63;Şanlıurfa;1713;Viranşehir
+;64;Uşak;1170;Banaz
+;64;Uşak;1323;Eşme
+;64;Uşak;1436;Karahallı
+;64;Uşak;1629;Sivaslı
+;64;Uşak;1697;Ulubey / Uşak
+;64;Uşak;1704;Uşak Merkez
+;65;Van;1770;Bahçesaray
+;65;Van;1175;Başkale
+;65;Van;1786;Çaldıran
+;65;Van;1236;Çatak
+;65;Van;1918;Edremit / Van
+;65;Van;1309;Erciş
+;65;Van;1350;Gevaş
+;65;Van;1372;Gürpınar
+;65;Van;1533;Muradiye
+;65;Van;1565;Özalp
+;65;Van;1980;Saray / Van
+;65;Van;1710;Van Merkez
+;66;Yozgat;1117;Akdağmadeni
+;66;Yozgat;1877;Aydıncık / Yozgat
+;66;Yozgat;1198;Boğazlıyan
+;66;Yozgat;1895;Çandır
+;66;Yozgat;1242;Çayıralan
+;66;Yozgat;1245;Çekerek
+;66;Yozgat;1952;Kadışehri
+;66;Yozgat;1982;Saraykent
+;66;Yozgat;1602;Sarıkaya
+;66;Yozgat;1635;Sorgun
+;66;Yozgat;1655;Şefaatli
+;66;Yozgat;1998;Yenifakılı
+;66;Yozgat;1726;Yerköy
+;66;Yozgat;1733;Yozgat Merkez
+;67;Zonguldak;1758;Alaplı
+;67;Zonguldak;1240;Çaycuma
+;67;Zonguldak;1276;Devrek
+;67;Zonguldak;1313;Ereğli / Zonguldak
+;67;Zonguldak;1926;Gökçebey
+;67;Zonguldak;1741;Zonguldak Merkez
+;68;Aksaray;1860;Ağaçören
+;68;Aksaray;1120;Aksaray Merkez
+;68;Aksaray;1921;Eskil
+;68;Aksaray;1932;Gülağaç
+;68;Aksaray;1861;Güzelyurt
+;68;Aksaray;1557;Ortaköy
+;68;Aksaray;1866;Sarıyahşi
+;69;Bayburt;1767;Aydıntepe
+;69;Bayburt;1176;Bayburt Merkez
+;69;Bayburt;1788;Demirözü
+;70;Karaman;1768;Ayrancı
+;70;Karaman;1884;Başyayla
+;70;Karaman;1316;Ermenek
+;70;Karaman;1439;Karaman Merkez
+;70;Karaman;1862;Kazımkarabekir
+;70;Karaman;1983;Sarıveliler
+;71;Kırıkkale;1880;Bahşili
+;71;Kırıkkale;1882;Balışeyh
+;71;Kırıkkale;1901;Çelebi
+;71;Kırıkkale;1268;Delice
+;71;Kırıkkale;1954;Karakeçili
+;71;Kırıkkale;1463;Keskin
+;71;Kırıkkale;1469;Kırıkkale Merkez
+;71;Kırıkkale;1638;Sulakyurt
+;71;Kırıkkale;1992;Yahşihan
+;72;Batman;1174;Batman Merkez
+;72;Batman;1184;Beşiri
+;72;Batman;1345;Gercüş
+;72;Batman;1941;Hasankeyf
+;72;Batman;1487;Kozluk
+;72;Batman;1607;Sason
+;73;Şırnak;1189;Beytüşşebap
+;73;Şırnak;1223;Cizre
+;73;Şırnak;1931;Güçlükonak
+;73;Şırnak;1403;İdil
+;73;Şırnak;1623;Silopi
+;73;Şırnak;1661;Şırnak Merkez
+;73;Şırnak;1698;Uludere
+;74;Bartın;1761;Amasra
+;74;Bartın;1172;Bartın Merkez
+;74;Bartın;1496;Kurucaşile
+;74;Bartın;1701;Ulus
+;75;Ardahan;1144;Ardahan Merkez
+;75;Ardahan;1252;Çıldır
+;75;Ardahan;2008;Damal
+;75;Ardahan;1356;Göle
+;75;Ardahan;1380;Hanak
+;75;Ardahan;1579;Posof
+;76;Iğdır;1142;Aralık
+;76;Iğdır;1398;Iğdır Merkez
+;76;Iğdır;2011;Karakoyunlu
+;76;Iğdır;1692;Tuzluca
+;77;Yalova;2019;Altınova
+;77;Yalova;2020;Armutlu
+;77;Yalova;2021;Çınarcık
+;77;Yalova;2022;Çiftlikköy
+;77;Yalova;2026;Termal
+;77;Yalova;1716;Yalova Merkez
+;78;Karabük;1296;Eflani
+;78;Karabük;1321;Eskipazar
+;78;Karabük;1433;Karabük Merkez
+;78;Karabük;1561;Ovacık / Karabük
+;78;Karabük;1587;Safranbolu
+;78;Karabük;1856;Yenice / Karabük
+;79;Kilis;2023;Elbeyli
+;79;Kilis;1476;Kilis Merkez
+;79;Kilis;2024;Musabeyli
+;79;Kilis;2025;Polateli
+;80;Osmaniye;1165;Bahçe
+;80;Osmaniye;1743;Düziçi
+;80;Osmaniye;2027;Hasanbeyli
+;80;Osmaniye;1423;Kadirli
+;80;Osmaniye;1560;Osmaniye Merkez
+;80;Osmaniye;2028;Sumbas
+;80;Osmaniye;2029;Toprakkale
+;81;Düzce;1116;Akçakoca
+;81;Düzce;1784;Cumayeri
+;81;Düzce;1905;Çilimli
+;81;Düzce;1292;Düzce Merkez
+;81;Düzce;1794;Gölyaka
+;81;Düzce;2017;Gümüşova
+;81;Düzce;2031;Kaynaşlı
+;81;Düzce;1730;Yığılca

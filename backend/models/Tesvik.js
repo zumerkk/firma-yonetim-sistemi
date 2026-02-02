@@ -313,6 +313,11 @@ const belgeYonetimiSchema = new mongoose.Schema({
     default: 'hazirlaniyor'
     // index: true - KALDIRILDI: schema.index'te zaten var
   },
+  belgeMuracaatTalepTipi: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   belgeMuracaatTarihi: { type: Date },
   belgeBaslamaTarihi: { type: Date },
   belgeBitisTarihi: { type: Date }, // 🔧 FIX: belgebitisTarihi → belgeBitisTarihi (camelCase)
