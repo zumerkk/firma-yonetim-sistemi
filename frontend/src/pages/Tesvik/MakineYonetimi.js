@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
@@ -9,7 +9,7 @@ import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 
@@ -89,6 +89,8 @@ const MakineYonetimi = () => {
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
   const [errorsOpen, setErrorsOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  // 🚀 Hızlı Mod: standard | quick
+  const [viewMode, setViewMode] = useState('standard');
   // 🆕 Revizyon state'leri
   const [isReviseMode, setIsReviseMode] = useState(false);
   const [isReviseStarted, setIsReviseStarted] = useState(false);
@@ -1188,6 +1190,417 @@ const MakineYonetimi = () => {
     '& .MuiSelect-select': { py: '2px', px: '4px', minHeight: 'auto' },
     '& .MuiOutlinedInput-notchedOutline': { borderColor: '#e8eaed' }
   };
+
+  // 🚀 HIZLI MOD: Tam Ekran Excel Benzeri Grid
+  const QuickExcelGrid = memo(() => {
+    const [quickTab, setQuickTab] = useState(tab);
+    const rows = quickTab === 'yerli' ? yerliRows : ithalRows;
+    const setRows = quickTab === 'yerli' ? setYerliRows : setIthalRows;
+    const emptyRowFn = quickTab === 'yerli' ? emptyYerli : emptyIthal;
+    const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
+    const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
+    
+    // Sütun tanımları - Yerli (TÜM SÜTUNLAR)
+    const yerliCols = [
+      { key: 'siraNo', label: '#', w: 28, type: 'number' },
+      { key: 'makineId', label: 'M.ID', w: 45 },
+      { key: 'gtipKodu', label: 'GTIP', w: 70 },
+      { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
+      { key: 'adi', label: 'Adı', w: 130, flex: true },
+      { key: 'kdvIstisnasi', label: 'KDV', w: 30, options: ['', 'E', 'H'] },
+      { key: 'miktar', label: 'Adet', w: 35, type: 'number' },
+      { key: 'birim', label: 'Birim', w: 35 },
+      { key: 'birimFiyatiTl', label: 'B.Fiy', w: 55, type: 'number' },
+      { key: 'makineTechizatTipi', label: 'Tip', w: 30, options: ['', 'A', 'Y'] },
+      { key: 'finansalKiralamaMi', label: 'FK', w: 26, options: ['', 'E', 'H'] },
+      { key: 'finansalKiralamaAdet', label: 'FK#', w: 30, type: 'number' },
+      { key: 'finansalKiralamaSirket', label: 'FKŞrk', w: 50 },
+      { key: 'gerceklesenAdet', label: 'G.Ad', w: 32, type: 'number' },
+      { key: 'gerceklesenTutar', label: 'G.Tut', w: 45, type: 'number' },
+      { key: 'iadeDevirSatisVarMi', label: 'DVR', w: 26, options: ['', 'E', 'H'] },
+      { key: 'iadeDevirSatisAdet', label: 'DV#', w: 28, type: 'number' },
+      { key: 'iadeDevirSatisTutar', label: 'DV₺', w: 45, type: 'number' },
+      { key: 'toplamTl', label: 'Toplam', w: 65, type: 'number', computed: true },
+      { key: 'dosyaSayisi', label: '📎', w: 26, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
+      { key: 'talepDurum', label: 'Talep', w: 35, type: 'display', render: (row) => row.talep?.istenenAdet || '' },
+      { key: 'kararDurum', label: 'Karar', w: 28, type: 'display', render: (row) => row.karar?.kararDurumu === 'onay' ? '1' : row.karar?.kararDurumu === 'kismi_onay' ? '2' : row.karar?.kararDurumu === 'red' ? '3' : '' },
+    ];
+    
+    // Sütun tanımları - İthal (TÜM SÜTUNLAR)
+    const ithalCols = [
+      { key: 'siraNo', label: '#', w: 28, type: 'number' },
+      { key: 'makineId', label: 'M.ID', w: 45 },
+      { key: 'gtipKodu', label: 'GTIP', w: 70 },
+      { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
+      { key: 'adi', label: 'Adı', w: 110, flex: true },
+      { key: 'miktar', label: 'Adet', w: 32, type: 'number' },
+      { key: 'birim', label: 'Birim', w: 32 },
+      { key: 'birimFiyatiFob', label: 'FOB', w: 50, type: 'number' },
+      { key: 'doviz', label: 'Dvz', w: 32 },
+      { key: 'toplamUsd', label: '$', w: 55, type: 'number', computed: true },
+      { key: 'toplamTl', label: '₺', w: 60, type: 'number' },
+      { key: 'kullanilmisKod', label: 'Kul', w: 26 },
+      { key: 'ckdSkd', label: 'CKD', w: 26, options: ['', 'E', 'H'] },
+      { key: 'aracMi', label: 'Arç', w: 26, options: ['', 'E', 'H'] },
+      { key: 'makineTechizatTipi', label: 'Tip', w: 26, options: ['', 'A', 'Y'] },
+      { key: 'kdvMuafiyeti', label: 'KDV', w: 26, options: ['', 'E', 'H'] },
+      { key: 'gumrukVergisiMuafiyeti', label: 'GV', w: 26, options: ['', 'E', 'H'] },
+      { key: 'finansalKiralamaMi', label: 'FK', w: 24, options: ['', 'E', 'H'] },
+      { key: 'finansalKiralamaAdet', label: 'F#', w: 26, type: 'number' },
+      { key: 'finansalKiralamaSirket', label: 'FŞrk', w: 45 },
+      { key: 'gerceklesenAdet', label: 'G#', w: 26, type: 'number' },
+      { key: 'gerceklesenTutar', label: 'G₺', w: 40, type: 'number' },
+      { key: 'iadeDevirSatisVarMi', label: 'DV', w: 24, options: ['', 'E', 'H'] },
+      { key: 'iadeDevirSatisAdet', label: 'D#', w: 26, type: 'number' },
+      { key: 'iadeDevirSatisTutar', label: 'D₺', w: 40, type: 'number' },
+      { key: 'dosyaSayisi', label: '📎', w: 24, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
+      { key: 'talepDurum', label: 'Tlp', w: 30, type: 'display', render: (row) => row.talep?.istenenAdet || '' },
+      { key: 'kararDurum', label: 'Kr', w: 24, type: 'display', render: (row) => row.karar?.kararDurumu === 'onay' ? '1' : row.karar?.kararDurumu === 'kismi_onay' ? '2' : row.karar?.kararDurumu === 'red' ? '3' : '' },
+    ];
+    
+    const cols = quickTab === 'yerli' ? yerliCols : ithalCols;
+    const gridRef = useRef(null);
+    
+    // Satır ekleme
+    const addRows = (count) => {
+      if (!isReviseStarted) { openToast('warning', 'Önce Revize başlatın'); return; }
+      const newRows = Array.from({ length: count }, (_, i) => {
+        const row = emptyRowFn();
+        row.siraNo = rows.length + i + 1;
+        return row;
+      });
+      setRows(prev => [...prev, ...newRows]);
+    };
+    
+    // Hücre güncelleme
+    const updateCell = useCallback((rowId, field, value) => {
+      if (!isReviseStarted) return;
+      const col = cols.find(c => c.key === field);
+      let finalValue = value;
+      if (col?.type === 'number') {
+        finalValue = parseTrCurrency(value);
+      }
+      if (col?.options) {
+        if (value === 'E') finalValue = 'EVET';
+        else if (value === 'H') finalValue = 'HAYIR';
+        else if (value === 'A') finalValue = 'Ana Makine';
+        else if (value === 'Y') finalValue = 'Yardımcı Makine';
+      }
+      updater(rowId, { [field]: finalValue });
+    }, [cols, updater, isReviseStarted]);
+    
+    // Excel yapıştırma
+    const handlePaste = useCallback((e) => {
+      if (!isReviseStarted) return;
+      const text = e.clipboardData?.getData('text/plain');
+      if (!text) return;
+      
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length === 0) return;
+      
+      e.preventDefault();
+      
+      const activeEl = document.activeElement;
+      const rowIdx = parseInt(activeEl?.dataset?.row || '0');
+      const colIdx = parseInt(activeEl?.dataset?.col || '0');
+      
+      const newRows = [];
+      lines.forEach((line, li) => {
+        const cells = line.split('\t');
+        const targetRowIdx = rowIdx + li;
+        
+        if (targetRowIdx < rows.length) {
+          const row = rows[targetRowIdx];
+          cells.forEach((cell, ci) => {
+            const targetColIdx = colIdx + ci;
+            if (targetColIdx < cols.length) {
+              const col = cols[targetColIdx];
+              if (!col.computed) {
+                updateCell(row.id, col.key, cell.trim());
+              }
+            }
+          });
+        } else {
+          const newRow = emptyRowFn();
+          newRow.siraNo = rows.length + newRows.length + 1;
+          cells.forEach((cell, ci) => {
+            const targetColIdx = colIdx + ci;
+            if (targetColIdx < cols.length) {
+              const col = cols[targetColIdx];
+              if (!col.computed) {
+                let val = cell.trim();
+                if (col.type === 'number') val = parseTrCurrency(val);
+                newRow[col.key] = val;
+              }
+            }
+          });
+          newRows.push(calcFn(newRow));
+        }
+      });
+      
+      if (newRows.length > 0) {
+        setRows(prev => [...prev, ...newRows]);
+      }
+      openToast('success', `${lines.length} satır yapıştırıldı`);
+    }, [rows, cols, isReviseStarted, emptyRowFn, calcFn, setRows, updateCell]);
+    
+    // Klavye navigasyonu
+    const handleKeyDown = useCallback((e, rowIdx, colIdx) => {
+      const totalRows = rows.length;
+      const totalCols = cols.length;
+      
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        let nextRow = rowIdx;
+        let nextCol = colIdx + 1;
+        if (nextCol >= totalCols) {
+          nextCol = 0;
+          nextRow = rowIdx + 1;
+        }
+        if (nextRow < totalRows) {
+          const nextInput = gridRef.current?.querySelector(`[data-row="${nextRow}"][data-col="${nextCol}"]`);
+          nextInput?.focus();
+        }
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (rowIdx + 1 < totalRows) {
+          const nextInput = gridRef.current?.querySelector(`[data-row="${rowIdx + 1}"][data-col="${colIdx}"]`);
+          nextInput?.focus();
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (rowIdx > 0) {
+          const nextInput = gridRef.current?.querySelector(`[data-row="${rowIdx - 1}"][data-col="${colIdx}"]`);
+          nextInput?.focus();
+        }
+      } else if (e.key === 'ArrowRight' && e.target.selectionStart === e.target.value.length) {
+        if (colIdx + 1 < totalCols) {
+          const nextInput = gridRef.current?.querySelector(`[data-row="${rowIdx}"][data-col="${colIdx + 1}"]`);
+          nextInput?.focus();
+        }
+      } else if (e.key === 'ArrowLeft' && e.target.selectionStart === 0) {
+        if (colIdx > 0) {
+          const nextInput = gridRef.current?.querySelector(`[data-row="${rowIdx}"][data-col="${colIdx - 1}"]`);
+          nextInput?.focus();
+        }
+      }
+    }, [rows.length, cols.length]);
+    
+    // Satır silme
+    const deleteRow = (rowId) => {
+      if (!isReviseStarted) return;
+      setRows(prev => prev.filter(r => r.id !== rowId));
+    };
+    
+    const cellStyle = {
+      border: '1px solid #d1d5db',
+      padding: '1px 3px',
+      fontSize: '10px',
+      fontFamily: 'Consolas, Monaco, monospace',
+      outline: 'none',
+      background: '#fff',
+      width: '100%',
+      boxSizing: 'border-box'
+    };
+    
+    return (
+      <Box sx={{ 
+        position: 'fixed', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        bgcolor: '#f8fafc', 
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        {/* Mini Header */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: 1, 
+          px: 1, 
+          py: 0.5, 
+          bgcolor: quickTab === 'yerli' ? '#d1fae5' : '#fef3c7',
+          borderBottom: '1px solid #e5e7eb',
+          flexShrink: 0
+        }}>
+          <FlashOnIcon sx={{ fontSize: 14, color: quickTab === 'yerli' ? '#059669' : '#d97706' }} />
+          <Typography sx={{ fontSize: '11px', fontWeight: 700, color: quickTab === 'yerli' ? '#065f46' : '#92400e' }}>
+            HIZLI MOD
+          </Typography>
+          
+          <Button 
+            size="small" 
+            variant={quickTab === 'yerli' ? 'contained' : 'outlined'}
+            onClick={() => setQuickTab('yerli')}
+            sx={{ fontSize: '10px', py: 0.25, px: 1, minWidth: 50, bgcolor: quickTab === 'yerli' ? '#10b981' : 'transparent' }}
+          >
+            Yerli ({yerliRows.length})
+          </Button>
+          <Button 
+            size="small" 
+            variant={quickTab === 'ithal' ? 'contained' : 'outlined'}
+            onClick={() => setQuickTab('ithal')}
+            sx={{ fontSize: '10px', py: 0.25, px: 1, minWidth: 50, bgcolor: quickTab === 'ithal' ? '#f59e0b' : 'transparent' }}
+          >
+            İthal ({ithalRows.length})
+          </Button>
+          
+          <Divider orientation="vertical" flexItem />
+          
+          <Button size="small" onClick={() => addRows(1)} disabled={!isReviseStarted} sx={{ fontSize: '10px', py: 0.25, px: 0.5, minWidth: 28 }}>+1</Button>
+          <Button size="small" onClick={() => addRows(10)} disabled={!isReviseStarted} sx={{ fontSize: '10px', py: 0.25, px: 0.5, minWidth: 32 }}>+10</Button>
+          <Button size="small" onClick={() => addRows(50)} disabled={!isReviseStarted} sx={{ fontSize: '10px', py: 0.25, px: 0.5, minWidth: 32 }}>+50</Button>
+          
+          <Box sx={{ flex: 1 }} />
+          
+          <Typography sx={{ fontSize: '10px', color: '#64748b' }}>
+            {rows.length} satır | Toplam: {quickTab === 'yerli' ? yerliToplamTl.toLocaleString('tr-TR') + ' ₺' : ithalToplamUsd.toLocaleString('en-US') + ' $'}
+          </Typography>
+          
+          <Button 
+            size="small" 
+            variant="outlined"
+            onClick={() => setViewMode('standard')}
+            sx={{ fontSize: '10px', py: 0.25, px: 1, color: '#ef4444', borderColor: '#ef4444' }}
+          >
+            ✕ Kapat
+          </Button>
+        </Box>
+        
+        {/* Grid Container */}
+        <Box 
+          ref={gridRef}
+          onPaste={handlePaste}
+          sx={{ 
+            flex: 1, 
+            overflow: 'auto',
+            '&::-webkit-scrollbar': { width: 8, height: 8 },
+            '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8', borderRadius: 4 }
+          }}
+        >
+          <table style={{ borderCollapse: 'collapse', width: 'max-content', fontSize: '10px', fontFamily: 'Consolas, Monaco, monospace' }}>
+            <thead>
+              <tr style={{ position: 'sticky', top: 0, background: quickTab === 'yerli' ? '#d1fae5' : '#fef3c7', zIndex: 10 }}>
+                <th style={{ border: '1px solid #9ca3af', padding: '2px 4px', fontSize: '9px', fontWeight: 700, minWidth: 20, background: 'inherit' }}>X</th>
+                {cols.map(col => (
+                  <th 
+                    key={col.key} 
+                    style={{ 
+                      border: '1px solid #9ca3af', 
+                      padding: '2px 4px', 
+                      fontSize: '9px', 
+                      fontWeight: 700, 
+                      minWidth: col.w, 
+                      maxWidth: col.flex ? 300 : col.w,
+                      background: 'inherit',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, rowIdx) => (
+                <tr key={row.id} style={{ background: rowIdx % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                  <td style={{ border: '1px solid #e5e7eb', padding: '1px', textAlign: 'center' }}>
+                    <button 
+                      onClick={() => deleteRow(row.id)} 
+                      disabled={!isReviseStarted}
+                      style={{ fontSize: '9px', cursor: 'pointer', border: 'none', background: 'none', color: '#ef4444', padding: 0 }}
+                    >
+                      ×
+                    </button>
+                  </td>
+                  {cols.map((col, colIdx) => {
+                    const rawVal = col.getValue ? col.getValue(row) : row[col.key];
+                    const val = rawVal;
+                    const displayVal = col.type === 'number' && val != null ? val : (val ?? '');
+                    let shortVal = displayVal;
+                    if (displayVal === 'EVET') shortVal = 'E';
+                    else if (displayVal === 'HAYIR') shortVal = 'H';
+                    else if (displayVal === 'Ana Makine') shortVal = 'A';
+                    else if (displayVal === 'Yardımcı Makine') shortVal = 'Y';
+                    
+                    return (
+                      <td key={col.key} style={{ border: '1px solid #e5e7eb', padding: 0, minWidth: col.w, maxWidth: col.flex ? 300 : col.w }}>
+                        {col.computed ? (
+                          <span style={{ 
+                            display: 'block', 
+                            padding: '1px 3px', 
+                            fontSize: '10px', 
+                            fontFamily: 'Consolas, Monaco, monospace',
+                            textAlign: 'right',
+                            color: '#059669',
+                            fontWeight: 600
+                          }}>
+                            {typeof displayVal === 'number' ? displayVal.toLocaleString('tr-TR') : displayVal}
+                          </span>
+                        ) : col.type === 'display' ? (
+                          <span style={{ 
+                            display: 'block', 
+                            padding: '1px 3px', 
+                            fontSize: '10px', 
+                            fontFamily: 'Consolas, Monaco, monospace',
+                            textAlign: 'center',
+                            color: '#6b7280'
+                          }}>
+                            {col.render ? col.render(row) : displayVal}
+                          </span>
+                        ) : col.options ? (
+                          <select
+                            data-row={rowIdx}
+                            data-col={colIdx}
+                            value={shortVal}
+                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            disabled={!isReviseStarted}
+                            style={{ ...cellStyle, textAlign: 'center' }}
+                          >
+                            {col.options.map(opt => <option key={opt} value={opt}>{opt || '-'}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            data-row={rowIdx}
+                            data-col={colIdx}
+                            type="text"
+                            value={shortVal}
+                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            disabled={!isReviseStarted}
+                            style={{ ...cellStyle, textAlign: col.type === 'number' ? 'right' : 'left' }}
+                          />
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={cols.length + 1} style={{ textAlign: 'center', padding: 20, color: '#94a3b8' }}>
+                    Veri yok. {isReviseStarted ? 'Yukarıdaki butonlarla satır ekleyin.' : 'Önce Revize başlatın.'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </Box>
+        
+        <Box sx={{ px: 1, py: 0.5, bgcolor: '#f1f5f9', borderTop: '1px solid #e5e7eb', fontSize: '9px', color: '#64748b', display: 'flex', gap: 2 }}>
+          <span>Tab/Enter: Sonraki hücre</span>
+          <span>Ok tuşları: Navigasyon</span>
+          <span>Ctrl+V: Excel'den yapıştır</span>
+          <span>E=Evet, H=Hayır, A=Ana, Y=Yardımcı</span>
+        </Box>
+      </Box>
+    );
+  });
 
   const YerliGrid = () => {
     const cols = [
@@ -2322,6 +2735,60 @@ const MakineYonetimi = () => {
 
           <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border, mx: 0.5 }} />
 
+          {/* 🚀 Standart/Hızlı Toggle */}
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 0.5,
+            p: 0.5,
+            bgcolor: '#f0f9ff',
+            borderRadius: 1.5
+          }}>
+            <Button 
+              size="small" 
+              startIcon={<GridOnIcon sx={{ fontSize: 14 }} />}
+              onClick={() => setViewMode('standard')}
+              sx={{ 
+                minWidth: 'auto', 
+                px: 1.5, 
+                py: 0.5,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                color: viewMode === 'standard' ? '#fff' : '#64748b',
+                background: viewMode === 'standard' ? '#3b82f6' : 'transparent',
+                borderRadius: 1,
+                boxShadow: viewMode === 'standard' ? '0 2px 6px rgba(59, 130, 246, 0.3)' : 'none',
+                '&:hover': { 
+                  background: viewMode === 'standard' ? '#2563eb' : 'rgba(59, 130, 246, 0.1)'
+                }
+              }}
+            >
+              Standart
+            </Button>
+            <Button 
+              size="small" 
+              startIcon={<FlashOnIcon sx={{ fontSize: 14 }} />}
+              onClick={() => setViewMode('quick')}
+              sx={{ 
+                minWidth: 'auto', 
+                px: 1.5, 
+                py: 0.5,
+                fontSize: '0.65rem',
+                fontWeight: 600,
+                color: viewMode === 'quick' ? '#fff' : '#64748b',
+                background: viewMode === 'quick' ? '#8b5cf6' : 'transparent',
+                borderRadius: 1,
+                boxShadow: viewMode === 'quick' ? '0 2px 6px rgba(139, 92, 246, 0.3)' : 'none',
+                '&:hover': { 
+                  background: viewMode === 'quick' ? '#7c3aed' : 'rgba(139, 92, 246, 0.1)'
+                }
+              }}
+            >
+              Hızlı
+            </Button>
+          </Box>
+
+          <Divider orientation="vertical" flexItem sx={{ borderColor: theme.border, mx: 0.5 }} />
+
           {/* Search - Enhanced */}
           <TextField 
             size="small" 
@@ -2512,6 +2979,9 @@ const MakineYonetimi = () => {
             {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
           </Box>
         </Box>
+        
+        {/* 🚀 Hızlı Mod - Tam Ekran Excel Grid */}
+        {viewMode === 'quick' && <QuickExcelGrid />}
       </Paper>
 
       {/* Bulk Menu */}
