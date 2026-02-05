@@ -2828,7 +2828,7 @@ const getOzelSartKisaltmalariOptions = () => [
   { value: 'BÖL 3305-SGK:Bölgesel-3.Bölge', label: 'BÖL 3305-SGK:Bölgesel-3.Bölge', kategori: '3. Bölge', renk: '#3B82F6' },
   { value: 'BÖL 3305-SGK:Bölgesel-4.Bölge', label: 'BÖL 3305-SGK:Bölgesel-4.Bölge', kategori: '4. Bölge', renk: '#3B82F6' },
   { value: 'BÖL 3305-SGK:Bölgesel-5.Bölge', label: 'BÖL 3305-SGK:Bölgesel-5.Bölge', kategori: '5. Bölge', renk: '#3B82F6' },
-  { value: 'BÖL- Faliyet Zorunlukuğu', label: 'BÖL- Faliyet Zorunlukuğu', kategori: 'Zorunluluk', renk: '#6B7280' },
+  { value: 'BÖL- FAALİYET ZORUNLULUĞU', label: 'BÖL- FAALİYET ZORUNLULUĞU', kategori: 'Zorunluluk', renk: '#6B7280' },
   { value: 'BÖL - Faiz Desteği', label: 'BÖL - Faiz Desteği', kategori: 'Faiz', renk: '#EF4444' },
   
   // Kurum ve Tarih
@@ -2836,7 +2836,7 @@ const getOzelSartKisaltmalariOptions = () => [
   
   // Sigorta ve Özel Durumlar
   { value: 'SİGORTA BAŞLAMA', label: 'SİGORTA BAŞLAMA', kategori: 'Sigorta', renk: '#10B981' },
-  { value: 'ÖCELİKLİ YATIRIM', label: 'ÖCELİKLİ YATIRIM', kategori: 'Yatırım', renk: '#8B5CF6' },
+  { value: 'ÖNCELİKLİ YATIRIM', label: 'ÖNCELİKLİ YATIRIM', kategori: 'Yatırım', renk: '#8B5CF6' },
   { value: '3305-Yatırım Konusu Zorunluluğu', label: '3305-Yatırım Konusu Zorunluluğu', kategori: 'Zorunluluk', renk: '#6B7280' },
   
   // Finansal ve Makine
@@ -3022,6 +3022,57 @@ const getOptionsForType = async (req, res) => {
     });
   }
 };
+// 🗓️ TÜRKÇE TARİH FORMAT YARDIMCISI - Tutarlı tarih formatı sağlar
+const formatTurkishDateTime = (dateValue) => {
+  if (!dateValue) return '';
+  
+  try {
+    const date = new Date(dateValue);
+    
+    // Invalid date kontrolü
+    if (isNaN(date.getTime())) {
+      console.warn(`⚠️ Geçersiz tarih değeri: ${dateValue}`);
+      return String(dateValue); // Fallback: string olarak döndür
+    }
+    
+    // Türkçe tarih formatı: DD.MM.YYYY HH:MM:SS
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    
+    return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
+  } catch (error) {
+    console.warn(`⚠️ Tarih formatlama hatası: ${dateValue}`, error);
+    return String(dateValue);
+  }
+};
+
+// 🗓️ SADECE TARİH (saat olmadan) - DD.MM.YYYY formatı
+const formatTurkishDate = (dateValue) => {
+  if (!dateValue) return '';
+  
+  try {
+    const date = new Date(dateValue);
+    
+    if (isNaN(date.getTime())) {
+      console.warn(`⚠️ Geçersiz tarih değeri: ${dateValue}`);
+      return String(dateValue);
+    }
+    
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}.${month}.${year}`;
+  } catch (error) {
+    console.warn(`⚠️ Tarih formatlama hatası: ${dateValue}`, error);
+    return String(dateValue);
+  }
+};
+
 // 🏢 ENTERPRISE SİSTEM REVİZYON EXCEL EXPORT
 // MongoDB'den tam veri çekme + CSV formatına tam uyum + Revizyon tracking + Professional export
 const exportRevizyonExcel = async (req, res) => {
@@ -3268,15 +3319,15 @@ const validateAndBuildCsvStructure = async () => {
         'ADA', 'PARSEL', 'YATIRIM ADRESI(1)', 'YATIRIM ADRESI(2)', 'YATIRIM ADRESI(3)', 'OSB ISE MUDURLUK', 'İL BAZLI BÖLGE', 'İLÇE BAZLI BÖLGE', 'SERBEST BÖLGE',
         'Mevcut Kişi', 'İlave Kişi',
         // Ürün bilgileri (9 ürün x 6 alan = 54 sütun)
-        'US97 Kodu (1)', 'Ürün(1)', 'Mevcut(1)', 'İlave(1)', 'Toplam(1)', 'Kapsite Birimi(1)',
-        'US97 Kodu (2)', 'Ürün(2)', 'Mevcut(2)', 'İlave(2)', 'Toplam(2)', 'Kapsite Birimi(2)',
-        'US97 Kodu (3)', 'Ürün(3)', 'Mevcut(3)', 'İlave(3)', 'Toplam(3)', 'Kapsite Birimi(3)',
-        'US97 Kodu (4)', 'Ürün(4)', 'Mevcut(4)', 'İlave(4)', 'Toplam(4)', 'Kapsite Birimi(4)',
-        'US97 Kodu (5)', 'Ürün(5)', 'Mevcut(5)', 'İlave(5)', 'Toplam(5)', 'Kapsite Birimi(5)',
-        'US97 Kodu (6)', 'Ürün(6)', 'Mevcut(6)', 'İlave(6)', 'Toplam(6)', 'Kapsite Birimi(6)',
-        'US97 Kodu (7)', 'Ürün(7)', 'Mevcut(7)', 'İlave(7)', 'Toplam(7)', 'Kapsite Birimi(7)',
-        'US97 Kodu (8)', 'Ürün(8)', 'Mevcut(8)', 'İlave(8)', 'Toplam(8)', 'Kapsite Birimi(8)',
-        'US97 Kodu (9)', 'Ürün(9)', 'Mevcut(9)', 'İlave(9)', 'Toplam(9)', 'Kapsite Birimi(9)',
+        'NACE (1)', 'Ürün(1)', 'Mevcut(1)', 'İlave(1)', 'Toplam(1)', 'Kapsite Birimi(1)',
+        'NACE (2)', 'Ürün(2)', 'Mevcut(2)', 'İlave(2)', 'Toplam(2)', 'Kapsite Birimi(2)',
+        'NACE (3)', 'Ürün(3)', 'Mevcut(3)', 'İlave(3)', 'Toplam(3)', 'Kapsite Birimi(3)',
+        'NACE (4)', 'Ürün(4)', 'Mevcut(4)', 'İlave(4)', 'Toplam(4)', 'Kapsite Birimi(4)',
+        'NACE (5)', 'Ürün(5)', 'Mevcut(5)', 'İlave(5)', 'Toplam(5)', 'Kapsite Birimi(5)',
+        'NACE (6)', 'Ürün(6)', 'Mevcut(6)', 'İlave(6)', 'Toplam(6)', 'Kapsite Birimi(6)',
+        'NACE (7)', 'Ürün(7)', 'Mevcut(7)', 'İlave(7)', 'Toplam(7)', 'Kapsite Birimi(7)',
+        'NACE (8)', 'Ürün(8)', 'Mevcut(8)', 'İlave(8)', 'Toplam(8)', 'Kapsite Birimi(8)',
+        'NACE (9)', 'Ürün(9)', 'Mevcut(9)', 'İlave(9)', 'Toplam(9)', 'Kapsite Birimi(9)',
         // Destek unsurları (8 destek x 2 alan = 16 sütun)
         'Destek Unusrları(1)', 'Şartları(1)', 'Destek Unusrları(2)', 'Şartları(2)',
         'Destek Unusrları(3)', 'Şartları(3)', 'Destek Unusrları(4)', 'Şartları(4)',
@@ -3290,12 +3341,12 @@ const validateAndBuildCsvStructure = async () => {
         'Özel Şart Kısaltma 9', 'Özelşart Notu 9', 'Özel Şart Kısaltma 10', 'Özelşart Notu 10',
         'Özel Şart Kısaltma 11', 'Özelşart Notu 11', 'Özel Şart Kısaltma 12', 'Özelşart Notu 12',
         'Özel Şart Kısaltma 13', 'Özelşart Notu 13', 'Özel Şart Kısaltma 14', 'Özelşart Notu 14',
-        // Finansal bilgiler (25 sütun)
+        // Finansal bilgiler (25 sütun) + Revizyon bilgileri (3 sütun)
         'Arazi-Arsa Bedeli Açıklama', 'Metrekaresi', 'Birim Fiyatı TL', 'ARAZİ ARSA BEDELİ',
         'Bina İnşaat Gideri Açıklama', 'Ana Bina ve Tesisleri', 'Yardımcı İş. Bina ve Tesisleri', 'İdare Binaları', 'TOPLAM BİNA İNŞAAT GİDERİ',
         'Yardımcı İşl. Mak. Teç. Gid.', 'İthalat ve Güm.Giderleri', 'Taşıma ve Sigorta Giderleri', 'Montaj Giderleri', 'Etüd ve Proje Giderleri', 'Diğer Giderleri', 'TOPLAM DİĞER YATIRIM HARCAMALARI',
         'TOPLAM SABİT YATIRIM TUTARI TL', 'İthal', 'Yerli', 'Toplam Makine Teçhizat', 'Yeni Makine', 'Kullanılmış Makine', 'TOPLAM İTHAL MAKİNE ($)', 'Toplam Yabancı Kaynak', 'Öz kaynak', 'TOPLAM FİNANSMAN',
-        'REVIZE TARIHI'
+        'REVIZE TARIHI', 'TALEP TARİHİ', 'SONUÇ TARİHİ'
       ]
     };
     
@@ -3600,10 +3651,12 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(belge.belgeNo || '');                                // BELGE NO
     row.push(belge.belgeTarihi || '');                            // BELGE TARIHI
     row.push(belge.belgeMuracaatTarihi || '');                    // BELGE MURACAAT TARIHI
-    row.push(belge.muracaatSayisi || snapshot.belgeYonetimi?.muracaatSayisi || ''); // MÜRACAAT SAYISI
+    // 🔧 FIX: muracaatSayisi → belgeMuracaatNo (model ile uyumlu)
+    row.push(belge.belgeMuracaatNo || snapshot.belgeYonetimi?.belgeMuracaatNo || ''); // MÜRACAAT SAYISI
     row.push(belge.belgeBaslamaTarihi || '');                     // BELGE BASLAMA TARIHI
     row.push(belge.belgeBitisTarihi || snapshot.belgeYonetimi?.belgeBitisTarihi || ''); // BELGE BITIS TARIHI
-    row.push(belge.sureUzatimTarihi || snapshot.belgeYonetimi?.sureUzatimTarihi || ''); // SÜRE UZATIM TARİHİ
+    // 🔧 FIX: sureUzatimTarihi → uzatimTarihi (model ile uyumlu)
+    row.push(belge.uzatimTarihi || snapshot.belgeYonetimi?.uzatimTarihi || ''); // SÜRE UZATIM TARİHİ
     row.push(belge.oncelikliYatirim || 'hayır');                  // ÖZELLİKLİ YATIRIM İSE
     row.push(belge.dayandigiKanun || '');                         // DAYANDIĞI KANUN
     row.push(snapshot.durumBilgileri?.genelDurum || '');          // BELGE DURUMU
@@ -3636,13 +3689,13 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(yatirim2.yerinIlce || yatirimBilgileri.yerinIlce || ''); // YERI ILCE
     row.push(yatirim2.ada || yatirimBilgileri.ada || '');        // ADA
     row.push(yatirim2.parsel || yatirimBilgileri.parsel || '');  // PARSEL
-    row.push(yatirim2.yatirimAdresi1 || '');                      // YATIRIM ADRESI(1)
-    row.push(yatirim2.yatirimAdresi2 || '');                      // YATIRIM ADRESI(2)
-    row.push(yatirim2.yatirimAdresi3 || '');                      // YATIRIM ADRESI(3)
-    row.push('');                                                 // OSB ISE MUDURLUK
-    row.push('');                                                 // İL BAZLI BÖLGE
-    row.push('');                                                 // İLÇE BAZLI BÖLGE
-    row.push('');                                                 // SERBEST BÖLGE
+    row.push(yatirim2.yatirimAdresi1 || yatirimBilgileri.yatirimAdresi1 || snapshot.yatirimBilgileri?.yatirimAdresi1 || '');  // YATIRIM ADRESI(1)
+    row.push(yatirim2.yatirimAdresi2 || yatirimBilgileri.yatirimAdresi2 || snapshot.yatirimBilgileri?.yatirimAdresi2 || '');  // YATIRIM ADRESI(2)
+    row.push(yatirim2.yatirimAdresi3 || yatirimBilgileri.yatirimAdresi3 || snapshot.yatirimBilgileri?.yatirimAdresi3 || '');  // YATIRIM ADRESI(3)
+    row.push(yatirim2.osbIseMudurluk || yatirimBilgileri.osbIseMudurluk || snapshot.yatirimBilgileri?.osbIseMudurluk || '');  // OSB ISE MUDURLUK
+    row.push(yatirim2.ilBazliBolge || yatirimBilgileri.ilBazliBolge || snapshot.yatirimBilgileri?.ilBazliBolge || '');        // İL BAZLI BÖLGE
+    row.push(yatirim2.ilceBazliBolge || yatirimBilgileri.ilceBazliBolge || snapshot.yatirimBilgileri?.ilceBazliBolge || '');  // İLÇE BAZLI BÖLGE
+    row.push(yatirim2.serbsetBolge || yatirimBilgileri.serbsetBolge || snapshot.yatirimBilgileri?.serbsetBolge || '');        // SERBEST BÖLGE
     
     // İstihdam - ENHANCED DEBUG
     const istihdam = snapshot.istihdam || {};
@@ -3660,25 +3713,20 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     console.log(`📦 [DEBUG] Ürün bilgileri:`, {
       length: urunler.length,
       first: urunler[0] ? {
-        us97Kodu: urunler[0].us97Kodu,
+        u97Kodu: urunler[0].u97Kodu,
         urunAdi: urunler[0].urunAdi,
         mevcutKapasite: urunler[0].mevcutKapasite,
         ilaveKapasite: urunler[0].ilaveKapasite,
         kapasiteBirimi: urunler[0].kapasiteBirimi
-      } : null
+      } : null,
+      all: urunler.map((u, idx) => ({ idx, u97Kodu: u?.u97Kodu, urunAdi: u?.urunAdi, mevcut: u?.mevcutKapasite, ilave: u?.ilaveKapasite }))
     });
     
-    // CRITICAL FIX: Sadece KAPASİTESİ OLAN ürünleri göster!
+    // 🔧 FIX: Ürün adı veya NACE kodu OLAN tüm ürünleri göster (kapasite zorunluluğu kaldırıldı)
     const actualProducts = urunler.filter(urun => 
       urun && 
-      (urun.urunAdi || urun.us97Kodu) && 
-      urun.urunAdi !== '' && 
-      // CRITICAL: Kapasite kontrolü ekle!
-      (
-        (urun.mevcutKapasite && urun.mevcutKapasite > 0) ||
-        (urun.ilaveKapasite && urun.ilaveKapasite > 0) ||
-        (urun.toplamKapasite && urun.toplamKapasite > 0)
-      )
+      (urun.urunAdi || urun.u97Kodu) && 
+      (urun.urunAdi !== '' || urun.u97Kodu !== '')
     );
     
     console.log(`📦 [DEBUG] Filtered products: ${actualProducts.length}/${urunler.length} gerçek ürün`);
@@ -3687,7 +3735,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       if (i < actualProducts.length) {
         // GERÇEK ÜRÜN VAR - Göster
         const urun = actualProducts[i];
-        row.push(urun.u97Kodu || '');                            // US97 Kodu - MODEL'E UYGUN
+        row.push(urun.u97Kodu || '');                            // NACE - MODEL'E UYGUN
         row.push(urun.urunAdi || '');                             // Ürün
         row.push(urun.mevcutKapasite || 0);                       // Mevcut
         row.push(urun.ilaveKapasite || 0);                        // İlave
@@ -3695,7 +3743,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         row.push(urun.kapasiteBirimi || '');                      // Kapasite Birimi
       } else {
         // BOŞ SLOT - Tamamen boş bırak (0 değil, boş string)
-        row.push('');     // US97 Kodu
+        row.push('');     // NACE
         row.push('');     // Ürün
         row.push('');     // Mevcut - BOŞ STRING!
         row.push('');     // İlave - BOŞ STRING!
@@ -3842,7 +3890,15 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     
     // Revize tarihi (revizyon varsa onun tarihi, yoksa kaydın oluşturulma)
     const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.updatedAt || snapshot.createdAt;
-    row.push(revizyonTarihi ? new Date(revizyonTarihi).toLocaleString('tr-TR') : '');
+    row.push(formatTurkishDateTime(revizyonTarihi));
+    
+    // 🆕 TALEP TARİHİ - Revizyonun talep tarihi veya oluşturulma tarihi
+    const talepTarihi = revizyon?.talepTarihi || revizyon?.createdAt || snapshot.talepTarihi || snapshot.createdAt;
+    row.push(formatTurkishDateTime(talepTarihi));
+    
+    // 🆕 SONUÇ TARİHİ - Revizyonun sonuç/karar tarihi
+    const sonucTarihi = revizyon?.sonucTarihi || revizyon?.kararTarihi || snapshot.sonucTarihi || '';
+    row.push(formatTurkishDateTime(sonucTarihi));
     
     console.log(`📊 CSV satırı oluşturuldu: ${row.length} sütun, Revizyon: ${revizyonNo}`);
     
@@ -3873,7 +3929,7 @@ const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
     // Ürün bilgileri sütunları (9 ürün x 6 alan = 54 sütun)
     for (let i = 1; i <= 9; i++) {
       csvColumnNames.push(
-        `US97 Kodu (${i})`, `Ürün(${i})`, `Mevcut(${i})`, 
+        `NACE (${i})`, `Ürün(${i})`, `Mevcut(${i})`, 
         `İlave(${i})`, `Toplam(${i})`, `Kapsite Birimi(${i})`
       );
     }
@@ -3897,7 +3953,8 @@ const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
       'Etüd ve Proje Giderleri', 'Diğer Giderleri', 'TOPLAM DİĞER YATIRIM HARCAMALARI',
       'TOPLAM SABİT YATIRIM TUTARI TL', 'İthal', 'Yerli', 'Toplam Makine Teçhizat',
       'Yeni Makine', 'Kullanılmış Makine', 'TOPLAM İTHAL MAKİNE ($)', 
-      'Toplam Yabancı Kaynak', 'Öz kaynak', 'TOPLAM FİNANSMAN', 'REVIZE TARIHI'
+      'Toplam Yabancı Kaynak', 'Öz kaynak', 'TOPLAM FİNANSMAN', 'REVIZE TARIHI',
+      'TALEP TARİHİ', 'SONUÇ TARİHİ'
     );
     
     // Satır uzunluğu kontrolü
@@ -3955,10 +4012,12 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.belgeYonetimi?.belgeNo || ''); // BELGE NO
     row.push(tesvik.belgeYonetimi?.belgeTarihi ? new Date(tesvik.belgeYonetimi.belgeTarihi).toLocaleDateString('tr-TR') : ''); // BELGE TARIHI
     row.push(tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : ''); // BELGE MURACAAT TARIHI
-    row.push(tesvik.belgeYonetimi?.muracaatSayisi || ''); // MÜRACAAT SAYISI
+    // 🔧 FIX: muracaatSayisi → belgeMuracaatNo (model ile uyumlu)
+    row.push(tesvik.belgeYonetimi?.belgeMuracaatNo || ''); // MÜRACAAT SAYISI
     row.push(tesvik.belgeYonetimi?.belgeBaslamaTarihi ? new Date(tesvik.belgeYonetimi.belgeBaslamaTarihi).toLocaleDateString('tr-TR') : ''); // BELGE BASLAMA TARIHI
     row.push(tesvik.belgeYonetimi?.belgeBitisTarihi ? new Date(tesvik.belgeYonetimi.belgeBitisTarihi).toLocaleDateString('tr-TR') : ''); // BELGE BITIS TARIHI
-    row.push(tesvik.belgeYonetimi?.sureUzatimTarihi ? new Date(tesvik.belgeYonetimi.sureUzatimTarihi).toLocaleDateString('tr-TR') : ''); // SÜRE UZATIM TARİHİ
+    // 🔧 FIX: sureUzatimTarihi → uzatimTarihi (model ile uyumlu)
+    row.push(tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : ''); // SÜRE UZATIM TARİHİ
     row.push(tesvik.yatirimBilgileri?.ozellikliYatirimMi ? 'evet' : 'hayir'); // ÖZELLİKLİ YATIRIM İSE
     row.push(tesvik.belgeYonetimi?.dayandigiKanun || '2012/3305'); // DAYANDIĞI KANUN
     row.push(tesvik.durumBilgileri?.genelDurum || 'taslak'); // BELGE DURUMU
@@ -4041,7 +4100,15 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     
     // REVİZE TARİHİ (1 sütun)
     const revizeTarihi = revizyon?.revizyonTarihi || tesvik.createdAt;
-    row.push(revizeTarihi ? new Date(revizeTarihi).toLocaleDateString('tr-TR') + ' ' + new Date(revizeTarihi).toLocaleTimeString('tr-TR') : '');
+    row.push(formatTurkishDateTime(revizeTarihi));
+    
+    // 🆕 TALEP TARİHİ
+    const talepTarihi = revizyon?.talepTarihi || revizyon?.createdAt || tesvik.talepTarihi || tesvik.createdAt;
+    row.push(formatTurkishDateTime(talepTarihi));
+    
+    // 🆕 SONUÇ TARİHİ
+    const sonucTarihi = revizyon?.sonucTarihi || revizyon?.kararTarihi || tesvik.sonucTarihi || '';
+    row.push(formatTurkishDateTime(sonucTarihi));
     
     return row;
     
@@ -4862,7 +4929,7 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
     
     // Ürün bilgileri için sütun genişlikleri (54 sütun)
     for (let i = 0; i < 54; i++) {
-      if (i % 6 === 0) columnWidths.push(12); // US97 Kodu
+      if (i % 6 === 0) columnWidths.push(12); // NACE
       else if (i % 6 === 1) columnWidths.push(25); // Ürün adı
       else columnWidths.push(8); // Diğer alanlar
     }

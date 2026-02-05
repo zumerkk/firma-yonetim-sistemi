@@ -313,9 +313,38 @@ const TesvikForm = () => {
                     </Select>
                   </FormControl>
                 </Grid>
+                {/* 🆕 G.V İstisnası ve KDV İstisnası alanları - İthal için eklendi */}
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>G.V İstisnası mı?</InputLabel>
+                    <Select label="G.V İstisnası mı?" value={row.gumrukVergisiMuafiyeti || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'gumrukVergisiMuafiyeti', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={6} md={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>KDV İstisnası mı?</InputLabel>
+                    <Select label="KDV İstisnası mı?" value={row.kdvMuafiyeti || ''}
+                      onChange={(e) => updateMakineField(tip, idx, 'kdvMuafiyeti', e.target.value)}>
+                      <MenuItem value="">Seçilmedi</MenuItem>
+                      <MenuItem value="EVET">EVET</MenuItem>
+                      <MenuItem value="HAYIR">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
               </>
             ) : (
               <>
+                {/* 🆔 Makine ID - Yerli için eklendi */}
+                <Grid item xs={6} md={2}>
+                  <TextField fullWidth label="Makine ID" value={row.makineId || ''}
+                    onChange={(e) => updateMakineField(tip, idx, 'makineId', e.target.value)}
+                    placeholder="Makine ID girin" />
+                </Grid>
                 <Grid item xs={6} md={2}>
                   <TextField fullWidth label="Miktar" value={row.miktar || ''}
                     onChange={(e) => updateMakineField(tip, idx, 'miktar', e.target.value)} />
@@ -5380,37 +5409,30 @@ const TesvikForm = () => {
           </Typography>
           
           <Grid container spacing={2}>
-            {/* 🔧 YABANCI KAYNAKLAR - EXCEL DETAYINA UYGUN */}
+            {/* 🔧 YABANCI KAYNAKLAR - Direkt Giriş */}
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>YABANCI KAYNAKLAR - Detaylı Breakdown</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={3}>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="Bank Kredisi"
-                    type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi}
-                    name="bankKredisi"
-                    data-section="finansman"
-                    data-field="yabanciKaynaklar.bankKredisi"
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', parseFloat(e.target.value) || 0)}
-                    onFocus={handleNumberFieldFocus}
-                    onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', val))}
-                    InputProps={{ endAdornment: '₺' }}
-                  />
-                </Grid>
-                {/* Kaldırılan kalemler: İkinci El Fiyat Farkı, Kullanılmış Teçhizat Bedeli, Diğer Dış Kaynaklar */}
-              </Grid>
               
-              {/* Toplam Yabancı Kaynak */}
-              <Box sx={{ mt: 2 }}>
+              {/* Toplam Yabancı Kaynak - Direkt Giriş */}
+              <Box sx={{ mt: 0 }}>
                 <TextField
                   fullWidth
                   label="TOPLAM YABANCI KAYNAK"
-                  value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak.toLocaleString('tr-TR')}
+                  type="number"
+                  value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value) || 0;
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
+                    // Bank Kredisi de aynı değeri alsın (backend uyumluluğu için)
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
+                  }}
+                  onFocus={handleNumberFieldFocus}
+                  onBlur={(e) => handleNumberFieldBlur(e, (val) => {
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', val);
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', val);
+                  })}
                   InputProps={{
-                    readOnly: true,
+                    endAdornment: '₺',
                     style: { fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }
                   }}
                   sx={{ backgroundColor: '#f0fdf4' }}

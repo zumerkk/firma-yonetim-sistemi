@@ -95,6 +95,8 @@ const MakineYonetimi = () => {
   const [isReviseMode, setIsReviseMode] = useState(false);
   const [isReviseStarted, setIsReviseStarted] = useState(false);
   const [revList, setRevList] = useState([]);
+  // 📝 NOTLAR - Makine yönetimi için notlar alanı
+  const [makineNotlari, setMakineNotlari] = useState('');
 
   // Sıra numarası güncelleme fonksiyonu
   const updateRowSiraNo = (type, rowId, newSiraNo) => {
@@ -105,19 +107,111 @@ const MakineYonetimi = () => {
     }
   };
 
-  // Makine verilerini yükle (teşvik ID'sine göre)
-  const loadMakineData = (tesvikId) => {
+  // Makine verilerini yükle (teşvik ID'sine göre) - Önce backend, sonra localStorage
+  const loadMakineData = async (tesvikId) => {
     if (!tesvikId) return;
     try {
-      // Teşvik bazlı yerli ve ithal verilerini localStorage'dan yükle
+      // 1) Önce backend'den veri çek
+      const data = await tesvikService.get(tesvikId);
+      
+      // Notları da yükle
+      if (data?.notlar?.dahiliNotlar) {
+        setMakineNotlari(data.notlar.dahiliNotlar);
+      } else {
+        setMakineNotlari('');
+      }
+      const backendYerli = data?.makineListeleri?.yerli || [];
+      const backendIthal = data?.makineListeleri?.ithal || [];
+      
+      // 2) Backend'de veri varsa onu kullan
+      if (backendYerli.length > 0 || backendIthal.length > 0) {
+        // Backend verisini UI formatına çevir
+        const yerli = backendYerli.map(r => ({
+          id: r.rowId || Math.random().toString(36).slice(2),
+          siraNo: r.siraNo || 0,
+          makineId: r.makineId || '',
+          rowId: r.rowId || '',
+          gtipKodu: r.gtipKodu || '',
+          gtipAciklama: r.gtipAciklamasi || '',
+          adi: r.adiVeOzelligi || '',
+          miktar: r.miktar || 0,
+          birim: r.birim || '',
+          birimAciklamasi: r.birimAciklamasi || '',
+          birimFiyatiTl: r.birimFiyatiTl || 0,
+          toplamTl: r.toplamTutariTl || 0,
+          kdvIstisnasi: r.kdvIstisnasi || '',
+          makineTechizatTipi: r.makineTechizatTipi || '',
+          finansalKiralamaMi: r.finansalKiralamaMi || '',
+          finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+          finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+          gerceklesenAdet: r.gerceklesenAdet || 0,
+          gerceklesenTutar: r.gerceklesenTutar || 0,
+          iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+          iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+          iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+          etuysSecili: !!r.etuysSecili,
+          talep: r.talep,
+          karar: r.karar,
+          dosyalar: r.dosyalar || []
+        }));
+        const ithal = backendIthal.map(r => ({
+          id: r.rowId || Math.random().toString(36).slice(2),
+          siraNo: r.siraNo || 0,
+          makineId: r.makineId || '',
+          rowId: r.rowId || '',
+          gtipKodu: r.gtipKodu || '',
+          gtipAciklama: r.gtipAciklamasi || '',
+          adi: r.adiVeOzelligi || '',
+          miktar: r.miktar || 0,
+          birim: r.birim || '',
+          birimAciklamasi: r.birimAciklamasi || '',
+          birimFiyatiFob: r.birimFiyatiFob || 0,
+          doviz: r.gumrukDovizKodu || '',
+          toplamUsd: r.toplamTutarFobUsd || 0,
+          toplamTl: r.toplamTutarFobTl || 0,
+          tlManuel: r.tlManuel || false,
+          kurManuel: r.kurManuel || false,
+          kurManuelDeger: r.kurManuelDeger || 0,
+          kullanilmisKod: r.kullanilmisMakine || '',
+          kullanilmisAciklama: r.kullanilmisMakineAciklama || '',
+          ckdSkd: r.ckdSkdMi || '',
+          aracMi: r.aracMi || '',
+          makineTechizatTipi: r.makineTechizatTipi || '',
+          kdvMuafiyeti: r.kdvMuafiyeti || '',
+          gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || '',
+          finansalKiralamaMi: r.finansalKiralamaMi || '',
+          finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+          finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+          gerceklesenAdet: r.gerceklesenAdet || 0,
+          gerceklesenTutar: r.gerceklesenTutar || 0,
+          iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+          iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+          iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+          etuysSecili: !!r.etuysSecili,
+          talep: r.talep,
+          karar: r.karar,
+          dosyalar: r.dosyalar || []
+        }));
+        setYerliRows(yerli);
+        setIthalRows(ithal);
+        // localStorage'ı da güncelle
+        saveLS(`mk_${tesvikId}_yerli`, yerli);
+        saveLS(`mk_${tesvikId}_ithal`, ithal);
+        return;
+      }
+      
+      // 3) Backend boşsa localStorage'dan yükle
+      const localYerli = loadLS(`mk_${tesvikId}_yerli`, []);
+      const localIthal = loadLS(`mk_${tesvikId}_ithal`, []);
+      setYerliRows(localYerli);
+      setIthalRows(localIthal);
+    } catch (error) {
+      console.error('Makine verileri yüklenirken hata:', error);
+      // Hata durumunda localStorage'dan yükle
       const yerli = loadLS(`mk_${tesvikId}_yerli`, []);
       const ithal = loadLS(`mk_${tesvikId}_ithal`, []);
       setYerliRows(yerli);
       setIthalRows(ithal);
-    } catch (error) {
-      console.error('Makine verileri yüklenirken hata:', error);
-      setYerliRows([]);
-      setIthalRows([]);
     }
   };
 
@@ -534,6 +628,34 @@ const MakineYonetimi = () => {
     wb.creator = 'Firma Yönetim Sistemi';
     wb.created = new Date();
 
+    // 🔧 Yaygın birim kodları için açıklama mapping'i
+    const birimKodlari = {
+      '142': 'ADET',
+      '166': 'KİLOGRAM',
+      '112': 'LİTRE',
+      '138': 'METRE',
+      '111': 'MİLİMETRE',
+      '144': 'ÇİFT',
+      '143': 'DÜZÜNE',
+      '145': 'YÜZ',
+      '146': 'BİN',
+      '139': 'METREKARE',
+      '140': 'METREKÜp',
+      '151': 'TON',
+      '999': 'DİĞER'
+    };
+    
+    // 🔧 FIX: Birim açıklamasını al - Önce kod mapping'i kontrol et, sonra temiz açıklama
+    const getBirimAciklama = (kod, aciklama) => {
+      // Önce kod mapping'inden bak (daha temiz sonuç için)
+      if (kod && birimKodlari[kod]) return birimKodlari[kod];
+      // Açıklama varsa parantez içindeki kısmı temizle (ADET(UNIT) -> ADET)
+      if (aciklama && aciklama.trim()) {
+        return aciklama.replace(/\s*\([^)]*\)\s*/g, '').trim() || aciklama;
+      }
+      return kod || '';
+    };
+
     // Yardımcı: kolon index → harf
     const colLetter = (n) => {
       let s = ''; let x = n;
@@ -541,21 +663,37 @@ const MakineYonetimi = () => {
       return s;
     };
 
-    // Yardımcı: sayfayı profesyonel hale getir
+    // Yardımcı: sayfayı profesyonel hale getir - 🔧 GELİŞTİRİLMİŞ OKUNURLURLUK
     const finalizeSheet = (ws, numRows) => {
-      // Başlık satırı
+      // Başlık satırı - Daha belirgin
       const header = ws.getRow(1);
-      header.font = { bold: true, color: { argb: 'FF1F2937' } };
-      header.alignment = { horizontal: 'center', vertical: 'middle' };
-      header.height = 20;
+      header.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      header.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      header.height = 28;
       header.eachCell((cell) => {
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } };
-        cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; // Koyu mavi başlık
+        cell.border = { 
+          top: { style: 'medium', color: { argb: 'FF0D47A1' } }, 
+          left: { style: 'thin', color: { argb: 'FF0D47A1' } }, 
+          bottom: { style: 'medium', color: { argb: 'FF0D47A1' } }, 
+          right: { style: 'thin', color: { argb: 'FF0D47A1' } } 
+        };
       });
-      // Satır stilleri
+      // Satır stilleri - Daha iyi okunurluk
       ws.eachRow((row, rowNumber) => {
         if (rowNumber > 1) {
-          row.alignment = { vertical: 'middle' };
+          row.alignment = { vertical: 'middle', wrapText: false };
+          row.font = { size: 10 };
+          row.height = 18;
+          // Tüm hücrelere kenarlık ekle
+          row.eachCell((cell) => {
+            cell.border = cell.border || { 
+              top: { style: 'thin', color: { argb: 'FFD0D0D0' } }, 
+              left: { style: 'thin', color: { argb: 'FFD0D0D0' } }, 
+              bottom: { style: 'thin', color: { argb: 'FFD0D0D0' } }, 
+              right: { style: 'thin', color: { argb: 'FFD0D0D0' } } 
+            };
+          });
         }
       });
       // Dondur ve filtre ekle
@@ -564,10 +702,15 @@ const MakineYonetimi = () => {
       ws.autoFilter = `A1:${lastCol}1`;
       // Baskı ve kenar boşlukları
       ws.pageSetup = { fitToPage: true, orientation: 'landscape', margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5 } };
-      // Zebra şerit (okunabilirlik)
-      for (let r = 2; r <= numRows; r += 2) {
-        ws.getRow(r).eachCell((cell) => {
-          cell.fill = cell.fill || { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+      // 🔧 GELİŞTİRİLMİŞ Zebra şerit (okunabilirlik) - Daha belirgin renk farkı
+      for (let r = 2; r <= numRows; r++) {
+        const row = ws.getRow(r);
+        const bgColor = r % 2 === 0 ? 'FFF8F9FA' : 'FFFFFFFF'; // Açık gri / Beyaz
+        row.eachCell((cell) => {
+          // Sadece daha önce özel renk atanmamış hücreleri renklendir
+          if (!cell.fill || cell.fill.fgColor?.argb === 'FFFFFFFF' || !cell.fill.fgColor) {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgColor } };
+          }
         });
       }
     };
@@ -582,72 +725,72 @@ const MakineYonetimi = () => {
     wsLists.getCell('B2').value = 'Ana Makine';
     wsLists.getCell('B3').value = 'Yardımcı Makine';
 
-    // Alan setleri
+    // 🔧 GELİŞTİRİLMİŞ Alan setleri - Daha geniş sütunlar, daha iyi okunurluk
     const yerliColumns = [
-      { header: 'Sıra No', key: 'siraNo', width: 8 },
-      { header: 'Makine ID', key: 'makineId', width: 12 },
-      { header: 'GTIP No', key: 'gtipKodu', width: 14 },
-      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
-      { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
+      { header: 'Sıra No', key: 'siraNo', width: 10 },
+      { header: 'Makine ID', key: 'makineId', width: 14 },
+      { header: 'GTIP No', key: 'gtipKodu', width: 16 },
+      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 40 },
+      { header: 'Adı ve Özelliği', key: 'adi', width: 45 },
       { header: 'Miktarı', key: 'miktar', width: 12, numFmt: '#,##0' },
-      { header: 'Birimi', key: 'birim', width: 12 },
-      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 22 },
-      { header: 'Birim Fiyatı(TL)(KDV HARİÇ)', key: 'birimFiyatiTl', width: 20, numFmt: '#,##0.00' },
-      { header: 'Toplam Tutar (TL)', key: 'toplamTl', width: 18, numFmt: '#,##0' },
-      { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
-      { header: 'KDV Muafiyeti (EVET/HAYIR)', key: 'kdvIstisnasi', width: 22 },
-      { header: 'Finansal Kiralama Mı', key: 'finansalKiralamaMi', width: 18 },
-      { header: 'Finansal Kiralama İse Adet ', key: 'finansalKiralamaAdet', width: 20, numFmt: '#,##0' },
-      { header: 'Finansal Kiralama İse Şirket', key: 'finansalKiralamaSirket', width: 24 },
-      { header: 'Gerçekleşen Adet', key: 'gerceklesenAdet', width: 16, numFmt: '#,##0' },
-      { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
-      { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
-      { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
-      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
-      { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
-      { header: 'Talep Adedi', key: 'talepAdedi', width: 14, numFmt: '#,##0' },
+      { header: 'Birimi', key: 'birim', width: 10 },
+      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 18 },
+      { header: 'Birim Fiyatı (TL)', key: 'birimFiyatiTl', width: 22, numFmt: '#,##0.00' },
+      { header: 'Toplam Tutar (TL)', key: 'toplamTl', width: 22, numFmt: '#,##0.00' },
+      { header: 'Makine Tipi', key: 'makineTechizatTipi', width: 16 },
+      { header: 'KDV Muafiyeti', key: 'kdvIstisnasi', width: 14 },
+      { header: 'Finansal Kir.', key: 'finansalKiralamaMi', width: 14 },
+      { header: 'F.K. Adet', key: 'finansalKiralamaAdet', width: 12, numFmt: '#,##0' },
+      { header: 'F.K. Şirket', key: 'finansalKiralamaSirket', width: 20 },
+      { header: 'Gerç. Adet', key: 'gerceklesenAdet', width: 12, numFmt: '#,##0' },
+      { header: 'Gerç. Tutar', key: 'gerceklesenTutar', width: 16, numFmt: '#,##0' },
+      { header: 'İade/Devir/Satış', key: 'iadeDevirSatisVarMi', width: 16 },
+      { header: 'İ/D/S Adet', key: 'iadeDevirSatisAdet', width: 12, numFmt: '#,##0' },
+      { header: 'İ/D/S Tutar', key: 'iadeDevirSatisTutar', width: 16, numFmt: '#,##0' },
+      { header: 'Müracaat Tar.', key: 'muracaatTarihi', width: 14 },
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 14 },
+      { header: 'Talep Ad.', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
       { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
-      { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
-      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 16, numFmt: '#,##0' },
-      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 20 }
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 14 },
+      { header: 'Onay. Adet', key: 'onaylananAdet', width: 12, numFmt: '#,##0' },
+      { header: 'Değişiklik', key: 'degisiklikDurumu', width: 14 }
     ];
 
     const ithalColumns = [
-      { header: 'Sıra No', key: 'siraNo', width: 8 },
-      { header: 'Makine ID', key: 'makineId', width: 12 },
+      { header: 'Sıra No', key: 'siraNo', width: 10 },
+      { header: 'Makine ID', key: 'makineId', width: 14 },
       { header: 'GTIP No', key: 'gtipKodu', width: 16 },
-      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 32 },
-      { header: 'Adı ve Özelliği', key: 'adi', width: 36 },
+      { header: 'GTIP Açıklama', key: 'gtipAciklama', width: 40 },
+      { header: 'Adı ve Özelliği', key: 'adi', width: 45 },
       { header: 'Miktarı', key: 'miktar', width: 12, numFmt: '#,##0' },
-      { header: 'Birimi', key: 'birim', width: 12 },
-      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 22 },
-      { header: 'Menşei Döviz Birim Fiyatı (FOB)', key: 'birimFiyatiFob', width: 24, numFmt: '#,##0.00' },
-      { header: 'Menşei Döviz Cinsi (FOB)', key: 'doviz', width: 18 },
+      { header: 'Birimi', key: 'birim', width: 10 },
+      { header: 'Birim Açıklaması', key: 'birimAciklamasi', width: 18 },
+      { header: 'Birim Fiyatı (FOB)', key: 'birimFiyatiFob', width: 22, numFmt: '#,##0.00' },
+      { header: 'Döviz', key: 'doviz', width: 10 },
       { header: 'Manuel Kur', key: 'kurManuel', width: 12 },
-      { header: 'Manuel Kur Değeri', key: 'kurManuelDeger', width: 18, numFmt: '#,##0.0000' },
-      { header: 'Uygulanan Kur', key: 'uygulanankur', width: 16, numFmt: '#,##0.0000' },
-      { header: 'Toplam Tutar (FOB $)', key: 'toplamUsd', width: 20, numFmt: '#,##0' },
-      { header: 'Toplam Tutar (FOB TL)', key: 'toplamTl', width: 20, numFmt: '#,##0' },
-      { header: 'KULLANILMIŞ MAKİNE', key: 'kullanilmisKod', width: 22 },
-      { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
-      { header: 'KDV Muafiyeti', key: 'kdvMuafiyeti', width: 16 },
-      { header: 'Gümrük Vergisi Muafiyeti', key: 'gumrukVergisiMuafiyeti', width: 22 },
-      { header: 'Finansal Kiralama Mı', key: 'finansalKiralamaMi', width: 18 },
-      { header: 'Finansal Kiralama İse Adet ', key: 'finansalKiralamaAdet', width: 20, numFmt: '#,##0' },
-      { header: 'Finansal Kiralama İse Şirket', key: 'finansalKiralamaSirket', width: 24 },
-      { header: 'Gerçekleşen Adet', key: 'gerceklesenAdet', width: 16, numFmt: '#,##0' },
-      { header: 'Gerçekleşen Tutar ', key: 'gerceklesenTutar', width: 18, numFmt: '#,##0' },
-      { header: 'İade-Devir-Satış Var mı?', key: 'iadeDevirSatisVarMi', width: 20 },
-      { header: 'İade-Devir-Satış adet', key: 'iadeDevirSatisAdet', width: 20, numFmt: '#,##0' },
-      { header: 'İade Devir Satış Tutar', key: 'iadeDevirSatisTutar', width: 20, numFmt: '#,##0' },
-      { header: 'Müracaat Tarihi', key: 'muracaatTarihi', width: 16 },
-      { header: 'Onay Tarihi', key: 'onayTarihi', width: 16 },
-      { header: 'Talep Adedi', key: 'talepAdedi', width: 14, numFmt: '#,##0' },
+      { header: 'Man. Kur Değ.', key: 'kurManuelDeger', width: 14, numFmt: '#,##0.0000' },
+      { header: 'Uyg. Kur', key: 'uygulanankur', width: 14, numFmt: '#,##0.0000' },
+      { header: 'Toplam ($)', key: 'toplamUsd', width: 18, numFmt: '#,##0.00' },
+      { header: 'Toplam (TL)', key: 'toplamTl', width: 20, numFmt: '#,##0.00' },
+      { header: 'Kullanılmış', key: 'kullanilmisKod', width: 12 },
+      { header: 'Makine Tipi', key: 'makineTechizatTipi', width: 16 },
+      { header: 'KDV Muaf.', key: 'kdvMuafiyeti', width: 12 },
+      { header: 'G.V. Muaf.', key: 'gumrukVergisiMuafiyeti', width: 12 },
+      { header: 'Finansal Kir.', key: 'finansalKiralamaMi', width: 14 },
+      { header: 'F.K. Adet', key: 'finansalKiralamaAdet', width: 12, numFmt: '#,##0' },
+      { header: 'F.K. Şirket', key: 'finansalKiralamaSirket', width: 20 },
+      { header: 'Gerç. Adet', key: 'gerceklesenAdet', width: 12, numFmt: '#,##0' },
+      { header: 'Gerç. Tutar', key: 'gerceklesenTutar', width: 16, numFmt: '#,##0' },
+      { header: 'İade/Devir/Satış', key: 'iadeDevirSatisVarMi', width: 16 },
+      { header: 'İ/D/S Adet', key: 'iadeDevirSatisAdet', width: 12, numFmt: '#,##0' },
+      { header: 'İ/D/S Tutar', key: 'iadeDevirSatisTutar', width: 16, numFmt: '#,##0' },
+      { header: 'Müracaat Tar.', key: 'muracaatTarihi', width: 14 },
+      { header: 'Onay Tarihi', key: 'onayTarihi', width: 14 },
+      { header: 'Talep Ad.', key: 'talepAdedi', width: 12, numFmt: '#,##0' },
       { header: 'Karar Kodu', key: 'kararKodu', width: 12 },
-      { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
-      { header: 'Onaylanan Adet', key: 'onaylananAdet', width: 16, numFmt: '#,##0' },
-      { header: 'Değişiklik Durumu', key: 'degisiklikDurumu', width: 20 }
+      { header: 'Karar Durumu', key: 'kararDurumu', width: 14 },
+      { header: 'Onay. Adet', key: 'onaylananAdet', width: 12, numFmt: '#,##0' },
+      { header: 'Değişiklik', key: 'degisiklikDurumu', width: 14 }
     ];
 
     // Karar kodu helper - Enterprise Excel Export
@@ -677,9 +820,16 @@ const MakineYonetimi = () => {
       const kararKodu = getKararKodu(r.karar);
       const kararAdi = getKararAdi(r.karar);
       
+      // 🔧 FIX: Birim açıklamasını doğru şekilde göster
+      const birimGosterim = getBirimAciklama(r.birim, r.birimAciklamasi);
+      
       // Toplam TL'yi Excel içinde formülle üretelim
       const row = wsYerli.addRow({ 
         ...r, 
+        makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
+        birim: r.birim || '', // Birim kodu
+        birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
+        birimFiyatiTl: r.birimFiyatiTl || 0, // 🔧 FIX: Fiyatı garantile
         toplamTl: undefined,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
         onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
@@ -731,6 +881,24 @@ const MakineYonetimi = () => {
     // Numara formatlarını uygula
     yerliColumns.forEach((c, idx) => { if (c.numFmt) wsYerli.getColumn(idx + 1).numFmt = c.numFmt; });
     finalizeSheet(wsYerli, wsYerli.rowCount);
+    
+    // 🔧 FİYAT SÜTUNLARINI VURGULA - Yerli
+    const birimFiyatColY = yerliColumns.findIndex(c => c.key === 'birimFiyatiTl') + 1;
+    const toplamTlColY = yerliColumns.findIndex(c => c.key === 'toplamTl') + 1;
+    // Başlık hücrelerini sarı yap
+    wsYerli.getCell(1, birimFiyatColY).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    wsYerli.getCell(1, birimFiyatColY).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
+    wsYerli.getCell(1, toplamTlColY).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    wsYerli.getCell(1, toplamTlColY).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
+    // Veri hücrelerini açık sarı yap
+    for (let r = 2; r <= wsYerli.rowCount; r++) {
+      const row = wsYerli.getRow(r);
+      row.getCell(birimFiyatColY).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+      row.getCell(birimFiyatColY).font = { bold: true, color: { argb: 'FF78350F' } };
+      row.getCell(toplamTlColY).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+      row.getCell(toplamTlColY).font = { bold: true, color: { argb: 'FF78350F' } };
+    }
+    
     // Veri doğrulama: EVET/HAYIR ve Makine Tipi
     const idxKdvY = yerliColumns.findIndex(c => c.key === 'kdvIstisnasi') + 1;
     const idxFkY = yerliColumns.findIndex(c => c.key === 'finansalKiralamaMi') + 1;
@@ -769,9 +937,16 @@ const MakineYonetimi = () => {
       const kararKodu = getKararKodu(r.karar);
       const kararAdi = getKararAdi(r.karar);
       
+      // 🔧 FIX: Birim açıklamasını doğru şekilde göster
+      const birimGosterim = getBirimAciklama(r.birim, r.birimAciklamasi);
+      
       // Satırı ekle
       const rowData = { 
         ...r, 
+        makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
+        birim: r.birim || '', // Birim kodu
+        birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
+        birimFiyatiFob: r.birimFiyatiFob || 0, // 🔧 FIX: Fiyatı garantile
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
@@ -826,6 +1001,28 @@ const MakineYonetimi = () => {
     });
     ithalColumns.forEach((c, idx) => { if (c.numFmt) wsIthal.getColumn(idx + 1).numFmt = c.numFmt; });
     finalizeSheet(wsIthal, wsIthal.rowCount);
+    
+    // 🔧 FİYAT SÜTUNLARINI VURGULA - İthal
+    const birimFiyatColI = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
+    const toplamUsdColI = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
+    const toplamTlColI = ithalColumns.findIndex(c => c.key === 'toplamTl') + 1;
+    // Başlık hücrelerini sarı yap
+    wsIthal.getCell(1, birimFiyatColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    wsIthal.getCell(1, birimFiyatColI).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
+    wsIthal.getCell(1, toplamUsdColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
+    wsIthal.getCell(1, toplamUsdColI).font = { bold: true, size: 11, color: { argb: 'FF1E40AF' } };
+    wsIthal.getCell(1, toplamTlColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } };
+    wsIthal.getCell(1, toplamTlColI).font = { bold: true, size: 11, color: { argb: 'FF92400E' } };
+    // Veri hücrelerini vurgula
+    for (let r = 2; r <= wsIthal.rowCount; r++) {
+      const row = wsIthal.getRow(r);
+      row.getCell(birimFiyatColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+      row.getCell(birimFiyatColI).font = { bold: true, color: { argb: 'FF78350F' } };
+      row.getCell(toplamUsdColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+      row.getCell(toplamUsdColI).font = { bold: true, color: { argb: 'FF1E40AF' } };
+      row.getCell(toplamTlColI).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+      row.getCell(toplamTlColI).font = { bold: true, color: { argb: 'FF78350F' } };
+    }
     
     // Manuel kur kolonlarını vurgula
     const kurManuelCol = ithalColumns.findIndex(c => c.key === 'kurManuel') + 1;
@@ -1455,6 +1652,40 @@ const MakineYonetimi = () => {
           <Button size="small" onClick={() => addRows(10)} disabled={!isReviseStarted} sx={{ fontSize: '10px', py: 0.25, px: 0.5, minWidth: 32 }}>+10</Button>
           <Button size="small" onClick={() => addRows(50)} disabled={!isReviseStarted} sx={{ fontSize: '10px', py: 0.25, px: 0.5, minWidth: 32 }}>+50</Button>
           
+          <Divider orientation="vertical" flexItem />
+          
+          {/* 🆕 Talep/Karar Butonları - Hızlı Mod için eklendi */}
+          <Tooltip title="Seçili satıra talep ekle">
+            <Button 
+              size="small" 
+              disabled={!isReviseStarted || selectionModel.length === 0}
+              onClick={handleBulkTalep}
+              sx={{ fontSize: '9px', py: 0.25, px: 0.75, minWidth: 'auto', color: '#3b82f6' }}
+            >
+              📤 Talep
+            </Button>
+          </Tooltip>
+          <Tooltip title="Seçili satıra onay">
+            <Button 
+              size="small" 
+              disabled={!isReviseStarted || selectionModel.length === 0}
+              onClick={() => handleBulkKarar('onay')}
+              sx={{ fontSize: '9px', py: 0.25, px: 0.75, minWidth: 'auto', color: '#10b981' }}
+            >
+              ✅ Onay
+            </Button>
+          </Tooltip>
+          <Tooltip title="Seçili satıra red">
+            <Button 
+              size="small" 
+              disabled={!isReviseStarted || selectionModel.length === 0}
+              onClick={() => handleBulkKarar('red')}
+              sx={{ fontSize: '9px', py: 0.25, px: 0.75, minWidth: 'auto', color: '#ef4444' }}
+            >
+              ❌ Red
+            </Button>
+          </Tooltip>
+          
           <Box sx={{ flex: 1 }} />
           
           <Typography sx={{ fontSize: '10px', color: '#64748b' }}>
@@ -1482,7 +1713,7 @@ const MakineYonetimi = () => {
             '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8', borderRadius: 4 }
           }}
         >
-          <table style={{ borderCollapse: 'collapse', width: 'max-content', fontSize: '10px', fontFamily: 'Consolas, Monaco, monospace' }}>
+          <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%', fontSize: '10px', fontFamily: 'Consolas, Monaco, monospace' }}>
             <thead>
               <tr style={{ position: 'sticky', top: 0, background: quickTab === 'yerli' ? '#d1fae5' : '#fef3c7', zIndex: 10 }}>
                 <th style={{ border: '1px solid #9ca3af', padding: '2px 4px', fontSize: '9px', fontWeight: 700, minWidth: 20, background: 'inherit' }}>X</th>
@@ -2965,17 +3196,17 @@ const MakineYonetimi = () => {
           </Stack>
         </Box>
 
-        {/* DataGrid Area */}
+        {/* DataGrid Area - Minimum yükseklik ile daha iyi görünürlük */}
         <Box sx={{ 
           flex: 1, 
-          minHeight: 0,
-          overflow: 'hidden', 
+          minHeight: 400,  /* 🔧 FIX: Minimum yükseklik eklendi */
+          overflow: 'auto', 
           p: 0.5,
           display: 'flex',
           flexDirection: 'column',
           background: 'linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%)'
         }}>
-          <Box sx={{ flex: 1, minHeight: 0, width: '100%' }}>
+          <Box sx={{ flex: 1, minHeight: 350, width: '100%' }}>
             {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
           </Box>
         </Box>
@@ -2998,35 +3229,90 @@ const MakineYonetimi = () => {
           <DeleteOutlineIcon sx={{ color:'#ef4444' }} />
           <Typography variant="subtitle2" sx={{ fontWeight:700 }}>Silinen Satırlar</Typography>
         </Stack>
-        <Stack spacing={0.75} sx={{ maxHeight:180, overflow:'auto' }}>
+        <Stack spacing={0.5} sx={{ maxHeight: 120, overflow:'auto' }}>
           {deletedRows.map((it, idx)=> (
-            <Paper key={idx} variant="outlined" sx={{ p:1, display:'flex', alignItems:'center', gap:1, borderRadius:1.5 }}>
-              <Chip size="small" color="error" label="SİLİNDİ" />
-              <Chip size="small" label={it.type.toUpperCase()} />
-              <Chip size="small" label={`#${it.row.siraNo||0}`} />
-              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
-              <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
+            <Paper key={idx} variant="outlined" sx={{ p: 0.75, display:'flex', alignItems:'center', gap:1, borderRadius:1.5, fontSize: '0.75rem' }}>
+              <Chip size="small" color="error" label="SİLİNDİ" sx={{ fontSize: '0.65rem' }} />
+              <Chip size="small" label={it.type.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
+              <Chip size="small" label={`#${it.row.siraNo||0}`} sx={{ fontSize: '0.65rem' }} />
+              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontSize: '0.7rem' }}>{`${it.row.gtipKodu||''} — ${it.row.adi||it.row.adiVeOzelligi||''}`}</Box>
+              <Box sx={{ color:'text.secondary', fontSize: '0.65rem' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
             </Paper>
           ))}
-          {deletedRows.length===0 && <Box sx={{ color:'text.secondary' }}>Silinen satır yok</Box>}
+          {deletedRows.length===0 && <Box sx={{ color:'text.secondary', fontSize: '0.75rem' }}>Silinen satır yok</Box>}
         </Stack>
         <Divider sx={{ my:1 }} />
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb:1 }}>
           <TimelineIcon sx={{ color:'#10b981' }} />
           <Typography variant="subtitle2" sx={{ fontWeight:700 }}>İşlem Özeti (Talep/Karar)</Typography>
         </Stack>
-        <Stack spacing={0.75} sx={{ maxHeight:220, overflow:'auto' }}>
+        <Stack spacing={0.75} sx={{ maxHeight: 150, overflow:'auto' }}>
           {activityLog.map((it, idx)=> (
-            <Paper key={idx} variant="outlined" sx={{ p:1, display:'flex', alignItems:'center', gap:1, borderRadius:1.5 }}>
-              <Chip size="small" label={it.list.toUpperCase()} />
-              <Chip size="small" color={it.type==='talep'?'primary': it.type==='karar'?'success':'default'} label={it.type.toUpperCase()} />
-              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>
-              <Box>{it.type==='talep' ? `${(it.payload?.durum||'').replace(/_/g,' ')} ${it.payload?.istenenAdet?`(${it.payload.istenenAdet})`:''}` : it.type==='karar' ? `${(it.payload?.kararDurumu||'').replace(/_/g,' ')} ${Number.isFinite(Number(it.payload?.onaylananAdet))?`(${it.payload.onaylananAdet})`:''}` : ''}</Box>
-              <Box sx={{ color:'text.secondary' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
+            <Paper key={idx} variant="outlined" sx={{ p:0.75, display:'flex', alignItems:'center', gap:1, borderRadius:1.5, fontSize: '0.75rem' }}>
+              <Chip size="small" label={it.list.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
+              <Chip size="small" color={it.type==='talep'?'primary': it.type==='karar'?'success':'default'} label={it.type.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
+              <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontSize: '0.7rem' }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>
+              <Box sx={{ fontSize: '0.65rem' }}>{it.type==='talep' ? `${(it.payload?.durum||'').replace(/_/g,' ')} ${it.payload?.istenenAdet?`(${it.payload.istenenAdet})`:''}` : it.type==='karar' ? `${(it.payload?.kararDurumu||'').replace(/_/g,' ')} ${Number.isFinite(Number(it.payload?.onaylananAdet))?`(${it.payload.onaylananAdet})`:''}` : ''}</Box>
+              <Box sx={{ color:'text.secondary', fontSize: '0.65rem' }}>{new Date(it.date).toLocaleString('tr-TR')}</Box>
             </Paper>
           ))}
-          {activityLog.length===0 && <Box sx={{ color:'text.secondary' }}>İşlem yok</Box>}
+          {activityLog.length===0 && <Box sx={{ color:'text.secondary', fontSize: '0.75rem' }}>İşlem yok</Box>}
         </Stack>
+      </Paper>
+
+      {/* 📝 NOTLAR - Makine Yönetimi Notları */}
+      <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+          <Box sx={{ fontSize: 20 }}>📝</Box>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
+          {selectedTesvik && (
+            <Chip size="small" label={selectedTesvik.belgeNo || selectedTesvik._id} sx={{ ml: 1 }} />
+          )}
+        </Stack>
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          placeholder="Bu belge için notlarınızı buraya yazabilirsiniz..."
+          value={makineNotlari}
+          onChange={(e) => setMakineNotlari(e.target.value)}
+          disabled={!selectedTesvik}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              backgroundColor: '#fff',
+              fontSize: '0.875rem',
+              '&:hover': { backgroundColor: '#f8fafc' },
+              '&.Mui-focused': { backgroundColor: '#fff' }
+            }
+          }}
+        />
+        <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Button
+            size="small"
+            variant="contained"
+            disabled={!selectedTesvik || !isReviseStarted}
+            onClick={async () => {
+              if (!selectedTesvik?._id) return;
+              try {
+                await api.patch(`/tesvik/${selectedTesvik._id}`, { 
+                  'notlar.dahiliNotlar': makineNotlari 
+                });
+                openToast('success', 'Notlar kaydedildi');
+              } catch (e) {
+                openToast('error', 'Notlar kaydedilemedi');
+              }
+            }}
+            sx={{ 
+              fontSize: '0.75rem', 
+              py: 0.5, 
+              px: 2,
+              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }
+            }}
+          >
+            Notları Kaydet
+          </Button>
+        </Box>
       </Paper>
 
       {/* Sütun görünürlük menüsü */}

@@ -4829,18 +4829,15 @@ const YeniTesvikForm = () => {
           </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yabancı Kaynak:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.bankKredisi}
-                    onChange={(e) => handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', parseFloat(e.target.value) || 0)}
-                    sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
-                  />
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam Yabancı Kaynak:</Typography>
-                  <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#fef9c3' } }}
+                  <TextField size="small" fullWidth type="number"
+                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value) || 0;
+                      handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
+                      handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
+                    }}
+                    InputProps={{ style: { fontWeight: 'bold', backgroundColor: '#fef9c3' } }}
                   />
                 </Box>
               </Box>
