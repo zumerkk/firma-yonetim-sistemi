@@ -859,19 +859,10 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
   // Boşsa kullanıcının manuel girdiği değerleri koru
   const hasMakineListesi = yerliKalemler.length > 0 || ithalKalemler.length > 0;
   
-  if (hasMakineListesi) {
-    // MakineListeleri'nden hesapla
-    makina.yerliMakina = yerliToplamTl;
-    makina.ithalMakina = ithalToplamTl;
-    makina.toplamMakina = yerliToplamTl + ithalToplamTl;
-    makina.yeniMakina = yeniToplam;
-    makina.kullanimisMakina = kullanilmisToplam;
-    makina.toplamYeniMakina = yeniToplam + kullanilmisToplam;
-  } else {
-    // Kullanıcının manuel girdiği değerleri koru, sadece toplamı hesapla
-    makina.toplamMakina = (makina.yerliMakina || 0) + (makina.ithalMakina || 0);
-    makina.toplamYeniMakina = (makina.yeniMakina || 0) + (makina.kullanimisMakina || 0);
-  }
+  // 🔧 FIX: Kullanıcının manuel girdiği değerleri KORU
+  // Sadece toplamları hesapla, bireysel alanları değiştirme
+  makina.toplamMakina = (makina.yerliMakina || 0) + (makina.ithalMakina || 0);
+  makina.toplamYeniMakina = (makina.yeniMakina || 0) + (makina.kullanimisMakina || 0);
   
   // Finansman toplam
   const finansman = this.maliHesaplamalar.finansman;

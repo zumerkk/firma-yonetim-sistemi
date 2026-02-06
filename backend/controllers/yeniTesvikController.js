@@ -3448,14 +3448,14 @@ const buildRevisionTrackingData = async (tesvik) => {
         // 🎯 Bu revizyonda kaydedilmiş snapshot varsa kullan
         let revizyonSnapshot;
         
-        if (revizyon.veriSnapshot?.oncesi && i > 0) {
-          // Önceki durum snapshot'ı varsa kullan (değişiklik öncesi hali)
-          revizyonSnapshot = revizyon.veriSnapshot.oncesi;
-          console.log('✅ Revizyon ÖNCESİ snapshot kullanılıyor');
-        } else if (revizyon.veriSnapshot?.sonrasi) {
-          // Yeni sisteme göre snapshot varsa kullan
-          revizyonSnapshot = revizyon.veriSnapshot.sonrasi;
+        if (revizyon.veriSnapshot?.sonrasi) {
+          // 🔧 FIX: SONRASI öncelikli - revizyondan SONRA state'i göster
+          revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
           console.log('✅ Revizyon SONRASI snapshot kullanılıyor');
+        } else if (revizyon.veriSnapshot?.oncesi) {
+          // Fallback: oncesi varsa kullan (eksik sonrasi durumu için)
+          revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.oncesi));
+          console.log('⚠️ Revizyon ÖNCESİ snapshot kullanılıyor (sonrası yok)');
         } else if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
           // 🔥 CRITICAL FIX: Her revizyon kendi HISTORIK snapshot'ını tutsun!
           // Son revizyon varsa onun snapshot'ını kullan, yoksa initial tesvik state'i kullan
@@ -5639,6 +5639,11 @@ module.exports = {
             });
 
             const excelRow = ws.addRow(rowVals);
+            // 🔧 FIX: Hücre bazında numFmt uygula - fiyat sütunları
+            ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(k => {
+              const c = ws.getColumn(k);
+              if (c) { try { excelRow.getCell(c.number).numFmt = '#,##0'; } catch(e) {} }
+            });
             
             // Silinme tarihi varsa tüm satırı kırmızı yap
             if (isSilindi) {
@@ -6404,7 +6409,7 @@ module.exports = {
       ];
       if (Array.isArray(tesvik.makineListeleri?.ithal)) {
         tesvik.makineListeleri.ithal.forEach(r => {
-          ithalSheet.addRow({
+          const row = ithalSheet.addRow({
             gmId: tesvik.tesvikId || tesvik.gmId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
@@ -6426,13 +6431,13 @@ module.exports = {
             kullanilmisMakine: r.kullanilmisMakine || '',
             kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || ''
           });
+          // 🔧 FIX: Hücre bazında numFmt uygula
+          const usdCol = ithalSheet.getColumn('toplamTutarFobUsd');
+          const tlCol = ithalSheet.getColumn('toplamTutarFobTl');
+          if (usdCol) row.getCell(usdCol.number).numFmt = '#,##0';
+          if (tlCol) row.getCell(tlCol.number).numFmt = '#,##0';
         });
       }
-      // İthal fiyat sütunlarına numFmt ekle
-      ['toplamTutarFobUsd', 'toplamTutarFobTl'].forEach(key => {
-        const col = ithalSheet.getColumn(key);
-        if (col) col.numFmt = '#,##0';
-      });
 
       // 🧾 Yerli Makine Listesi Sayfası
       const yerliSheet = workbook.addWorksheet('Yerli Makine Listesi');
@@ -6458,7 +6463,7 @@ module.exports = {
       ];
       if (Array.isArray(tesvik.makineListeleri?.yerli)) {
         tesvik.makineListeleri.yerli.forEach(r => {
-          yerliSheet.addRow({
+          const row = yerliSheet.addRow({
             gmId: tesvik.tesvikId || tesvik.gmId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
@@ -6478,13 +6483,13 @@ module.exports = {
             toplamTutariTl: Number(r.toplamTutariTl) || 0,
             kdvIstisnasi: r.kdvIstisnasi || ''
           });
+          // 🔧 FIX: Hücre bazında numFmt uygula
+          const fiyatCol = yerliSheet.getColumn('birimFiyatiTl');
+          const toplamCol = yerliSheet.getColumn('toplamTutariTl');
+          if (fiyatCol) row.getCell(fiyatCol.number).numFmt = '#,##0';
+          if (toplamCol) row.getCell(toplamCol.number).numFmt = '#,##0';
         });
       }
-      // Yerli fiyat sütunlarına numFmt ekle
-      ['birimFiyatiTl', 'toplamTutariTl'].forEach(key => {
-        const col = yerliSheet.getColumn(key);
-        if (col) col.numFmt = '#,##0';
-      });
       
       // Destek unsurları sayfası
       const destekSheet = workbook.addWorksheet('Destek Unsurları');

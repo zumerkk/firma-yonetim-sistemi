@@ -1239,8 +1239,10 @@ const YeniTesvikForm = () => {
         }
         setAdresSayisi(adresCount);
         
-        // Ürün bilgileri satır sayısını ayarla - DÜZELTME: Single row olmalı edit'te
-        setUrunSayisi(1); // ✅ Kullanıcı isteği: Edit'te 1 satır başlasın
+        // 🔧 FIX: Ürün bilgileri satır sayısını yüklenen ürün sayısına göre ayarla
+        // Önceden 1'e sabitleniyordu, bu yüzden #1 hariç ürünler görünmüyordu
+        const urunCount = Math.max(1, mappedData.urunBilgileri?.length || 1);
+        setUrunSayisi(Math.min(10, urunCount));
         
         // 🎯 Destek unsurları - BACKEND'DEN GELEN VERİ SAYISINA GÖRE AYARLA
         const destekCount = mappedData.destekUnsurlari?.length || 1;
