@@ -307,8 +307,10 @@ const MakineYonetimi = () => {
   const [quickStatsOpen, setQuickStatsOpen] = useState(false);
   
   // 🚀 ENTERPRISE: Auto-save to DB (3 saniye debounce)
+  // 🔧 FIX: Sadece revize modunda değil, her zaman veritabanına kaydet
+  // Böylece makineId ve diğer alanlar sayfa yenilendiğinde kaybolmaz
   const autoSaveToDb = useCallback(async () => {
-    if (!selectedTesvik?._id || !isReviseStarted) return;
+    if (!selectedTesvik?._id) return;
     
     setIsSaving(true);
     setSyncStatus('syncing');
@@ -1117,7 +1119,7 @@ const MakineYonetimi = () => {
         makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
         birim: r.birim || '', // Birim kodu
         birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
-        birimFiyatiTl: r.birimFiyatiTl || 0, // 🔧 FIX: Fiyatı garantile
+        birimFiyatiTl: Number(r.birimFiyatiTl) || 0, // 🔧 FIX: Fiyatı sayıya çevir (string olabilir)
         toplamTl: undefined,
         durum: durumText,
         silinmeTarihi: silinmeTarihiText,
@@ -1248,7 +1250,7 @@ const MakineYonetimi = () => {
         makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
         birim: r.birim || '', // Birim kodu
         birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
-        birimFiyatiFob: r.birimFiyatiFob || 0, // 🔧 FIX: Fiyatı garantile
+        birimFiyatiFob: Number(r.birimFiyatiFob) || 0, // 🔧 FIX: Fiyatı sayıya çevir (string olabilir)
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
         durum: durumText,

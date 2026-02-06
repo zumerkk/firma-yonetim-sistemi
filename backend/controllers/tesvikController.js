@@ -89,35 +89,76 @@ const createTesvik = async (req, res) => {
 
     const tesvikData = req.body;
     // Makine listelerinde boş satırları ayıkla ve sayısal alanları normalize et
+    // 🔧 FIX: Tüm alanları koru - eski normalizeYerli/normalizeIthal sadece 8-12 alan geçiriyordu,
+    // geri kalan alanlar (makineId, gumrukVergisiMuafiyeti, kdvMuafiyeti, talep, karar, vb.) kayboluyordu
     if (tesvikData.makineListeleri) {
+      const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+      const str = (v) => (v ?? '').toString().trim();
       const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
-          toplamTutariTl: Number(r.toplamTutariTl) || 0,
-          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+        .map((r, idx) => ({
+          ...r, // Tüm ek alanları koru (talep, karar, etuysSecili, vb.)
+          rowId: str(r.rowId) || undefined,
+          siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+          makineId: str(r.makineId || ''),
+          gtipKodu: str(r.gtipKodu),
+          gtipAciklamasi: str(r.gtipAciklamasi),
+          adiVeOzelligi: str(r.adiVeOzelligi),
+          miktar: nz(r.miktar),
+          birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi || ''),
+          birimFiyatiTl: nz(r.birimFiyatiTl),
+          toplamTutariTl: nz(r.toplamTutariTl),
+          kdvIstisnasi: str(r.kdvIstisnasi).toUpperCase(),
+          makineTechizatTipi: str(r.makineTechizatTipi || ''),
+          finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+          finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+          gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar),
+          iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+          iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili
         }));
       const normalizeIthal = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
-          gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
-          toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
-          toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
-          // Kullanılmış makine alanı: modal artık kod döndürüyor (örn: 1,2,3). Eski EVET/HAYIR değerleri de korunur.
+        .map((r, idx) => ({
+          ...r, // Tüm ek alanları koru (talep, karar, etuysSecili, vb.)
+          rowId: str(r.rowId) || undefined,
+          siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+          makineId: str(r.makineId || ''),
+          gtipKodu: str(r.gtipKodu),
+          gtipAciklamasi: str(r.gtipAciklamasi),
+          adiVeOzelligi: str(r.adiVeOzelligi),
+          miktar: nz(r.miktar),
+          birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi || ''),
+          birimFiyatiFob: nz(r.birimFiyatiFob),
+          gumrukDovizKodu: str(r.gumrukDovizKodu).toUpperCase(),
+          toplamTutarFobUsd: nz(r.toplamTutarFobUsd),
+          toplamTutarFobTl: nz(r.toplamTutarFobTl),
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          kullanilmisMakineAciklama: str(r.kullanilmisMakineAciklama || ''),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          gumrukVergisiMuafiyeti: str(r.gumrukVergisiMuafiyeti || ''),
+          kdvMuafiyeti: str(r.kdvMuafiyeti || ''),
+          makineTechizatTipi: str(r.makineTechizatTipi || ''),
+          finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+          finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+          gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar),
+          iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+          iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili,
+          kurManuel: !!r.kurManuel,
+          kurManuelDeger: nz(r.kurManuelDeger),
+          birimFiyatiTl: nz(r.birimFiyatiTl),
+          toplamTutariTl: nz(r.toplamTutariTl),
+          kdvIstisnasi: str(r.kdvIstisnasi || '')
         }));
       tesvikData.makineListeleri = {
         yerli: normalizeYerli(tesvikData.makineListeleri.yerli),
@@ -424,39 +465,82 @@ const updateTesvik = async (req, res) => {
       tesvik.urunler = normalizeAndMergeUrunler(filteredUpdateData.urunler);
     }
     // Güncellemede makine listelerini normalize et
+    // 🔧 FIX: Tüm alanları koru - eski normalizeYerli/normalizeIthal sadece 8-12 alan geçiriyordu,
+    // geri kalan alanlar (makineId, gumrukVergisiMuafiyeti, kdvMuafiyeti, talep, karar, vb.) kayboluyordu
     if (filteredUpdateData.makineListeleri) {
+      const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+      const str = (v) => (v ?? '').toString().trim();
       const normalizeYerli = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
-          toplamTutariTl: Number(r.toplamTutariTl) || 0,
-          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase()
+        .map((r, idx) => ({
+          ...r,
+          rowId: str(r.rowId) || undefined,
+          siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+          makineId: str(r.makineId || ''),
+          gtipKodu: str(r.gtipKodu),
+          gtipAciklamasi: str(r.gtipAciklamasi),
+          adiVeOzelligi: str(r.adiVeOzelligi),
+          miktar: nz(r.miktar),
+          birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi || ''),
+          birimFiyatiTl: nz(r.birimFiyatiTl),
+          toplamTutariTl: nz(r.toplamTutariTl),
+          kdvIstisnasi: str(r.kdvIstisnasi).toUpperCase(),
+          makineTechizatTipi: str(r.makineTechizatTipi || ''),
+          finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+          finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+          gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar),
+          iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+          iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili
         }));
       const normalizeIthal = (arr = []) => arr
         .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map(r => ({
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
-          gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
-          toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
-          toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
+        .map((r, idx) => ({
+          ...r,
+          rowId: str(r.rowId) || undefined,
+          siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+          makineId: str(r.makineId || ''),
+          gtipKodu: str(r.gtipKodu),
+          gtipAciklamasi: str(r.gtipAciklamasi),
+          adiVeOzelligi: str(r.adiVeOzelligi),
+          miktar: nz(r.miktar),
+          birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi || ''),
+          birimFiyatiFob: nz(r.birimFiyatiFob),
+          gumrukDovizKodu: str(r.gumrukDovizKodu).toUpperCase(),
+          toplamTutarFobUsd: nz(r.toplamTutarFobUsd),
+          toplamTutarFobTl: nz(r.toplamTutarFobTl),
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
+          kullanilmisMakineAciklama: str(r.kullanilmisMakineAciklama || ''),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : '')
+          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
+          gumrukVergisiMuafiyeti: str(r.gumrukVergisiMuafiyeti || ''),
+          kdvMuafiyeti: str(r.kdvMuafiyeti || ''),
+          makineTechizatTipi: str(r.makineTechizatTipi || ''),
+          finansalKiralamaMi: str(r.finansalKiralamaMi || ''),
+          finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket || ''),
+          gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar),
+          iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi || ''),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet),
+          iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili,
+          kurManuel: !!r.kurManuel,
+          kurManuelDeger: nz(r.kurManuelDeger),
+          birimFiyatiTl: nz(r.birimFiyatiTl),
+          toplamTutariTl: nz(r.toplamTutariTl),
+          kdvIstisnasi: str(r.kdvIstisnasi || '')
         }));
       tesvik.makineListeleri = {
         yerli: normalizeYerli(filteredUpdateData.makineListeleri.yerli),
         ithal: normalizeIthal(filteredUpdateData.makineListeleri.ithal)
       };
+      tesvik.markModified('makineListeleri');
     }
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = updateData.guncellemeNotu || `Güncelleme yapıldı - ${new Date().toLocaleString('tr-TR')}`;
@@ -647,6 +731,14 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'yatirimBilgileri.yatirim2.ilce': 'İlçe',
     'yatirimBilgileri.yatirim2.ada': 'ADA',
     'yatirimBilgileri.yatirim2.parsel': 'PARSEL',
+    // 🔧 FIX: Model'deki gerçek path'ler (adresler doğrudan yatirimBilgileri altında)
+    'yatirimBilgileri.yatirimAdresi1': 'Yatırım Adresi',
+    'yatirimBilgileri.yatirimAdresi2': 'Yatırım Adresi 2',
+    'yatirimBilgileri.yatirimAdresi3': 'Yatırım Adresi 3',
+    'yatirimBilgileri.yerinIl': 'İl',
+    'yatirimBilgileri.yerinIlce': 'İlçe',
+    'yatirimBilgileri.ada': 'ADA',
+    'yatirimBilgileri.parsel': 'PARSEL',
     
     // 📦 Ürün bilgileri - DOĞRU FIELD PATHS!
     'urunler': 'Ürün Bilgileri',
@@ -3268,7 +3360,21 @@ const buildRevisionTrackingData = async (tesvik) => {
               if (!target[path[i]]) target[path[i]] = {};
               target = target[path[i]];
             }
-            target[path[path.length - 1]] = ch.eskiDeger;
+            // 🔧 FIX: Obje ise merge et
+            const lastKey = path[path.length - 1];
+            if (typeof ch.eskiDeger === 'object' && ch.eskiDeger !== null && !Array.isArray(ch.eskiDeger) && typeof target[lastKey] === 'object' && target[lastKey] !== null) {
+              target[lastKey] = { ...target[lastKey], ...ch.eskiDeger };
+            } else {
+              target[lastKey] = ch.eskiDeger;
+            }
+            
+            // 🔧 FIX: yatirimBilgileri.yatirim2.X path'i varsa, yatirimBilgileri.X'e de yaz
+            // Çünkü model'de adres doğrudan yatirimBilgileri altında saklanıyor
+            if (path.length === 3 && path[0] === 'yatirimBilgileri' && path[1] === 'yatirim2') {
+              if (rolledBack.yatirimBilgileri) {
+                rolledBack.yatirimBilgileri[path[2]] = ch.eskiDeger;
+              }
+            }
           });
         }
       }
@@ -3354,7 +3460,12 @@ const buildRevisionTrackingData = async (tesvik) => {
                 }
               } else {
                 // Normal değişiklik
-                current[finalKey] = degisiklik.yeniDeger;
+                // 🔧 FIX: Eğer yeniDeger bir obje ise, mevcut obje ile merge et (aciklama gibi alanların kaybolmasını önle)
+                if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+                  current[finalKey] = { ...current[finalKey], ...degisiklik.yeniDeger };
+                } else {
+                  current[finalKey] = degisiklik.yeniDeger;
+                }
               }
             }
           });
@@ -3386,7 +3497,13 @@ const buildRevisionTrackingData = async (tesvik) => {
                     }
                     target = target[fieldPath[j]];
                   }
-                  target[fieldPath[fieldPath.length - 1]] = degisiklik.yeniDeger;
+                  // 🔧 FIX: Obje ise merge et, aciklama gibi alanların kaybolmasını önle
+                  const fk = fieldPath[fieldPath.length - 1];
+                  if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof target[fk] === 'object' && target[fk] !== null) {
+                    target[fk] = { ...target[fk], ...degisiklik.yeniDeger };
+                  } else {
+                    target[fk] = degisiklik.yeniDeger;
+                  }
                 }
               });
               console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
@@ -3529,7 +3646,8 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     // Yatırım bilgileri - FIXED FIELD MAPPING!
     const yatirimBilgileri = snapshot.yatirimBilgileri || {};
     const yatirim1 = yatirimBilgileri.yatirimBilgileri1 || yatirimBilgileri;
-    const yatirim2 = yatirimBilgileri.yatirimBilgileri2 || yatirimBilgileri;
+    // 🔧 FIX: yatirim2 sub-path'i de kontrol et (rollback bu path'e yazar)
+    const yatirim2 = yatirimBilgileri.yatirimBilgileri2 || yatirimBilgileri.yatirim2 || yatirimBilgileri;
     
     console.log(`🏭 [DEBUG] Yatırım bilgileri:`, {
       yatirim1: {
@@ -3705,7 +3823,8 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       (maliyetlenen.sn ?? hesaplananSn ?? araziGideri.toplam ?? finansal.araciArsaBedeli ?? 0)
     );
     // Açıklama için otomatik oluştur veya varsa kullan
-    const araziAciklama = finansal.araziAciklama || 
+    // 🔧 FIX: finansal.araziAciklama yok! Doğru alan: maliyetlenen.aciklama (model: maliHesaplamalar.maliyetlenen.aciklama)
+    const araziAciklama = maliyetlenen.aciklama || finansal.araziAciklama || 
                          (metrekaresi > 0 ? `${metrekaresi} m² x ${birimFiyat} TL` : '');
     
     row.push(araziAciklama);                                       // Arazi-Arsa Bedeli Açıklama
@@ -3722,7 +3841,8 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(bina.aciklama || '');                                // Bina İnşaat Gideri Açıklama
     row.push(bina.anaBinaGideri || bina.anaBinaVeTesisleri || 0);                       // Ana Bina ve Tesisleri
     row.push(bina.yardimciBinaGideri || bina.yardimciIsBinaVeTesisleri || 0);                // Yardımcı İş. Bina ve Tesisleri
-    row.push(bina.idareBinalari || 0);                            // İdare Binaları
+    // 🔧 FIX: idareBinalari alanı modelde yok, doğru alan: bina.so
+    row.push(bina.so || bina.idareBinalari || 0);                    // İdare Binaları
     row.push(bina.toplamBinaGideri || bina.toplamBinaInsaatGideri || 0);                   // TOPLAM BİNA İNŞAAT GİDERİ
     
     // Diğer Yatırım Harcamaları (7 sütun) - MODEL'E UYGUN
@@ -3758,12 +3878,14 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(finansmanBilgisi.ozKaynak || 0);                          // Öz kaynak
     row.push(finansmanBilgisi.toplamFinansman || 0);        // TOPLAM FİNANSMAN
     
-    // Revize tarihi (revizyon varsa onun tarihi, yoksa kaydın oluşturulma)
-    const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.updatedAt || snapshot.createdAt;
+    // 🔧 FIX: Revize tarihi - snapshot.updatedAt yerine snapshot.createdAt öncelikli olmalı
+    // Çünkü updatedAt her güncelleme ile değişir, createdAt sabit kalır
+    const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.createdAt || snapshot.updatedAt;
     row.push(formatTurkishDateTime(revizyonTarihi));
     
-    // 🆕 TALEP TARİHİ - Revizyonun talep tarihi veya oluşturulma tarihi
-    const talepTarihi = revizyon?.talepTarihi || revizyon?.createdAt || snapshot.talepTarihi || snapshot.createdAt;
+    // 🔧 FIX: TALEP TARİHİ - Revizyon subdoc'ta talepTarihi/createdAt yok
+    // Doğru fallback: revizyon tarihi > belge müracaat tarihi > oluşturma tarihi
+    const talepTarihi = revizyon?.talepTarihi || revizyon?.revizyonTarihi || snapshot.belgeYonetimi?.belgeMuracaatTarihi || snapshot.createdAt;
     row.push(formatTurkishDateTime(talepTarihi));
     
     // 🆕 SONUÇ TARİHİ - Revizyonun sonuç/karar tarihi
@@ -4906,6 +5028,7 @@ module.exports = {
       const yerliMapped = (Array.isArray(yerli) ? yerli : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+        makineId: str(r.makineId || ''),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
@@ -4944,6 +5067,7 @@ module.exports = {
       const ithalMapped = (Array.isArray(ithal) ? ithal : []).map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
+        makineId: str(r.makineId || ''),
         gtipKodu: str(r.gtipKodu),
         gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
         adiVeOzelligi: str(r.adiVeOzelligi || r.adi),
@@ -5283,17 +5407,19 @@ module.exports = {
           { header:'Birim', key:'birim', width: 10 },
           { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
           ...(isYerli ? [
-            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 14 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+            // 🔧 FIX: Sütun genişlikleri artırıldı - büyük TL tutarlar "########" olarak görünüyordu
+            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 22 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 22 },
             { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
           ] : [
-            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
+            // 🔧 FIX: Sütun genişlikleri artırıldı - büyük döviz/TL tutarlar "########" olarak görünüyordu
+            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 22 },
             { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
             { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
             { header:'Manuel Kur', key:'kurManuel', width: 12 },
-            { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 16 },
-            { header:'Toplam ($)', key:'toplamUsd', width: 14 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+            { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 20 },
+            { header:'Toplam ($)', key:'toplamUsd', width: 22 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 22 },
             { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
             { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
             { header:'Araç mı', key:'aracMi', width: 10 },
@@ -5305,10 +5431,10 @@ module.exports = {
           { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
           { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
           { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
-          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 14 },
+          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 20 },
           { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
           { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
-          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 },
+          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 22 },
           // UI ek alanlar
           { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
           { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
@@ -5330,6 +5456,14 @@ module.exports = {
         ];
         ws.columns = baseCols;
         ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
+        
+        // 🔧 FIX: Fiyat sütunlarına numara formatı ekle (büyük sayıların okunabilirliği için)
+        const numFmt = '#,##0';
+        ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
+          const col = ws.getColumn(key);
+          if (col) col.numFmt = numFmt;
+        });
+        
         // Önceki snapshot kıyaslaması için map
         // Yalnızca FINAL snapshot'ları işle; hiç final yoksa tüm snapshot'ları kullan
         const iterateRevs = Array.isArray(revs) && revs.some(r=> r.revizeTuru==='final')
@@ -5423,19 +5557,21 @@ module.exports = {
             };
             if (isYerli) {
               Object.assign(rowVals, {
-                birimFiyatiTl: r.birimFiyatiTl || 0,
-                toplamTl: r.toplamTutariTl || r.toplamTl || 0,
+                // 🔧 FIX: Sayısal değerleri Number() ile garanti et (eski kayıtlarda string olabilir)
+                birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
+                toplamTl: Number(r.toplamTutariTl || r.toplamTl) || 0,
                 kdvIstisnasi: r.kdvIstisnasi || ''
               });
             } else {
               Object.assign(rowVals, {
-                birimFiyatiFob: r.birimFiyatiFob || 0,
+                // 🔧 FIX: Sayısal değerleri Number() ile garanti et (eski kayıtlarda string olabilir)
+                birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
                 gumrukDovizKodu: r.gumrukDovizKodu || '',
                 dovizAciklamasi: r.dovizAciklamasi || '',
                 kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
-                kurManuelDeger: r.kurManuelDeger || 0,
-                toplamUsd: r.toplamTutarFobUsd || r.toplamUsd || 0,
-                toplamTl: r.toplamTutarFobTl || r.toplamTl || 0,
+                kurManuelDeger: Number(r.kurManuelDeger) || 0,
+                toplamUsd: Number(r.toplamTutarFobUsd || r.toplamUsd) || 0,
+                toplamTl: Number(r.toplamTutarFobTl || r.toplamTl) || 0,
                 kullanilmisMakine: r.kullanilmisMakine || '',
                 ckdSkdMi: r.ckdSkdMi || r.ckdSkd || '',
                 aracMi: r.aracMi || '',
@@ -5579,16 +5715,16 @@ module.exports = {
           { header:'Miktar', key:'miktar', width: 10 },
           { header:'Birim', key:'birim', width: 10 },
           { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
-          // Yerli özel
-          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 14 },
-          { header:'Toplam (TL)', key:'toplamTl', width: 14 },
+          // Yerli özel - 🔧 FIX: Sütun genişlikleri artırıldı
+          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 22 },
+          { header:'Toplam (TL)', key:'toplamTl', width: 22 },
           { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
-          // İthal özel
-          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 14 },
+          // İthal özel - 🔧 FIX: Sütun genişlikleri artırıldı
+          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 22 },
           { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
           { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
-          { header:'Toplam ($)', key:'toplamUsd', width: 14 },
-          { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 14 },
+          { header:'Toplam ($)', key:'toplamUsd', width: 22 },
+          { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 22 },
           { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
           { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
           { header:'Araç mı', key:'aracMi', width: 10 },
@@ -5600,10 +5736,10 @@ module.exports = {
           { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
           { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
           { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
-          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 14 },
+          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 20 },
           { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
           { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
-          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 18 },
+          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 22 },
           { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
           { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
           { header:'Talep Durumu', key:'talepDurum', width: 16 },

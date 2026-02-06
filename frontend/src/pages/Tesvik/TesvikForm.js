@@ -140,10 +140,12 @@ const TesvikForm = () => {
   };
 
   // 🛠️ Makine Listesi yardımcıları
+  // 🔧 FIX: Form'da render edilen tüm alanları dahil et
   const emptyMakineYerli = () => ({
     gtipKodu: '',
     gtipAciklamasi: '',
     adiVeOzelligi: '',
+    makineId: '',
     miktar: '',
     birim: '',
     birimFiyatiTl: '',
@@ -155,6 +157,7 @@ const TesvikForm = () => {
     gtipKodu: '',
     gtipAciklamasi: '',
     adiVeOzelligi: '',
+    makineId: '',
     miktar: '',
     birim: '',
     birimFiyatiFob: '',
@@ -162,13 +165,21 @@ const TesvikForm = () => {
     toplamTutarFobUsd: '',
     toplamTutarFobTl: '',
     kullanilmisMakine: '',
+    kullanilmisMakineAciklama: '',
     ckdSkdMi: '',
-    aracMi: ''
+    aracMi: '',
+    gumrukVergisiMuafiyeti: '',
+    kdvMuafiyeti: ''
   });
 
   const [makineTab, setMakineTab] = useState('yerli');
+  // 🔧 FIX: Track whether the user edited makineListeleri in this form session.
+  // If not edited, handleSubmit will NOT send makineListeleri to avoid overwriting
+  // fresher data saved by MakineYonetimi.
+  const makineListeleriDirtyRef = React.useRef(false);
 
   const addMakineSatiri = (tip) => {
+    makineListeleriDirtyRef.current = true;
     setFormData(prev => ({
       ...prev,
       makineListeleri: {
@@ -182,6 +193,7 @@ const TesvikForm = () => {
   };
 
   const removeMakineSatiri = (tip, index) => {
+    makineListeleriDirtyRef.current = true;
     setFormData(prev => {
       const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
       const arr = [ ...mevcut ];
@@ -191,6 +203,7 @@ const TesvikForm = () => {
   };
 
   const updateMakineField = (tip, index, field, value) => {
+    makineListeleriDirtyRef.current = true;
     setFormData(prev => {
       const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
       const arr = [ ...mevcut ];
@@ -976,30 +989,62 @@ const TesvikForm = () => {
           },
           
           // 🛠️ Makine Listeleri (backend → frontend mapping)
+          // 🔧 FIX: Tüm alanları spread ile koru, yalnızca görüntüleme formatlarını dönüştür
           makineListeleri: {
             yerli: (backendData.makineListeleri?.yerli || []).map(r => ({
+              ...r, // Tüm alanları koru (rowId, siraNo, talep, karar, etuysSecili vs.)
               gtipKodu: r.gtipKodu || '',
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
+              makineId: r.makineId || '',
               miktar: r.miktar?.toString() || '',
               birim: r.birim || '',
+              birimAciklamasi: r.birimAciklamasi || '',
               birimFiyatiTl: r.birimFiyatiTl?.toString() || '',
               toplamTutariTl: r.toplamTutariTl?.toString() || '',
-              kdvIstisnasi: r.kdvIstisnasi || ''
+              kdvIstisnasi: r.kdvIstisnasi || '',
+              makineTechizatTipi: r.makineTechizatTipi || '',
+              finansalKiralamaMi: r.finansalKiralamaMi || '',
+              finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+              finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+              gerceklesenAdet: r.gerceklesenAdet || 0,
+              gerceklesenTutar: r.gerceklesenTutar || 0,
+              iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+              iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+              iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+              etuysSecili: !!r.etuysSecili
             })),
             ithal: (backendData.makineListeleri?.ithal || []).map(r => ({
+              ...r, // Tüm alanları koru (rowId, siraNo, talep, karar, etuysSecili vs.)
               gtipKodu: r.gtipKodu || '',
               gtipAciklamasi: r.gtipAciklamasi || '',
               adiVeOzelligi: r.adiVeOzelligi || '',
+              makineId: r.makineId || '',
               miktar: r.miktar?.toString() || '',
               birim: r.birim || '',
+              birimAciklamasi: r.birimAciklamasi || '',
               birimFiyatiFob: r.birimFiyatiFob?.toString() || r.birimFiyatiTl?.toString() || '',
               gumrukDovizKodu: r.gumrukDovizKodu || '',
               toplamTutarFobUsd: r.toplamTutarFobUsd?.toString() || r.toplamTutariTl?.toString() || '',
               toplamTutarFobTl: r.toplamTutarFobTl?.toString() || r.toplamTutariTl?.toString() || '',
               kullanilmisMakine: r.kullanilmisMakine || '',
+              kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || '',
               ckdSkdMi: r.ckdSkdMi || '',
-              aracMi: r.aracMi || ''
+              aracMi: r.aracMi || '',
+              gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || '',
+              kdvMuafiyeti: r.kdvMuafiyeti || '',
+              makineTechizatTipi: r.makineTechizatTipi || '',
+              finansalKiralamaMi: r.finansalKiralamaMi || '',
+              finansalKiralamaAdet: r.finansalKiralamaAdet || 0,
+              finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+              gerceklesenAdet: r.gerceklesenAdet || 0,
+              gerceklesenTutar: r.gerceklesenTutar || 0,
+              iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+              iadeDevirSatisAdet: r.iadeDevirSatisAdet || 0,
+              iadeDevirSatisTutar: r.iadeDevirSatisTutar || 0,
+              etuysSecili: !!r.etuysSecili,
+              kurManuel: !!r.kurManuel,
+              kurManuelDeger: r.kurManuelDeger || 0
             }))
           },
           
@@ -2077,32 +2122,67 @@ const TesvikForm = () => {
         },
         
         // 🛠️ Makine Listeleri (frontend → backend mapping)
-        makineListeleri: {
-          yerli: ((formData.makineListeleri && formData.makineListeleri.yerli) || []).map(r => ({
-            gtipKodu: r.gtipKodu || '',
-            gtipAciklamasi: r.gtipAciklamasi || '',
-            adiVeOzelligi: r.adiVeOzelligi || '',
-            miktar: parseInt(r.miktar) || 0,
-            birim: r.birim || '',
-            birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
-            toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
-            kdvIstisnasi: r.kdvIstisnasi || ''
-          })),
-          ithal: ((formData.makineListeleri && formData.makineListeleri.ithal) || []).map(r => ({
-            gtipKodu: r.gtipKodu || '',
-            gtipAciklamasi: r.gtipAciklamasi || '',
-            adiVeOzelligi: r.adiVeOzelligi || '',
-            miktar: parseInt(r.miktar) || 0,
-            birim: r.birim || '',
-            birimFiyatiFob: parseInt(r.birimFiyatiFob) || 0,
-            gumrukDovizKodu: r.gumrukDovizKodu || '',
-            toplamTutarFobUsd: parseInt(r.toplamTutarFobUsd) || 0,
-            toplamTutarFobTl: parseInt(r.toplamTutarFobTl) || 0,
-            kullanilmisMakine: r.kullanilmisMakine || '',
-            ckdSkdMi: r.ckdSkdMi || '',
-            aracMi: r.aracMi || ''
-          }))
-        },
+        // 🔧 FIX: Only include makineListeleri when the user actually edited machines
+        // in this form session. This prevents overwriting fresher data saved by MakineYonetimi.
+        ...(makineListeleriDirtyRef.current ? {
+          makineListeleri: {
+            yerli: ((formData.makineListeleri && formData.makineListeleri.yerli) || []).map(r => ({
+              ...r, // Tüm alanları koru (rowId, siraNo, talep, karar, etuysSecili vs.)
+              gtipKodu: r.gtipKodu || '',
+              gtipAciklamasi: r.gtipAciklamasi || '',
+              adiVeOzelligi: r.adiVeOzelligi || '',
+              makineId: r.makineId || '',
+              miktar: parseInt(r.miktar) || 0,
+              birim: r.birim || '',
+              birimAciklamasi: r.birimAciklamasi || '',
+              birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
+              toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
+              kdvIstisnasi: r.kdvIstisnasi || '',
+              makineTechizatTipi: r.makineTechizatTipi || '',
+              finansalKiralamaMi: r.finansalKiralamaMi || '',
+              finansalKiralamaAdet: parseInt(r.finansalKiralamaAdet) || 0,
+              finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+              gerceklesenAdet: parseInt(r.gerceklesenAdet) || 0,
+              gerceklesenTutar: parseInt(r.gerceklesenTutar) || 0,
+              iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+              iadeDevirSatisAdet: parseInt(r.iadeDevirSatisAdet) || 0,
+              iadeDevirSatisTutar: parseInt(r.iadeDevirSatisTutar) || 0,
+              etuysSecili: !!r.etuysSecili
+            })),
+            ithal: ((formData.makineListeleri && formData.makineListeleri.ithal) || []).map(r => ({
+              ...r, // Tüm alanları koru (rowId, siraNo, talep, karar, etuysSecili vs.)
+              gtipKodu: r.gtipKodu || '',
+              gtipAciklamasi: r.gtipAciklamasi || '',
+              adiVeOzelligi: r.adiVeOzelligi || '',
+              makineId: r.makineId || '',
+              miktar: parseInt(r.miktar) || 0,
+              birim: r.birim || '',
+              birimAciklamasi: r.birimAciklamasi || '',
+              birimFiyatiFob: parseInt(r.birimFiyatiFob) || 0,
+              gumrukDovizKodu: r.gumrukDovizKodu || '',
+              toplamTutarFobUsd: parseInt(r.toplamTutarFobUsd) || 0,
+              toplamTutarFobTl: parseInt(r.toplamTutarFobTl) || 0,
+              kullanilmisMakine: r.kullanilmisMakine || '',
+              kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || '',
+              ckdSkdMi: r.ckdSkdMi || '',
+              aracMi: r.aracMi || '',
+              gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || '',
+              kdvMuafiyeti: r.kdvMuafiyeti || '',
+              makineTechizatTipi: r.makineTechizatTipi || '',
+              finansalKiralamaMi: r.finansalKiralamaMi || '',
+              finansalKiralamaAdet: parseInt(r.finansalKiralamaAdet) || 0,
+              finansalKiralamaSirket: r.finansalKiralamaSirket || '',
+              gerceklesenAdet: parseInt(r.gerceklesenAdet) || 0,
+              gerceklesenTutar: parseInt(r.gerceklesenTutar) || 0,
+              iadeDevirSatisVarMi: r.iadeDevirSatisVarMi || '',
+              iadeDevirSatisAdet: parseInt(r.iadeDevirSatisAdet) || 0,
+              iadeDevirSatisTutar: parseInt(r.iadeDevirSatisTutar) || 0,
+              etuysSecili: !!r.etuysSecili,
+              kurManuel: !!r.kurManuel,
+              kurManuelDeger: parseFloat(r.kurManuelDeger) || 0
+            }))
+          }
+        } : {}),
         
         // 🔧 Destek Unsurları model formatına çevir - FIX: Şart opsiyonel
         destekUnsurlari: formData.destekUnsurlari?.filter(d => 
@@ -2131,6 +2211,12 @@ const TesvikForm = () => {
        // Orijinal frontend array'leri kaldır (backend formatına çevrildi)
        delete mappedData.destekUnsurlari_frontend;
        delete mappedData.ozelSartlar_frontend;
+       // 🔧 FIX: If the user didn't edit machines in this session, remove makineListeleri
+       // from the request to avoid overwriting fresher data saved by MakineYonetimi.
+       // The ...formData spread above might have included stale makineListeleri.
+       if (!makineListeleriDirtyRef.current) {
+         delete mappedData.makineListeleri;
+       }
       
       console.log('🔄 Mapped data to backend format:', mappedData);
       

@@ -317,6 +317,7 @@ const MakineYonetimi = () => {
         setActivityLog(act);
       } catch {}
       // Makine verilerini yükle
+      initialLoadRef.current = true; // Yeni tesvik yüklenirken auto-save tetiklenmesin
       loadMakineData(selectedTesvik._id);
       setIsReviseMode(false);
       setIsReviseStarted(false);
@@ -324,6 +325,33 @@ const MakineYonetimi = () => {
   }, [selectedTesvik]);
   useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows); }, [yerliRows, selectedTesvik]);
   useEffect(() => { if (selectedTesvik?._id) saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows); }, [ithalRows, selectedTesvik]);
+
+  // 🔧 FIX: Debounced auto-save to database - MakineId ve diğer alanların kaybolmasını önle
+  const autoSaveTimerRef = useRef(null);
+  const initialLoadRef = useRef(true);
+  useEffect(() => {
+    // İlk yüklemede otomatik kaydetme (veri henüz backend'den geldi)
+    if (initialLoadRef.current) { initialLoadRef.current = false; return; }
+    if (!selectedTesvik?._id) return;
+    // En az 1 satır olmalı (boş listeyi kaydetmemek için)
+    if (yerliRows.length === 0 && ithalRows.length === 0) return;
+    
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    autoSaveTimerRef.current = setTimeout(async () => {
+      try {
+        const payload = {
+          yerli: yerliRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiTl: r.birimFiyatiTl, toplamTutariTl: r.toplamTl, kdvIstisnasi: r.kdvIstisnasi, makineTechizatTipi: r.makineTechizatTipi, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: r.talep, karar: r.karar })),
+          ithal: ithalRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiFob: r.birimFiyatiFob, gumrukDovizKodu: r.doviz, toplamTutarFobUsd: r.toplamUsd, toplamTutarFobTl: r.toplamTl, kurManuel: r.kurManuel, kurManuelDeger: r.kurManuelDeger, kullanilmisMakine: r.kullanilmisKod, kullanilmisMakineAciklama: r.kullanilmisAciklama, ckdSkdMi: r.ckdSkd, aracMi: r.aracMi, makineTechizatTipi: r.makineTechizatTipi, kdvMuafiyeti: r.kdvMuafiyeti, gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: r.talep, karar: r.karar }))
+        };
+        await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
+        console.log('✅ Makine verileri otomatik olarak veritabanına kaydedildi');
+      } catch (err) {
+        console.error('❌ Otomatik kayıt hatası:', err);
+      }
+    }, 2000); // 2 saniye debounce
+    
+    return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
+  }, [yerliRows, ithalRows, selectedTesvik]);
 
   // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
   useEffect(() => {
@@ -829,7 +857,7 @@ const MakineYonetimi = () => {
         makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
         birim: r.birim || '', // Birim kodu
         birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
-        birimFiyatiTl: r.birimFiyatiTl || 0, // 🔧 FIX: Fiyatı garantile
+        birimFiyatiTl: Number(r.birimFiyatiTl) || 0, // 🔧 FIX: Fiyatı sayıya çevir (string olabilir)
         toplamTl: undefined,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
         onayTarihi: r?.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
@@ -946,7 +974,7 @@ const MakineYonetimi = () => {
         makineId: r.makineId || '', // 🔧 FIX: Makine ID'yi garantile
         birim: r.birim || '', // Birim kodu
         birimAciklamasi: birimGosterim, // 🔧 FIX: Birim açıklamasını düzelt (ADET vb.)
-        birimFiyatiFob: r.birimFiyatiFob || 0, // 🔧 FIX: Fiyatı garantile
+        birimFiyatiFob: Number(r.birimFiyatiFob) || 0, // 🔧 FIX: Fiyatı sayıya çevir (string olabilir)
         kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
         uygulanankur: uygulanankur,
         muracaatTarihi: r?.talep?.talepTarihi ? new Date(r.talep.talepTarihi).toLocaleDateString('tr-TR') : '',
@@ -1132,6 +1160,7 @@ const MakineYonetimi = () => {
 
   const loadTesvikMakineListeleri = async (tesvikId) => {
     if (!tesvikId) return;
+    initialLoadRef.current = true; // Yeni tesvik yüklenirken auto-save tetiklenmesin
     const data = await tesvikService.get(tesvikId);
     // Detay ile seçili teşviki zenginleştir (belge tarihi gibi alanları meta için kullanacağız)
     setSelectedTesvik(prev => ({ ...(prev||{}), ...(data||{}) }));

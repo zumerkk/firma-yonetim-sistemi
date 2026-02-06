@@ -2553,24 +2553,70 @@ const YeniTesvikForm = () => {
                 </Box>
               </Grid>
 
-              {/* Adres */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 50, pt: 1 }}>
-                    Adres:
-                  </Typography>
-              <TextField
-                fullWidth
+              {/* Dinamik Yatırım Adresi Alanları - Başlangıç 1, Max 3 */}
+              {Array.from({ length: adresSayisi }, (_, index) => (
+                <Grid item xs={12} key={`adres-${index + 1}`}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, position: 'relative' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 50, pt: 1 }}>
+                      {index === 0 ? 'Adres:' : `Adres ${index + 1}:`}
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={2}
+                      value={formData.yatirimBilgileri2[`yatirimAdresi${index + 1}`] || ''}
+                      onChange={(e) => handleFieldChange(`yatirimBilgileri2.yatirimAdresi${index + 1}`, e.target.value)}
+                      placeholder={`${index === 0 ? 'Ana' : index === 1 ? 'Ek' : 'Detay'} yatırım adresi...`}
+                      sx={{ backgroundColor: '#fff' }}
+                    />
+                    {/* Remove butonu - sadece birden fazla alan varsa ve son elemanda göster */}
+                    {adresSayisi > 1 && index === adresSayisi - 1 && (
+                      <IconButton
+                        onClick={removeAdresField}
+                        size="small"
+                        sx={{
+                          position: 'absolute',
+                          top: -8,
+                          right: -8,
+                          backgroundColor: '#ff4444',
+                          color: 'white',
+                          width: 24,
+                          height: 24,
+                          '&:hover': { backgroundColor: '#cc0000' }
+                        }}
+                      >
+                        <RemoveIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Grid>
+              ))}
+
+              {/* Adres Ekle butonu - max 3'e ulaşılmamışsa göster */}
+              {adresSayisi < 3 && (
+                <Grid item xs={12} md={4}>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    onClick={addAdresField}
+                    startIcon={<AddIcon />}
                     size="small"
-                    multiline
-                    rows={2}
-                    value={formData.yatirimBilgileri2.yatirimAdresi1 || ''}
-                    onChange={(e) => handleFieldChange('yatirimBilgileri2.yatirimAdresi1', e.target.value)}
-                    placeholder="Yatırım adresi..."
-                    sx={{ backgroundColor: '#fff' }}
-                  />
-                </Box>
-      </Grid>
+                    sx={{
+                      height: 40,
+                      borderColor: '#16a085',
+                      color: '#16a085',
+                      borderStyle: 'dashed',
+                      '&:hover': {
+                        borderColor: '#0d7377',
+                        backgroundColor: '#f0f9f0'
+                      }
+                    }}
+                  >
+                    Adres Ekle ({adresSayisi}/3)
+                  </Button>
+                </Grid>
+              )}
       
               {/* OSB Adı */}
               <Grid item xs={12} md={6}>
