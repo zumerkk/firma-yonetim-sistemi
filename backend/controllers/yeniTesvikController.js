@@ -22,11 +22,13 @@ const csv = require('csv-parser'); // OSB verilerini okumak için
 // - Toplam kapasiteyi yeniden hesaplar
 function normalizeAndMergeUrunler(urunler = []) {
   try {
-    const map = new Map();
+    // 🔧 FIX: Ürünleri birleştirme YAPMA - her ürün ayrı kalmalı
+    // Önceki versiyon aynı u97Kodu+kapasiteBirimi olan ürünleri birleştiriyordu,
+    // bu da farklı ürünlerin kaybolmasına ve fiyatların değişmesine neden oluyordu.
+    const result = [];
     (Array.isArray(urunler) ? urunler : []).forEach((raw) => {
       if (!raw) return;
       const u97Kodu = (raw.u97Kodu || raw.us97Kodu || '').toString().trim();
-      // Çok uzun açıklamaları makul bir uzunluğa kısalt (model limitine uygun)
       let urunAdi = (raw.urunAdi || raw.ad || raw.aciklama || '').toString().trim();
       if (urunAdi.length > 400) {
         urunAdi = urunAdi.slice(0, 400);
@@ -39,35 +41,18 @@ function normalizeAndMergeUrunler(urunler = []) {
       // En azından kod veya ad olmalı; ikisi de boşsa atla
       if (!u97Kodu && !urunAdi) return;
 
-      const key = `${u97Kodu}|${kapasiteBirimi}`.toUpperCase();
-      const existing = map.get(key);
-      if (!existing) {
-        map.set(key, {
-          u97Kodu,
-          urunAdi,
-          kapasiteBirimi,
-          mevcutKapasite,
-          ilaveKapasite,
-          toplamKapasite: toplamKapasite || (mevcutKapasite + ilaveKapasite),
-          aktif: true
-        });
-      } else {
-        // Birleştir: kapasiteleri topla, isim boşsa doldur
-        existing.mevcutKapasite += mevcutKapasite;
-        existing.ilaveKapasite += ilaveKapasite;
-        const combinedToplam = (existing.toplamKapasite || 0) + (toplamKapasite || (mevcutKapasite + ilaveKapasite));
-        // Tekrar hesapla: toplam = mevcut + ilave (daha tutarlı)
-        existing.toplamKapasite = existing.mevcutKapasite + existing.ilaveKapasite;
-        if (!existing.urunAdi && urunAdi) existing.urunAdi = urunAdi;
-      }
+      result.push({
+        u97Kodu,
+        urunAdi,
+        kapasiteBirimi,
+        mevcutKapasite,
+        ilaveKapasite,
+        toplamKapasite: toplamKapasite || (mevcutKapasite + ilaveKapasite),
+        aktif: true
+      });
     });
 
-    // Sadece anlamlı ürünleri döndür (en az bir kapasite veya kod/ad)
-    return Array.from(map.values()).filter((u) => {
-      const hasCapacity = (Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0;
-      const hasIdentity = !!(u.u97Kodu || u.urunAdi);
-      return hasIdentity && (hasCapacity || true); // kapasite 0 olsa da kimliği olanı tut
-    });
+    return result;
   } catch (e) {
     console.log('⚠️ Ürün normalizasyonu sırasında hata (pas geçildi):', e.message);
     return Array.isArray(urunler) ? urunler : [];
@@ -3417,16 +3402,12 @@ const buildRevisionTrackingData = async (tesvik) => {
               if (!target[path[i]]) target[path[i]] = {};
               target = target[path[i]];
             }
-            // 🔧 FIX: Obje ise merge et
+            // 🔧 FIX: Rollback'te objeleri REPLACE et (merge değil!)
+            // Merge yapılırsa yeni eklenen alanlar eski revizyonlarda kalır
             const lastKey = path[path.length - 1];
-            if (typeof ch.eskiDeger === 'object' && ch.eskiDeger !== null && !Array.isArray(ch.eskiDeger) && typeof target[lastKey] === 'object' && target[lastKey] !== null) {
-              target[lastKey] = { ...target[lastKey], ...ch.eskiDeger };
-            } else {
-              target[lastKey] = ch.eskiDeger;
-            }
+            target[lastKey] = ch.eskiDeger;
             
             // 🔧 FIX: yatirimBilgileri.yatirim2.X path'i varsa, yatirimBilgileri.X'e de yaz
-            // Çünkü model'de adres doğrudan yatirimBilgileri altında saklanıyor
             if (path.length === 3 && path[0] === 'yatirimBilgileri' && path[1] === 'yatirim2') {
               if (rolledBack.yatirimBilgileri) {
                 rolledBack.yatirimBilgileri[path[2]] = ch.eskiDeger;
@@ -3933,14 +3914,13 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(finansmanBilgisi.ozKaynak || 0);                          // Öz kaynak
     row.push(finansmanBilgisi.toplamFinansman || 0);        // TOPLAM FİNANSMAN
     
-    // 🔧 FIX: Revize tarihi - snapshot.updatedAt yerine snapshot.createdAt öncelikli olmalı
-    // Çünkü updatedAt her güncelleme ile değişir, createdAt sabit kalır
-    const revizyonTarihi = revizyon?.revizyonTarihi || revizyon?.createdAt || snapshot.createdAt || snapshot.updatedAt;
+    // 🔧 FIX: Revize tarihi - revizyon varsa revizyon tarihini, yoksa teşvik oluşturma tarihini kullan
+    const revizyonTarihi = revizyon?.revizyonTarihi || snapshot.createdAt || snapshot.updatedAt;
     row.push(formatTurkishDateTime(revizyonTarihi));
     
-    // 🔧 FIX: TALEP TARİHİ - Revizyon subdoc'ta talepTarihi/createdAt yok
-    // Doğru fallback: revizyon tarihi > belge müracaat tarihi > oluşturma tarihi
-    const talepTarihi = revizyon?.talepTarihi || revizyon?.revizyonTarihi || snapshot.belgeYonetimi?.belgeMuracaatTarihi || snapshot.createdAt;
+    // 🔧 FIX: TALEP TARİHİ - Her zaman belge müracaat tarihini kullan
+    // revizyon.revizyonTarihi ile KARIŞTIRILMAMALI - talep tarihi sabit kalmalı
+    const talepTarihi = snapshot.belgeYonetimi?.belgeMuracaatTarihi || snapshot.createdAt;
     row.push(formatTurkishDateTime(talepTarihi));
     
     // 🆕 SONUÇ TARİHİ - Revizyonun sonuç/karar tarihi
@@ -4149,8 +4129,8 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     const revizeTarihi = revizyon?.revizyonTarihi || tesvik.createdAt;
     row.push(formatTurkishDateTime(revizeTarihi));
     
-    // 🆕 TALEP TARİHİ
-    const talepTarihi = revizyon?.talepTarihi || revizyon?.createdAt || tesvik.talepTarihi || tesvik.createdAt;
+    // 🆕 TALEP TARİHİ - Her zaman belge müracaat tarihini kullan
+    const talepTarihi = tesvik.belgeYonetimi?.belgeMuracaatTarihi || tesvik.createdAt;
     row.push(formatTurkishDateTime(talepTarihi));
     
     // 🆕 SONUÇ TARİHİ
@@ -5468,18 +5448,18 @@ module.exports = {
           { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
           ...(isYerli ? [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük TL tutarlar "########" olarak görünüyordu
-            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 22 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 22 },
+            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 28 },
             { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
           ] : [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük döviz/TL tutarlar "########" olarak görünüyordu
-            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 22 },
+            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28 },
             { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
             { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
             { header:'Manuel Kur', key:'kurManuel', width: 12 },
             { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 20 },
-            { header:'Toplam ($)', key:'toplamUsd', width: 22 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 22 },
+            { header:'Toplam ($)', key:'toplamUsd', width: 28 },
+            { header:'Toplam (TL)', key:'toplamTl', width: 28 },
             { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
             { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
             { header:'Araç mı', key:'aracMi', width: 10 },
@@ -5795,14 +5775,14 @@ module.exports = {
           { header:'Birim', key:'birim', width: 10 },
           { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
           // Yerli özel - 🔧 FIX: Sütun genişlikleri artırıldı
-          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 22 },
-          { header:'Toplam (TL)', key:'toplamTl', width: 22 },
+          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28 },
+          { header:'Toplam (TL)', key:'toplamTl', width: 28 },
           { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
           // İthal özel - 🔧 FIX: Sütun genişlikleri artırıldı
-          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 22 },
+          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28 },
           { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
           { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
-          { header:'Toplam ($)', key:'toplamUsd', width: 22 },
+          { header:'Toplam ($)', key:'toplamUsd', width: 28 },
           { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 22 },
           { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
           { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
@@ -5870,8 +5850,8 @@ module.exports = {
                 miktar: r.miktar || 0,
                 birim: r.birim || '',
                 birimAciklamasi: r.birimAciklamasi || '',
-                birimFiyatiTl: r.birimFiyatiTl || 0,
-                toplamTl: (r.toplamTutariTl || r.toplamTl) || 0,
+                birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
+                toplamTl: Number(r.toplamTutariTl || r.toplamTl) || 0,
                 kdvIstisnasi: r.kdvIstisnasi || '',
                 birimFiyatiFob: r.birimFiyatiFob || 0,
                 gumrukDovizKodu: r.gumrukDovizKodu || '',
@@ -5955,6 +5935,13 @@ module.exports = {
         // Önce Yerli sonra İthal değişiklikleri yaz
         writeChangedFor('yerli', 'YERLİ');
         writeChangedFor('ithal', 'İTHAL');
+        
+        // 🔧 FIX: Fiyat sütunlarına numFmt ekle (Değişiklik Yapılanlar sayfasında eksikti)
+        ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
+          const col = ws.getColumn(key);
+          if (col) col.numFmt = '#,##0';
+        });
+        
         return ws;
       };
 
@@ -6400,8 +6387,8 @@ module.exports = {
         { header: 'Miktarı', key: 'miktar', width: 10 },
         { header: 'Birim', key: 'birim', width: 10 },
         { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
-        { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 26 },
-        { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 26 },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 30 },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 30 },
         { header: 'Menşe Döviz Cinsi (FOB)', key: 'gumrukDovizKodu', width: 22 },
         { header: 'KULLANILMIŞ MAKİNE (KOD)', key: 'kullanilmisMakine', width: 20 },
         { header: 'KULLANILMIŞ MAKİNE (AÇIKLAMA)', key: 'kullanilmisMakineAciklama', width: 28 },
@@ -6433,14 +6420,19 @@ module.exports = {
             kararDurumu: r.karar?.kararDurumu || '',
             kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
             kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
-            toplamTutarFobUsd: r.toplamTutarFobUsd || 0,
-            toplamTutarFobTl: r.toplamTutarFobTl || 0,
+            toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
+            toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
             gumrukDovizKodu: r.gumrukDovizKodu || '',
             kullanilmisMakine: r.kullanilmisMakine || '',
             kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || ''
           });
         });
       }
+      // İthal fiyat sütunlarına numFmt ekle
+      ['toplamTutarFobUsd', 'toplamTutarFobTl'].forEach(key => {
+        const col = ithalSheet.getColumn(key);
+        if (col) col.numFmt = '#,##0';
+      });
 
       // 🧾 Yerli Makine Listesi Sayfası
       const yerliSheet = workbook.addWorksheet('Yerli Makine Listesi');
@@ -6452,8 +6444,8 @@ module.exports = {
         { header: 'Miktarı', key: 'miktar', width: 10 },
         { header: 'Birimi', key: 'birim', width: 12 },
         { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
-        { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 26 },
-        { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 26 },
+        { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 30 },
+        { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 30 },
         { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 },
         { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
         { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
@@ -6482,12 +6474,17 @@ module.exports = {
             kararDurumu: r.karar?.kararDurumu || '',
             kararOnaylananAdet: r.karar?.onaylananAdet ?? '',
             kalemKararTarihi: r.karar?.kararTarihi ? new Date(r.karar.kararTarihi).toLocaleDateString('tr-TR') : '',
-            birimFiyatiTl: r.birimFiyatiTl || 0,
-            toplamTutariTl: r.toplamTutariTl || 0,
+            birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
+            toplamTutariTl: Number(r.toplamTutariTl) || 0,
             kdvIstisnasi: r.kdvIstisnasi || ''
           });
         });
       }
+      // Yerli fiyat sütunlarına numFmt ekle
+      ['birimFiyatiTl', 'toplamTutariTl'].forEach(key => {
+        const col = yerliSheet.getColumn(key);
+        if (col) col.numFmt = '#,##0';
+      });
       
       // Destek unsurları sayfası
       const destekSheet = workbook.addWorksheet('Destek Unsurları');

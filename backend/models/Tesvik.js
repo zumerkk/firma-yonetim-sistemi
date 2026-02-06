@@ -723,14 +723,13 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
     return sum + (isNaN(tl) ? 0 : tl);
   }, 0);
 
+  // 🔧 FIX: İthal Makine ($) alanları USD cinsinden olmalı - toplamTutarFobUsd kullan (toplamTutarFobTl değil!)
   // Yeni/Kullanılmış ayrımı (kullanilmisMakine alanı dolu ise kullanılmış kabul edilir)
   const yeniToplam = (
-    yerliKalemler.filter(r => !r.kullanilmisKod).reduce((s, r) => s + (Number(r.toplamTutariTl || 0) || 0), 0) +
-    ithalKalemler.filter(r => !r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobTl || 0) || 0), 0)
+    ithalKalemler.filter(r => !r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobUsd || 0) || 0), 0)
   );
   const kullanilmisToplam = (
-    yerliKalemler.filter(r => !!r.kullanilmisKod).reduce((s, r) => s + (Number(r.toplamTutariTl || 0) || 0), 0) +
-    ithalKalemler.filter(r => !!r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobTl || 0) || 0), 0)
+    ithalKalemler.filter(r => !!r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobUsd || 0) || 0), 0)
   );
 
   // 🔧 FIX: Sadece makineListeleri dolu ise hesaplanan değerleri kullan

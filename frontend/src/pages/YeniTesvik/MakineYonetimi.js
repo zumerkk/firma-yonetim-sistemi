@@ -3837,11 +3837,12 @@ const MakineYonetimi = () => {
             onClick={async () => {
               if (!selectedTesvik?._id) return;
               try {
-                await api.patch(`/yeni-tesvik/${selectedTesvik._id}`, { 
-                  'notlar.dahiliNotlar': makineNotlari 
+                await api.put(`/yeni-tesvik/${selectedTesvik._id}`, { 
+                  notlar: { dahiliNotlar: makineNotlari }
                 });
                 openToast('success', 'Notlar kaydedildi');
               } catch (e) {
+                console.error('Notlar kaydetme hatası:', e);
                 openToast('error', 'Notlar kaydedilemedi');
               }
             }}

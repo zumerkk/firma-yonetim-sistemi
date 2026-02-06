@@ -2080,6 +2080,7 @@ const TesvikForm = () => {
           
           // Maliyetlenen (Araç Arsa Bedeli Detayları)
           maliyetlenen: {
+            aciklama: formData.finansalBilgiler?.araziArsaBedeli?.aciklama || '',
             sl: formData.finansalBilgiler?.araziArsaBedeli?.metrekaresi || 0,
             sm: formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl || 0,
             sn: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0
@@ -2087,6 +2088,7 @@ const TesvikForm = () => {
           
           // Bina İnşaat Giderleri
           binaInsaatGideri: {
+            aciklama: formData.finansalBilgiler?.binaInsaatGiderleri?.aciklama || '',
             anaBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.anaBinaVeTesisleri || 0,
             yardimciBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari || 0,
             toplamBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.toplamBinaInsaatGideri || 0
