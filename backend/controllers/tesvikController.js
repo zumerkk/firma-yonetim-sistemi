@@ -2295,9 +2295,16 @@ const getDestekSiniflariOptions = async () => {
     console.error('Destek sınıfları yüklenirken hata:', error);
     // Fallback to static data if database fails
     return [
-      { value: 'ONCELIKLI_YATIRIMLAR', label: 'ÖNCELİKLİ YATIRIMLAR', aciklama: 'ÖNCELİKLİ YATIRIMLAR', kategori: 'Öncelikli' },
+      { value: 'GENEL', label: 'GENEL', aciklama: 'GENEL', kategori: 'Genel' },
+      { value: 'BOLGESEL', label: 'BÖLGESEL', aciklama: 'BÖLGESEL', kategori: 'Bölgesel' },
+      { value: 'BOLGESEL_ALT_BOLGE', label: 'BÖLGESEL-Alt Bölge', aciklama: 'BÖLGESEL-Alt Bölge', kategori: 'Bölgesel' },
+      { value: 'BOLGESEL_ONCELIKLI_YATIRIM', label: 'BÖLGESEL - ÖNCELİKLİ YATIRIM', aciklama: 'BÖLGESEL - ÖNCELİKLİ YATIRIM', kategori: 'Bölgesel' },
       { value: 'HEDEF_YATIRIMLAR', label: 'HEDEF YATIRIMLAR', aciklama: 'HEDEF YATIRIMLAR', kategori: 'Hedef' },
-      { value: 'STRATEJIK_HAMLE', label: 'STRATEJİK HAMLE', aciklama: 'STRATEJİK HAMLE', kategori: 'Stratejik' }
+      { value: 'HEDEF_YATIRIMLAR_ALT_BOLGE', label: 'HEDEF YATIRIMLAR-Alt Bölge', aciklama: 'HEDEF YATIRIMLAR-Alt Bölge', kategori: 'Hedef' },
+      { value: 'STRATEJIK_HAMLE', label: 'STRATEJİK HAMLE', aciklama: 'STRATEJİK HAMLE', kategori: 'Stratejik' },
+      { value: 'STRATEJIK_HAMLE_ALT_BOLGE', label: 'STRATEJİK HAMLE-Alt Bölge', aciklama: 'STRATEJİK HAMLE-Alt Bölge', kategori: 'Stratejik' },
+      { value: 'ONCELIKLI_YATIRIMLAR', label: 'ÖNCELİKLİ YATIRIMLAR', aciklama: 'ÖNCELİKLİ YATIRIMLAR', kategori: 'Öncelikli' },
+      { value: 'ONCELIKLI_YATIRIMLAR_ALT_BOLGE', label: 'ÖNCELİKLİ YATIRIMLAR-Alt Bölge', aciklama: 'ÖNCELİKLİ YATIRIMLAR-Alt Bölge', kategori: 'Öncelikli' }
     ];
   }
 };

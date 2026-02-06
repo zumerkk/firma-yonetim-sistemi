@@ -331,6 +331,15 @@ const setupCronJobs = () => {
 const startServer = async () => {
   await connectDB();
   
+  // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
+  try {
+    const { fixDestekSiniflari } = require('./fixDestekSiniflari');
+    await fixDestekSiniflari(true);
+    console.log('✅ Destek sınıfı verileri kontrol edildi/düzeltildi');
+  } catch (err) {
+    console.error('⚠️ Destek sınıfı düzeltme hatası (kritik değil):', err.message);
+  }
+  
   // Cron job'larını başlat
   setupCronJobs();
   

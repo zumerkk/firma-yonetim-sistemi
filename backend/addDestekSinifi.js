@@ -6,9 +6,10 @@ const DestekSinifi = require('./models/DestekSinifi');
 require('dotenv').config();
 
 const yeniDestekSiniflari = [
+  { kod: 'GENEL', aciklama: 'GENEL', kategori: 'Genel' },
   { kod: 'BOLGESEL', aciklama: 'BÖLGESEL', kategori: 'Bölgesel' },
-  { kod: 'BOLGESEL_ONCELIKLI_YATIRIM', aciklama: 'BÖLGESEL - ÖNCELİKLİ YATIRIM', kategori: 'Bölgesel' },
-  { kod: 'GENEL', aciklama: 'GENEL', kategori: 'Genel' }
+  { kod: 'BOLGESEL_ALT_BOLGE', aciklama: 'BÖLGESEL-Alt Bölge', kategori: 'Bölgesel' },
+  { kod: 'BOLGESEL_ONCELIKLI_YATIRIM', aciklama: 'BÖLGESEL - ÖNCELİKLİ YATIRIM', kategori: 'Bölgesel' }
 ];
 
 async function addDestekSiniflari() {
