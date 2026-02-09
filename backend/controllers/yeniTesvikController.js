@@ -6376,6 +6376,23 @@ module.exports = {
         { width: 15 }, { width: 40 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 12 }
       ];
 
+      // 🔧 Otomatik sütun genişliği ayarlama - veri genişliğine göre sığdır
+      const autoFitColumns = (sheet) => {
+        sheet.columns.forEach(column => {
+          let maxLen = column.header ? column.header.toString().length : 10;
+          column.eachCell({ includeEmpty: false }, cell => {
+            const val = cell.value;
+            if (val !== null && val !== undefined) {
+              const len = typeof val === 'number' 
+                ? val.toLocaleString('tr-TR').length + 2
+                : val.toString().length;
+              if (len > maxLen) maxLen = len;
+            }
+          });
+          column.width = Math.min(50, Math.max(column.width || 10, maxLen + 3));
+        });
+      };
+
       // 🧾 İthal Makine Listesi Sayfası
       const ithalSheet = workbook.addWorksheet('İthal Makine Listesi');
       ithalSheet.columns = [
@@ -6427,6 +6444,7 @@ module.exports = {
           });
         });
       }
+      autoFitColumns(ithalSheet);
 
       // 🧾 Yerli Makine Listesi Sayfası
       const yerliSheet = workbook.addWorksheet('Yerli Makine Listesi');
@@ -6474,6 +6492,7 @@ module.exports = {
           });
         });
       }
+      autoFitColumns(yerliSheet);
       
       // Destek unsurları sayfası
       const destekSheet = workbook.addWorksheet('Destek Unsurları');
