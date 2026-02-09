@@ -5395,18 +5395,18 @@ module.exports = {
           { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
           ...(isYerli ? [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük TL tutarlar "########" olarak görünüyordu
-            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 28 },
+            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28, style: { numFmt: '#,##0' } },
+            { header:'Toplam (TL)', key:'toplamTl', width: 28, style: { numFmt: '#,##0' } },
             { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
           ] : [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük döviz/TL tutarlar "########" olarak görünüyordu
-            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28 },
+            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28, style: { numFmt: '#,##0' } },
             { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
             { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
             { header:'Manuel Kur', key:'kurManuel', width: 12 },
             { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 20 },
-            { header:'Toplam ($)', key:'toplamUsd', width: 28 },
-            { header:'Toplam (TL)', key:'toplamTl', width: 28 },
+            { header:'Toplam ($)', key:'toplamUsd', width: 28, style: { numFmt: '#,##0' } },
+            { header:'Toplam (TL)', key:'toplamTl', width: 28, style: { numFmt: '#,##0' } },
             { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
             { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
             { header:'Araç mı', key:'aracMi', width: 10 },
@@ -5579,11 +5579,6 @@ module.exports = {
             });
 
             const excelRow = ws.addRow(rowVals);
-            // 🔧 FIX: Hücre bazında numFmt uygula - fiyat sütunları
-            ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(k => {
-              const c = ws.getColumn(k);
-              if (c) { try { excelRow.getCell(c.number).numFmt = '#,##0'; } catch(e) {} }
-            });
             // Hücre bazlı fark boyama
             if (prev) {
               const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
@@ -6320,8 +6315,8 @@ module.exports = {
         { header: 'Miktarı', key: 'miktar', width: 10 },
         { header: 'Birim', key: 'birim', width: 10 },
         { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
-        { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 30 },
-        { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 30 },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB)', key: 'toplamTutarFobUsd', width: 30, style: { numFmt: '#,##0' } },
+        { header: 'Menşe Ülke Döviz Tutarı (FOB TL)', key: 'toplamTutarFobTl', width: 30, style: { numFmt: '#,##0' } },
         { header: 'Menşe Döviz Cinsi (FOB)', key: 'gumrukDovizKodu', width: 22 },
         { header: 'KULLANILMIŞ MAKİNE (KOD)', key: 'kullanilmisMakine', width: 20 },
         { header: 'KULLANILMIŞ MAKİNE (AÇIKLAMA)', key: 'kullanilmisMakineAciklama', width: 28 },
@@ -6337,7 +6332,7 @@ module.exports = {
       ];
       if (Array.isArray(tesvik.makineListeleri?.ithal)) {
         tesvik.makineListeleri.ithal.forEach(r => {
-          const row = ithalSheet.addRow({
+          ithalSheet.addRow({
             gmId: tesvik.tesvikId || tesvik.gmId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
@@ -6359,11 +6354,6 @@ module.exports = {
             kullanilmisMakine: r.kullanilmisMakine || '',
             kullanilmisMakineAciklama: r.kullanilmisMakineAciklama || ''
           });
-          // 🔧 FIX: Hücre bazında numFmt uygula
-          const usdCol = ithalSheet.getColumn('toplamTutarFobUsd');
-          const tlCol = ithalSheet.getColumn('toplamTutarFobTl');
-          if (usdCol) row.getCell(usdCol.number).numFmt = '#,##0';
-          if (tlCol) row.getCell(tlCol.number).numFmt = '#,##0';
         });
       }
 
@@ -6377,8 +6367,8 @@ module.exports = {
         { header: 'Miktarı', key: 'miktar', width: 10 },
         { header: 'Birimi', key: 'birim', width: 12 },
         { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
-        { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 30 },
-        { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 30 },
+        { header: 'Birim Fiyatı (TL) (KDV Hariç)', key: 'birimFiyatiTl', width: 30, style: { numFmt: '#,##0' } },
+        { header: 'Toplam Tutar (TL) (KDV Hariç)', key: 'toplamTutariTl', width: 30, style: { numFmt: '#,##0' } },
         { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 },
         { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
         { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
@@ -6391,7 +6381,7 @@ module.exports = {
       ];
       if (Array.isArray(tesvik.makineListeleri?.yerli)) {
         tesvik.makineListeleri.yerli.forEach(r => {
-          const row = yerliSheet.addRow({
+          yerliSheet.addRow({
             gmId: tesvik.tesvikId || tesvik.gmId || '',
             gtipKodu: r.gtipKodu || '',
             gtipAciklamasi: r.gtipAciklamasi || '',
@@ -6411,11 +6401,6 @@ module.exports = {
             toplamTutariTl: Number(r.toplamTutariTl) || 0,
             kdvIstisnasi: r.kdvIstisnasi || ''
           });
-          // 🔧 FIX: Hücre bazında numFmt uygula - sütun bazlı bazen çalışmıyor
-          const fiyatCol = yerliSheet.getColumn('birimFiyatiTl');
-          const toplamCol = yerliSheet.getColumn('toplamTutariTl');
-          if (fiyatCol) row.getCell(fiyatCol.number).numFmt = '#,##0';
-          if (toplamCol) row.getCell(toplamCol.number).numFmt = '#,##0';
         });
       }
       
