@@ -2593,16 +2593,41 @@ const MakineYonetimi = () => {
       if (!gtipKodu || gtipKodu.length < 4) return;
       try {
         const gtipService = (await import('../../services/gtipService')).default;
-        const result = await gtipService.getByKod(gtipKodu);
+        // Önce tam/prefix eşleşme dene
+        let result = await gtipService.getByKod(gtipKodu);
+        if (!result?.aciklama) {
+          // Fallback: search endpoint ile ara
+          const searchResults = await gtipService.search(gtipKodu, 1);
+          if (searchResults?.length > 0) result = searchResults[0];
+        }
         if (result?.aciklama) {
           updater(rowId, { gtipAciklama: result.aciklama });
         }
       } catch (e) { console.log('GTIP arama hatası:', e); }
     }, [updater]);
 
-    // Birim seçenekleri (kod → açıklama)
-    const birimOptions = ['', '142', '130', '166', '116', '118', '120', '132', '126'];
-    const birimLabels = { '': '-', '142': 'ADET', '130': 'KG', '166': 'TON', '116': 'M', '118': 'M2', '120': 'M3', '132': 'LT', '126': 'KM' };
+    // 🔧 Birim ve Döviz seçenekleri - API'den yükle
+    const [birimListesi, setBirimListesi] = useState([]);
+    const [dovizListesi, setDovizListesi] = useState([]);
+    useEffect(() => {
+      (async () => {
+        try {
+          const axios = (await import('../../utils/axios')).default;
+          const [birimRes, dovizRes] = await Promise.all([
+            axios.get('/lookup/unit?limit=200'),
+            axios.get('/lookup/currency?limit=200')
+          ]);
+          if (birimRes.data?.data) setBirimListesi(birimRes.data.data);
+          if (dovizRes.data?.data) setDovizListesi(dovizRes.data.data);
+        } catch (e) { console.log('Lookup listesi yüklenemedi:', e); }
+      })();
+    }, []);
+    const birimOptions = useMemo(() => ['', ...birimListesi.map(b => b.kod)], [birimListesi]);
+    const birimLabels = useMemo(() => {
+      const labels = { '': '-' };
+      birimListesi.forEach(b => { labels[b.kod] = b.aciklama || b.kod; });
+      return labels;
+    }, [birimListesi]);
 
     // Kullanılmış makine seçenekleri
     const kullanilmisOptions = ['', 'H', 'KM', 'KK'];
@@ -2656,7 +2681,7 @@ const MakineYonetimi = () => {
       { key: 'miktar', label: 'Adet', w: 32, type: 'number' },
       { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels },
       { key: 'birimFiyatiFob', label: 'FOB', w: 50, type: 'number' },
-      { key: 'doviz', label: 'Dvz', w: 40, options: ['', 'EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CNY'] },
+      { key: 'doviz', label: 'Dvz', w: 50, options: useMemo(() => ['', ...dovizListesi.map(d => d.kod)], [dovizListesi]), optionLabels: useMemo(() => { const l = { '': '-' }; dovizListesi.forEach(d => { l[d.kod] = d.aciklama || d.kod; }); return l; }, [dovizListesi]) },
       { key: 'toplamUsd', label: '$', w: 55, type: 'number', computed: true },
       { key: 'toplamTl', label: '₺', w: 60, type: 'number' },
       { key: 'kullanilmisKod', label: 'Kullanılmış', w: 65, options: kullanilmisOptions, optionLabels: kullanilmisLabels },

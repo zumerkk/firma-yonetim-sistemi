@@ -21,7 +21,16 @@ const searchGTIPCodes = async (req, res) => {
 const getGTIPByKod = async (req, res) => {
   try {
     const { kod } = req.params;
-    const doc = await GTIPCode.findOne({ kod, aktif: true }).select('kod aciklama').lean();
+    // 1) Tam eşleşme dene
+    let doc = await GTIPCode.findOne({ kod, aktif: true }).select('kod aciklama').lean();
+    if (!doc) {
+      // 2) Prefix eşleşme dene (kullanıcı kısa kod girmiş olabilir, DB'de 12 haneli)
+      doc = await GTIPCode.findOne({ kod: new RegExp('^' + kod.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), aktif: true }).select('kod aciklama').lean();
+    }
+    if (!doc) {
+      // 3) İçinde geçen eşleşme (son çare)
+      doc = await GTIPCode.findOne({ kod: new RegExp(kod.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), aktif: true }).select('kod aciklama').lean();
+    }
     if (!doc) return res.status(404).json({ success: false, message: 'GTIP kodu bulunamadı' });
     res.json({ success: true, data: doc });
   } catch (error) {
