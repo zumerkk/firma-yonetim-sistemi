@@ -1426,16 +1426,42 @@ const MakineYonetimi = () => {
     const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
     
+    // 🔧 GTIP otomatik çekme - kod girilince açıklamayı API'den getir
+    const handleGtipBlur = useCallback(async (rowId, gtipKodu) => {
+      if (!gtipKodu || gtipKodu.length < 4) return;
+      try {
+        const gtipService = (await import('../../services/gtipService')).default;
+        const result = await gtipService.getByKod(gtipKodu);
+        if (result?.aciklama) {
+          updater(rowId, { gtipAciklama: result.aciklama });
+        }
+      } catch (e) { console.log('GTIP arama hatası:', e); }
+    }, [updater]);
+
+    // Birim seçenekleri (kod → açıklama)
+    const birimOptions = ['', '142', '130', '166', '116', '118', '120', '132', '126'];
+    const birimLabels = { '': '-', '142': 'ADET', '130': 'KG', '166': 'TON', '116': 'M', '118': 'M2', '120': 'M3', '132': 'LT', '126': 'KM' };
+
+    // Kullanılmış makine seçenekleri
+    const kullanilmisOptions = ['', 'H', 'KM', 'KK'];
+    const kullanilmisLabels = { '': '-', 'H': 'Hayır', 'KM': 'K.Münferit', 'KK': 'K.Komple' };
+
+    // Talep/Karar seçenekleri
+    const talepDurumOptions = ['', 'taslak', 'bakanliga_gonderildi', 'revize_istendi'];
+    const talepDurumLabels = { '': '-', 'taslak': 'Taslak', 'bakanliga_gonderildi': 'Gönderildi', 'revize_istendi': 'Revize' };
+    const kararDurumOptions = ['', 'onay', 'kismi_onay', 'red'];
+    const kararDurumLabels = { '': '-', 'onay': 'Onay', 'kismi_onay': 'K.Onay', 'red': 'Red' };
+
     // Sütun tanımları - Yerli (TÜM SÜTUNLAR)
     const yerliCols = [
       { key: 'siraNo', label: '#', w: 28, type: 'number' },
       { key: 'makineId', label: 'M.ID', w: 45 },
-      { key: 'gtipKodu', label: 'GTIP', w: 70 },
+      { key: 'gtipKodu', label: 'GTIP', w: 70, type: 'gtip' },
       { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
       { key: 'adi', label: 'Adı', w: 130, flex: true },
       { key: 'kdvIstisnasi', label: 'KDV', w: 30, options: ['', 'E', 'H'] },
       { key: 'miktar', label: 'Adet', w: 35, type: 'number' },
-      { key: 'birim', label: 'Birim', w: 35 },
+      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels },
       { key: 'birimFiyatiTl', label: 'B.Fiy', w: 55, type: 'number' },
       { key: 'makineTechizatTipi', label: 'Tip', w: 30, options: ['', 'A', 'Y'] },
       { key: 'finansalKiralamaMi', label: 'FK', w: 26, options: ['', 'E', 'H'] },
@@ -1448,24 +1474,26 @@ const MakineYonetimi = () => {
       { key: 'iadeDevirSatisTutar', label: 'DV₺', w: 45, type: 'number' },
       { key: 'toplamTl', label: 'Toplam', w: 65, type: 'number', computed: true },
       { key: 'dosyaSayisi', label: '📎', w: 26, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
-      { key: 'talepDurum', label: 'Talep', w: 35, type: 'display', render: (row) => row.talep?.istenenAdet || '' },
-      { key: 'kararDurum', label: 'Karar', w: 28, type: 'display', render: (row) => row.karar?.kararDurumu === 'onay' ? '1' : row.karar?.kararDurumu === 'kismi_onay' ? '2' : row.karar?.kararDurumu === 'red' ? '3' : '' },
+      { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
+      { key: 'talepAdet', label: 'T.Ad', w: 30, type: 'number', getValue: (row) => row.talep?.istenenAdet || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), istenenAdet: parseTrCurrency(val) } }) },
+      { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
+      { key: 'kararAdet', label: 'K.Ad', w: 30, type: 'number', getValue: (row) => row.karar?.onaylananAdet || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), onaylananAdet: parseTrCurrency(val) } }) },
     ];
     
     // Sütun tanımları - İthal (TÜM SÜTUNLAR)
     const ithalCols = [
       { key: 'siraNo', label: '#', w: 28, type: 'number' },
       { key: 'makineId', label: 'M.ID', w: 45 },
-      { key: 'gtipKodu', label: 'GTIP', w: 70 },
+      { key: 'gtipKodu', label: 'GTIP', w: 70, type: 'gtip' },
       { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
       { key: 'adi', label: 'Adı', w: 110, flex: true },
       { key: 'miktar', label: 'Adet', w: 32, type: 'number' },
-      { key: 'birim', label: 'Birim', w: 32 },
+      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels },
       { key: 'birimFiyatiFob', label: 'FOB', w: 50, type: 'number' },
-      { key: 'doviz', label: 'Dvz', w: 32 },
+      { key: 'doviz', label: 'Dvz', w: 40, options: ['', 'EUR', 'USD', 'GBP', 'CHF', 'JPY', 'CNY'] },
       { key: 'toplamUsd', label: '$', w: 55, type: 'number', computed: true },
       { key: 'toplamTl', label: '₺', w: 60, type: 'number' },
-      { key: 'kullanilmisKod', label: 'Kul', w: 26 },
+      { key: 'kullanilmisKod', label: 'Kullanılmış', w: 65, options: kullanilmisOptions, optionLabels: kullanilmisLabels },
       { key: 'ckdSkd', label: 'CKD', w: 26, options: ['', 'E', 'H'] },
       { key: 'aracMi', label: 'Arç', w: 26, options: ['', 'E', 'H'] },
       { key: 'makineTechizatTipi', label: 'Tip', w: 26, options: ['', 'A', 'Y'] },
@@ -1480,8 +1508,10 @@ const MakineYonetimi = () => {
       { key: 'iadeDevirSatisAdet', label: 'D#', w: 26, type: 'number' },
       { key: 'iadeDevirSatisTutar', label: 'D₺', w: 40, type: 'number' },
       { key: 'dosyaSayisi', label: '📎', w: 24, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
-      { key: 'talepDurum', label: 'Tlp', w: 30, type: 'display', render: (row) => row.talep?.istenenAdet || '' },
-      { key: 'kararDurum', label: 'Kr', w: 24, type: 'display', render: (row) => row.karar?.kararDurumu === 'onay' ? '1' : row.karar?.kararDurumu === 'kismi_onay' ? '2' : row.karar?.kararDurumu === 'red' ? '3' : '' },
+      { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
+      { key: 'talepAdet', label: 'T.Ad', w: 30, type: 'number', getValue: (row) => row.talep?.istenenAdet || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), istenenAdet: parseTrCurrency(val) } }) },
+      { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
+      { key: 'kararAdet', label: 'K.Ad', w: 30, type: 'number', getValue: (row) => row.karar?.onaylananAdet || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), onaylananAdet: parseTrCurrency(val) } }) },
     ];
     
     const cols = quickTab === 'yerli' ? yerliCols : ithalCols;
@@ -1787,6 +1817,16 @@ const MakineYonetimi = () => {
                     else if (displayVal === 'Ana Makine') shortVal = 'A';
                     else if (displayVal === 'Yardımcı Makine') shortVal = 'Y';
                     
+                    // Dropdown değişikliği için özel handler
+                    const handleChange = (e) => {
+                      const v = e.target.value;
+                      if (col.onUpdate) {
+                        col.onUpdate(row.id, v);
+                      } else {
+                        updateCell(row.id, col.key, v);
+                      }
+                    };
+                    
                     return (
                       <td key={col.key} style={{ border: '1px solid #e5e7eb', padding: 0, minWidth: col.w, maxWidth: col.flex ? 300 : col.w }}>
                         {col.computed ? (
@@ -1812,17 +1852,30 @@ const MakineYonetimi = () => {
                           }}>
                             {col.render ? col.render(row) : displayVal}
                           </span>
+                        ) : col.type === 'gtip' ? (
+                          <input
+                            data-row={rowIdx}
+                            data-col={colIdx}
+                            type="text"
+                            value={shortVal}
+                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
+                            onBlur={(e) => handleGtipBlur(row.id, e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            disabled={!isReviseStarted}
+                            placeholder="GTIP yazın..."
+                            style={{ ...cellStyle, textAlign: 'left', color: '#2563eb' }}
+                          />
                         ) : col.options ? (
                           <select
                             data-row={rowIdx}
                             data-col={colIdx}
                             value={shortVal}
-                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
+                            onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                             disabled={!isReviseStarted}
-                            style={{ ...cellStyle, textAlign: 'center' }}
+                            style={{ ...cellStyle, textAlign: 'center', fontSize: '9px' }}
                           >
-                            {col.options.map(opt => <option key={opt} value={opt}>{opt || '-'}</option>)}
+                            {col.options.map(opt => <option key={opt} value={opt}>{col.optionLabels ? col.optionLabels[opt] : (opt || '-')}</option>)}
                           </select>
                         ) : (
                           <input
@@ -1830,7 +1883,7 @@ const MakineYonetimi = () => {
                             data-col={colIdx}
                             type="text"
                             value={shortVal}
-                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
+                            onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                             disabled={!isReviseStarted}
                             style={{ ...cellStyle, textAlign: col.type === 'number' ? 'right' : 'left' }}
