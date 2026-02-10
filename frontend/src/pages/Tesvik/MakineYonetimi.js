@@ -1428,20 +1428,19 @@ const MakineYonetimi = () => {
     
     // 🔧 GTIP otomatik çekme - kod girilince açıklamayı API'den getir
     const handleGtipBlur = useCallback(async (rowId, gtipKodu) => {
-      if (!gtipKodu || gtipKodu.length < 4) return;
+      if (!gtipKodu || gtipKodu.length < 3) return;
       try {
         const gtipService = (await import('../../services/gtipService')).default;
-        // Önce tam/prefix eşleşme dene
-        let result = await gtipService.getByKod(gtipKodu);
-        if (!result?.aciklama) {
-          // Fallback: search endpoint ile ara
-          const searchResults = await gtipService.search(gtipKodu, 1);
-          if (searchResults?.length > 0) result = searchResults[0];
+        // Search endpoint kullan (daha esnek - kısa/uzun kodlarla çalışır)
+        const searchResults = await gtipService.search(gtipKodu, 5);
+        if (searchResults?.length > 0) {
+          // Tam eşleşme veya en yakın sonucu al
+          const exact = searchResults.find(r => r.kod === gtipKodu) || searchResults[0];
+          if (exact?.aciklama) {
+            updater(rowId, { gtipAciklama: exact.aciklama });
+          }
         }
-        if (result?.aciklama) {
-          updater(rowId, { gtipAciklama: result.aciklama });
-        }
-      } catch (e) { console.log('GTIP arama hatası:', e); }
+      } catch (e) { console.error('GTIP arama hatası:', e); }
     }, [updater]);
 
     // 🔧 Birim ve Döviz seçenekleri - API'den yükle
@@ -1541,6 +1540,21 @@ const MakineYonetimi = () => {
     
     const cols = quickTab === 'yerli' ? yerliCols : ithalCols;
     const gridRef = useRef(null);
+    const scrollPosRef = useRef({ top: 0, left: 0 });
+    
+    // 🔧 FIX: Scroll pozisyonunu koru - re-render sonrası geri yükle
+    useEffect(() => {
+      const el = gridRef.current;
+      if (el) {
+        el.scrollTop = scrollPosRef.current.top;
+        el.scrollLeft = scrollPosRef.current.left;
+      }
+    });
+    
+    // Scroll pozisyonunu kaydet
+    const handleScroll = useCallback((e) => {
+      scrollPosRef.current = { top: e.target.scrollTop, left: e.target.scrollLeft };
+    }, []);
     
     // Satır ekleme
     const addRows = (count) => {
@@ -1790,6 +1804,7 @@ const MakineYonetimi = () => {
         <Box 
           ref={gridRef}
           onPaste={handlePaste}
+          onScroll={handleScroll}
           sx={{ 
             flex: 1, 
             overflow: 'auto',
