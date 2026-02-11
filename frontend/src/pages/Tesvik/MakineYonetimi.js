@@ -1427,21 +1427,36 @@ const MakineYonetimi = () => {
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
     
     // 🔧 GTIP otomatik çekme - kod girilince açıklamayı API'den getir
-    const handleGtipBlur = useCallback(async (rowId, gtipKodu) => {
-      if (!gtipKodu || gtipKodu.length < 3) return;
-      try {
-        const gtipService = (await import('../../services/gtipService')).default;
-        // Search endpoint kullan (daha esnek - kısa/uzun kodlarla çalışır)
-        const searchResults = await gtipService.search(gtipKodu, 5);
-        if (searchResults?.length > 0) {
-          // Tam eşleşme veya en yakın sonucu al
-          const exact = searchResults.find(r => r.kod === gtipKodu) || searchResults[0];
-          if (exact?.aciklama) {
-            updater(rowId, { gtipAciklama: exact.aciklama });
-          }
-        }
-      } catch (e) { console.error('GTIP arama hatası:', e); }
+    // 🔧 GTIP Autocomplete sistemi - anlık arama ve öneri dropdown
+    const [gtipSuggestions, setGtipSuggestions] = useState([]);
+    const [gtipActiveRowId, setGtipActiveRowId] = useState(null);
+    const gtipSearchTimer = useRef(null);
+    
+    const handleGtipChange = useCallback((rowId, value) => {
+      updateCell(rowId, 'gtipKodu', value);
+      if (!value || value.length < 3) { setGtipSuggestions([]); setGtipActiveRowId(null); return; }
+      setGtipActiveRowId(rowId);
+      // Debounced search
+      if (gtipSearchTimer.current) clearTimeout(gtipSearchTimer.current);
+      gtipSearchTimer.current = setTimeout(async () => {
+        try {
+          const gtipService = (await import('../../services/gtipService')).default;
+          const results = await gtipService.search(value, 8);
+          setGtipSuggestions(results || []);
+        } catch (e) { setGtipSuggestions([]); }
+      }, 250);
+    }, [updateCell]);
+    
+    const handleGtipSelect = useCallback((rowId, item) => {
+      updater(rowId, { gtipKodu: item.kod, gtipAciklama: item.aciklama });
+      setGtipSuggestions([]);
+      setGtipActiveRowId(null);
     }, [updater]);
+    
+    const handleGtipBlur = useCallback(() => {
+      // Kısa gecikme ile kapat (seçim için zaman ver)
+      setTimeout(() => { setGtipSuggestions([]); setGtipActiveRowId(null); }, 200);
+    }, []);
 
     // 🔧 Birim ve Döviz seçenekleri - API'den yükle
     const [birimListesi, setBirimListesi] = useState([]);
@@ -1893,18 +1908,45 @@ const MakineYonetimi = () => {
                             {col.render ? col.render(row) : displayVal}
                           </span>
                         ) : col.type === 'gtip' ? (
-                          <input
-                            data-row={rowIdx}
-                            data-col={colIdx}
-                            type="text"
-                            value={shortVal}
-                            onChange={(e) => updateCell(row.id, col.key, e.target.value)}
-                            onBlur={(e) => handleGtipBlur(row.id, e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                            disabled={!isReviseStarted}
-                            placeholder="GTIP yazın..."
-                            style={{ ...cellStyle, textAlign: 'left', color: '#2563eb' }}
-                          />
+                          <div style={{ position: 'relative', width: '100%' }}>
+                            <input
+                              data-row={rowIdx}
+                              data-col={colIdx}
+                              type="text"
+                              value={shortVal}
+                              onChange={(e) => handleGtipChange(row.id, e.target.value)}
+                              onBlur={handleGtipBlur}
+                              onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                              disabled={!isReviseStarted}
+                              placeholder="GTIP..."
+                              autoComplete="off"
+                              style={{ ...cellStyle, textAlign: 'left', color: '#2563eb' }}
+                            />
+                            {gtipActiveRowId === row.id && gtipSuggestions.length > 0 && (
+                              <div style={{
+                                position: 'absolute', top: '100%', left: 0, zIndex: 9999,
+                                background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+                                minWidth: 280, fontSize: '10px'
+                              }}>
+                                {gtipSuggestions.map((item, idx) => (
+                                  <div key={idx}
+                                    onMouseDown={(e) => { e.preventDefault(); handleGtipSelect(row.id, item); }}
+                                    style={{
+                                      padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                                      display: 'flex', gap: 6, alignItems: 'flex-start',
+                                      background: idx % 2 === 0 ? '#fff' : '#f8fafc'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+                                  >
+                                    <span style={{ fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap', minWidth: 75 }}>{item.kod}</span>
+                                    <span style={{ color: '#374151', lineHeight: '1.2' }}>{item.aciklama}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         ) : col.options ? (
                           <select
                             data-row={rowIdx}
