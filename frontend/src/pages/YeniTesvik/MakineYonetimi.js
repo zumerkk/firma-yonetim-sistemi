@@ -104,9 +104,10 @@ const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...p
       onChange={(e) => setLocal(e.target.value)}
       onBlur={() => { if (String(local) !== String(value)) onCommit(local); }}
       onKeyDown={(e) => { 
-        if (e.key === 'Enter') { e.preventDefault(); onCommit(local); ref.current?.blur(); }
+        if (e.key === 'Enter') { e.preventDefault(); onCommit(local); }
         if (e.key === 'Tab') { onCommit(local); }
       }}
+      onPaste={(e) => e.stopPropagation()}
       disabled={disabled}
       placeholder={placeholder}
       style={style}
@@ -209,7 +210,20 @@ const MakineYonetimi = () => {
   // 'standard' = Mevcut detaylı görünüm (küçük veri setleri için)
   // 'quick' = Hızlı Yönetim modu (toplu ekleme, 1000+ satır için optimize)
   const [viewMode, setViewMode] = useState('standard');
-  const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı - QuickExcelGrid remount'ta sıfırlanmasın
+  const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı
+  const quickScrollRef = useRef({ top: 0, left: 0 }); // 🔧 FIX: Scroll pozisyonu parent'ta
+  const [birimListesi, setBirimListesi] = useState([]);
+  const [dovizListesi, setDovizListesi] = useState([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: birimRes } = await api.get('/lookup/unit?limit=200');
+        const { data: dovizRes } = await api.get('/lookup/currency?limit=200');
+        if (birimRes?.data) setBirimListesi(birimRes.data);
+        if (dovizRes?.data) setDovizListesi(dovizRes.data);
+      } catch (e) { /* silent */ }
+    })();
+  }, []);
   const [quickModeRows, setQuickModeRows] = useState([]); // Hızlı mod için geçici satırlar
   const [bulkProgress, setBulkProgress] = useState({ active: false, current: 0, total: 0, message: '' });
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false);
@@ -2702,22 +2716,7 @@ const MakineYonetimi = () => {
       }
     }, [updater]);
 
-    // 🔧 Birim ve Döviz seçenekleri - API'den yükle
-    const [birimListesi, setBirimListesi] = useState([]);
-    const [dovizListesi, setDovizListesi] = useState([]);
-    useEffect(() => {
-      (async () => {
-        try {
-          const axios = (await import('../../utils/axios')).default;
-          const [birimRes, dovizRes] = await Promise.all([
-            axios.get('/lookup/unit?limit=200'),
-            axios.get('/lookup/currency?limit=200')
-          ]);
-          if (birimRes.data?.data) setBirimListesi(birimRes.data.data);
-          if (dovizRes.data?.data) setDovizListesi(dovizRes.data.data);
-        } catch (e) { console.log('Lookup listesi yüklenemedi:', e); }
-      })();
-    }, []);
+    // Birim/Döviz seçenekleri (parent'tan geliyor - remount'ta sıfırlanmıyor)
     const birimOptions = useMemo(() => ['', ...birimListesi.map(b => b.kod)], [birimListesi]);
     const birimLabels = useMemo(() => {
       const labels = { '': '-' };
@@ -2807,20 +2806,20 @@ const MakineYonetimi = () => {
     
     const cols = quickTab === 'yerli' ? yerliCols : ithalCols;
     const gridRef = useRef(null);
-    const scrollPosRef = useRef({ top: 0, left: 0 });
     
-    // 🔧 FIX: Scroll pozisyonunu koru - re-render sonrası geri yükle
+    // 🔧 FIX: Scroll pozisyonunu koru - quickScrollRef PARENT'ta tutuluyor (remount'ta sıfırlanmaz)
     useEffect(() => {
       const el = gridRef.current;
-      if (el) {
-        el.scrollTop = scrollPosRef.current.top;
-        el.scrollLeft = scrollPosRef.current.left;
+      if (el && (quickScrollRef.current.top > 0 || quickScrollRef.current.left > 0)) {
+        requestAnimationFrame(() => {
+          el.scrollTop = quickScrollRef.current.top;
+          el.scrollLeft = quickScrollRef.current.left;
+        });
       }
     });
     
-    // Scroll pozisyonunu kaydet
     const handleScroll = useCallback((e) => {
-      scrollPosRef.current = { top: e.target.scrollTop, left: e.target.scrollLeft };
+      quickScrollRef.current = { top: e.target.scrollTop, left: e.target.scrollLeft };
     }, []);
     
     // Satır ekleme
