@@ -1433,7 +1433,7 @@ const MakineYonetimi = () => {
     const gtipSearchTimer = useRef(null);
     
     const handleGtipChange = useCallback((rowId, value) => {
-      updateCell(rowId, 'gtipKodu', value);
+      updater(rowId, { gtipKodu: value });
       if (!value || value.length < 3) { setGtipSuggestions([]); setGtipActiveRowId(null); return; }
       setGtipActiveRowId(rowId);
       // Debounced search
@@ -1445,7 +1445,7 @@ const MakineYonetimi = () => {
           setGtipSuggestions(results || []);
         } catch (e) { setGtipSuggestions([]); }
       }, 250);
-    }, [updateCell]);
+    }, [updater]);
     
     const handleGtipSelect = useCallback((rowId, item) => {
       updater(rowId, { gtipKodu: item.kod, gtipAciklama: item.aciklama });
