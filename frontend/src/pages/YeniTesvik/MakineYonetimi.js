@@ -156,6 +156,7 @@ const GtipCell = memo(({ value, rowId, onCommit, style, disabled }) => {
           if (e.key === 'Enter') { e.preventDefault(); onCommit(rowId, local); setShowDropdown(false); }
           if (e.key === 'Escape') { setShowDropdown(false); }
         }}
+        onPaste={(e) => e.stopPropagation()}
         disabled={disabled}
         placeholder="GTIP..."
         autoComplete="off"
@@ -212,6 +213,7 @@ const MakineYonetimi = () => {
   const [viewMode, setViewMode] = useState('standard');
   const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı
   const quickScrollRef = useRef({ top: 0, left: 0 }); // 🔧 FIX: Scroll pozisyonu parent'ta
+  const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 }); // 🔧 FIX: Son odaklanan hücre
   const [birimListesi, setBirimListesi] = useState([]);
   const [dovizListesi, setDovizListesi] = useState([]);
   useEffect(() => {
@@ -2862,10 +2864,9 @@ const MakineYonetimi = () => {
       
       e.preventDefault();
       
-      // Aktif hücre bul
-      const activeEl = document.activeElement;
-      const rowIdx = parseInt(activeEl?.dataset?.row || '0');
-      const colIdx = parseInt(activeEl?.dataset?.col || '0');
+      // 🔧 FIX: Son odaklanan hücreyi kullan (data-row/col yerine parent ref)
+      const rowIdx = lastFocusedCellRef.current.rowIdx;
+      const colIdx = lastFocusedCellRef.current.colIdx;
       
       const newRows = [];
       lines.forEach((line, li) => {
@@ -3100,6 +3101,9 @@ const MakineYonetimi = () => {
                     else if (displayVal === 'Ana Makine') shortVal = 'A';
                     else if (displayVal === 'Yardımcı Makine') shortVal = 'Y';
                     
+                    // 🔧 FIX: Hücre focus takibi - paste'in doğru hücreye gitmesi için
+                    const trackFocus = () => { lastFocusedCellRef.current = { rowIdx, colIdx }; };
+                    
                     // Date formatting
                     if (col.type === 'date' && rawVal) {
                       try {
@@ -3109,7 +3113,7 @@ const MakineYonetimi = () => {
                     }
                     
                     return (
-                      <td key={col.key} style={{ border: '1px solid #e5e7eb', padding: 0, minWidth: col.w, maxWidth: col.flex ? 300 : col.w }}>
+                      <td key={col.key} onFocusCapture={trackFocus} onClick={trackFocus} style={{ border: '1px solid #e5e7eb', padding: 0, minWidth: col.w, maxWidth: col.flex ? 300 : col.w }}>
                         {col.computed ? (
                           <span style={{ 
                             display: 'block', 
