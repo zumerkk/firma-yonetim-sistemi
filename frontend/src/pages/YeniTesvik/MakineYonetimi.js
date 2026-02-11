@@ -211,9 +211,11 @@ const MakineYonetimi = () => {
   // 'standard' = Mevcut detaylı görünüm (küçük veri setleri için)
   // 'quick' = Hızlı Yönetim modu (toplu ekleme, 1000+ satır için optimize)
   const [viewMode, setViewMode] = useState('standard');
-  const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı
-  const quickScrollRef = useRef({ top: 0, left: 0 }); // 🔧 FIX: Scroll pozisyonu parent'ta
-  const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 }); // 🔧 FIX: Son odaklanan hücre
+  const [quickTab, setQuickTab] = useState(tab);
+  const quickScrollRef = useRef({ top: 0, left: 0 });
+  const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 });
+  const revizeFinalizingRef = useRef(false); // Çift tıklama engeli
+  const autoSaveTimerRef = useRef(null); // Auto-save iptal için
   const [birimListesi, setBirimListesi] = useState([]);
   const [dovizListesi, setDovizListesi] = useState([]);
   useEffect(() => {
@@ -3805,11 +3807,15 @@ const MakineYonetimi = () => {
               <>
                 <Button 
                   size="small" 
-                  disabled={!selectedTesvik} 
+                  disabled={!selectedTesvik || revizeFinalizingRef.current} 
                   onClick={async()=>{
+                    if (revizeFinalizingRef.current) return;
                     const ok = window.confirm('Revize bitir?');
                     if (!ok) return;
+                    revizeFinalizingRef.current = true;
+                    if (autoSaveTimerRef?.current) clearTimeout(autoSaveTimerRef.current);
                     try {
+                      openToast('info', 'Revize kaydediliyor...');
                       const payload = {
                         yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep:r.talep, karar:r.karar })),
                         ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep:r.talep, karar:r.karar }))
@@ -3818,7 +3824,12 @@ const MakineYonetimi = () => {
                       await yeniTesvikService.finalizeMakineRevizyon(selectedTesvik._id, { aciklama: 'Finalize' });
                       setIsReviseMode(false); setIsReviseStarted(false);
                       openToast('success', 'Revize tamamlandı');
-                    } catch { openToast('error', 'Hata'); }
+                    } catch (e) { 
+                      console.error('Revize bitirme hatası:', e);
+                      openToast('error', `Revize bitirilemedi: ${e?.response?.data?.message || e.message || 'Hata'}`); 
+                    } finally {
+                      revizeFinalizingRef.current = false;
+                    }
                   }} 
                   sx={{ 
                     fontSize: '0.68rem',
