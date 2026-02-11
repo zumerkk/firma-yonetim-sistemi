@@ -91,6 +91,10 @@ const MakineYonetimi = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   // 🚀 Hızlı Mod: standard | quick
   const [viewMode, setViewMode] = useState('standard');
+  const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı - QuickExcelGrid remount'ta sıfırlanmasın
+  const [gtipSuggestions, setGtipSuggestions] = useState([]);
+  const [gtipActiveRowId, setGtipActiveRowId] = useState(null);
+  const gtipSearchTimer = useRef(null);
   // 🆕 Revizyon state'leri
   const [isReviseMode, setIsReviseMode] = useState(false);
   const [isReviseStarted, setIsReviseStarted] = useState(false);
@@ -1418,19 +1422,15 @@ const MakineYonetimi = () => {
   };
 
   // 🚀 HIZLI MOD: Tam Ekran Excel Benzeri Grid
+  // 🔧 FIX: quickTab, gtipSuggestions gibi state'ler PARENT'ta tutuluyor
+  // çünkü QuickExcelGrid memo() ile parent içinde tanımlı olduğundan
+  // her re-render'da remount oluyor ve internal state sıfırlanıyordu.
   const QuickExcelGrid = memo(() => {
-    const [quickTab, setQuickTab] = useState(tab);
     const rows = quickTab === 'yerli' ? yerliRows : ithalRows;
     const setRows = quickTab === 'yerli' ? setYerliRows : setIthalRows;
     const emptyRowFn = quickTab === 'yerli' ? emptyYerli : emptyIthal;
     const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
-    
-    // 🔧 GTIP otomatik çekme - kod girilince açıklamayı API'den getir
-    // 🔧 GTIP Autocomplete sistemi - anlık arama ve öneri dropdown
-    const [gtipSuggestions, setGtipSuggestions] = useState([]);
-    const [gtipActiveRowId, setGtipActiveRowId] = useState(null);
-    const gtipSearchTimer = useRef(null);
     
     const handleGtipChange = useCallback((rowId, value) => {
       updater(rowId, { gtipKodu: value });
