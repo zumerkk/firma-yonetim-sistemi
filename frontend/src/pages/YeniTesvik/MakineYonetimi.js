@@ -91,6 +91,67 @@ const DebouncedTextField = React.memo(({ value, onCommit, disabled, type, placeh
   );
 });
 
+// 🔧 FIX: Hücre component'leri parent DIŞINDA tanımlı - remount sorunu çözüldü
+const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...props }) => {
+  const [local, setLocal] = useState(value ?? '');
+  const ref = useRef(null);
+  useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (String(local) !== String(value)) onCommit(local); }}
+      onKeyDown={(e) => { 
+        if (e.key === 'Enter') { e.preventDefault(); onCommit(local); ref.current?.blur(); }
+        if (e.key === 'Tab') { onCommit(local); }
+      }}
+      disabled={disabled}
+      placeholder={placeholder}
+      style={style}
+      {...props}
+    />
+  );
+});
+
+const GtipCell = memo(({ value, rowId, onCommit, suggestions, activeRowId, onSearch, onSelect, onBlurClose, style, disabled, ...props }) => {
+  const [local, setLocal] = useState(value ?? '');
+  const ref = useRef(null);
+  useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        ref={ref}
+        type="text"
+        value={local}
+        onChange={(e) => { setLocal(e.target.value); onSearch(rowId, e.target.value); }}
+        onBlur={() => { if (String(local) !== String(value)) onCommit(rowId, local); onBlurClose(); }}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onCommit(rowId, local); ref.current?.blur(); } }}
+        disabled={disabled}
+        placeholder="GTIP..."
+        autoComplete="off"
+        style={{ ...style, color: '#2563eb' }}
+        {...props}
+      />
+      {activeRowId === rowId && suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto', minWidth: 280, fontSize: '10px' }}>
+          {suggestions.map((item, idx) => (
+            <div key={idx} onMouseDown={(e) => { e.preventDefault(); onSelect(rowId, item); setLocal(item.kod); }}
+              style={{ padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 6, alignItems: 'flex-start', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+              onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+            >
+              <span style={{ fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap', minWidth: 75 }}>{item.kod}</span>
+              <span style={{ color: '#374151', lineHeight: '1.2' }}>{item.aciklama}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
 const MakineYonetimi = () => {
   const navigate = useNavigate(); // 🧭 Navigasyon hook'u
   const [tab, setTab] = useState('yerli');
@@ -2593,11 +2654,9 @@ const MakineYonetimi = () => {
     const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
     
-    const handleGtipChange = useCallback((rowId, value) => {
-      updater(rowId, { gtipKodu: value });
+    const handleGtipSearch = useCallback((rowId, value) => {
       if (!value || value.length < 3) { setGtipSuggestions([]); setGtipActiveRowId(null); return; }
       setGtipActiveRowId(rowId);
-      // Debounced search
       if (gtipSearchTimer.current) clearTimeout(gtipSearchTimer.current);
       gtipSearchTimer.current = setTimeout(async () => {
         try {
@@ -2606,6 +2665,10 @@ const MakineYonetimi = () => {
           setGtipSuggestions(results || []);
         } catch (e) { setGtipSuggestions([]); }
       }, 250);
+    }, [setGtipSuggestions, setGtipActiveRowId]);
+    
+    const handleGtipCommit = useCallback((rowId, value) => {
+      updater(rowId, { gtipKodu: value });
     }, [updater]);
     
     const handleGtipSelect = useCallback((rowId, item) => {
@@ -2614,7 +2677,7 @@ const MakineYonetimi = () => {
       setGtipActiveRowId(null);
     }, [updater]);
     
-    const handleGtipBlur = useCallback(() => {
+    const handleGtipBlurClose = useCallback(() => {
       setTimeout(() => { setGtipSuggestions([]); setGtipActiveRowId(null); }, 200);
     }, []);
 
@@ -3072,45 +3135,18 @@ const MakineYonetimi = () => {
                             {shortVal}
                           </span>
                         ) : col.type === 'gtip' ? (
-                          <div style={{ position: 'relative', width: '100%' }}>
-                            <input
-                              data-row={rowIdx}
-                              data-col={colIdx}
-                              type="text"
-                              value={shortVal}
-                              onChange={(e) => handleGtipChange(row.id, e.target.value)}
-                              onBlur={handleGtipBlur}
-                              onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                              disabled={!isReviseStarted}
-                              placeholder="GTIP..."
-                              autoComplete="off"
-                              style={{ ...cellStyle, textAlign: 'left', color: '#2563eb' }}
-                            />
-                            {gtipActiveRowId === row.id && gtipSuggestions.length > 0 && (
-                              <div style={{
-                                position: 'absolute', top: '100%', left: 0, zIndex: 9999,
-                                background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
-                                minWidth: 280, fontSize: '10px'
-                              }}>
-                                {gtipSuggestions.map((item, idx) => (
-                                  <div key={idx}
-                                    onMouseDown={(e) => { e.preventDefault(); handleGtipSelect(row.id, item); }}
-                                    style={{
-                                      padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
-                                      display: 'flex', gap: 6, alignItems: 'flex-start',
-                                      background: idx % 2 === 0 ? '#fff' : '#f8fafc'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                                  >
-                                    <span style={{ fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap', minWidth: 75 }}>{item.kod}</span>
-                                    <span style={{ color: '#374151', lineHeight: '1.2' }}>{item.aciklama}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          <GtipCell
+                            value={shortVal}
+                            rowId={row.id}
+                            onCommit={handleGtipCommit}
+                            suggestions={gtipSuggestions}
+                            activeRowId={gtipActiveRowId}
+                            onSearch={handleGtipSearch}
+                            onSelect={handleGtipSelect}
+                            onBlurClose={handleGtipBlurClose}
+                            style={cellStyle}
+                            disabled={!isReviseStarted}
+                          />
                         ) : col.options ? (
                           <select
                             data-row={rowIdx}
@@ -3124,13 +3160,12 @@ const MakineYonetimi = () => {
                             {col.options.map(opt => <option key={opt} value={opt}>{col.optionLabels ? col.optionLabels[opt] : (opt || '-')}</option>)}
                           </select>
                         ) : (
-                          <input
-                            data-row={rowIdx}
-                            data-col={colIdx}
-                            type="text"
+                          <EditableCell
                             value={shortVal}
-                            onChange={(e) => { const v = e.target.value; if (col.onUpdate) { col.onUpdate(row.id, v); } else { updateCell(row.id, col.key, v); } }}
-                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            onCommit={(val) => {
+                              if (col.onUpdate) col.onUpdate(row.id, val);
+                              else updateCell(row.id, col.key, val);
+                            }}
                             disabled={!isReviseStarted}
                             style={{ ...cellStyle, textAlign: col.type === 'number' ? 'right' : 'left' }}
                           />

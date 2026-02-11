@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
+import React, { useEffect, useMemo, useState, useRef, useCallback, memo, forwardRef } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
@@ -48,6 +48,87 @@ const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
 };
 const saveLS = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+// 🔧 FIX: Hücre component'leri parent DIŞINDA tanımlı - remount sorunu çözüldü
+// Her tuş basışında parent re-render olsa bile bu component'ler stabil kalır
+const EditableCell = memo(({ value, onCommit, style, disabled, type, placeholder, ...props }) => {
+  const [local, setLocal] = useState(value ?? '');
+  const ref = useRef(null);
+  // Dış değer değişirse senkronize et (ama sadece farklıysa, typing sırasında değil)
+  useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={() => { if (String(local) !== String(value)) onCommit(local); }}
+      onKeyDown={(e) => { 
+        if (e.key === 'Enter') { e.preventDefault(); onCommit(local); ref.current?.blur(); }
+        if (e.key === 'Tab') { onCommit(local); }
+      }}
+      disabled={disabled}
+      placeholder={placeholder}
+      style={style}
+      {...props}
+    />
+  );
+});
+
+const GtipCell = memo(({ value, rowId, onCommit, suggestions, activeRowId, onSearch, onSelect, onBlurClose, style, disabled, ...props }) => {
+  const [local, setLocal] = useState(value ?? '');
+  const ref = useRef(null);
+  useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        ref={ref}
+        type="text"
+        value={local}
+        onChange={(e) => {
+          setLocal(e.target.value);
+          onSearch(rowId, e.target.value);
+        }}
+        onBlur={() => {
+          if (String(local) !== String(value)) onCommit(rowId, local);
+          onBlurClose();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); onCommit(rowId, local); ref.current?.blur(); }
+        }}
+        disabled={disabled}
+        placeholder="GTIP..."
+        autoComplete="off"
+        style={{ ...style, color: '#2563eb' }}
+        {...props}
+      />
+      {activeRowId === rowId && suggestions.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 9999,
+          background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+          minWidth: 280, fontSize: '10px'
+        }}>
+          {suggestions.map((item, idx) => (
+            <div key={idx}
+              onMouseDown={(e) => { e.preventDefault(); onSelect(rowId, item); setLocal(item.kod); }}
+              style={{
+                padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                display: 'flex', gap: 6, alignItems: 'flex-start',
+                background: idx % 2 === 0 ? '#fff' : '#f8fafc'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+              onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
+            >
+              <span style={{ fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap', minWidth: 75 }}>{item.kod}</span>
+              <span style={{ color: '#374151', lineHeight: '1.2' }}>{item.aciklama}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
 
 const MakineYonetimi = () => {
   const navigate = useNavigate(); // 🧭 Navigasyon hook'u
@@ -1432,11 +1513,10 @@ const MakineYonetimi = () => {
     const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
     
-    const handleGtipChange = useCallback((rowId, value) => {
-      updater(rowId, { gtipKodu: value });
+    // GTIP arama (updater çağırmadan - sadece öneri getir)
+    const handleGtipSearch = useCallback((rowId, value) => {
       if (!value || value.length < 3) { setGtipSuggestions([]); setGtipActiveRowId(null); return; }
       setGtipActiveRowId(rowId);
-      // Debounced search
       if (gtipSearchTimer.current) clearTimeout(gtipSearchTimer.current);
       gtipSearchTimer.current = setTimeout(async () => {
         try {
@@ -1445,6 +1525,11 @@ const MakineYonetimi = () => {
           setGtipSuggestions(results || []);
         } catch (e) { setGtipSuggestions([]); }
       }, 250);
+    }, [setGtipSuggestions, setGtipActiveRowId]);
+    
+    // GTIP commit (blur veya Enter'da)
+    const handleGtipCommit = useCallback((rowId, value) => {
+      updater(rowId, { gtipKodu: value });
     }, [updater]);
     
     const handleGtipSelect = useCallback((rowId, item) => {
@@ -1453,8 +1538,7 @@ const MakineYonetimi = () => {
       setGtipActiveRowId(null);
     }, [updater]);
     
-    const handleGtipBlur = useCallback(() => {
-      // Kısa gecikme ile kapat (seçim için zaman ver)
+    const handleGtipBlurClose = useCallback(() => {
       setTimeout(() => { setGtipSuggestions([]); setGtipActiveRowId(null); }, 200);
     }, []);
 
@@ -1908,45 +1992,18 @@ const MakineYonetimi = () => {
                             {col.render ? col.render(row) : displayVal}
                           </span>
                         ) : col.type === 'gtip' ? (
-                          <div style={{ position: 'relative', width: '100%' }}>
-                            <input
-                              data-row={rowIdx}
-                              data-col={colIdx}
-                              type="text"
-                              value={shortVal}
-                              onChange={(e) => handleGtipChange(row.id, e.target.value)}
-                              onBlur={handleGtipBlur}
-                              onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
-                              disabled={!isReviseStarted}
-                              placeholder="GTIP..."
-                              autoComplete="off"
-                              style={{ ...cellStyle, textAlign: 'left', color: '#2563eb' }}
-                            />
-                            {gtipActiveRowId === row.id && gtipSuggestions.length > 0 && (
-                              <div style={{
-                                position: 'absolute', top: '100%', left: 0, zIndex: 9999,
-                                background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
-                                minWidth: 280, fontSize: '10px'
-                              }}>
-                                {gtipSuggestions.map((item, idx) => (
-                                  <div key={idx}
-                                    onMouseDown={(e) => { e.preventDefault(); handleGtipSelect(row.id, item); }}
-                                    style={{
-                                      padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
-                                      display: 'flex', gap: 6, alignItems: 'flex-start',
-                                      background: idx % 2 === 0 ? '#fff' : '#f8fafc'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
-                                  >
-                                    <span style={{ fontWeight: 600, color: '#2563eb', whiteSpace: 'nowrap', minWidth: 75 }}>{item.kod}</span>
-                                    <span style={{ color: '#374151', lineHeight: '1.2' }}>{item.aciklama}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+                          <GtipCell
+                            value={shortVal}
+                            rowId={row.id}
+                            onCommit={handleGtipCommit}
+                            suggestions={gtipSuggestions}
+                            activeRowId={gtipActiveRowId}
+                            onSearch={handleGtipSearch}
+                            onSelect={handleGtipSelect}
+                            onBlurClose={handleGtipBlurClose}
+                            style={cellStyle}
+                            disabled={!isReviseStarted}
+                          />
                         ) : col.options ? (
                           <select
                             data-row={rowIdx}
@@ -1960,13 +2017,12 @@ const MakineYonetimi = () => {
                             {col.options.map(opt => <option key={opt} value={opt}>{col.optionLabels ? col.optionLabels[opt] : (opt || '-')}</option>)}
                           </select>
                         ) : (
-                          <input
-                            data-row={rowIdx}
-                            data-col={colIdx}
-                            type="text"
+                          <EditableCell
                             value={shortVal}
-                            onChange={handleChange}
-                            onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
+                            onCommit={(val) => {
+                              if (col.onUpdate) col.onUpdate(row.id, val);
+                              else updateCell(row.id, col.key, val);
+                            }}
                             disabled={!isReviseStarted}
                             style={{ ...cellStyle, textAlign: col.type === 'number' ? 'right' : 'left' }}
                           />
