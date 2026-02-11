@@ -115,30 +115,72 @@ const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...p
   );
 });
 
-const GtipCell = memo(({ value, rowId, onCommit, suggestions, activeRowId, onSearch, onSelect, onBlurClose, style, disabled, ...props }) => {
+// GtipCell: TÜM arama state'i kendi içinde - parent'a HIÇ state değişikliği gitmiyor (typing sırasında)
+const GtipCell = memo(({ value, rowId, onCommit, style, disabled }) => {
   const [local, setLocal] = useState(value ?? '');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const ref = useRef(null);
+  const searchTimer = useRef(null);
+  
   useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+  
+  const doSearch = (val) => {
+    if (!val || val.length < 3) { setSuggestions([]); setShowDropdown(false); return; }
+    setShowDropdown(true);
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const gtipService = (await import('../../services/gtipService')).default;
+        const results = await gtipService.search(val, 8);
+        setSuggestions(results || []);
+      } catch (e) { setSuggestions([]); }
+    }, 300);
+  };
+  
   return (
     <div style={{ position: 'relative', width: '100%' }}>
       <input
         ref={ref}
         type="text"
         value={local}
-        onChange={(e) => { setLocal(e.target.value); onSearch(rowId, e.target.value); }}
-        onBlur={() => { if (String(local) !== String(value)) onCommit(rowId, local); onBlurClose(); }}
-        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); onCommit(rowId, local); ref.current?.blur(); } }}
+        onChange={(e) => { setLocal(e.target.value); doSearch(e.target.value); }}
+        onBlur={() => {
+          setTimeout(() => {
+            if (String(local) !== String(value)) onCommit(rowId, local);
+            setShowDropdown(false);
+          }, 200);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); onCommit(rowId, local); setShowDropdown(false); }
+          if (e.key === 'Escape') { setShowDropdown(false); }
+        }}
         disabled={disabled}
         placeholder="GTIP..."
         autoComplete="off"
         style={{ ...style, color: '#2563eb' }}
-        {...props}
       />
-      {activeRowId === rowId && suggestions.length > 0 && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 9999, background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto', minWidth: 280, fontSize: '10px' }}>
+      {showDropdown && suggestions.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, zIndex: 9999,
+          background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+          minWidth: 280, fontSize: '10px'
+        }}>
           {suggestions.map((item, idx) => (
-            <div key={idx} onMouseDown={(e) => { e.preventDefault(); onSelect(rowId, item); setLocal(item.kod); }}
-              style={{ padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 6, alignItems: 'flex-start', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}
+            <div key={idx}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setLocal(item.kod);
+                setSuggestions([]);
+                setShowDropdown(false);
+                onCommit(rowId, item.kod, item.aciklama);
+              }}
+              style={{
+                padding: '4px 6px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                display: 'flex', gap: 6, alignItems: 'flex-start',
+                background: idx % 2 === 0 ? '#fff' : '#f8fafc'
+              }}
               onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
               onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fafc'}
             >
@@ -168,9 +210,6 @@ const MakineYonetimi = () => {
   // 'quick' = Hızlı Yönetim modu (toplu ekleme, 1000+ satır için optimize)
   const [viewMode, setViewMode] = useState('standard');
   const [quickTab, setQuickTab] = useState(tab); // 🔧 FIX: Parent'ta tutulmalı - QuickExcelGrid remount'ta sıfırlanmasın
-  const [gtipSuggestions, setGtipSuggestions] = useState([]);
-  const [gtipActiveRowId, setGtipActiveRowId] = useState(null);
-  const gtipSearchTimer = useRef(null);
   const [quickModeRows, setQuickModeRows] = useState([]); // Hızlı mod için geçici satırlar
   const [bulkProgress, setBulkProgress] = useState({ active: false, current: 0, total: 0, message: '' });
   const [pasteDialogOpen, setPasteDialogOpen] = useState(false);
@@ -2654,32 +2693,14 @@ const MakineYonetimi = () => {
     const calcFn = quickTab === 'yerli' ? calcYerli : calcIthal;
     const updater = quickTab === 'yerli' ? updateYerli : updateIthal;
     
-    const handleGtipSearch = useCallback((rowId, value) => {
-      if (!value || value.length < 3) { setGtipSuggestions([]); setGtipActiveRowId(null); return; }
-      setGtipActiveRowId(rowId);
-      if (gtipSearchTimer.current) clearTimeout(gtipSearchTimer.current);
-      gtipSearchTimer.current = setTimeout(async () => {
-        try {
-          const gtipService = (await import('../../services/gtipService')).default;
-          const results = await gtipService.search(value, 8);
-          setGtipSuggestions(results || []);
-        } catch (e) { setGtipSuggestions([]); }
-      }, 250);
-    }, [setGtipSuggestions, setGtipActiveRowId]);
-    
-    const handleGtipCommit = useCallback((rowId, value) => {
-      updater(rowId, { gtipKodu: value });
+    // GTIP commit - GtipCell kendi arama state'ini yönetiyor, parent sadece commit alıyor
+    const handleGtipCommit = useCallback((rowId, kod, aciklama) => {
+      if (aciklama) {
+        updater(rowId, { gtipKodu: kod, gtipAciklama: aciklama });
+      } else {
+        updater(rowId, { gtipKodu: kod });
+      }
     }, [updater]);
-    
-    const handleGtipSelect = useCallback((rowId, item) => {
-      updater(rowId, { gtipKodu: item.kod, gtipAciklama: item.aciklama });
-      setGtipSuggestions([]);
-      setGtipActiveRowId(null);
-    }, [updater]);
-    
-    const handleGtipBlurClose = useCallback(() => {
-      setTimeout(() => { setGtipSuggestions([]); setGtipActiveRowId(null); }, 200);
-    }, []);
 
     // 🔧 Birim ve Döviz seçenekleri - API'den yükle
     const [birimListesi, setBirimListesi] = useState([]);
@@ -3139,11 +3160,6 @@ const MakineYonetimi = () => {
                             value={shortVal}
                             rowId={row.id}
                             onCommit={handleGtipCommit}
-                            suggestions={gtipSuggestions}
-                            activeRowId={gtipActiveRowId}
-                            onSearch={handleGtipSearch}
-                            onSelect={handleGtipSelect}
-                            onBlurClose={handleGtipBlurClose}
                             style={cellStyle}
                             disabled={!isReviseStarted}
                           />
