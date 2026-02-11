@@ -470,7 +470,7 @@ const MakineYonetimi = () => {
       } catch (err) {
         console.error('❌ Otomatik kayıt hatası:', err);
       }
-    }, 2000); // 2 saniye debounce
+    }, 5000); // 5 saniye debounce (ağır kayıtlarda timeout önlemi)
     
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [yerliRows, ithalRows, selectedTesvik]);
