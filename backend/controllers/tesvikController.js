@@ -5151,37 +5151,93 @@ module.exports = {
       res.status(500).json({ success:false, message:'Revizyon başlatılamadı', error: error.message });
     }
   },
-  // 🆕 Makine Revizyon Finalize (post-revizyon snapshot kaydet)
-  // 🔧 FIX: Atomic $push ile snapshot ekle - full document save yerine
+  // 🆕 Makine Revizyon Finalize (save + snapshot TEK ÇAĞRI)
+  // 🔧 FIX: Frontend'den yerli/ithal gelirse önce kaydet, sonra snapshot al - TEK request
   finalizeMakineRevizyon: async (req, res) => {
+    const startTime = Date.now();
     try {
       const { id } = req.params;
-      const { aciklama } = req.body || {};
+      const { aciklama, yerli, ithal } = req.body || {};
       const Tesvik = require('../models/Tesvik');
       
-      // Sadece makineListeleri'ni çek
-      const tesvik = await Tesvik.findById(id).select('makineListeleri').lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      // Eğer makine verileri geldiyse önce kaydet (save + finalize TEK çağrı)
+      if (Array.isArray(yerli) || Array.isArray(ithal)) {
+        const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
+        const str = (v) => (v ?? '').toString();
+        const mapYerli = (arr) => arr.map((r, idx) => ({
+          rowId: str(r.rowId) || undefined, siraNo: nz(r.siraNo) || (idx+1), makineId: str(r.makineId),
+          gtipKodu: str(r.gtipKodu), gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
+          adiVeOzelligi: str(r.adiVeOzelligi || r.adi), miktar: nz(r.miktar), birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi), birimFiyatiTl: nz(r.birimFiyatiTl),
+          toplamTutariTl: nz(r.toplamTutariTl || r.toplamTl || nz(r.miktar)*nz(r.birimFiyatiTl)),
+          kdvIstisnasi: str(r.kdvIstisnasi).toUpperCase(), makineTechizatTipi: str(r.makineTechizatTipi),
+          finansalKiralamaMi: str(r.finansalKiralamaMi), finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket), gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar), iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet), iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili,
+          talep: r.talep ? { durum: r.talep.durum, istenenAdet: nz(r.talep.istenenAdet), talepTarihi: r.talep.talepTarihi ? new Date(r.talep.talepTarihi) : undefined } : undefined,
+          karar: r.karar ? { kararDurumu: r.karar.kararDurumu, onaylananAdet: nz(r.karar.onaylananAdet), kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined } : undefined
+        }));
+        const mapIthal = (arr) => arr.map((r, idx) => ({
+          rowId: str(r.rowId) || undefined, siraNo: nz(r.siraNo) || (idx+1), makineId: str(r.makineId),
+          gtipKodu: str(r.gtipKodu), gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
+          adiVeOzelligi: str(r.adiVeOzelligi || r.adi), miktar: nz(r.miktar), birim: str(r.birim),
+          birimAciklamasi: str(r.birimAciklamasi), birimFiyatiFob: nz(r.birimFiyatiFob),
+          gumrukDovizKodu: str(r.gumrukDovizKodu || r.doviz).toUpperCase(),
+          toplamTutarFobUsd: nz(r.toplamTutarFobUsd || r.toplamUsd),
+          toplamTutarFobTl: nz(r.toplamTutarFobTl || r.toplamTl),
+          kurManuel: !!r.kurManuel, kurManuelDeger: nz(r.kurManuelDeger),
+          kullanilmisMakine: str(r.kullanilmisMakine || r.kullanilmisKod),
+          kullanilmisMakineAciklama: str(r.kullanilmisMakineAciklama || r.kullanilmisAciklama),
+          ckdSkdMi: str(r.ckdSkdMi || r.ckdSkd), aracMi: str(r.aracMi),
+          makineTechizatTipi: str(r.makineTechizatTipi), kdvMuafiyeti: str(r.kdvMuafiyeti),
+          gumrukVergisiMuafiyeti: str(r.gumrukVergisiMuafiyeti),
+          finansalKiralamaMi: str(r.finansalKiralamaMi), finansalKiralamaAdet: nz(r.finansalKiralamaAdet),
+          finansalKiralamaSirket: str(r.finansalKiralamaSirket), gerceklesenAdet: nz(r.gerceklesenAdet),
+          gerceklesenTutar: nz(r.gerceklesenTutar), iadeDevirSatisVarMi: str(r.iadeDevirSatisVarMi),
+          iadeDevirSatisAdet: nz(r.iadeDevirSatisAdet), iadeDevirSatisTutar: nz(r.iadeDevirSatisTutar),
+          etuysSecili: !!r.etuysSecili,
+          talep: r.talep ? { durum: r.talep.durum, istenenAdet: nz(r.talep.istenenAdet), talepTarihi: r.talep.talepTarihi ? new Date(r.talep.talepTarihi) : undefined } : undefined,
+          karar: r.karar ? { kararDurumu: r.karar.kararDurumu, onaylananAdet: nz(r.karar.onaylananAdet), kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined } : undefined
+        }));
+        
+        const yerliMapped = Array.isArray(yerli) ? mapYerli(yerli) : undefined;
+        const ithalMapped = Array.isArray(ithal) ? mapIthal(ithal) : undefined;
+        
+        // TEK atomic op: save + snapshot push
+        const snapshot = {
+          revizeTuru: 'final', revizeTarihi: new Date(),
+          aciklama: aciklama || 'Makine revizyonu finalize edildi',
+          yapanKullanici: req.user?._id,
+          yerli: yerliMapped || [], ithal: ithalMapped || []
+        };
+        
+        const updateOps = { $push: { makineRevizyonlari: snapshot }, $set: { sonGuncelleyen: req.user?._id } };
+        if (yerliMapped) updateOps.$set['makineListeleri.yerli'] = yerliMapped;
+        if (ithalMapped) updateOps.$set['makineListeleri.ithal'] = ithalMapped;
+        
+        await Tesvik.findByIdAndUpdate(id, updateOps);
+        console.log(`✅ finalize+save OK: ${id} (${Date.now()-startTime}ms)`);
+      } else {
+        // Sadece snapshot (veri gelmemiş - eski uyumluluk)
+        const tesvik = await Tesvik.findById(id).select('makineListeleri').lean();
+        if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+        
+        const snapshot = {
+          revizeTuru: 'final', revizeTarihi: new Date(),
+          aciklama: aciklama || 'Makine revizyonu finalize edildi',
+          yapanKullanici: req.user?._id,
+          yerli: (tesvik.makineListeleri?.yerli || []).map(r => ({ ...r })),
+          ithal: (tesvik.makineListeleri?.ithal || []).map(r => ({ ...r }))
+        };
+        await Tesvik.findByIdAndUpdate(id, { $push: { makineRevizyonlari: snapshot }, $set: { sonGuncelleyen: req.user?._id } });
+        console.log(`✅ finalize OK: ${id} (${Date.now()-startTime}ms)`);
+      }
 
-      const snapshot = {
-        revizeTuru: 'final',
-        revizeTarihi: new Date(),
-        aciklama: aciklama || 'Makine revizyonu finalize edildi',
-        yapanKullanici: req.user?._id,
-        yerli: (tesvik.makineListeleri?.yerli || []).map(r => ({ ...r })),
-        ithal: (tesvik.makineListeleri?.ithal || []).map(r => ({ ...r }))
-      };
-
-      // Atomic $push - full save yok → hızlı
-      await Tesvik.findByIdAndUpdate(id, {
-        $push: { makineRevizyonlari: snapshot },
-        $set: { sonGuncelleyen: req.user?._id }
-      });
-
-      console.log(`✅ finalizeMakineRevizyon OK: ${id}`);
       res.json({ success:true, message:'Revizyon finalize edildi' });
     } catch (error) {
-      console.error('❌ finalizeMakineRevizyon error:', error.message);
+      console.error(`❌ finalizeMakineRevizyon error (${Date.now()-startTime}ms):`, error.message);
       res.status(500).json({ success:false, message:'Revizyon finalize edilemedi', error: error.message });
     }
   },
