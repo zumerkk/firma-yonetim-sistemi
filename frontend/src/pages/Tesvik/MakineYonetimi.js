@@ -1602,9 +1602,9 @@ const MakineYonetimi = () => {
       { key: 'toplamTl', label: 'Toplam', w: 65, type: 'number', computed: true },
       { key: 'dosyaSayisi', label: '📎', w: 26, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
       { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
-      { key: 'talepAdet', label: 'T.Ad', w: 30, type: 'number', getValue: (row) => row.talep?.istenenAdet || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), istenenAdet: parseTrCurrency(val) } }) },
+      { key: 'talepTarihi', label: 'T.Tar', w: 65, type: 'date', getValue: (row) => row.talep?.talepTarihi, onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), talepTarihi: val } }) },
       { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
-      { key: 'kararAdet', label: 'K.Ad', w: 30, type: 'number', getValue: (row) => row.karar?.onaylananAdet || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), onaylananAdet: parseTrCurrency(val) } }) },
+      { key: 'kararTarihi', label: 'K.Tar', w: 65, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
     ];
     
     // Sütun tanımları - İthal (TÜM SÜTUNLAR)
@@ -1636,9 +1636,9 @@ const MakineYonetimi = () => {
       { key: 'iadeDevirSatisTutar', label: 'D₺', w: 40, type: 'number' },
       { key: 'dosyaSayisi', label: '📎', w: 24, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
       { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
-      { key: 'talepAdet', label: 'T.Ad', w: 30, type: 'number', getValue: (row) => row.talep?.istenenAdet || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), istenenAdet: parseTrCurrency(val) } }) },
+      { key: 'talepTarihi', label: 'T.Tar', w: 60, type: 'date', getValue: (row) => row.talep?.talepTarihi, onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), talepTarihi: val } }) },
       { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
-      { key: 'kararAdet', label: 'K.Ad', w: 30, type: 'number', getValue: (row) => row.karar?.onaylananAdet || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), onaylananAdet: parseTrCurrency(val) } }) },
+      { key: 'kararTarihi', label: 'K.Tar', w: 60, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
     ];
     
     const cols = quickTab === 'yerli' ? yerliCols : ithalCols;
