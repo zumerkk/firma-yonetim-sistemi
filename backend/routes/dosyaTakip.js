@@ -3,11 +3,11 @@
 
 const express = require('express');
 const router = express.Router();
-const { protect } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const dosyaTakipController = require('../controllers/dosyaTakipController');
 
 // Tüm route'lar authentication gerektirir
-router.use(protect);
+router.use(authenticate);
 
 // 📊 Dashboard İstatistikleri
 router.get('/dashboard', dosyaTakipController.getDashboardIstatistikleri);
