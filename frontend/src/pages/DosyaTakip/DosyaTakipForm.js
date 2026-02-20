@@ -109,10 +109,13 @@ const DosyaTakipForm = () => {
     const searchFirmalar = async (query) => {
         try {
             setFirmaLoading(true);
-            const { data } = await axios.get(`/firma?search=${query}&limit=20`);
-            setFirmalar(data.data || data.firmalar || []);
+            const { data } = await axios.get(`/firma?arama=${query}&limit=20`);
+            // API yanıtı: { success, data: { firmalar: [...], pagination } }
+            const list = data?.data?.firmalar || data?.firmalar || data?.data || [];
+            setFirmalar(Array.isArray(list) ? list : []);
         } catch (err) {
             console.error('Firma arama hatası:', err);
+            setFirmalar([]);
         } finally {
             setFirmaLoading(false);
         }
