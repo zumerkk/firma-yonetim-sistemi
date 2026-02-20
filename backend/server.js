@@ -36,6 +36,7 @@ const destekSinifiRoutes = require('./routes/destekSinifi'); // 🎯 Destek Sın
 const oecdKategoriRoutes = require('./routes/oecdKategori'); // 🌍 OECD Kategori sistemi
 const naceRoutes = require('./routes/nace'); // 🌐 NACE 6-lı Kodları API
 const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
+const dosyaTakipRoutes = require('./routes/dosyaTakip'); // 📋 Dosya İş Akış Takip Sistemi
 
 const app = express();
 // Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
@@ -53,7 +54,7 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -98,10 +99,10 @@ const connectDB = async () => {
     // Modern Mongoose artık bu seçenekleri otomatik olarak kullanıyor
     const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/firma-yonetim');
     console.log(`✅ MongoDB Bağlandı: ${conn.connection.host}`);
-    
+
     // 🔧 FIX: Problematik unique index'leri temizle
     await cleanupProblematicIndexes(conn);
-    
+
   } catch (error) {
     console.error('❌ MongoDB bağlantı hatası:', error.message);
     process.exit(1);
@@ -111,22 +112,22 @@ const connectDB = async () => {
 // 🔧 Problematik Index Temizleme - belgeYonetimi.belgeId unique index'i kaldır
 const cleanupProblematicIndexes = async (conn) => {
   const db = conn.connection.db;
-  
+
   // 🔧 Hem tesviks hem de yenitesvik collection'larını temizle
   const collections = ['tesviks', 'yenitesvik'];
-  
+
   for (const collectionName of collections) {
     try {
       const collection = db.collection(collectionName);
-      
+
       // Mevcut index'leri al
       const indexes = await collection.indexes();
-      
+
       // belgeYonetimi.belgeId_1 unique index'ini ara
-      const problematicIndex = indexes.find(idx => 
+      const problematicIndex = indexes.find(idx =>
         idx.key && idx.key['belgeYonetimi.belgeId'] && idx.unique === true
       );
-      
+
       if (problematicIndex) {
         console.log(`🔧 [${collectionName}] Problematik index bulundu: ${problematicIndex.name}`);
         await collection.dropIndex(problematicIndex.name);
@@ -150,7 +151,7 @@ app.get('/debug/tesvik/:tesvikId', async (req, res) => {
     if (!tesvik) {
       return res.json({ error: 'Teşvik bulunamadı!' });
     }
-    
+
     const result = {
       tesvikId: tesvik.tesvikId,
       destekUnsurlari: {
@@ -190,7 +191,7 @@ app.get('/debug/tesvik/:tesvikId', async (req, res) => {
         count: tesvik.revizyonlar?.length || 0
       }
     };
-    
+
     res.json(result);
   } catch (error) {
     res.json({ error: error.message });
@@ -213,7 +214,7 @@ app.get('/test/csv-export/:tesvikId', async (req, res) => {
       status: (code) => res.status(code),
       json: (data) => res.json(data)
     };
-    
+
     // Call the actual controller
     await tesvikController.exportRevizyonExcel(mockReq, mockRes);
   } catch (error) {
@@ -232,7 +233,7 @@ app.get('/', (req, res) => {
       'POST /api/auth/login - Kullanıcı girişi',
       'POST /api/auth/register - Kullanıcı kaydı',
       'GET /api/firma - Firma listesi',
-'POST /api/firma - Yeni firma ekleme'
+      'POST /api/firma - Yeni firma ekleme'
     ]
   });
 });
@@ -260,13 +261,14 @@ app.use('/api/yeni-tesvik', yeniTesvikRoutes); // 🆕 Yeni Teşvik Belge Sistem
 app.use('/api/admin', adminRoutes); // 🔐 Admin Panel Sistemi
 app.use('/api/reports', reportRoutes); // 📊 Report Sistemi
 app.use('/api/files', fileRoutes); // 📁 File Management Sistemi
-  app.use('/api/us97', us97Routes); // 📦 US 97 Kodları API
-  app.use('/api/gtip', gtipRoutes); // 🏷️ GTIP Kodları API
+app.use('/api/us97', us97Routes); // 📦 US 97 Kodları API
+app.use('/api/gtip', gtipRoutes); // 🏷️ GTIP Kodları API
 app.use('/api/destek-sart', destekSartRoutes); // 🎯 Destek-Şart Eşleştirmesi API
 app.use('/api/destek-sinifi', destekSinifiRoutes); // 🎯 Destek Sınıfı API
 app.use('/api/oecd-kategori', oecdKategoriRoutes); // 🌍 OECD Kategori API
 app.use('/api/lookup', lookupRoutes); // 🔎 Unit & Currency lookup API
 app.use('/api/nace', naceRoutes); // 🌐 NACE 6-lı Kodları API
+app.use('/api/dosya-takip', dosyaTakipRoutes); // 📋 Dosya İş Akış Takip Sistemi
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
@@ -280,7 +282,7 @@ app.use('*', (req, res) => {
 // 🚨 Global error handler - Tüm hatalar için
 app.use((error, req, res, next) => {
   console.error('🚨 Sunucu Hatası:', error);
-  
+
   res.status(error.statusCode || 500).json({
     error: 'Sunucu hatası',
     message: error.message || 'Bilinmeyen bir hata oluştu',
@@ -295,11 +297,11 @@ const setupCronJobs = () => {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
       const result = await Activity.deleteMany({
         createdAt: { $lt: thirtyDaysAgo }
       });
-      
+
       console.log(`🧹 [${new Date().toLocaleString('tr-TR')}] Activity Cleanup: ${result.deletedCount} eski kayıt temizlendi`);
     } catch (error) {
       console.error('🚨 Activity cleanup error:', error);
@@ -313,7 +315,7 @@ const setupCronJobs = () => {
     try {
       const https = require('https');
       const backendUrl = process.env.BACKEND_URL || 'https://cahit-firma-backend.onrender.com';
-      
+
       https.get(`${backendUrl}/api/health`, (res) => {
         console.log(`💓 [${new Date().toLocaleTimeString('tr-TR')}] Backend warm-up ping: ${res.statusCode}`);
       }).on('error', (err) => {
@@ -330,7 +332,7 @@ const setupCronJobs = () => {
 // 🚀 Server'ı başlat
 const startServer = async () => {
   await connectDB();
-  
+
   // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
   try {
     const { fixDestekSiniflari } = require('./fixDestekSiniflari');
@@ -339,10 +341,10 @@ const startServer = async () => {
   } catch (err) {
     console.error('⚠️ Destek sınıfı düzeltme hatası (kritik değil):', err.message);
   }
-  
+
   // Cron job'larını başlat
   setupCronJobs();
-  
+
   app.listen(PORT, () => {
     console.log(`\n🚀 Server çalışıyor: http://localhost:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);

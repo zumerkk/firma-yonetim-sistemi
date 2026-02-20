@@ -30,7 +30,8 @@ import {
   EmojiEvents as EmojiEventsIcon, // 🏆 Teşvik sistemi ikonu
   AdminPanelSettings as AdminPanelSettingsIcon, // 🔐 Admin Panel ikonu
   Folder as FolderIcon, // 📁 File Manager ikonu
-  BugReport as BugReportIcon // 🧪 Test sistemi ikonu
+  BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
+  Assignment as AssignmentIcon // 📋 İş Akış Takip ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -44,6 +45,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   const [firmaMenuOpen, setFirmaMenuOpen] = React.useState(true);
   const [tesvikMenuOpen, setTesvikMenuOpen] = React.useState(true);
   const [yeniTesvikMenuOpen, setYeniTesvikMenuOpen] = React.useState(true);
+  const [dosyaTakipMenuOpen, setDosyaTakipMenuOpen] = React.useState(true);
 
   const [testMenuOpen, setTestMenuOpen] = React.useState(true);
 
@@ -58,7 +60,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       description: 'Ana kontrol paneli'
     }
   ];
-  
+
   // 🏆 Belge Teşvik Sistemi Menu Items
   const tesvikMenuItems = [
     {
@@ -132,6 +134,35 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#7c3aed',
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
       description: 'Makine/Teçhizat kayıt ve yönetimi',
+      isNew: true
+    }
+  ];
+
+  // 📋 Dosya İş Akış Takip Menu Items
+  const dosyaTakipMenuItems = [
+    {
+      text: 'İş Akış Dashboard',
+      icon: <DashboardIcon />,
+      path: '/dosya-takip',
+      color: '#d97706',
+      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      description: 'İş akış kontrol paneli'
+    },
+    {
+      text: 'Talep Listesi',
+      icon: <ListIcon />,
+      path: '/dosya-takip/liste',
+      color: '#d97706',
+      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      description: 'Tüm talepleri görüntüle'
+    },
+    {
+      text: 'Yeni Talep',
+      icon: <AddIcon />,
+      path: '/dosya-takip/yeni',
+      color: '#d97706',
+      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      description: 'Yeni iş akış talebi oluştur',
       isNew: true
     }
   ];
@@ -255,15 +286,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
             borderRadius: 2,
             position: 'relative',
             overflow: 'hidden',
-            background: active 
-              ? 'rgba(255, 255, 255, 0.95)' 
+            background: active
+              ? 'rgba(255, 255, 255, 0.95)'
               : 'transparent',
             backdropFilter: active ? 'blur(10px)' : 'none',
-            border: active 
-              ? '1px solid rgba(226, 232, 240, 0.8)' 
+            border: active
+              ? '1px solid rgba(226, 232, 240, 0.8)'
               : '1px solid transparent',
-            boxShadow: active 
-              ? '0 2px 8px rgba(0, 0, 0, 0.04)' 
+            boxShadow: active
+              ? '0 2px 8px rgba(0, 0, 0, 0.04)'
               : 'none',
             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             py: 1.25,
@@ -292,7 +323,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
             }
           }}
         >
-          <ListItemIcon sx={{ 
+          <ListItemIcon sx={{
             minWidth: 42,
             mr: 1
           }}>
@@ -307,7 +338,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               {React.cloneElement(item.icon, { sx: { fontSize: 16 } })}
             </Avatar>
           </ListItemIcon>
-          <ListItemText 
+          <ListItemText
             primary={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="body2" sx={{
@@ -350,8 +381,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
             }
           />
           {active && (
-            <Chip 
-              label="●" 
+            <Chip
+              label="●"
               size="small"
               sx={{
                 background: item.gradient,
@@ -372,9 +403,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   };
 
   const drawerContent = (
-    <Box sx={{ 
-      overflow: 'auto', 
-      height: '100%', 
+    <Box sx={{
+      overflow: 'auto',
+      height: '100%',
       pt: 1,
       background: 'rgba(255, 255, 255, 0.95)',
       backdropFilter: 'blur(16px) saturate(150%)',
@@ -397,10 +428,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       <Box sx={{ position: 'relative', zIndex: 1 }}>
         {/* 🏠 Corporate Main Menu */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -416,8 +447,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </List>
         </Box>
 
-        <Divider sx={{ 
-          mx: 3, 
+        <Divider sx={{
+          mx: 3,
           my: 1.5,
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
@@ -425,10 +456,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 🏢 Corporate Firma Management - OPTIMIZED */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -469,7 +500,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                     <BusinessIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary={
                     <Typography variant="body2" sx={{
                       fontSize: '0.875rem',
@@ -500,7 +531,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 </Avatar>
               </ListItemButton>
             </ListItem>
-            
+
             <Collapse in={firmaMenuOpen} timeout="auto" unmountOnExit>
               <Box sx={{ pl: 1.5 }}>
                 {firmaMenuItems.map(renderMenuItem)}
@@ -509,8 +540,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </List>
         </Box>
 
-        <Divider sx={{ 
-          mx: 3, 
+        <Divider sx={{
+          mx: 3,
           my: 1.5,
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
@@ -518,10 +549,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 🏆 Belge Teşvik Sistemi - BRAND NEW */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -578,7 +609,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                     <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary={
                     <Typography variant="body2" sx={{
                       fontSize: '0.875rem',
@@ -609,7 +640,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 </Avatar>
               </ListItemButton>
             </ListItem>
-            
+
             <Collapse in={tesvikMenuOpen} timeout="auto" unmountOnExit>
               <Box sx={{ pl: 1.5 }}>
                 {tesvikMenuItems.map(renderMenuItem)}
@@ -618,8 +649,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </List>
         </Box>
 
-        <Divider sx={{ 
-          mx: 3, 
+        <Divider sx={{
+          mx: 3,
           my: 1.5,
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
@@ -627,10 +658,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 🆕 YENİ TEŞVİK SİSTEMİ - GOVERNMENT UPDATES */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -687,7 +718,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                     <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary={
                     <Typography variant="body2" sx={{
                       fontSize: '0.875rem',
@@ -718,7 +749,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 </Avatar>
               </ListItemButton>
             </ListItem>
-            
+
             <Collapse in={yeniTesvikMenuOpen} timeout="auto" unmountOnExit>
               <Box sx={{ pl: 1.5 }}>
                 {yeniTesvikMenuItems.map(renderMenuItem)}
@@ -727,8 +758,119 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </List>
         </Box>
 
-        <Divider sx={{ 
-          mx: 3, 
+        <Divider sx={{
+          mx: 3,
+          my: 1.5,
+          background: 'rgba(226, 232, 240, 0.5)',
+          height: 1
+        }} />
+
+        {/* 📋 Dosya İş Akış Takip Sistemi */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
+              mb: 1,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.08em',
+              display: 'block'
+            }}
+          >
+            İş Akış Takip
+            <Chip
+              label="YENİ"
+              size="small"
+              sx={{
+                ml: 1,
+                height: 16,
+                fontSize: '0.625rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                color: 'white',
+                border: 'none',
+                '& .MuiChip-label': {
+                  px: 0.5
+                }
+              }}
+            />
+          </Typography>
+          <List sx={{ px: 0, py: 0 }}>
+            <ListItem disablePadding sx={{ mb: 0.5, px: 2 }}>
+              <ListItemButton
+                onClick={() => setDosyaTakipMenuOpen(!dosyaTakipMenuOpen)}
+                sx={{
+                  borderRadius: 2.5,
+                  py: 1.25,
+                  px: 2,
+                  background: dosyaTakipMenuOpen
+                    ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(245, 158, 11, 0.04))'
+                    : 'transparent',
+                  border: dosyaTakipMenuOpen
+                    ? '1px solid rgba(217, 119, 6, 0.15)'
+                    : '1px solid transparent',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(245, 158, 11, 0.06))',
+                    border: '1px solid rgba(217, 119, 6, 0.2)',
+                    transform: 'translateX(2px)'
+                  }
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 42, mr: 1 }}>
+                  <Avatar sx={{
+                    width: 32,
+                    height: 32,
+                    background: 'linear-gradient(135deg, #92400e, #d97706)',
+                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)'
+                  }}>
+                    <AssignmentIcon sx={{ fontSize: 16 }} />
+                  </Avatar>
+                </ListItemIcon>
+                <ListItemText
+                  primary={
+                    <Typography variant="body2" sx={{
+                      fontSize: '0.875rem',
+                      fontWeight: 600,
+                      color: '#1e293b',
+                      lineHeight: 1.2
+                    }}>
+                      Dosya Takip Sistemi
+                    </Typography>
+                  }
+                  secondary={
+                    <Typography variant="caption" sx={{
+                      fontSize: '0.7rem',
+                      color: '#64748b',
+                      lineHeight: 1.1
+                    }}>
+                      Talep ve iş akış yönetimi
+                    </Typography>
+                  }
+                />
+                <Avatar sx={{
+                  width: 18,
+                  height: 18,
+                  background: 'rgba(217, 119, 6, 0.12)',
+                  color: '#d97706'
+                }}>
+                  {dosyaTakipMenuOpen ? <ExpandLess sx={{ fontSize: 12 }} /> : <ExpandMore sx={{ fontSize: 12 }} />}
+                </Avatar>
+              </ListItemButton>
+            </ListItem>
+
+            <Collapse in={dosyaTakipMenuOpen} timeout="auto" unmountOnExit>
+              <Box sx={{ pl: 1.5 }}>
+                {dosyaTakipMenuItems.map(renderMenuItem)}
+              </Box>
+            </Collapse>
+          </List>
+        </Box>
+
+        <Divider sx={{
+          mx: 3,
           my: 1.5,
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
@@ -736,10 +878,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 🧪 TEST (Geliştiriliyor) - DEVELOPMENT FEATURES */}
         <Box sx={{ mb: 1.5 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -804,7 +946,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                     <BugReportIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />
                   </Avatar>
                 </ListItemIcon>
-                <ListItemText 
+                <ListItemText
                   primary={
                     <Typography variant="body2" sx={{
                       fontSize: '0.875rem',
@@ -838,7 +980,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 </Avatar>
               </ListItemButton>
             </ListItem>
-            
+
             <Collapse in={testMenuOpen} timeout="auto" unmountOnExit>
               <Box sx={{ pl: 1.5 }}>
                 {testMenuItems.map(renderMenuItem)}
@@ -847,8 +989,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </List>
         </Box>
 
-        <Divider sx={{ 
-          mx: 3, 
+        <Divider sx={{
+          mx: 3,
           my: 1.5,
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
@@ -856,10 +998,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 📊 Corporate Reports & Settings */}
         <Box sx={{ mb: 2 }}>
-          <Typography 
-            variant="overline" 
-            sx={{ 
-              px: 3, 
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
               mb: 1,
               fontSize: '0.7rem',
               fontWeight: 700,
@@ -877,7 +1019,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* 👤 Corporate User Info - OPTIMIZED SPACING */}
         <Box sx={{ mt: 'auto', p: 2 }}>
-          <Box sx={{ 
+          <Box sx={{
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(12px)',
             borderRadius: 2.5,
@@ -896,7 +1038,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               height: 3,
               background: 'linear-gradient(90deg, #1e40af 0%, #059669 50%, #7c3aed 100%)'
             }} />
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25, mt: 0.25 }}>
               <Avatar sx={{
                 width: 38,
@@ -910,9 +1052,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 {user?.adSoyad?.charAt(0)}
               </Avatar>
               <Box sx={{ flex: 1 }}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
+                <Typography
+                  variant="body2"
+                  sx={{
                     fontWeight: 600,
                     color: '#1e293b',
                     fontSize: '0.8rem',
@@ -922,7 +1064,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 >
                   {user?.adSoyad}
                 </Typography>
-                <Chip 
+                <Chip
                   label={user?.rolAciklama || user?.rol}
                   size="small"
                   sx={{
@@ -936,7 +1078,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 />
               </Box>
             </Box>
-            
+
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
                 <Box sx={{
@@ -947,9 +1089,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   mr: 0.5,
                   animation: 'pulse 2s ease-in-out infinite'
                 }} />
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
+                <Typography
+                  variant="caption"
+                  sx={{
                     color: '#059669',
                     fontWeight: 500,
                     fontSize: '0.65rem'
@@ -958,7 +1100,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   Çevrimiçi
                 </Typography>
               </Box>
-              <Chip 
+              <Chip
                 icon={<TrendingUpIcon sx={{ fontSize: 10 }} />}
                 label="Corporate"
                 size="small"
@@ -1002,7 +1144,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           onClick={() => onClose()}
         />
       )}
-      
+
       <Drawer
         variant={variant === 'temporary' ? 'temporary' : 'persistent'}
         anchor="left"

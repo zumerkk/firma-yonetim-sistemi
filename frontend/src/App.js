@@ -11,9 +11,10 @@ import AppRouter from './components/AppRouter';
 
 // 🔐 Auth Context
 import { AuthProvider } from './contexts/AuthContext';
-import { FirmaProvider } from './contexts/FirmaContext'; 
+import { FirmaProvider } from './contexts/FirmaContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { TesvikProvider } from './contexts/TesvikContext';
+import { DosyaTakipProvider } from './contexts/DosyaTakipContext';
 
 
 
@@ -85,12 +86,14 @@ function App() {
         <FirmaProvider>
           <NotificationProvider>
             <TesvikProvider>
-              <Router future={{
-                v7_startTransition: true,
-                v7_relativeSplatPath: true
-              }}>
-                <AppRouter />
-              </Router>
+              <DosyaTakipProvider>
+                <Router future={{
+                  v7_startTransition: true,
+                  v7_relativeSplatPath: true
+                }}>
+                  <AppRouter />
+                </Router>
+              </DosyaTakipProvider>
             </TesvikProvider>
           </NotificationProvider>
         </FirmaProvider>
