@@ -100,7 +100,7 @@ const DosyaTakipDashboard = () => {
 
     return (
         <LayoutWrapper>
-            <Box sx={{ p: 3, maxWidth: 1600, margin: '0 auto' }}>
+            <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
                     <Box>

@@ -3,7 +3,7 @@
 
 import axios from '../utils/axios';
 
-const API_URL = '/api/dosya-takip';
+const API_URL = '/dosya-takip';
 
 const dosyaTakipService = {
     // 📊 Dashboard İstatistikleri

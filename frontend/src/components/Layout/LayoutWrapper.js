@@ -17,58 +17,57 @@ const LayoutWrapper = ({ children, title, description }) => {
   }, [isMobile]);
 
   return (
-    <Box sx={{ 
-      display: 'flex', 
+    <Box sx={{
+      display: 'flex',
       minHeight: '100vh',
       width: '100vw',
-      position: 'relative',
-      overflow: 'hidden' // Prevent horizontal scroll
+      position: 'relative'
     }}>
       {/* 📱 Header - Always visible */}
-      <Header 
-        sidebarOpen={sidebarOpen} 
+      <Header
+        sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
         isMobile={isMobile}
       />
-      
+
       {/* 📂 Sidebar */}
-      <Sidebar 
-        open={sidebarOpen} 
+      <Sidebar
+        open={sidebarOpen}
         isMobile={isMobile}
         onClose={() => setSidebarOpen(false)}
       />
-      
+
       {/* 📄 Main Content Area */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: '100%',
+          minWidth: 0, // Critical for flex children to shrink below content size
           minHeight: '100vh',
           paddingTop: '64px', // Header height
-          paddingLeft: {
-            xs: 0, // Mobile: no padding
-            lg: sidebarOpen ? '280px' : 0 // Desktop: sidebar width when open
+          marginLeft: {
+            xs: 0,
+            lg: sidebarOpen ? '280px' : 0
           },
-          transition: 'padding-left 0.3s ease-in-out',
+          transition: 'margin-left 0.3s ease-in-out',
           backgroundColor: '#f8fafc',
           position: 'relative',
           overflow: 'hidden'
         }}
       >
         {/* 🎯 Page Content */}
-        <Box sx={{ 
+        <Box sx={{
           width: '100%',
+          minWidth: 0,
           height: 'calc(100vh - 64px)',
-          overflow: 'auto',
-          padding: { xs: 2, sm: 3 }
+          overflow: 'auto'
         }}>
           {/* 📋 Page Header */}
           {(title || description) && (
             <Box sx={{ mb: 4 }}>
               {title && (
-                <h1 style={{ 
-                  margin: 0, 
+                <h1 style={{
+                  margin: 0,
                   marginBottom: 8,
                   fontSize: '2rem',
                   fontWeight: 'bold',
@@ -78,7 +77,7 @@ const LayoutWrapper = ({ children, title, description }) => {
                 </h1>
               )}
               {description && (
-                <p style={{ 
+                <p style={{
                   margin: 0,
                   color: '#6b7280',
                   fontSize: '1rem'
@@ -88,9 +87,9 @@ const LayoutWrapper = ({ children, title, description }) => {
               )}
             </Box>
           )}
-          
+
           {/* 🎨 Page Content */}
-          <Box sx={{ 
+          <Box sx={{
             width: '100%',
             maxWidth: '100%',
             position: 'relative'

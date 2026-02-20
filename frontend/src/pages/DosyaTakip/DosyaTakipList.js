@@ -1,7 +1,7 @@
 // 📋 Dosya İş Akış Takip - Talep Listesi
 // DataGrid tabanlı filtrelenebilir liste
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box, Typography, Button, Chip, TextField, MenuItem,
     Paper, IconButton, InputAdornment, Grid, Tooltip,
@@ -222,7 +222,7 @@ const DosyaTakipList = () => {
 
     return (
         <LayoutWrapper>
-            <Box sx={{ p: 3, maxWidth: 1600, margin: '0 auto' }}>
+            <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -329,36 +329,45 @@ const DosyaTakipList = () => {
                 </Paper>
 
                 {/* DataGrid */}
-                <Paper sx={{ borderRadius: 3, border: '1px solid rgba(226, 232, 240, 0.6)', overflow: 'hidden' }}>
-                    <DataGrid
-                        rows={talepler}
-                        columns={columns}
-                        getRowId={(row) => row._id}
-                        loading={loading}
-                        paginationMode="server"
-                        rowCount={pagination?.toplam || 0}
-                        paginationModel={paginationModel}
-                        onPaginationModelChange={setPaginationModel}
-                        pageSizeOptions={[25, 50, 100]}
-                        disableRowSelectionOnClick
-                        onRowClick={(params) => navigate(`/dosya-takip/${params.row._id}`)}
-                        localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
-                        autoHeight
-                        sx={{
-                            border: 'none',
-                            '& .MuiDataGrid-columnHeaders': {
-                                background: '#f8fafc',
-                                borderBottom: '2px solid #e2e8f0'
-                            },
-                            '& .MuiDataGrid-row:hover': {
-                                background: '#fefce8',
-                                cursor: 'pointer'
-                            },
-                            '& .MuiDataGrid-cell': {
-                                borderBottom: '1px solid #f1f5f9'
-                            }
-                        }}
-                    />
+                <Paper sx={{
+                    borderRadius: 3,
+                    border: '1px solid rgba(226, 232, 240, 0.6)',
+                    overflow: 'hidden',
+                    width: '100%',
+                    minWidth: 0
+                }}>
+                    <Box sx={{ width: '100%', minWidth: 0 }}>
+                        <DataGrid
+                            rows={talepler}
+                            columns={columns}
+                            getRowId={(row) => row._id}
+                            loading={loading}
+                            paginationMode="server"
+                            rowCount={pagination?.toplam || 0}
+                            paginationModel={paginationModel}
+                            onPaginationModelChange={setPaginationModel}
+                            pageSizeOptions={[25, 50, 100]}
+                            disableRowSelectionOnClick
+                            onRowClick={(params) => navigate(`/dosya-takip/${params.row._id}`)}
+                            localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+                            autoHeight
+                            sx={{
+                                border: 'none',
+                                width: '100%',
+                                '& .MuiDataGrid-columnHeaders': {
+                                    background: '#f8fafc',
+                                    borderBottom: '2px solid #e2e8f0'
+                                },
+                                '& .MuiDataGrid-row:hover': {
+                                    background: '#fefce8',
+                                    cursor: 'pointer'
+                                },
+                                '& .MuiDataGrid-cell': {
+                                    borderBottom: '1px solid #f1f5f9'
+                                }
+                            }}
+                        />
+                    </Box>
                 </Paper>
 
                 {/* Silme Dialog */}

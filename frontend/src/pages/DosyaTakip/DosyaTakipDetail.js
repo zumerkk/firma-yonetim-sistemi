@@ -203,7 +203,7 @@ const DosyaTakipDetail = () => {
 
     return (
         <LayoutWrapper>
-            <Box sx={{ p: 3, maxWidth: 1600, margin: '0 auto' }}>
+            <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
                 {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
 
                 {/* Header */}

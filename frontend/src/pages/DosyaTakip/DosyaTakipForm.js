@@ -109,7 +109,7 @@ const DosyaTakipForm = () => {
     const searchFirmalar = async (query) => {
         try {
             setFirmaLoading(true);
-            const { data } = await axios.get(`/api/firma?search=${query}&limit=20`);
+            const { data } = await axios.get(`/firma?search=${query}&limit=20`);
             setFirmalar(data.data || data.firmalar || []);
         } catch (err) {
             console.error('Firma arama hatası:', err);
@@ -120,7 +120,7 @@ const DosyaTakipForm = () => {
 
     const loadUsers = async () => {
         try {
-            const { data } = await axios.get('/api/admin/users');
+            const { data } = await axios.get('/admin/users');
             setUsers(data.data || data.users || []);
         } catch (err) {
             // Admin olmayabilir, sessizce geç

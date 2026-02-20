@@ -22,16 +22,12 @@ api.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     }
-    
-    // 🚨 ENHANCED Debug log for US97 issue troubleshooting
-    console.log('🔍 API Request:', {
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: `${config.baseURL}${config.url}`, // 🎯 FULL URL ÇIKARIMI
-      method: config.method,
-      hasAuth: !!config.headers.Authorization
-    });
-    
+
+    // 🔍 Debug log – only in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 API Request:', config.method?.toUpperCase(), config.url);
+    }
+
     return config;
   },
   (error) => {
@@ -42,33 +38,26 @@ api.interceptors.request.use(
 
 // Response interceptor - gelişmiş hata yönetimi
 api.interceptors.response.use(
-  (response) => {
-    console.log('✅ API Response Success:', {
-      url: response.config.url,
-      status: response.status,
-      data: response.data?.success
-    });
-    return response;
-  },
+  (response) => response,
   (error) => {
     // Konsol gürültüsünü azalt: object dump yerine kısa satır
     const msg = error.response?.data?.message || error.message;
     if (process.env.NODE_ENV === 'development') {
       console.error('❌ API Error', error.config?.url, error.response?.status || '-', msg);
     }
-    
+
     // 401 Unauthorized - token geçersiz veya süresi dolmuş
     if (error.response?.status === 401) {
       const shouldClearToken = error.response?.data?.clearToken;
-      
+
       if (shouldClearToken) {
         console.log('🧹 Geçersiz token temizleniyor...');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
-        
+
         // Header'dan da temizle
         delete api.defaults.headers.common['Authorization'];
-        
+
         // Sadece login olmayan sayfalarda yönlendir
         if (!window.location.pathname.includes('/login')) {
           console.log('↩️ Login sayfasına yönlendiriliyor...');
@@ -78,7 +67,7 @@ api.interceptors.response.use(
         }
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
