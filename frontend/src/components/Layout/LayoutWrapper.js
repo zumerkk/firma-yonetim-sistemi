@@ -1,105 +1,70 @@
-// 🎨 LAYOUT WRAPPER - RESPONSIVE UI PROBLEM SOLVER
+// 🎨 LAYOUT WRAPPER - CSS GRID BASED (matches Dashboard.js pattern)
 // Bu component tüm sidebar ve layout problemlerini çözer
 
 import React, { useState, useEffect } from 'react';
-import { Box, useTheme, useMediaQuery } from '@mui/material';
+import { Box } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
-const LayoutWrapper = ({ children, title, description }) => {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px breakpoint
-  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+const LayoutWrapper = ({ children }) => {
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   // 📱 Responsive handling
   useEffect(() => {
-    setSidebarOpen(!isMobile);
-  }, [isMobile]);
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+      else setSidebarOpen(true);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   return (
     <Box sx={{
-      display: 'flex',
-      minHeight: '100vh',
-      width: '100vw',
-      position: 'relative'
+      display: 'grid',
+      gridTemplateRows: '64px 1fr',
+      gridTemplateColumns: {
+        xs: '1fr',
+        lg: sidebarOpen ? '280px 1fr' : '1fr'
+      },
+      gridTemplateAreas: {
+        xs: '"header" "content"',
+        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+      },
+      height: '100vh',
+      backgroundColor: '#f8fafc'
     }}>
-      {/* 📱 Header - Always visible */}
-      <Header
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        isMobile={isMobile}
-      />
+      {/* Header */}
+      <Box sx={{ gridArea: 'header', zIndex: 1201 }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+      </Box>
 
-      {/* 📂 Sidebar */}
-      <Sidebar
-        open={sidebarOpen}
-        isMobile={isMobile}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      {/* 📄 Main Content Area */}
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          minWidth: 0, // Critical for flex children to shrink below content size
-          minHeight: '100vh',
-          paddingTop: '64px', // Header height
-          marginLeft: {
-            xs: 0,
-            lg: sidebarOpen ? '280px' : 0
-          },
-          transition: 'margin-left 0.3s ease-in-out',
-          backgroundColor: '#f8fafc',
-          position: 'relative',
-          overflow: 'hidden'
-        }}
-      >
-        {/* 🎯 Page Content */}
-        <Box sx={{
-          width: '100%',
-          minWidth: 0,
-          height: 'calc(100vh - 64px)',
-          overflow: 'auto'
-        }}>
-          {/* 📋 Page Header */}
-          {(title || description) && (
-            <Box sx={{ mb: 4 }}>
-              {title && (
-                <h1 style={{
-                  margin: 0,
-                  marginBottom: 8,
-                  fontSize: '2rem',
-                  fontWeight: 'bold',
-                  color: '#1f2937'
-                }}>
-                  {title}
-                </h1>
-              )}
-              {description && (
-                <p style={{
-                  margin: 0,
-                  color: '#6b7280',
-                  fontSize: '1rem'
-                }}>
-                  {description}
-                </p>
-              )}
-            </Box>
-          )}
-
-          {/* 🎨 Page Content */}
-          <Box sx={{
-            width: '100%',
-            maxWidth: '100%',
-            position: 'relative'
-          }}>
-            {children}
-          </Box>
+      {/* Sidebar - Desktop */}
+      {!isMobile && sidebarOpen && (
+        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
         </Box>
+      )}
+
+      {/* Sidebar - Mobile */}
+      {isMobile && (
+        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+      )}
+
+      {/* Main Content */}
+      <Box component="main" sx={{
+        gridArea: 'content',
+        overflow: 'auto',
+        minWidth: 0
+      }}>
+        {children}
       </Box>
     </Box>
   );
 };
 
-export default LayoutWrapper; 
+export default LayoutWrapper;
