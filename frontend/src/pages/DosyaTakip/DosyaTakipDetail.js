@@ -8,7 +8,8 @@ import {
     MenuItem, IconButton, Divider, Alert, Snackbar,
     Tooltip, LinearProgress, Collapse, Tabs, Tab,
     List, ListItem, ListItemIcon, ListItemText, ListItemAvatar,
-    Dialog, DialogTitle, DialogContent, DialogActions
+    Dialog, DialogTitle, DialogContent, DialogActions,
+    Autocomplete, Link as MuiLink
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -31,11 +32,16 @@ import {
     CloudUpload as CloudUploadIcon,
     Description as DescriptionIcon,
     Schedule as ScheduleIcon,
-    Cancel as CancelIcon
+    Cancel as CancelIcon,
+    Delete as DeleteIcon,
+    Download as DownloadIcon,
+    Link as LinkIcon,
+    Info as InfoIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import axios from '../../utils/axios';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
@@ -114,10 +120,16 @@ const WORKFLOW_STEPS = [
     }
 ];
 
+// Backend API base URL (uploads are served from backend)
+const getBackendUrl = () => {
+    const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+    return apiUrl.replace(/\/api$/, '');
+};
+
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { seciliTalep, fetchTalep, durumDegistir, notEkle, dosyaEkle, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
@@ -125,10 +137,52 @@ const DosyaTakipDetail = () => {
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [expandedStep, setExpandedStep] = useState(null);
+    const [users, setUsers] = useState([]);
+    const [atamaEditing, setAtamaEditing] = useState(false);
+    const [atamaData, setAtamaData] = useState({});
 
     useEffect(() => {
         if (id) fetchTalep(id);
+        loadUsers();
     }, [id, fetchTalep]);
+
+    const loadUsers = async () => {
+        try {
+            const { data } = await axios.get('/admin/users');
+            setUsers(data.data || data.users || []);
+        } catch (err) { console.log('Kullanıcı listesi yüklenemedi'); }
+    };
+
+    // Not silme
+    const handleNotSil = async (notId, alan) => {
+        try {
+            await notSil(id, notId, alan);
+            setSnackbar({ open: true, message: 'Not silindi!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Not silinemedi.', severity: 'error' });
+        }
+    };
+
+    // Dosya silme
+    const handleDosyaSil = async (dosyaId, alan) => {
+        try {
+            await dosyaSil(id, dosyaId, alan);
+            setSnackbar({ open: true, message: 'Dosya silindi!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Dosya silinemedi.', severity: 'error' });
+        }
+    };
+
+    // Atama kaydet
+    const handleAtamaKaydet = async () => {
+        try {
+            await talepGuncelle(id, atamaData);
+            setAtamaEditing(false);
+            setSnackbar({ open: true, message: 'Atamalar kaydedildi!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Atamalar kaydedilemedi.', severity: 'error' });
+        }
+    };
 
     // Aktif ana aşama index'i
     const getActiveStepIndex = () => {
@@ -289,6 +343,41 @@ const DosyaTakipDetail = () => {
                     </Grid>
                 </Paper>
 
+                {/* Ek Bilgiler Kartı - Issue #2 */}
+                {(seciliTalep.gmId || seciliTalep.belgeGoruntulemeLinki || seciliTalep.belgeDurumu || seciliTalep.durumAciklamasi) && (
+                    <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+                            <InfoIcon sx={{ fontSize: 18, color: '#f59e0b' }} /> Ek Bilgiler
+                        </Typography>
+                        <Grid container spacing={2}>
+                            {seciliTalep.gmId && (
+                                <Grid item xs={12} md={3}>
+                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>GM ID</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.gmId}</Typography>
+                                </Grid>
+                            )}
+                            {seciliTalep.belgeDurumu && (
+                                <Grid item xs={12} md={3}>
+                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Durumu</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.belgeDurumu}</Typography>
+                                </Grid>
+                            )}
+                            {seciliTalep.belgeGoruntulemeLinki && (
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Görüntüleme Linki</Typography>
+                                    <Typography variant="body2"><MuiLink href={seciliTalep.belgeGoruntulemeLinki} target="_blank" rel="noopener">{seciliTalep.belgeGoruntulemeLinki}</MuiLink></Typography>
+                                </Grid>
+                            )}
+                            {seciliTalep.durumAciklamasi && (
+                                <Grid item xs={12}>
+                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>{seciliTalep.durumAciklamasi}</Typography>
+                                </Grid>
+                            )}
+                        </Grid>
+                    </Paper>
+                )}
+
                 {/* Ana İçerik: Sol Timeline + Sağ Panel */}
                 <Grid container spacing={3}>
                     {/* Sol: İş Akışı Timeline */}
@@ -441,7 +530,7 @@ const DosyaTakipDetail = () => {
                                         </Box>
 
                                         {/* Not listesi */}
-                                        {renderNotlar(seciliTalep)}
+                                        {renderNotlar(seciliTalep, handleNotSil)}
                                     </Box>
                                 )}
 
@@ -460,7 +549,7 @@ const DosyaTakipDetail = () => {
                                                 <input hidden type="file" onChange={handleDosyaYukle} />
                                             </Button>
                                         </Box>
-                                        {renderDosyalar(seciliTalep)}
+                                        {renderDosyalar(seciliTalep, handleDosyaSil)}
                                     </Box>
                                 )}
 
@@ -509,51 +598,87 @@ const DosyaTakipDetail = () => {
                                 {/* TAB 3: ATAMALAR */}
                                 {activeTab === 3 && (
                                     <Box>
-                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 2 }}>Personel Atamaları</Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Personel Atamaları</Typography>
+                                            {!atamaEditing ? (
+                                                <Button size="small" startIcon={<EditIcon />} onClick={() => {
+                                                    setAtamaEditing(true);
+                                                    setAtamaData({
+                                                        'muraacatOncesi.gorusmeYapan': seciliTalep.muraacatOncesi?.gorusmeYapan?._id || '',
+                                                        'muraacatOncesi.gorusmeYapanAdi': seciliTalep.muraacatOncesi?.gorusmeYapanAdi || '',
+                                                        'muraacatOncesi.muraacatHazirlayanPersonel': seciliTalep.muraacatOncesi?.muraacatHazirlayanPersonel?._id || '',
+                                                        'muraacatOncesi.muraacatHazirlayanAdi': seciliTalep.muraacatOncesi?.muraacatHazirlayanAdi || '',
+                                                        'muraacatSonrasi.takibiYapanPersonel': seciliTalep.muraacatSonrasi?.takibiYapanPersonel?._id || '',
+                                                        'muraacatSonrasi.takibiYapanAdi': seciliTalep.muraacatSonrasi?.takibiYapanAdi || '',
+                                                        'kurumSonuclanma.personel': seciliTalep.kurumSonuclanma?.personel?._id || '',
+                                                        'kurumSonuclanma.personelAdi': seciliTalep.kurumSonuclanma?.personelAdi || '',
+                                                        'muraacatSonrasi.kurumDegerlendirme.kurumDaire': seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.kurumDaire || '',
+                                                        'muraacatSonrasi.kurumDegerlendirme.daireUzman': seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || ''
+                                                    });
+                                                }} sx={{ textTransform: 'none' }}>Düzenle</Button>
+                                            ) : (
+                                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                                    <Button size="small" onClick={() => setAtamaEditing(false)} sx={{ textTransform: 'none' }}>İptal</Button>
+                                                    <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleAtamaKaydet}
+                                                        sx={{ textTransform: 'none', background: 'linear-gradient(135deg, #059669, #10b981)', borderRadius: 2 }}>Kaydet</Button>
+                                                </Box>
+                                            )}
+                                        </Box>
                                         <Grid container spacing={2}>
                                             {[
-                                                { label: 'Görüşme Yapan', value: seciliTalep.muraacatOncesi?.gorusmeYapan?.adSoyad || seciliTalep.muraacatOncesi?.gorusmeYapanAdi },
-                                                { label: 'Müracaat Hazırlayan', value: seciliTalep.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad || seciliTalep.muraacatOncesi?.muraacatHazirlayanAdi },
-                                                { label: 'Takibi Yapan', value: seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi },
-                                                { label: 'Sonuçlama Personeli', value: seciliTalep.kurumSonuclanma?.personel?.adSoyad || seciliTalep.kurumSonuclanma?.personelAdi }
+                                                { label: 'Görüşme Yapan', idKey: 'muraacatOncesi.gorusmeYapan', nameKey: 'muraacatOncesi.gorusmeYapanAdi', value: seciliTalep.muraacatOncesi?.gorusmeYapan?.adSoyad || seciliTalep.muraacatOncesi?.gorusmeYapanAdi },
+                                                { label: 'Müracaat Hazırlayan', idKey: 'muraacatOncesi.muraacatHazirlayanPersonel', nameKey: 'muraacatOncesi.muraacatHazirlayanAdi', value: seciliTalep.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad || seciliTalep.muraacatOncesi?.muraacatHazirlayanAdi },
+                                                { label: 'Takibi Yapan', idKey: 'muraacatSonrasi.takibiYapanPersonel', nameKey: 'muraacatSonrasi.takibiYapanAdi', value: seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi },
+                                                { label: 'Sonuçlama Personeli', idKey: 'kurumSonuclanma.personel', nameKey: 'kurumSonuclanma.personelAdi', value: seciliTalep.kurumSonuclanma?.personel?.adSoyad || seciliTalep.kurumSonuclanma?.personelAdi }
                                             ].map((atama, i) => (
                                                 <Grid item xs={12} md={6} key={i}>
                                                     <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0', background: atama.value ? '#f0fdf4' : '#f9fafb' }}>
-                                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
                                                             {atama.label}
                                                         </Typography>
-                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: atama.value ? '#1e293b' : '#9ca3af', mt: 0.5 }}>
-                                                            {atama.value || 'Atanmadı'}
-                                                        </Typography>
+                                                        {atamaEditing ? (
+                                                            <TextField select fullWidth size="small" value={atamaData[atama.idKey] || ''}
+                                                                onChange={(e) => {
+                                                                    const user = users.find(u => (u._id || u.id) === e.target.value);
+                                                                    setAtamaData(prev => ({ ...prev, [atama.idKey]: e.target.value, [atama.nameKey]: user?.adSoyad || '' }));
+                                                                }}>
+                                                                <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                                                                {(Array.isArray(users) ? users : []).map(u => (
+                                                                    <MenuItem key={u._id || u.id} value={u._id || u.id}>{u.adSoyad}</MenuItem>
+                                                                ))}
+                                                            </TextField>
+                                                        ) : (
+                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: atama.value ? '#1e293b' : '#9ca3af' }}>
+                                                                {atama.value || 'Atanmadı'}
+                                                            </Typography>
+                                                        )}
                                                     </Paper>
                                                 </Grid>
                                             ))}
 
                                             {/* Kurum Bilgileri */}
-                                            {seciliTalep.muraacatSonrasi?.kurumDegerlendirme && (
-                                                <>
-                                                    <Grid item xs={12} md={6}>
-                                                        <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                                                                Kurum Dairesi
-                                                            </Typography>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                                                {seciliTalep.muraacatSonrasi.kurumDegerlendirme.kurumDaire || 'Belirtilmedi'}
-                                                            </Typography>
-                                                        </Paper>
-                                                    </Grid>
-                                                    <Grid item xs={12} md={6}>
-                                                        <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                                                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-                                                                Daire Uzmanı
-                                                            </Typography>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                                                {seciliTalep.muraacatSonrasi.kurumDegerlendirme.daireUzman || 'Belirtilmedi'}
-                                                            </Typography>
-                                                        </Paper>
-                                                    </Grid>
-                                                </>
-                                            )}
+                                            <Grid item xs={12} md={6}>
+                                                <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Kurum Dairesi</Typography>
+                                                    {atamaEditing ? (
+                                                        <TextField fullWidth size="small" value={atamaData['muraacatSonrasi.kurumDegerlendirme.kurumDaire'] || ''}
+                                                            onChange={(e) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.kurumDaire': e.target.value }))} />
+                                                    ) : (
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.kurumDaire || 'Belirtilmedi'}</Typography>
+                                                    )}
+                                                </Paper>
+                                            </Grid>
+                                            <Grid item xs={12} md={6}>
+                                                <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Daire Uzmanı</Typography>
+                                                    {atamaEditing ? (
+                                                        <TextField fullWidth size="small" value={atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || ''}
+                                                            onChange={(e) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.daireUzman': e.target.value }))} />
+                                                    ) : (
+                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || 'Belirtilmedi'}</Typography>
+                                                    )}
+                                                </Paper>
+                                            </Grid>
                                         </Grid>
                                     </Box>
                                 )}
@@ -635,23 +760,17 @@ const DosyaTakipDetail = () => {
 // YARDIMCI RENDER FONKSİYONLARI
 // ============================================================================
 
-function renderNotlar(talep) {
+function renderNotlar(talep, onNotSil) {
     const tumNotlar = [];
 
     // Genel notlar
-    (talep.genelNotlar || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Genel Not' }));
-    // Görüşme notları
-    (talep.muraacatOncesi?.gorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Görüşme Notu' }));
-    // Müracaat notları
-    (talep.muraacatOncesi?.muraacatGorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Müracaat Notu' }));
-    // Eksik evraklar
-    (talep.muraacatOncesi?.eksikEvraklar || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Eksik Evrak' }));
-    // Kurum notları
-    (talep.muraacatSonrasi?.kurumDegerlendirme?.gorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Kurum Notu' }));
-    // Sonuç notları
-    (talep.kurumSonuclanma?.sonucNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Sonuç Notu' }));
+    (talep.genelNotlar || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Genel Not', alan: 'genelNotlar' }));
+    (talep.muraacatOncesi?.gorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Görüşme Notu', alan: 'muraacatOncesi.gorusmeNotlari' }));
+    (talep.muraacatOncesi?.muraacatGorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Müracaat Notu', alan: 'muraacatOncesi.muraacatGorusmeNotlari' }));
+    (talep.muraacatOncesi?.eksikEvraklar || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Eksik Evrak', alan: 'muraacatOncesi.eksikEvraklar' }));
+    (talep.muraacatSonrasi?.kurumDegerlendirme?.gorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Kurum Notu', alan: 'muraacatSonrasi.kurumDegerlendirme.gorusmeNotlari' }));
+    (talep.kurumSonuclanma?.sonucNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Sonuç Notu', alan: 'kurumSonuclanma.sonucNotlari' }));
 
-    // Tarihe göre sırala
     tumNotlar.sort((a, b) => new Date(b.tarih || b.createdAt) - new Date(a.tarih || a.createdAt));
 
     if (tumNotlar.length === 0) {
@@ -666,7 +785,16 @@ function renderNotlar(talep) {
     return (
         <List sx={{ p: 0 }}>
             {tumNotlar.map((not, index) => (
-                <ListItem key={not._id || index} alignItems="flex-start" sx={{ px: 0, py: 1 }}>
+                <ListItem key={not._id || index} alignItems="flex-start" sx={{ px: 0, py: 1 }}
+                    secondaryAction={
+                        not._id && onNotSil && (
+                            <Tooltip title="Notu Sil">
+                                <IconButton size="small" onClick={() => onNotSil(not._id, not.alan)} sx={{ color: '#ef4444' }}>
+                                    <DeleteIcon sx={{ fontSize: 16 }} />
+                                </IconButton>
+                            </Tooltip>
+                        )
+                    }>
                     <ListItemAvatar>
                         <Avatar sx={{ width: 32, height: 32, background: '#fef3c7', color: '#d97706', fontSize: '0.7rem', fontWeight: 700 }}>
                             {not.yazanAdi?.charAt(0) || 'N'}
@@ -696,12 +824,13 @@ function renderNotlar(talep) {
     );
 }
 
-function renderDosyalar(talep) {
+function renderDosyalar(talep, onDosyaSil) {
     const tumDosyalar = [];
+    const backendUrl = getBackendUrl();
 
-    (talep.dosyalar || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Genel' }));
-    (talep.muraacatOncesi?.gorusmeEvraklari || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Görüşme Evrakı' }));
-    (talep.muraacatOncesi?.muraacatKlasor || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Müracaat Klasörü' }));
+    (talep.dosyalar || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Genel', alan: 'dosyalar' }));
+    (talep.muraacatOncesi?.gorusmeEvraklari || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Görüşme Evrakı', alan: 'muraacatOncesi.gorusmeEvraklari' }));
+    (talep.muraacatOncesi?.muraacatKlasor || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Müracaat Klasörü', alan: 'muraacatOncesi.muraacatKlasor' }));
 
     if (tumDosyalar.length === 0) {
         return (
@@ -737,8 +866,15 @@ function renderDosyalar(talep) {
                     />
                     {dosya.dosyaYolu && (
                         <Tooltip title="İndir">
-                            <IconButton size="small" component="a" href={dosya.dosyaYolu} target="_blank" download>
-                                <DescriptionIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                            <IconButton size="small" component="a" href={`${backendUrl}${dosya.dosyaYolu}`} target="_blank" download>
+                                <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                            </IconButton>
+                        </Tooltip>
+                    )}
+                    {dosya._id && onDosyaSil && (
+                        <Tooltip title="Dosyayı Sil">
+                            <IconButton size="small" onClick={() => onDosyaSil(dosya._id, dosya.alan)} sx={{ color: '#ef4444', ml: 0.5 }}>
+                                <DeleteIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                         </Tooltip>
                     )}

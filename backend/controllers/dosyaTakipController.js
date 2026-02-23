@@ -454,6 +454,104 @@ exports.dosyaEkle = [
 ];
 
 // ============================================================================
+// 🗑️ NOT SİL
+// ============================================================================
+exports.notSil = async (req, res) => {
+    try {
+        const { alan, notId } = req.body;
+        const talep = await DosyaTakip.findById(req.params.id);
+
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+
+        // Nested alana eriş
+        const alanParts = (alan || 'genelNotlar').split('.');
+        let target = talep;
+        for (let i = 0; i < alanParts.length - 1; i++) {
+            if (!target[alanParts[i]]) {
+                return res.status(404).json({ success: false, message: 'Alan bulunamadı' });
+            }
+            target = target[alanParts[i]];
+        }
+
+        const lastPart = alanParts[alanParts.length - 1];
+        if (!Array.isArray(target[lastPart])) {
+            return res.status(400).json({ success: false, message: 'Geçersiz alan' });
+        }
+
+        const beforeLen = target[lastPart].length;
+        target[lastPart] = target[lastPart].filter(n => n._id?.toString() !== notId);
+        if (target[lastPart].length === beforeLen) {
+            return res.status(404).json({ success: false, message: 'Not bulunamadı' });
+        }
+
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: talep, message: 'Not silindi' });
+    } catch (error) {
+        console.error('Not silme hatası:', error);
+        res.status(500).json({ success: false, message: 'Not silinirken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
+// 🗑️ DOSYA SİL
+// ============================================================================
+exports.dosyaSil = async (req, res) => {
+    try {
+        const { alan, dosyaId } = req.body;
+        const talep = await DosyaTakip.findById(req.params.id);
+
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+
+        // Nested alana eriş
+        const alanParts = (alan || 'dosyalar').split('.');
+        let target = talep;
+        for (let i = 0; i < alanParts.length - 1; i++) {
+            if (!target[alanParts[i]]) {
+                return res.status(404).json({ success: false, message: 'Alan bulunamadı' });
+            }
+            target = target[alanParts[i]];
+        }
+
+        const lastPart = alanParts[alanParts.length - 1];
+        if (!Array.isArray(target[lastPart])) {
+            return res.status(400).json({ success: false, message: 'Geçersiz alan' });
+        }
+
+        // Silinecek dosyayı bul
+        const silinecek = target[lastPart].find(d => d._id?.toString() === dosyaId);
+        if (!silinecek) {
+            return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
+        }
+
+        // Fiziksel dosyayı sil
+        if (silinecek.dosyaYolu) {
+            const fizikselYol = path.join(__dirname, '..', silinecek.dosyaYolu);
+            if (fs.existsSync(fizikselYol)) {
+                fs.unlinkSync(fizikselYol);
+            }
+        }
+
+        target[lastPart] = target[lastPart].filter(d => d._id?.toString() !== dosyaId);
+
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: talep, message: 'Dosya silindi' });
+    } catch (error) {
+        console.error('Dosya silme hatası:', error);
+        res.status(500).json({ success: false, message: 'Dosya silinirken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
 // 🗑️ TALEP SİL (Soft Delete)
 // ============================================================================
 exports.talepSil = async (req, res) => {

@@ -145,6 +145,30 @@ export const DosyaTakipProvider = ({ children }) => {
         }
     }, []);
 
+    // 🗑️ Not Sil
+    const notSil = useCallback(async (id, notId, alan) => {
+        try {
+            const result = await dosyaTakipService.notSil(id, notId, alan);
+            if (result.success) setSeciliTalep(result.data);
+            return result;
+        } catch (err) {
+            setError(err.response?.data?.message || 'Not silinemedi');
+            throw err;
+        }
+    }, []);
+
+    // 🗑️ Dosya Sil
+    const dosyaSil = useCallback(async (id, dosyaId, alan) => {
+        try {
+            const result = await dosyaTakipService.dosyaSil(id, dosyaId, alan);
+            if (result.success) setSeciliTalep(result.data);
+            return result;
+        } catch (err) {
+            setError(err.response?.data?.message || 'Dosya silinemedi');
+            throw err;
+        }
+    }, []);
+
     // 🗑️ Sil
     const talepSil = useCallback(async (id) => {
         try {
@@ -174,7 +198,9 @@ export const DosyaTakipProvider = ({ children }) => {
         talepGuncelle,
         durumDegistir,
         notEkle,
+        notSil,
         dosyaEkle,
+        dosyaSil,
         talepSil,
         clearError,
         setSeciliTalep

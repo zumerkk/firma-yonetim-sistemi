@@ -346,11 +346,21 @@ const DosyaTakipForm = () => {
                                 </Grid>
                                 <Grid item xs={12} md={4}>
                                     <TextField fullWidth size="small" type="date" label="YTB Başlama Tarihi" value={formData.ytbBaslamaTarihi}
-                                        onChange={handleChange('ytbBaslamaTarihi')} InputLabelProps={{ shrink: true }} />
+                                        onChange={handleChange('ytbBaslamaTarihi')} InputLabelProps={{ shrink: true }}
+                                        onPaste={(e) => {
+                                            const p = e.clipboardData.getData('text');
+                                            const m = p.match(/(\d{1,2})[./\-](\d{1,2})[./\-](\d{4})/);
+                                            if (m) { e.preventDefault(); setFormData(prev => ({ ...prev, ytbBaslamaTarihi: `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` })); }
+                                        }} />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
                                     <TextField fullWidth size="small" type="date" label="YTB Bitiş Tarihi" value={formData.ytbBitisTarihi}
-                                        onChange={handleChange('ytbBitisTarihi')} InputLabelProps={{ shrink: true }} />
+                                        onChange={handleChange('ytbBitisTarihi')} InputLabelProps={{ shrink: true }}
+                                        onPaste={(e) => {
+                                            const p = e.clipboardData.getData('text');
+                                            const m = p.match(/(\d{1,2})[./\-](\d{1,2})[./\-](\d{4})/);
+                                            if (m) { e.preventDefault(); setFormData(prev => ({ ...prev, ytbBitisTarihi: `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` })); }
+                                        }} />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                     <TextField fullWidth size="small" label="Belge Türü" value={formData.belgeTuru} onChange={handleChange('belgeTuru')} />

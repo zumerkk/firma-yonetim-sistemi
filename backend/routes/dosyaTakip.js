@@ -36,6 +36,12 @@ router.post('/:id/not', dosyaTakipController.notEkle);
 // 📁 Dosya Ekle
 router.post('/:id/dosya', dosyaTakipController.dosyaEkle);
 
+// 🗑️ Not Sil
+router.delete('/:id/not', dosyaTakipController.notSil);
+
+// 🗑️ Dosya Sil
+router.delete('/:id/dosya', dosyaTakipController.dosyaSil);
+
 // 🗑️ Talep Sil (Soft Delete)
 router.delete('/:id', dosyaTakipController.talepSil);
 

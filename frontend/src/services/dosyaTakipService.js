@@ -65,6 +65,18 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 🗑️ Not Sil
+    notSil: async (id, notId, alan = 'genelNotlar') => {
+        const { data } = await axios.delete(`${API_URL}/${id}/not`, { data: { notId, alan } });
+        return data;
+    },
+
+    // 🗑️ Dosya Sil
+    dosyaSil: async (id, dosyaId, alan = 'dosyalar') => {
+        const { data } = await axios.delete(`${API_URL}/${id}/dosya`, { data: { dosyaId, alan } });
+        return data;
+    },
+
     // 🗑️ Sil
     talepSil: async (id) => {
         const { data } = await axios.delete(`${API_URL}/${id}`);
