@@ -1,12 +1,16 @@
 services:
-  # 🚀 Backend Service - Express.js API Server
+  # 🚀 Backend Service - Express.js API Server (Starter Plan + Persistent Disk)
   - type: web
     name: cahit-firma-backend
     env: node
-    plan: free
+    plan: starter
     rootDir: backend
     buildCommand: npm install --production
     startCommand: npm start
+    disk:
+      name: uploads-disk
+      mountPath: /opt/render/project/src/uploads
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -32,11 +36,11 @@ services:
         value: https://cahit-firma-backend.onrender.com
     healthCheckPath: /api/health
 
-  # 🎨 Frontend Service - React Web Service with SPA Routing
+  # 🎨 Frontend Service - React Web Service with SPA Routing (Starter Plan)
   - type: web
     name: cahit-firma-frontend
     env: node
-    plan: free
+    plan: starter
     rootDir: frontend
     buildCommand: npm install && npm run build && echo '/* /index.html 200' > build/_redirects && ls -la build/
     startCommand: npm run serve
@@ -49,4 +53,4 @@ services:
         value: https://cahit-firma-backend.onrender.com/api
       - key: GENERATE_SOURCEMAP
         value: false
-    healthCheckPath: /health 
+    healthCheckPath: /health
