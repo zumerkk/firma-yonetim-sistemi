@@ -246,11 +246,23 @@ exports.talepGuncelle = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
         }
 
-        // Güncelle
-        Object.assign(talep, req.body, {
-            sonGuncelleyen: req.user._id,
-            sonGuncelleyenAdi: req.user.adSoyad
-        });
+        // Dot-notation anahtarlarını Mongoose set() ile güncelle
+        // Örn: 'muraacatOncesi.gorusmeYapan' → talep.set('muraacatOncesi.gorusmeYapan', value)
+        const body = { ...req.body };
+        delete body.sonGuncelleyen;
+        delete body.sonGuncelleyenAdi;
+
+        for (const [key, value] of Object.entries(body)) {
+            if (key.includes('.')) {
+                // Dot-notation key → use Mongoose set for nested path
+                talep.set(key, value === '' ? undefined : value);
+            } else {
+                talep[key] = value;
+            }
+        }
+
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
 
         await talep.save();
 

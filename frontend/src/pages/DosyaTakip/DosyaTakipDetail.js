@@ -149,7 +149,9 @@ const DosyaTakipDetail = () => {
     const loadUsers = async () => {
         try {
             const { data } = await axios.get('/admin/users');
-            setUsers(data.data || data.users || []);
+            // API: { success, data: { users: [...], stats } }
+            const list = data?.data?.users || data?.users || data?.data || [];
+            setUsers(Array.isArray(list) ? list : []);
         } catch (err) { console.log('Kullanıcı listesi yüklenemedi'); }
     };
 
