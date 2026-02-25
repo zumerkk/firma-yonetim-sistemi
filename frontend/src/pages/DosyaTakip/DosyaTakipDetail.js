@@ -148,11 +148,14 @@ const DosyaTakipDetail = () => {
 
     const loadUsers = async () => {
         try {
-            const { data } = await axios.get('/admin/users');
-            // API: { success, data: { users: [...], stats } }
-            const list = data?.data?.users || data?.users || data?.data || [];
+            const { data } = await axios.get('/dosya-takip/personel-listesi');
+            // API: { success, data: [...users] }
+            const list = data?.data || [];
             setUsers(Array.isArray(list) ? list : []);
-        } catch (err) { console.log('Kullanıcı listesi yüklenemedi'); }
+        } catch (err) {
+            console.error('Personel listesi yüklenemedi:', err);
+            setUsers([]);
+        }
     };
 
     // Not silme
@@ -868,7 +871,9 @@ function renderDosyalar(talep, onDosyaSil) {
                     />
                     {dosya.dosyaYolu && (
                         <Tooltip title="İndir">
-                            <IconButton size="small" component="a" href={`${backendUrl}${dosya.dosyaYolu}`} target="_blank" download>
+                            <IconButton size="small" component="a"
+                                href={`${backendUrl}/api/dosya-takip/download/${dosya.dosyaYolu.replace(/^\//, '')}`}
+                                target="_blank" download>
                                 <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
                             </IconButton>
                         </Tooltip>

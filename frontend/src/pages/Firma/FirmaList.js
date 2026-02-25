@@ -62,11 +62,11 @@ import { importExcel, downloadTemplate } from '../../services/firmaService'; // 
 
 const FirmaList = () => {
   const navigate = useNavigate();
-  const { 
-    firmalar, 
-    loading, 
-    fetchFirmalar, 
-    deleteFirma, 
+  const {
+    firmalar,
+    loading,
+    fetchFirmalar,
+    deleteFirma,
     searchFirmalar,
     searchResults, // Arama sonuçları için eklendi
     clearSearchResults, // Arama sonuçlarını temizlemek için eklendi
@@ -113,7 +113,7 @@ const FirmaList = () => {
   // 🔍 Search Handler
   const handleSearch = useCallback(async () => {
     if (searchQuery.trim().length < 2) return;
-    
+
     setLocalLoading(true);
     try {
       await searchFirmalar(searchQuery);
@@ -160,12 +160,17 @@ const FirmaList = () => {
   // 🗑️ Delete Handler
   const handleDelete = async () => {
     try {
-      await deleteFirma(deleteDialog.firmaId);
+      const result = await deleteFirma(deleteDialog.firmaId);
       setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' });
-      showNotification('Firma başarıyla silindi');
-      await fetchFirmalar();
+      if (result && result.success === false) {
+        showNotification(result.message || 'Firma silinemedi', 'error');
+      } else {
+        showNotification('Firma başarıyla silindi');
+        await fetchFirmalar();
+      }
     } catch (error) {
-      showNotification('Silme işlemi başarısız: ' + error.message, 'error');
+      setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' });
+      showNotification('Silme işlemi başarısız: ' + (error.message || 'Bilinmeyen hata'), 'error');
     }
   };
 
@@ -173,7 +178,7 @@ const FirmaList = () => {
   const handleExcelExport = async () => {
     setExportLoading(true);
     try {
-      const exportData = selectedRows.length > 0 
+      const exportData = selectedRows.length > 0
         ? displayData.filter(firma => selectedRows.includes(firma._id))
         : displayData;
 
@@ -229,16 +234,16 @@ const FirmaList = () => {
     const worksheet = workbook.addWorksheet('Firma Listesi', {
       pageSetup: { orientation: 'landscape', fitToPage: true }
     });
-    
+
     // Complete headers including all database fields
     const headers = [
       'Firma ID', 'Vergi No/TC', 'Tam Ünvan', 'Adres', 'İl', 'İlçe',
       'KEP Adresi', 'Firma Telefon', 'Firma Email', 'Firma Website',
-      'Yabancı Sermayeli', 'Ana Faaliyet Konusu', 
-      'ETUYS Yetki Bitiş', 'DYS Yetki Bitiş', 'İlk İrtibat Kişisi', 
-      'Yetkili 1 Ad Soyad', 'Yetkili 1 Telefon', 'Yetkili 1 Telefon 2', 
+      'Yabancı Sermayeli', 'Ana Faaliyet Konusu',
+      'ETUYS Yetki Bitiş', 'DYS Yetki Bitiş', 'İlk İrtibat Kişisi',
+      'Yetkili 1 Ad Soyad', 'Yetkili 1 Telefon', 'Yetkili 1 Telefon 2',
       'Yetkili 1 Email', 'Yetkili 1 Email 2',
-      'Yetkili 2 Ad Soyad', 'Yetkili 2 Telefon', 'Yetkili 2 Telefon 2', 
+      'Yetkili 2 Ad Soyad', 'Yetkili 2 Telefon', 'Yetkili 2 Telefon 2',
       'Yetkili 2 Email', 'Yetkili 2 Email 2',
       'Notlar', 'Oluşturma Tarihi'
     ];
@@ -381,11 +386,11 @@ const FirmaList = () => {
         summarySheet.addRow(['']);
         return;
       }
-      
+
       const row = summarySheet.addRow([label, value]);
       row.getCell(1).font = { bold: true, color: { argb: 'FF1976D2' } };
       row.getCell(2).font = { bold: true, color: { argb: 'FF388E3C' } };
-      
+
       if (label.includes('📅') || label.includes('⏰')) {
         row.getCell(1).font = { bold: true, color: { argb: 'FFE65100' } };
       }
@@ -399,13 +404,13 @@ const FirmaList = () => {
 
     // 💾 Generate and download file
     const fileName = `Firma_Listesi_${new Date().toISOString().split('T')[0]}.xlsx`;
-    
+
     try {
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -427,7 +432,7 @@ const FirmaList = () => {
       headerName: 'Firma ID',
       width: 110,
       renderCell: (params) => (
-        <Chip 
+        <Chip
           label={params.value}
           size="small"
           color="primary"
@@ -452,9 +457,9 @@ const FirmaList = () => {
       width: 280,
       renderCell: (params) => (
         <Tooltip title={params.value}>
-          <Typography 
-            variant="body2" 
-            sx={{ 
+          <Typography
+            variant="body2"
+            sx={{
               fontWeight: 500,
               fontSize: '0.8rem',
               overflow: 'hidden',
@@ -472,7 +477,7 @@ const FirmaList = () => {
       headerName: 'İl',
       width: 90,
       renderCell: (params) => (
-        <Chip 
+        <Chip
           icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
           label={params.value}
           size="small"
@@ -512,7 +517,7 @@ const FirmaList = () => {
       renderCell: (params) => {
         const yetkili = params.value?.[0];
         if (!yetkili) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
-        
+
         return (
           <Box>
             <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
@@ -531,16 +536,16 @@ const FirmaList = () => {
       width: 120,
       renderCell: (params) => {
         if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
-        
+
         const date = new Date(params.value);
         const today = new Date();
         const diffTime = date - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         let color = 'default';
         let bgColor = 'transparent';
         let textColor = 'inherit';
-        
+
         if (diffDays < 0) {
           color = 'error';
           bgColor = '#ffebee';
@@ -554,13 +559,13 @@ const FirmaList = () => {
           bgColor = '#e8f5e8';
           textColor = '#2e7d32';
         }
-        
+
         return (
           <Chip
             label={date.toLocaleDateString('tr-TR')}
             size="small"
             color={color}
-            sx={{ 
+            sx={{
               fontSize: '0.7rem',
               backgroundColor: bgColor,
               color: textColor,
@@ -579,16 +584,16 @@ const FirmaList = () => {
       width: 120,
       renderCell: (params) => {
         if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
-        
+
         const date = new Date(params.value);
         const today = new Date();
         const diffTime = date - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        
+
         let color = 'default';
         let bgColor = 'transparent';
         let textColor = 'inherit';
-        
+
         if (diffDays < 0) {
           color = 'error';
           bgColor = '#ffebee';
@@ -602,13 +607,13 @@ const FirmaList = () => {
           bgColor = '#e8f5e8';
           textColor = '#2e7d32';
         }
-        
+
         return (
           <Chip
             label={date.toLocaleDateString('tr-TR')}
             size="small"
             color={color}
-            sx={{ 
+            sx={{
               fontSize: '0.7rem',
               backgroundColor: bgColor,
               color: textColor,
@@ -628,7 +633,7 @@ const FirmaList = () => {
       renderCell: (params) => {
         const user = params.value;
         if (!user) return <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>;
-        
+
         return (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <PersonIcon sx={{ fontSize: 16, color: user.rol === 'admin' ? 'error.main' : 'primary.main' }} />
@@ -652,29 +657,29 @@ const FirmaList = () => {
       renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 0.5 }}>
           <Tooltip title="Görüntüle">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={() => navigate(`/firmalar/${params.row._id}`)}
             >
               <VisibilityIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Düzenle">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={() => navigate(`/firmalar/${params.row._id}/duzenle`)}
             >
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Sil">
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               color="error"
-              onClick={() => setDeleteDialog({ 
-                open: true, 
-                firmaId: params.row._id, 
-                firmaAdi: params.row.tamUnvan 
+              onClick={() => setDeleteDialog({
+                open: true,
+                firmaId: params.row._id,
+                firmaAdi: params.row.tamUnvan
               })}
             >
               <DeleteIcon sx={{ fontSize: 16 }} />
@@ -695,7 +700,7 @@ const FirmaList = () => {
   );
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
       gridTemplateColumns: {
@@ -726,7 +731,7 @@ const FirmaList = () => {
       )}
 
       {/* Main Content */}
-      <Box component="main" sx={{ 
+      <Box component="main" sx={{
         gridArea: 'content',
         overflow: 'auto',
         p: 3
@@ -734,16 +739,16 @@ const FirmaList = () => {
         <Container maxWidth="xl">
           {/* 📋 Compact Header */}
           <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
-            <Box sx={{ 
-              display: 'flex', 
+            <Box sx={{
+              display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
-              justifyContent: 'space-between', 
+              justifyContent: 'space-between',
               alignItems: { xs: 'stretch', md: 'center' },
               gap: 2
             }}>
               <Box>
-                <Typography variant="h5" sx={{ 
-                  fontWeight: 700, 
+                <Typography variant="h5" sx={{
+                  fontWeight: 700,
                   color: '#1e293b',
                   fontSize: { xs: '1.25rem', md: '1.5rem' },
                   mb: 0.5
@@ -754,14 +759,14 @@ const FirmaList = () => {
                   Toplam {displayData?.length || 0} firma kayıtlı {searchQuery.trim().length >= 2 ? '(arama sonucu)' : ''}
                 </Typography>
               </Box>
-              
+
               <Button
                 variant="contained"
                 color="success"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/firmalar/yeni')}
                 size="medium"
-                sx={{ 
+                sx={{
                   borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 600,
@@ -794,7 +799,7 @@ const FirmaList = () => {
                   }}
                 />
               </Grid>
-              
+
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Durum</InputLabel>
@@ -810,7 +815,7 @@ const FirmaList = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              
+
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Yabancı Sermaye</InputLabel>
@@ -826,7 +831,7 @@ const FirmaList = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              
+
               <Grid item xs={12} md={4}>
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -838,7 +843,7 @@ const FirmaList = () => {
                   >
                     Gelişmiş Filtreler
                   </Button>
-                  
+
                   <Button
                     variant="outlined"
                     size="small"
@@ -849,7 +854,7 @@ const FirmaList = () => {
                   >
                     Yenile
                   </Button>
-                  
+
                   <Button
                     variant="contained"
                     size="small"
@@ -894,7 +899,7 @@ const FirmaList = () => {
                     </Select>
                   </FormControl>
                 </Grid>
-                
+
                 <Grid item xs={12} md={3}>
                   <TextField
                     fullWidth
@@ -905,7 +910,7 @@ const FirmaList = () => {
                     sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
                   />
                 </Grid>
-                
+
                 <Grid item xs={12} md={6}>
                   <Stack direction="row" spacing={1}>
                     <Button
@@ -921,8 +926,8 @@ const FirmaList = () => {
                     >
                       Filtreleri Temizle
                     </Button>
-                    
-                    <Chip 
+
+                    <Chip
                       label={`${selectedRows.length} firma seçili`}
                       size="small"
                       color={selectedRows.length > 0 ? 'primary' : 'default'}
@@ -1009,10 +1014,10 @@ const FirmaList = () => {
                 {!importLoading ? (
                   <>
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      Excel (.xlsx, .xls) veya CSV dosyası yükleyebilirsiniz. 
+                      Excel (.xlsx, .xls) veya CSV dosyası yükleyebilirsiniz.
                       Dosyanızdaki sütun başlıkları şablon ile uyumlu olmalıdır.
                     </Alert>
-                    
+
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                       <Button
                         variant="outlined"
@@ -1022,7 +1027,7 @@ const FirmaList = () => {
                       >
                         Örnek Şablon İndir
                       </Button>
-                      
+
                       <input
                         accept=".xlsx,.xls,.csv"
                         style={{ display: 'none' }}
@@ -1074,8 +1079,8 @@ const FirmaList = () => {
             onClose={() => setNotification({ ...notification, open: false })}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
-            <Alert 
-              onClose={() => setNotification({ ...notification, open: false })} 
+            <Alert
+              onClose={() => setNotification({ ...notification, open: false })}
               severity={notification.severity}
               variant="filled"
             >

@@ -32,6 +32,7 @@ const DosyaTakipForm = () => {
     const [firmalar, setFirmalar] = useState([]);
     const [firmaLoading, setFirmaLoading] = useState(false);
     const [firmaSearch, setFirmaSearch] = useState('');
+    const [selectedFirma, setSelectedFirma] = useState(null);
     const [users, setUsers] = useState([]);
     const [success, setSuccess] = useState('');
 
@@ -88,7 +89,9 @@ const DosyaTakipForm = () => {
                     durumAciklamasi: data.durumAciklamasi || ''
                 });
                 if (data.firma) {
-                    setFirmalar([typeof data.firma === 'object' ? data.firma : { _id: data.firma, tamUnvan: data.firmaUnvan }]);
+                    const firmaObj = typeof data.firma === 'object' ? data.firma : { _id: data.firma, tamUnvan: data.firmaUnvan };
+                    setSelectedFirma(firmaObj);
+                    setFirmalar([firmaObj]);
                 }
             }
         } catch (err) {
@@ -123,13 +126,12 @@ const DosyaTakipForm = () => {
 
     const loadUsers = async () => {
         try {
-            const { data } = await axios.get('/admin/users');
-            // API: { success, data: { users: [...], stats } }
-            const list = data?.data?.users || data?.users || data?.data || [];
+            const { data } = await axios.get('/dosya-takip/personel-listesi');
+            const list = data?.data || [];
             setUsers(Array.isArray(list) ? list : []);
         } catch (err) {
-            // Admin olmayabilir, sessizce geç
-            console.log('Kullanıcı listesi yüklenemedi');
+            console.error('Personel listesi yüklenemedi:', err);
+            setUsers([]);
         }
     };
 
@@ -139,6 +141,7 @@ const DosyaTakipForm = () => {
 
     const handleFirmaSelect = (event, value) => {
         if (value) {
+            setSelectedFirma(value);
             setFormData(prev => ({
                 ...prev,
                 firma: value._id,
@@ -146,6 +149,7 @@ const DosyaTakipForm = () => {
                 firmaUnvan: value.tamUnvan || ''
             }));
         } else {
+            setSelectedFirma(null);
             setFormData(prev => ({
                 ...prev,
                 firma: null,
@@ -252,11 +256,16 @@ const DosyaTakipForm = () => {
                             </Box>
 
                             <Autocomplete
-                                options={firmalar}
+                                options={selectedFirma && !firmalar.find(f => f._id === selectedFirma._id)
+                                    ? [selectedFirma, ...firmalar]
+                                    : firmalar}
                                 getOptionLabel={(option) => option.tamUnvan || option.firmaId || ''}
-                                value={firmalar.find(f => f._id === formData.firma) || null}
+                                isOptionEqualToValue={(option, value) => option._id === value._id}
+                                value={selectedFirma}
                                 onChange={handleFirmaSelect}
-                                onInputChange={(e, value) => setFirmaSearch(value)}
+                                onInputChange={(e, value, reason) => {
+                                    if (reason === 'input') setFirmaSearch(value);
+                                }}
                                 loading={firmaLoading}
                                 noOptionsText="Firma adı yazarak arayın..."
                                 renderInput={(params) => (
