@@ -1,35 +1,31 @@
-// 📋 Dosya İş Akış Takip Sistemi - Controller
-// CRUD + İş Akış Yönetimi + Dashboard İstatistikleri
-
 const DosyaTakip = require('../models/DosyaTakip');
 const Activity = require('../models/Activity');
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
 
 // ============================================================================
-// 📁 DOSYA YÜKLEME AYARLARI
+// ☁️ CLOUDINARY AYARLARI
 // ============================================================================
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '..', 'uploads', 'dosya-takip');
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, uniqueSuffix + '-' + file.originalname);
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'drweumniy',
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
+const cloudinaryStorage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+        folder: 'dosya-takip',
+        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'rar'],
+        resource_type: 'auto'
     }
 });
 
 const upload = multer({
-    storage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
-    fileFilter: (req, file, cb) => {
-        cb(null, true); // Tüm dosya tipleri kabul
-    }
+    storage: cloudinaryStorage,
+    limits: { fileSize: 50 * 1024 * 1024 } // 50MB
 });
 
 // ============================================================================
@@ -431,9 +427,10 @@ exports.dosyaEkle = [
 
             const dosyaBilgi = {
                 dosyaAdi: req.file.originalname,
-                dosyaYolu: `/uploads/dosya-takip/${req.file.filename}`,
+                dosyaYolu: req.file.path, // Cloudinary URL
                 dosyaTipi: req.file.mimetype,
                 dosyaBoyutu: req.file.size,
+                cloudinaryPublicId: req.file.filename, // Cloudinary public_id (silme için)
                 yukleyenKisi: req.user._id,
                 yukleyenAdi: req.user.adSoyad,
                 yuklemeTarihi: new Date()
@@ -542,11 +539,12 @@ exports.dosyaSil = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
         }
 
-        // Fiziksel dosyayı sil
-        if (silinecek.dosyaYolu) {
-            const fizikselYol = path.join(__dirname, '..', silinecek.dosyaYolu);
-            if (fs.existsSync(fizikselYol)) {
-                fs.unlinkSync(fizikselYol);
+        // Cloudinary'den sil (varsa public_id)
+        if (silinecek.cloudinaryPublicId) {
+            try {
+                await cloudinary.uploader.destroy(silinecek.cloudinaryPublicId, { resource_type: 'auto' });
+            } catch (cloudErr) {
+                console.error('Cloudinary silme hatası (devam ediliyor):', cloudErr.message);
             }
         }
 

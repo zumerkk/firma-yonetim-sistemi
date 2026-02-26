@@ -872,7 +872,7 @@ function renderDosyalar(talep, onDosyaSil) {
                     {dosya.dosyaYolu && (
                         <Tooltip title="İndir">
                             <IconButton size="small" component="a"
-                                href={`${backendUrl}/api/dosya-takip/download/${dosya.dosyaYolu.replace(/^\//, '')}`}
+                                href={dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`}
                                 target="_blank" download>
                                 <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
                             </IconButton>

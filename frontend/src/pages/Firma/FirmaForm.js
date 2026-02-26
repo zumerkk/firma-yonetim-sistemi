@@ -50,7 +50,7 @@ import ActivitySelector from '../../components/ActivitySelector';
 // 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
 const toTurkishUpperCase = (str) => {
   if (!str || typeof str !== 'string') return str;
-  
+
   // Türkçe karakterlerin doğru büyük harf karşılıkları
   const turkishCharMap = {
     'ı': 'I',  // Türkçe küçük ı -> Türkçe büyük I
@@ -61,7 +61,7 @@ const toTurkishUpperCase = (str) => {
     'ö': 'Ö',  // ö -> Ö
     'ç': 'Ç'   // ç -> Ç
   };
-  
+
   return str.split('').map(char => {
     // Önce Türkçe karakterleri kontrol et
     if (turkishCharMap[char]) {
@@ -95,6 +95,7 @@ const createInitialFormData = () => ({
   firmaEmail: '',
   firmaWebsite: '',
   yabanciSermayeli: false,
+  aktif: true,
   anaFaaliyetKonusu: '',
   etuysYetkiBitisTarihi: '',
   dysYetkiBitisTarihi: '',
@@ -109,7 +110,7 @@ const MemoizedTextField = memo(({ value, onChange, ...props }) => (
     {...props}
     value={value || ''}
     onChange={onChange}
-    sx={{ 
+    sx={{
       backgroundColor: 'white',
       '& .MuiOutlinedInput-root': {
         '&:hover fieldset': {
@@ -126,30 +127,30 @@ const MemoizedTextField = memo(({ value, onChange, ...props }) => (
 ));
 
 // 🎯 Memoized Yetkili Kisi Component
-const YetkiliKisiForm = memo(({ 
-  yetkili, 
-  index, 
-  onChange, 
-  onRemove, 
-  canRemove 
+const YetkiliKisiForm = memo(({
+  yetkili,
+  index,
+  onChange,
+  onRemove,
+  canRemove
 }) => {
   // Optimized change handlers
   const handleFieldChange = useCallback((field) => (event) => {
     let value = event.target.value;
-    
+
     // 🔤 Türkçe karakterli büyük harf dönüştürme (email alanları hariç)
     const emailFields = ['eposta1', 'eposta2'];
     if (typeof value === 'string' && !emailFields.includes(field)) {
       value = toTurkishUpperCase(value);
     }
-    
+
     onChange(index, field, value);
   }, [index, onChange]);
 
   return (
-    <Paper 
+    <Paper
       elevation={2}
-      sx={{ 
+      sx={{
         p: 3,
         borderRadius: 2,
         border: '1px solid #e5e7eb',
@@ -161,13 +162,13 @@ const YetkiliKisiForm = memo(({
         }
       }}
     >
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        mb: 2.5 
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        mb: 2.5
       }}>
-        <Typography variant="h6" sx={{ 
+        <Typography variant="h6" sx={{
           fontWeight: 600,
           fontSize: '1rem',
           color: '#1e40af',
@@ -178,16 +179,16 @@ const YetkiliKisiForm = memo(({
           <PersonIcon sx={{ fontSize: 20 }} />
           {index === 0 ? 'Ana Yetkili Kişi' : `${index + 1}. Yetkili Kişi`}
         </Typography>
-        
+
         {canRemove && (
           <IconButton
             size="small"
             onClick={() => onRemove(index)}
-            sx={{ 
+            sx={{
               color: '#ef4444',
-              '&:hover': { 
+              '&:hover': {
                 backgroundColor: '#fef2f2',
-                transform: 'scale(1.1)' 
+                transform: 'scale(1.1)'
               }
             }}
           >
@@ -195,7 +196,7 @@ const YetkiliKisiForm = memo(({
           </IconButton>
         )}
       </Box>
-      
+
       <Grid container spacing={2.5}>
         <Grid item xs={12} md={6}>
           <TextField
@@ -213,19 +214,19 @@ const YetkiliKisiForm = memo(({
               index === 0 && !yetkili.adSoyad
                 ? "❌ Ad Soyad zorunludur"
                 : yetkili.adSoyad
-                ? "✅ Geçerli"
-                : ""
+                  ? "✅ Geçerli"
+                  : ""
             }
             sx={{
               '& .MuiFormHelperText-root': {
                 color: (index === 0 && !yetkili.adSoyad)
                   ? 'error.main'
                   : yetkili.adSoyad
-                  ? 'success.main'
-                  : 'text.secondary'
+                    ? 'success.main'
+                    : 'text.secondary'
               },
               '& .MuiOutlinedInput-root': {
-                '&.Mui-error': { 
+                '&.Mui-error': {
                   backgroundColor: '#fef2f2',
                   '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
                 }
@@ -233,7 +234,7 @@ const YetkiliKisiForm = memo(({
             }}
           />
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
@@ -246,7 +247,7 @@ const YetkiliKisiForm = memo(({
             placeholder="0532 000 00 00"
           />
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
@@ -259,7 +260,7 @@ const YetkiliKisiForm = memo(({
             placeholder="0532 000 00 00"
           />
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
@@ -273,7 +274,7 @@ const YetkiliKisiForm = memo(({
             placeholder="yetkili@firma.com"
           />
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <MemoizedTextField
             fullWidth
@@ -332,17 +333,17 @@ const FirmaForm = () => {
   // 🚀 ULTRA-OPTIMIZED Form Data Management
   const handleBasicFieldChange = useCallback((field) => (event) => {
     let value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
-    
+
     // 🔤 Türkçe karakterli büyük harf dönüştürme (email, website alanları ve İlk İrtibat Kişisi hariç)
     const exemptFields = ['ilkIrtibatKisi', 'firmaEmail', 'kepAdresi', 'firmaWebsite'];
     if (typeof value === 'string' && !exemptFields.includes(field)) {
       value = toTurkishUpperCase(value);
     }
-    
+
     // 🌐 Website alanı için otomatik küçük harf + https:// ekleme
     if (field === 'firmaWebsite' && value && value.trim() !== '') {
       let trimmedValue = value.trim().toLowerCase(); // Küçük harfe dönüştür (I/İ karışıklığı önler)
-      
+
       // Protokol kontrolü ve ekleme
       if (!trimmedValue.startsWith('http://') && !trimmedValue.startsWith('https://') && !trimmedValue.includes('://')) {
         // Sadece domain adı yazıldıysa https:// ekle
@@ -357,7 +358,7 @@ const FirmaForm = () => {
         value = trimmedValue; // Kullanıcı zaten protokol yazmış
       }
     }
-    
+
     setFormData(prevData => ({
       ...prevData,
       [field]: value
@@ -378,7 +379,7 @@ const FirmaForm = () => {
     if (typeof value === 'string' && !emailFields.includes(field)) {
       value = toTurkishUpperCase(value);
     }
-    
+
     setFormData(prevData => {
       const newYetkiliKisiler = [...prevData.yetkiliKisiler];
       newYetkiliKisiler[index] = {
@@ -423,14 +424,14 @@ const FirmaForm = () => {
       console.log('📝 Setting form data for edit:', selectedFirma);
       setFormData({
         ...selectedFirma,
-        etuysYetkiBitisTarihi: selectedFirma.etuysYetkiBitisTarihi 
-          ? new Date(selectedFirma.etuysYetkiBitisTarihi).toISOString().split('T')[0] 
+        etuysYetkiBitisTarihi: selectedFirma.etuysYetkiBitisTarihi
+          ? new Date(selectedFirma.etuysYetkiBitisTarihi).toISOString().split('T')[0]
           : '',
-        dysYetkiBitisTarihi: selectedFirma.dysYetkiBitisTarihi 
-          ? new Date(selectedFirma.dysYetkiBitisTarihi).toISOString().split('T')[0] 
+        dysYetkiBitisTarihi: selectedFirma.dysYetkiBitisTarihi
+          ? new Date(selectedFirma.dysYetkiBitisTarihi).toISOString().split('T')[0]
           : '',
-        yetkiliKisiler: selectedFirma.yetkiliKisiler?.length > 0 
-          ? selectedFirma.yetkiliKisiler 
+        yetkiliKisiler: selectedFirma.yetkiliKisiler?.length > 0
+          ? selectedFirma.yetkiliKisiler
           : [createEmptyYetkiliKisi()]
       });
       showSnackbar('Firma bilgileri yüklendi', 'success');
@@ -463,7 +464,7 @@ const FirmaForm = () => {
   const handleSearch = useCallback(async () => {
     // Form verilerinden arama terimini al
     const searchTermFromForm = formData.vergiNoTC?.trim() || formData.tamUnvan?.trim() || '';
-    
+
     if (!searchTermFromForm || searchTermFromForm.length < 2) {
       showSnackbar('Arama için Vergi No/TC veya Tam Ünvan alanına en az 2 karakter giriniz', 'warning');
       return;
@@ -472,7 +473,7 @@ const FirmaForm = () => {
     try {
       console.log('🔍 Searching for:', searchTermFromForm);
       const results = await searchFirmalar(searchTermFromForm);
-      
+
       if (results && results.length > 0) {
         showSnackbar(`✅ ${results.length} firma bulundu`, 'success');
       } else {
@@ -486,14 +487,14 @@ const FirmaForm = () => {
 
   const loadFirmaToForm = useCallback((firma) => {
     console.log('🔍 loadFirmaToForm çağrıldı, gelen firma verisi:', firma);
-    
+
     // Firma seçildiğinde detay sayfasına yönlendir
     if (firma.firmaId) {
       showSnackbar(`✅ ${firma.tamUnvan} firma detayına yönlendiriliyor...`, 'success');
       navigate(`/firmalar/${firma.firmaId}`);
       return;
     }
-    
+
     // Eğer firmaId yoksa (eski kod uyumluluğu için) form verilerini doldur
     const processedData = {
       // Temel bilgiler
@@ -505,50 +506,51 @@ const FirmaForm = () => {
       firmaIlce: firma.firmaIlce || '',
       ilKod: firma.ilKod || '',
       ilceKod: firma.ilceKod || '',
-      
+
       // İletişim bilgileri
       kepAdresi: firma.kepAdresi || '',
       firmaTelefon: firma.firmaTelefon || '',
       firmaEmail: firma.firmaEmail || '',
       firmaWebsite: firma.firmaWebsite || '',
-      
+
       // Diğer bilgiler
       yabanciSermayeli: Boolean(firma.yabanciSermayeli),
+      aktif: firma.aktif !== false,
       anaFaaliyetKonusu: firma.anaFaaliyetKonusu || '',
       ilkIrtibatKisi: firma.ilkIrtibatKisi || '',
       notlar: firma.notlar || '',
-      
+
       // Tarih alanları - ISO formatına çevir
-      etuysYetkiBitisTarihi: firma.etuysYetkiBitisTarihi 
-        ? new Date(firma.etuysYetkiBitisTarihi).toISOString().split('T')[0] 
+      etuysYetkiBitisTarihi: firma.etuysYetkiBitisTarihi
+        ? new Date(firma.etuysYetkiBitisTarihi).toISOString().split('T')[0]
         : '',
-      dysYetkiBitisTarihi: firma.dysYetkiBitisTarihi 
-        ? new Date(firma.dysYetkiBitisTarihi).toISOString().split('T')[0] 
+      dysYetkiBitisTarihi: firma.dysYetkiBitisTarihi
+        ? new Date(firma.dysYetkiBitisTarihi).toISOString().split('T')[0]
         : '',
-      
+
       // Yetkili kişiler - en az bir tane olmalı
-      yetkiliKisiler: firma.yetkiliKisiler?.length > 0 
+      yetkiliKisiler: firma.yetkiliKisiler?.length > 0
         ? firma.yetkiliKisiler.map(kisi => ({
-            adSoyad: kisi.adSoyad || '',
-            telefon1: kisi.telefon1 || '',
-            telefon2: kisi.telefon2 || '',
-            eposta1: kisi.eposta1 || '',
-            eposta2: kisi.eposta2 || ''
-          }))
+          adSoyad: kisi.adSoyad || '',
+          telefon1: kisi.telefon1 || '',
+          telefon2: kisi.telefon2 || '',
+          eposta1: kisi.eposta1 || '',
+          eposta2: kisi.eposta2 || ''
+        }))
         : [createEmptyYetkiliKisi()]
     };
-    
+
     console.log('📝 İşlenmiş form verisi:', processedData);
-    
+
     // Form verilerini güncelle
     setFormData(processedData);
-    
+
     // Arama sonuçlarını temizle
     clearSearchResults();
-    
+
     // Validation hatalarını temizle
     setValidationErrors([]);
-    
+
     // Başarı mesajı göster
     showSnackbar(`✅ ${firma.tamUnvan} firma bilgileri yüklendi`, 'success');
   }, [clearSearchResults, showSnackbar, setValidationErrors, navigate]);
@@ -590,12 +592,12 @@ const FirmaForm = () => {
   // 💾 Form Submission
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
-    
+
     console.log('🔍 Form Data Being Sent:', formData);
-    
+
     // Frontend validation kontrolü
     const frontendErrors = await validateForm();
-    
+
     if (frontendErrors.length > 0) {
       setValidationErrors(frontendErrors);
       showSnackbar('Lütfen eksik/hatalı alanları düzeltin', 'error');
@@ -604,11 +606,11 @@ const FirmaForm = () => {
 
     try {
       console.log('🚀 Calling createFirma with:', JSON.stringify(formData, null, 2));
-      
-      const result = isEdit 
+
+      const result = isEdit
         ? await updateFirma(id, formData)
         : await createFirma(formData);
-      
+
       console.log('📥 Backend Response:', result);
 
       if (result.success) {
@@ -616,7 +618,7 @@ const FirmaForm = () => {
           isEdit ? 'Firma başarıyla güncellendi ✅' : 'Firma başarıyla oluşturuldu ✅',
           'success'
         );
-        
+
         setTimeout(() => {
           navigate('/firmalar');
         }, 1500);
@@ -643,7 +645,7 @@ const FirmaForm = () => {
             }
             return error.msg || error.message || 'Bilinmeyen hata';
           });
-          
+
           setValidationErrors(backendErrors);
           showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
         } else {
@@ -660,11 +662,11 @@ const FirmaForm = () => {
         response: error.response?.data,
         status: error.response?.status
       });
-      
+
       // Network veya diğer hatalar
       if (error.response && error.response.data) {
         const errorData = error.response.data;
-        
+
         // Backend'den gelen validation errors (express-validator format)
         if (errorData.errors && Array.isArray(errorData.errors)) {
           const backendErrors = errorData.errors.map(error => {
@@ -686,7 +688,7 @@ const FirmaForm = () => {
             }
             return error.msg || error.message || 'Bilinmeyen hata';
           });
-          
+
           setValidationErrors(backendErrors);
           showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
         } else {
@@ -736,7 +738,7 @@ const FirmaForm = () => {
   }, []);
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
       gridTemplateColumns: {
@@ -767,27 +769,27 @@ const FirmaForm = () => {
       )}
 
       {/* Main Content */}
-      <Box component="main" sx={{ 
+      <Box component="main" sx={{
         gridArea: 'content',
         overflow: 'auto',
         p: 3
       }}>
         <Container maxWidth="lg">
           {/* 🎯 Professional Header */}
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
             justifyContent: 'space-between',
             mb: 3
           }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <IconButton 
+              <IconButton
                 onClick={handleBack}
                 size="medium"
-                sx={{ 
+                sx={{
                   bgcolor: 'white',
                   boxShadow: 2,
-                  '&:hover': { 
+                  '&:hover': {
                     boxShadow: 4,
                     transform: 'scale(1.05)'
                   }
@@ -796,8 +798,8 @@ const FirmaForm = () => {
                 <RemoveIcon />
               </IconButton>
               <Box>
-                <Typography variant="h4" sx={{ 
-                  fontWeight: 700, 
+                <Typography variant="h4" sx={{
+                  fontWeight: 700,
                   color: '#1e293b',
                   fontSize: '1.5rem',
                   mb: 0.5
@@ -809,9 +811,9 @@ const FirmaForm = () => {
                 </Typography>
               </Box>
             </Box>
-            
+
             {formData.firmaId && (
-              <Chip 
+              <Chip
                 label={`ID: ${formData.firmaId}`}
                 color="primary"
                 size="medium"
@@ -822,15 +824,15 @@ const FirmaForm = () => {
 
           {/* 🔍 Advanced Search Section - Only for new records */}
           {!isEdit && (
-            <Card sx={{ 
+            <Card sx={{
               mb: 3,
               borderRadius: 3,
               border: '1px solid #e2e8f0',
               boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }}>
               <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ 
-                  mb: 2, 
+                <Typography variant="h6" sx={{
+                  mb: 2,
                   fontWeight: 600,
                   fontSize: '1.1rem',
                   color: '#374151',
@@ -841,9 +843,9 @@ const FirmaForm = () => {
                   <SearchIcon sx={{ fontSize: 22 }} />
                   Mevcut Firma Kontrolü
                 </Typography>
-                
-                <Typography variant="body2" sx={{ 
-                  color: '#64748b', 
+
+                <Typography variant="body2" sx={{
+                  color: '#64748b',
                   fontStyle: 'italic',
                   textAlign: 'center',
                   py: 2,
@@ -853,7 +855,7 @@ const FirmaForm = () => {
                 }}>
                   💡 Mevcut firma kontrolü için yukarıdaki "Vergi No/TC" veya "Tam Ünvan" alanlarını doldurup "🔍 Kayıt Arama" butonuna tıklayın.
                 </Typography>
-                
+
                 {/* Enhanced Search Results */}
                 {searchResults.length > 0 && (
                   <Box sx={{ mt: 3 }}>
@@ -862,15 +864,15 @@ const FirmaForm = () => {
                     </Typography>
                     <Stack spacing={2}>
                       {searchResults.slice(0, 3).map((firma) => (
-                        <Paper 
+                        <Paper
                           key={firma._id}
-                          sx={{ 
-                            p: 2.5, 
+                          sx={{
+                            p: 2.5,
                             cursor: 'pointer',
                             transition: 'all 0.3s ease',
                             border: '1px solid #e5e7eb',
                             borderRadius: 2,
-                            '&:hover': { 
+                            '&:hover': {
                               bgcolor: '#f9fafb',
                               borderColor: '#3b82f6',
                               transform: 'translateY(-2px)',
@@ -880,15 +882,15 @@ const FirmaForm = () => {
                           onClick={() => loadFirmaToForm(firma)}
                         >
                           <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                            <Chip 
-                              label={firma.firmaId} 
-                              color="primary" 
-                              size="medium" 
-                              sx={{ fontSize: '0.8rem', fontWeight: 600 }} 
+                            <Chip
+                              label={firma.firmaId}
+                              color="primary"
+                              size="medium"
+                              sx={{ fontSize: '0.8rem', fontWeight: 600 }}
                             />
-                            <Typography variant="h6" sx={{ 
-                              fontWeight: 600, 
-                              flexGrow: 1, 
+                            <Typography variant="h6" sx={{
+                              fontWeight: 600,
+                              flexGrow: 1,
                               fontSize: '1rem',
                               color: '#1e293b'
                             }}>
@@ -908,20 +910,20 @@ const FirmaForm = () => {
           )}
 
           {/* 📝 Main Form Card */}
-          <Card sx={{ 
+          <Card sx={{
             borderRadius: 3,
             border: '1px solid #e2e8f0',
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
           }}>
             {/* 📋 Form Header */}
-            <CardHeader 
+            <CardHeader
               title={
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <Box sx={{ 
-                      backgroundColor: '#3b82f6', 
-                      borderRadius: '8px', 
-                      p: 1, 
+                    <Box sx={{
+                      backgroundColor: '#3b82f6',
+                      borderRadius: '8px',
+                      p: 1,
                       mr: 2,
                       display: 'flex',
                       alignItems: 'center',
@@ -935,7 +937,7 @@ const FirmaForm = () => {
                       {isEdit ? 'Firma Güncelle' : 'Yeni Firma Ekle'}
                     </Typography>
                   </Box>
-                  
+
                   {/* Form Tamamlanma Durumu */}
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
@@ -949,11 +951,11 @@ const FirmaForm = () => {
                             formData.ilkIrtibatKisi,
                             formData.yetkiliKisiler?.[0]?.adSoyad
                           ].filter(Boolean);
-                          
+
                           const totalRequired = 8;
                           const completed = requiredFields.length;
                           const percentage = Math.round((completed / totalRequired) * 100);
-                          
+
                           return `${completed}/${totalRequired} Zorunlu Alan (${percentage}%)`;
                         })()
                       }
@@ -969,7 +971,7 @@ const FirmaForm = () => {
                             formData.yetkiliKisiler?.[0]?.telefon1,
                             formData.yetkiliKisiler?.[0]?.eposta1
                           ].filter(Boolean);
-                          
+
                           if (requiredFields.length === 6) return 'success';
                           if (requiredFields.length >= 4) return 'warning';
                           return 'error';
@@ -997,11 +999,11 @@ const FirmaForm = () => {
               <CardContent sx={{ p: 4 }}>
                 {/* 🚨 Validation Errors - Kullanıcı Dostu Hata Gösterimi */}
                 {validationErrors.length > 0 && (
-                  <Paper 
-                    elevation={2} 
-                    sx={{ 
-                      p: 2, 
-                      mb: 3, 
+                  <Paper
+                    elevation={2}
+                    sx={{
+                      p: 2,
+                      mb: 3,
                       backgroundColor: '#fef2f2',
                       border: '1px solid #fecaca',
                       borderRadius: 2
@@ -1025,13 +1027,13 @@ const FirmaForm = () => {
                         </Typography>
                       </Box>
                       <Typography variant="subtitle2" sx={{ color: '#dc2626', fontWeight: 600 }}>
-                        {validationErrors.length === 1 
-                          ? 'Düzeltilmesi gereken 1 alan var:' 
+                        {validationErrors.length === 1
+                          ? 'Düzeltilmesi gereken 1 alan var:'
                           : `Düzeltilmesi gereken ${validationErrors.length} alan var:`
                         }
                       </Typography>
                     </Box>
-                    
+
                     <Box component="ul" sx={{ m: 0, pl: 3, color: '#dc2626' }}>
                       {validationErrors.map((error, index) => (
                         <Box component="li" key={index} sx={{ mb: 0.5 }}>
@@ -1041,7 +1043,7 @@ const FirmaForm = () => {
                         </Box>
                       ))}
                     </Box>
-                    
+
                     <Typography variant="caption" sx={{ color: '#991b1b', mt: 1, display: 'block' }}>
                       💡 Lütfen yukarıdaki alanları kontrol edip gerekli düzeltmeleri yapın.
                     </Typography>
@@ -1049,12 +1051,12 @@ const FirmaForm = () => {
                 )}
 
                 {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-                
+
                 {/* 🏢 Temel Firma Bilgileri */}
                 <Box sx={{ mb: 4 }}>
-                  <Typography variant="h5" sx={{ 
-                    mb: 3, 
-                    fontWeight: 700, 
+                  <Typography variant="h5" sx={{
+                    mb: 3,
+                    fontWeight: 700,
                     color: '#1e40af',
                     fontSize: '1.3rem',
                     display: 'flex',
@@ -1063,10 +1065,10 @@ const FirmaForm = () => {
                     borderBottom: '2px solid #e5e7eb',
                     pb: 2
                   }}>
-                    <Box sx={{ 
-                      backgroundColor: '#3b82f6', 
-                      borderRadius: '8px', 
-                      p: 1, 
+                    <Box sx={{
+                      backgroundColor: '#3b82f6',
+                      borderRadius: '8px',
+                      p: 1,
                       mr: 2,
                       display: 'flex',
                       alignItems: 'center',
@@ -1078,7 +1080,7 @@ const FirmaForm = () => {
                     </Box>
                     Firma Ekle / Güncelle / Ara
                   </Typography>
-                  
+
                   <Grid container spacing={3}>
                     {/* İlk satır - Arama */}
                     <Grid item xs={12} md={4}>
@@ -1094,17 +1096,17 @@ const FirmaForm = () => {
                           formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
                             ? "❌ Vergi No (10 hane) veya TC No (11 hane) formatında olmalıdır"
                             : formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                            ? "✅ Format geçerli"
-                            : "Sadece rakam giriniz (örn: 1234567890)"
+                              ? "✅ Format geçerli"
+                              : "Sadece rakam giriniz (örn: 1234567890)"
                         }
                         error={Boolean(formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/))}
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Box sx={{ 
-                                color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/) 
-                                  ? 'success.main' 
-                                  : 'text.secondary' 
+                              <Box sx={{
+                                color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
+                                  ? 'success.main'
+                                  : 'text.secondary'
                               }}>
                                 🏢
                               </Box>
@@ -1116,11 +1118,11 @@ const FirmaForm = () => {
                             color: formData.vergiNoTC && formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
                               ? 'success.main'
                               : formData.vergiNoTC && !formData.vergiNoTC.match(/^\d{10}$|^\d{11}$/)
-                              ? 'error.main'
-                              : 'text.secondary'
+                                ? 'error.main'
+                                : 'text.secondary'
                           },
                           '& .MuiOutlinedInput-root': {
-                            '&.Mui-error': { 
+                            '&.Mui-error': {
                               backgroundColor: '#fef2f2',
                               '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
                             }
@@ -1128,7 +1130,7 @@ const FirmaForm = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={8}>
                       <TextField
                         fullWidth
@@ -1142,10 +1144,10 @@ const FirmaForm = () => {
                           formData.tamUnvan && formData.tamUnvan.length < 3
                             ? "❌ En az 3 karakter olmalıdır"
                             : formData.tamUnvan && formData.tamUnvan.length > 500
-                            ? "❌ 500 karakterden fazla olamaz"
-                            : formData.tamUnvan && formData.tamUnvan.length >= 3
-                            ? `✅ Geçerli (${formData.tamUnvan.length}/500 karakter)`
-                            : "Şirketin resmi ünvanını tam olarak giriniz"
+                              ? "❌ 500 karakterden fazla olamaz"
+                              : formData.tamUnvan && formData.tamUnvan.length >= 3
+                                ? `✅ Geçerli (${formData.tamUnvan.length}/500 karakter)`
+                                : "Şirketin resmi ünvanını tam olarak giriniz"
                         }
                         error={Boolean(
                           (formData.tamUnvan && formData.tamUnvan.length < 3) ||
@@ -1154,10 +1156,10 @@ const FirmaForm = () => {
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Box sx={{ 
+                              <Box sx={{
                                 color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
-                                  ? 'success.main' 
-                                  : 'text.secondary' 
+                                  ? 'success.main'
+                                  : 'text.secondary'
                               }}>
                                 🏛️
                               </Box>
@@ -1169,11 +1171,11 @@ const FirmaForm = () => {
                             color: formData.tamUnvan && formData.tamUnvan.length >= 3 && formData.tamUnvan.length <= 500
                               ? 'success.main'
                               : formData.tamUnvan && (formData.tamUnvan.length < 3 || formData.tamUnvan.length > 500)
-                              ? 'error.main'
-                              : 'text.secondary'
+                                ? 'error.main'
+                                : 'text.secondary'
                           },
                           '& .MuiOutlinedInput-root': {
-                            '&.Mui-error': { 
+                            '&.Mui-error': {
                               backgroundColor: '#fef2f2',
                               '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
                             }
@@ -1181,7 +1183,7 @@ const FirmaForm = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={4}>
                       <Button
                         fullWidth
@@ -1203,7 +1205,7 @@ const FirmaForm = () => {
                         🔍 Kayıt Arama
                       </Button>
                     </Grid>
-                    
+
                     {/* İkinci satır */}
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
@@ -1214,15 +1216,15 @@ const FirmaForm = () => {
                         label="Firma ID"
                         value={formData.firmaId}
                         InputProps={{ readOnly: true }}
-                        sx={{ 
+                        sx={{
                           backgroundColor: '#f1f5f9',
                           '& .MuiInputBase-input': { fontWeight: 600 }
                         }}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={6} />
-                    
+
                     {/* Üçüncü satır - Adres */}
                     <Grid item xs={12}>
                       <TextField
@@ -1238,11 +1240,11 @@ const FirmaForm = () => {
                         placeholder="Tam adres bilgisi..."
                         error={Boolean(!formData.adres || formData.adres.length < 10)}
                         helperText={
-                          !formData.adres 
+                          !formData.adres
                             ? "❌ Adres zorunludur"
                             : formData.adres.length < 10
-                            ? "❌ En az 10 karakter olmalıdır"
-                            : `✅ Geçerli (${formData.adres.length} karakter)`
+                              ? "❌ En az 10 karakter olmalıdır"
+                              : `✅ Geçerli (${formData.adres.length} karakter)`
                         }
                         sx={{
                           '& .MuiFormHelperText-root': {
@@ -1251,7 +1253,7 @@ const FirmaForm = () => {
                               : 'error.main'
                           },
                           '& .MuiOutlinedInput-root': {
-                            '&.Mui-error': { 
+                            '&.Mui-error': {
                               backgroundColor: '#fef2f2',
                               '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
                             }
@@ -1259,7 +1261,7 @@ const FirmaForm = () => {
                         }}
                       />
                     </Grid>
-                    
+
                     {/* Dördüncü satır */}
                     <Grid item xs={12} md={8}>
                       <EnhancedCitySelector
@@ -1285,7 +1287,7 @@ const FirmaForm = () => {
                         showCodes={true}
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={4}>
                       <MemoizedTextField
                         fullWidth
@@ -1299,7 +1301,7 @@ const FirmaForm = () => {
                         placeholder="ornek@hs01.kep.tr"
                       />
                     </Grid>
-                    
+
                     {/* Beşinci satır */}
                     <Grid item xs={12} md={4}>
                       <FormControlLabel
@@ -1314,15 +1316,47 @@ const FirmaForm = () => {
                           />
                         }
                         label="Yabancı Sermayeli mi?"
-                        sx={{ 
-                          '& .MuiFormControlLabel-label': { 
+                        sx={{
+                          '& .MuiFormControlLabel-label': {
                             fontSize: '1rem',
-                            fontWeight: 500 
-                          } 
+                            fontWeight: 500
+                          }
                         }}
                       />
                     </Grid>
-                    
+
+                    <Grid item xs={12} md={4}>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            id="aktif-durum"
+                            name="aktif"
+                            checked={formData.aktif !== false}
+                            onChange={handleBasicFieldChange('aktif')}
+                            size="medium"
+                            color="success"
+                          />
+                        }
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontSize: '1rem', fontWeight: 500 }}>
+                              Firma Durumu
+                            </Typography>
+                            <Chip
+                              label={formData.aktif !== false ? 'Aktif' : 'Pasif'}
+                              size="small"
+                              sx={{
+                                fontWeight: 700,
+                                backgroundColor: formData.aktif !== false ? '#dcfce7' : '#f1f5f9',
+                                color: formData.aktif !== false ? '#16a34a' : '#64748b',
+                                border: `1px solid ${formData.aktif !== false ? '#86efac' : '#cbd5e1'}`
+                              }}
+                            />
+                          </Box>
+                        }
+                      />
+                    </Grid>
+
                     <Grid item xs={12} md={4}>
                       <ActivitySelector
                         value={formData.anaFaaliyetKonusu}
@@ -1336,17 +1370,17 @@ const FirmaForm = () => {
                         }
                       />
                     </Grid>
-                    
+
                   </Grid>
                 </Box>
 
                 {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-                
+
                 {/* 🏢 İletişim & Lokasyon */}
                 <Box sx={{ mt: 4, mb: 4 }}>
-                  <Typography variant="h5" sx={{ 
-                    mb: 3, 
-                    fontWeight: 700, 
+                  <Typography variant="h5" sx={{
+                    mb: 3,
+                    fontWeight: 700,
                     color: '#1e40af',
                     fontSize: '1.3rem',
                     display: 'flex',
@@ -1357,7 +1391,7 @@ const FirmaForm = () => {
                   }}>
                     <ContactIcon sx={{ fontSize: 28 }} /> İletişim & Lokasyon
                   </Typography>
-                  
+
                   <Grid container spacing={3}>
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
@@ -1371,7 +1405,7 @@ const FirmaForm = () => {
                         placeholder="0212 000 00 00"
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
@@ -1385,7 +1419,7 @@ const FirmaForm = () => {
                         placeholder="info@firma.com"
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} md={6}>
                       <MemoizedTextField
                         fullWidth
@@ -1420,7 +1454,7 @@ const FirmaForm = () => {
                             color: formData.ilkIrtibatKisi ? 'success.main' : 'error.main'
                           },
                           '& .MuiOutlinedInput-root': {
-                            '&.Mui-error': { 
+                            '&.Mui-error': {
                               backgroundColor: '#fef2f2',
                               '& fieldset': { borderColor: '#ef4444', borderWidth: 2 }
                             }
@@ -1476,12 +1510,12 @@ const FirmaForm = () => {
                 </Box>
 
                 {/* 📋 FORM SECTIONS - SINGLE PAGE LAYOUT */}
-                
+
                 {/* 👥 Yetkili Kişiler */}
                 <Box sx={{ mt: 4, mb: 4 }}>
-                  <Typography variant="h5" sx={{ 
-                    mb: 3, 
-                    fontWeight: 700, 
+                  <Typography variant="h5" sx={{
+                    mb: 3,
+                    fontWeight: 700,
                     color: '#1e40af',
                     fontSize: '1.3rem',
                     display: 'flex',
@@ -1492,14 +1526,14 @@ const FirmaForm = () => {
                   }}>
                     <PersonIcon sx={{ fontSize: 28 }} /> Yetkili Kişiler
                   </Typography>
-                  
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
-                    mb: 3 
+
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    mb: 3
                   }}>
-                    <Typography variant="h6" sx={{ 
+                    <Typography variant="h6" sx={{
                       fontWeight: 600,
                       fontSize: '1rem',
                       color: '#1e40af',
@@ -1510,14 +1544,14 @@ const FirmaForm = () => {
                       <PersonIcon sx={{ fontSize: 20 }} />
                       Ana Yetkili Kişi
                     </Typography>
-                    
+
                     {formData.yetkiliKisiler.length < 2 && (
                       <Button
                         variant="contained"
                         size="medium"
                         startIcon={<AddIcon />}
                         onClick={addYetkiliKisi}
-                        sx={{ 
+                        sx={{
                           textTransform: 'none',
                           fontSize: '1rem',
                           fontWeight: 600,
@@ -1533,7 +1567,7 @@ const FirmaForm = () => {
                       </Button>
                     )}
                   </Box>
-                  
+
                   <Stack spacing={3}>
                     {formData.yetkiliKisiler.map((yetkili, index) => (
                       <YetkiliKisiForm
@@ -1568,135 +1602,135 @@ const FirmaForm = () => {
                 </Box>
 
                 {/* 🎯 Action Buttons - Excel Style */}
-                  {/* 💾 Submit Buttons */}
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    mt: 4,
-                    pt: 3,
-                    borderTop: '2px solid #f1f5f9'
-                  }}>
+                {/* 💾 Submit Buttons */}
+                <Box sx={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  mt: 4,
+                  pt: 3,
+                  borderTop: '2px solid #f1f5f9'
+                }}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    onClick={handleBack}
+                    disabled={loading}
+                    sx={{
+                      px: 4,
+                      py: 1.5,
+                      fontWeight: 600,
+                      borderWidth: 2,
+                      '&:hover': { borderWidth: 2 }
+                    }}
+                  >
+                    ← Geri Dön
+                  </Button>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    {/* Form Durumu Chip'i */}
+                    <Chip
+                      label={
+                        (() => {
+                          const requiredFieldsData = [
+                            { value: formData.vergiNoTC, name: 'Vergi No/TC' },
+                            { value: formData.tamUnvan, name: 'Tam Ünvan' },
+                            { value: formData.adres, name: 'Adres' },
+                            { value: formData.firmaIl, name: 'İl' },
+                            { value: formData.ilkIrtibatKisi, name: 'İlk İrtibat Kişisi' },
+                            { value: formData.yetkiliKisiler?.[0]?.adSoyad, name: 'Yetkili Ad Soyad' }
+                          ];
+
+                          const filledFields = requiredFieldsData.filter(field => field.value);
+                          const emptyFields = requiredFieldsData.filter(field => !field.value);
+
+                          const isComplete = filledFields.length === 6;
+                          const hasValidationErrors = validationErrors.length > 0;
+
+                          if (hasValidationErrors) return '❌ Hatalar var';
+                          if (isComplete) return '✅ Form hazır';
+
+                          const emptyFieldNames = emptyFields.map(field => field.name).slice(0, 2).join(', ');
+                          const remainingCount = emptyFields.length - 2;
+
+                          if (emptyFields.length <= 2) {
+                            return `⏳ Eksik: ${emptyFieldNames}`;
+                          } else {
+                            return `⏳ Eksik: ${emptyFieldNames} +${remainingCount} alan`;
+                          }
+                        })()
+                      }
+                      color={
+                        (() => {
+                          const requiredFields = [
+                            formData.vergiNoTC,
+                            formData.tamUnvan,
+                            formData.adres,
+                            formData.firmaIl,
+                            formData.ilkIrtibatKisi,
+                            formData.yetkiliKisiler?.[0]?.adSoyad
+                          ].filter(Boolean);
+
+                          if (validationErrors.length > 0) return 'error';
+                          if (requiredFields.length === 6) return 'success';
+                          return 'warning';
+                        })()
+                      }
+                      size="medium"
+                      sx={{ fontWeight: 600, maxWidth: '300px' }}
+                    />
+
                     <Button
-                      variant="outlined"
+                      type="submit"
+                      variant="contained"
                       size="large"
-                      onClick={handleBack}
-                      disabled={loading}
-                      sx={{ 
+                      disabled={
+                        loading ||
+                        validationErrors.length > 0 ||
+                        !formData.vergiNoTC ||
+                        !formData.tamUnvan ||
+                        !formData.adres ||
+                        !formData.firmaIl ||
+                        !formData.ilkIrtibatKisi ||
+                        !formData.yetkiliKisiler?.[0]?.adSoyad
+                      }
+                      startIcon={
+                        loading ? (
+                          <CircularProgress size={20} color="inherit" />
+                        ) : isEdit ? (
+                          <Typography>💾</Typography>
+                        ) : (
+                          <Typography>✅</Typography>
+                        )
+                      }
+                      sx={{
                         px: 4,
                         py: 1.5,
+                        fontSize: '1.1rem',
                         fontWeight: 600,
-                        borderWidth: 2,
-                        '&:hover': { borderWidth: 2 }
+                        background: loading
+                          ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
+                          : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                        '&:hover': {
+                          background: loading
+                            ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
+                            : 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                        },
+                        '&:disabled': {
+                          background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
+                          color: '#6b7280'
+                        }
                       }}
                     >
-                      ← Geri Dön
-                    </Button>
-                    
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      {/* Form Durumu Chip'i */}
-                      <Chip
-                        label={
-                          (() => {
-                            const requiredFieldsData = [
-                              { value: formData.vergiNoTC, name: 'Vergi No/TC' },
-                              { value: formData.tamUnvan, name: 'Tam Ünvan' },
-                              { value: formData.adres, name: 'Adres' },
-                              { value: formData.firmaIl, name: 'İl' },
-                              { value: formData.ilkIrtibatKisi, name: 'İlk İrtibat Kişisi' },
-                              { value: formData.yetkiliKisiler?.[0]?.adSoyad, name: 'Yetkili Ad Soyad' }
-                            ];
-                            
-                            const filledFields = requiredFieldsData.filter(field => field.value);
-                            const emptyFields = requiredFieldsData.filter(field => !field.value);
-                            
-                            const isComplete = filledFields.length === 6;
-                            const hasValidationErrors = validationErrors.length > 0;
-                            
-                            if (hasValidationErrors) return '❌ Hatalar var';
-                            if (isComplete) return '✅ Form hazır';
-                            
-                            const emptyFieldNames = emptyFields.map(field => field.name).slice(0, 2).join(', ');
-                            const remainingCount = emptyFields.length - 2;
-                            
-                            if (emptyFields.length <= 2) {
-                              return `⏳ Eksik: ${emptyFieldNames}`;
-                            } else {
-                              return `⏳ Eksik: ${emptyFieldNames} +${remainingCount} alan`;
-                            }
-                          })()
-                        }
-                        color={
-                          (() => {
-                            const requiredFields = [
-                              formData.vergiNoTC,
-                              formData.tamUnvan,
-                              formData.adres,
-                              formData.firmaIl,
-                              formData.ilkIrtibatKisi,
-                              formData.yetkiliKisiler?.[0]?.adSoyad
-                            ].filter(Boolean);
-                            
-                            if (validationErrors.length > 0) return 'error';
-                            if (requiredFields.length === 6) return 'success';
-                            return 'warning';
-                          })()
-                        }
-                        size="medium"
-                        sx={{ fontWeight: 600, maxWidth: '300px' }}
-                      />
-                      
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        size="large"
-                        disabled={
-                          loading || 
-                          validationErrors.length > 0 ||
-                          !formData.vergiNoTC ||
-                          !formData.tamUnvan ||
-                          !formData.adres ||
-                          !formData.firmaIl ||
-                          !formData.ilkIrtibatKisi ||
-                          !formData.yetkiliKisiler?.[0]?.adSoyad
-                        }
-                        startIcon={
-                          loading ? (
-                            <CircularProgress size={20} color="inherit" />
-                          ) : isEdit ? (
-                            <Typography>💾</Typography>
-                          ) : (
-                            <Typography>✅</Typography>
-                          )
-                        }
-                        sx={{
-                          px: 4,
-                          py: 1.5,
-                          fontSize: '1.1rem',
-                          fontWeight: 600,
-                          background: loading 
-                            ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                            : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-                          '&:hover': {
-                            background: loading 
-                              ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                              : 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
-                          },
-                          '&:disabled': {
-                            background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
-                            color: '#6b7280'
-                          }
-                        }}
-                      >
-                        {loading 
-                          ? 'İşleniyor...' 
-                          : isEdit 
-                          ? 'Firma Güncelle' 
+                      {loading
+                        ? 'İşleniyor...'
+                        : isEdit
+                          ? 'Firma Güncelle'
                           : 'Firma Kaydet'
-                        }
-                      </Button>
-                    </Box>
+                      }
+                    </Button>
                   </Box>
+                </Box>
               </CardContent>
             </form>
           </Card>
@@ -1708,10 +1742,10 @@ const FirmaForm = () => {
             onClose={handleCloseSnackbar}
             anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
           >
-            <Alert 
-              onClose={handleCloseSnackbar} 
+            <Alert
+              onClose={handleCloseSnackbar}
               severity={snackbar.severity}
-              sx={{ 
+              sx={{
                 fontSize: '1rem',
                 fontWeight: 500,
                 '& .MuiAlert-icon': {

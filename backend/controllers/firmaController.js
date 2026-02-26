@@ -72,16 +72,16 @@ const analyzeChanges = (oldData, newData, excludeFields = ['updatedAt', '__v', '
     after: {},
     fields: []
   };
-  
+
   // Karşılaştırılacak alanları belirle
   const allFields = new Set([...Object.keys(oldData || {}), ...Object.keys(newData || {})]);
-  
+
   allFields.forEach(field => {
     if (excludeFields.includes(field)) return;
-    
+
     const oldValue = oldData?.[field];
     const newValue = newData?.[field];
-    
+
     // Değer değişti mi kontrolü
     if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
       changes.before[field] = oldValue;
@@ -93,7 +93,7 @@ const analyzeChanges = (oldData, newData, excludeFields = ['updatedAt', '__v', '
       });
     }
   });
-  
+
   return changes;
 };
 
@@ -103,7 +103,7 @@ const createFirma = async (req, res) => {
     console.log('🔥 CREATE FIRMA CALLED');
     console.log('📥 Request Body:', JSON.stringify(req.body, null, 2));
     console.log('👤 Request User:', req.user);
-    
+
     // Validation kontrolü
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -155,7 +155,7 @@ const createFirma = async (req, res) => {
     // Birinci yetkili kişi zorunlu alanları
     const birincYetkili = yetkiliKisiler[0];
     console.log('👤 First Yetkili:', birincYetkili);
-    
+
     if (!birincYetkili.adSoyad) {
       console.log('❌ YETKILI VALIDATION FAILED:', {
         adSoyad: birincYetkili.adSoyad
@@ -234,31 +234,60 @@ const getFirmalar = async (req, res) => {
       aktif = 'true',
       yabanciSermayeli = '',
       anaFaaliyetKonusu = '',
+      yetkiDurumu = '',
       siralamaSekli = 'createdAt',
       siralamaYonu = 'desc'
     } = req.query;
 
     // Filtreleme kriterleri
     const filter = {};
-    
+
     if (aktif !== 'all') {
       filter.aktif = aktif === 'true';
     }
-    
+
     if (firmaIl) {
       filter.firmaIl = firmaIl.toUpperCase();
     }
-    
+
     if (firmaIlce) {
       filter.firmaIlce = firmaIlce.toUpperCase();
     }
-    
+
     if (yabanciSermayeli !== '') {
       filter.yabanciSermayeli = yabanciSermayeli === 'true';
     }
-    
+
     if (anaFaaliyetKonusu) {
       filter.anaFaaliyetKonusu = anaFaaliyetKonusu;
+    }
+
+    // Yetki durumu filtresi
+    if (yetkiDurumu) {
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+
+      if (yetkiDurumu === 'expired') {
+        // Yetkisi bitenler (etuys VEYA dys bitiş tarihi bugünden önce)
+        filter.$or = [
+          { etuysYetkiBitisTarihi: { $lt: now, $ne: null } },
+          { dysYetkiBitisTarihi: { $lt: now, $ne: null } }
+        ];
+      } else if (yetkiDurumu === 'expiring7') {
+        const in7Days = new Date(now);
+        in7Days.setDate(in7Days.getDate() + 7);
+        filter.$or = [
+          { etuysYetkiBitisTarihi: { $gte: now, $lte: in7Days } },
+          { dysYetkiBitisTarihi: { $gte: now, $lte: in7Days } }
+        ];
+      } else if (yetkiDurumu === 'expiring30') {
+        const in30Days = new Date(now);
+        in30Days.setDate(in30Days.getDate() + 30);
+        filter.$or = [
+          { etuysYetkiBitisTarihi: { $gte: now, $lte: in30Days } },
+          { dysYetkiBitisTarihi: { $gte: now, $lte: in30Days } }
+        ];
+      }
     }
 
     // Arama filtresi - Türkçe karakter duyarsız
@@ -278,7 +307,7 @@ const getFirmalar = async (req, res) => {
 
     // Sayfalama
     const skip = (parseInt(sayfa) - 1) * parseInt(limit);
-    
+
     // Paralel sorgular
     const [firmalar, toplamSayisi] = await Promise.all([
       Firma.find(filter)
@@ -362,14 +391,14 @@ const updateFirma = async (req, res) => {
     } else {
       oldFirma = await Firma.findOne({ firmaId: id }).lean();
     }
-    
+
     if (!oldFirma) {
       return sendError(res, 'Firma bulunamadı', 404);
     }
 
     // Güncelleme bilgilerini ekle
     updateData.sonGuncelleyen = req.user._id;
-    
+
     // ⚠️ olusturanKullanici field'ini güncelleme verilerinden çıkar
     // Bu field sadece firma oluşturulurken set edilmeli, güncellenmemeli
     delete updateData.olusturanKullanici;
@@ -421,7 +450,7 @@ const updateFirma = async (req, res) => {
     // 📋 Activity Log - Firma Güncelleme
     const changes = analyzeChanges(oldFirma, firma.toObject());
     const changedFields = changes.fields.map(f => f.field).join(', ');
-    
+
     await logActivity({
       action: 'update',
       category: 'firma',
@@ -438,14 +467,14 @@ const updateFirma = async (req, res) => {
       tags: ['firma-güncelle', 'düzenleme']
     }, req);
 
-    sendSuccess(res, 
-      { firma: firma.toSafeJSON() }, 
+    sendSuccess(res,
+      { firma: firma.toSafeJSON() },
       `Firma başarıyla güncellendi (${firma.firmaId})`
     );
 
   } catch (error) {
     console.error('🚨 Update Firma Hatası:', error);
-    
+
     if (error.code === 11000) {
       const field = Object.keys(error.keyPattern)[0];
       const fieldNames = {
@@ -454,7 +483,7 @@ const updateFirma = async (req, res) => {
       };
       return sendError(res, `${fieldNames[field] || field} zaten kullanımda`, 400);
     }
-    
+
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => ({
         field: err.path,
@@ -479,7 +508,7 @@ const deleteFirma = async (req, res) => {
     } else {
       firma = await Firma.findOne({ firmaId: id });
     }
-    
+
     if (!firma) {
       return sendError(res, 'Firma bulunamadı', 404);
     }
@@ -511,8 +540,8 @@ const deleteFirma = async (req, res) => {
       tags: ['firma-sil', 'hard-delete', 'kalici-silme']
     }, req);
 
-    sendSuccess(res, 
-      { firma: { _id: firma._id, firmaId: firma.firmaId } }, 
+    sendSuccess(res,
+      { firma: { _id: firma._id, firmaId: firma.firmaId } },
       `Firma kalıcı olarak silindi (${firma.firmaId})`
     );
 
@@ -537,7 +566,7 @@ const searchFirmalar = async (req, res) => {
     if (field) {
       // Belirli alanda arama - Türkçe karakter duyarsız
       const filter = { aktif: true };
-      
+
       if (field === 'vergiNoTC') {
         filter.vergiNoTC = turkishRegex;
       } else if (field === 'tamUnvan') {
@@ -632,7 +661,7 @@ const getFirmaStats = async (req, res) => {
       ilSayilari
     ] = await Promise.all([
       Firma.getStatistics(),
-      
+
       // İllere göre dağılım - TOP 10
       Firma.aggregate([
         { $match: { aktif: true } },
@@ -640,7 +669,7 @@ const getFirmaStats = async (req, res) => {
         { $sort: { count: -1 } },
         { $limit: 10 }
       ]),
-      
+
       // Faaliyet konularına göre dağılım
       Firma.aggregate([
         { $match: { aktif: true, anaFaaliyetKonusu: { $ne: '' } } },
@@ -648,14 +677,14 @@ const getFirmaStats = async (req, res) => {
         { $sort: { count: -1 } },
         { $limit: 10 }
       ]),
-      
+
       // Son eklenen firmalar
       Firma.find({ aktif: true })
         .select('firmaId tamUnvan firmaIl ilkIrtibatKisi createdAt')
         .sort({ createdAt: -1 })
         .limit(5)
         .lean(),
-      
+
       // ETUYS yetkileri yaklaşan firmalar (30 gün içinde)
       Firma.find({
         aktif: true,
@@ -664,10 +693,10 @@ const getFirmaStats = async (req, res) => {
           $lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         }
       })
-      .select('firmaId tamUnvan etuysYetkiBitisTarihi')
-      .sort({ etuysYetkiBitisTarihi: 1 })
-      .limit(10)
-      .lean(),
+        .select('firmaId tamUnvan etuysYetkiBitisTarihi')
+        .sort({ etuysYetkiBitisTarihi: 1 })
+        .limit(10)
+        .lean(),
 
       // Bu ay eklenen firmalar
       Firma.countDocuments({
@@ -698,7 +727,7 @@ const getFirmaStats = async (req, res) => {
     sendSuccess(res, {
       // Temel istatistikler
       ...basicStats,
-      
+
       // Frontend için uyumlu isimler
       yabanciSermaye: yabanciSermayeliCount, // Frontend bunu bekliyor
       aktifFirmalar: basicStats.aktifFirma, // Frontend için
@@ -707,11 +736,11 @@ const getFirmaStats = async (req, res) => {
 
       // Yüzdesel oranlar
       yuzdesel: {
-        yabanciSermayeliOrani: basicStats.aktifFirma > 0 ? 
+        yabanciSermayeliOrani: basicStats.aktifFirma > 0 ?
           ((yabanciSermayeliCount / basicStats.aktifFirma) * 100).toFixed(1) : 0,
-        etuysYetkiliOrani: basicStats.aktifFirma > 0 ? 
+        etuysYetkiliOrani: basicStats.aktifFirma > 0 ?
           ((basicStats.etuysYetkili / basicStats.aktifFirma) * 100).toFixed(1) : 0,
-        dysYetkiliOrani: basicStats.aktifFirma > 0 ? 
+        dysYetkiliOrani: basicStats.aktifFirma > 0 ?
           ((basicStats.dysYetkili / basicStats.aktifFirma) * 100).toFixed(1) : 0
       },
 
@@ -727,7 +756,7 @@ const getFirmaStats = async (req, res) => {
       illereBolum,
       faaliyetlereBolum,
       sonEklenenler,
-      
+
       // ETUYS uyarıları
       etuysUyarilari: {
         yaklaşanSüreler: yaklasanYetkiler,
@@ -912,7 +941,7 @@ const exportPDF = async (req, res) => {
     // 📊 Kapsamlı istatistik verilerini topla
     const [basicStats, illereBolum, faaliyetlereBolum, yaklasanYetkiler, aylikTrend] = await Promise.all([
       Firma.getStatistics(),
-      
+
       // Top 10 İl
       Firma.aggregate([
         { $match: { aktif: true } },
@@ -920,7 +949,7 @@ const exportPDF = async (req, res) => {
         { $sort: { count: -1 } },
         { $limit: 10 }
       ]),
-      
+
       // Faaliyet konuları
       Firma.aggregate([
         { $match: { aktif: true, anaFaaliyetKonusu: { $ne: '' } } },
@@ -928,7 +957,7 @@ const exportPDF = async (req, res) => {
         { $sort: { count: -1 } },
         { $limit: 8 }
       ]),
-      
+
       // Yaklaşan yetkiler
       Firma.find({
         aktif: true,
@@ -937,7 +966,7 @@ const exportPDF = async (req, res) => {
           $lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         }
       }).limit(10),
-      
+
       // Aylık trend (son 12 ay)
       Firma.aggregate([
         { $match: { aktif: true } },
@@ -956,8 +985,8 @@ const exportPDF = async (req, res) => {
     ]);
 
     // 📄 Premium PDF oluştur
-    const doc = new PDFDocument({ 
-      size: 'A4', 
+    const doc = new PDFDocument({
+      size: 'A4',
       margin: 40,
       info: {
         Title: 'GM Planlama Danışmanlık - Premium İstatistik Raporu',
@@ -1005,36 +1034,36 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
 
   // 🏢 HEADER - Corporate Identity
   doc.rect(0, 0, doc.page.width, 120)
-     .fill('#1e40af');
+    .fill('#1e40af');
 
   doc.font('Helvetica-Bold')
-     .fontSize(28)
-     .fillColor('#ffffff')
-     .text('FIRMA YONETIM SISTEMI', 40, 30);
+    .fontSize(28)
+    .fillColor('#ffffff')
+    .text('FIRMA YONETIM SISTEMI', 40, 30);
 
   doc.fontSize(16)
-     .fillColor('#e2e8f0')
-     .text('Premium Istatistik Raporu & Analiz Merkezi', 40, 65);
+    .fillColor('#e2e8f0')
+    .text('Premium Istatistik Raporu & Analiz Merkezi', 40, 65);
 
   doc.fontSize(12)
-     .fillColor('#cbd5e1')
-     .text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR', { 
-       year: 'numeric', 
-       month: 'long', 
-       day: 'numeric' 
-     })}`, 40, 90);
+    .fillColor('#cbd5e1')
+    .text(`Rapor Tarihi: ${new Date().toLocaleDateString('tr-TR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    })}`, 40, 90);
 
   currentY = 150;
 
   // 📊 EXECUTIVE SUMMARY SECTION
   doc.rect(40, currentY - 10, 520, 40)
-     .fill('#f8fafc')
-     .stroke('#e2e8f0');
+    .fill('#f8fafc')
+    .stroke('#e2e8f0');
 
   doc.font('Helvetica-Bold')
-     .fontSize(18)
-     .fillColor('#1e40af')
-     .text('YONETICI OZETI', 50, currentY + 5);
+    .fontSize(18)
+    .fillColor('#1e40af')
+    .text('YONETICI OZETI', 50, currentY + 5);
 
   currentY += 60;
 
@@ -1053,30 +1082,30 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
   mainStats.forEach((stat, index) => {
     // Kart arka planı
     doc.rect(cardX, currentY, cardWidth, cardHeight)
-       .fill('#ffffff')
-       .stroke('#e5e7eb');
+      .fill('#ffffff')
+      .stroke('#e5e7eb');
 
     // Renk çizgisi
     doc.rect(cardX, currentY, cardWidth, 4)
-       .fill(stat.color);
+      .fill(stat.color);
 
     // İkon (text-based for compatibility)
     doc.font('Helvetica-Bold')
-       .fontSize(16)
-       .fillColor(stat.color)
-       .text(stat.icon, cardX + 10, currentY + 15);
+      .fontSize(16)
+      .fillColor(stat.color)
+      .text(stat.icon, cardX + 10, currentY + 15);
 
     // Değer
     doc.font('Helvetica-Bold')
-       .fontSize(20)
-       .fillColor(stat.color)
-       .text(stat.value.toString(), cardX + 45, currentY + 20);
+      .fontSize(20)
+      .fillColor(stat.color)
+      .text(stat.value.toString(), cardX + 45, currentY + 20);
 
     // Label
     doc.font('Helvetica')
-       .fontSize(10)
-       .fillColor('#6b7280')
-       .text(stat.label, cardX + 10, currentY + 50, { width: cardWidth - 20 });
+      .fontSize(10)
+      .fillColor('#6b7280')
+      .text(stat.label, cardX + 10, currentY + 50, { width: cardWidth - 20 });
 
     cardX += cardWidth + 20;
   });
@@ -1085,23 +1114,23 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
 
   // 🗺️ İL DAĞILIM TABLOSU - Premium Table
   doc.font('Helvetica-Bold')
-     .fontSize(16)
-     .fillColor('#1e40af')
-     .text('IL BAZINDA DAGILIM ANALIZI', 40, currentY);
+    .fontSize(16)
+    .fillColor('#1e40af')
+    .text('IL BAZINDA DAGILIM ANALIZI', 40, currentY);
 
   currentY += 40;
 
   // Tablo başlık
   doc.rect(40, currentY - 5, 520, 25)
-     .fill('#1e40af');
+    .fill('#1e40af');
 
   doc.font('Helvetica-Bold')
-     .fontSize(12)
-     .fillColor('#ffffff')
-     .text('SIRA', 50, currentY + 5)
-     .text('IL ADI', 120, currentY + 5)
-     .text('FIRMA SAYISI', 300, currentY + 5)
-     .text('YUZDE ORAN', 420, currentY + 5);
+    .fontSize(12)
+    .fillColor('#ffffff')
+    .text('SIRA', 50, currentY + 5)
+    .text('IL ADI', 120, currentY + 5)
+    .text('FIRMA SAYISI', 300, currentY + 5)
+    .text('YUZDE ORAN', 420, currentY + 5);
 
   currentY += 30;
 
@@ -1110,27 +1139,27 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
   illereBolum.slice(0, 8).forEach((il, index) => {
     const rowColor = index % 2 === 0 ? '#f9fafb' : '#ffffff';
     const percentage = ((il.count / totalFirms) * 100).toFixed(1);
-    
+
     // Satır arka planı
     doc.rect(40, currentY - 3, 520, 22)
-       .fill(rowColor)
-       .stroke('#e5e7eb');
+      .fill(rowColor)
+      .stroke('#e5e7eb');
 
     // Progress bar
     const barWidth = (il.count / Math.max(...illereBolum.map(i => i.count))) * 100;
     doc.rect(480, currentY + 5, barWidth, 8)
-       .fill('#3b82f6');
+      .fill('#3b82f6');
 
     // İl adını ASCII'ye çevir
     const ilAdi = convertTurkishToAscii(il._id);
 
     doc.font('Helvetica')
-       .fontSize(11)
-       .fillColor('#374151')
-       .text((index + 1).toString(), 50, currentY + 3)
-       .text(ilAdi, 120, currentY + 3)
-       .text(il.count.toString(), 300, currentY + 3)
-       .text(`%${percentage}`, 420, currentY + 3);
+      .fontSize(11)
+      .fillColor('#374151')
+      .text((index + 1).toString(), 50, currentY + 3)
+      .text(ilAdi, 120, currentY + 3)
+      .text(il.count.toString(), 300, currentY + 3)
+      .text(`%${percentage}`, 420, currentY + 3);
 
     currentY += 25;
   });
@@ -1141,9 +1170,9 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
 
   // 🎯 FAALIYET KONULARI ANALİZİ
   doc.font('Helvetica-Bold')
-     .fontSize(16)
-     .fillColor('#1e40af')
-     .text('FAALIYET KONULARI ANALIZI', 40, currentY);
+    .fontSize(16)
+    .fillColor('#1e40af')
+    .text('FAALIYET KONULARI ANALIZI', 40, currentY);
 
   currentY += 40;
 
@@ -1151,28 +1180,28 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
     const barHeight = 25;
     const maxWidth = 400;
     const barWidth = (faaliyet.count / Math.max(...faaliyetlereBolum.map(f => f.count))) * maxWidth;
-    
+
     // Faaliyet adı - ASCII'ye çevir
     const faaliyetAdi = convertTurkishToAscii(faaliyet._id);
-    
+
     doc.font('Helvetica')
-       .fontSize(10)
-       .fillColor('#374151')
-       .text(faaliyetAdi.substring(0, 40) + '...', 40, currentY + 5);
+      .fontSize(10)
+      .fillColor('#374151')
+      .text(faaliyetAdi.substring(0, 40) + '...', 40, currentY + 5);
 
     // Progress bar
     doc.rect(40, currentY + 20, maxWidth, barHeight)
-       .fill('#f3f4f6')
-       .stroke('#e5e7eb');
+      .fill('#f3f4f6')
+      .stroke('#e5e7eb');
 
     doc.rect(40, currentY + 20, barWidth, barHeight)
-       .fill('#059669');
+      .fill('#059669');
 
     // Sayı
     doc.font('Helvetica-Bold')
-       .fontSize(12)
-       .fillColor('#ffffff')
-       .text(faaliyet.count.toString(), 45, currentY + 28);
+      .fontSize(12)
+      .fillColor('#ffffff')
+      .text(faaliyet.count.toString(), 45, currentY + 28);
 
     currentY += 50;
   });
@@ -1180,30 +1209,30 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
   // ⚠️ YAKLAŞAN YETKİ BİTİŞLERİ
   if (yaklasanYetkiler.length > 0) {
     currentY += 30;
-    
+
     doc.font('Helvetica-Bold')
-       .fontSize(16)
-       .fillColor('#dc2626')
-       .text('DIKKAT: YAKLASAN YETKI BITISLERI', 40, currentY);
+      .fontSize(16)
+      .fillColor('#dc2626')
+      .text('DIKKAT: YAKLASAN YETKI BITISLERI', 40, currentY);
 
     currentY += 30;
 
     yaklasanYetkiler.slice(0, 5).forEach((firma, index) => {
       const daysLeft = Math.ceil((new Date(firma.etuysYetkiBitisTarihi) - new Date()) / (1000 * 60 * 60 * 24));
-      
+
       doc.rect(40, currentY - 3, 520, 25)
-         .fill('#fef2f2')
-         .stroke('#fecaca');
+        .fill('#fef2f2')
+        .stroke('#fecaca');
 
       // Firma adını ASCII'ye çevir
       const firmaAdi = convertTurkishToAscii(firma.tamUnvan);
 
       doc.font('Helvetica')
-         .fontSize(10)
-         .fillColor('#dc2626')
-         .text(firma.firmaId, 50, currentY + 5)
-         .text(firmaAdi.substring(0, 40) + '...', 120, currentY + 5)
-         .text(`${daysLeft} gun kaldi`, 400, currentY + 5);
+        .fontSize(10)
+        .fillColor('#dc2626')
+        .text(firma.firmaId, 50, currentY + 5)
+        .text(firmaAdi.substring(0, 40) + '...', 120, currentY + 5)
+        .text(`${daysLeft} gun kaldi`, 400, currentY + 5);
 
       currentY += 30;
     });
@@ -1211,27 +1240,27 @@ const generatePremiumStatsPDF = async (doc, basicStats, illereBolum, faaliyetler
 
   // 📍 Footer
   doc.fontSize(10)
-     .fillColor('#6b7280')
-     .text('Bu rapor Firma Yonetim Sistemi tarafindan otomatik olarak olusturulmustur.', 
-           40, doc.page.height - 60, { align: 'center' });
+    .fillColor('#6b7280')
+    .text('Bu rapor Firma Yonetim Sistemi tarafindan otomatik olarak olusturulmustur.',
+      40, doc.page.height - 60, { align: 'center' });
 
-  doc.text(`Rapor ID: FYS-${Date.now()} | Sayfa: ${doc.bufferedPageRange().count}`, 
-           40, doc.page.height - 40, { align: 'center' });
+  doc.text(`Rapor ID: FYS-${Date.now()} | Sayfa: ${doc.bufferedPageRange().count}`,
+    40, doc.page.height - 40, { align: 'center' });
 };
 
 // 🔤 Turkish to ASCII converter helper
 const convertTurkishToAscii = (text) => {
   if (!text) return '';
-  
+
   const turkishChars = {
     'ç': 'c', 'Ç': 'C',
-    'ğ': 'g', 'Ğ': 'G', 
+    'ğ': 'g', 'Ğ': 'G',
     'ı': 'i', 'İ': 'I',
     'ö': 'o', 'Ö': 'O',
     'ş': 's', 'Ş': 'S',
     'ü': 'u', 'Ü': 'U'
   };
-  
+
   return text.replace(/[çÇğĞıİöÖşŞüÜ]/g, (match) => turkishChars[match] || match);
 };
 
@@ -1242,27 +1271,27 @@ const exportStatsExcel = async (req, res) => {
 
     // 📊 Kapsamlı veri toplama
     const [
-      basicStats, 
-      illereBolum, 
-      faaliyetlereBolum, 
+      basicStats,
+      illereBolum,
+      faaliyetlereBolum,
       yaklasanYetkiler,
       aylikStats,
       yetkiliStats
     ] = await Promise.all([
       Firma.getStatistics(),
-      
+
       Firma.aggregate([
         { $match: { aktif: true } },
         { $group: { _id: '$firmaIl', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
-      
+
       Firma.aggregate([
         { $match: { aktif: true, anaFaaliyetKonusu: { $ne: '' } } },
         { $group: { _id: '$anaFaaliyetKonusu', count: { $sum: 1 } } },
         { $sort: { count: -1 } }
       ]),
-      
+
       Firma.find({
         aktif: true,
         etuysYetkiBitisTarihi: {
@@ -1270,7 +1299,7 @@ const exportStatsExcel = async (req, res) => {
           $lte: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000) // 60 gün
         }
       }).select('firmaId tamUnvan etuysYetkiBitisTarihi firmaIl'),
-      
+
       // Aylık kayıt trendi
       Firma.aggregate([
         { $match: { aktif: true } },
@@ -1325,7 +1354,7 @@ const exportStatsExcel = async (req, res) => {
     const ilData = [
       ['SIRA', 'IL ADI', 'FIRMA SAYISI', 'YUZDE ORAN']
     ];
-    
+
     illereBolum.forEach((il, index) => {
       const percentage = ((il.count / basicStats.aktifFirma) * 100).toFixed(2);
       // İl adını ASCII'ye çevir
@@ -1346,7 +1375,7 @@ const exportStatsExcel = async (req, res) => {
     const faaliyetData = [
       ['SIRA', 'FAALIYET KONUSU', 'FIRMA SAYISI', 'YUZDE ORAN']
     ];
-    
+
     faaliyetlereBolum.forEach((faaliyet, index) => {
       const percentage = ((faaliyet.count / basicStats.aktifFirma) * 100).toFixed(2);
       // Faaliyet konusunu ASCII'ye çevir
@@ -1367,13 +1396,13 @@ const exportStatsExcel = async (req, res) => {
     const yetkiData = [
       ['FIRMA ID', 'FIRMA ADI', 'IL', 'BITIS TARIHI', 'KALAN GUN']
     ];
-    
+
     yaklasanYetkiler.forEach(firma => {
       const daysLeft = Math.ceil((new Date(firma.etuysYetkiBitisTarihi) - new Date()) / (1000 * 60 * 60 * 24));
       // Firma adını ve il adını ASCII'ye çevir
       const firmaAdi = convertTurkishToAscii(firma.tamUnvan);
       const ilAdi = convertTurkishToAscii(firma.firmaIl);
-      
+
       yetkiData.push([
         firma.firmaId,
         firmaAdi,
@@ -1394,8 +1423,8 @@ const exportStatsExcel = async (req, res) => {
     XLSX.utils.book_append_sheet(workbook, yetkiSheet, 'Yaklasan Yetkiler');
 
     // 📊 Excel buffer oluştur - UTF-8 encoding ile
-    const excelBuffer = XLSX.write(workbook, { 
-      type: 'buffer', 
+    const excelBuffer = XLSX.write(workbook, {
+      type: 'buffer',
       bookType: 'xlsx',
       cellStyles: true,
       sheetStubs: false
@@ -1420,16 +1449,16 @@ const exportStatsExcel = async (req, res) => {
 const getNextFirmaId = async (req, res) => {
   try {
     console.log('🔍 Finding next available Firma ID with gap filling...');
-    
+
     // Tüm mevcut firma ID'lerini al ve sırala
     const existingFirmas = await Firma.find({}, { firmaId: 1 })
       .sort({ firmaId: 1 });
-    
+
     const existingIds = existingFirmas.map(f => parseInt(f.firmaId.substring(1)));
     console.log('📋 Existing ID numbers:', existingIds);
 
     let nextNumber = 1001; // Default başlangıç: A001001
-    
+
     if (existingIds.length === 0) {
       // İlk firma
       console.log('✨ First firma, using A001001');
@@ -1438,11 +1467,11 @@ const getNextFirmaId = async (req, res) => {
       // Sıralı boş ID ara (gap filling)
       const sortedIds = existingIds.sort((a, b) => a - b);
       console.log('🔢 Sorted existing IDs:', sortedIds);
-      
+
       const minId = Math.min(...existingIds);
       const maxId = Math.max(...existingIds);
       console.log(`📊 ID Range: ${minId} - ${maxId}`);
-      
+
       // Mevcut aralıkta boş slot ara
       let found = false;
       for (let i = minId; i <= maxId; i++) {
@@ -1453,7 +1482,7 @@ const getNextFirmaId = async (req, res) => {
           break;
         }
       }
-      
+
       // Eğer mevcut aralıkta gap yoksa, max + 1
       if (!found) {
         nextNumber = maxId + 1;
@@ -1463,7 +1492,7 @@ const getNextFirmaId = async (req, res) => {
 
     const nextFirmaId = 'A' + nextNumber.toString().padStart(6, '0');
     console.log('✅ Next available Firma ID:', nextFirmaId);
-    
+
     res.status(200).json({
       success: true,
       data: {

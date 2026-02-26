@@ -86,8 +86,44 @@ const FirmaList = () => {
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
-  const [importDialog, setImportDialog] = useState(false); // Import dialog state
-  const [importLoading, setImportLoading] = useState(false); // Import loading state
+  const [importDialog, setImportDialog] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('all');
+
+  // 🏷️ Tab click handler
+  const handleTabChange = useCallback(async (tabKey) => {
+    setActiveTab(tabKey);
+    setLocalLoading(true);
+    try {
+      const params = { sayfa: 1, limit: 1000 };
+      switch (tabKey) {
+        case 'active':
+          params.aktif = 'true';
+          break;
+        case 'passive':
+          params.aktif = 'false';
+          break;
+        case 'expired':
+          params.aktif = 'all';
+          params.yetkiDurumu = 'expired';
+          break;
+        case 'expiring7':
+          params.aktif = 'all';
+          params.yetkiDurumu = 'expiring7';
+          break;
+        case 'expiring30':
+          params.aktif = 'all';
+          params.yetkiDurumu = 'expiring30';
+          break;
+        default: // 'all'
+          params.aktif = 'all';
+          break;
+      }
+      await fetchFirmalar(params);
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [fetchFirmalar]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -776,6 +812,42 @@ const FirmaList = () => {
               >
                 Yeni Firma Ekle
               </Button>
+            </Box>
+          </Paper>
+
+          {/* 🏷️ Quick Filter Tabs */}
+          <Paper sx={{ mb: 2, borderRadius: 2, overflow: 'hidden' }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+              {[
+                { key: 'all', label: 'Tümü', color: '#6366f1' },
+                { key: 'active', label: 'Aktif', color: '#22c55e' },
+                { key: 'passive', label: 'Pasif', color: '#94a3b8' },
+                { key: 'expired', label: '⚠️ Yetkisi Biten', color: '#ef4444' },
+                { key: 'expiring7', label: '7 Gün İçinde', color: '#f97316' },
+                { key: 'expiring30', label: '30 Gün İçinde', color: '#eab308' },
+              ].map((tab) => (
+                <Button
+                  key={tab.key}
+                  onClick={() => handleTabChange(tab.key)}
+                  sx={{
+                    px: 2.5, py: 1.2,
+                    borderRadius: 0,
+                    textTransform: 'none',
+                    fontWeight: activeTab === tab.key ? 700 : 500,
+                    fontSize: '0.85rem',
+                    color: activeTab === tab.key ? '#fff' : '#64748b',
+                    backgroundColor: activeTab === tab.key ? tab.color : 'transparent',
+                    borderBottom: activeTab === tab.key ? `3px solid ${tab.color}` : '3px solid transparent',
+                    '&:hover': {
+                      backgroundColor: activeTab === tab.key ? tab.color : '#f1f5f9',
+                    },
+                    transition: 'all 0.2s ease',
+                    minWidth: 'auto'
+                  }}
+                >
+                  {tab.label}
+                </Button>
+              ))}
             </Box>
           </Paper>
 
