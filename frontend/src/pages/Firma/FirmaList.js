@@ -67,9 +67,10 @@ const FirmaList = () => {
     loading,
     fetchFirmalar,
     deleteFirma,
+    updateFirma,
     searchFirmalar,
-    searchResults, // Arama sonuçları için eklendi
-    clearSearchResults, // Arama sonuçlarını temizlemek için eklendi
+    searchResults,
+    clearSearchResults,
     fetchStats,
     filters,
     setFilters,
@@ -663,6 +664,49 @@ const FirmaList = () => {
       }
     },
     {
+      field: 'aktif',
+      headerName: 'Durum',
+      width: 120,
+      renderCell: (params) => {
+        const isAktif = params.value !== false;
+        const now = new Date();
+        const etuysExpired = params.row.etuysYetkiBitisTarihi && new Date(params.row.etuysYetkiBitisTarihi) < now;
+        const dysExpired = params.row.dysYetkiBitisTarihi && new Date(params.row.dysYetkiBitisTarihi) < now;
+        const yetkiBitik = etuysExpired || dysExpired;
+
+        return (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+            <Chip
+              label={isAktif ? 'Aktif' : 'Pasif'}
+              size="small"
+              sx={{
+                fontWeight: 700,
+                fontSize: '0.7rem',
+                height: 22,
+                backgroundColor: isAktif ? '#dcfce7' : '#f1f5f9',
+                color: isAktif ? '#16a34a' : '#64748b',
+                border: `1px solid ${isAktif ? '#86efac' : '#cbd5e1'}`
+              }}
+            />
+            {yetkiBitik && (
+              <Chip
+                label="⚠️ Yetki Bitti"
+                size="small"
+                sx={{
+                  fontWeight: 600,
+                  fontSize: '0.65rem',
+                  height: 20,
+                  backgroundColor: '#fef2f2',
+                  color: '#dc2626',
+                  border: '1px solid #fecaca'
+                }}
+              />
+            )}
+          </Box>
+        );
+      }
+    },
+    {
       field: 'olusturanKullanici',
       headerName: 'Ekleyen Kullanıcı',
       width: 150,
@@ -688,7 +732,7 @@ const FirmaList = () => {
     {
       field: 'actions',
       headerName: 'İşlemler',
-      width: 120,
+      width: 160,
       sortable: false,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -706,6 +750,30 @@ const FirmaList = () => {
               onClick={() => navigate(`/firmalar/${params.row._id}/duzenle`)}
             >
               <EditIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title={params.row.aktif !== false ? 'Pasif Yap' : 'Aktif Yap'}>
+            <IconButton
+              size="small"
+              sx={{ color: params.row.aktif !== false ? '#f59e0b' : '#22c55e' }}
+              onClick={async () => {
+                try {
+                  const newStatus = params.row.aktif === false;
+                  await updateFirma(params.row._id, { aktif: newStatus });
+                  showNotification(
+                    newStatus ? `${params.row.tamUnvan} aktif yapıldı` : `${params.row.tamUnvan} pasif yapıldı`,
+                    'success'
+                  );
+                  await fetchFirmalar();
+                } catch (error) {
+                  showNotification('Durum güncellenemedi: ' + error.message, 'error');
+                }
+              }}
+            >
+              {params.row.aktif !== false
+                ? <Typography sx={{ fontSize: 14 }}>⏸</Typography>
+                : <Typography sx={{ fontSize: 14 }}>▶</Typography>
+              }
             </IconButton>
           </Tooltip>
           <Tooltip title="Sil">
