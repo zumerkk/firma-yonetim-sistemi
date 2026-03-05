@@ -142,12 +142,14 @@ const YeniTesvikDetail = () => {
       user: { adSoyad: r.yapanKullanici?.adSoyad || 'Sistem' },
       title: `Revizyon ${r.revizyonNo}`,
       description: r.revizyonSebebi,
-      changes: { fields: (r.degisikenAlanlar || []).map(d => ({
-        field: d.alan,
-        label: d.label,
-        oldValue: d.eskiDeger,
-        newValue: d.yeniDeger
-      })) }
+      changes: {
+        fields: (r.degisikenAlanlar || []).map(d => ({
+          field: d.alan,
+          label: d.label,
+          oldValue: d.eskiDeger,
+          newValue: d.yeniDeger
+        }))
+      }
     })) : [];
 
     let merged = activityFilters.includeRevisions ? [...base, ...revs] : base;
@@ -182,12 +184,12 @@ const YeniTesvikDetail = () => {
     return merged.slice(0, activityFilters.limit);
   };
 
-    // Export handlers
+  // Export handlers
   const handleExcelExport = async () => {
     try {
       setExcelLoading(true);
       console.log('🚀 Excel export başlatılıyor:', tesvik._id);
-      
+
       // Axios ile Excel dosyası indirme
       const response = await api.get(`/yeni-tesvik/${tesvik._id}/excel-export?includeColors=true`, {
         responseType: 'blob'
@@ -196,7 +198,7 @@ const YeniTesvikDetail = () => {
       // Dosya adını response header'dan al
       const contentDisposition = response.headers['content-disposition'];
       let fileName = `tesvik_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+
       if (contentDisposition) {
         const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
         if (fileNameMatch) {
@@ -211,13 +213,13 @@ const YeniTesvikDetail = () => {
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
-      
+
       console.log('✅ Excel export başarıyla tamamlandı:', fileName);
-      
+
     } catch (error) {
       console.error('❌ Excel export hatası:', error);
       alert(`Excel export hatası: ${error.response?.data?.message || error.message}`);
@@ -230,12 +232,12 @@ const YeniTesvikDetail = () => {
     try {
       setExportingRevizyon(true);
       console.log('🚀 Revizyon Excel export başlatılıyor:', tesvik._id);
-      
+
       // 🔒 ID kontrolü
       if (!tesvik?._id) {
         throw new Error('Teşvik ID bulunamadı');
       }
-      
+
       // Axios ile Revizyon Excel dosyası indirme
       const response = await api.get(`/yeni-tesvik/${tesvik._id}/revizyon-excel-export?includeColors=true`, {
         responseType: 'blob'
@@ -253,14 +255,14 @@ const YeniTesvikDetail = () => {
       // Dosya adını response header'dan al
       const contentDisposition = response.headers['content-disposition'];
       let fileName = `sistem_revizyon_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      
+
       if (contentDisposition) {
         const fileNameMatch = contentDisposition.match(/filename="(.+)"/);
         if (fileNameMatch) {
           fileName = fileNameMatch[1];
         }
       }
-      
+
       // Dosyayı indir
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
@@ -268,19 +270,19 @@ const YeniTesvikDetail = () => {
       link.download = fileName;
       document.body.appendChild(link);
       link.click();
-      
+
       // Cleanup
       window.URL.revokeObjectURL(url);
       document.body.removeChild(link);
-      
+
       console.log('✅ Revizyon Excel export başarıyla tamamlandı:', fileName);
-      
+
     } catch (error) {
       console.error('❌ Revizyon export hatası:', error);
-      
+
       // 🔍 Hata mesajını daha detaylı göster
       let errorMessage = 'Bilinmeyen hata';
-      
+
       if (error.response) {
         // Server hatası
         if (error.response.data instanceof Blob) {
@@ -297,7 +299,7 @@ const YeniTesvikDetail = () => {
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
+
       alert(`Revizyon Excel export hatası: ${errorMessage}`);
     } finally {
       setExportingRevizyon(false);
@@ -334,7 +336,7 @@ const YeniTesvikDetail = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // Paralel API çağrıları - Gerçek data
       const [tesvikResponse, activitiesResponse] = await Promise.all([
         api.get(`/yeni-tesvik/${id}`),
@@ -346,10 +348,10 @@ const YeniTesvikDetail = () => {
 
       // Activities verisi
       const activitiesData = activitiesResponse?.data?.data?.activities || [];
-      
+
       setTesvik(tesvikData);
       setActivities(Array.isArray(activitiesData) ? activitiesData : []); // 🔧 Ensure it's always an array
-      
+
     } catch (error) {
       console.error('🚨 Veri yükleme hatası:', error);
       setError('Veri yüklenemedi: ' + (error.response?.data?.message || error.message));
@@ -372,7 +374,7 @@ const YeniTesvikDetail = () => {
         setRevizyonModalOpen(true);
         setAfterRevisionAction('goEdit'); // ✅ Revizyon kaydedildikten sonra düzenleme sayfasına git
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   if (loading) {
@@ -411,11 +413,11 @@ const YeniTesvikDetail = () => {
         display: { xs: 'none', md: 'block' }
       }}>
         <Box sx={{ p: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          <IconButton 
-            size="small" 
+          <IconButton
+            size="small"
             onClick={() => navigate('/dashboard')}
-            sx={{ 
-              color: 'white', 
+            sx={{
+              color: 'white',
               '&:hover': { background: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' },
               width: 36,
               height: 36
@@ -424,12 +426,12 @@ const YeniTesvikDetail = () => {
           >
             <HomeIcon fontSize="small" />
           </IconButton>
-          
-          <IconButton 
-            size="small" 
+
+          <IconButton
+            size="small"
             onClick={() => navigate('/firma')}
-            sx={{ 
-              color: 'white', 
+            sx={{
+              color: 'white',
               '&:hover': { background: 'rgba(16, 185, 129, 0.2)', color: '#34d399' },
               width: 36,
               height: 36
@@ -438,12 +440,12 @@ const YeniTesvikDetail = () => {
           >
             <BusinessIcon fontSize="small" />
           </IconButton>
-          
-          <IconButton 
-            size="small" 
+
+          <IconButton
+            size="small"
             onClick={() => navigate('/yeni-tesvik')}
-            sx={{ 
-              color: 'white', 
+            sx={{
+              color: 'white',
               '&:hover': { background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa' },
               width: 36,
               height: 36
@@ -452,14 +454,14 @@ const YeniTesvikDetail = () => {
           >
             <AssignmentIcon fontSize="small" />
           </IconButton>
-          
+
           <Box sx={{ width: '100%', height: '1px', background: 'rgba(255,255,255,0.1)', my: 0.5 }} />
-          
-          <IconButton 
-            size="small" 
+
+          <IconButton
+            size="small"
             onClick={() => navigate(-1)}
-            sx={{ 
-              color: 'white', 
+            sx={{
+              color: 'white',
               '&:hover': { background: 'rgba(239, 68, 68, 0.2)', color: '#f87171' },
               width: 36,
               height: 36
@@ -472,11 +474,11 @@ const YeniTesvikDetail = () => {
       </Paper>
 
       <Container maxWidth="xl" disableGutters sx={{ px: 0.5 }}>
-        
+
         {/* 🧭 NAVIGASYON & BREADCRUMB */}
-        <Paper sx={{ 
-          mb: 0.5, 
-          p: 1, 
+        <Paper sx={{
+          mb: 0.5,
+          p: 1,
           borderRadius: 2,
           background: 'linear-gradient(90deg, #f8fafc 0%, #ffffff 100%)',
           border: '1px solid #e2e8f0',
@@ -490,7 +492,7 @@ const YeniTesvikDetail = () => {
                 size="small"
                 startIcon={<ArrowBackIcon />}
                 onClick={() => navigate(-1)}
-                sx={{ 
+                sx={{
                   borderColor: '#e2e8f0',
                   color: '#475569',
                   fontSize: '0.75rem',
@@ -502,21 +504,21 @@ const YeniTesvikDetail = () => {
               >
                 Geri
               </Button>
-              
+
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <IconButton 
-                  size="small" 
+                <IconButton
+                  size="small"
                   onClick={() => navigate('/dashboard')}
                   sx={{ color: '#64748b', '&:hover': { color: '#3b82f6', background: '#f0f9ff' } }}
                 >
                   <HomeIcon fontSize="small" />
                 </IconButton>
                 <Typography variant="caption" sx={{ color: '#cbd5e1' }}>/</Typography>
-                <Button 
-                  size="small" 
+                <Button
+                  size="small"
                   onClick={() => navigate('/yeni-tesvik')}
-                  sx={{ 
-                    color: '#64748b', 
+                  sx={{
+                    color: '#64748b',
                     fontSize: '0.7rem',
                     minWidth: 'auto',
                     textTransform: 'none',
@@ -531,7 +533,7 @@ const YeniTesvikDetail = () => {
                 </Typography>
               </Box>
             </Box>
-            
+
             {/* Sağ Taraf - Hızlı Navigasyon (Sadece Desktop) */}
             <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
               <Button
@@ -539,7 +541,7 @@ const YeniTesvikDetail = () => {
                 size="small"
                 startIcon={<BusinessIcon />}
                 onClick={() => navigate('/firma')}
-                sx={{ 
+                sx={{
                   borderColor: '#e2e8f0',
                   color: '#475569',
                   fontSize: '0.7rem',
@@ -556,7 +558,7 @@ const YeniTesvikDetail = () => {
                 size="small"
                 startIcon={<AssignmentIcon />}
                 onClick={() => navigate('/yeni-tesvik')}
-                sx={{ 
+                sx={{
                   borderColor: '#e2e8f0',
                   color: '#475569',
                   fontSize: '0.7rem',
@@ -572,16 +574,16 @@ const YeniTesvikDetail = () => {
 
             {/* Mobil için kompakt navigasyon */}
             <Box sx={{ display: { xs: 'flex', sm: 'none' }, alignItems: 'center', gap: 0.5 }}>
-              <IconButton 
-                size="small" 
+              <IconButton
+                size="small"
                 onClick={() => navigate('/firma')}
                 sx={{ color: '#64748b', '&:hover': { color: '#10b981', background: '#f0fdf4' } }}
                 title="Firmalar"
               >
                 <BusinessIcon fontSize="small" />
               </IconButton>
-              <IconButton 
-                size="small" 
+              <IconButton
+                size="small"
                 onClick={() => navigate('/yeni-tesvik')}
                 sx={{ color: '#64748b', '&:hover': { color: '#8b5cf6', background: '#faf5ff' } }}
                 title="Teşvikler"
@@ -591,10 +593,10 @@ const YeniTesvikDetail = () => {
             </Box>
           </Box>
         </Paper>
-        
+
         {/* 🎨 KOMPAKT PROFESYONEL HEADER */}
         <Box sx={{
-                mb: 1,
+          mb: 1,
           background: 'linear-gradient(135deg, #1e293b 0%, #3b82f6 100%)',
           borderRadius: 2,
           p: 2,
@@ -606,7 +608,7 @@ const YeniTesvikDetail = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Box sx={{ position: 'relative' }}>
-                <Avatar sx={{ 
+                <Avatar sx={{
                   background: 'rgba(255,255,255,0.15)',
                   border: '1px solid rgba(255,255,255,0.3)',
                   width: 45,
@@ -626,7 +628,7 @@ const YeniTesvikDetail = () => {
                   border: '1px solid white'
                 }} />
               </Box>
-              
+
               <Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.25, fontSize: '1.1rem' }}>
                   {tesvik.tesvikId || tesvik.gmId || '-'}
@@ -634,7 +636,7 @@ const YeniTesvikDetail = () => {
                 <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500, fontSize: '0.85rem' }}>
                   {tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '-'}
                 </Typography>
-                
+
                 {/* Kompakt Status Badge */}
                 <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5 }}>
                   <Chip
@@ -651,18 +653,18 @@ const YeniTesvikDetail = () => {
                 </Box>
               </Box>
             </Box>
-            
+
             {/* Kompakt Action Buttons */}
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-                <Button
+              <Button
                 variant="contained"
                 size="small"
-                  startIcon={<EditIcon />}
+                startIcon={<EditIcon />}
                 onClick={() => { setAfterRevisionAction('goEdit'); setRevizyonModalOpen(true); }}
-                  sx={{
+                sx={{
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
-                      color: 'white',
+                  color: 'white',
                   px: 1.5,
                   py: 0.5,
                   borderRadius: 1,
@@ -673,25 +675,25 @@ const YeniTesvikDetail = () => {
                 }}
               >
                 Düzenle
-                </Button>
-              
+              </Button>
+
               {/* Sağdaki Excel butonu kaldırıldı */}
             </Box>
           </Box>
 
           <Box sx={{ display: 'flex', gap: 0.5, flexDirection: { xs: 'column', sm: 'row' }, mt: 1 }}>
             {/* Revizyon Ekle butonu kaldırıldı */}
-              
-              <Button
-                variant="contained"
+
+            <Button
+              variant="contained"
               size="small"
               startIcon={exportingRevizyon ? null : <FileDownloadIcon />}
-                onClick={handleRevizyonExcelExport}
-                disabled={exportingRevizyon}
-                sx={{
+              onClick={handleRevizyonExcelExport}
+              disabled={exportingRevizyon}
+              sx={{
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
-                        color: 'white',
+                color: 'white',
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
@@ -706,7 +708,7 @@ const YeniTesvikDetail = () => {
               }}
             >
               {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Exel Revizyon'}
-              </Button>
+            </Button>
           </Box>
 
           {/* Progress indicator */}
@@ -714,36 +716,36 @@ const YeniTesvikDetail = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
               <Typography variant="body2" sx={{ opacity: 0.9, fontSize: '0.8rem' }}>
                 Belge İlerleme Durumu
-                  </Typography>
+              </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
                 %{getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
-                    </Typography>
-                  </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
-                      sx={{
+              </Typography>
+            </Box>
+            <LinearProgress
+              variant="determinate"
+              value={getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
+              sx={{
                 height: 6,
                 borderRadius: 2,
                 backgroundColor: 'rgba(255,255,255,0.2)',
-                        '& .MuiLinearProgress-bar': {
+                '& .MuiLinearProgress-bar': {
                   backgroundColor: 'white',
                   borderRadius: 2,
                   boxShadow: '0 2px 8px rgba(255,255,255,0.3)'
-                        }
-                      }}
-                    />
+                }
+              }}
+            />
           </Box>
-                  </Box>
+        </Box>
 
         {/* 🏢 SIFIRDAN YENİ PROFESYONEL TASARIM - ULTRA KOMPAKT */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          
+
           {/* 📊 ANA BİLGİ KARTLARI - TEK SATIR */}
           <Grid container spacing={0.5}>
             {/* Durum */}
             <Grid item xs={6} sm={3}>
-              <Paper sx={{ 
+              <Paper sx={{
                 p: 1,
                 height: 80,
                 background: '#ffffff',
@@ -760,18 +762,18 @@ const YeniTesvikDetail = () => {
                       Belge İzleme Sistemi
                     </Typography>
                   </Box>
-                  <Typography variant="body1" sx={{ 
-                    fontWeight: 700, 
+                  <Typography variant="body1" sx={{
+                    fontWeight: 700,
                     color: getDurumColor(tesvik.durumBilgileri?.genelDurum),
                     fontSize: '0.85rem',
                     mb: 0.5
                   }}>
                     {tesvik.durumBilgileri?.genelDurum?.replace('_', ' ') || 'Bilinmiyor'}
-                    </Typography>
-                  <Chip 
+                  </Typography>
+                  <Chip
                     label={`%${getDurumProgress(tesvik.durumBilgileri?.genelDurum)}`}
                     size="small"
-                    sx={{ 
+                    sx={{
                       backgroundColor: `${getDurumColor(tesvik.durumBilgileri?.genelDurum)}20`,
                       color: getDurumColor(tesvik.durumBilgileri?.genelDurum),
                       fontWeight: 500,
@@ -779,13 +781,13 @@ const YeniTesvikDetail = () => {
                       height: 18
                     }}
                   />
-                  </Box>
+                </Box>
               </Paper>
             </Grid>
 
             {/* Firma */}
             <Grid item xs={6} sm={3}>
-              <Paper sx={{ 
+              <Paper sx={{
                 p: 1,
                 height: 80,
                 background: '#ffffff',
@@ -800,10 +802,10 @@ const YeniTesvikDetail = () => {
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }} />
                     <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.65rem' }}>
                       Kurumsal Kimlik
-                  </Typography>
+                    </Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ 
-                    fontWeight: 600, 
+                  <Typography variant="body2" sx={{
+                    fontWeight: 600,
                     color: '#3b82f6',
                     fontSize: '0.75rem',
                     mb: 0.5,
@@ -813,7 +815,7 @@ const YeniTesvikDetail = () => {
                   }}>
                     {tesvik.firmaId || tesvik.firma?.firmaId || tesvik.firma?.vergiNoTC || '-'}
                   </Typography>
-                  <Typography variant="caption" sx={{ 
+                  <Typography variant="caption" sx={{
                     color: '#64748b',
                     fontSize: '0.6rem',
                     display: 'block',
@@ -829,7 +831,7 @@ const YeniTesvikDetail = () => {
 
             {/* Yatırım */}
             <Grid item xs={6} sm={3}>
-              <Paper sx={{ 
+              <Paper sx={{
                 p: 1,
                 height: 80,
                 background: '#ffffff',
@@ -844,17 +846,17 @@ const YeniTesvikDetail = () => {
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981' }} />
                     <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.65rem' }}>
                       Proje Detayları
-                  </Typography>
+                    </Typography>
                   </Box>
-                  <Typography variant="body2" sx={{ 
-                    fontWeight: 600, 
+                  <Typography variant="body2" sx={{
+                    fontWeight: 600,
                     color: '#10b981',
                     fontSize: '0.8rem',
                     mb: 0.5
                   }}>
                     {tesvik.yatirimBilgileri?.yatirimKonusu || '-'}
                   </Typography>
-                  <Typography variant="caption" sx={{ 
+                  <Typography variant="caption" sx={{
                     color: '#64748b',
                     fontSize: '0.6rem',
                     display: 'block'
@@ -867,7 +869,7 @@ const YeniTesvikDetail = () => {
 
             {/* İstihdam */}
             <Grid item xs={6} sm={3}>
-              <Paper sx={{ 
+              <Paper sx={{
                 p: 1,
                 height: 80,
                 background: '#ffffff',
@@ -882,17 +884,17 @@ const YeniTesvikDetail = () => {
                     <Box sx={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b' }} />
                     <Typography variant="caption" sx={{ fontWeight: 600, color: '#64748b', fontSize: '0.65rem' }}>
                       İş Gücü Planı
-                  </Typography>
+                    </Typography>
                   </Box>
-                  <Typography variant="h6" sx={{ 
-                    fontWeight: 700, 
+                  <Typography variant="h6" sx={{
+                    fontWeight: 700,
                     color: '#f59e0b',
                     fontSize: '1rem',
                     mb: 0.25
                   }}>
                     {tesvik.istihdam?.toplamKisi || '41'}
                   </Typography>
-                  <Typography variant="caption" sx={{ 
+                  <Typography variant="caption" sx={{
                     color: '#10b981',
                     fontSize: '0.6rem',
                     fontWeight: 600
@@ -902,7 +904,7 @@ const YeniTesvikDetail = () => {
                 </Box>
               </Paper>
             </Grid>
-            </Grid>
+          </Grid>
 
           {/* 💼 YATIRIM İLE İLGİLİ BİLGİLER */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
@@ -910,7 +912,7 @@ const YeniTesvikDetail = () => {
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 💼 Yatırım İle İlgili Bilgiler
-                  </Typography>
+              </Typography>
             </Box>
             <Grid container spacing={1}>
               <Grid item xs={6} sm={3}>
@@ -918,7 +920,7 @@ const YeniTesvikDetail = () => {
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Konusu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
                     {tesvik.yatirimBilgileri?.yatirimKonusu || '-'}
-                    </Typography>
+                  </Typography>
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
@@ -926,17 +928,17 @@ const YeniTesvikDetail = () => {
                   <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>Destek Sınıfı</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#8b5cf6', fontSize: '0.8rem' }}>
                     {tesvik.yatirimBilgileri?.destekSinifi || '-'}
-                        </Typography>
+                  </Typography>
                 </Box>
-                      </Grid>
+              </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
                   <Typography variant="caption" sx={{ color: '#1d4ed8', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Lokasyonu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb', fontSize: '0.8rem' }}>
                     {(tesvik.yatirimBilgileri?.yerinIl || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || '-')}
-                        </Typography>
+                  </Typography>
                 </Box>
-                      </Grid>
+              </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
                   <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
@@ -955,8 +957,8 @@ const YeniTesvikDetail = () => {
                   )}
                 </Box>
               </Grid>
-                    </Grid>
-                  </Paper>
+            </Grid>
+          </Paper>
 
           {/* 👥 İSTİHDAM BİLGİLERİ */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
@@ -964,41 +966,41 @@ const YeniTesvikDetail = () => {
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 👥 İstihdam Bilgileri
-                    </Typography>
+              </Typography>
             </Box>
             <Grid container spacing={1}>
-                      <Grid item xs={4}>
+              <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#fef7ff', borderRadius: 1, border: '1px solid #e9d5ff', textAlign: 'center' }}>
                   <Typography variant="h5" sx={{ fontWeight: 700, color: '#f59e0b', fontSize: '1.5rem' }}>
                     {tesvik.istihdam?.toplamKisi || '41'}
-                        </Typography>
+                  </Typography>
                   <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>
                     Toplam İstihdam
                   </Typography>
                 </Box>
-                      </Grid>
-                      <Grid item xs={4}>
+              </Grid>
+              <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0', textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981', fontSize: '1.2rem' }}>
                     {tesvik.istihdam?.mevcutKisi || '11'}
-                        </Typography>
+                  </Typography>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>
                     Mevcut Kişi
                   </Typography>
                 </Box>
-                      </Grid>
-                      <Grid item xs={4}>
+              </Grid>
+              <Grid item xs={4}>
                 <Box sx={{ p: 1, backgroundColor: '#ecfdf5', borderRadius: 1, border: '1px solid #a7f3d0', textAlign: 'center' }}>
                   <Typography variant="h6" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.2rem' }}>
                     +{tesvik.istihdam?.ilaveKisi || '30'}
-                        </Typography>
+                  </Typography>
                   <Typography variant="caption" sx={{ color: '#047857', fontSize: '0.65rem', fontWeight: 500 }}>
                     İlave Kişi
                   </Typography>
                 </Box>
-                      </Grid>
-                    </Grid>
-                  </Paper>
+              </Grid>
+            </Grid>
+          </Paper>
 
           {/* 💰 FİNANSAL BİLGİLER - KOMPAKT FORM STİLİ */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
@@ -1006,14 +1008,14 @@ const YeniTesvikDetail = () => {
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#3b82f6' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 💰 Finansal Bilgiler
-                  </Typography>
+              </Typography>
               <Chip label="Form Verileri" size="small" sx={{ ml: 'auto', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '0.6rem', height: 20 }} />
             </Box>
-            
+
             {/* Ana Toplam */}
-            <Paper sx={{ 
-              p: 2, 
-              mb: 1.5, 
+            <Paper sx={{
+              p: 2,
+              mb: 1.5,
               textAlign: 'center',
               background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
               color: 'white',
@@ -1029,7 +1031,7 @@ const YeniTesvikDetail = () => {
                 Ana yatırım tutarı • Form verisi
               </Typography>
             </Paper>
-            
+
             {/* Finansal Detay Kartları */}
             <Grid container spacing={0.5}>
               <Grid item xs={6} sm={4} md={2}>
@@ -1037,7 +1039,7 @@ const YeniTesvikDetail = () => {
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400e', mb: 0.5, fontSize: '0.6rem' }}>Arazi Arsa Bedeli</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.araciArsaBedeli || tesvik.maliHesaplamalar?.araziArsaBedeli || 0).toLocaleString('tr-TR')}</Typography>
                 </Paper>
-            </Grid>
+              </Grid>
               <Grid item xs={6} sm={4} md={2}>
                 <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dcfce7', border: '1px solid #4ade80', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', mb: 0.5, fontSize: '0.6rem' }}>Bina İnşaat Giderleri</Typography>
@@ -1077,36 +1079,32 @@ const YeniTesvikDetail = () => {
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#8b5cf6' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 📦 Ürün Bilgileri & US97 Kodları
-                  </Typography>
+              </Typography>
               {(() => {
-                const validCount = (tesvik.urunler || []).filter(u => 
-                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim())) && 
-                  ((Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0)
+                const validCount = (tesvik.urunler || []).filter(u =>
+                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim()))
                 ).length;
                 return validCount > 0 ? (
                   <Chip label={validCount > 6 ? `+${validCount - 6} ürün daha` : `${validCount} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
                 ) : null;
               })()}
             </Box>
-            
+
             {/* Kompakt Ürün Listesi - SADECE GEÇERLİ VERİSİ OLAN ÜRÜNLER */}
             {(() => {
               // Geçerli ürünleri filtrele: En az kod VEYA ad olmalı VE kapasite > 0 olmalı
               const validUrunler = (tesvik.urunler || []).filter(urun => {
                 const hasCode = !!(urun.u97Kodu || urun.us97Kodu);
                 const hasName = !!(urun.urunAdi && urun.urunAdi.trim());
-                const hasCapacity = (Number(urun.mevcutKapasite) || 0) > 0 || 
-                                   (Number(urun.ilaveKapasite) || 0) > 0 || 
-                                   (Number(urun.toplamKapasite) || 0) > 0;
-                return (hasCode || hasName) && hasCapacity;
+                return (hasCode || hasName);
               });
-              
+
               return validUrunler.length > 0 ? (
                 <Grid container spacing={0.5}>
                   {validUrunler.slice(0, 6).map((urun, index) => (
                     <Grid item xs={12} sm={6} md={4} key={index}>
-                      <Paper sx={{ 
-                        p: 1, 
+                      <Paper sx={{
+                        p: 1,
                         backgroundColor: '#fafbfc',
                         border: '1px solid #e2e8f0',
                         borderRadius: 1,
@@ -1118,23 +1116,23 @@ const YeniTesvikDetail = () => {
                             Ürün #{index + 1}
                           </Typography>
                           {(urun.u97Kodu || urun.us97Kodu) && (
-                            <Chip 
-                              label={urun.u97Kodu || urun.us97Kodu} 
-                              size="small" 
+                            <Chip
+                              label={urun.u97Kodu || urun.us97Kodu}
+                              size="small"
                               sx={{
-                                backgroundColor: '#fef7ff', 
+                                backgroundColor: '#fef7ff',
                                 color: '#8b5cf6',
                                 fontWeight: 500,
                                 fontSize: '0.6rem',
                                 height: 18
-                              }} 
+                              }}
                             />
                           )}
                         </Box>
-                        
-                        <Typography variant="body2" sx={{ 
-                          mb: 0.5, 
-                          fontWeight: 500, 
+
+                        <Typography variant="body2" sx={{
+                          mb: 0.5,
+                          fontWeight: 500,
                           fontSize: '0.75rem',
                           minHeight: 32,
                           overflow: 'hidden',
@@ -1145,7 +1143,7 @@ const YeniTesvikDetail = () => {
                         }}>
                           {urun.urunAdi || '-'}
                         </Typography>
-                        
+
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                           <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
@@ -1245,7 +1243,7 @@ const YeniTesvikDetail = () => {
                   // Multiple field name desteği - backend'den gelen farklı formatlara uyum
                   const sartMetni = sart?.koşulMetni || sart?.kisaltma || sart?.sart || sart?.metin || '-';
                   const sartAciklama = sart?.aciklamaNotu || sart?.notu || sart?.aciklama || sart?.description || '';
-                  
+
                   return (
                     <Grid item xs={12} sm={6} md={4} key={idx}>
                       <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
@@ -1281,7 +1279,7 @@ const YeniTesvikDetail = () => {
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 👨‍💼 Kullanıcı Takibi
               </Typography>
-              </Box>
+            </Box>
 
             <Grid container spacing={0.5}>
               <Grid item xs={6} sm={3}>
@@ -1301,7 +1299,7 @@ const YeniTesvikDetail = () => {
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
                     {formatDate(tesvik.createdAt) || '8 Ağustos 2025'}
                   </Typography>
-              </Box>
+                </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
                 <Box sx={{ p: 1, backgroundColor: '#fffbeb', borderRadius: 1, border: '1px solid #fed7aa', textAlign: 'center' }}>
@@ -1328,14 +1326,14 @@ const YeniTesvikDetail = () => {
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
                 📊 Belge İşlem Yönetimi
-                            </Typography>
-                            <Chip 
-                label={`Toplam ${(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} İşlem`} 
-                              size="small" 
-                sx={{ ml: 'auto', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '0.6rem', height: 20 }} 
-                            />
-                          </Box>
-                          
+              </Typography>
+              <Chip
+                label={`Toplam ${(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} İşlem`}
+                size="small"
+                sx={{ ml: 'auto', backgroundColor: '#f0fdf4', color: '#15803d', fontSize: '0.6rem', height: 20 }}
+              />
+            </Box>
+
             <Grid container spacing={0.5}>
               <Grid item xs={6} sm={4}>
                 <Button
@@ -1343,7 +1341,7 @@ const YeniTesvikDetail = () => {
                   size="small"
                   variant="outlined"
                   onClick={() => setAllActivitiesModalOpen(true)}
-                  sx={{ 
+                  sx={{
                     p: 1,
                     borderColor: '#e2e8f0',
                     color: '#475569',
@@ -1361,7 +1359,7 @@ const YeniTesvikDetail = () => {
                   variant="outlined"
                   onClick={handleExcelExport}
                   disabled={excelLoading}
-                  sx={{ 
+                  sx={{
                     p: 1,
                     borderColor: '#e2e8f0',
                     color: '#475569',
@@ -1373,10 +1371,10 @@ const YeniTesvikDetail = () => {
                 </Button>
               </Grid>
               <Grid item xs={12} sm={4}>
-                <Typography variant="caption" sx={{ 
+                <Typography variant="caption" sx={{
                   p: 1,
                   backgroundColor: '#f8fafc',
-                                borderRadius: 1,
+                  borderRadius: 1,
                   border: '1px solid #e2e8f0',
                   display: 'block',
                   textAlign: 'center',
@@ -1384,31 +1382,31 @@ const YeniTesvikDetail = () => {
                   fontSize: '0.65rem'
                 }}>
                   📅 İşlem Geçmişi: Toplam {(activities?.length || 0) + (tesvik?.revizyonlar?.length || 0)} • Güncellemeler {activities?.filter?.(a => a.action === 'update')?.length || 0} • Revizyonlar {tesvik?.revizyonlar?.length || 0}
-                                </Typography>
-                            </Grid>
-                            </Grid>
+                </Typography>
+              </Grid>
+            </Grid>
           </Paper>
         </Box>
       </Container>
 
       {/* 📱 MODALS - Detaylı Bilgi Görüntüleme */}
-      
+
       {/* Activity Detail Modal */}
-      <Dialog 
-        open={activityModalOpen} 
+      <Dialog
+        open={activityModalOpen}
         onClose={handleCloseActivityModal}
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle sx={{ 
-          backgroundColor: '#f8fafc', 
+        <DialogTitle sx={{
+          backgroundColor: '#f8fafc',
           borderBottom: '1px solid #e5e7eb',
           display: 'flex', alignItems: 'center', gap: 1
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {selectedActivity && (
               <>
-                <Avatar sx={{ 
+                <Avatar sx={{
                   backgroundColor: (selectedActivity.user?.rol || selectedActivity.user?.role) === 'admin' ? '#dc2626' : '#3b82f6',
                   width: 32,
                   height: 32,
@@ -1419,15 +1417,15 @@ const YeniTesvikDetail = () => {
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 600, color: '#1f2937' }}>
                     📋 İşlem Bilgisi
-                                </Typography>
+                  </Typography>
                   <Typography variant="caption" color="text.secondary">
                     {(selectedActivity.user?.adSoyad || selectedActivity.user?.name || 'Sistem')} - {selectedActivity.action}
-                                </Typography>
-                              </Box>
+                  </Typography>
+                </Box>
               </>
             )}
           </Box>
-          <IconButton 
+          <IconButton
             onClick={handleCloseActivityModal}
             size="small"
             sx={{ ml: 'auto' }}
@@ -1435,7 +1433,7 @@ const YeniTesvikDetail = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        
+
         <DialogContent sx={{ p: 2 }}>
           {selectedActivity ? (
             <Box>
@@ -1469,27 +1467,27 @@ const YeniTesvikDetail = () => {
                     const oldVal = formatChangeValue(oldValRaw);
                     const newVal = formatChangeValue(newValRaw);
                     return (
-                    <Paper key={index} elevation={0} sx={{ 
-                      p: 2, 
-                      mb: 1.25, 
-                      background: 'linear-gradient(180deg,#ffffff, #f9fafb)',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: 2
-                    }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Chip size="small" label="Alan" color="secondary" variant="outlined" />
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                          {label}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ pl: 2 }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
-                          <strong>Önceki Değer:</strong> {oldVal}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
-                          <strong>Yeni Değer:</strong> {newVal}
-                        </Typography>
-                      </Box>
+                      <Paper key={index} elevation={0} sx={{
+                        p: 2,
+                        mb: 1.25,
+                        background: 'linear-gradient(180deg,#ffffff, #f9fafb)',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 2
+                      }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                          <Chip size="small" label="Alan" color="secondary" variant="outlined" />
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                            {label}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ pl: 2 }}>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
+                            <strong>Önceki Değer:</strong> {oldVal}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace' }}>
+                            <strong>Yeni Değer:</strong> {newVal}
+                          </Typography>
+                        </Box>
                       </Paper>
                     );
                   })}
@@ -1502,15 +1500,15 @@ const YeniTesvikDetail = () => {
             <Typography variant="body1">İşlem bilgisi yükleniyor...</Typography>
           )}
         </DialogContent>
-        
+
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={handleCloseActivityModal}>Kapat</Button>
         </DialogActions>
       </Dialog>
 
       {/* All Activities Modal */}
-      <Dialog 
-        open={allActivitiesModalOpen} 
+      <Dialog
+        open={allActivitiesModalOpen}
         onClose={handleCloseAllActivitiesModal}
         maxWidth="xl"
         fullWidth
@@ -1525,14 +1523,14 @@ const YeniTesvikDetail = () => {
           {/* Filtre Barı */}
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.5, alignItems: 'center' }}>
             <TextField
-              size="small" 
+              size="small"
               placeholder="Ara (işlem, kullanıcı, açıklama)"
               value={activityFilters.search}
               onChange={(e) => setActivityFilters({ ...activityFilters, search: e.target.value })}
               sx={{ minWidth: 240 }}
             />
             <TextField
-              size="small" 
+              size="small"
               type="date"
               label="Başlangıç"
               InputLabelProps={{ shrink: true }}
@@ -1540,7 +1538,7 @@ const YeniTesvikDetail = () => {
               onChange={(e) => setActivityFilters({ ...activityFilters, startDate: e.target.value })}
             />
             <TextField
-              size="small" 
+              size="small"
               type="date"
               label="Bitiş"
               InputLabelProps={{ shrink: true }}
@@ -1556,7 +1554,7 @@ const YeniTesvikDetail = () => {
               label="Revizyonları dahil et"
             />
             <TextField
-              size="small" 
+              size="small"
               type="number"
               label="Limit"
               InputLabelProps={{ shrink: true }}
@@ -1567,7 +1565,7 @@ const YeniTesvikDetail = () => {
           </Stack>
 
           <Divider sx={{ mb: 1.5 }} />
-          
+
           {getFilteredActivities().length > 0 ? (
             <Stack spacing={1}>
               {getFilteredActivities().map((activity, index) => (
@@ -1575,10 +1573,10 @@ const YeniTesvikDetail = () => {
                   p: 1.25,
                   border: '1px solid #e5e7eb',
                   display: 'flex', alignItems: 'center', gap: 1,
-                    cursor: 'pointer',
+                  cursor: 'pointer',
                   '&:hover': { backgroundColor: '#f9fafb' }
                 }}
-                onClick={() => { setSelectedActivity(activity); setActivityModalOpen(true); }}
+                  onClick={() => { setSelectedActivity(activity); setActivityModalOpen(true); }}
                 >
                   <Chip
                     size="small"
@@ -1589,20 +1587,20 @@ const YeniTesvikDetail = () => {
                       backgroundColor: activity.action === 'update' ? '#ecfccb' : activity.action === 'create' ? '#dbeafe' : activity.action === 'revizyon' ? '#fff7ed' : '#f1f5f9'
                     }}
                   />
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {typeof activity.title === 'object' ? JSON.stringify(activity.title) : (activity.title || '')}
                     {typeof activity.description === 'object' ? ` ${JSON.stringify(activity.description)}` : (activity.description ? ` ${activity.description}` : (!activity.title ? activity.action : ''))}
-                        </Typography>
+                  </Typography>
                   <Typography variant="caption" sx={{ color: '#64748b', ml: 'auto' }}>
                     {formatDateTime(activity.createdAt)} • {activity.user?.adSoyad || 'Sistem'}
-                        </Typography>
+                  </Typography>
                 </Paper>
               ))}
             </Stack>
           ) : (
-              <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" color="text.secondary">
               Kayıt bulunamadı. Filtreleri genişletmeyi deneyin.
-              </Typography>
+            </Typography>
           )}
         </DialogContent>
         <DialogActions>
@@ -1611,19 +1609,19 @@ const YeniTesvikDetail = () => {
       </Dialog>
 
       {/* Revizyon Modal */}
-      <Dialog 
-        open={revizyonModalOpen} 
+      <Dialog
+        open={revizyonModalOpen}
         onClose={() => setRevizyonModalOpen(false)}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle sx={{ 
-          backgroundColor: '#f8fafc', 
+        <DialogTitle sx={{
+          backgroundColor: '#f8fafc',
           borderBottom: '1px solid #e5e7eb'
         }}>
           📝 Revizyon Sebebi
         </DialogTitle>
-        
+
         <DialogContent sx={{ p: 2 }}>
           <Grid container spacing={1.5}>
             <Grid item xs={12}>
@@ -1631,13 +1629,13 @@ const YeniTesvikDetail = () => {
                 Bu revizyon teşvik belgesinin geçmişine kaydedilecek.
               </Alert>
             </Grid>
-            
+
             <Grid item xs={12}>
               <FormControl fullWidth required>
                 <InputLabel>Revizyon Sebebi</InputLabel>
                 <Select
                   value={revizyonForm.revizyonSebebi}
-                  onChange={(e) => setRevizyonForm({...revizyonForm, revizyonSebebi: e.target.value})}
+                  onChange={(e) => setRevizyonForm({ ...revizyonForm, revizyonSebebi: e.target.value })}
                   label="Revizyon Sebebi"
                 >
                   <MenuItem value="Talep Revize">📋 Talep Revize</MenuItem>
@@ -1653,7 +1651,7 @@ const YeniTesvikDetail = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1667,10 +1665,10 @@ const YeniTesvikDetail = () => {
             </Grid>
           </Grid>
         </DialogContent>
-        
+
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setRevizyonModalOpen(false)}>İptal</Button>
-          <Button 
+          <Button
             onClick={handleRevizyonEkle}
             variant="contained"
             disabled={!revizyonForm.revizyonSebebi || savingRevision}
