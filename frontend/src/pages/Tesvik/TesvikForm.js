@@ -87,44 +87,54 @@ const TesvikForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  
+
   // 🔢 NUMBER FORMATTING UTILITIES
   const formatNumber = (value) => {
     // Boş, null, undefined ise boş string döndür
     if (value === null || value === undefined || value === '') return '';
-    
+
     // 0 değeri için özel kontrol - 0 geçerli bir sayıdır!
     if (value === 0 || value === '0') return '0';
-    
+
     // Sadece sayıları al (nokta ve virgülleri temizle)
     const numericValue = value.toString().replace(/[^\d]/g, '');
     if (numericValue === '') return '';
-    
+
     // Sayıyı formatla (3'lü gruplar halinde nokta koy)
     return parseInt(numericValue).toLocaleString('tr-TR');
   };
-  
+
   const parseNumber = (formattedValue) => {
     if (!formattedValue || formattedValue === '') return '';
     // Formatlanmış değerden sadece sayıları al
     return formattedValue.toString().replace(/[^\d]/g, '');
   };
-  
+
+  // 🔧 FIX: Güvenli parseInt - Türkçe formatlı sayıları ("1.088.000") doğru parse eder
+  // parseInt("1.088.000") → 1 (YANLIŞ!), safeParseInt("1.088.000") → 1088000 (DOĞRU)
+  const safeParseInt = (value) => {
+    if (value === null || value === undefined || value === '') return 0;
+    // Önce string'e çevir, sonra tüm nokta/virgül/boşluk ayırıcıları temizle
+    const cleaned = value.toString().replace(/[^\d]/g, '');
+    const parsed = parseInt(cleaned, 10);
+    return isNaN(parsed) ? 0 : parsed;
+  };
+
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
     const numericValue = parseNumber(rawValue);
-    
+
     // FormData'yı güncelle - raw değeri kaydet
     const keys = fieldPath.split('.');
     let newData = { ...formData };
     let current = newData;
-    
+
     for (let i = 0; i < keys.length - 1; i++) {
       if (!current[keys[i]]) current[keys[i]] = {};
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = numericValue;
-    
+
     // Özel durum: US97 kapasite alanları için toplam hesaplama
     if (fieldPath.includes('urunBilgileri') && (fieldPath.includes('mevcut') || fieldPath.includes('ilave'))) {
       const index = parseInt(keys[1]);
@@ -135,7 +145,7 @@ const TesvikForm = () => {
         urun.toplam = mevcut + ilave;
       }
     }
-    
+
     setFormData(newData);
   };
 
@@ -196,7 +206,7 @@ const TesvikForm = () => {
     makineListeleriDirtyRef.current = true;
     setFormData(prev => {
       const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
-      const arr = [ ...mevcut ];
+      const arr = [...mevcut];
       arr.splice(index, 1);
       return { ...prev, makineListeleri: { ...(prev.makineListeleri || {}), [tip]: arr } };
     });
@@ -206,7 +216,7 @@ const TesvikForm = () => {
     makineListeleriDirtyRef.current = true;
     setFormData(prev => {
       const mevcut = (prev.makineListeleri && prev.makineListeleri[tip]) || [];
-      const arr = [ ...mevcut ];
+      const arr = [...mevcut];
       const row = { ...(arr[index] || (tip === 'ithal' ? emptyMakineIthal() : emptyMakineYerli())) };
       row[field] = value;
       const miktar = parseInt((row.miktar || '').toString().replace(/[^\d]/g, '')) || 0;
@@ -447,7 +457,7 @@ const TesvikForm = () => {
       <Alert severity="info" sx={{ mt: 2 }}>Bu alan isteğe bağlıdır. GTIP kodu girerek açıklamayı otomatik çekebilirsiniz.</Alert>
     </Box>
   );
-  
+
   // 📊 State Management
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -455,14 +465,14 @@ const TesvikForm = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
-  
+
   // 🔢 Dinamik Alan Sayıları
   const [cinsSayisi, setCinsSayisi] = useState(1); // J-CNS alanları (max 4)
   const [adresSayisi, setAdresSayisi] = useState(1); // Yatırım Adresi alanları (max 3)
   const [urunSayisi, setUrunSayisi] = useState(1); // Ürün bilgileri satır sayısı (max 10)
   const [destekSayisi, setDestekSayisi] = useState(1); // Destek unsurları satır sayısı (max 8)
   const [ozelSartSayisi, setOzelSartSayisi] = useState(1); // Özel şartlar satır sayısı (limit kaldırıldı)
-  
+
   // 🆕 YENİ SEÇENEK EKLEME MODAL STATE'LERİ
   const [addOptionModal, setAddOptionModal] = useState({
     open: false,
@@ -475,19 +485,19 @@ const TesvikForm = () => {
     newEkBilgi: {},
     adding: false
   });
-  
+
   // 📋 Form Data - Excel Yapısına Uygun
   const [formData, setFormData] = useState({
     // 🆔 Otomatik ID'ler
     gmId: '', // Otomatik atanacak
     tesvikId: '', // Otomatik atanacak
-    
+
     // 🏢 Temel Bilgiler
     firma: '',
     yatirimciUnvan: '',
-    
+
     // 📊 Yatırım Bilgileri tanımları aşağıda (duplicate kaldırıldı)
-    
+
     // 📄 Belge Bilgileri
     belgeYonetimi: {
       belgeId: '',
@@ -505,7 +515,7 @@ const TesvikForm = () => {
       oncelikliYatirim: '', // 🏆 Öncelikli Yatırım (Evet/Hayır)
       oncelikliYatirimTuru: '' // 🏆 Öncelikli Yatırım Türü (dropdown)
     },
-    
+
     // 📝 Künye Bilgileri - Excel Formatına Uygun
     kunyeBilgileri: {
       talepSonuc: '',
@@ -525,14 +535,14 @@ const TesvikForm = () => {
       tesvikMiktari: 0,
       tesvikOrani: 0
     },
-    
+
     // 👥 İstihdam Bilgileri - Boş başlangıç değerleri
     istihdam: {
       mevcutKisi: '',
       ilaveKisi: '',
       toplamKisi: ''
     },
-    
+
     // 💰 Yatırım İle İlgili Bilgiler - Bölüm 1
     yatirimBilgileri1: {
       yatirimKonusu: '',
@@ -554,7 +564,7 @@ const TesvikForm = () => {
       vergiIndirimsizDestekTalebi: '', // 🆕 Form field alias
       oecdKategori: '' // 🆕 OECD Kategori
     },
-    
+
     // 💰 Yatırım İle İlgili Bilgiler - Bölüm 2  
     yatirimBilgileri2: {
       yerinIl: '',
@@ -569,27 +579,27 @@ const TesvikForm = () => {
       ossBelgeMudavimi: '',
       serbsetBolge: '' // 🆕 Excel'den eklendi
     },
-    
+
     // 📦 Ürün Bilgileri (U$97 Kodları) - Dinamik, başlangıçta 1 satır
     urunBilgileri: [
       { kod: '', aciklama: '', mevcut: '', ilave: '', toplam: '', kapsite: '', kapasite_birimi: '' }
     ],
-    
+
     // 🎯 Destek Unsurları - Dinamik, başlangıçta 1 satır
     destekUnsurlari: [
       { index: 1, destekUnsuru: '', sartlari: '' }
     ],
-    
+
     // 🏷️ Özel Şartlar - Dinamik, başlangıçta 1 satır (max 7)
     ozelSartlar: [
       { index: 1, kisaltma: '', notu: '' }
     ],
-    
+
     // 💰 FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Yapı
     finansalBilgiler: {
       // 1. TOPLAM SABİT YATIRIM TUTARI TL
       toplamSabitYatirimTutari: '',
-      
+
       // 2. ARAZI ARSA BEDELİ
       araziArsaBedeli: {
         aciklama: '',
@@ -597,7 +607,7 @@ const TesvikForm = () => {
         birimFiyatiTl: '',
         araziArsaBedeli: ''
       },
-      
+
       // 3. FİNANSMAN TL
       finansman: {
         yabanciKaynaklar: {
@@ -614,7 +624,7 @@ const TesvikForm = () => {
         },
         toplamFinansman: ''
       },
-      
+
       // 4. BİNA İNŞAAT GİDERLERİ TL
       binaInsaatGiderleri: {
         aciklama: '',
@@ -623,7 +633,7 @@ const TesvikForm = () => {
         yeraltiAnaGalerileri: '',
         toplamBinaInsaatGideri: ''
       },
-      
+
       // 5. MAKİNE TEÇHİZAT GİDERLERİ
       makineTeçhizatGiderleri: {
         // TL Cinsinden
@@ -640,7 +650,7 @@ const TesvikForm = () => {
           toplamIthalMakine: ''  // TOPLAM İTHAL MAKİNE ($)
         }
       },
-      
+
       // 6. DİĞER YATIRIM HARCAMALARI TL
       digerYatirimHarcamalari: {
         yardimciIslMakTeçGid: '',        // Yardımcı İşl. Mak. Teç. Gid.
@@ -652,7 +662,7 @@ const TesvikForm = () => {
         toplamDigerYatirimHarcamalari: '' // TOPLAM DİĞER YATIRIM HARCAMALARI
       }
     },
-    
+
     // 📅 Durum Bilgileri
     durumBilgileri: {
       genelDurum: 'taslak',
@@ -741,7 +751,7 @@ const TesvikForm = () => {
     try {
       setLoading(true);
       // console.log('🔥 Loading template data from new API...');
-      
+
       // API endpoint'i kullan - tüm veriler tek çağrıda!
       const response = await axios.get('/tesvik/templates');
 
@@ -757,7 +767,7 @@ const TesvikForm = () => {
           destekUnsurlariOptions: data.destekUnsurlariOptions?.map(d => d.value),
           destekSartlariOptions: data.destekSartlariOptions?.map(d => d.value)
         });
-        
+
         setTemplateData({
           firmalar: data.firmalar || [],
           durumlar: data.durumlar || [],
@@ -778,11 +788,11 @@ const TesvikForm = () => {
           nextGmId: data.nextGmId || '',
           nextTesvikId: data.nextTesvikId || ''
         });
-        
+
         // 🎯 GM ID'yi otomatik ata (edit değilse)
         if (!isEdit && data.nextGmId) {
           setFormData(prev => ({
-          ...prev,
+            ...prev,
             gmId: data.nextGmId,
             tesvikId: data.nextTesvikId || '',
             // 🔧 Default değerler ekle - Controlled input'lar için
@@ -834,7 +844,7 @@ const TesvikForm = () => {
   const cleanProblematicValue = (value) => {
     if (!value) return '';
     if (typeof value !== 'string') return value;
-    
+
     // Problematik değerler listesi
     const problematicValues = [
       '2012/3305',
@@ -849,14 +859,14 @@ const TesvikForm = () => {
       'BEYANNAMELI',
       'YANLIŞ'
     ];
-    
+
     // Trim edilmiş değeri kontrol et
     const trimmedValue = value.trim();
-    
+
     if (problematicValues.includes(trimmedValue)) {
       return '';
     }
-    
+
     return trimmedValue;
   };
 
@@ -864,18 +874,18 @@ const TesvikForm = () => {
     try {
       setLoading(true);
       const response = await axios.get(`/tesvik/${id}`);
-      
+
       if (response.data.success) {
         const backendData = response.data.data;
-        
+
         // 🔄 Backend data'sını frontend formatına çevir
         const mappedData = {
           ...backendData,
-          
+
           // 🏢 Firma - Backend'den populate edilmiş obje geliyor, ID'yi çıkar
           firma: typeof backendData.firma === 'object' ? backendData.firma?._id : (backendData.firma || ''),
           yatirimciUnvan: backendData.yatirimciUnvan || backendData.firma?.tamUnvan || '',
-          
+
           // 📄 Belge Yönetimi - Date formatlarını düzelt
           belgeYonetimi: {
             belgeId: backendData.belgeYonetimi?.belgeId || '',
@@ -895,18 +905,18 @@ const TesvikForm = () => {
             oncelikliYatirim: backendData.belgeYonetimi?.oncelikliYatirim || '', // 🏆 Öncelikli Yatırım
             oncelikliYatirimTuru: backendData.belgeYonetimi?.oncelikliYatirimTuru || '' // 🏆 Öncelikli Yatırım Türü
           },
-          
+
           // Backend'deki maliHesaplamalar → Frontend'deki finansalBilgiler
           finansalBilgiler: {
             toplamSabitYatirimTutari: backendData.maliHesaplamalar?.toplamSabitYatirim || 0,
-            
+
             araziArsaBedeli: {
               aciklama: backendData.maliHesaplamalar?.araziArsaBedeli?.aciklama || backendData.maliHesaplamalar?.maliyetlenen?.aciklama || '',
               metrekaresi: backendData.maliHesaplamalar?.maliyetlenen?.sl || 0,
               birimFiyatiTl: backendData.maliHesaplamalar?.maliyetlenen?.sm || 0,
               araziArsaBedeli: backendData.maliHesaplamalar?.araciArsaBedeli || backendData.maliHesaplamalar?.maliyetlenen?.sn || 0
             },
-            
+
             finansman: {
               yabanciKaynaklar: {
                 bankKredisi: backendData.maliHesaplamalar?.finansman?.yabanciKaynak || 0,
@@ -921,7 +931,7 @@ const TesvikForm = () => {
               },
               toplamFinansman: backendData.maliHesaplamalar?.finansman?.toplamFinansman || 0
             },
-            
+
             binaInsaatGiderleri: {
               aciklama: backendData.maliHesaplamalar?.binaInsaatGideri?.aciklama || '',
               anaBinaVeTesisleri: backendData.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0,
@@ -929,7 +939,7 @@ const TesvikForm = () => {
               yeraltiAnaGalerileri: 0,
               toplamBinaInsaatGideri: backendData.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0
             },
-            
+
             makineTeçhizatGiderleri: {
               tl: {
                 ithal: backendData.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0,
@@ -942,7 +952,7 @@ const TesvikForm = () => {
                 toplamIthalMakine: backendData.maliHesaplamalar?.makinaTechizat?.toplamYeniMakina || 0
               }
             },
-            
+
             digerYatirimHarcamalari: {
               yardimciIslMakTeçGid: backendData.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0,
               ithalatVeGumGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0,
@@ -953,7 +963,7 @@ const TesvikForm = () => {
               toplamDigerYatirimHarcamalari: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0
             }
           },
-          
+
           // Yatırım bilgilerini böl (backend'deki yatirimBilgileri → frontend'deki 2 bölüm)
           yatirimBilgileri1: {
             yatirimKonusu: backendData.yatirimBilgileri?.yatirimKonusu || '',
@@ -973,7 +983,7 @@ const TesvikForm = () => {
             cins4: cleanProblematicValue(backendData.yatirimBilgileri?.vCinsi4),
             destekSinifi: cleanProblematicValue(backendData.yatirimBilgileri?.destekSinifi)
           },
-          
+
           yatirimBilgileri2: {
             yerinIl: backendData.yatirimBilgileri?.yerinIl || '',
             yerinIlce: backendData.yatirimBilgileri?.yerinIlce || '',
@@ -987,7 +997,7 @@ const TesvikForm = () => {
             ilceBazliBolge: backendData.yatirimBilgileri?.ilceBazliBolge || '',
             serbsetBolge: backendData.yatirimBilgileri?.serbsetBolge || ''
           },
-          
+
           // 🛠️ Makine Listeleri (backend → frontend mapping)
           // 🔧 FIX: Tüm alanları spread ile koru, yalnızca görüntüleme formatlarını dönüştür
           makineListeleri: {
@@ -1047,7 +1057,7 @@ const TesvikForm = () => {
               kurManuelDeger: r.kurManuelDeger || 0
             }))
           },
-          
+
           // Ürün bilgilerini çevir
           urunBilgileri: backendData.urunler?.map(urun => ({
             kod: urun.u97Kodu || '',
@@ -1057,7 +1067,7 @@ const TesvikForm = () => {
             toplam: urun.toplamKapasite || 0,
             kapasite_birimi: urun.kapasiteBirimi || ''
           })) || [],
-          
+
           // 📝 Künye Bilgileri - Backend'den mapping (Excel formatına uygun)
           kunyeBilgileri: {
             // 🔧 Tüm problematik değerleri temizle
@@ -1079,7 +1089,7 @@ const TesvikForm = () => {
             tesvikMiktari: backendData.kunyeBilgileri?.tesvikMiktari || 0,
             tesvikOrani: backendData.kunyeBilgileri?.tesvikOrani || 0
           },
-          
+
           // 🎯 Destek Unsurları - Backend formatından frontend formatına çevir
           destekUnsurlari: backendData.destekUnsurlari?.map(destek => ({
             index: destek._id || Math.random().toString(36).substr(2, 9),
@@ -1088,7 +1098,7 @@ const TesvikForm = () => {
             sartlari: cleanProblematicValue(destek.sarti),
             aciklama: destek.aciklama || ''
           })) || [],
-          
+
           // ⚖️ Özel Şartlar - Backend formatından frontend formatına çevir 
           ozelSartlar: backendData.ozelSartlar?.map(sart => ({
             index: sart.koşulNo || Math.random().toString(36).substr(2, 9),
@@ -1098,10 +1108,10 @@ const TesvikForm = () => {
             notu: cleanProblematicValue(sart.aciklamaNotu) || ''
           })) || []
         };
-        
+
         console.log('🔄 Backend data mapped to frontend format:', mappedData);
         setFormData(mappedData);
-        
+
         // 🔢 Dinamik alan sayılarını hesapla
         // J-CNS alanları sayısını hesapla
         let cinsCount = 1;
@@ -1111,7 +1121,7 @@ const TesvikForm = () => {
           }
         }
         setCinsSayisi(cinsCount);
-        
+
         // Yatırım adresi alanları sayısını hesapla
         let adresCount = 1;
         for (let i = 2; i <= 3; i++) {
@@ -1120,12 +1130,12 @@ const TesvikForm = () => {
           }
         }
         setAdresSayisi(adresCount);
-        
+
         // 🔧 FIX: Ürün bilgileri satır sayısını yüklenen ürün sayısına göre ayarla
         // Önceden 1'e sabitleniyordu, bu yüzden #1 hariç ürünler görünmüyordu
         const urunCount = Math.max(1, mappedData.urunBilgileri?.length || 1);
         setUrunSayisi(Math.min(10, urunCount));
-        
+
         // Destek unsurları satır sayısını hesapla
         const destekCount = Math.max(1, mappedData.destekUnsurlari?.length || 1);
         setDestekSayisi(destekCount);
@@ -1192,13 +1202,13 @@ const TesvikForm = () => {
       if (response.data.success) {
         // Başarı mesajı
         setSuccess(`Yeni ${addOptionModal.title} başarıyla eklendi!`);
-        
+
         // Template'i yeniden yükle
         await loadInitialData();
-        
+
         // Formdaki değeri yeni eklenen seçenekle güncelle (otomatik seç)
         const newValue = response.data.data.value;
-        
+
         // Type'a göre hangi form field'ini güncelleyeceğimizi belirle
         if (addOptionModal.type === 'yatirimTipleri') {
           // Hangi cins dropdown'ı açıksa ona ayarla (şimdilik cins1)
@@ -1241,14 +1251,14 @@ const TesvikForm = () => {
     setFormData(prev => {
       const newData = { ...prev };
       let current = newData;
-      
+
       for (let i = 0; i < pathArray.length - 1; i++) {
         current[pathArray[i]] = { ...current[pathArray[i]] };
         current = current[pathArray[i]];
       }
-      
+
       current[pathArray[pathArray.length - 1]] = value;
-      
+
       // Otomatik hesaplamalar
       if (path.includes('maliHesaplamalar')) {
         calculateMali(newData);
@@ -1265,7 +1275,7 @@ const TesvikForm = () => {
         // calculateFinansalTotals zaten useEffect'te formData değişikliklerini dinliyor
         // Burada ayrıca çağırmaya gerek yok - state güncellemesi yeterli
       }
-      
+
       return newData;
     });
   };
@@ -1391,15 +1401,15 @@ const TesvikForm = () => {
   const handleUrunChange = (index, field, value) => {
     setFormData(prev => {
       const newData = { ...prev };
-      
+
       // 🎯 SAYı ALANLARI İÇİN ÖZEL İŞLEM
       if (['mevcut', 'ilave', 'toplam', 'kapsite'].includes(field)) {
         // String'i temizle ve sayıya çevir
         const cleanValue = String(value).replace(/[^\d.-]/g, ''); // Sadece rakam, nokta, tire
         const numericValue = cleanValue === '' ? '' : Number(cleanValue);
-        
-      newData.urunBilgileri[index] = {
-        ...newData.urunBilgileri[index],
+
+        newData.urunBilgileri[index] = {
+          ...newData.urunBilgileri[index],
           [field]: numericValue
         };
       } else {
@@ -1408,30 +1418,30 @@ const TesvikForm = () => {
           [field]: value
         };
       }
-      
+
       // 🧮 TOPLAM HESAPLA - BÜYÜK SAYI SAFE
       const urun = newData.urunBilgileri[index];
       if (urun.mevcut !== undefined || urun.ilave !== undefined) {
         const mevcut = Number(urun.mevcut) || 0;
         const ilave = Number(urun.ilave) || 0;
-        
+
         // Precision güvenliği için
         const toplam = Math.round((mevcut + ilave) * 100) / 100;
         urun.toplam = toplam;
-        
+
         // 📊 Debug için console log (production'da kaldırılabilir)
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔢 Büyük sayı hesaplama:', { 
-            mevcut: mevcut.toLocaleString('tr-TR'), 
-            ilave: ilave.toLocaleString('tr-TR'), 
+          console.log('🔢 Büyük sayı hesaplama:', {
+            mevcut: mevcut.toLocaleString('tr-TR'),
+            ilave: ilave.toLocaleString('tr-TR'),
             toplam: toplam.toLocaleString('tr-TR'),
-            field, 
+            field,
             originalValue: value,
             parsedValue: typeof value === 'string' ? value.replace(/[^\d.-]/g, '') : value
           });
         }
       }
-      
+
       return newData;
     });
   };
@@ -1502,11 +1512,11 @@ const TesvikForm = () => {
         urun.kapsite,
         urun.kapasite_birimi
       ]);
-    
+
     const csvContent = [headers, ...rows]
       .map(row => row.join('\t'))
       .join('\n');
-    
+
     navigator.clipboard.writeText(csvContent).then(() => {
       setSuccess('Tablo verileri panoya kopyalandı! Excel\'e yapıştırabilirsiniz.');
     }).catch(() => {
@@ -1520,7 +1530,7 @@ const TesvikForm = () => {
     try {
       // Clipboard'dan veri oku
       const clipboardText = await navigator.clipboard.readText();
-      
+
       if (!clipboardText || !clipboardText.trim()) {
         setError('Panoda tarih verisi bulunamadı!');
         return;
@@ -1528,7 +1538,7 @@ const TesvikForm = () => {
 
       // Tarih formatlarını parse et
       const dateValue = parseClipboardDate(clipboardText.trim());
-      
+
       if (dateValue) {
         // Form alanını güncelle
         handleFieldChange(fieldPath, dateValue);
@@ -1548,35 +1558,35 @@ const TesvikForm = () => {
     if (!dateString || typeof dateString !== 'string') {
       return null;
     }
-    
+
     // Boşlukları, tab ve satır sonlarını temizle, ayrıca Excel'den gelebilecek özel karakterleri de
     let cleaned = dateString.trim().replace(/[\s\n\r\t\u00A0\u2000-\u200F\u2028-\u202F]/g, '');
-    
+
     // Boş string kontrolü
     if (!cleaned) {
       return null;
     }
-    
+
     // Farklı tarih formatları - daha esnek regex'ler
     const formats = [
       // DD/MM/YYYY veya DD.MM.YYYY (Türk formatı)
       {
-                  regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{4})$/,
+        regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{4})$/,
         type: 'DD_MM_YYYY'
       },
       // DD/MM/YY veya DD.MM.YY (Kısa yıl)
       {
-                  regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{2})$/,
+        regex: /^(\d{1,2})[/.,-](\d{1,2})[/.,-](\d{2})$/,
         type: 'DD_MM_YY'
       },
       // YYYY-MM-DD (ISO formatı)
       {
-                  regex: /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/,
+        regex: /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/,
         type: 'YYYY_MM_DD'
       },
       // YYYY/MM/DD veya YYYY.MM.DD
       {
-                  regex: /^(\d{4})[/.,-](\d{1,2})[/.,-](\d{1,2})$/,
+        regex: /^(\d{4})[/.,-](\d{1,2})[/.,-](\d{1,2})$/,
         type: 'YYYY_MM_DD_ALT'
       },
       // MM/DD/YYYY (Amerikan formatı)
@@ -1601,7 +1611,7 @@ const TesvikForm = () => {
       const match = cleaned.match(format.regex);
       if (match) {
         let day, month, year;
-        
+
         try {
           switch (format.type) {
             case 'DD_MM_YYYY':
@@ -1611,7 +1621,7 @@ const TesvikForm = () => {
               month = parseInt(match[2]);
               year = parseInt(match[3]);
               break;
-              
+
             case 'DD_MM_YY':
               day = parseInt(match[1]);
               month = parseInt(match[2]);
@@ -1619,29 +1629,29 @@ const TesvikForm = () => {
               // 2000 sonrası için 00-30, 1900'ler için 31-99
               year = yy <= 30 ? 2000 + yy : 1900 + yy;
               break;
-              
+
             case 'YYYY_MM_DD':
             case 'YYYY_MM_DD_ALT':
               year = parseInt(match[1]);
               month = parseInt(match[2]);
               day = parseInt(match[3]);
               break;
-              
+
             case 'MM_DD_YYYY':
               month = parseInt(match[1]);
               day = parseInt(match[2]);
               year = parseInt(match[3]);
               break;
-              
+
             default:
               continue;
           }
-          
+
           // Tarih değerlerini doğrula
           if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
             continue;
           }
-          
+
           // JavaScript Date objesi ile doğrula
           const date = new Date(year, month - 1, day);
           if (date.getFullYear() === year && date.getMonth() === (month - 1) && date.getDate() === day) {
@@ -1650,14 +1660,14 @@ const TesvikForm = () => {
             const formattedDay = day.toString().padStart(2, '0');
             return `${year}-${formattedMonth}-${formattedDay}`;
           }
-          
+
         } catch (error) {
           // Bu format çalışmadı, bir sonrakini dene
           continue;
         }
       }
     }
-    
+
     return null; // Hiçbir format çalışmazsa
   };
 
@@ -1665,26 +1675,26 @@ const TesvikForm = () => {
   const handleDestekChange = async (index, field, value) => {
     setFormData(prev => {
       const newData = { ...prev };
-      
+
       // 🔧 Dinamik güvenlik kontrolü
       if (!newData.destekUnsurlari || !Array.isArray(newData.destekUnsurlari)) {
         newData.destekUnsurlari = [{ index: 1, destekUnsuru: '', sartlari: '' }];
       }
-      
+
       // Belirli index için kontrol - dinamik olarak genişlet
       while (newData.destekUnsurlari.length <= index) {
-        newData.destekUnsurlari.push({ 
-          index: newData.destekUnsurlari.length + 1, 
-          destekUnsuru: '', 
-          sartlari: '' 
+        newData.destekUnsurlari.push({
+          index: newData.destekUnsurlari.length + 1,
+          destekUnsuru: '',
+          sartlari: ''
         });
       }
-      
+
       // Güvenli atama
       if (newData.destekUnsurlari[index] && typeof newData.destekUnsurlari[index] === 'object') {
         newData.destekUnsurlari[index][field] = value;
       }
-      
+
       return newData;
     });
 
@@ -1693,18 +1703,18 @@ const TesvikForm = () => {
       try {
         console.log(`🎯 ${value} için otomatik şartlar getiriliyor...`);
         const sartlar = await destekSartService.getShartlarByDestekTuru(value.trim());
-        
+
         if (sartlar && sartlar.length > 0) {
           console.log(`✅ ${sartlar.length} şart bulundu:`, sartlar);
-          
+
           // İlk şartı otomatik doldur - async state update için setTimeout
           const ilkSart = sartlar[0];
-          
+
           // State güncelleme işlemini biraz geciktir ki diğer field güncellemesi tamamlansın
           setTimeout(() => {
             setFormData(prev => {
               const newData = { ...prev };
-              
+
               // Güvenli kontrol ve atama
               if (newData.destekUnsurlari && Array.isArray(newData.destekUnsurlari) && newData.destekUnsurlari[index]) {
                 newData.destekUnsurlari[index].sartlari = ilkSart;
@@ -1712,19 +1722,19 @@ const TesvikForm = () => {
               } else {
                 console.warn(`⚠️ Index ${index} bulunamadı:`, newData.destekUnsurlari);
               }
-              
+
               return newData;
             });
           }, 150); // 150ms gecikme
-          
+
           // Şart seçeneklerini template data'ya ekle
           if (sartlar.length > 0) {
             setTemplateData(prev => ({
               ...prev,
               destekSartlariOptions: [
                 ...(prev.destekSartlariOptions || []),
-                ...sartlar.filter(sart => 
-                  !prev.destekSartlariOptions?.some(option => 
+                ...sartlar.filter(sart =>
+                  !prev.destekSartlariOptions?.some(option =>
                     (typeof option === 'string' ? option : option.value || option.label) === sart
                   )
                 )
@@ -1732,7 +1742,7 @@ const TesvikForm = () => {
             }));
             console.log(`📋 ${sartlar.length} şart seçeneklere eklendi`);
           }
-          
+
         } else {
           console.log(`⚠️ ${value} için eşleştirme bulunamadı - kullanıcı manuel girebilir`);
         }
@@ -1747,26 +1757,26 @@ const TesvikForm = () => {
   const handleOzelSartChange = (index, field, value) => {
     setFormData(prev => {
       const newData = { ...prev };
-      
+
       // 🔧 Dinamik güvenlik kontrolü
       if (!newData.ozelSartlar || !Array.isArray(newData.ozelSartlar)) {
         newData.ozelSartlar = [{ index: 1, kisaltma: '', notu: '' }];
       }
-      
+
       // Belirli index için kontrol - dinamik olarak genişlet
       while (newData.ozelSartlar.length <= index) {
-        newData.ozelSartlar.push({ 
-          index: newData.ozelSartlar.length + 1, 
-          kisaltma: '', 
-          notu: '' 
+        newData.ozelSartlar.push({
+          index: newData.ozelSartlar.length + 1,
+          kisaltma: '',
+          notu: ''
         });
       }
-      
+
       // Güvenli atama
       if (newData.ozelSartlar[index] && typeof newData.ozelSartlar[index] === 'object') {
         newData.ozelSartlar[index][field] = value;
       }
-      
+
       return newData;
     });
   };
@@ -1776,7 +1786,7 @@ const TesvikForm = () => {
   // Yeni Destek Unsuru Ekleme
   const addNewDestekUnsuru = async (value) => {
     if (!value || value.length < 3) return; // En az 3 karakter
-    
+
     try {
       const response = await axios.post('/tesvik/dynamic/destek-unsuru', {
         value: value.trim(),
@@ -1795,7 +1805,7 @@ const TesvikForm = () => {
         } catch (templateError) {
           console.error('🚨 Template data refresh hatası:', templateError);
         }
-        
+
         // Şablonları yeniden yükle
         await loadInitialData();
         console.log('✅ Yeni destek unsuru eklendi:', value);
@@ -1814,7 +1824,7 @@ const TesvikForm = () => {
   // Yeni Destek Şartı Ekleme
   const addNewDestekSarti = async (value) => {
     if (!value || value.length < 3) return;
-    
+
     try {
       const response = await axios.post('/tesvik/dynamic/destek-sarti', {
         value: value.trim(),
@@ -1840,21 +1850,21 @@ const TesvikForm = () => {
   // Yeni Özel Şart Ekleme - ENHANCED DEBUG
   const addNewOzelSart = async (value) => {
     console.log(`🆕 [DEBUG] addNewOzelSart çağrıldı:`, { value, length: value?.length });
-    
+
     if (!value || value.length < 2) {
       console.log(`❌ [DEBUG] Value çok kısa, eklenmedi:`, value);
       return;
     }
-    
+
     try {
       const kisaltma = value.trim().toUpperCase();
       const aciklama = value.length > 10 ? value.trim() : `${kisaltma} Açıklaması`;
-      
+
       console.log(`📡 [DEBUG] Backend'e POST isteği gönderiliyor:`, {
         endpoint: '/tesvik/dynamic/ozel-sart',
         data: { kisaltma, aciklama, kategori: 'Diğer' }
       });
-      
+
       const response = await axios.post('/tesvik/dynamic/ozel-sart', {
         kisaltma: kisaltma,
         aciklama: aciklama,
@@ -1865,22 +1875,22 @@ const TesvikForm = () => {
 
       if (response.data.success) {
         console.log(`🔄 [DEBUG] Template data refresh başlatılıyor...`);
-        
+
         // CRITICAL FIX: Template data'yı da yenile!
         try {
           const templateResponse = await axios.get('/tesvik/templates');
           if (templateResponse.data.success) {
             setTemplateData(templateResponse.data.data);
-            console.log(`✅ [DEBUG] Template data yenilendi - Özel şart sayısı:`, 
+            console.log(`✅ [DEBUG] Template data yenilendi - Özel şart sayısı:`,
               templateResponse.data.data.ozelSartKisaltmalari?.length);
           }
         } catch (templateError) {
           console.error('🚨 Template data refresh hatası:', templateError);
         }
-        
+
         // Form data'yı da güncelle (mevcut işlem)
         await loadInitialData();
-        
+
         console.log('✅ Yeni özel şart eklendi:', kisaltma);
         setSuccess(`✅ "${kisaltma}" özel şartı sisteme eklendi ve dropdown güncelllendi!`);
       }
@@ -1901,7 +1911,7 @@ const TesvikForm = () => {
   // Yeni Özel Şart Notu Ekleme
   const addNewOzelSartNotu = async (value) => {
     if (!value || value.length < 5) return;
-    
+
     try {
       const response = await axios.post('/tesvik/dynamic/ozel-sart-notu', {
         value: value.trim(),
@@ -1927,19 +1937,19 @@ const TesvikForm = () => {
   // Mali hesaplamalar
   const calculateMali = (data) => {
     const mali = data.maliHesaplamalar;
-    
+
     // Bina inşaat toplam
-    mali.binaInsaatGiderleri.toplamBinaInsaatGideri = 
+    mali.binaInsaatGiderleri.toplamBinaInsaatGideri =
       mali.binaInsaatGiderleri.anaBinaInsaati + mali.binaInsaatGiderleri.yardimciBinaInsaati;
-    
+
     // Makina teçhizat toplam
-    mali.makinaTeçhizat.toplamIthalMakina = 
+    mali.makinaTeçhizat.toplamIthalMakina =
       mali.makinaTeçhizat.ithalMakina + mali.makinaTeçhizat.kullanilmisMakina;
-      
+
     // Toplam sabit yatırım
-    mali.toplamSabitYatirimTutari = 
-      mali.binaInsaatGiderleri.toplamBinaInsaatGideri + 
-      mali.makinaTeçhizat.toplamIthalMakina + 
+    mali.toplamSabitYatirimTutari =
+      mali.binaInsaatGiderleri.toplamBinaInsaatGideri +
+      mali.makinaTeçhizat.toplamIthalMakina +
       mali.digerGiderler.toplamDigerGiderler;
   };
 
@@ -1958,17 +1968,17 @@ const TesvikForm = () => {
       if (urun) {
         const mevcut = Number(urun.mevcut) || 0;
         const ilave = Number(urun.ilave) || 0;
-        
+
         // Precision güvenliği ile hesaplama
         const toplam = Math.round((mevcut + ilave) * 100) / 100;
         urun.toplam = toplam;
-        
+
         // 📊 Debug için console log (production'da kaldırılabilir)
         if (process.env.NODE_ENV === 'development') {
-          console.log('🧮 calculateUrunToplam:', { 
+          console.log('🧮 calculateUrunToplam:', {
             index,
-            mevcut: mevcut.toLocaleString('tr-TR'), 
-            ilave: ilave.toLocaleString('tr-TR'), 
+            mevcut: mevcut.toLocaleString('tr-TR'),
+            ilave: ilave.toLocaleString('tr-TR'),
             toplam: toplam.toLocaleString('tr-TR')
           });
         }
@@ -1981,7 +1991,7 @@ const TesvikForm = () => {
     try {
       // Teşvik ID'sini doğru şekilde belirle
       const tesvikId = id || formData._id || formData.tesvikId;
-      
+
       if (!tesvikId || (!formData.gmId && !formData.tesvikId)) {
         setError('Excel çıktı alabilmek için teşvik kaydedilmiş olmalıdır.');
         return;
@@ -1989,17 +1999,17 @@ const TesvikForm = () => {
 
       console.log('📊 Excel çıktı hazırlanıyor...', format, 'Teşvik ID:', tesvikId);
       setLoading(true);
-      
+
       const response = await axios.get(`/tesvik/${tesvikId}/excel-export`, {
         responseType: 'blob',
         params: { format }
       });
-      
+
       // Dosya indirme
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -2008,10 +2018,10 @@ const TesvikForm = () => {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
+
       setSuccess('Excel dosyası başarıyla indirildi!');
       console.log('✅ Excel dosyası indirildi');
-      
+
     } catch (error) {
       console.error('🚨 Excel export hatası:', error);
       setError('Excel çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
@@ -2026,7 +2036,7 @@ const TesvikForm = () => {
     try {
       setSaving(true);
       setError(null);
-      
+
       // 🔧 Frontend to Backend data mapping
       const mappedData = {
         ...formData,
@@ -2049,7 +2059,7 @@ const TesvikForm = () => {
           uCinsi3: formData.yatirimBilgileri1?.cins3 || '',
           vCinsi4: formData.yatirimBilgileri1?.cins4 || '',
           destekSinifi: formData.yatirimBilgileri1?.destekSinifi || '',
-          
+
           // Bölüm 2 alanları  
           yerinIl: formData.yatirimBilgileri2?.yerinIl || '',
           yerinIlce: formData.yatirimBilgileri2?.yerinIlce || '',
@@ -2063,23 +2073,23 @@ const TesvikForm = () => {
           ilceBazliBolge: formData.yatirimBilgileri2?.ilceBazliBolge || '', // 🆕 YENİ ALAN
           serbsetBolge: formData.yatirimBilgileri2?.serbsetBolge || '' // 🆕 YENİ ALAN
         },
-        
+
         // Ürün bilgilerini model formatına çevir
         urunler: formData.urunBilgileri?.map(urun => ({
           u97Kodu: urun.kod || '',
           urunAdi: urun.aciklama || '',
-          mevcutKapasite: parseInt(urun.mevcut) || 0,
-          ilaveKapasite: parseInt(urun.ilave) || 0,
-          toplamKapasite: parseInt(urun.toplam) || 0,
+          mevcutKapasite: safeParseInt(urun.mevcut),
+          ilaveKapasite: safeParseInt(urun.ilave),
+          toplamKapasite: safeParseInt(urun.toplam),
           kapasiteBirimi: urun.kapasite_birimi || ''
         })) || [],
-        
+
         // Mali hesaplamaları model formatına çevir (finansalBilgiler → maliHesaplamalar)
         maliHesaplamalar: {
           toplamSabitYatirim: formData.finansalBilgiler?.toplamSabitYatirimTutari || 0,
           yatiriminTutari: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
           araciArsaBedeli: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
-          
+
           // Maliyetlenen (Araç Arsa Bedeli Detayları)
           maliyetlenen: {
             aciklama: formData.finansalBilgiler?.araziArsaBedeli?.aciklama || '',
@@ -2087,7 +2097,7 @@ const TesvikForm = () => {
             sm: formData.finansalBilgiler?.araziArsaBedeli?.birimFiyatiTl || 0,
             sn: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0
           },
-          
+
           // Bina İnşaat Giderleri
           binaInsaatGideri: {
             aciklama: formData.finansalBilgiler?.binaInsaatGiderleri?.aciklama || '',
@@ -2095,7 +2105,7 @@ const TesvikForm = () => {
             yardimciBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari || 0,
             toplamBinaGideri: formData.finansalBilgiler?.binaInsaatGiderleri?.toplamBinaInsaatGideri || 0
           },
-          
+
           // Makine Teçhizat
           makinaTechizat: {
             ithalMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithal || 0,
@@ -2105,7 +2115,7 @@ const TesvikForm = () => {
             kullanimisMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine || 0,
             toplamYeniMakina: formData.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.toplamIthalMakine || 0
           },
-          
+
           // Yatırım Hesaplamaları (Diğer Yatırım Harcamaları)
           yatirimHesaplamalari: {
             eu: formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid || 0,
@@ -2116,7 +2126,7 @@ const TesvikForm = () => {
             ey: formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri || 0,
             ez: formData.finansalBilgiler?.digerYatirimHarcamalari?.toplamDigerYatirimHarcamalari || 0
           },
-          
+
           // Finansman
           finansman: {
             yabanciKaynak: formData.finansalBilgiler?.finansman?.yabanciKaynaklar?.toplamYabanciKaynak || 0,
@@ -2124,7 +2134,7 @@ const TesvikForm = () => {
             toplamFinansman: formData.finansalBilgiler?.finansman?.toplamFinansman || 0
           }
         },
-        
+
         // 🛠️ Makine Listeleri (frontend → backend mapping)
         // 🔧 FIX: Only include makineListeleri when the user actually edited machines
         // in this form session. This prevents overwriting fresher data saved by MakineYonetimi.
@@ -2187,18 +2197,18 @@ const TesvikForm = () => {
             }))
           }
         } : {}),
-        
+
         // 🔧 Destek Unsurları model formatına çevir - FIX: Şart opsiyonel
-        destekUnsurlari: formData.destekUnsurlari?.filter(d => 
+        destekUnsurlari: formData.destekUnsurlari?.filter(d =>
           d && d.destekUnsuru && d.destekUnsuru.trim() !== '' // Sadece destekUnsuru dolu olması yeterli
         ).map(destek => ({
           destekUnsuru: destek.destekUnsuru.trim(),
           sarti: destek.sartlari?.trim() || '', // Frontend: sartlari → Backend: sarti (opsiyonel)
           aciklama: destek.aciklama?.trim() || ''
         })) || [],
-        
+
         // 🔧 Özel Şartlar model formatına çevir - DOĞRU MAPPİNG
-        ozelSartlar: formData.ozelSartlar?.filter(s => 
+        ozelSartlar: formData.ozelSartlar?.filter(s =>
           s && (s.kisaltma?.trim() || s.notu?.trim())
         ).map((sart, index) => ({
           koşulNo: index + 1, // Backend: koşulNo (required) - otomatik ID
@@ -2206,29 +2216,29 @@ const TesvikForm = () => {
           aciklamaNotu: (sart.notu?.trim() || '') // Frontend notu → Backend aciklamaNotu
         })) || []
       };
-      
-             // Frontend-specific alanları kaldır
-       delete mappedData.yatirimBilgileri1;
-       delete mappedData.yatirimBilgileri2;
-       delete mappedData.urunBilgileri;
-       delete mappedData.finansalBilgiler;
-       // Orijinal frontend array'leri kaldır (backend formatına çevrildi)
-       delete mappedData.destekUnsurlari_frontend;
-       delete mappedData.ozelSartlar_frontend;
-       // 🔧 FIX: If the user didn't edit machines in this session, remove makineListeleri
-       // from the request to avoid overwriting fresher data saved by MakineYonetimi.
-       // The ...formData spread above might have included stale makineListeleri.
-       if (!makineListeleriDirtyRef.current) {
-         delete mappedData.makineListeleri;
-       }
-      
+
+      // Frontend-specific alanları kaldır
+      delete mappedData.yatirimBilgileri1;
+      delete mappedData.yatirimBilgileri2;
+      delete mappedData.urunBilgileri;
+      delete mappedData.finansalBilgiler;
+      // Orijinal frontend array'leri kaldır (backend formatına çevrildi)
+      delete mappedData.destekUnsurlari_frontend;
+      delete mappedData.ozelSartlar_frontend;
+      // 🔧 FIX: If the user didn't edit machines in this session, remove makineListeleri
+      // from the request to avoid overwriting fresher data saved by MakineYonetimi.
+      // The ...formData spread above might have included stale makineListeleri.
+      if (!makineListeleriDirtyRef.current) {
+        delete mappedData.makineListeleri;
+      }
+
       console.log('🔄 Mapped data to backend format:', mappedData);
-      
+
       const url = isEdit ? `/tesvik/${id}` : '/tesvik';
       const method = isEdit ? 'put' : 'post';
-      
+
       const response = await axios[method](url, mappedData);
-      
+
       if (response.data.success) {
         setSuccess(isEdit ? 'Teşvik başarıyla güncellendi' : 'Teşvik başarıyla oluşturuldu');
         setTimeout(() => {
@@ -2238,10 +2248,10 @@ const TesvikForm = () => {
     } catch (error) {
       console.error('🚨 Submit hatası:', error);
       console.error('❌ API Response Error:', error.response?.data);
-      
+
       // Detaylı hata mesajları göster
       let errorMessage = 'Kaydetme sırasında hata oluştu';
-      
+
       if (error.response?.data?.errors && Array.isArray(error.response.data.errors)) {
         // Validation errors
         const validationErrors = error.response.data.errors.map(err => `• ${err.msg || err.message}`).join('\n');
@@ -2249,7 +2259,7 @@ const TesvikForm = () => {
       } else if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       }
-      
+
       setError(errorMessage);
     } finally {
       setSaving(false);
@@ -2261,31 +2271,31 @@ const TesvikForm = () => {
     <Grid container spacing={4}>
       {/* Excel Header - KÜNYE BİLGİLERİ Ana Başlık */}
       <Grid item xs={12}>
-        <Paper 
+        <Paper
           elevation={1}
-          sx={{ 
-            p: 3, 
+          sx={{
+            p: 3,
             background: '#f8fafc',
             border: '1px solid #e2e8f0',
             borderRadius: 1,
             borderLeft: '4px solid #2563eb'
           }}
         >
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              mb: 1, 
-              fontWeight: 600, 
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 1,
+              fontWeight: 600,
               textAlign: 'left',
               color: '#1e293b'
             }}
           >
             KÜNYE BİLGİLERİ
           </Typography>
-          <Typography 
-            variant="subtitle1" 
-            sx={{ 
-              textAlign: 'left', 
+          <Typography
+            variant="subtitle1"
+            sx={{
+              textAlign: 'left',
               color: '#64748b',
               fontWeight: 400
             }}
@@ -2297,23 +2307,23 @@ const TesvikForm = () => {
 
       {/* YATIRIMCI BİLGİLERİ Bölümü - Excel Sol Taraf */}
       <Grid item xs={12} lg={6}>
-        <Paper 
+        <Paper
           elevation={2}
-          sx={{ 
-            p: 4, 
-            backgroundColor: '#f8fafc', 
+          sx={{
+            p: 4,
+            backgroundColor: '#f8fafc',
             border: '2px solid #e2e8f0',
             borderRadius: 3,
             height: '100%'
           }}
         >
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              mb: 3, 
-              fontWeight: 600, 
-              display: 'flex', 
-              alignItems: 'center', 
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 3,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
               color: '#1e40af',
               borderBottom: '2px solid #e2e8f0',
               pb: 2
@@ -2322,236 +2332,236 @@ const TesvikForm = () => {
             <BusinessIcon sx={{ mr: 2, fontSize: 28 }} />
             YATIRIMCI BİLGİLERİ
           </Typography>
-          
+
           <Grid container spacing={3}>
-      
-      {/* GM ID */}
-      <Grid item xs={12} md={6}>
-        <TextField
-          id="tesvikForm-gmId"
-          name="gmId"
-          fullWidth
-          label="GM ID 🆔"
-          value={formData.gmId}
-          InputProps={{ 
-            readOnly: true,
-            style: { backgroundColor: '#e5f3ff', fontWeight: 600 }
-          }}
-          helperText="Otomatik atanan GM ID (Değiştirilemez)"
-        />
-      </Grid>
-      
-      {/* TALEP/SONUÇ */}
-      <Grid item xs={12} md={6}>
-        <TextField
-          id="tesvikForm-talepSonuc"
-          name="talepSonuc"
-          fullWidth
-          label="TALEP/SONUÇ"
-          value={formData.kunyeBilgileri?.talepSonuc || ''}
-          onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
-          placeholder="Talep sonucu giriniz..."
-        />
-      </Grid>
-      
-      {/* REVIZE ID */}
-      <Grid item xs={12} md={6}>
-        <TextField
-          id="tesvikForm-revizeId"
-          name="revizeId"
-          fullWidth
-          label="REVIZE ID"
-          value={formData.kunyeBilgileri?.revizeId || ''}
-          onChange={(e) => handleFieldChange('kunyeBilgileri.revizeId', e.target.value)}
-          placeholder="Revize ID giriniz..."
-        />
-      </Grid>
-      
-      {/* FIRMA ID */}
-       <Grid item xs={12} md={6}>
-         <TextField
-           id="tesvikForm-firmaId"
-           name="firmaId"
-           fullWidth
-           label="FIRMA ID"
-           value={formData.firma || ''}
-           InputProps={{ 
-             readOnly: true,
-             style: { backgroundColor: '#f5f5f5' }
-           }}
-           helperText="Firma seçiminden otomatik doldurulur"
-         />
-       </Grid>
-      
-      {/* YATIRIMCI UNVAN */}
-      <Grid item xs={12}>
-        <TextField
-          fullWidth
-          label="YATIRIMCI UNVAN 🏭"
-          value={formData.yatirimciUnvan}
-          onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
-          required
-          helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
-        />
-      </Grid>
-      
-      <Grid item xs={12}>
-        <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                      Firma Seçimi
-        </Typography>
-        <Autocomplete
-          fullWidth
-          options={templateData.firmalar}
-          getOptionLabel={(option) => {
-            if (!option) return '';
-            return `${option.firmaId} - ${option.tamUnvan}`;
-          }}
-          value={templateData.firmalar.find(f => f._id === formData.firma) || null}
-          onChange={(event, newValue) => {
-            if (newValue) {
-              handleFieldChange('firma', newValue._id);
-              // Seçilen firmanın ünvanını otomatik ata
-              handleFieldChange('yatirimciUnvan', newValue.tamUnvan);
-            } else {
-              handleFieldChange('firma', '');
-              handleFieldChange('yatirimciUnvan', '');
-            }
-          }}
-          filterOptions={(options, { inputValue }) => {
-            // Çoklu arama: Firma ID, Ünvan, Vergi No - Türkçe karakter duyarsız
-            const filtered = options.filter(option => {
-              return (
-                turkishIncludes(option.firmaId, inputValue) ||
-                turkishIncludes(option.tamUnvan, inputValue) ||
-                (option.vergiNoTC && turkishIncludes(option.vergiNoTC, inputValue))
-              );
-            });
-            return filtered;
-          }}
-          renderOption={(props, option) => {
-            const { key, ...otherProps } = props;
-            return (
-              <Box 
-                key={key}
-                component="li" 
-                {...otherProps}
-                sx={{
-                  display: 'flex !important',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  p: 2,
-                  borderBottom: '1px solid #f0f0f0',
-                  '&:hover': {
-                    backgroundColor: '#f8fafc'
-                  }
+
+            {/* GM ID */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                id="tesvikForm-gmId"
+                name="gmId"
+                fullWidth
+                label="GM ID 🆔"
+                value={formData.gmId}
+                InputProps={{
+                  readOnly: true,
+                  style: { backgroundColor: '#e5f3ff', fontWeight: 600 }
                 }}
-              >
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                  {option.firmaId}
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#2c3e50', lineHeight: 1.2 }}>
-                  {option.tamUnvan}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Vergi No: {option.vergiNoTC} • İl: {option.firmaIl}
-                </Typography>
-              </Box>
-            );
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-                              label="Firma Seçimi"
-              placeholder="Firma ID, ünvan veya vergi no yazın... (örn: A000001)"
-              variant="outlined"
-              InputProps={{
-                ...params.InputProps,
-                startAdornment: (
-                  <BusinessIcon sx={{ color: '#1976d2', mr: 1 }} />
-                ),
-              }}
-              helperText="💡 Klavye okları ile gezin, Enter ile seçin, Firma ID/Ünvan/Vergi No ile arayın"
-            />
-          )}
-          loading={loading}
-          loadingText="Firmalar yükleniyor..."
-          noOptionsText="Firma bulunamadı. Arama kriterini değiştirin."
-          clearOnEscape
-          autoHighlight
-          openOnFocus
-          sx={{ mb: 2 }}
-        />
-        
-        {/* Seçilen Firma Bilgisi */}
-        {formData.firma && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            <Typography variant="body2">
-              ✅ <strong>Seçilen Firma:</strong> {templateData.firmalar.find(f => f._id === formData.firma)?.firmaId} - {templateData.firmalar.find(f => f._id === formData.firma)?.tamUnvan}
-            </Typography>
-          </Alert>
-        )}
-        
-        <Typography variant="caption" color="text.secondary">
-          📊 Toplam {templateData.firmalar.length} firma mevcut • Güncel veri
-        </Typography>
-      </Grid>
-      
+                helperText="Otomatik atanan GM ID (Değiştirilemez)"
+              />
+            </Grid>
+
+            {/* TALEP/SONUÇ */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                id="tesvikForm-talepSonuc"
+                name="talepSonuc"
+                fullWidth
+                label="TALEP/SONUÇ"
+                value={formData.kunyeBilgileri?.talepSonuc || ''}
+                onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
+                placeholder="Talep sonucu giriniz..."
+              />
+            </Grid>
+
+            {/* REVIZE ID */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                id="tesvikForm-revizeId"
+                name="revizeId"
+                fullWidth
+                label="REVIZE ID"
+                value={formData.kunyeBilgileri?.revizeId || ''}
+                onChange={(e) => handleFieldChange('kunyeBilgileri.revizeId', e.target.value)}
+                placeholder="Revize ID giriniz..."
+              />
+            </Grid>
+
+            {/* FIRMA ID */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                id="tesvikForm-firmaId"
+                name="firmaId"
+                fullWidth
+                label="FIRMA ID"
+                value={formData.firma || ''}
+                InputProps={{
+                  readOnly: true,
+                  style: { backgroundColor: '#f5f5f5' }
+                }}
+                helperText="Firma seçiminden otomatik doldurulur"
+              />
+            </Grid>
+
+            {/* YATIRIMCI UNVAN */}
             <Grid item xs={12}>
               <TextField
-                id="tesvikForm-yatirimciUnvan2"
-                name="yatirimciUnvan2"
                 fullWidth
-          label="YATIRIMCI ÜNVAN 🏭"
+                label="YATIRIMCI UNVAN 🏭"
                 value={formData.yatirimciUnvan}
                 onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
                 required
                 helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
               />
-      </Grid>
-      
-      {/* SGK SİCİL NO - YENİ ALAN */}
-      <Grid item xs={12}>
+            </Grid>
+
+            <Grid item xs={12}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+                Firma Seçimi
+              </Typography>
+              <Autocomplete
+                fullWidth
+                options={templateData.firmalar}
+                getOptionLabel={(option) => {
+                  if (!option) return '';
+                  return `${option.firmaId} - ${option.tamUnvan}`;
+                }}
+                value={templateData.firmalar.find(f => f._id === formData.firma) || null}
+                onChange={(event, newValue) => {
+                  if (newValue) {
+                    handleFieldChange('firma', newValue._id);
+                    // Seçilen firmanın ünvanını otomatik ata
+                    handleFieldChange('yatirimciUnvan', newValue.tamUnvan);
+                  } else {
+                    handleFieldChange('firma', '');
+                    handleFieldChange('yatirimciUnvan', '');
+                  }
+                }}
+                filterOptions={(options, { inputValue }) => {
+                  // Çoklu arama: Firma ID, Ünvan, Vergi No - Türkçe karakter duyarsız
+                  const filtered = options.filter(option => {
+                    return (
+                      turkishIncludes(option.firmaId, inputValue) ||
+                      turkishIncludes(option.tamUnvan, inputValue) ||
+                      (option.vergiNoTC && turkishIncludes(option.vergiNoTC, inputValue))
+                    );
+                  });
+                  return filtered;
+                }}
+                renderOption={(props, option) => {
+                  const { key, ...otherProps } = props;
+                  return (
+                    <Box
+                      key={key}
+                      component="li"
+                      {...otherProps}
+                      sx={{
+                        display: 'flex !important',
+                        flexDirection: 'column',
+                        alignItems: 'flex-start',
+                        p: 2,
+                        borderBottom: '1px solid #f0f0f0',
+                        '&:hover': {
+                          backgroundColor: '#f8fafc'
+                        }
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                        {option.firmaId}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#2c3e50', lineHeight: 1.2 }}>
+                        {option.tamUnvan}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Vergi No: {option.vergiNoTC} • İl: {option.firmaIl}
+                      </Typography>
+                    </Box>
+                  );
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Firma Seçimi"
+                    placeholder="Firma ID, ünvan veya vergi no yazın... (örn: A000001)"
+                    variant="outlined"
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <BusinessIcon sx={{ color: '#1976d2', mr: 1 }} />
+                      ),
+                    }}
+                    helperText="💡 Klavye okları ile gezin, Enter ile seçin, Firma ID/Ünvan/Vergi No ile arayın"
+                  />
+                )}
+                loading={loading}
+                loadingText="Firmalar yükleniyor..."
+                noOptionsText="Firma bulunamadı. Arama kriterini değiştirin."
+                clearOnEscape
+                autoHighlight
+                openOnFocus
+                sx={{ mb: 2 }}
+              />
+
+              {/* Seçilen Firma Bilgisi */}
+              {formData.firma && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    ✅ <strong>Seçilen Firma:</strong> {templateData.firmalar.find(f => f._id === formData.firma)?.firmaId} - {templateData.firmalar.find(f => f._id === formData.firma)?.tamUnvan}
+                  </Typography>
+                </Alert>
+              )}
+
+              <Typography variant="caption" color="text.secondary">
+                📊 Toplam {templateData.firmalar.length} firma mevcut • Güncel veri
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                id="tesvikForm-yatirimciUnvan2"
+                name="yatirimciUnvan2"
+                fullWidth
+                label="YATIRIMCI ÜNVAN 🏭"
+                value={formData.yatirimciUnvan}
+                onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
+                required
+                helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
+              />
+            </Grid>
+
+            {/* SGK SİCİL NO - YENİ ALAN */}
+            <Grid item xs={12}>
               <TextField
                 id="tesvikForm-sgkSicilNo"
                 name="sgkSicilNo"
                 fullWidth
-          label="SGK SİCİL NO 🏥"
-          value={formData.kunyeBilgileri?.sgkSicilNo || ''}
-          onChange={(e) => handleFieldChange('kunyeBilgileri.sgkSicilNo', e.target.value)}
-          placeholder="SGK sicil numarasını giriniz..."
-          helperText="İsteğe bağlı - Sosyal Güvenlik Kurumu sicil numarası"
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: '#ffffff',
-              '&:hover': { borderColor: '#1e40af' },
-              '&.Mui-focused': { borderColor: '#1e40af' }
-            }
-          }}
+                label="SGK SİCİL NO 🏥"
+                value={formData.kunyeBilgileri?.sgkSicilNo || ''}
+                onChange={(e) => handleFieldChange('kunyeBilgileri.sgkSicilNo', e.target.value)}
+                placeholder="SGK sicil numarasını giriniz..."
+                helperText="İsteğe bağlı - Sosyal Güvenlik Kurumu sicil numarası"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#ffffff',
+                    '&:hover': { borderColor: '#1e40af' },
+                    '&.Mui-focused': { borderColor: '#1e40af' }
+                  }
+                }}
               />
             </Grid>
           </Grid>
         </Paper>
       </Grid>
-      
+
       {/* BELGE BİLGİLERİ Bölümü - Excel Sağ Taraf */}
       <Grid item xs={12} lg={6}>
-        <Paper 
+        <Paper
           elevation={2}
-          sx={{ 
-            p: 4, 
-            backgroundColor: '#fef9e7', 
+          sx={{
+            p: 4,
+            backgroundColor: '#fef9e7',
             border: '2px solid #f59e0b',
             borderRadius: 3,
             height: '100%'
           }}
         >
-          <Typography 
-            variant="h5" 
-            sx={{ 
-              mb: 3, 
-              fontWeight: 600, 
-              display: 'flex', 
-              alignItems: 'center', 
+          <Typography
+            variant="h5"
+            sx={{
+              mb: 3,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
               color: '#d97706',
               borderBottom: '2px solid #f59e0b',
               pb: 2
@@ -2559,8 +2569,8 @@ const TesvikForm = () => {
           >
             <BusinessIcon sx={{ mr: 2, fontSize: 28 }} />
             BELGE BİLGİLERİ
-                        </Typography>
-          
+          </Typography>
+
           <Grid container spacing={3}>
             {/* BELGE ID */}
             <Grid item xs={12}>
@@ -2579,7 +2589,7 @@ const TesvikForm = () => {
                 }}
               />
             </Grid>
-            
+
             {/* BELGE NO */}
             <Grid item xs={12}>
               <TextField
@@ -2598,7 +2608,7 @@ const TesvikForm = () => {
                 }}
               />
             </Grid>
-            
+
             {/* BELGE TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2639,7 +2649,7 @@ const TesvikForm = () => {
                 </IconButton>
               </Box>
             </Grid>
-            
+
             {/* BELGE MÜRACAAT TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2679,7 +2689,7 @@ const TesvikForm = () => {
                 </IconButton>
               </Box>
             </Grid>
-            
+
             {/* MÜRACAAT SAYISI */}
             <Grid item xs={12} md={6}>
               <TextField
@@ -2735,7 +2745,7 @@ const TesvikForm = () => {
                 )}
               />
             </Grid>
-            
+
             {/* BELGE BAŞLAMA TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2775,7 +2785,7 @@ const TesvikForm = () => {
                 </IconButton>
               </Box>
             </Grid>
-      
+
             {/* BELGE BITIŞ TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2815,7 +2825,7 @@ const TesvikForm = () => {
                 </IconButton>
               </Box>
             </Grid>
-            
+
             {/* SÜRE UZATIM TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2855,7 +2865,7 @@ const TesvikForm = () => {
                 </IconButton>
               </Box>
             </Grid>
-            
+
             {/* 🏆 ÖNCELİKLİ YATIRIM ALANLARI */}
             <Grid item xs={12} sm={6} md={6}>
               <FormControl fullWidth>
@@ -2927,8 +2937,8 @@ const TesvikForm = () => {
                       <em>Öncelikli yatırım türünü seçiniz...</em>
                     </MenuItem>
                     {oncelikliYatirimKategorileri.map((kategori) => [
-                      <MenuItem key={`kategori-${kategori.value}`} disabled sx={{ 
-                        fontWeight: 'bold', 
+                      <MenuItem key={`kategori-${kategori.value}`} disabled sx={{
+                        fontWeight: 'bold',
                         color: kategori.renk,
                         fontSize: '0.9rem',
                         backgroundColor: '#f5f5f5'
@@ -2954,7 +2964,7 @@ const TesvikForm = () => {
                 </FormControl>
               </Grid>
             )}
-            
+
             {/* DAYANDIĞI KANUN */}
             <Grid item xs={12}>
               <FormControl fullWidth>
@@ -2971,42 +2981,42 @@ const TesvikForm = () => {
                 >
                   {templateData.dayandigiKanunlar?.map((kanun) => (
                     <MenuItem key={kanun.value} value={kanun.value}>
-                          {kanun.label}
+                      {kanun.label}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
-            
+
             {/* BELGE DURUMU kaldırıldı */}
-      </Grid>
+          </Grid>
         </Paper>
       </Grid>
 
       {/* Excel Template Info Banner */}
       <Grid item xs={12}>
-        <Paper 
+        <Paper
           elevation={0}
-          sx={{ 
-            p: 2, 
+          sx={{
+            p: 2,
             background: '#f1f5f9',
             border: '1px solid #cbd5e1',
             borderRadius: 1
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                color: '#475569', 
+            <Typography
+              variant="body1"
+              sx={{
+                color: '#475569',
                 fontWeight: 500,
-                textAlign: 'center' 
+                textAlign: 'center'
               }}
             >
-              Bu form T.C. resmi standartlarına uygun olarak tasarlanmıştır. 
+              Bu form T.C. resmi standartlarına uygun olarak tasarlanmıştır.
               Tüm alanlar mevzuat gereksinimlerine göre düzenlenmiştir.
-          </Typography>
-                      </Box>
+            </Typography>
+          </Box>
         </Paper>
       </Grid>
     </Grid>
@@ -3017,10 +3027,10 @@ const TesvikForm = () => {
     <Grid container spacing={4}>
       {/* Excel Ana Başlık - YATIRIM İLE İLGİLİ BİLGİLER */}
       <Grid item xs={12}>
-        <Paper 
+        <Paper
           elevation={4}
-          sx={{ 
-            p: 4, 
+          sx={{
+            p: 4,
             background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f9f0 50%, #e8f5e8 100%)',
             border: '3px solid #16a085',
             borderRadius: 3,
@@ -3037,13 +3047,13 @@ const TesvikForm = () => {
             }
           }}
         >
-          <Typography 
-            variant="h4" 
-            sx={{ 
-              mb: 4, 
-              fontWeight: 700, 
-              display: 'flex', 
-              alignItems: 'center', 
+          <Typography
+            variant="h4"
+            sx={{
+              mb: 4,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               color: '#16a085',
               textShadow: '0 2px 4px rgba(22,160,133,0.3)',
@@ -3053,10 +3063,10 @@ const TesvikForm = () => {
             <EngineeringIcon sx={{ mr: 2, fontSize: { xs: 32, md: 40 } }} />
             Yatırım Konusu Seçiniz
           </Typography>
-          
+
           {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
           <Grid container spacing={3}>
-            
+
             {/* ROW 1: YATIRIM KONUI - 290 NACE Kodu Dropdown */}
             <Grid item xs={12}>
               <FormControl fullWidth>
@@ -3064,13 +3074,13 @@ const TesvikForm = () => {
                   🏭 YATIRIM KONUI (NACE Kodu Seçiniz)
                 </InputLabel>
                 <Select
-                id="tesvikForm-yatirimKonusu"
-                name="yatirimKonusu"
+                  id="tesvikForm-yatirimKonusu"
+                  name="yatirimKonusu"
                   labelId="tesvikForm-yatirimKonusu-label"
-                value={formData.yatirimBilgileri1.yatirimKonusu}
-                onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
+                  value={formData.yatirimBilgileri1.yatirimKonusu}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
                   label="🏭 YATIRIM KONUI (NACE Kodu Seçiniz)"
-                sx={{
+                  sx={{
                     backgroundColor: '#ffffff',
                     fontWeight: 500,
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
@@ -3081,8 +3091,8 @@ const TesvikForm = () => {
                     <em>NACE kodunu seçiniz...</em>
                   </MenuItem>
                   {yatirimKonusuKategorileri.map((kategori) => [
-                    <MenuItem key={`kategori-${kategori}`} disabled sx={{ 
-                      fontWeight: 'bold', 
+                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
+                      fontWeight: 'bold',
                       color: '#16a085',
                       fontSize: '0.9rem',
                       backgroundColor: '#f0f9f0',
@@ -3111,14 +3121,14 @@ const TesvikForm = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
+
             {/* ROW 2: DİNAMİK J-CNS ALANLARI - Başlangıç 1, Max 4 */}
             {Array.from({ length: cinsSayisi }, (_, index) => (
               <Grid item xs={12} sm={6} md={3} key={`cins-${index + 1}`}>
                 <Box sx={{ position: 'relative' }}>
-              <FormControl fullWidth>
+                  <FormControl fullWidth>
                     <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>J-CNS({index + 1})</InputLabel>
-                <Select
+                    <Select
                       id={`tesvikForm-cins${index + 1}`}
                       name={`cins${index + 1}`}
                       labelId={`tesvikForm-cins${index + 1}-label`}
@@ -3130,15 +3140,15 @@ const TesvikForm = () => {
                         '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
                       }}
-                >
-                  {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                    >
+                      {templateData.yatirimTipleri?.map((tip, tipIndex) => (
                         <MenuItem key={`cins${index + 1}-${tip.value}-${tipIndex}`} value={tip.value}>
-                      {tip.label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-                  
+                          {tip.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
                   {/* Remove butonu - sadece birden fazla alan varsa göster */}
                   {cinsSayisi > 1 && index === cinsSayisi - 1 && (
                     <IconButton
@@ -3161,9 +3171,9 @@ const TesvikForm = () => {
                     </IconButton>
                   )}
                 </Box>
-            </Grid>
+              </Grid>
             ))}
-            
+
             {/* Add J-CNS butonu - sadece max sayıya ulaşılmamışsa göster */}
             {cinsSayisi < 4 && (
               <Grid item xs={12} sm={6} md={3}>
@@ -3185,9 +3195,9 @@ const TesvikForm = () => {
                 >
                   J-CNS Ekle ({cinsSayisi}/4)
                 </Button>
-            </Grid>
+              </Grid>
             )}
-            
+
             {/* ROW 3: OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
             {/* 🌍 OECD (Orta-Yüksek) - Dropdown + Manuel Giriş */}
             <Grid item xs={12} md={6}>
@@ -3258,9 +3268,9 @@ const TesvikForm = () => {
                 </Select>
               </FormControl>
             </Grid>
-            
+
             {/* ✨ YENİ PROFESYONEL ALANLAR - Resimden Eklenenler */}
-            
+
             {/* ROW 3.1: CAZİBE MERKEZİ Mİ? */}
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
@@ -3424,7 +3434,7 @@ const TesvikForm = () => {
                 </Select>
               </FormControl>
             </Grid>
-      
+
             {/* ROW 4: YER İL, YER İLÇE - Otomatik Seçim */}
             <Grid item xs={12} sm={12} md={6}>
               <EnhancedCitySelector
@@ -3436,7 +3446,7 @@ const TesvikForm = () => {
                 districtLabel="Yatırım Yeri İlçe"
               />
             </Grid>
-            
+
             {/* ROW 5: ADA, PARSEL - YENİ ALANLAR */}
             <Grid item xs={12} sm={6} md={3}>
               <TextField
@@ -3456,7 +3466,7 @@ const TesvikForm = () => {
                 }}
               />
             </Grid>
-            
+
             <Grid item xs={12} sm={6} md={3}>
               <TextField
                 id="tesvikForm-parsel"
@@ -3475,15 +3485,15 @@ const TesvikForm = () => {
                 }}
               />
             </Grid>
-            
+
             {/* ROW 6: DİNAMİK YATIRIM ADRESİ ALANLARI - Başlangıç 1, Max 3 */}
             {Array.from({ length: adresSayisi }, (_, index) => (
               <Grid item xs={12} md={4} key={`adres-${index + 1}`}>
                 <Box sx={{ position: 'relative' }}>
-              <TextField
-                id={`tesvikForm-yatirimAdresi${index + 1}`}
-                name={`yatirimAdresi${index + 1}`}
-                fullWidth
+                  <TextField
+                    id={`tesvikForm-yatirimAdresi${index + 1}`}
+                    name={`yatirimAdresi${index + 1}`}
+                    fullWidth
                     label={`YATIRIM ADRESİ(${index + 1}) 📍`}
                     value={formData.yatirimBilgileri2[`yatirimAdresi${index + 1}`] || ''}
                     onChange={(e) => handleFieldChange(`yatirimBilgileri2.yatirimAdresi${index + 1}`, e.target.value)}
@@ -3496,7 +3506,7 @@ const TesvikForm = () => {
                       }
                     }}
                   />
-                  
+
                   {/* Remove butonu - sadece birden fazla alan varsa göster */}
                   {adresSayisi > 1 && index === adresSayisi - 1 && (
                     <IconButton
@@ -3519,14 +3529,14 @@ const TesvikForm = () => {
                     </IconButton>
                   )}
                 </Box>
-            </Grid>
+              </Grid>
             ))}
-            
+
             {/* Add Adres butonu - sadece max sayıya ulaşılmamışsa göster */}
             {adresSayisi < 3 && (
-            <Grid item xs={12} md={4}>
+              <Grid item xs={12} md={4}>
                 <Button
-                fullWidth
+                  fullWidth
                   variant="outlined"
                   onClick={addAdresField}
                   startIcon={<AddIcon />}
@@ -3543,9 +3553,9 @@ const TesvikForm = () => {
                 >
                   Adres Ekle ({adresSayisi}/3)
                 </Button>
-            </Grid>
+              </Grid>
             )}
-            
+
             {/* ROW 7: OSB İSE MÜDÜRLÜK - 411 OSB'den Seçim */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
@@ -3569,8 +3579,8 @@ const TesvikForm = () => {
                     <em>OSB seçiniz...</em>
                   </MenuItem>
                   {osbIlleri.map((il) => [
-                    <MenuItem key={`il-${il}`} disabled sx={{ 
-                      fontWeight: 'bold', 
+                    <MenuItem key={`il-${il}`} disabled sx={{
+                      fontWeight: 'bold',
                       color: '#e67e22',
                       fontSize: '0.9rem',
                       backgroundColor: '#fef8f0',
@@ -3585,10 +3595,10 @@ const TesvikForm = () => {
                           <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                             <Typography variant="body2" sx={{ fontWeight: 500, color: '#c0392b' }}>
                               {osb.osb}
-                        </Typography>
+                            </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
                               {osb.il} İli
-                          </Typography>
+                            </Typography>
                           </Box>
                         </MenuItem>
                       ))
@@ -3596,7 +3606,7 @@ const TesvikForm = () => {
                 </Select>
               </FormControl>
             </Grid>
-      
+
             {/* ROW 8: BÖLGESİ VE İLÇE BAZLI BÖLGE - 1-6 Bölge Seçimi */}
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
@@ -3631,7 +3641,7 @@ const TesvikForm = () => {
                 </Select>
               </FormControl>
             </Grid>
-      
+
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-ilceBazliBolge-label">
@@ -3664,8 +3674,8 @@ const TesvikForm = () => {
                   ))}
                 </Select>
               </FormControl>
-          </Grid>
-      
+            </Grid>
+
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-serbestBolge-label">
@@ -3675,10 +3685,10 @@ const TesvikForm = () => {
                   id="tesvikForm-serbestBolge"
                   name="serbestBolge"
                   labelId="tesvikForm-serbestBolge-label"
-                value={formData.yatirimBilgileri2.serbsetBolge || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri2.serbsetBolge', e.target.value)}
+                  value={formData.yatirimBilgileri2.serbsetBolge || ''}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri2.serbsetBolge', e.target.value)}
                   label="🏪 SERBEST BÖLGE (19 Müdürlük)"
-                sx={{
+                  sx={{
                     backgroundColor: '#ffffff',
                     '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' }
@@ -3688,8 +3698,8 @@ const TesvikForm = () => {
                     <em>Serbest bölge seçiniz...</em>
                   </MenuItem>
                   {serbestBolgeKategorileri.map((kategori) => [
-                    <MenuItem key={`kategori-${kategori}`} disabled sx={{ 
-                      fontWeight: 'bold', 
+                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
+                      fontWeight: 'bold',
                       color: '#8e44ad',
                       fontSize: '0.9rem',
                       backgroundColor: '#f8f4fd',
@@ -3714,64 +3724,64 @@ const TesvikForm = () => {
                   ]).flat()}
                 </Select>
               </FormControl>
-      </Grid>
-      
+            </Grid>
+
             {/* ROW 9: İSTİHDAM - MEVCUT KİŞİ, İLAVE KİŞİ (Excel'den entegre) */}
-      <Grid item xs={12}>
-              <Paper 
+            <Grid item xs={12}>
+              <Paper
                 elevation={2}
-                sx={{ 
-                  p: 3, 
-                  backgroundColor: '#f0fdf4', 
+                sx={{
+                  p: 3,
+                  backgroundColor: '#f0fdf4',
                   border: '2px solid #22c55e',
                   borderRadius: 2
                 }}
               >
-                <Typography 
-                  variant="h6" 
-                  sx={{ 
-                    mb: 3, 
-                    fontWeight: 600, 
-                    display: 'flex', 
+                <Typography
+                  variant="h6"
+                  sx={{
+                    mb: 3,
+                    fontWeight: 600,
+                    display: 'flex',
                     alignItems: 'center',
                     color: '#16a34a'
                   }}
                 >
                   <PeopleIcon sx={{ mr: 1, fontSize: 28 }} />
                   İSTİHDAM BİLGİLERİ
-          </Typography>
-          
+                </Typography>
+
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
+                    <TextField
+                      fullWidth
                       label="MEVCUT KİŞİ 👥"
-                type="number"
-                value={formData.istihdam.mevcutKisi}
-                onChange={(e) => {
-                  const inputValue = e.target.value;
-                  // Boş string ise boş bırak, değer varsa parse et
-                  if (inputValue === '') {
-                    handleFieldChange('istihdam.mevcutKisi', '');
-                  } else {
-                    const numValue = parseInt(inputValue);
-                    // Geçerli sayı değilse veya negatifse 0 yap
-                    const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
-                    handleFieldChange('istihdam.mevcutKisi', safeValue);
-                  }
-                }}
-                onFocus={(e) => {
-                  // Input'a focus olduğunda 0 ise temizle
-                  if (e.target.value === '0') {
-                    handleFieldChange('istihdam.mevcutKisi', '');
-                  }
-                }}
-                onBlur={(e) => {
-                  // Focus kaybında boşsa 0 yap
-                  if (e.target.value === '') {
-                    handleFieldChange('istihdam.mevcutKisi', 0);
-                  }
-                }}
+                      type="number"
+                      value={formData.istihdam.mevcutKisi}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Boş string ise boş bırak, değer varsa parse et
+                        if (inputValue === '') {
+                          handleFieldChange('istihdam.mevcutKisi', '');
+                        } else {
+                          const numValue = parseInt(inputValue);
+                          // Geçerli sayı değilse veya negatifse 0 yap
+                          const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
+                          handleFieldChange('istihdam.mevcutKisi', safeValue);
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // Input'a focus olduğunda 0 ise temizle
+                        if (e.target.value === '0') {
+                          handleFieldChange('istihdam.mevcutKisi', '');
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Focus kaybında boşsa 0 yap
+                        if (e.target.value === '') {
+                          handleFieldChange('istihdam.mevcutKisi', 0);
+                        }
+                      }}
                       placeholder="Mevcut personel sayısı..."
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -3780,39 +3790,39 @@ const TesvikForm = () => {
                           '&.Mui-focused': { borderColor: '#22c55e' }
                         }
                       }}
-              />
-            </Grid>
-            
+                    />
+                  </Grid>
+
                   <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
+                    <TextField
+                      fullWidth
                       label="İLAVE KİŞİ ➕"
-                type="number"
-                value={formData.istihdam.ilaveKisi}
-                onChange={(e) => {
-                  const inputValue = e.target.value;
-                  // Boş string ise boş bırak, değer varsa parse et
-                  if (inputValue === '') {
-                    handleFieldChange('istihdam.ilaveKisi', '');
-                  } else {
-                    const numValue = parseInt(inputValue);
-                    // Geçerli sayı değilse veya negatifse 0 yap
-                    const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
-                    handleFieldChange('istihdam.ilaveKisi', safeValue);
-                  }
-                }}
-                onFocus={(e) => {
-                  // Input'a focus olduğunda 0 ise temizle
-                  if (e.target.value === '0') {
-                    handleFieldChange('istihdam.ilaveKisi', '');
-                  }
-                }}
-                onBlur={(e) => {
-                  // Focus kaybında boşsa 0 yap
-                  if (e.target.value === '') {
-                    handleFieldChange('istihdam.ilaveKisi', 0);
-                  }
-                }}
+                      type="number"
+                      value={formData.istihdam.ilaveKisi}
+                      onChange={(e) => {
+                        const inputValue = e.target.value;
+                        // Boş string ise boş bırak, değer varsa parse et
+                        if (inputValue === '') {
+                          handleFieldChange('istihdam.ilaveKisi', '');
+                        } else {
+                          const numValue = parseInt(inputValue);
+                          // Geçerli sayı değilse veya negatifse 0 yap
+                          const safeValue = isNaN(numValue) ? 0 : Math.max(0, numValue);
+                          handleFieldChange('istihdam.ilaveKisi', safeValue);
+                        }
+                      }}
+                      onFocus={(e) => {
+                        // Input'a focus olduğunda 0 ise temizle
+                        if (e.target.value === '0') {
+                          handleFieldChange('istihdam.ilaveKisi', '');
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Focus kaybında boşsa 0 yap
+                        if (e.target.value === '') {
+                          handleFieldChange('istihdam.ilaveKisi', 0);
+                        }
+                      }}
                       placeholder="İlave personel sayısı..."
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -3821,19 +3831,19 @@ const TesvikForm = () => {
                           '&.Mui-focused': { borderColor: '#22c55e' }
                         }
                       }}
-              />
-            </Grid>
-            
+                    />
+                  </Grid>
+
                   <Grid item xs={12} sm={6} md={4}>
-              <TextField
-                fullWidth
+                    <TextField
+                      fullWidth
                       label="TOPLAM KİŞİ 🎯"
-                type="number"
-                value={formData.istihdam.toplamKisi}
-                      InputProps={{ 
+                      type="number"
+                      value={formData.istihdam.toplamKisi}
+                      InputProps={{
                         readOnly: true,
-                        style: { 
-                          backgroundColor: '#dcfce7', 
+                        style: {
+                          backgroundColor: '#dcfce7',
                           fontWeight: 600,
                           fontSize: '1.1rem'
                         }
@@ -3843,52 +3853,52 @@ const TesvikForm = () => {
                           '&:hover': { borderColor: '#22c55e' }
                         }
                       }}
-              />
-            </Grid>
-          </Grid>
+                    />
+                  </Grid>
+                </Grid>
               </Paper>
             </Grid>
-            
+
           </Grid>
         </Paper>
       </Grid>
-      
+
       {/* Excel Template Info Banner */}
       <Grid item xs={12}>
-        <Paper 
+        <Paper
           elevation={1}
-          sx={{ 
-            p: 3, 
+          sx={{
+            p: 3,
             background: 'linear-gradient(135deg, #e8f5e8 0%, #f0f9f0 100%)',
             border: '1px solid #16a085',
             borderRadius: 2
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <Typography 
-              variant="body1" 
-              sx={{ 
-                color: '#16a085', 
+            <Typography
+              variant="body1"
+              sx={{
+                color: '#16a085',
                 fontWeight: 500,
-                textAlign: 'center' 
+                textAlign: 'center'
               }}
             >
-              ✅ <strong>Excel Şablonu Uyumlu:</strong> Bu bölüm Excel tablosundaki 
-              "YATIRIM İLE İLGİLİ BİLGİLER" kısmına tam uyumludur. 
+              ✅ <strong>Excel Şablonu Uyumlu:</strong> Bu bölüm Excel tablosundaki
+              "YATIRIM İLE İLGİLİ BİLGİLER" kısmına tam uyumludur.
               İstihdam bilgileri de dahil tüm alanlar eksiksiz eklenmiştir.
-          </Typography>
+            </Typography>
           </Box>
         </Paper>
       </Grid>
     </Grid>
   );
 
-    // 📦 4. ÜRÜN BİLGİLERİ (US97 Kodları) - MINIMAL CORPORATE DESIGN
+  // 📦 4. ÜRÜN BİLGİLERİ (US97 Kodları) - MINIMAL CORPORATE DESIGN
   const renderUrunBilgileri = () => (
     <Grid container spacing={2}>
       <Grid item xs={12}>
         {/* US97 Ürün Yönetim Paneli - Minimal Tasarım */}
-        <Box sx={{ 
+        <Box sx={{
           backgroundColor: '#f8fafc',
           border: '1px solid #e2e8f0',
           borderRadius: 2,
@@ -3904,8 +3914,8 @@ const TesvikForm = () => {
                   height: 40,
                   borderRadius: 1,
                   backgroundColor: '#3b82f6',
-                  display: 'flex', 
-                  alignItems: 'center', 
+                  display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'center',
                   color: 'white',
                   fontSize: '18px'
@@ -3913,7 +3923,7 @@ const TesvikForm = () => {
                   📦
                 </Box>
                 <Box>
-                  <Typography variant="h6" sx={{ 
+                  <Typography variant="h6" sx={{
                     fontWeight: 600,
                     color: '#1e293b',
                     fontSize: '1.25rem',
@@ -3921,7 +3931,7 @@ const TesvikForm = () => {
                   }}>
                     US97 Ürün Yönetim Paneli
                   </Typography>
-                  <Typography variant="body2" sx={{ 
+                  <Typography variant="body2" sx={{
                     color: '#64748b',
                     fontWeight: 400
                   }}>
@@ -3929,7 +3939,7 @@ const TesvikForm = () => {
                   </Typography>
                 </Box>
               </Box>
-          
+
               {/* Aktif Ürünler Sayacı */}
               <Box sx={{
                 backgroundColor: '#dbeafe',
@@ -3971,19 +3981,19 @@ const TesvikForm = () => {
                     {stat.label}
                   </Typography>
                 </Box>
-            ))}
-          </Box>
+              ))}
+            </Box>
 
             {/* İşlem Butonları */}
             <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Button
-              startIcon={<ContentCopyIcon />}
-              onClick={handleCopyTableData}
+              <Button
+                startIcon={<ContentCopyIcon />}
+                onClick={handleCopyTableData}
                 variant="outlined"
-              sx={{
+                sx={{
                   borderColor: '#e2e8f0',
                   color: '#475569',
-                fontWeight: 500,
+                  fontWeight: 500,
                   py: 1,
                   px: 2,
                   '&:hover': {
@@ -3994,7 +4004,7 @@ const TesvikForm = () => {
               >
                 Akıllı Kopyala
               </Button>
-              
+
               <Button
                 startIcon={<CloudUploadIcon />}
                 onClick={() => {
@@ -4003,7 +4013,7 @@ const TesvikForm = () => {
                     alert('⚠️ Önce ürün bilgilerini ekleyin!');
                     return;
                   }
-                  
+
                   const excelData = [
                     ['US97 Kodu', 'Ürün Açıklaması', 'Mevcut Kapasite', 'İlave Kapasite', 'Toplam Kapasite', 'Birim', 'Oluşturulma Tarihi', 'Durum'],
                     ...urunData.map(urun => [
@@ -4017,7 +4027,7 @@ const TesvikForm = () => {
                       urun.kod && urun.aciklama ? 'Tamamlandı' : 'Eksik'
                     ])
                   ];
-                  
+
                   const csvContent = '\uFEFF' + excelData.map(row => row.join(';')).join('\n');
                   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                   const link = document.createElement('a');
@@ -4040,77 +4050,77 @@ const TesvikForm = () => {
                 Excel İndir
               </Button>
 
-            <Button
-              startIcon={<DeleteIcon />}
+              <Button
+                startIcon={<DeleteIcon />}
                 onClick={() => {
                   if (window.confirm('Bu işlem TÜM ürün verilerini silecek. Emin misiniz?')) {
                     handleClearAllUrunData();
                   }
                 }}
-              variant="outlined"
-              sx={{
+                variant="outlined"
+                sx={{
                   borderColor: '#ef4444',
                   color: '#ef4444',
-                fontWeight: 500,
+                  fontWeight: 500,
                   py: 1,
                   px: 2,
-                '&:hover': {
+                  '&:hover': {
                     borderColor: '#dc2626',
                     backgroundColor: '#fef2f2'
                   }
-              }}
-            >
-              Tümünü Temizle
-            </Button>
+                }}
+              >
+                Tümünü Temizle
+              </Button>
 
               {/* Akıllı Şablon butonu kaldırıldı - daha sade arayüz için */}
-          </Box>
+            </Box>
           </Box>
         </Box>
       </Grid>
-          
+
       <Grid item xs={12}>
         {/* 🎯 ULTRA-MODERN CARD-BASED PRODUCT INTERFACE */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* 📊 PROFESSIONAL HEADER BAR */}
-          <Box sx={{ 
+          <Box sx={{
             background: 'linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%)',
             borderRadius: 2,
             p: 2,
             border: '1px solid #e2e8f0'
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
+              <Typography variant="h6" sx={{ color: '#1e293b', fontWeight: 600 }}>
                 Ürün Portföyü ({formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}/{urunSayisi})
-            </Typography>
+              </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-            <Chip 
-                  label={`${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length} Tamamlandı`} 
-              size="small" 
-                  color="success" 
-              variant="outlined"
+                <Chip
+                  label={`${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length} Tamamlandı`}
+                  size="small"
+                  color="success"
+                  variant="outlined"
                 />
-                <Chip 
-                  label={`${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000).toFixed(0)}K Toplam`} 
-                  size="small" 
-                  color="primary" 
-                  variant="outlined" 
-            />
-          </Box>
-        </Box>
+                <Chip
+                  label={`${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000).toFixed(0)}K Toplam`}
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                />
+              </Box>
+            </Box>
           </Box>
 
           {/* 🚀 ENTERPRISE PRODUCT CARDS */}
-              {formData.urunBilgileri.slice(0, urunSayisi).map((urun, index) => (
-            <Card 
+          {formData.urunBilgileri.slice(0, urunSayisi).map((urun, index) => (
+            <Card
               key={`product-card-${index}`}
-                  sx={{
+              sx={{
                 background: urun.kod ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' : 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
                 border: urun.kod ? '2px solid #e2e8f0' : '2px dashed #d1d5db',
                 borderRadius: 3,
                 overflow: 'hidden',
                 transition: 'all 0.3s ease',
-                    '&:hover': {
+                '&:hover': {
                   borderColor: urun.kod ? '#3b82f6' : '#6b7280',
                   transform: 'translateY(-2px)',
                   boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
@@ -4121,13 +4131,13 @@ const TesvikForm = () => {
                 {/* 🏷️ CARD HEADER */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ 
+                    <Box sx={{
                       width: 50,
                       height: 50,
                       borderRadius: 3,
                       background: urun.kod ? 'linear-gradient(45deg, #3b82f6, #1d4ed8)' : 'linear-gradient(45deg, #9ca3af, #6b7280)',
-                      display: 'flex', 
-                      alignItems: 'center', 
+                      display: 'flex',
+                      alignItems: 'center',
                       justifyContent: 'center',
                       color: 'white',
                       fontWeight: 700,
@@ -4143,27 +4153,27 @@ const TesvikForm = () => {
                         Durum: {urun.kod && urun.aciklama ? '✅ Tamamlandı' : '⏳ Eksik'}
                       </Typography>
                     </Box>
-                      </Box>
-                      
+                  </Box>
+
                   {/* 🗑️ DELETE BUTTON */}
-                      {urunSayisi > 1 && index === urunSayisi - 1 && (
-                        <IconButton
-                          onClick={removeUrunField}
-                          sx={{
+                  {urunSayisi > 1 && index === urunSayisi - 1 && (
+                    <IconButton
+                      onClick={removeUrunField}
+                      sx={{
                         color: '#ef4444',
                         backgroundColor: '#fef2f2',
-                            '&:hover': {
+                        '&:hover': {
                           backgroundColor: '#fee2e2',
                           transform: 'scale(1.1)'
-                            },
+                        },
                         transition: 'all 0.2s ease'
-                          }}
-                        >
+                      }}
+                    >
                       <RemoveIcon />
-                        </IconButton>
-                      )}
-                    </Box>
-                  
+                    </IconButton>
+                  )}
+                </Box>
+
                 {/* 📋 PRODUCT INFO GRID */}
                 <Grid container spacing={3}>
                   {/* 🔍 US97 CODE SEARCH */}
@@ -4186,7 +4196,7 @@ const TesvikForm = () => {
                       placeholder="US97 kodları ara..."
                     />
                   </Grid>
-                  
+
                   {/* 📝 PRODUCT DESCRIPTION */}
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
@@ -4200,7 +4210,7 @@ const TesvikForm = () => {
                       onChange={(e) => handleUrunChange(index, 'aciklama', e.target.value)}
                       placeholder="Kod seçtiğinizde ürün açıklaması otomatik doldurulacak..."
                       variant="outlined"
-                      sx={{ 
+                      sx={{
                         '& .MuiOutlinedInput-root': {
                           backgroundColor: '#ffffff',
                           borderRadius: 2,
@@ -4218,10 +4228,10 @@ const TesvikForm = () => {
                       }}
                     />
                   </Grid>
-                  
+
                   {/* 💼 CAPACITY MANAGEMENT SECTION */}
                   <Grid item xs={12}>
-                    <Box sx={{ 
+                    <Box sx={{
                       background: 'linear-gradient(90deg, #f1f5f9, #e2e8f0)',
                       borderRadius: 2,
                       p: 3,
@@ -4231,15 +4241,15 @@ const TesvikForm = () => {
                       <Typography variant="subtitle1" sx={{ color: '#1e293b', fontWeight: 600, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                         📊 Kapasite Yönetimi
                         {urun.toplam > 0 && (
-                          <Chip 
+                          <Chip
                             label={`Toplam: ${(parseFloat(urun.toplam) || 0).toLocaleString('tr-TR')}`}
-                      size="small"
+                            size="small"
                             color="success"
                             sx={{ fontWeight: 600 }}
                           />
                         )}
                       </Typography>
-                      
+
                       <Grid container spacing={2}>
                         {/* Current Capacity */}
                         <Grid item xs={12} sm={4}>
@@ -4248,25 +4258,25 @@ const TesvikForm = () => {
                           </Typography>
                           <TextField
                             fullWidth
-                      type="text"
+                            type="text"
                             value={formatNumber(urun.mevcut)}
-                      onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.mevcut`)}
+                            onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.mevcut`)}
                             placeholder="500.000.000"
-                      variant="outlined"
-                            inputProps={{ 
+                            variant="outlined"
+                            inputProps={{
                               min: 0,
                               max: 999999999999,
-                              style: { 
-                                textAlign: 'center', 
+                              style: {
+                                textAlign: 'center',
                                 fontSize: '1.1rem',
                                 fontWeight: 600,
                                 padding: '12px',
                                 fontFamily: 'monospace',
                                 letterSpacing: '0.5px'
-                              } 
+                              }
                             }}
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': {
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
                                 backgroundColor: '#ffffff',
                                 borderRadius: 2,
                                 '& fieldset': {
@@ -4279,37 +4289,37 @@ const TesvikForm = () => {
                                   borderColor: '#3b82f6',
                                   borderWidth: '2px'
                                 }
-                        }
-                      }}
-                    />
+                              }
+                            }}
+                          />
                         </Grid>
-                  
+
                         {/* Additional Capacity */}
                         <Grid item xs={12} sm={4}>
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
                             İlave Kapasite
                           </Typography>
-                    <TextField
+                          <TextField
                             fullWidth
-                      type="text"
+                            type="text"
                             value={formatNumber(urun.ilave)}
-                      onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.ilave`)}
+                            onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.ilave`)}
                             placeholder="120.000.000"
-                      variant="outlined"
-                            inputProps={{ 
+                            variant="outlined"
+                            inputProps={{
                               min: 0,
                               max: 999999999999,
-                              style: { 
-                                textAlign: 'center', 
+                              style: {
+                                textAlign: 'center',
                                 fontSize: '1.1rem',
                                 fontWeight: 600,
                                 padding: '12px',
                                 fontFamily: 'monospace',
                                 letterSpacing: '0.5px'
-                              } 
+                              }
                             }}
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': {
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
                                 backgroundColor: '#ffffff',
                                 borderRadius: 2,
                                 '& fieldset': {
@@ -4322,24 +4332,24 @@ const TesvikForm = () => {
                                   borderColor: '#10b981',
                                   borderWidth: '2px'
                                 }
-                        }
-                      }}
-                    />
+                              }
+                            }}
+                          />
                         </Grid>
-                  
+
                         {/* Total Capacity */}
                         <Grid item xs={12} sm={4}>
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
                             Toplam Kapasite (Otomatik hesaplanır)
                           </Typography>
-                    <TextField
+                          <TextField
                             fullWidth
-                      type="text"
+                            type="text"
                             value={formatNumber(urun.toplam)}
-                      InputProps={{ 
-                        readOnly: true,
-                              style: { 
-                                textAlign: 'center', 
+                            InputProps={{
+                              readOnly: true,
+                              style: {
+                                textAlign: 'center',
                                 fontWeight: 700,
                                 fontSize: '1.2rem',
                                 padding: '12px',
@@ -4347,24 +4357,24 @@ const TesvikForm = () => {
                                 color: '#059669',
                                 letterSpacing: '1px'
                               }
-                      }}
-                      variant="outlined"
-                      sx={{ 
-                        '& .MuiOutlinedInput-root': {
+                            }}
+                            variant="outlined"
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
                                 background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
                                 borderRadius: 2,
                                 '& fieldset': {
                                   borderColor: '#10b981',
                                   borderWidth: '2px'
-                          }
-                        }
-                      }}
-                    />
+                                }
+                              }
+                            }}
+                          />
                         </Grid>
                       </Grid>
                     </Box>
                   </Grid>
-                  
+
                   {/* 🏷️ UNIT SELECTOR & STATUS */}
                   <Grid item xs={12} sm={6}>
                     <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
@@ -4413,24 +4423,24 @@ const TesvikForm = () => {
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                       {urun.kod && urun.aciklama ? (
-                        <Chip 
-                          label="✅ Tamamlandı" 
-                          color="success" 
+                        <Chip
+                          label="✅ Tamamlandı"
+                          color="success"
                           variant="filled"
                           sx={{ fontWeight: 600 }}
                         />
                       ) : (
-                        <Chip 
-                          label="⏳ Eksik" 
-                          color="warning" 
+                        <Chip
+                          label="⏳ Eksik"
+                          color="warning"
                           variant="outlined"
                           sx={{ fontWeight: 600 }}
                         />
                       )}
                       {urun.toplam > 0 && (
-                        <Chip 
+                        <Chip
                           label={`💼 Değer: ${(parseFloat(urun.toplam) || 0).toLocaleString('tr-TR')}`}
-                          color="primary" 
+                          color="primary"
                           variant="outlined"
                           size="small"
                         />
@@ -4442,9 +4452,9 @@ const TesvikForm = () => {
             </Card>
           ))}
         </Box>
-        
+
         {/* 🎛️ ULTRA-MODERN CONTROL PANEL */}
-        <Box sx={{ 
+        <Box sx={{
           mt: 3,
           background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
           borderRadius: 3,
@@ -4455,29 +4465,29 @@ const TesvikForm = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             {/* ➕ ADD PRODUCT SECTION */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          {urunSayisi < 10 ? (
-            <Button
+              {urunSayisi < 10 ? (
+                <Button
                   variant="contained"
-              onClick={addUrunField}
-              startIcon={<AddIcon />}
+                  onClick={addUrunField}
+                  startIcon={<AddIcon />}
                   size="large"
-              sx={{
+                  sx={{
                     background: 'linear-gradient(45deg, #3b82f6, #1d4ed8)',
                     color: 'white',
-                fontWeight: 600,
+                    fontWeight: 600,
                     py: 1.5,
                     px: 3,
                     borderRadius: 2,
                     boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
-                '&:hover': {
+                    '&:hover': {
                       background: 'linear-gradient(45deg, #1d4ed8, #1e40af)',
-                  transform: 'translateY(-1px)',
+                      transform: 'translateY(-1px)',
                       boxShadow: '0 8px 25px rgba(59, 130, 246, 0.6)'
-                },
+                    },
                     transition: 'all 0.3s ease'
-              }}
-            >
-                                    Ürün Ekle ({urunSayisi}/10)
+                  }}
+                >
+                  Ürün Ekle ({urunSayisi}/10)
                 </Button>
               ) : (
                 <Box sx={{
@@ -4492,22 +4502,22 @@ const TesvikForm = () => {
                 </Box>
               )}
             </Box>
-            
+
             {/* 📊 ADVANCED STATISTICS */}
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <Chip 
+              <Chip
                 label={`✅ Aktif: ${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}`}
                 color="success"
                 variant="filled"
                 sx={{ fontWeight: 600 }}
               />
-              <Chip 
+              <Chip
                 label={`📝 Tamamlandı: ${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length}`}
                 color="primary"
                 variant="filled"
                 sx={{ fontWeight: 600 }}
               />
-              <Chip 
+              <Chip
                 label={`💰 Portföy: ${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000000).toFixed(1)}M`}
                 color="warning"
                 variant="filled"
@@ -4526,11 +4536,11 @@ const TesvikForm = () => {
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
           🎯 Destek Unsurları
-          <Chip 
-            label={`${destekSayisi}/8 Satır`} 
-            size="small" 
-            color="secondary" 
-            variant="outlined" 
+          <Chip
+            label={`${destekSayisi}/8 Satır`}
+            size="small"
+            color="secondary"
+            variant="outlined"
           />
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -4559,10 +4569,10 @@ const TesvikForm = () => {
       {/* Dinamik Destek Unsuru Kartları */}
       {formData.destekUnsurlari.slice(0, destekSayisi).map((destek, index) => (
         <Grid item xs={12} key={`destek-${index}`}>
-          <Paper 
+          <Paper
             elevation={2}
-            sx={{ 
-              p: 3, 
+            sx={{
+              p: 3,
               backgroundColor: index % 2 === 0 ? '#fdf2f8' : '#f0f9ff',
               border: '2px solid',
               borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6',
@@ -4571,10 +4581,10 @@ const TesvikForm = () => {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  fontWeight: 600, 
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 600,
                   color: index % 2 === 0 ? '#be185d' : '#1d4ed8',
                   display: 'flex',
                   alignItems: 'center',
@@ -4585,7 +4595,7 @@ const TesvikForm = () => {
                 {destekSayisi > 1 && index === destekSayisi - 1 && (
                   <IconButton
                     onClick={removeDestekField}
-                              size="small"
+                    size="small"
                     sx={{
                       backgroundColor: '#ff4444',
                       color: 'white',
@@ -4599,9 +4609,9 @@ const TesvikForm = () => {
                     <RemoveIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 )}
-                            </Typography>
-                            </Box>
-            
+              </Typography>
+            </Box>
+
             <Grid container spacing={3}>
               {/* Destek Unsuru Seçimi - DİNAMİK VERİ DESTEKLİ */}
               <Grid item xs={12} md={6}>
@@ -4615,9 +4625,9 @@ const TesvikForm = () => {
                     } else if (newValue && typeof newValue === 'string') {
                       // Yeni değer girdi
                       handleDestekChange(index, 'destekUnsuru', newValue);
-                      
+
                       // Sadece mevcut listede YOKSA ekle (duplicate önleme)
-                      const exists = templateData.destekUnsurlariOptions?.some(option => 
+                      const exists = templateData.destekUnsurlariOptions?.some(option =>
                         (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
                       );
                       if (!exists && newValue.trim().length >= 3) {
@@ -4637,20 +4647,20 @@ const TesvikForm = () => {
                     const { key, ...otherProps } = props;
                     return (
                       <Box component="li" key={`destek-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Chip
+                        <Chip
                           label={option.kategori}
-                              size="small"
-                          sx={{ 
-                            backgroundColor: option.renk || '#6B7280', 
-                            color: 'white', 
-                            fontSize: '0.7rem' 
+                          size="small"
+                          sx={{
+                            backgroundColor: option.renk || '#6B7280',
+                            color: 'white',
+                            fontSize: '0.7rem'
                           }}
                         />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
                           {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
-                          </Box>
+                      </Box>
                     );
                   }}
                   renderInput={(params) => (
@@ -4661,11 +4671,11 @@ const TesvikForm = () => {
                       sx={{
                         backgroundColor: '#ffffff',
                         '& .MuiOutlinedInput-root': {
-                          '&:hover .MuiOutlinedInput-notchedOutline': { 
-                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6'
                           },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6'
                           }
                         }
                       }}
@@ -4686,9 +4696,9 @@ const TesvikForm = () => {
                     } else if (newValue && typeof newValue === 'string') {
                       // Yeni değer girdi
                       handleDestekChange(index, 'sartlari', newValue);
-                      
+
                       // Sadece mevcut listede YOKSA ekle (duplicate önleme)
-                      const exists = templateData.destekSartlariOptions?.some(option => 
+                      const exists = templateData.destekSartlariOptions?.some(option =>
                         (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
                       );
                       if (!exists && newValue.trim().length >= 3) {
@@ -4712,12 +4722,12 @@ const TesvikForm = () => {
                           <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{option.label}</span>
                           {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
-                            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                           <Chip label={option.kategori} size="small" variant="outlined" />
                           {option.yuzde && <Chip label={`%${option.yuzde}`} size="small" color="success" />}
                           {option.yil && <Chip label={`${option.yil} yıl`} size="small" color="info" />}
-                            </Box>
-                          </Box>
+                        </Box>
+                      </Box>
                     );
                   }}
                   renderInput={(params) => (
@@ -4728,11 +4738,11 @@ const TesvikForm = () => {
                       sx={{
                         backgroundColor: '#ffffff',
                         '& .MuiOutlinedInput-root': {
-                          '&:hover .MuiOutlinedInput-notchedOutline': { 
-                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6'
                           },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { 
-                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6' 
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6'
                           }
                         }
                       }}
@@ -4740,17 +4750,17 @@ const TesvikForm = () => {
                   )}
                 />
               </Grid>
-          </Grid>
-        </Paper>
-      </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
       ))}
 
       {/* Add Destek Unsuru Butonu */}
       {destekSayisi < 8 && (
         <Grid item xs={12}>
           <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-          <Button
-            variant="outlined"
+            <Button
+              variant="outlined"
               onClick={addDestekField}
               startIcon={<AddIcon />}
               sx={{
@@ -4766,9 +4776,9 @@ const TesvikForm = () => {
               }}
             >
               Destek Unsuru Ekle ({destekSayisi}/8)
-          </Button>
-        </Box>
-      </Grid>
+            </Button>
+          </Box>
+        </Grid>
       )}
 
 
@@ -4792,35 +4802,35 @@ const TesvikForm = () => {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-            🏷️ Özel Şartlar
-          <Chip 
-            label={`${ozelSartSayisi} Satır`} 
-            size="small" 
-            color="warning" 
-            variant="outlined" 
+          🏷️ Özel Şartlar
+          <Chip
+            label={`${ozelSartSayisi} Satır`}
+            size="small"
+            color="warning"
+            variant="outlined"
           />
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Dinamik sistem: İhtiyacınıza göre sınırsız özel şart satırı ekleyebilirsiniz - CSV'den {templateData.ozelSartKisaltmalari?.length || 0} kısaltma mevcut
-          </Typography>
+        </Typography>
       </Grid>
 
-          {/* Kategori İstatistikleri */}
+      {/* Kategori İstatistikleri */}
       <Grid item xs={12}>
-          <Box sx={{ mb: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {['SGK', 'Bölge', 'Sigorta', 'Finansal', 'Zorunluluk', 'Ruhsat'].map((kategori) => {
-              const count = templateData.ozelSartKisaltmalari?.filter(k => k.kategori?.includes(kategori) || k.kategori === kategori).length || 0;
-              return count > 0 ? (
-                <Chip
-                  key={kategori}
-                  label={`${kategori} (${count})`}
-                  size="small"
-                  variant="outlined"
-                  color="warning"
-                />
-              ) : null;
-            })}
-          </Box>
+        <Box sx={{ mb: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {['SGK', 'Bölge', 'Sigorta', 'Finansal', 'Zorunluluk', 'Ruhsat'].map((kategori) => {
+            const count = templateData.ozelSartKisaltmalari?.filter(k => k.kategori?.includes(kategori) || k.kategori === kategori).length || 0;
+            return count > 0 ? (
+              <Chip
+                key={kategori}
+                label={`${kategori} (${count})`}
+                size="small"
+                variant="outlined"
+                color="warning"
+              />
+            ) : null;
+          })}
+        </Box>
       </Grid>
 
       {/* Dinamik Özel Şart Kartları */}
@@ -4852,7 +4862,7 @@ const TesvikForm = () => {
                 {ozelSartSayisi > 1 && index === ozelSartSayisi - 1 && (
                   <IconButton
                     onClick={removeOzelSartField}
-                              size="small"
+                    size="small"
                     sx={{
                       backgroundColor: '#ff4444',
                       color: 'white',
@@ -4866,11 +4876,11 @@ const TesvikForm = () => {
                     <RemoveIcon sx={{ fontSize: 18 }} />
                   </IconButton>
                 )}
-                          </Typography>
-                </Box>
+              </Typography>
+            </Box>
             <Grid container spacing={3}>
               {/* Özel Şart Kısaltma Seçimi - DİNAMİK VERİ DESTEKLİ */}
-            <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={6}>
                 <Autocomplete
                   freeSolo
                   value={sart.kisaltma || ''}
@@ -4881,9 +4891,9 @@ const TesvikForm = () => {
                     } else if (newValue && typeof newValue === 'string') {
                       // Yeni değer girdi
                       handleOzelSartChange(index, 'kisaltma', newValue);
-                      
+
                       // Sadece mevcut listede YOKSA ekle (duplicate önleme)
-                      const exists = templateData.ozelSartKisaltmalari?.some(option => 
+                      const exists = templateData.ozelSartKisaltmalari?.some(option =>
                         (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
                       );
                       if (!exists && newValue.trim().length >= 2) {
@@ -4916,16 +4926,16 @@ const TesvikForm = () => {
                     const { key, ...otherProps } = props;
                     return (
                       <Box component="li" key={`kisaltma-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Chip
+                        <Chip
                           label={option.kategori}
-                            size="small"
+                          size="small"
                           sx={{ backgroundColor: option.renk || '#6B7280', color: 'white', fontSize: '0.7rem' }}
                         />
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                           <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
                           {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
-                        </Box>
+                      </Box>
                     );
                   }}
                   renderInput={(params) => (
@@ -4961,9 +4971,9 @@ const TesvikForm = () => {
                     } else if (newValue && typeof newValue === 'string') {
                       // Yeni değer girdi
                       handleOzelSartChange(index, 'notu', newValue);
-                      
+
                       // Sadece mevcut listede YOKSA ekle (duplicate önleme)
-                      const exists = templateData.ozelSartNotlari?.some(option => 
+                      const exists = templateData.ozelSartNotlari?.some(option =>
                         (typeof option === 'string' ? option : option.value || option.label) === newValue.trim()
                       );
                       if (!exists && newValue.trim().length >= 3) {
@@ -5000,7 +5010,7 @@ const TesvikForm = () => {
                           <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{typeof option === 'string' ? option : option.label}</span>
                           {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
-              </Box>
+                      </Box>
                     );
                   }}
                   renderInput={(params) => (
@@ -5022,8 +5032,8 @@ const TesvikForm = () => {
                     />
                   )}
                 />
+              </Grid>
             </Grid>
-          </Grid>
           </Paper>
         </Grid>
       ))}
@@ -5054,16 +5064,16 @@ const TesvikForm = () => {
         </Grid>
       )}
 
-          {/* İstatistikler */}
+      {/* İstatistikler */}
       <Grid item xs={12}>
         <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary">
             🏷️ <strong>Aktif Satır:</strong> {ozelSartSayisi} |
             <strong> Kısaltma Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.kisaltma).length} |
             <strong> Not Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.notu).length} |
-              <strong> CSV'den Seçenek:</strong> {templateData.ozelSartKisaltmalari?.length || 0} kısaltma, {templateData.ozelSartNotlari?.length || 0} not
-            </Typography>
-          </Box>
+            <strong> CSV'den Seçenek:</strong> {templateData.ozelSartKisaltmalari?.length || 0} kısaltma, {templateData.ozelSartNotlari?.length || 0} not
+          </Typography>
+        </Box>
       </Grid>
     </Grid>
   );
@@ -5074,7 +5084,7 @@ const TesvikForm = () => {
   const handleFinansalChange = (section, field, value, subField = null) => {
     setFormData(prev => {
       const newData = { ...prev };
-      
+
       if (subField) {
         // İç içe alanlar için (örn: araziArsaBedeli.aciklama)
         newData.finansalBilgiler[section][field][subField] = value;
@@ -5090,10 +5100,10 @@ const TesvikForm = () => {
         // Basit alanlar için
         newData.finansalBilgiler[section][field] = value;
       }
-      
+
       return newData;
     });
-     
+
     // 🔧 Hesaplamalar useEffect ile tetiklenecek - infinite loop önlenir
   };
 
@@ -5104,33 +5114,33 @@ const TesvikForm = () => {
     if (!formData.finansalBilgiler) return null; // Safety check
 
     const finansal = formData.finansalBilgiler;
-    
+
     // Güvenli sayı dönüştürme fonksiyonu
     const toNumber = (value) => {
       if (value === null || value === undefined || value === '') return 0;
       const num = parseFloat(value);
       return isNaN(num) ? 0 : num;
     };
-    
+
     // 1. Arazi-Arsa Bedeli hesapla
     const araziTotal = toNumber(finansal.araziArsaBedeli?.metrekaresi) * toNumber(finansal.araziArsaBedeli?.birimFiyatiTl);
-    
+
     // 2. Toplam Bina İnşaat Gideri hesapla
     const anaBina = toNumber(finansal.binaInsaatGiderleri?.anaBinaVeTesisleri);
     const yardimciBina = toNumber(finansal.binaInsaatGiderleri?.yardimciIsBinaVeIcareBinalari);
     const yeraltiBina = toNumber(finansal.binaInsaatGiderleri?.yeraltiAnaGalerileri);
     const toplamBina = anaBina + yardimciBina + yeraltiBina;
-    
+
     // 3. Toplam Makine Teçhizat (TL) hesapla
     const makineIthal = toNumber(finansal.makineTeçhizatGiderleri?.tl?.ithal);
     const makineYerli = toNumber(finansal.makineTeçhizatGiderleri?.tl?.yerli);
     const toplamMakineTL = makineIthal + makineYerli;
-    
+
     // 4. Toplam İthal Makine ($) hesapla → Kullanıcı talebi: sadece Yeni + Kullanılmış
     const makineYeni = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.yeniMakine);
     const makineKullanilmis = toNumber(finansal.makineTeçhizatGiderleri?.dolar?.kullanilmisMakine);
     const toplamMakineDolar = makineYeni + makineKullanilmis;
-    
+
     // 5. Toplam Diğer Yatırım Harcamaları hesapla
     const yardimciIsl = toNumber(finansal.digerYatirimHarcamalari?.yardimciIslMakTeçGid);
     const ithalatGum = toNumber(finansal.digerYatirimHarcamalari?.ithalatVeGumGiderleri);
@@ -5139,25 +5149,25 @@ const TesvikForm = () => {
     const etudProje = toNumber(finansal.digerYatirimHarcamalari?.etudVeProjeGiderleri);
     const digerGider = toNumber(finansal.digerYatirimHarcamalari?.digerGiderleri);
     const toplamDiger = yardimciIsl + ithalatGum + tasimaSignorta + montajGid + etudProje + digerGider;
-    
+
     // 6. TOPLAM SABİT YATIRIM TUTARI = Arazi + Bina + Makine(TL) + Diğer
     const toplamSabitYatirim = araziTotal + toplamBina + toplamMakineTL + toplamDiger;
-    
+
     // 7. DEVLET MANTIGI: Yabancı Kaynak alt kalemlerini topla
     const bankKredisi = toNumber(finansal.finansman?.yabanciKaynaklar?.bankKredisi);
     // Kaldırılan kalemler hesaplamadan çıkarıldı
     const toplamYabanciKaynak = bankKredisi;
-    
+
     // 8. DEVLET MANTIGI: Özkaynak = Toplam Sabit Yatırım - Yabancı Kaynak (OTOMATIK HESAPLANAN!)
     const ozKaynakOtomatik = Math.max(0, toplamSabitYatirim - toplamYabanciKaynak); // Negatif olamaz
-    
+
     // 9. DEVLET MANTIGI: Toplam Finansman = Toplam Sabit Yatırım (Dengeli olmalı)
     const toplamFinansman = toplamSabitYatirim; // Devlet mantığında her zaman eşit
-    
+
     // 10. Finansman dengesi kontrolü
     const finansmanDengesi = toplamYabanciKaynak + ozKaynakOtomatik;
     const dengeDurumu = Math.abs(finansmanDengesi - toplamSabitYatirim) < 0.01; // 1 kuruş tolerans
-    
+
     // Hesaplanan değerleri döndür - DEVLET MANTIGI ile
     return {
       araziTotal,
@@ -5178,7 +5188,7 @@ const TesvikForm = () => {
     // ⚠️ INFINITE LOOP ÖNLEME: Sadece input field'lar değiştiğinde hesapla
     if (formData.finansalBilgiler) {
       const calculations = calculateFinansalTotals();
-      
+
       // Önceki hesaplanan değerlerle karşılaştır - değişim varsa güncelle
       const currentCalculatedValues = {
         araziTotal: formData.finansalBilgiler?.araziArsaBedeli?.araziArsaBedeli || 0,
@@ -5199,49 +5209,49 @@ const TesvikForm = () => {
         Math.abs(currentCalculatedValues.toplamMakineDolar - calculations.toplamMakineDolar) > 1
       );
 
-            if (hasChanged) {
-    setFormData(prev => ({
-      ...prev,
-      finansalBilgiler: {
-        ...prev.finansalBilgiler,
-        araziArsaBedeli: {
-          ...prev.finansalBilgiler?.araziArsaBedeli,
+      if (hasChanged) {
+        setFormData(prev => ({
+          ...prev,
+          finansalBilgiler: {
+            ...prev.finansalBilgiler,
+            araziArsaBedeli: {
+              ...prev.finansalBilgiler?.araziArsaBedeli,
               araziArsaBedeli: calculations.araziTotal
-        },
-        finansman: {
-          ...prev.finansalBilgiler?.finansman,
+            },
+            finansman: {
+              ...prev.finansalBilgiler?.finansman,
               toplamFinansman: calculations.toplamFinansman,
-          yabanciKaynaklar: {
-            ...prev.finansalBilgiler?.finansman?.yabanciKaynaklar,
+              yabanciKaynaklar: {
+                ...prev.finansalBilgiler?.finansman?.yabanciKaynaklar,
                 toplamYabanciKaynak: calculations.toplamYabanciKaynak
               },
               ozkaynaklar: {
                 ...prev.finansalBilgiler?.finansman?.ozkaynaklar,
                 ozkaynaklar: calculations.ozKaynakOtomatik
-          }
-        },
-        binaInsaatGiderleri: {
+              }
+            },
+            binaInsaatGiderleri: {
               ...prev.finansalBilgiler?.binaInsaatGiderleri,
               toplamBinaInsaatGideri: calculations.toplamBina
-        },
-        makineTeçhizatGiderleri: {
+            },
+            makineTeçhizatGiderleri: {
               ...prev.finansalBilgiler?.makineTeçhizatGiderleri,
-          tl: {
+              tl: {
                 ...prev.finansalBilgiler?.makineTeçhizatGiderleri?.tl,
                 toplamMakineTeç: calculations.toplamMakineTL
-          },
-          dolar: {
+              },
+              dolar: {
                 ...prev.finansalBilgiler?.makineTeçhizatGiderleri?.dolar,
                 toplamIthalMakine: calculations.toplamMakineDolar
-          }
-        },
-        digerYatirimHarcamalari: {
+              }
+            },
+            digerYatirimHarcamalari: {
               ...prev.finansalBilgiler?.digerYatirimHarcamalari,
               toplamDigerYatirimHarcamalari: calculations.toplamDiger
-        },
+            },
             toplamSabitYatirimTutari: calculations.toplamSabitYatirim
-      }
-    }));
+          }
+        }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -5298,11 +5308,11 @@ const TesvikForm = () => {
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
           💰 Finansal Bilgiler
-          <Chip 
-            label="Excel Uyumlu" 
-            size="small" 
-            color="success" 
-            variant="outlined" 
+          <Chip
+            label="Excel Uyumlu"
+            size="small"
+            color="success"
+            variant="outlined"
           />
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
@@ -5376,7 +5386,7 @@ const TesvikForm = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#dc2626' }}>
             Arazi Arsa Bedeli
           </Typography>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12} md={3}>
               <TextField
@@ -5430,7 +5440,7 @@ const TesvikForm = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
             BİNA İNŞAAT GİDERLERİ (TL)
           </Typography>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12} md={2.5}>
               <TextField
@@ -5494,12 +5504,12 @@ const TesvikForm = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>
             💵 FİNANSMAN TL
           </Typography>
-          
+
           <Grid container spacing={2}>
             {/* 🔧 YABANCI KAYNAKLAR - Direkt Giriş */}
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>YABANCI KAYNAKLAR - Detaylı Breakdown</Typography>
-              
+
               {/* Toplam Yabancı Kaynak - Direkt Giriş */}
               <Box sx={{ mt: 0 }}>
                 <TextField
@@ -5536,14 +5546,14 @@ const TesvikForm = () => {
                 InputProps={{
                   readOnly: true,
                   endAdornment: '₺',
-                  style: { 
-                    fontWeight: 'bold', 
+                  style: {
+                    fontWeight: 'bold',
                     color: '#059669',
                     backgroundColor: '#f0fdf4'
                   }
                 }}
                 helperText="🔄 Devlet Sistemi: Otomatik hesaplanan (manuel değiştirilemez)"
-                sx={{ 
+                sx={{
                   backgroundColor: '#f0fdf4',
                   '& .MuiInputBase-root': {
                     backgroundColor: '#f0fdf4'
@@ -5576,7 +5586,7 @@ const TesvikForm = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#7c3aed' }}>
             ⚙️ MAKİNE TEÇHİZAT GİDERLERİ
           </Typography>
-          
+
           {/* TL Cinsinden */}
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>MAKİNE TEÇHİZAT GİDERLERİ (TL)</Typography>
           <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -5670,7 +5680,7 @@ const TesvikForm = () => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#374151' }}>
             DİĞER YATIRIM HARCAMALARI (TL)
           </Typography>
-          
+
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}>
               <TextField
@@ -5772,21 +5782,21 @@ const TesvikForm = () => {
         <Box sx={{ p: 3, backgroundColor: '#f8fafc', borderRadius: 2, border: '2px solid #e2e8f0' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
             📊 Finansal Özet & Validasyon
-            <Chip 
-              label="Real-time" 
-              size="small" 
-              color="primary" 
-              variant="outlined" 
+            <Chip
+              label="Real-time"
+              size="small"
+              color="primary"
+              variant="outlined"
             />
           </Typography>
-          
+
           {/* Ana Kategoriler Grid */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 2, backgroundColor: '#fef2f2', border: '1px solid #fecaca' }}>
-              <Typography variant="body2">
-                💰 <strong>Arazi-Arsa:</strong> {formData.finansalBilgiler.araziArsaBedeli.araziArsaBedeli.toLocaleString('tr-TR')} ₺
-              </Typography>
+                <Typography variant="body2">
+                  💰 <strong>Arazi-Arsa:</strong> {formData.finansalBilgiler.araziArsaBedeli.araziArsaBedeli.toLocaleString('tr-TR')} ₺
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {formData.finansalBilgiler.araziArsaBedeli.metrekaresi} m² × {formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl} ₺/m²
                 </Typography>
@@ -5794,9 +5804,9 @@ const TesvikForm = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 2, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-              <Typography variant="body2">
-                💵 <strong>Finansman:</strong> {formData.finansalBilgiler.finansman.toplamFinansman.toLocaleString('tr-TR')} ₺
-              </Typography>
+                <Typography variant="body2">
+                  💵 <strong>Finansman:</strong> {formData.finansalBilgiler.finansman.toplamFinansman.toLocaleString('tr-TR')} ₺
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Yabancı: {formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak.toLocaleString('tr-TR')} + Öz: {formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar.toLocaleString('tr-TR')}
                 </Typography>
@@ -5804,9 +5814,9 @@ const TesvikForm = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 2, backgroundColor: '#fefce8', border: '1px solid #fde68a' }}>
-              <Typography variant="body2">
-                🏢 <strong>Bina İnşaat:</strong> {formData.finansalBilgiler.binaInsaatGiderleri.toplamBinaInsaatGideri.toLocaleString('tr-TR')} ₺
-              </Typography>
+                <Typography variant="body2">
+                  🏢 <strong>Bina İnşaat:</strong> {formData.finansalBilgiler.binaInsaatGiderleri.toplamBinaInsaatGideri.toLocaleString('tr-TR')} ₺
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Ana Bina + Yardımcı + Yeraltı Galerileri
                 </Typography>
@@ -5814,16 +5824,16 @@ const TesvikForm = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <Paper sx={{ p: 2, backgroundColor: '#f0f9ff', border: '1px solid #bfdbfe' }}>
-              <Typography variant="body2">
-                ⚙️ <strong>Makine Teçhizat:</strong> {formData.finansalBilgiler.makineTeçhizatGiderleri.tl.toplamMakineTeç.toLocaleString('tr-TR')} ₺
-              </Typography>
+                <Typography variant="body2">
+                  ⚙️ <strong>Makine Teçhizat:</strong> {formData.finansalBilgiler.makineTeçhizatGiderleri.tl.toplamMakineTeç.toLocaleString('tr-TR')} ₺
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
                   TL: {formData.finansalBilgiler.makineTeçhizatGiderleri.tl.toplamMakineTeç.toLocaleString('tr-TR')} | $: {formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('tr-TR')}
                 </Typography>
               </Paper>
             </Grid>
           </Grid>
-          
+
           {/* Validation Durumu */}
           <Box sx={{ mb: 2, p: 2, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
@@ -5854,38 +5864,38 @@ const TesvikForm = () => {
                 color={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.toplamMakineTeç > 0 ? 'success' : 'warning'}
                 variant="outlined"
               />
-              
+
               {/* 🆕 Finansman Dengesi Göstergesi */}
               <Chip
                 label={
-                  Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 
-                    ? '⚖️ Finansman Dengeli' 
+                  Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01
+                    ? '⚖️ Finansman Dengeli'
                     : '🚨 Finansman Dengesiz'
                 }
                 size="small"
                 color={
-                  Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 
-                    ? 'success' 
+                  Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01
+                    ? 'success'
                     : 'error'
                 }
                 variant="filled"
-                sx={{ 
+                sx={{
                   fontWeight: 600,
-                  backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 
-                    ? '#22c55e' 
+                  backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01
+                    ? '#22c55e'
                     : '#ef4444',
                   color: 'white'
                 }}
               />
             </Box>
           </Box>
-          
+
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e40af' }}>
-            🎯 <strong>TOPLAM SABİT YATIRIM:</strong> {formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')} ₺
-          </Typography>
+                🎯 <strong>TOPLAM SABİT YATIRIM:</strong> {formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')} ₺
+              </Typography>
               <Chip
                 label={formData.finansalBilgiler.toplamSabitYatirimTutari > 0 ? 'Hazır ✅' : 'Eksik ⚠️'}
                 color={formData.finansalBilgiler.toplamSabitYatirimTutari > 0 ? 'success' : 'warning'}
@@ -5893,25 +5903,25 @@ const TesvikForm = () => {
                 sx={{ fontWeight: 600 }}
               />
             </Box>
-            
+
             {/* 🆕 Devlet Sistemi Finansman Dengesi Açıklaması */}
-            <Box sx={{ 
-              p: 2, 
-              backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 
-                ? '#dcfce7' 
+            <Box sx={{
+              p: 2,
+              backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01
+                ? '#dcfce7'
                 : '#fef2f2',
               borderRadius: 1,
-              border: `1px solid ${Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 
-                ? '#bbf7d0' 
+              border: `1px solid ${Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01
+                ? '#bbf7d0'
                 : '#fecaca'}`
             }}>
               <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                 🏛️ <strong>Devlet Sistemi Mantığı:</strong>
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                📊 Toplam Sabit Yatırım: {formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')} ₺<br/>
-                💸 Yabancı Kaynak: {formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak.toLocaleString('tr-TR')} ₺<br/>
-                💼 Özkaynak (Otomatik): {formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar.toLocaleString('tr-TR')} ₺<br/>
+                📊 Toplam Sabit Yatırım: {formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')} ₺<br />
+                💸 Yabancı Kaynak: {formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak.toLocaleString('tr-TR')} ₺<br />
+                💼 Özkaynak (Otomatik): {formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar.toLocaleString('tr-TR')} ₺<br />
                 ⚖️ Finansman Dengesi: {Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 ? '✅ Dengeli' : '❌ Dengesiz'}
               </Typography>
             </Box>
@@ -5937,7 +5947,7 @@ const TesvikForm = () => {
 
   if (loading) {
     return (
-      <Box sx={{ 
+      <Box sx={{
         display: 'grid',
         gridTemplateRows: '64px 1fr',
         gridTemplateColumns: { xs: '1fr', lg: sidebarOpen ? '280px 1fr' : '1fr' },
@@ -5953,7 +5963,7 @@ const TesvikForm = () => {
   }
 
   return (
-    <Box sx={{ 
+    <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
       gridTemplateColumns: {
@@ -5984,7 +5994,7 @@ const TesvikForm = () => {
       )}
 
       {/* Main Content */}
-      <Box component="main" sx={{ 
+      <Box component="main" sx={{
         gridArea: 'content',
         overflowX: 'visible', // 🎯 DROPDOWN İÇİN HORIZONTAL OVERFLOW VİSİBLE
         overflowY: 'auto', // 🎯 VERTİCAL SCROLL KORUNUYOR
@@ -5992,7 +6002,7 @@ const TesvikForm = () => {
         width: '100%',
         position: 'relative' // 🎯 DROPDOWN POSİTİONİNG İÇİN
       }}>
-        <Container maxWidth="xl" sx={{ 
+        <Container maxWidth="xl" sx={{
           px: { xs: 1, sm: 2, md: 3 }, // 🎯 RESPONSIVE PADDING
           width: '100%',
           overflow: 'visible', // 🎯 DROPDOWN İÇİN OVERFLOW VİSİBLE
@@ -6000,7 +6010,7 @@ const TesvikForm = () => {
         }}>
           {/* Header */}
           <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" sx={{ 
+            <Typography variant="h4" sx={{
               fontWeight: 700,
               color: '#1f2937',
               mb: 1,
@@ -6035,7 +6045,7 @@ const TesvikForm = () => {
               <Stepper activeStep={activeStep} alternativeLabel>
                 {stepLabels.map((label, index) => (
                   <Step key={index}>
-                    <StepLabel 
+                    <StepLabel
                       sx={{
                         '& .MuiStepLabel-label': {
                           fontSize: '0.9rem',
@@ -6061,7 +6071,7 @@ const TesvikForm = () => {
                 >
                   Geri
                 </Button>
-                
+
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   {activeStep === stepLabels.length - 1 ? (
                     <>
@@ -6072,7 +6082,7 @@ const TesvikForm = () => {
                         disabled={!formData.gmId || !formData.tesvikId}
                         startIcon={<TableViewIcon />}
                         size="large"
-                        sx={{ 
+                        sx={{
                           color: '#16a34a',
                           borderColor: '#16a34a',
                           fontWeight: 600,
@@ -6085,23 +6095,23 @@ const TesvikForm = () => {
                       >
                         📊 Excel Çıktı
                       </Button>
-                      
 
-                      
-                    <Button
-                      variant="contained"
-                      onClick={handleSubmit}
-                      disabled={saving}
-                      startIcon={<SaveIcon />}
+
+
+                      <Button
+                        variant="contained"
+                        onClick={handleSubmit}
+                        disabled={saving}
+                        startIcon={<SaveIcon />}
                         size="large"
-                      sx={{
-                        background: '#dc2626',
+                        sx={{
+                          background: '#dc2626',
                           fontWeight: 600,
                           px: 4
-                      }}
-                    >
-                      {saving ? 'Kaydediliyor...' : (isEdit ? 'Güncelle' : 'Kaydet')}
-                    </Button>
+                        }}
+                      >
+                        {saving ? 'Kaydediliyor...' : (isEdit ? 'Güncelle' : 'Kaydet')}
+                      </Button>
                     </>
                   ) : (
                     <Button
@@ -6121,22 +6131,22 @@ const TesvikForm = () => {
       </Box>
 
       {/* 🆕 YENİ SEÇENEK EKLEME MODAL - DEVLET SİSTEMİ UI */}
-      <Dialog 
-        open={addOptionModal.open} 
+      <Dialog
+        open={addOptionModal.open}
         onClose={closeAddOptionModal}
         maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
             borderRadius: '12px',
-                            background: '#2563eb',
+            background: '#2563eb',
             color: 'white'
           }
         }}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <DialogTitle sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           pb: 1,
           borderBottom: '1px solid rgba(255,255,255,0.2)'
@@ -6147,12 +6157,12 @@ const TesvikForm = () => {
             </Avatar>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
               🏛️ Yeni {addOptionModal.title} Ekle
-          </Typography>
+            </Typography>
           </Box>
-          <IconButton 
-            onClick={closeAddOptionModal} 
+          <IconButton
+            onClick={closeAddOptionModal}
             size="small"
-            sx={{ 
+            sx={{
               color: 'white',
               '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
             }}
@@ -6160,14 +6170,14 @@ const TesvikForm = () => {
             <CloseIcon />
           </IconButton>
         </DialogTitle>
-        
-        <DialogContent sx={{ 
-          backgroundColor: 'white', 
+
+        <DialogContent sx={{
+          backgroundColor: 'white',
           color: '#1f2937',
           borderRadius: '0 0 12px 12px'
         }}>
-          <Alert 
-            severity="info" 
+          <Alert
+            severity="info"
             sx={{ mb: 3, borderRadius: '8px' }}
             icon={<InfoIcon />}
           >
@@ -6175,7 +6185,7 @@ const TesvikForm = () => {
               <strong>📋 Devlet Sistemi Uyumlu:</strong> Eklediğiniz seçenek tüm sistem genelinde kullanılabilir hale gelecektir.
             </Typography>
           </Alert>
-          
+
           <Grid container spacing={3} sx={{ mt: 1 }}>
             <Grid item xs={12}>
               <TextField
@@ -6188,13 +6198,13 @@ const TesvikForm = () => {
                 variant="outlined"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                                    '&:hover fieldset': { borderColor: '#2563eb' },
-                '&.Mui-focused fieldset': { borderColor: '#2563eb' }
+                    '&:hover fieldset': { borderColor: '#2563eb' },
+                    '&.Mui-focused fieldset': { borderColor: '#2563eb' }
                   }
                 }}
               />
             </Grid>
-            
+
             {['osbOptions', 'u97Kodlari', 'destekUnsurlariOptions', 'ozelSartKisaltmalari'].includes(addOptionModal.type) && (
               <Grid item xs={12}>
                 <TextField
@@ -6206,7 +6216,7 @@ const TesvikForm = () => {
                 />
               </Grid>
             )}
-            
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -6218,7 +6228,7 @@ const TesvikForm = () => {
                 placeholder="Bu seçeneğin detaylı açıklaması..."
               />
             </Grid>
-            
+
             {addOptionModal.type === 'osbOptions' && (
               <Grid item xs={12}>
                 <TextField
@@ -6230,7 +6240,7 @@ const TesvikForm = () => {
                 />
               </Grid>
             )}
-            
+
             {addOptionModal.type === 'destekSartlariOptions' && (
               <>
                 <Grid item xs={6}>
@@ -6257,12 +6267,12 @@ const TesvikForm = () => {
             )}
           </Grid>
         </DialogContent>
-        
+
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={closeAddOptionModal} color="inherit">
             İptal
           </Button>
-          <Button 
+          <Button
             onClick={handleAddNewOption}
             variant="contained"
             disabled={!addOptionModal.newLabel || addOptionModal.adding}

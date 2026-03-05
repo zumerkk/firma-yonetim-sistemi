@@ -34,9 +34,11 @@ function normalizeAndMergeUrunler(urunler = []) {
         urunAdi = urunAdi.slice(0, 400);
       }
       const kapasiteBirimi = (raw.kapasiteBirimi || raw.birim || '').toString().trim();
-      const mevcutKapasite = Number(raw.mevcutKapasite || raw.mevcut || 0) || 0;
-      const ilaveKapasite = Number(raw.ilaveKapasite || raw.ilave || 0) || 0;
-      const toplamKapasite = Number(raw.toplamKapasite || raw.toplam || (mevcutKapasite + ilaveKapasite) || 0) || 0;
+      // 🔧 FIX: Türkçe formatı (noktalı binlik ayırıcı) temizle - Number("1.088.000") → NaN engellendi
+      const cleanNum = (v) => Number(String(v || 0).replace(/\./g, '')) || 0;
+      const mevcutKapasite = cleanNum(raw.mevcutKapasite || raw.mevcut);
+      const ilaveKapasite = cleanNum(raw.ilaveKapasite || raw.ilave);
+      const toplamKapasite = cleanNum(raw.toplamKapasite || raw.toplam) || (mevcutKapasite + ilaveKapasite);
 
       // En azından kod veya ad olmalı; ikisi de boşsa atla
       if (!u97Kodu && !urunAdi) return;
@@ -147,7 +149,7 @@ const createTesvik = async (req, res) => {
         ithal: normalizeIthal(tesvikData.makineListeleri.ithal)
       };
     }
-    
+
     // Firma kontrolü
     const firma = await Firma.findById(tesvikData.firma);
     if (!firma) {
@@ -165,11 +167,11 @@ const createTesvik = async (req, res) => {
     // 🔧 DUPLICATE BelgeId KONTROLÜ - Aynı belgeId ile teşvik var mı?
     const belgeId = tesvikData.belgeYonetimi?.belgeId?.trim();
     if (belgeId && belgeId !== '') {
-      const existingTesvik = await YeniTesvik.findOne({ 
+      const existingTesvik = await YeniTesvik.findOne({
         'belgeYonetimi.belgeId': belgeId,
-        aktif: true 
+        aktif: true
       });
-      
+
       if (existingTesvik) {
         console.log(`⚠️ Duplicate belgeId tespit edildi: ${belgeId} - Mevcut teşvik: ${existingTesvik.tesvikId}`);
         return res.status(409).json({
@@ -194,7 +196,7 @@ const createTesvik = async (req, res) => {
 
     // Mali hesaplamaları otomatik güncelle
     tesvik.updateMaliHesaplamalar();
-    
+
     // Durum rengini güncelle
     tesvik.updateDurumRengi();
 
@@ -247,21 +249,21 @@ const createTesvik = async (req, res) => {
 
   } catch (error) {
     console.error('🚨 Teşvik oluşturma hatası:', error);
-    
+
     // 🔧 MongoDB Duplicate Key Error Handler (E11000)
     if (error.code === 11000) {
       // Duplicate key - hangi alan olduğunu tespit et
       const keyPattern = error.keyPattern || {};
       const keyValue = error.keyValue || {};
-      
+
       if (keyPattern['belgeYonetimi.belgeId']) {
         const duplicateBelgeId = keyValue['belgeYonetimi.belgeId'];
         // Mevcut teşviki bul
-        const existingTesvik = await YeniTesvik.findOne({ 
+        const existingTesvik = await YeniTesvik.findOne({
           'belgeYonetimi.belgeId': duplicateBelgeId,
-          aktif: true 
+          aktif: true
         }).select('tesvikId yatirimciUnvan');
-        
+
         return res.status(409).json({
           success: false,
           message: `Bu Belge ID (${duplicateBelgeId}) ile zaten bir teşvik kaydı mevcut`,
@@ -271,7 +273,7 @@ const createTesvik = async (req, res) => {
           suggestion: 'Mevcut teşvik kaydını düzenlemek için teşvik listesine gidin veya farklı bir Belge ID girin.'
         });
       }
-      
+
       // Diğer duplicate key hataları
       return res.status(409).json({
         success: false,
@@ -280,7 +282,7 @@ const createTesvik = async (req, res) => {
         details: error.message
       });
     }
-    
+
     res.status(500).json({
       success: false,
       message: 'Teşvik oluşturulurken hata oluştu',
@@ -308,19 +310,19 @@ const getTesvikler = async (req, res) => {
 
     // Build query
     const query = { aktif: true };
-    
+
     if (durum) query['durumBilgileri.genelDurum'] = durum;
     if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
     if (firma) query.firma = firma;
     if (destekSinifi) query['yatirimBilgileri.destekSinifi'] = destekSinifi;
-    
+
     // Tarih filtresi
     if (tarihBaslangic || tarihBitis) {
       query.createdAt = {};
       if (tarihBaslangic) query.createdAt.$gte = new Date(tarihBaslangic);
       if (tarihBitis) query.createdAt.$lte = new Date(tarihBitis);
     }
-    
+
     // Arama filtresi - Türkçe karakter duyarsız
     if (search) {
       const turkishRegex = createTurkishInsensitiveRegex(search);
@@ -347,7 +349,7 @@ const getTesvikler = async (req, res) => {
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
-      
+
       YeniTesvik.countDocuments(query)
     ]);
 
@@ -381,7 +383,7 @@ const getTesvik = async (req, res) => {
   try {
     const { id } = req.params;
 
-    
+
     // ID veya TesvikId ile arama
     let tesvik;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
@@ -411,7 +413,7 @@ const getTesvik = async (req, res) => {
     await tesvik.populate('olusturanKullanici', 'adSoyad email rol');
     await tesvik.populate('sonGuncelleyen', 'adSoyad email');
     await tesvik.populate('revizyonlar.yapanKullanici', 'adSoyad email');
-    
+
 
 
     // Activity log
@@ -479,11 +481,11 @@ const updateTesvik = async (req, res) => {
 
     // 📊 PROFESSIONAL CHANGE DETECTION SYSTEM
     console.log('🔍 Change tracking başlıyor...');
-    
+
     // Eski veriyi tam olarak kaydet - deep copy
     const eskiVeri = JSON.parse(JSON.stringify(tesvik.toSafeJSON()));
     console.log('📚 Eski veri kaydedildi:', Object.keys(eskiVeri).length, 'alan');
-    
+
     // Güncelleme verisini filtrele
     const filteredUpdateData = Object.fromEntries(
       Object.entries(updateData).filter(([key, value]) => {
@@ -494,7 +496,7 @@ const updateTesvik = async (req, res) => {
         return value !== null && value !== undefined;
       })
     );
-    
+
     // Güncelleme uygula
     Object.assign(tesvik, filteredUpdateData);
     // Ürünler güncelleniyorsa normalize et ve mükerrerleri birleştir
@@ -583,7 +585,7 @@ const updateTesvik = async (req, res) => {
 
     // Mali hesaplamaları otomatik güncelle
     tesvik.updateMaliHesaplamalar();
-    
+
     // Durum değişmişse rengi güncelle
     if (updateData.durumBilgileri?.genelDurum) {
       tesvik.updateDurumRengi();
@@ -633,7 +635,7 @@ const updateTesvik = async (req, res) => {
 
       // Tekrar kaydet
       await tesvik.save();
-      
+
       console.log('✅ Otomatik revizyon eklendi - Revizyon No:', tesvik.revizyonlar.length);
     }
 
@@ -662,29 +664,29 @@ const updateTesvik = async (req, res) => {
         // Alan listesi dolu ise normalize et; boş ise minimum path listesi üret
         fields: (degisikenAlanlar && degisikenAlanlar.length > 0)
           ? degisikenAlanlar.map(ch => ({
-              field: ch.alan || ch.field || ch.columnName,
-              oldValue: ch.eskiDeger,
-              newValue: ch.yeniDeger,
-              label: ch.label
-            }))
-          : (function() {
-              try {
-                const paths = [];
-                const collect = (obj, prefix = '') => {
-                  if (!obj || typeof obj !== 'object') return;
-                  Object.keys(obj).forEach(k => {
-                    const full = prefix ? `${prefix}.${k}` : k;
-                    if (typeof obj[k] === 'object' && obj[k] !== null && !Array.isArray(obj[k])) {
-                      collect(obj[k], full);
-                    } else {
-                      paths.push(full);
-                    }
-                  });
-                };
-                collect(yeniVeri);
-                return paths.slice(0, 20);
-              } catch (e) { return []; }
-            })(),
+            field: ch.alan || ch.field || ch.columnName,
+            oldValue: ch.eskiDeger,
+            newValue: ch.yeniDeger,
+            label: ch.label
+          }))
+          : (function () {
+            try {
+              const paths = [];
+              const collect = (obj, prefix = '') => {
+                if (!obj || typeof obj !== 'object') return;
+                Object.keys(obj).forEach(k => {
+                  const full = prefix ? `${prefix}.${k}` : k;
+                  if (typeof obj[k] === 'object' && obj[k] !== null && !Array.isArray(obj[k])) {
+                    collect(obj[k], full);
+                  } else {
+                    paths.push(full);
+                  }
+                });
+              };
+              collect(yeniVeri);
+              return paths.slice(0, 20);
+            } catch (e) { return []; }
+          })(),
         summary: {
           totalChanges: degisikenAlanlar.length,
           revisionAdded: degisikenAlanlar.length > 0,
@@ -700,7 +702,7 @@ const updateTesvik = async (req, res) => {
 
     // Response hazırla
     const responseData = tesvik.toSafeJSON();
-    
+
     res.json({
       success: true,
       message: `Teşvik başarıyla güncellendi. ${degisikenAlanlar.length} alan değiştirildi${degisikenAlanlar.length > 0 ? ', otomatik revizyon eklendi' : ''}.`,
@@ -726,16 +728,16 @@ const updateTesvik = async (req, res) => {
 // 🔍 PROFESSIONAL DEEP CHANGE DETECTION ALGORITHM
 const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
   const degisikenAlanlar = [];
-  
+
   // 📋 PROFESSIONAL FIELD LABELS - KAPSAMLI TÜRKÇELEŞTİRME
   const fieldLabels = {
     // 🏢 Temel bilgiler
     'gmId': 'GM ID',
-    'tesvikId': 'Teşvik ID', 
+    'tesvikId': 'Teşvik ID',
     'yatirimciUnvan': 'Yatırımcı Ünvanı',
     'firma': 'Firma',
     'firmaId': 'Firma ID',
-    
+
     // 📋 Belge yönetimi
     'belgeYonetimi.belgeId': 'Belge ID',
     'belgeYonetimi.belgeNo': 'Belge No',
@@ -745,13 +747,13 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'belgeYonetimi.belgeBitisTarihi': 'Belge Bitiş Tarihi',
     'belgeYonetimi.dayandigiKanun': 'Dayandığı Kanun',
     'belgeYonetimi.oncelikliYatirim': 'Öncelikli Yatırım',
-    
+
     // 👥 İstihdam - GENİŞLETİLDİ
     'istihdam.mevcutKisi': 'Mevcut Kişi Sayısı',
     'istihdam.ilaveKisi': 'İlave Kişi Sayısı',
     'istihdam.toplamKisi': 'Toplam Kişi Sayısı',
     'istihdam.yeniKisi': 'Yeni Kişi Sayısı',
-    
+
     // 🏭 Yatırım bilgileri - DOĞRU FIELD PATHS
     'yatirimBilgileri.yatirim1.yatirimKonusu': 'Yatırım Konusu',
     'yatirimBilgileri.yatirim1.destekSinifi': 'Destek Sınıfı',
@@ -774,7 +776,7 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'yatirimBilgileri.yerinIlce': 'İlçe',
     'yatirimBilgileri.ada': 'ADA',
     'yatirimBilgileri.parsel': 'PARSEL',
-    
+
     // 📦 Ürün bilgileri - DOĞRU FIELD PATHS!
     'urunler': 'Ürün Bilgileri',
     'urunler.0.us97Kodu': 'US97 Kodu (1)',
@@ -795,7 +797,7 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'urunler.2.ilaveKapasite': 'İlave Kapasite (3)',
     'urunler.2.toplamKapasite': 'Toplam Kapasite (3)',
     'urunler.2.kapasiteBirimi': 'Kapasite Birimi (3)',
-    
+
     // 🎯 Destek unsurları - GENİŞLETİLDİ
     'destekUnsurlari': 'Destek Unsurları',
     'destekUnsurlari.0.destekUnsuru': 'Destek Unsuru (1)',
@@ -804,18 +806,18 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'destekUnsurlari.1.sartlari': 'Şartları (2)',
     'destekUnsurlari.2.destekUnsuru': 'Destek Unsuru (3)',
     'destekUnsurlari.2.sartlari': 'Şartları (3)',
-    
+
     // ⚙️ Özel şartlar - GENİŞLETİLDİ
     'ozelSartlar': 'Özel Şartlar',
     'ozelSartlar.0.kisaltma': 'Özel Şart Kısaltma (1)',
     'ozelSartlar.0.notu': 'Özel Şart Notu (1)',
     'ozelSartlar.1.kisaltma': 'Özel Şart Kısaltma (2)',
     'ozelSartlar.1.notu': 'Özel Şart Notu (2)',
-    
+
     // 💰 Finansal bilgiler - DOĞRU FIELD PATHS!
     'maliHesaplamalar.toplamSabitYatirimTutari': 'Toplam Sabit Yatırım Tutarı',
     'maliHesaplamalar.toplamSabitYatirim': 'Toplam Sabit Yatırım',
-    
+
     // Arazi/Arsa - REVİZYON TAKİBİ İÇİN KRİTİK ALANLAR
     'maliHesaplamalar.araciArsaBedeli': 'Arazi Arsa Bedeli',
     'maliHesaplamalar.maliyetlenen.sl': 'Arazi Metrekaresi',
@@ -826,20 +828,20 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.aracAracaGideri.toplam': 'Arazi Arsa Bedeli (Alternatif)',
 
     // Arazi-Arsa Bedeli - DOĞRU FIELD PATHS
-    'maliHesaplamalar.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi', 
+    'maliHesaplamalar.araziArsaBedeli.metrekaresi': 'Arazi Metrekaresi',
     'maliHesaplamalar.araziArsaBedeli.birimFiyatiTl': 'Arazi Birim Fiyatı (TL)',
     'maliHesaplamalar.araziArsaBedeli.araziArsaBedeli': 'Arazi Arsa Bedeli',
     'maliHesaplamalar.araziArsaBedeli.aciklama': 'Arazi Açıklaması',
-    
+
     // DOĞRUDAN FIELD ADI - backend tarafında bu şekilde görünüyor
     'araciArsaBedeli': 'Arazi Arsa Bedeli (Legacy)',
-    
+
     // Bina İnşaat Giderleri - DOĞRU FIELD PATHS
     'maliHesaplamalar.binaInsaatGideri.anaBinaGideri': 'Ana Bina Gideri',
-    'maliHesaplamalar.binaInsaatGideri.yardimciBinaGideri': 'Yardımcı Bina Gideri', 
+    'maliHesaplamalar.binaInsaatGideri.yardimciBinaGideri': 'Yardımcı Bina Gideri',
     'maliHesaplamalar.binaInsaatGideri.toplamBinaGideri': 'Toplam Bina Gideri',
     'binaInsaatGideri': 'Bina İnşaat Gideri',
-    
+
     // Makine Teçhizat Giderleri - DOĞRU FIELD PATHS
     'maliHesaplamalar.makinaTechizat.ithalMakina': 'İthal Makine',
     'maliHesaplamalar.makinaTechizat.yerliMakina': 'Yerli Makine',
@@ -847,26 +849,26 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.makinaTechizat.yeniMakine': 'Yeni Makine',
     'maliHesaplamalar.makinaTechizat.kullanimisMakine': 'Kullanılmış Makine',
     'makinaTechizat': 'Makine Teçhizat',
-    
+
     // Diğer Yatırım Harcamaları - DOĞRU FIELD PATHS
     'maliHesaplamalar.digerYatirimHarcamalari.yardimciIslMakTeçGid': 'Yardımcı İşl. Mak. Teç. Gid.',
     'maliHesaplamalar.digerYatirimHarcamalari.ithalatVeGumGiderleri': 'İthalat ve Güm. Giderleri',
     'maliHesaplamalar.digerYatirimHarcamalari.tasimaVeSigortaGiderleri': 'Taşıma ve Sigorta Giderleri',
     'maliHesaplamalar.digerYatirimHarcamalari.etudVeProjeGiderleri': 'Etüd ve Proje Giderleri',
     'maliHesaplamalar.digerYatirimHarcamalari.digerGiderleri': 'Diğer Giderleri',
-    
+
     // Finansman - Sadeleştirilmiş
     'maliHesaplamalar.finansman.ozkaynaklar.ozkaynaklar': 'Öz Kaynaklar',
     'maliHesaplamalar.finansman.yabanciKaynaklar.bankKredisi': 'Banka Kredisi',
     'maliHesaplamalar.finansman.yabanciKaynaklar.toplamYabanciKaynak': 'Toplam Yabancı Kaynak',
     'maliHesaplamalar.finansman.toplamFinansman': 'Toplam Finansman',
-    
+
     // 📊 Durum bilgileri
     'durumBilgileri.genelDurum': 'Genel Durum',
     'durumBilgileri.durumAciklamasi': 'Durum Açıklaması',
     'durumBilgileri.durumRengi': 'Durum Rengi',
     'durumBilgileri.sonGuncellemeTarihi': 'Son Güncelleme Tarihi',
-    
+
     // 📝 Notlar
     'notlar.dahiliNotlar': 'Dahili Notlar',
     'notlar.resmiAciklamalar': 'Resmi Açıklamalar',
@@ -875,10 +877,10 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
   // 🔍 Recursive comparison function
   const compareObjects = (oldObj, newObj, prefix = '') => {
     if (!oldObj && !newObj) return;
-    
+
     // Her iki taraftaki tüm key'leri topla
     const allKeys = new Set([
-      ...Object.keys(oldObj || {}), 
+      ...Object.keys(oldObj || {}),
       ...Object.keys(newObj || {})
     ]);
 
@@ -886,18 +888,18 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
       const fullKey = prefix ? `${prefix}.${key}` : key;
       const oldValue = oldObj ? oldObj[key] : undefined;
       const newValue = newObj ? newObj[key] : undefined;
-      
+
       // Sistem alanlarını filtrele
       if (['_id', '__v', 'createdAt', 'updatedAt', 'revizyonlar', 'sonGuncelleyen', 'sonGuncellemeNotlari'].includes(key)) {
         return;
       }
-      
+
       // Nested object kontrolü
-      if (typeof newValue === 'object' && newValue !== null && 
-          typeof oldValue === 'object' && oldValue !== null &&
-          !Array.isArray(newValue) && !Array.isArray(oldValue)) {
+      if (typeof newValue === 'object' && newValue !== null &&
+        typeof oldValue === 'object' && oldValue !== null &&
+        !Array.isArray(newValue) && !Array.isArray(oldValue)) {
         compareObjects(oldValue, newValue, fullKey);
-      } 
+      }
       // Array kontrolü
       else if (Array.isArray(newValue) || Array.isArray(oldValue)) {
         const oldStr = JSON.stringify(oldValue || []);
@@ -930,9 +932,9 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
 
   // Karşılaştırmayı başlat
   compareObjects(eskiVeri, yeniVeri);
-  
+
   console.log('🔍 Change detection tamamlandı:', degisikenAlanlar.length, 'değişiklik tespit edildi');
-  
+
   return degisikenAlanlar;
 };
 
@@ -951,16 +953,16 @@ const updateTesvikDurum = async (req, res) => {
     }
 
     const eskiDurum = tesvik.durumBilgileri.genelDurum;
-    
+
     // Durum güncelle
     tesvik.durumBilgileri.genelDurum = yeniDurum;
     tesvik.durumBilgileri.durumAciklamasi = aciklama || '';
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = kullaniciNotu || `Durum güncellendi: ${eskiDurum} → ${yeniDurum}`;
-    
+
     // Renk kodlamasını güncelle
     tesvik.updateDurumRengi();
-    
+
     await tesvik.save();
 
     // Activity log
@@ -1029,7 +1031,7 @@ const addTesvikRevizyon = async (req, res) => {
   try {
     const { id } = req.params;
     const { revizyonSebebi, degisikenAlanlar, yeniDurum, kullaniciNotu } = req.body;
-    
+
     // Validation - Sadece revizyonSebebi zorunlu
     if (!revizyonSebebi) {
       return res.status(400).json({
@@ -1109,7 +1111,7 @@ const addTesvikRevizyon = async (req, res) => {
       },
       changes: {
         before: { durum: tesvik.durumBilgileri?.genelDurum },
-        after: { 
+        after: {
           durum: yeniDurum || tesvik.durumBilgileri?.genelDurum,
           revizyonNo: tesvik.revizyonlar.length,
           sebep: revizyonSebebi
@@ -1233,7 +1235,7 @@ const getDynamicDestekUnsurlari = async (req, res) => {
 
     // Statik veri + dinamik veri birleşimi
     const staticOptions = getDestekUnsurlariOptions();
-    
+
     // Veritabanından dinamik veriyi al
     const dynamicOptions = await DestekUnsuru.find({ aktif: true })
       .populate('ekleyenKullanici', 'adSoyad')
@@ -1353,7 +1355,7 @@ const getDynamicDestekSartlari = async (req, res) => {
     console.log('🎯 Dinamik destek şartları yükleniyor...');
 
     const staticOptions = getDestekSartlariOptions();
-    
+
     const dynamicOptions = await DestekSarti.find({ aktif: true })
       .populate('ekleyenKullanici', 'adSoyad')
       .sort({ kullanimSayisi: -1, createdAt: -1 })
@@ -1469,7 +1471,7 @@ const getDynamicOzelSartlar = async (req, res) => {
     console.log('🎯 Dinamik özel şartlar yükleniyor...');
 
     const staticOptions = getOzelSartKisaltmalariOptions();
-    
+
     const dynamicOptions = await OzelSart.find({ aktif: true })
       .populate('ekleyenKullanici', 'adSoyad')
       .sort({ kullanimSayisi: -1, createdAt: -1 })
@@ -1583,7 +1585,7 @@ const getDynamicOzelSartNotlari = async (req, res) => {
     console.log('🎯 Dinamik özel şart notları yükleniyor...');
 
     const staticOptions = getOzelSartNotlariOptions();
-    
+
     const dynamicOptions = await OzelSartNotu.find({ aktif: true })
       .populate('ekleyenKullanici', 'adSoyad')
       .sort({ kullanimSayisi: -1, createdAt: -1 })
@@ -1693,7 +1695,7 @@ const addOzelSartNotu = async (req, res) => {
 // Dinamik Destek Unsurları Verisi (Template için)
 const getDynamicDestekUnsurlariData = async () => {
   const staticOptions = getDestekUnsurlariOptions();
-  
+
   const dynamicOptions = await DestekUnsuru.find({ aktif: true })
     .sort({ kullanimSayisi: -1, createdAt: -1 })
     .lean();
@@ -1713,7 +1715,7 @@ const getDynamicDestekUnsurlariData = async () => {
 // Dinamik Destek Şartları Verisi (Template için)
 const getDynamicDestekSartlariData = async () => {
   const staticOptions = getDestekSartlariOptions();
-  
+
   const dynamicOptions = await DestekSarti.find({ aktif: true })
     .sort({ kullanimSayisi: -1, createdAt: -1 })
     .lean();
@@ -1733,7 +1735,7 @@ const getDynamicDestekSartlariData = async () => {
 // Dinamik Özel Şartlar Verisi (Template için)
 const getDynamicOzelSartlarData = async () => {
   const staticOptions = getOzelSartKisaltmalariOptions();
-  
+
   const dynamicOptions = await OzelSart.find({ aktif: true })
     .sort({ kullanimSayisi: -1, createdAt: -1 })
     .lean();
@@ -1754,7 +1756,7 @@ const getDynamicOzelSartlarData = async () => {
 // Dinamik Özel Şart Notları Verisi (Template için)
 const getDynamicOzelSartNotlariData = async () => {
   const staticOptions = getOzelSartNotlariOptions();
-  
+
   const dynamicOptions = await OzelSartNotu.find({ aktif: true })
     .sort({ kullanimSayisi: -1, createdAt: -1 })
     .lean();
@@ -1787,7 +1789,7 @@ const calculateMaliHesaplamalar = async (req, res) => {
         sm: parseFloat(sm),
         sn: parseFloat(sl) * parseFloat(sm) // SL * SM
       },
-      
+
       yatirimHesaplamalari: {
         et: parseFloat(et),
         eu: parseFloat(eu),
@@ -1797,7 +1799,7 @@ const calculateMaliHesaplamalar = async (req, res) => {
         ey: parseFloat(ey),
         ez: parseFloat(et) + parseFloat(eu) + parseFloat(ev) + parseFloat(ew) + parseFloat(ex) + parseFloat(ey) // TOPLAM
       },
-      
+
       makinaTechizat: {
         ithalMakina: parseFloat(fb), // FB
         yerliMakina: parseFloat(fc),  // FC
@@ -1806,19 +1808,19 @@ const calculateMaliHesaplamalar = async (req, res) => {
         kullanimisMakina: parseFloat(ff), // FF
         toplamYeniMakina: parseFloat(fe) + parseFloat(ff) // FE + FF
       },
-      
+
       finansman: {
         yabanciKaynak: parseFloat(fh), // FH
         ozKaynak: parseFloat(fi),      // FI
         toplamFinansman: parseFloat(fh) + parseFloat(fi) // FH + FI
       },
-      
+
       istihdam: {
         mevcutKisi: parseInt(mevcutKisi),
         ilaveKisi: parseInt(ilaveKisi),
         toplamKisi: parseInt(mevcutKisi) + parseInt(ilaveKisi)
       },
-      
+
       hesaplamaTarihi: new Date()
     };
 
@@ -1881,7 +1883,7 @@ const getDurumRenkleri = async (req, res) => {
 const getTesvikStats = async (req, res) => {
   try {
     const stats = await YeniTesvik.getStatistics();
-    
+
     res.json({
       success: true,
       message: 'Teşvik istatistikleri getirildi',
@@ -1902,7 +1904,7 @@ const getTesvikStats = async (req, res) => {
 const searchTesvikler = async (req, res) => {
   try {
     const { q } = req.query;
-    
+
     if (!q || q.length < 2) {
       return res.status(400).json({
         success: false,
@@ -1958,7 +1960,7 @@ const deleteTesvik = async (req, res) => {
     tesvik.aktif = false;
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = 'Teşvik silindi';
-    
+
     await tesvik.save();
 
     // Silme sonrası durumu kaydet
@@ -1989,14 +1991,14 @@ const deleteTesvik = async (req, res) => {
     ];
 
     // IP ve User Agent bilgilerini al
-    const clientIp = req.headers['x-forwarded-for'] || 
-                     req.headers['x-real-ip'] || 
-                     req.connection.remoteAddress || 
-                     req.socket.remoteAddress || 
-                     (req.connection.socket ? req.connection.socket.remoteAddress : null) || 
-                     req.ip || 
-                     'Bilinmiyor';
-    
+    const clientIp = req.headers['x-forwarded-for'] ||
+      req.headers['x-real-ip'] ||
+      req.connection.remoteAddress ||
+      req.socket.remoteAddress ||
+      (req.connection.socket ? req.connection.socket.remoteAddress : null) ||
+      req.ip ||
+      'Bilinmiyor';
+
     const userAgent = req.headers['user-agent'] || 'Bilinmiyor';
 
     // Detaylı activity log
@@ -2054,13 +2056,13 @@ const getNextTesvikId = async (req, res) => {
       { tesvikId: 1 },
       { sort: { tesvikId: -1 } }
     );
-    
+
     let nextNumber = 1;
     if (lastTesvik && lastYeniTesvik.tesvikId) {
       const currentNumber = parseInt(lastYeniTesvik.tesvikId.slice(7));
       nextNumber = currentNumber + 1;
     }
-    
+
     const nextTesvikId = `TES${year}${nextNumber.toString().padStart(4, '0')}`;
 
     res.json({
@@ -2086,23 +2088,23 @@ const getNextTesvikId = async (req, res) => {
 const getNextGmId = async (req, res) => {
   try {
     console.log('🔍 Finding next available GM ID...');
-    
+
     // Son GM ID'yi bul
     const lastTesvik = await YeniTesvik.findOne(
       { gmId: { $exists: true, $ne: '' } },
       { gmId: 1 },
       { sort: { gmId: -1 } }
     );
-    
+
     let nextNumber = 1;
-    
+
     if (lastTesvik && lastYeniTesvik.gmId) {
       // GM ID format: GM2024001, GM2024002, etc.
       const match = lastYeniTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
       if (match) {
         const year = parseInt(match[1]);
         const currentNumber = parseInt(match[2]);
-        
+
         // Aynı yıl içindeyse sequence artır, yoksa 1'den başla
         if (year === new Date().getFullYear()) {
           nextNumber = currentNumber + 1;
@@ -2111,10 +2113,10 @@ const getNextGmId = async (req, res) => {
         }
       }
     }
-    
+
     const currentYear = new Date().getFullYear();
     const nextGmId = `GM${currentYear}${nextNumber.toString().padStart(3, '0')}`;
-    
+
     console.log('✅ Next available GM ID:', nextGmId);
 
     res.json({
@@ -2270,7 +2272,7 @@ const getNextGmIdValue = async () => {
     { gmId: 1 },
     { sort: { gmId: -1 } }
   );
-  
+
   let nextNumber = 1;
   if (lastTesvik && lastTesvik.gmId) {
     const match = lastTesvik.gmId.match(/^GM(\d{4})(\d{3})$/);
@@ -2282,7 +2284,7 @@ const getNextGmIdValue = async () => {
       }
     }
   }
-  
+
   return `GM${new Date().getFullYear()}${nextNumber.toString().padStart(3, '0')}`;
 };
 const getNextTesvikIdValue = async () => {
@@ -2292,13 +2294,13 @@ const getNextTesvikIdValue = async () => {
     { tesvikId: 1 },
     { sort: { tesvikId: -1 } }
   );
-  
+
   let nextNumber = 1;
   if (lastTesvik && lastTesvik.tesvikId) {
     const currentNumber = parseInt(lastTesvik.tesvikId.slice(7));
     nextNumber = currentNumber + 1;
   }
-  
+
   return `TES${year}${nextNumber.toString().padStart(4, '0')}`;
 };
 
@@ -2319,7 +2321,7 @@ const getDestekSiniflariOptions = async () => {
   try {
     const DestekSinifi = require('../models/DestekSinifi');
     const destekSiniflari = await DestekSinifi.getAktifDestekSiniflari();
-    
+
     return destekSiniflari.map(sinif => ({
       value: sinif.kod,
       label: sinif.aciklama,
@@ -2348,7 +2350,7 @@ const getOecdKategorileriOptions = async () => {
   try {
     const OecdKategori = require('../models/OecdKategori');
     const oecdKategorileri = await OecdKategori.getAktifOecdKategorileri();
-    
+
     return oecdKategorileri.map(kategori => ({
       kod: kategori.kod,
       value: kategori.kod,
@@ -2368,17 +2370,17 @@ const getOecdKategorileriOptions = async () => {
 };
 
 const getIllerOptions = () => [
-  'ADANA', 'ADIYAMAN', 'AFYONKARAHİSAR', 'AĞRI', 'AMASYA', 'ANKARA', 'ANTALYA', 
-  'ARTVİN', 'AYDIN', 'BALIKESİR', 'BİLECİK', 'BİNGÖL', 'BİTLİS', 'BOLU', 
-  'BURDUR', 'BURSA', 'ÇANAKKALE', 'ÇANKIRI', 'ÇORUM', 'DENİZLİ', 'DİYARBAKIR', 
+  'ADANA', 'ADIYAMAN', 'AFYONKARAHİSAR', 'AĞRI', 'AMASYA', 'ANKARA', 'ANTALYA',
+  'ARTVİN', 'AYDIN', 'BALIKESİR', 'BİLECİK', 'BİNGÖL', 'BİTLİS', 'BOLU',
+  'BURDUR', 'BURSA', 'ÇANAKKALE', 'ÇANKIRI', 'ÇORUM', 'DENİZLİ', 'DİYARBAKIR',
   'EDİRNE', 'ELAZIĞ', 'ERZİNCAN', 'ERZURUM', 'ESKİŞEHİR', 'GAZİANTEP', 'GİRESUN',
-  'GÜMÜŞHANE', 'HAKKARİ', 'HATAY', 'ISPARTA', 'İÇEL', 'İSTANBUL', 'İZMİR', 
+  'GÜMÜŞHANE', 'HAKKARİ', 'HATAY', 'ISPARTA', 'İÇEL', 'İSTANBUL', 'İZMİR',
   'KARS', 'KASTAMONU', 'KAYSERİ', 'KIRKLARELİ', 'KIRŞEHİR', 'KOCAELİ', 'KONYA',
   'KÜTAHYA', 'MALATYA', 'MANİSA', 'KAHRAMANMARAŞ', 'MARDİN', 'MUĞLA', 'MUŞ',
   'NEVŞEHİR', 'NİĞDE', 'ORDU', 'RİZE', 'SAKARYA', 'SAMSUN', 'SİİRT', 'SİNOP',
   'SİVAS', 'TEKİRDAĞ', 'TOKAT', 'TRABZON', 'TUNCELİ', 'ŞANLIURFA', 'UŞAK',
   'VAN', 'YOZGAT', 'ZONGULDAK', 'AKSARAY', 'BAYBURT', 'KARAMAN', 'KIRIKKALE',
-  'BATMAN', 'ŞIRNAK', 'BARTIN', 'ARDAHAN', 'IĞDIR', 'YALOVA', 'KARABÜK', 
+  'BATMAN', 'ŞIRNAK', 'BARTIN', 'ARDAHAN', 'IĞDIR', 'YALOVA', 'KARABÜK',
   'KİLİS', 'OSMANİYE', 'DÜZCE'
 ];
 
@@ -2414,23 +2416,23 @@ const getKapasiteBirimleriOptions = () => [
   'ADET', 'ADET(UNIT)', 'ADET-ÇİFT', 'ABONE', 'ABONELİK',
   'KİLOGRAM', 'KİLOGRAM-ADET', 'KİLOGRAM-BAŞ', 'KİLOGRAM-ÇİFT',
   'GRAM', 'TON', 'LİTRE', 'METRE', 'METRE KARE', 'METRE KÜP',
-  
+
   // Zamanlı birimler - Excel'deki gibi
   'ADET/YIL', 'ADET/AY', 'ADET/GÜN', 'ADET/SAAT', 'ADET/8 SAAT',
   'ADET/HAFTA', 'ADET/DÖNEM', 'ADET/PERYOT', 'ADET/DAKİKA',
   'ABONE/YIL', 'ABONE/GÜN', 'ÇİFT/YIL', 'ÇİFT/GÜN', 'GRAM/YIL',
-  
+
   // Özel birimler - Excel'den
   'ADET/10L', 'ADET/BALON', 'ADET/DEVRE', 'ADET/TEST', 'ADET/TEKNE', 'ADET/UÇAK',
   'ÇİFT', 'LEVHA', 'RULO', 'PLAKA', 'BOBIN', 'TABAKA',
   'DEMET', 'PAKET', 'KOLI', 'KASA', 'KUTU',
-  
+
   // Kilo Watt ve enerji birimleri
   'KILO WATT', 'KILO WATT SAAT', 'BİN KILO WATT SAAT',
-  
+
   // Bin birimler
   'BİN ADET', 'BİN KİLOGRAM', 'BİN LİTRE', 'BİN METRE KÜP',
-  
+
   // Diğer özel birimler
   'ALTIN AYARI', 'ATV birim fiyatı', 'AFİF birim fiyatı',
   'AZOTUN KİLOGRAMI', 'BAS', 'BRÜT KALORİ DEĞERİ',
@@ -2459,7 +2461,7 @@ const getU97KodlariOptions = () => [
   { kod: '0111.0.18', aciklama: 'Şeker kamışı', kategori: 'Endüstriyel Bitki' },
   { kod: '0111.0.19', aciklama: 'Saman ve yem bitkileri', kategori: 'Yem Bitkisi' },
   { kod: '0111.0.20', aciklama: 'Pamuk (çırçırlanmış ya da çırçırlanmamış)', kategori: 'Endüstriyel Bitki' },
-  
+
   // 0112 - SEBZE, BAHÇE VE KÜLTÜR BİTKİLERİ
   { kod: '0112.0.02', aciklama: 'Meyvesi yenen sebzeler', kategori: 'Sebze' },
   { kod: '0112.0.03', aciklama: 'Yaprağı yenen sebzeler', kategori: 'Sebze' },
@@ -2467,7 +2469,7 @@ const getU97KodlariOptions = () => [
   { kod: '0112.0.05', aciklama: 'B.y.s. diğer sebzeler', kategori: 'Sebze' },
   { kod: '0112.0.08', aciklama: 'Çiçek ve meyve tohumları', kategori: 'Tohum' },
   { kod: '0112.0.09', aciklama: 'Sebze tohumları', kategori: 'Tohum' },
-  
+
   // 0113 - MEYVE VE BAHARAT BİTKİLERİ
   { kod: '0113.0.01', aciklama: 'Sofralık üzüm', kategori: 'Meyve' },
   { kod: '0113.0.02', aciklama: 'Diğer yaş üzüm', kategori: 'Meyve' },
@@ -2477,7 +2479,7 @@ const getU97KodlariOptions = () => [
   { kod: '0113.0.08', aciklama: 'Zeytin', kategori: 'Meyve' },
   { kod: '0113.0.12', aciklama: 'Kakao çekirdeği', kategori: 'Endüstriyel Bitki' },
   { kod: '0113.0.13', aciklama: 'Baharatlar (işlenmemiş)', kategori: 'Baharat' },
-  
+
   // 0121 - BÜYÜKBAŞ HAYVANCILIK
   { kod: '0121.1.01', aciklama: 'Sığır (saf kültür)', kategori: 'Büyükbaş' },
   { kod: '0121.1.02', aciklama: 'Sığır (kültür melezi)', kategori: 'Büyükbaş' },
@@ -2486,7 +2488,7 @@ const getU97KodlariOptions = () => [
   { kod: '0121.1.05', aciklama: 'Damızlık sığır yetiştiriciliği', kategori: 'Büyükbaş' },
   { kod: '0121.1.06', aciklama: 'Sığırdan elde edilen ham süt', kategori: 'Süt Ürünü' },
   { kod: '0121.1.07', aciklama: 'Sığır spermi üretimi (dondurulmuş)', kategori: 'Damızlık' },
-  
+
   // 0121 - KÜÇÜKBAŞ HAYVANCILIK  
   { kod: '0121.2.01', aciklama: 'Merinos Koyunu', kategori: 'Küçükbaş' },
   { kod: '0121.2.02', aciklama: 'Yerli Koyun', kategori: 'Küçükbaş' },
@@ -2497,7 +2499,7 @@ const getU97KodlariOptions = () => [
 const getOsbListFromCSV = () => {
   try {
     const csvPath = path.join(__dirname, '../../belge ytb - admin.csv');
-    
+
     if (!fs.existsSync(csvPath)) {
       console.log('⚠️ OSB CSV dosyası bulunamadı:', csvPath);
       return [];
@@ -2506,25 +2508,25 @@ const getOsbListFromCSV = () => {
     // CSV dosyasını satır satır oku
     const csvData = fs.readFileSync(csvPath, 'utf-8');
     const lines = csvData.split('\n');
-    
+
     const osbList = new Set(); // Duplicate'leri önlemek için Set kullan
-    
+
     // İlk satır header, ondan sonrakiler data
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line || line.trim() === '') continue;
-      
+
       const columns = line.split(',');
       const osbIli = columns[12]; // OSB İli (13. kolon)
       const osbUnvani = columns[13]; // OSB Ünvanı (14. kolon)
-      
+
       if (osbIli && osbUnvani && osbIli.trim() !== '' && osbUnvani.trim() !== '') {
         // Unique key oluştur
         const osbKey = `${osbIli.trim()}|${osbUnvani.trim()}`;
         osbList.add(osbKey);
       }
     }
-    
+
     // Set'i array'e çevir ve formatla
     const formattedOsb = Array.from(osbList).map(osbKey => {
       const [il, unvan] = osbKey.split('|');
@@ -2535,10 +2537,10 @@ const getOsbListFromCSV = () => {
         fullLabel: `${unvan} (${il})`
       };
     }).sort((a, b) => a.il.localeCompare(b.il) || a.label.localeCompare(b.label));
-    
+
     console.log(`✅ ${formattedOsb.length} OSB verisi CSV'den yüklendi`);
     return formattedOsb;
-    
+
   } catch (error) {
     console.error('❌ OSB CSV okuma hatası:', error);
     return [];
@@ -2661,7 +2663,7 @@ const getDestekSartlariOptions = () => [
   { value: 'Yatırıma Katkı Oranı:%40 - Vergi İndirim %80 (5. Bölge)', label: 'Yatırıma Katkı Oranı:%40 - Vergi İndirim %80 (5. Bölge)', kategori: '5. Bölge', yuzde: 40 },
   { value: 'Yatırıma Katkı Oranı:%50 - Vergi İndirim %90 (6. Bölge)', label: 'Yatırıma Katkı Oranı:%50 - Vergi İndirim %90 (6. Bölge)', kategori: '6. Bölge', yuzde: 50 },
   { value: 'Yatırıma Katkı Oranı:%50 - Vergi İndirim %90 (Stratejik)', label: 'Yatırıma Katkı Oranı:%50 - Vergi İndirim %90 (Stratejik)', kategori: 'Stratejik', yuzde: 50 },
-  
+
   // Yatırım Tutarı Destekleri
   { value: '2 Yıl ve En Fazla Yatırım Tutarının %10\'lu (1. Bölge)', label: '2 Yıl ve En Fazla Yatırım Tutarının %10\'lu (1. Bölge)', kategori: '1. Bölge', yil: 2 },
   { value: '3 Yıl ve En Fazla Yatırım Tutarının %15\'i (2. Bölge)', label: '3 Yıl ve En Fazla Yatırım Tutarının %15\'i (2. Bölge)', kategori: '2. Bölge', yil: 3 },
@@ -2670,15 +2672,15 @@ const getDestekSartlariOptions = () => [
   { value: '7 Yıl ve En Fazla Yatırım Tutarının %35\'i (5. Bölge)', label: '7 Yıl ve En Fazla Yatırım Tutarının %35\'i (5. Bölge)', kategori: '5. Bölge', yil: 7 },
   { value: '10 Yıl (6. Bölge)', label: '10 Yıl (6. Bölge)', kategori: '6. Bölge', yil: 10 },
   { value: '7 Yıl ve En Fazla Yatırım Tutarının %15\'i (Stratejik)', label: '7 Yıl ve En Fazla Yatırım Tutarının %15\'i (Stratejik)', kategori: 'Stratejik', yil: 7 },
-  
+
   // Hamle Programları
   { value: '5 Yıl (Hamle)', label: '5 Yıl (Hamle)', kategori: 'Hamle', yil: 5 },
   { value: '7 Yıl (Hamle Yüksek Teknoloji)', label: '7 Yıl (Hamle Yüksek Teknoloji)', kategori: 'Hamle', yil: 7 },
-  
+
   // Özel Şartlar
   { value: 'Var (Yerli ve İthal Liste - Tamamı)', label: 'Var (Yerli ve İthal Liste - Tamamı)', kategori: 'Liste' },
   { value: 'Var (Yerli ve İthal Liste - Tamamı)', label: 'Var (Yerli ve İthal Liste - Tamamı)', kategori: 'Liste' },
-  
+
   // Diğer Şartlar
   { value: '10 Yıl 6. Bölge', label: '10 Yıl 6. Bölge', kategori: '6. Bölge', yil: 10 }
 ];
@@ -2728,26 +2730,26 @@ const getDestekUnsurlariTemplate = () => [
 
 // 🏷️ Özel Şartlar Template
 const getOzelSartlarTemplate = () => [
-  { 
-    kosul: 'Özel Şart Koşulu 1', 
+  {
+    kosul: 'Özel Şart Koşulu 1',
     aciklama: 'Açıklama Notu 1',
     kosul2: 'Özel Şart Koşulu 2',
     aciklama2: 'Açıklama Notu 2'
   },
-  { 
-    kosul: 'Özel Şart Koşulu 3', 
+  {
+    kosul: 'Özel Şart Koşulu 3',
     aciklama: 'Açıklama Notu 3',
     kosul2: 'Özel Şart Koşulu 4',
     aciklama2: 'Açıklama Notu 4'
   },
-  { 
-    kosul: 'Özel Şart Koşulu 5', 
+  {
+    kosul: 'Özel Şart Koşulu 5',
     aciklama: 'Açıklama Notu 5',
     kosul2: 'Özel Şart Koşulu 6',
     aciklama2: 'Açıklama Notu 6'
   },
-  { 
-    kosul: 'Özel Şart Koşulu 7', 
+  {
+    kosul: 'Özel Şart Koşulu 7',
     aciklama: 'Açıklama Notu 7',
     kosul2: '',
     aciklama2: ''
@@ -2757,7 +2759,7 @@ const getOzelSartlarTemplate = () => [
 const getTesvikByFirma = async (req, res) => {
   try {
     const { firmaId } = req.params;
-    
+
     const tesvikler = await YeniTesvik.find({ firma: firmaId, aktif: true })
       .populate('olusturanKullanici', 'adSoyad')
       .select('tesvikId gmId durumBilgileri istihdam maliHesaplamalar createdAt')
@@ -2832,19 +2834,19 @@ const getOzelSartKisaltmalariOptions = () => [
   { value: 'BÖL 3305-SGK:Bölgesel-5.Bölge', label: 'BÖL 3305-SGK:Bölgesel-5.Bölge', kategori: '5. Bölge', renk: '#3B82F6' },
   { value: 'BÖL- FAALİYET ZORUNLULUĞU', label: 'BÖL- FAALİYET ZORUNLULUĞU', kategori: 'Zorunluluk', renk: '#6B7280' },
   { value: 'BÖL - Faiz Desteği', label: 'BÖL - Faiz Desteği', kategori: 'Faiz', renk: '#EF4444' },
-  
+
   // Kurum ve Tarih
   { value: 'DİĞER KURUM-3(21.08.2020)', label: 'DİĞER KURUM-3(21.08.2020)', kategori: 'Kurum', renk: '#F59E0B' },
-  
+
   // Sigorta ve Özel Durumlar
   { value: 'SİGORTA BAŞLAMA', label: 'SİGORTA BAŞLAMA', kategori: 'Sigorta', renk: '#10B981' },
   { value: 'ÖNCELİKLİ YATIRIM', label: 'ÖNCELİKLİ YATIRIM', kategori: 'Yatırım', renk: '#8B5CF6' },
   { value: '3305-Yatırım Konusu Zorunluluğu', label: '3305-Yatırım Konusu Zorunluluğu', kategori: 'Zorunluluk', renk: '#6B7280' },
-  
+
   // Finansal ve Makine
   { value: 'FİNANSAL KİRALAMA', label: 'FİNANSAL KİRALAMA', kategori: 'Finansal', renk: '#EF4444' },
   { value: 'Kullanılmış Makine Münferit', label: 'Kullanılmış Makine Münferit', kategori: 'Makine', renk: '#F59E0B' },
-  
+
   // Genel
   { value: 'DİĞER', label: 'DİĞER', kategori: 'Genel', renk: '#6B7280' },
   { value: 'İşyeri Açma ve Çalışma Ruhsatı', label: 'İşyeri Açma ve Çalışma Ruhsatı', kategori: 'Ruhsat', renk: '#8B5CF6' }
@@ -2889,50 +2891,50 @@ const addNewOption = async (req, res) => {
         // Yatırım tipleri için basit yapı
         savedOption = newOption;
         break;
-        
+
       case 'osbOptions':
         // OSB için şehir bilgisi ekle
         newOption.sehir = ek_bilgi.sehir || 'Belirtilmemiş';
         savedOption = newOption;
         break;
-        
+
       case 'u97Kodlari':
         // U$97 kodları için kod ve kategori
         newOption.kod = value;
         newOption.kategori = kategori || 'DİĞER';
         savedOption = newOption;
         break;
-        
+
       case 'destekUnsurlariOptions':
         // Destek unsurları için renk kodu
         newOption.renk = ek_bilgi.renk || '#6B7280';
         savedOption = newOption;
         break;
-        
+
       case 'ozelSartKisaltmalari':
         // Özel şartlar için renk kodu
         newOption.renk = ek_bilgi.renk || '#6B7280';
         savedOption = newOption;
         break;
-        
+
       case 'destekSartlariOptions':
         // Şartlar için yüzde ve yıl bilgisi
         newOption.yuzde = ek_bilgi.yuzde || null;
         newOption.yil = ek_bilgi.yil || null;
         savedOption = newOption;
         break;
-        
+
       case 'kapasiteBirimleri':
         // Kapasite birimleri için basit yapı
         savedOption = newOption;
         break;
-        
+
       case 'belgeDurumlari':
         // Belge durumları için renk kodu
         newOption.renk = ek_bilgi.renk || '#6B7280';
         savedOption = newOption;
         break;
-        
+
       default:
         return res.status(400).json({
           success: false,
@@ -2967,7 +2969,7 @@ const getOptionsForType = async (req, res) => {
     console.log(`📋 Dropdown seçenekleri getiriliyor: ${type}`);
 
     let options = [];
-    
+
     // Type'a göre güncel seçenekleri getir
     switch (type) {
       case 'yatirimTipleri':
@@ -3027,16 +3029,16 @@ const getOptionsForType = async (req, res) => {
 // 🗓️ TÜRKÇE TARİH FORMAT YARDIMCISI - Tutarlı tarih formatı sağlar
 const formatTurkishDateTime = (dateValue) => {
   if (!dateValue) return '';
-  
+
   try {
     const date = new Date(dateValue);
-    
+
     // Invalid date kontrolü
     if (isNaN(date.getTime())) {
       console.warn(`⚠️ Geçersiz tarih değeri: ${dateValue}`);
       return String(dateValue); // Fallback: string olarak döndür
     }
-    
+
     // Türkçe tarih formatı: DD.MM.YYYY HH:MM:SS
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -3044,7 +3046,7 @@ const formatTurkishDateTime = (dateValue) => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     const seconds = String(date.getSeconds()).padStart(2, '0');
-    
+
     return `${day}.${month}.${year} ${hours}:${minutes}:${seconds}`;
   } catch (error) {
     console.warn(`⚠️ Tarih formatlama hatası: ${dateValue}`, error);
@@ -3055,19 +3057,19 @@ const formatTurkishDateTime = (dateValue) => {
 // 🗓️ SADECE TARİH (saat olmadan) - DD.MM.YYYY formatı
 const formatTurkishDate = (dateValue) => {
   if (!dateValue) return '';
-  
+
   try {
     const date = new Date(dateValue);
-    
+
     if (isNaN(date.getTime())) {
       console.warn(`⚠️ Geçersiz tarih değeri: ${dateValue}`);
       return String(dateValue);
     }
-    
+
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
-    
+
     return `${day}.${month}.${year}`;
   } catch (error) {
     console.warn(`⚠️ Tarih formatlama hatası: ${dateValue}`, error);
@@ -3080,81 +3082,81 @@ const formatTurkishDate = (dateValue) => {
 const exportRevizyonExcel = async (req, res) => {
   const startTime = Date.now();
   const exportId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
+
   try {
     const { id } = req.params;
     const { includeColors = true } = req.query;
-    
+
     console.log(`🚀 [${exportId}] Enterprise Sistem Revizyon Excel export başlatıldı: ${id}`);
-    
+
     // 📊 PHASE 1: ENTERPRISE VERİ ÇEKME SİSTEMİ
     console.log(`⏱️  [${exportId}] Phase 1: MongoDB'den tam veri çekme başladı`);
-    
+
     const tesvik = await getCompleteTesvikData(id);
     if (!tesvik) {
       console.log(`❌ [${exportId}] Teşvik bulunamadı: ${id}`);
-      return res.status(404).json({ 
-        success: false, 
+      return res.status(404).json({
+        success: false,
         message: 'Teşvik bulunamadı',
-        exportId 
+        exportId
       });
     }
-    
+
     console.log(`✅ [${exportId}] Teşvik verisi çekildi: ${tesvik.tesvikId || tesvik.gmId}`);
     console.log(`📋 [${exportId}] Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
     console.log(`👥 [${exportId}] İlişkili veri: Firma, Kullanıcılar, Aktiviteler yüklendi`);
-    
+
     // 📊 PHASE 2: CSV SÜTUN KONTROLÜ VE DOĞRULAMA
     console.log(`⏱️  [${exportId}] Phase 2: CSV sütun yapısı doğrulama başladı`);
-    
+
     const csvStructure = await validateAndBuildCsvStructure();
     console.log(`✅ [${exportId}] CSV yapısı doğrulandı: ${csvStructure.totalColumns} sütun`);
-    
+
     // 📊 PHASE 3: REVİZYON TRAKİNG ALGORİTMASI  
     console.log(`⏱️  [${exportId}] Phase 3: Revizyon tracking algoritması başladı`);
-    
+
     const revisionData = await buildRevisionTrackingData(tesvik);
-    
+
     // 🔒 Null/undefined güvenlik kontrolü
     const safeRevisionData = Array.isArray(revisionData) ? revisionData : [];
-    
+
     console.log(`✅ [${exportId}] Revizyon tracking tamamlandı: ${safeRevisionData.length} satır`);
     const totalChanges = safeRevisionData.reduce((sum, r) => sum + (r?.changesCount || 0), 0);
     console.log(`🔍 [${exportId}] Toplam değişiklik: ${totalChanges} alan`);
-    
+
     // 📊 PHASE 4: PROFESSIONAL EXCEL EXPORT
     console.log(`⏱️  [${exportId}] Phase 4: Professional Excel export başladı`);
-    
+
     const workbook = await createProfessionalWorkbook(csvStructure, safeRevisionData, includeColors, exportId);
-    
+
     console.log(`✅ [${exportId}] Excel workbook oluşturuldu`);
-    
+
     // 📊 PHASE 5: EXPORT FİNALİZATİON
     console.log(`⏱️  [${exportId}] Phase 5: Export finalization başladı`);
-    
+
     const excelBuffer = await workbook.xlsx.writeBuffer();
     const fileName = generateFileName(tesvik);
-    
+
     // Response headers
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('X-Revision-Rows', safeRevisionData.length.toString());
     res.setHeader('X-Export-ID', exportId);
     res.setHeader('X-Export-Duration', `${Date.now() - startTime}ms`);
-    
+
     // Activity log
     await logExportActivity(tesvik, req.user, exportId, safeRevisionData.length, Date.now() - startTime, req.ip, req.get('User-Agent'));
-    
+
     // Send Excel file
     res.send(excelBuffer);
-    
+
     const duration = Date.now() - startTime;
     console.log(`🎉 [${exportId}] Export tamamlandı! Süre: ${duration}ms, Dosya: ${fileName}`);
     console.log(`📈 [${exportId}] Performans: ${safeRevisionData.length} satır, ${csvStructure.totalColumns} sütun işlendi`);
   } catch (error) {
     const duration = Date.now() - startTime;
     console.error(`💥 [${exportId}] Export hatası! Süre: ${duration}ms`, error);
-    
+
     // Enterprise error response
     if (!res.headersSent) {
       res.status(500).json({
@@ -3223,11 +3225,11 @@ const autoSyncDurumFromRevisions = async (tesvikDoc) => {
 const getCompleteTesvikData = async (id) => {
   try {
     console.log(`📊 MongoDB'den tam veri çekme başladı: ${id}`);
-    
+
     // ID format detection
     const isObjectId = id.match(/^[0-9a-fA-F]{24}$/);
     const query = isObjectId ? { _id: id } : { tesvikId: id };
-    
+
     // Complete data with all relations
     const tesvik = await YeniTesvik.findOne(query)
       .populate({
@@ -3235,7 +3237,7 @@ const getCompleteTesvikData = async (id) => {
         select: 'tamUnvan firmaId vergiNoTC firmaIl firmaIlce aktif etuysYetkiBitis dysYetkiBitis createdAt'
       })
       .populate({
-        path: 'revizyonlar.yapanKullanici', 
+        path: 'revizyonlar.yapanKullanici',
         select: 'adSoyad email rol aktif'
       })
       .populate({
@@ -3246,10 +3248,10 @@ const getCompleteTesvikData = async (id) => {
         path: 'sonGuncelleyen',
         select: 'adSoyad email rol aktif'
       })
-        .lean();
-    
+      .lean();
+
     if (!tesvik) return null;
-    
+
     // Get related activities for complete revision history
     const activities = await Activity.find({
       'targetResource.type': 'tesvik',
@@ -3257,13 +3259,13 @@ const getCompleteTesvikData = async (id) => {
       action: { $in: ['create', 'update', 'revision'] }
     })
       .sort({ createdAt: 1 })
-        .lean();
-    
+      .lean();
+
     tesvik.relatedActivities = activities;
-    
+
     console.log(`✅ Tam veri çekildi: ${tesvik.tesvikId}, ${activities.length} aktivite`);
     return tesvik;
-    
+
   } catch (error) {
     console.error('❌ MongoDB veri çekme hatası:', error);
     throw error;
@@ -3273,20 +3275,20 @@ const getCompleteTesvikData = async (id) => {
 const validateAndBuildCsvStructure = async () => {
   try {
     console.log(`📊 CSV sütun yapısı doğrulanıyor...`);
-    
+
     // CSV'den gerçek sütun yapısını çıkar (belytbsütun çalışması - Sayfa2.csv'ye göre)
     const csvStructure = {
       // 1. SEVIYE - Ana kategoriler (CSV'den sayılar çıkarıldı)
       level1: [
         { text: 'KÜNYE BİLGLERİ', span: 17, startCol: 1 },
-        { text: 'YATIRIM İLE İLGİLİ BİLGİLER', span: 17, startCol: 18 }, 
+        { text: 'YATIRIM İLE İLGİLİ BİLGİLER', span: 17, startCol: 18 },
         { text: 'İSTİHDAM', span: 2, startCol: 35 },
         { text: 'ÜRÜN BİLGLERİ', span: 54, startCol: 37 },
         { text: 'DESTEK UNSURLARI', span: 16, startCol: 91 },
         { text: 'ÖZEL ŞARTLAR', span: 28, startCol: 107 },
         { text: 'FİNANSAL BİLGLER', span: 26, startCol: 135 }, // 26 sütun (25 + REVIZE TARIHI)
       ],
-      
+
       // 2. SEVIYE - Alt kategoriler  
       level2: [
         { text: 'YATIRIMCI', span: 6, startCol: 1 },
@@ -3298,12 +3300,12 @@ const validateAndBuildCsvStructure = async () => {
         { text: 'ÖZEL ŞARTLAR', span: 28, startCol: 107 },
         { text: 'FİNANSAL BİLGLER', span: 26, startCol: 135 },
       ],
-      
+
       // 3. SEVIYE - Özel kategoriler (sadece finansal kısımda)
       level3: [
         ...Array(134).fill(''), // İlk 134 sütun boş
         'ARAZİ-ARSA BEDELİ', '', '', '',
-        'BİNA İNŞAAT GİDERLERİ TL', '', '', '', '',  
+        'BİNA İNŞAAT GİDERLERİ TL', '', '', '', '',
         'DİĞER YATIRIM HARCAMALARI TL', '', '', '', '', '', '',
         'TOPLAM SABİT YATIRIM TUTARI TL',
         'MAKİNE TEÇHİZAT GİDERLERİ TL(*)', '', '',
@@ -3311,11 +3313,11 @@ const validateAndBuildCsvStructure = async () => {
         'YABANCI KAYNAKLAR', 'ÖZ KAYNAKLAR', '',
         '' // REVİZE TARİHİ
       ],
-      
+
       // 4. SEVIYE - Sütun isimleri (CSV'den tam kopyası - 156 sütun)
       level4: [
         'GM ID', 'TALEP/SONUÇ', 'REVIZE ID', 'FIRMA ID', 'YATIRIMCI UNVAN', 'SGK SİCİL NO',
-        'BELGE ID', 'BELGE NO', 'BELGE TARIHI', 'BELGE MURACAAT TARIHI', 'MÜRACAAT SAYISI', 
+        'BELGE ID', 'BELGE NO', 'BELGE TARIHI', 'BELGE MURACAAT TARIHI', 'MÜRACAAT SAYISI',
         'BELGE BASLAMA TARIHI', 'BELGE BITIS TARIHI', 'SÜRE UZATIM TARİHİ', 'ÖZELLİKLİ YATIRIM İSE', 'DAYANDIĞI KANUN', 'BELGE DURUMU',
         '2-YATIRIM KONUSU', '3-CINSI(1)', '3-CINSI(2)', '3-CINSI(3)', '3-CINSI(4)', 'DESTEK SINIFI', 'YERI IL', 'YERI ILCE',
         'ADA', 'PARSEL', 'YATIRIM ADRESI(1)', 'YATIRIM ADRESI(2)', 'YATIRIM ADRESI(3)', 'OSB ISE MUDURLUK', 'İL BAZLI BÖLGE', 'İLÇE BAZLI BÖLGE', 'SERBEST BÖLGE',
@@ -3351,12 +3353,12 @@ const validateAndBuildCsvStructure = async () => {
         'REVIZE TARIHI', 'TALEP TARİHİ', 'SONUÇ TARİHİ'
       ]
     };
-    
+
     csvStructure.totalColumns = csvStructure.level4.length;
-    
+
     console.log(`✅ CSV yapısı doğrulandı: ${csvStructure.totalColumns} sütun`);
     return csvStructure;
-    
+
   } catch (error) {
     console.error('❌ CSV yapısı doğrulama hatası:', error);
     throw error;
@@ -3365,253 +3367,253 @@ const validateAndBuildCsvStructure = async () => {
 
 // 📊 PHASE 3: PROFESSIONAL REVISION TRACKING ALGORITHM - FIXED!
 const buildRevisionTrackingData = async (tesvik) => {
-    console.log(`📊 PROFESSIONAL Revizyon tracking algoritması başlıyor...`);
-    
-    const revisionData = [];
-    
-    // 🔥 REMOVED: currentState artık kullanılmıyor - her revizyon kendi historik snapshot'ını tutuyor!
-    
-    console.log(`🎯 İşleme alınan teşvik: ${tesvik.tesvikId} | Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
-    
-    // 🟢 İLK OLUŞTURMA KAYDI - Original creation state
-    console.log('📝 İlk oluşturma snapshot hazırlanıyor...');
-    
-    // İlk hali için snapshot oluştur
-    // Tercih sırası:
-    // 1) İlk revizyonun veriSnapshot.oncesi (varsa) → gerçek başlangıç durumu
-    // 2) Aksi halde mevcut tesvik'in kopyası
-    let initialSnapshot;
-    const firstRevisionWithSnapshot = tesvik.revizyonlar?.find?.(r => r?.veriSnapshot?.oncesi);
-    if (firstRevisionWithSnapshot?.veriSnapshot?.oncesi) {
-      initialSnapshot = JSON.parse(JSON.stringify(firstRevisionWithSnapshot.veriSnapshot.oncesi));
-      console.log('🧩 Initial snapshot: İlk revizyonun ONCESI kullanıldı');
-    } else if (Array.isArray(tesvik.revizyonlar) && tesvik.revizyonlar.length > 0) {
-      // 🚑 Fallback 2: Mevcut state'ten GERİYE DOĞRU rollback yaparak ilk halini inşa et
-      console.log('🧩 Initial snapshot: Rollback ile inşa ediliyor (oncesi yok)');
-      const rolledBack = JSON.parse(JSON.stringify(tesvik.toObject ? tesvik.toObject() : tesvik));
-      delete rolledBack.revizyonlar;
-      // En sondan başa doğru tüm değişiklikleri geri al
-      for (let r = tesvik.revizyonlar.length - 1; r >= 0; r--) {
-        const rev = tesvik.revizyonlar[r];
-        if (Array.isArray(rev.degisikenAlanlar)) {
-          rev.degisikenAlanlar.forEach(ch => {
-            const path = (ch.alan || '').split('.');
-            if (!path.length) return;
-            let target = rolledBack;
-            for (let i = 0; i < path.length - 1; i++) {
-              if (!target[path[i]]) target[path[i]] = {};
-              target = target[path[i]];
+  console.log(`📊 PROFESSIONAL Revizyon tracking algoritması başlıyor...`);
+
+  const revisionData = [];
+
+  // 🔥 REMOVED: currentState artık kullanılmıyor - her revizyon kendi historik snapshot'ını tutuyor!
+
+  console.log(`🎯 İşleme alınan teşvik: ${tesvik.tesvikId} | Revizyon sayısı: ${tesvik.revizyonlar?.length || 0}`);
+
+  // 🟢 İLK OLUŞTURMA KAYDI - Original creation state
+  console.log('📝 İlk oluşturma snapshot hazırlanıyor...');
+
+  // İlk hali için snapshot oluştur
+  // Tercih sırası:
+  // 1) İlk revizyonun veriSnapshot.oncesi (varsa) → gerçek başlangıç durumu
+  // 2) Aksi halde mevcut tesvik'in kopyası
+  let initialSnapshot;
+  const firstRevisionWithSnapshot = tesvik.revizyonlar?.find?.(r => r?.veriSnapshot?.oncesi);
+  if (firstRevisionWithSnapshot?.veriSnapshot?.oncesi) {
+    initialSnapshot = JSON.parse(JSON.stringify(firstRevisionWithSnapshot.veriSnapshot.oncesi));
+    console.log('🧩 Initial snapshot: İlk revizyonun ONCESI kullanıldı');
+  } else if (Array.isArray(tesvik.revizyonlar) && tesvik.revizyonlar.length > 0) {
+    // 🚑 Fallback 2: Mevcut state'ten GERİYE DOĞRU rollback yaparak ilk halini inşa et
+    console.log('🧩 Initial snapshot: Rollback ile inşa ediliyor (oncesi yok)');
+    const rolledBack = JSON.parse(JSON.stringify(tesvik.toObject ? tesvik.toObject() : tesvik));
+    delete rolledBack.revizyonlar;
+    // En sondan başa doğru tüm değişiklikleri geri al
+    for (let r = tesvik.revizyonlar.length - 1; r >= 0; r--) {
+      const rev = tesvik.revizyonlar[r];
+      if (Array.isArray(rev.degisikenAlanlar)) {
+        rev.degisikenAlanlar.forEach(ch => {
+          const path = (ch.alan || '').split('.');
+          if (!path.length) return;
+          let target = rolledBack;
+          for (let i = 0; i < path.length - 1; i++) {
+            if (!target[path[i]]) target[path[i]] = {};
+            target = target[path[i]];
+          }
+          // 🔧 FIX: Rollback'te objeleri REPLACE et (merge değil!)
+          // Merge yapılırsa yeni eklenen alanlar eski revizyonlarda kalır
+          const lastKey = path[path.length - 1];
+          target[lastKey] = ch.eskiDeger;
+
+          // 🔧 FIX: yatirimBilgileri.yatirim2.X path'i varsa, yatirimBilgileri.X'e de yaz
+          if (path.length === 3 && path[0] === 'yatirimBilgileri' && path[1] === 'yatirim2') {
+            if (rolledBack.yatirimBilgileri) {
+              rolledBack.yatirimBilgileri[path[2]] = ch.eskiDeger;
             }
-            // 🔧 FIX: Rollback'te objeleri REPLACE et (merge değil!)
-            // Merge yapılırsa yeni eklenen alanlar eski revizyonlarda kalır
-            const lastKey = path[path.length - 1];
-            target[lastKey] = ch.eskiDeger;
-            
-            // 🔧 FIX: yatirimBilgileri.yatirim2.X path'i varsa, yatirimBilgileri.X'e de yaz
-            if (path.length === 3 && path[0] === 'yatirimBilgileri' && path[1] === 'yatirim2') {
-              if (rolledBack.yatirimBilgileri) {
-                rolledBack.yatirimBilgileri[path[2]] = ch.eskiDeger;
-              }
-            }
-          });
-        }
+          }
+        });
       }
-      initialSnapshot = rolledBack;
-    } else {
-      initialSnapshot = JSON.parse(JSON.stringify(tesvik));
-      console.log('🧩 Initial snapshot: Mevcut tesvik state kullanıldı (fallback 3)');
     }
-    delete initialSnapshot.revizyonlar; // İlk halde revizyon yok
-    
-    const initialRow = await buildCsvDataRowWithSnapshot(initialSnapshot, null, 0);
-    revisionData.push({
-      rowData: initialRow,
-      revisionNo: 0,
-      revisionDate: tesvik.createdAt,
-      changedBy: tesvik.olusturanKullanici,
-      reason: 'İlk Oluşturma',
-      changesCount: 0,
-      isInitial: true,
-      snapshot: initialSnapshot
-    });
-    console.log('✅ İlk oluşturma kaydı eklendi');
-    console.log(`🔢 revisionData.length şu anda: ${revisionData.length}`);
-    
-    // 🔄 REVİZYON GEÇMİŞİ - Her revizyon için o andaki state'i kullan
-    if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
-      console.log(`🔍 ${tesvik.revizyonlar.length} revizyon işleniyor...`);
-      
-      for (let i = 0; i < tesvik.revizyonlar.length; i++) {
-        const revizyon = tesvik.revizyonlar[i];
-        console.log(`📋 Revizyon ${i + 1} işleniyor: ${revizyon.revizyonSebebi}`);
-        
-        // 🎯 Bu revizyonda kaydedilmiş snapshot varsa kullan
-        let revizyonSnapshot;
-        
-        if (revizyon.veriSnapshot?.sonrasi) {
-          // 🔧 FIX: SONRASI öncelikli - revizyondan SONRA state'i göster
-          revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
-          console.log('✅ Revizyon SONRASI snapshot kullanılıyor');
-        } else if (revizyon.veriSnapshot?.oncesi) {
-          // Fallback: oncesi varsa kullan (eksik sonrasi durumu için)
-          revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.oncesi));
-          console.log('⚠️ Revizyon ÖNCESİ snapshot kullanılıyor (sonrası yok)');
-        } else if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-          // 🔥 CRITICAL FIX: Her revizyon kendi HISTORIK snapshot'ını tutsun!
-          // Son revizyon varsa onun snapshot'ını kullan, yoksa initial tesvik state'i kullan
-          const previousSnapshot = revisionData[revisionData.length - 1]?.snapshot || JSON.parse(JSON.stringify(tesvik));
-          revizyonSnapshot = JSON.parse(JSON.stringify(previousSnapshot));
-          
-          // ENHANCED CHANGE APPLICATION - Veri kaybını önle
-          revizyon.degisikenAlanlar.forEach(degisiklik => {
-            if (degisiklik.yeniDeger !== undefined && degisiklik.yeniDeger !== null) {
-              const keys = degisiklik.alan.split('.');
-              let current = revizyonSnapshot;
-              
-              // Sadece belirtilen alanları değiştir, diğerlerini koru
-              for (let j = 0; j < keys.length - 1; j++) {
-                if (!current[keys[j]]) current[keys[j]] = {};
-                current = current[keys[j]];
-              }
-              
-              const finalKey = keys[keys.length - 1];
-              
-              // PRESERVE: Eğer değişiklik array'i azaltıyorsa (örn length=0), veriyi sakla
-              if (Array.isArray(degisiklik.yeniDeger) && degisiklik.yeniDeger.length === 0) {
-                // Boş array için önceki revision'daki veriyi koru
-                if (i > 0 && revisionData[i-1]?.snapshot?.[keys[0]]) {
-                  console.log(`🔒 PRESERVE: ${degisiklik.alan} için önceki veri korunuyor`);
-                  // Önceki revision'dan veriyi al
-                  const prevValue = revisionData[i-1].snapshot;
-                  let prevCurrent = prevValue;
-                  for (let k = 0; k < keys.length - 1; k++) {
-                    if (prevCurrent && prevCurrent[keys[k]]) {
-                      prevCurrent = prevCurrent[keys[k]];
-                    }
+    initialSnapshot = rolledBack;
+  } else {
+    initialSnapshot = JSON.parse(JSON.stringify(tesvik));
+    console.log('🧩 Initial snapshot: Mevcut tesvik state kullanıldı (fallback 3)');
+  }
+  delete initialSnapshot.revizyonlar; // İlk halde revizyon yok
+
+  const initialRow = await buildCsvDataRowWithSnapshot(initialSnapshot, null, 0);
+  revisionData.push({
+    rowData: initialRow,
+    revisionNo: 0,
+    revisionDate: tesvik.createdAt,
+    changedBy: tesvik.olusturanKullanici,
+    reason: 'İlk Oluşturma',
+    changesCount: 0,
+    isInitial: true,
+    snapshot: initialSnapshot
+  });
+  console.log('✅ İlk oluşturma kaydı eklendi');
+  console.log(`🔢 revisionData.length şu anda: ${revisionData.length}`);
+
+  // 🔄 REVİZYON GEÇMİŞİ - Her revizyon için o andaki state'i kullan
+  if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
+    console.log(`🔍 ${tesvik.revizyonlar.length} revizyon işleniyor...`);
+
+    for (let i = 0; i < tesvik.revizyonlar.length; i++) {
+      const revizyon = tesvik.revizyonlar[i];
+      console.log(`📋 Revizyon ${i + 1} işleniyor: ${revizyon.revizyonSebebi}`);
+
+      // 🎯 Bu revizyonda kaydedilmiş snapshot varsa kullan
+      let revizyonSnapshot;
+
+      if (revizyon.veriSnapshot?.sonrasi) {
+        // 🔧 FIX: SONRASI öncelikli - revizyondan SONRA state'i göster
+        revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
+        console.log('✅ Revizyon SONRASI snapshot kullanılıyor');
+      } else if (revizyon.veriSnapshot?.oncesi) {
+        // Fallback: oncesi varsa kullan (eksik sonrasi durumu için)
+        revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.oncesi));
+        console.log('⚠️ Revizyon ÖNCESİ snapshot kullanılıyor (sonrası yok)');
+      } else if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+        // 🔥 CRITICAL FIX: Her revizyon kendi HISTORIK snapshot'ını tutsun!
+        // Son revizyon varsa onun snapshot'ını kullan, yoksa initial tesvik state'i kullan
+        const previousSnapshot = revisionData[revisionData.length - 1]?.snapshot || JSON.parse(JSON.stringify(tesvik));
+        revizyonSnapshot = JSON.parse(JSON.stringify(previousSnapshot));
+
+        // ENHANCED CHANGE APPLICATION - Veri kaybını önle
+        revizyon.degisikenAlanlar.forEach(degisiklik => {
+          if (degisiklik.yeniDeger !== undefined && degisiklik.yeniDeger !== null) {
+            const keys = degisiklik.alan.split('.');
+            let current = revizyonSnapshot;
+
+            // Sadece belirtilen alanları değiştir, diğerlerini koru
+            for (let j = 0; j < keys.length - 1; j++) {
+              if (!current[keys[j]]) current[keys[j]] = {};
+              current = current[keys[j]];
+            }
+
+            const finalKey = keys[keys.length - 1];
+
+            // PRESERVE: Eğer değişiklik array'i azaltıyorsa (örn length=0), veriyi sakla
+            if (Array.isArray(degisiklik.yeniDeger) && degisiklik.yeniDeger.length === 0) {
+              // Boş array için önceki revision'daki veriyi koru
+              if (i > 0 && revisionData[i - 1]?.snapshot?.[keys[0]]) {
+                console.log(`🔒 PRESERVE: ${degisiklik.alan} için önceki veri korunuyor`);
+                // Önceki revision'dan veriyi al
+                const prevValue = revisionData[i - 1].snapshot;
+                let prevCurrent = prevValue;
+                for (let k = 0; k < keys.length - 1; k++) {
+                  if (prevCurrent && prevCurrent[keys[k]]) {
+                    prevCurrent = prevCurrent[keys[k]];
                   }
-                  if (prevCurrent && prevCurrent[finalKey]) {
-                    current[finalKey] = prevCurrent[finalKey];
-                  } else {
-                    current[finalKey] = degisiklik.yeniDeger;
-                  }
+                }
+                if (prevCurrent && prevCurrent[finalKey]) {
+                  current[finalKey] = prevCurrent[finalKey];
                 } else {
                   current[finalKey] = degisiklik.yeniDeger;
                 }
               } else {
-                // Normal değişiklik
-                // 🔧 FIX: Eğer yeniDeger bir obje ise, mevcut obje ile merge et (aciklama gibi alanların kaybolmasını önle)
-                if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
-                  current[finalKey] = { ...current[finalKey], ...degisiklik.yeniDeger };
-                } else {
-                  current[finalKey] = degisiklik.yeniDeger;
-                }
+                current[finalKey] = degisiklik.yeniDeger;
+              }
+            } else {
+              // Normal değişiklik
+              // 🔧 FIX: Eğer yeniDeger bir obje ise, mevcut obje ile merge et (aciklama gibi alanların kaybolmasını önle)
+              if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof current[finalKey] === 'object' && current[finalKey] !== null) {
+                current[finalKey] = { ...current[finalKey], ...degisiklik.yeniDeger };
+              } else {
+                current[finalKey] = degisiklik.yeniDeger;
               }
             }
-          });
-          
-          console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
-        } else {
-          // 🔥 STRONG FIX: Eğer revizyon üzerinde tam snapshot varsa onu kullan
-          if (revizyon?.veriSnapshot?.sonrasi) {
-            revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
-            console.log('📦 Revizyon snapshot (SONRASI) kullanıldı');
-          } else {
-            // CRITICAL: Sadece önceki revizyonun snapshot'ını baz al
-            const baseSnapshot = revisionData.length > 0
-              ? revisionData[revisionData.length - 1].snapshot
-              : initialSnapshot;
-            revizyonSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
-            console.log(`📋 Baz snapshot kullanıldı (${revisionData.length === 0 ? 'initial' : 'previous'})`);
-
-            // Revizyon değişikliklerini uygula
-            if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-              revizyon.degisikenAlanlar.forEach(degisiklik => {
-                // Alan yolunu parçala ve değeri güncelle
-                const fieldPath = degisiklik.alan?.split('.') || [];
-                if (fieldPath.length > 0) {
-                  let target = revizyonSnapshot;
-                  for (let j = 0; j < fieldPath.length - 1; j++) {
-                    if (!target[fieldPath[j]]) {
-                      target[fieldPath[j]] = {};
-                    }
-                    target = target[fieldPath[j]];
-                  }
-                  // 🔧 FIX: Obje ise merge et, aciklama gibi alanların kaybolmasını önle
-                  const fk = fieldPath[fieldPath.length - 1];
-                  if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof target[fk] === 'object' && target[fk] !== null) {
-                    target[fk] = { ...target[fk], ...degisiklik.yeniDeger };
-                  } else {
-                    target[fk] = degisiklik.yeniDeger;
-                  }
-                }
-              });
-              console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
-            }
-          }
-        }
-        
-        // CSV satırı oluştur
-        const revizyonRow = await buildCsvDataRowWithSnapshot(revizyonSnapshot, revizyon, i + 1);
-        
-        // Önceki satırla değişiklikleri karşılaştır
-        const previousRow = revisionData[revisionData.length - 1].rowData;
-        const changes = detectDetailedChangesInCsvRows(previousRow, revizyonRow);
-        
-        // Revizyon'dan gelen değişiklikleri de ekle
-        if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
-          revizyon.degisikenAlanlar.forEach(degisiklik => {
-            const existingChange = changes.find(c => c.columnName === degisiklik.label);
-            if (!existingChange) {
-              changes.push({
-                columnName: degisiklik.label || degisiklik.alan,
-                oldValue: degisiklik.eskiDeger || '-',
-                newValue: degisiklik.yeniDeger || '-',
-                changeType: 'modified',
-                label: degisiklik.label,
-                alan: degisiklik.alan
-              });
-            }
-          });
-        }
-        
-        revisionData.push({
-          rowData: revizyonRow,
-          revisionNo: i + 1,
-          revisionDate: revizyon.revizyonTarihi || revizyon.createdAt || new Date(),
-          changedBy: revizyon.yapanKullanici,
-          reason: revizyon.revizyonSebebi || 'Güncelleme',
-          changes: changes,
-          changesCount: changes.length,
-          isInitial: false,
-          snapshot: revizyonSnapshot,
-          // 🎯 Debug bilgileri
-          debug: {
-            hasSnapshot: !!(revizyon.veriSnapshot?.sonrasi),
-            hasChanges: !!(revizyon.degisikenAlanlar?.length),
-            changeCount: revizyon.degisikenAlanlar?.length || 0
           }
         });
-        
-        console.log(`✅ Revizyon ${i + 1} eklendi - ${changes.length} değişiklik tespit edildi`);
-        console.log(`🔍 CSV değişiklik analizi: ${changes.length} farklılık tespit edildi`);
-        
-        // 🚫 CRITICAL FIX: currentState güncellemesini KALDIR! 
-        // Her revizyon kendi historik snapshot'ını kullanmalı, güncel state ile değil!
-        // currentState = JSON.parse(JSON.stringify(revizyonSnapshot)); // ❌ REMOVED
+
+        console.log(`🔧 Değişiklikler uygulandı: ${revizyon.degisikenAlanlar.length} alan`);
+      } else {
+        // 🔥 STRONG FIX: Eğer revizyon üzerinde tam snapshot varsa onu kullan
+        if (revizyon?.veriSnapshot?.sonrasi) {
+          revizyonSnapshot = JSON.parse(JSON.stringify(revizyon.veriSnapshot.sonrasi));
+          console.log('📦 Revizyon snapshot (SONRASI) kullanıldı');
+        } else {
+          // CRITICAL: Sadece önceki revizyonun snapshot'ını baz al
+          const baseSnapshot = revisionData.length > 0
+            ? revisionData[revisionData.length - 1].snapshot
+            : initialSnapshot;
+          revizyonSnapshot = JSON.parse(JSON.stringify(baseSnapshot));
+          console.log(`📋 Baz snapshot kullanıldı (${revisionData.length === 0 ? 'initial' : 'previous'})`);
+
+          // Revizyon değişikliklerini uygula
+          if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+            revizyon.degisikenAlanlar.forEach(degisiklik => {
+              // Alan yolunu parçala ve değeri güncelle
+              const fieldPath = degisiklik.alan?.split('.') || [];
+              if (fieldPath.length > 0) {
+                let target = revizyonSnapshot;
+                for (let j = 0; j < fieldPath.length - 1; j++) {
+                  if (!target[fieldPath[j]]) {
+                    target[fieldPath[j]] = {};
+                  }
+                  target = target[fieldPath[j]];
+                }
+                // 🔧 FIX: Obje ise merge et, aciklama gibi alanların kaybolmasını önle
+                const fk = fieldPath[fieldPath.length - 1];
+                if (typeof degisiklik.yeniDeger === 'object' && degisiklik.yeniDeger !== null && !Array.isArray(degisiklik.yeniDeger) && typeof target[fk] === 'object' && target[fk] !== null) {
+                  target[fk] = { ...target[fk], ...degisiklik.yeniDeger };
+                } else {
+                  target[fk] = degisiklik.yeniDeger;
+                }
+              }
+            });
+            console.log(`📝 ${revizyon.degisikenAlanlar.length} alan güncellendi`);
+          }
+        }
       }
+
+      // CSV satırı oluştur
+      const revizyonRow = await buildCsvDataRowWithSnapshot(revizyonSnapshot, revizyon, i + 1);
+
+      // Önceki satırla değişiklikleri karşılaştır
+      const previousRow = revisionData[revisionData.length - 1].rowData;
+      const changes = detectDetailedChangesInCsvRows(previousRow, revizyonRow);
+
+      // Revizyon'dan gelen değişiklikleri de ekle
+      if (revizyon.degisikenAlanlar && revizyon.degisikenAlanlar.length > 0) {
+        revizyon.degisikenAlanlar.forEach(degisiklik => {
+          const existingChange = changes.find(c => c.columnName === degisiklik.label);
+          if (!existingChange) {
+            changes.push({
+              columnName: degisiklik.label || degisiklik.alan,
+              oldValue: degisiklik.eskiDeger || '-',
+              newValue: degisiklik.yeniDeger || '-',
+              changeType: 'modified',
+              label: degisiklik.label,
+              alan: degisiklik.alan
+            });
+          }
+        });
+      }
+
+      revisionData.push({
+        rowData: revizyonRow,
+        revisionNo: i + 1,
+        revisionDate: revizyon.revizyonTarihi || revizyon.createdAt || new Date(),
+        changedBy: revizyon.yapanKullanici,
+        reason: revizyon.revizyonSebebi || 'Güncelleme',
+        changes: changes,
+        changesCount: changes.length,
+        isInitial: false,
+        snapshot: revizyonSnapshot,
+        // 🎯 Debug bilgileri
+        debug: {
+          hasSnapshot: !!(revizyon.veriSnapshot?.sonrasi),
+          hasChanges: !!(revizyon.degisikenAlanlar?.length),
+          changeCount: revizyon.degisikenAlanlar?.length || 0
+        }
+      });
+
+      console.log(`✅ Revizyon ${i + 1} eklendi - ${changes.length} değişiklik tespit edildi`);
+      console.log(`🔍 CSV değişiklik analizi: ${changes.length} farklılık tespit edildi`);
+
+      // 🚫 CRITICAL FIX: currentState güncellemesini KALDIR! 
+      // Her revizyon kendi historik snapshot'ını kullanmalı, güncel state ile değil!
+      // currentState = JSON.parse(JSON.stringify(revizyonSnapshot)); // ❌ REMOVED
     }
-    
-    const totalChanges = revisionData.reduce((sum, r) => sum + (r.changesCount || 0), 0);
-    console.log(`🎉 PROFESSIONAL Revizyon tracking tamamlandı!`);
-    console.log(`📊 İstatistikler:`);
-    console.log(`   • Toplam satır: ${revisionData.length}`);
-    console.log(`   • İlk oluşturma: 1`);
-    console.log(`   • Revizyonlar: ${revisionData.length - 1}`);
-    console.log(`   • Toplam değişiklik: ${totalChanges} alan`);
-    console.log(`🔙 Return edilecek revisionData.length: ${revisionData.length}`);
-    
-    return revisionData;
-    
+  }
+
+  const totalChanges = revisionData.reduce((sum, r) => sum + (r.changesCount || 0), 0);
+  console.log(`🎉 PROFESSIONAL Revizyon tracking tamamlandı!`);
+  console.log(`📊 İstatistikler:`);
+  console.log(`   • Toplam satır: ${revisionData.length}`);
+  console.log(`   • İlk oluşturma: 1`);
+  console.log(`   • Revizyonlar: ${revisionData.length - 1}`);
+  console.log(`   • Toplam değişiklik: ${totalChanges} alan`);
+  console.log(`🔙 Return edilecek revisionData.length: ${revisionData.length}`);
+
+  return revisionData;
+
 };
 // 🏗️ CSV DATA ROW BUILDER WITH SNAPSHOT - PROFESSIONAL DEBUG VERSION
 const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo = 0) => {
@@ -3627,10 +3629,10 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       ozelSartlar: snapshot.ozelSartlar?.length,
       maliHesaplamalar: !!snapshot.maliHesaplamalar
     });
-    
+
     // Snapshot kullanarak CSV satırı oluştur
     const row = [];
-    
+
     // Temel bilgiler - ENHANCED DEBUG
     const gmId = snapshot.tesvikId || snapshot.gmId || '';
     // TALEP/SONUÇ: Revizyona özel seçilen durum öncelikli
@@ -3643,7 +3645,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       || (revizyonNo === 0 ? 'İlk Oluşturma' : '');
     const firmaId = snapshot.firmaId || '';
     const yatirimciUnvan = snapshot.yatirimciUnvan || '';
-    
+
     console.log(`🏢 [DEBUG] Temel bilgiler: GM=${gmId}, Talep/Sonuç=${talepSonuc}, Firma=${firmaId}, Ünvan=${yatirimciUnvan}`);
     console.log(`🧾 [DEBUG] TALEP/SONUÇ sütunu kaynağı:`, {
       kullanilan: talepSonuc,
@@ -3653,14 +3655,14 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       snapshotTalepSonuc: snapshot?.kunyeBilgileri?.talepSonuc,
       snapshotDurum: snapshot?.durumBilgileri?.genelDurum
     });
-    
+
     row.push(gmId);                                               // GM ID
     row.push(talepSonuc);                                         // TALEP/SONUÇ  
     row.push(revizyonNo.toString());                              // REVIZE ID
     row.push(firmaId);                                            // FIRMA ID
     row.push(yatirimciUnvan);                                     // YATIRIMCI UNVAN
     row.push('');                                                 // SGK SİCİL NO
-    
+
     // Belge bilgileri - ENHANCED DEBUG
     const belge = snapshot.belgeYonetimi || {};
     console.log(`📋 [DEBUG] Belge bilgileri:`, {
@@ -3669,7 +3671,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       belgeTarihi: belge.belgeTarihi,
       dayandigiKanun: belge.dayandigiKanun
     });
-    
+
     row.push(belge.belgeId || '');                                // BELGE ID
     row.push(belge.belgeNo || '');                                // BELGE NO
     row.push(belge.belgeTarihi || '');                            // BELGE TARIHI
@@ -3683,13 +3685,13 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(belge.oncelikliYatirim || 'hayır');                  // ÖZELLİKLİ YATIRIM İSE
     row.push(belge.dayandigiKanun || '');                         // DAYANDIĞI KANUN
     row.push(snapshot.durumBilgileri?.genelDurum || '');          // BELGE DURUMU
-    
+
     // Yatırım bilgileri - FIXED FIELD MAPPING!
     const yatirimBilgileri = snapshot.yatirimBilgileri || {};
     const yatirim1 = yatirimBilgileri.yatirimBilgileri1 || yatirimBilgileri;
     // 🔧 FIX: yatirim2 sub-path'i de kontrol et (rollback bu path'e yazar)
     const yatirim2 = yatirimBilgileri.yatirimBilgileri2 || yatirimBilgileri.yatirim2 || yatirimBilgileri;
-    
+
     console.log(`🏭 [DEBUG] Yatırım bilgileri:`, {
       yatirim1: {
         yatirimKonusu: yatirim1.yatirimKonusu,
@@ -3702,7 +3704,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         yatirimAdresi1: yatirim2.yatirimAdresi1
       }
     });
-    
+
     row.push(yatirim1.yatirimKonusu || '');                       // 2-YATIRIM KONUSU
     row.push(yatirim1.cins1 || yatirimBilgileri.sCinsi1 || snapshot.yatirimBilgileri?.sCinsi1 || '');  // 3-CINSI(1)
     row.push(yatirim1.cins2 || yatirimBilgileri.tCinsi2 || snapshot.yatirimBilgileri?.tCinsi2 || '');  // 3-CINSI(2)
@@ -3720,7 +3722,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(yatirim2.ilBazliBolge || yatirimBilgileri.ilBazliBolge || snapshot.yatirimBilgileri?.ilBazliBolge || '');        // İL BAZLI BÖLGE
     row.push(yatirim2.ilceBazliBolge || yatirimBilgileri.ilceBazliBolge || snapshot.yatirimBilgileri?.ilceBazliBolge || '');  // İLÇE BAZLI BÖLGE
     row.push(yatirim2.serbsetBolge || yatirimBilgileri.serbsetBolge || snapshot.yatirimBilgileri?.serbsetBolge || '');        // SERBEST BÖLGE
-    
+
     // İstihdam - ENHANCED DEBUG
     const istihdam = snapshot.istihdam || {};
     console.log(`👥 [DEBUG] İstihdam bilgileri:`, {
@@ -3728,10 +3730,10 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       ilaveKisi: istihdam.ilaveKisi,
       toplamKisi: istihdam.toplamKisi
     });
-    
+
     row.push(istihdam.mevcutKisi || 0);                           // Mevcut Kişi
     row.push(istihdam.ilaveKisi || 0);                            // İlave Kişi
-    
+
     // Ürün bilgileri (9 ürün x 6 alan = 54 sütun) - FIXED FIELD MAPPING!
     const urunler = snapshot.urunler || snapshot.urunBilgileri || [];
     console.log(`📦 [DEBUG] Ürün bilgileri:`, {
@@ -3745,16 +3747,16 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       } : null,
       all: urunler.map((u, idx) => ({ idx, u97Kodu: u?.u97Kodu, urunAdi: u?.urunAdi, mevcut: u?.mevcutKapasite, ilave: u?.ilaveKapasite }))
     });
-    
+
     // 🔧 FIX: Ürün adı veya NACE kodu OLAN tüm ürünleri göster (kapasite zorunluluğu kaldırıldı)
-    const actualProducts = urunler.filter(urun => 
-      urun && 
-      (urun.urunAdi || urun.u97Kodu) && 
+    const actualProducts = urunler.filter(urun =>
+      urun &&
+      (urun.urunAdi || urun.u97Kodu) &&
       (urun.urunAdi !== '' || urun.u97Kodu !== '')
     );
-    
+
     console.log(`📦 [DEBUG] Filtered products: ${actualProducts.length}/${urunler.length} gerçek ürün`);
-    
+
     for (let i = 0; i < 9; i++) {
       if (i < actualProducts.length) {
         // GERÇEK ÜRÜN VAR - Göster
@@ -3775,7 +3777,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         row.push('');     // Kapasite Birimi
       }
     }
-    
+
     // Destek unsurları (8 destek x 2 alan = 16 sütun) - PROFESSIONAL DEBUG!
     const destekUnsurlari = snapshot.destekUnsurlari || [];
     console.log(`🎯 [DEBUG] Destek unsurları DETAYLI:`, {
@@ -3787,7 +3789,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         keys: Object.keys(destekUnsurlari[0])
       } : null
     });
-    
+
     for (let i = 0; i < 8; i++) {
       if (i < destekUnsurlari.length && destekUnsurlari[i] && destekUnsurlari[i].destekUnsuru) {
         // Gerçek destek unsuru var - FIXED FIELD MAPPING!
@@ -3800,7 +3802,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         row.push('');  // Şartları
       }
     }
-    
+
     // Özel şartlar (14 şart x 2 alan = 28 sütun) - PROFESSIONAL DEBUG!
     const ozelSartlar = snapshot.ozelSartlar || [];
     console.log(`⚙️ [DEBUG] Özel şartlar DETAYLI:`, {
@@ -3813,8 +3815,8 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
       }))
     });
     for (let i = 0; i < 14; i++) {
-      if (i < ozelSartlar.length && ozelSartlar[i] && 
-          (ozelSartlar[i].kisaltma || ozelSartlar[i].notu || ozelSartlar[i].koşulMetni || ozelSartlar[i].aciklamaNotu)) {
+      if (i < ozelSartlar.length && ozelSartlar[i] &&
+        (ozelSartlar[i].kisaltma || ozelSartlar[i].notu || ozelSartlar[i].koşulMetni || ozelSartlar[i].aciklamaNotu)) {
         // Gerçek özel şart var - FIXED FIELD MAPPING!
         const sart = ozelSartlar[i];
         row.push(sart.kisaltma || sart.koşulMetni || '');         // Özel Şart Kısaltma (VERİTABANI: 'koşulMetni')
@@ -3825,7 +3827,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         row.push('');  // Özelşart Notu
       }
     }
-    
+
     // Finansal bilgiler (26 sütun) - FIXED FIELD MAPPING!
     const finansal = snapshot.maliHesaplamalar || snapshot.finansalBilgiler || {};
     console.log(`💰 [DEBUG] Finansal bilgiler DETAYLI:`, {
@@ -3842,15 +3844,15 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         makineTeçhizatGiderleri_OLD: finansal.makineTeçhizatGiderleri
       }
     });
-    
+
     // Arazi-Arsa Bedeli (4 sütun) - MODEL'E UYGUN
     // NOT: Frontend'den maliyetlenen objesi içinde geliyor, model'de aracAracaGideri
     const maliyetlenen = finansal.maliyetlenen || {};
     const araziGideri = finansal.aracAracaGideri || {};
-    
+
     // Veri öncelik sırası: maliyetlenen > aracAracaGideri > legacy alan
     const metrekaresi = parseInt(maliyetlenen.sl ?? araziGideri.sx ?? 0);
-    const birimFiyat  = parseInt(maliyetlenen.sm ?? araziGideri.sayisi ?? 0);
+    const birimFiyat = parseInt(maliyetlenen.sm ?? araziGideri.sayisi ?? 0);
     // Her revizyonda doğru toplamı türet: eğer sn yoksa sl*sm; o da yoksa alternatif/legacy toplam
     const hesaplananSn = Number.isFinite(maliyetlenen.sl) && Number.isFinite(maliyetlenen.sm)
       ? (maliyetlenen.sl || 0) * (maliyetlenen.sm || 0)
@@ -3860,18 +3862,18 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     );
     // Açıklama için otomatik oluştur veya varsa kullan
     // 🔧 FIX: finansal.araziAciklama yok! Doğru alan: maliyetlenen.aciklama (model: maliHesaplamalar.maliyetlenen.aciklama)
-    const araziAciklama = maliyetlenen.aciklama || finansal.araziAciklama || 
-                         (metrekaresi > 0 ? `${metrekaresi} m² x ${birimFiyat} TL` : '');
-    
+    const araziAciklama = maliyetlenen.aciklama || finansal.araziAciklama ||
+      (metrekaresi > 0 ? `${metrekaresi} m² x ${birimFiyat} TL` : '');
+
     row.push(araziAciklama);                                       // Arazi-Arsa Bedeli Açıklama
-    
+
     // Güvenlik kontrolü: 1 trilyon üzerindeki sayıları sıfırla
     const maxValue = 1000000000000; // 1 trilyon TL limit
-    
+
     row.push(metrekaresi > maxValue ? 0 : metrekaresi);           // Metrekaresi
     row.push(birimFiyat > maxValue ? 0 : birimFiyat);             // Birim Fiyatı TL
     row.push(araziToplam > maxValue ? 0 : araziToplam);           // ARAZİ ARSA BEDELİ
-    
+
     // Bina İnşaat Giderleri (5 sütun) - MODEL'E UYGUN
     const bina = finansal.binaInsaatGideri || finansal.binaInsaatGiderleri || {};
     row.push(bina.aciklama || '');                                // Bina İnşaat Gideri Açıklama
@@ -3880,11 +3882,11 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     // 🔧 FIX: idareBinalari alanı modelde yok, doğru alan: bina.so
     row.push(bina.so || bina.idareBinalari || 0);                    // İdare Binaları
     row.push(bina.toplamBinaGideri || bina.toplamBinaInsaatGideri || 0);                   // TOPLAM BİNA İNŞAAT GİDERİ
-    
+
     // Diğer Yatırım Harcamaları (7 sütun) - MODEL'E UYGUN
     // NOT: Model'de yatirimHesaplamalari altında et, eu, ev, ew, ex, ey, ez olarak saklanıyor
     const yatirimHesap = finansal.yatirimHesaplamalari || {};
-    
+
     row.push(parseInt(yatirimHesap.et || 0));                   // Yardımcı İşl. Mak. Teç. Gid.
     row.push(parseInt(yatirimHesap.eu || 0));                   // İthalat ve Güm.Giderleri
     row.push(parseInt(yatirimHesap.ev || 0));                   // Taşıma ve Sigorta Giderleri
@@ -3892,45 +3894,45 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     row.push(parseInt(yatirimHesap.ex || 0));                   // Etüd ve Proje Giderleri
     row.push(parseInt(yatirimHesap.ey || 0));                   // Diğer Giderleri
     row.push(parseInt(yatirimHesap.ez || 0));                   // TOPLAM DİĞER YATIRIM HARCAMALARI
-    
+
     // Toplam Sabit Yatırım Tutarı (1 sütun) - PRIORITY: toplamSabitYatirim FIRST!
     const toplamSabitYatirim = parseInt(finansal.toplamSabitYatirim || finansal.toplamSabitYatirimTutari || 0);
     row.push(toplamSabitYatirim > maxValue ? 0 : toplamSabitYatirim);  // TOPLAM SABİT YATIRIM TUTARI TL
-    
+
     // Makine Teçhizat Giderleri TL (3 sütun) - MODEL'E UYGUN
     const makineTeçhizat = finansal.makinaTechizat || finansal.makineTeçhizatGiderleri || {};
     row.push(makineTeçhizat.ithalMakina || 0);                                  // İthal
     row.push(makineTeçhizat.yerliMakina || 0);                                  // Yerli
     row.push(makineTeçhizat.toplamMakina || ((makineTeçhizat.ithalMakina || 0) + (makineTeçhizat.yerliMakina || 0)));          // Toplam Makine Teçhizat
-    
+
     // İthal Makine USD (3 sütun) - MODEL'E UYGUN
     row.push(makineTeçhizat.yeniMakina || 0);                        // Yeni Makine
     row.push(makineTeçhizat.kullanimisMakina || 0);                 // Kullanılmış Makine
     row.push(makineTeçhizat.toplamYeniMakina || ((makineTeçhizat.yeniMakina || 0) + (makineTeçhizat.kullanimisMakina || 0))); // TOPLAM İTHAL MAKİNE ($)
-    
+
     // Finansman (3 sütun) - MODEL'E UYGUN
     const finansmanBilgisi = finansal.finansman || {};
     row.push(finansmanBilgisi.yabanciKaynak || 0);                                      // Toplam Yabancı Kaynak
     row.push(finansmanBilgisi.ozKaynak || 0);                          // Öz kaynak
     row.push(finansmanBilgisi.toplamFinansman || 0);        // TOPLAM FİNANSMAN
-    
+
     // 🔧 FIX: Revize tarihi - revizyon varsa revizyon tarihini, yoksa teşvik oluşturma tarihini kullan
     const revizyonTarihi = revizyon?.revizyonTarihi || snapshot.createdAt || snapshot.updatedAt;
     row.push(formatTurkishDateTime(revizyonTarihi));
-    
+
     // 🔧 FIX: TALEP TARİHİ - Her zaman belge müracaat tarihini kullan
     // revizyon.revizyonTarihi ile KARIŞTIRILMAMALI - talep tarihi sabit kalmalı
     const talepTarihi = snapshot.belgeYonetimi?.belgeMuracaatTarihi || snapshot.createdAt;
     row.push(formatTurkishDateTime(talepTarihi));
-    
+
     // 🆕 SONUÇ TARİHİ - Revizyonun sonuç/karar tarihi
     const sonucTarihi = revizyon?.sonucTarihi || revizyon?.kararTarihi || snapshot.sonucTarihi || '';
     row.push(formatTurkishDateTime(sonucTarihi));
-    
+
     console.log(`📊 CSV satırı oluşturuldu: ${row.length} sütun, Revizyon: ${revizyonNo}`);
-    
+
     return row;
-    
+
   } catch (error) {
     console.error('❌ CSV satır oluşturma hatası:', error);
     throw error;
@@ -3941,62 +3943,62 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
 const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
   try {
     const changes = [];
-    
+
     // CSV sütun isimleri - indeks bazlı mapping
     const csvColumnNames = [
       'GM ID', 'TALEP/SONUÇ', 'REVIZE ID', 'FIRMA ID', 'YATIRIMCI UNVAN', 'SGK SİCİL NO',
-      'BELGE ID', 'BELGE NO', 'BELGE TARIHI', 'BELGE MURACAAT TARIHI', 'MÜRACAAT SAYISI', 
-      'BELGE BASLAMA TARIHI', 'BELGE BITIS TARIHI', 'SÜRE UZATIM TARİHİ', 'ÖZELLİKLİ YATIRIM İSE', 
-      'DAYANDIĞI KANUN', 'BELGE DURUMU', '2-YATIRIM KONUSU', '3-CINSI(1)', '3-CINSI(2)', 
+      'BELGE ID', 'BELGE NO', 'BELGE TARIHI', 'BELGE MURACAAT TARIHI', 'MÜRACAAT SAYISI',
+      'BELGE BASLAMA TARIHI', 'BELGE BITIS TARIHI', 'SÜRE UZATIM TARİHİ', 'ÖZELLİKLİ YATIRIM İSE',
+      'DAYANDIĞI KANUN', 'BELGE DURUMU', '2-YATIRIM KONUSU', '3-CINSI(1)', '3-CINSI(2)',
       '3-CINSI(3)', '3-CINSI(4)', 'DESTEK SINIFI', 'YERI IL', 'YERI ILCE', 'ADA', 'PARSEL',
-      'YATIRIM ADRESI(1)', 'YATIRIM ADRESI(2)', 'YATIRIM ADRESI(3)', 'OSB ISE MUDURLUK', 
+      'YATIRIM ADRESI(1)', 'YATIRIM ADRESI(2)', 'YATIRIM ADRESI(3)', 'OSB ISE MUDURLUK',
       'İL BAZLI BÖLGE', 'İLÇE BAZLI BÖLGE', 'SERBEST BÖLGE', 'Mevcut Kişi', 'İlave Kişi'
     ];
-    
+
     // Ürün bilgileri sütunları (9 ürün x 6 alan = 54 sütun)
     for (let i = 1; i <= 9; i++) {
       csvColumnNames.push(
-        `NACE (${i})`, `Ürün(${i})`, `Mevcut(${i})`, 
+        `NACE (${i})`, `Ürün(${i})`, `Mevcut(${i})`,
         `İlave(${i})`, `Toplam(${i})`, `Kapsite Birimi(${i})`
       );
     }
-    
+
     // Destek unsurları sütunları (8 destek x 2 alan = 16 sütun)
     for (let i = 1; i <= 8; i++) {
       csvColumnNames.push(`Destek Unusrları(${i})`, `Şartları(${i})`);
     }
-    
+
     // Özel şartlar sütunları (14 şart x 2 alan = 28 sütun)
     for (let i = 1; i <= 14; i++) {
       csvColumnNames.push(`Özel Şart Kısaltma ${i}`, `Özelşart Notu ${i}`);
     }
-    
+
     // Finansal bilgiler sütunları (26 sütun)
     csvColumnNames.push(
       'Arazi-Arsa Bedeli Açıklama', 'Metrekaresi', 'Birim Fiyatı TL', 'ARAZİ ARSA BEDELİ',
-      'Bina İnşaat Gideri Açıklama', 'Ana Bina ve Tesisleri', 'Yardımcı İş. Bina ve Tesisleri', 
+      'Bina İnşaat Gideri Açıklama', 'Ana Bina ve Tesisleri', 'Yardımcı İş. Bina ve Tesisleri',
       'İdare Binaları', 'TOPLAM BİNA İNŞAAT GİDERİ', 'Yardımcı İşl. Mak. Teç. Gid.',
-      'İthalat ve Güm.Giderleri', 'Taşıma ve Sigorta Giderleri', 'Montaj Giderleri', 
+      'İthalat ve Güm.Giderleri', 'Taşıma ve Sigorta Giderleri', 'Montaj Giderleri',
       'Etüd ve Proje Giderleri', 'Diğer Giderleri', 'TOPLAM DİĞER YATIRIM HARCAMALARI',
       'TOPLAM SABİT YATIRIM TUTARI TL', 'İthal', 'Yerli', 'Toplam Makine Teçhizat',
-      'Yeni Makine', 'Kullanılmış Makine', 'TOPLAM İTHAL MAKİNE ($)', 
+      'Yeni Makine', 'Kullanılmış Makine', 'TOPLAM İTHAL MAKİNE ($)',
       'Toplam Yabancı Kaynak', 'Öz kaynak', 'TOPLAM FİNANSMAN', 'REVIZE TARIHI',
       'TALEP TARİHİ', 'SONUÇ TARİHİ'
     );
-    
+
     // Satır uzunluğu kontrolü
     const maxLength = Math.max(previousRow?.length || 0, currentRow?.length || 0);
-    
+
     if (maxLength === 0) {
       console.log('⚠️ Her iki CSV satırı da boş');
       return [];
     }
-    
+
     // Her sütunu karşılaştır
     for (let i = 0; i < maxLength; i++) {
       const oldValue = previousRow && previousRow[i] !== undefined ? previousRow[i] : '';
       const newValue = currentRow && currentRow[i] !== undefined ? currentRow[i] : '';
-      
+
       // Değer farklıysa değişiklik kaydet
       if (String(oldValue).trim() !== String(newValue).trim()) {
         // Sistem sütunlarını filtrele (REVIZE ID hep farklı olacak)
@@ -4011,11 +4013,11 @@ const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
         }
       }
     }
-    
+
     console.log(`🔍 CSV değişiklik analizi: ${changes.length} farklılık tespit edildi`);
-    
+
     return changes;
-    
+
   } catch (error) {
     console.error('❌ CSV değişiklik tespit hatası:', error);
     return [];
@@ -4025,7 +4027,7 @@ const detectDetailedChangesInCsvRows = (previousRow, currentRow) => {
 const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
   try {
     const row = [];
-    
+
     // KÜNYE BİLGLERİ (17 sütun)
     row.push(tesvik.tesvikId || tesvik.gmId || 'GM2025000'); // GM ID
     // TALEP/SONUÇ: Revizyon satırında varsa o revizyonun durumunu yaz
@@ -4048,7 +4050,7 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.yatirimBilgileri?.ozellikliYatirimMi ? 'evet' : 'hayir'); // ÖZELLİKLİ YATIRIM İSE
     row.push(tesvik.belgeYonetimi?.dayandigiKanun || '2012/3305'); // DAYANDIĞI KANUN
     row.push(tesvik.durumBilgileri?.genelDurum || 'taslak'); // BELGE DURUMU
-    
+
     // YATIRIM İLE İLGİLİ BİLGLER (17 sütun)
     row.push(tesvik.yatirimBilgileri?.yatirimKonusu || ''); // 2-YATIRIM KONUSU
     row.push(tesvik.yatirimBilgileri?.sCinsi1 || ''); // Schema'da 'sCinsi1'
@@ -4067,14 +4069,14 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.yatirimBilgileri?.ilBazliBolge || ''); // İL BAZLI BÖLGE
     row.push(tesvik.yatirimBilgileri?.ilceBazliBolge || ''); // İLÇE BAZLI BÖLGE
     row.push(tesvik.yatirimBilgileri?.serbsetBolge || ''); // Schema'da 'serbsetBolge' (typo olabilir)
-    
+
     // İSTİHDAM (2 sütun)
     row.push(tesvik.istihdam?.mevcutKisi || 0); // Mevcut Kişi
     row.push(tesvik.istihdam?.ilaveKisi || 0); // İlave Kişi
-    
+
     // ÜRÜN BİLGLERİ (54 sütun - 9 ürün x 6 alan)
     for (let i = 1; i <= 9; i++) {
-      const urun = tesvik.urunler?.[i-1]; // Schema'da 'urunler' array'i kullanılıyor
+      const urun = tesvik.urunler?.[i - 1]; // Schema'da 'urunler' array'i kullanılıyor
       row.push(urun?.u97Kodu || ''); // Schema'da 'u97Kodu' kullanılıyor
       row.push(urun?.urunAdi || ''); // Ürün(i)
       row.push(urun?.mevcutKapasite || 0); // Mevcut(i)
@@ -4082,21 +4084,21 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
       row.push(urun?.toplamKapasite || 0); // Toplam(i)
       row.push(urun?.kapasiteBirimi || ''); // Kapsite Birimi(i)
     }
-    
+
     // DESTEK UNSURLARI (16 sütun - 8 destek x 2 alan)
     for (let i = 1; i <= 8; i++) {
-      const destek = tesvik.destekUnsurlari?.[i-1]; // Schema'da 'destekUnsurlari' kullanılıyor
+      const destek = tesvik.destekUnsurlari?.[i - 1]; // Schema'da 'destekUnsurlari' kullanılıyor
       row.push(destek?.destekUnsuru || ''); // Schema'da 'destekUnsuru' kullanılıyor
       row.push(destek?.sarti || ''); // Schema'da 'sarti' kullanılıyor
     }
-    
+
     // ÖZEL ŞARTLAR (28 sütun - 14 şart x 2 alan)
     for (let i = 1; i <= 14; i++) {
-      const sart = tesvik.ozelSartlar?.[i-1];
+      const sart = tesvik.ozelSartlar?.[i - 1];
       row.push(sart?.koşulNo || ''); // Schema'da 'koşulNo' kullanılıyor
       row.push(sart?.koşulMetni || ''); // Schema'da 'koşulMetni' kullanılıyor
     }
-    
+
     // FİNANSAL BİLGLER (25 sütun) - Schema'ya uygun düzeltmeler
     row.push(''); // Arazi-Arsa Bedeli Açıklama (schema'da yok)
     row.push(0); // Metrekaresi (schema'da yok)
@@ -4124,21 +4126,21 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || tesvik.maliHesaplamalar?.finansman?.yabanciKaynaklar?.bankKredisi || 0); // Banka Kredisi
     row.push(tesvik.maliHesaplamalar?.finansman?.ozKaynak || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0); // Schema'da nested
-    
+
     // REVİZE TARİHİ (1 sütun)
     const revizeTarihi = revizyon?.revizyonTarihi || tesvik.createdAt;
     row.push(formatTurkishDateTime(revizeTarihi));
-    
+
     // 🆕 TALEP TARİHİ - Her zaman belge müracaat tarihini kullan
     const talepTarihi = tesvik.belgeYonetimi?.belgeMuracaatTarihi || tesvik.createdAt;
     row.push(formatTurkishDateTime(talepTarihi));
-    
+
     // 🆕 SONUÇ TARİHİ
     const sonucTarihi = revizyon?.sonucTarihi || revizyon?.kararTarihi || tesvik.sonucTarihi || '';
     row.push(formatTurkishDateTime(sonucTarihi));
-    
+
     return row;
-    
+
   } catch (error) {
     console.error('❌ CSV data row build hatası:', error);
     throw error;
@@ -4148,7 +4150,7 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
 // 🔍 CHANGE DETECTION ALGORITHM
 const detectChanges = (previousRow, currentRow) => {
   const changes = [];
-  
+
   for (let i = 0; i < currentRow.length; i++) {
     if (previousRow[i] !== currentRow[i] && currentRow[i] !== '' && currentRow[i] !== 0) {
       changes.push({
@@ -4158,7 +4160,7 @@ const detectChanges = (previousRow, currentRow) => {
       });
     }
   }
-  
+
   return changes;
 };
 
@@ -4166,11 +4168,11 @@ const detectChanges = (previousRow, currentRow) => {
 const createProfessionalWorkbook = async (csvStructure, revisionData, includeColors, exportId) => {
   try {
     console.log(`📊 [${exportId}] Professional workbook oluşturuluyor...`);
-    
+
     const ExcelJS = require('exceljs');
     // 🏢 ENTERPRISE-LEVEL WORKBOOK SETUP
     const workbook = new ExcelJS.Workbook();
-    
+
     // Set workbook properties for professional look
     workbook.creator = 'GM Teşvik Sistemi';
     workbook.lastModifiedBy = 'GM Teşvik Sistemi';
@@ -4180,9 +4182,9 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
     workbook.description = 'Kurumsal Teşvik Sistemi - Profesyonel Excel Raporu';
     workbook.keywords = 'teşvik, revizyon, excel, kurumsal, rapor';
     workbook.category = 'Raporlar';
-    
+
     const sheet = workbook.addWorksheet('📊 Sistem Revizyon Çıktısı', {
-      properties: { 
+      properties: {
         tabColor: { argb: 'FF1F4E79' },
         defaultRowHeight: 18,
         defaultColWidth: 12
@@ -4205,15 +4207,15 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
     });
     // 🎨 ENTERPRISE-LEVEL PROFESSIONAL STYLES - SECTION-BASED CORPORATE DESIGN
     const styles = {
-            // 🏢 KÜNYE BİLGLERİ - Deep Blue Corporate Theme - FONTRENGİ SİYAH!
+      // 🏢 KÜNYE BİLGLERİ - Deep Blue Corporate Theme - FONTRENGİ SİYAH!
       kunyeLevel1: {
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } }, // Deep blue
-      alignment: { horizontal: 'center', vertical: 'middle' },
-      border: {
-          top: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
-          left: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF1E40AF' } }, 
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+          top: { style: 'medium', color: { argb: 'FF1E40AF' } },
+          left: { style: 'medium', color: { argb: 'FF1E40AF' } },
+          bottom: { style: 'medium', color: { argb: 'FF1E40AF' } },
           right: { style: 'medium', color: { argb: 'FF1E40AF' } }
         }
       },
@@ -4221,10 +4223,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF1E3A8A' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } }, // Light blue
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
-          left: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF3B82F6' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF3B82F6' } },
+          left: { style: 'thin', color: { argb: 'FF3B82F6' } },
+          bottom: { style: 'thin', color: { argb: 'FF3B82F6' } },
           right: { style: 'thin', color: { argb: 'FF3B82F6' } }
         }
       },
@@ -4245,11 +4247,11 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       yatirimLevel1: {
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF064E3B' } }, // Forest green
-      alignment: { horizontal: 'center', vertical: 'middle' },
-      border: {
-          top: { style: 'medium', color: { argb: 'FF065F46' } }, 
-          left: { style: 'medium', color: { argb: 'FF065F46' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF065F46' } }, 
+        alignment: { horizontal: 'center', vertical: 'middle' },
+        border: {
+          top: { style: 'medium', color: { argb: 'FF065F46' } },
+          left: { style: 'medium', color: { argb: 'FF065F46' } },
+          bottom: { style: 'medium', color: { argb: 'FF065F46' } },
           right: { style: 'medium', color: { argb: 'FF065F46' } }
         }
       },
@@ -4257,10 +4259,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF064E3B' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }, // Light green
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF10B981' } }, 
-          left: { style: 'thin', color: { argb: 'FF10B981' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF10B981' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF10B981' } },
+          left: { style: 'thin', color: { argb: 'FF10B981' } },
+          bottom: { style: 'thin', color: { argb: 'FF10B981' } },
           right: { style: 'thin', color: { argb: 'FF10B981' } }
         }
       },
@@ -4282,10 +4284,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF581C87' } }, // Purple
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
-          left: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF7C3AED' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FF7C3AED' } },
+          left: { style: 'medium', color: { argb: 'FF7C3AED' } },
+          bottom: { style: 'medium', color: { argb: 'FF7C3AED' } },
           right: { style: 'medium', color: { argb: 'FF7C3AED' } }
         }
       },
@@ -4293,10 +4295,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF581C87' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE9D5FF' } }, // Light purple
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
-          left: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF8B5CF6' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF8B5CF6' } },
+          left: { style: 'thin', color: { argb: 'FF8B5CF6' } },
+          bottom: { style: 'thin', color: { argb: 'FF8B5CF6' } },
           right: { style: 'thin', color: { argb: 'FF8B5CF6' } }
         }
       },
@@ -4309,7 +4311,7 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       istihdamData: {
         font: { color: { argb: 'FF7C3AED' }, size: 9, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF9FF' } },
-      alignment: { horizontal: 'left', vertical: 'middle' },
+        alignment: { horizontal: 'left', vertical: 'middle' },
         border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } }
       },
 
@@ -4318,10 +4320,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB45309' } }, // Orange
         alignment: { horizontal: 'center', vertical: 'middle' },
-      border: {
-          top: { style: 'medium', color: { argb: 'FFD97706' } }, 
-          left: { style: 'medium', color: { argb: 'FFD97706' } }, 
-          bottom: { style: 'medium', color: { argb: 'FFD97706' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FFD97706' } },
+          left: { style: 'medium', color: { argb: 'FFD97706' } },
+          bottom: { style: 'medium', color: { argb: 'FFD97706' } },
           right: { style: 'medium', color: { argb: 'FFD97706' } }
         }
       },
@@ -4329,10 +4331,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FFB45309' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }, // Light orange
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
-          left: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
-          bottom: { style: 'thin', color: { argb: 'FFF59E0B' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FFF59E0B' } },
+          left: { style: 'thin', color: { argb: 'FFF59E0B' } },
+          bottom: { style: 'thin', color: { argb: 'FFF59E0B' } },
           right: { style: 'thin', color: { argb: 'FFF59E0B' } }
         }
       },
@@ -4354,10 +4356,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F766E' } }, // Teal
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
-          left: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF14B8A6' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FF14B8A6' } },
+          left: { style: 'medium', color: { argb: 'FF14B8A6' } },
+          bottom: { style: 'medium', color: { argb: 'FF14B8A6' } },
           right: { style: 'medium', color: { argb: 'FF14B8A6' } }
         }
       },
@@ -4365,10 +4367,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF0F766E' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFBF1' } }, // Light teal
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
-          left: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF2DD4BF' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF2DD4BF' } },
+          left: { style: 'thin', color: { argb: 'FF2DD4BF' } },
+          bottom: { style: 'thin', color: { argb: 'FF2DD4BF' } },
           right: { style: 'thin', color: { argb: 'FF2DD4BF' } }
         }
       },
@@ -4390,10 +4392,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3730A3' } }, // Indigo
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
-          left: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF4F46E5' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FF4F46E5' } },
+          left: { style: 'medium', color: { argb: 'FF4F46E5' } },
+          bottom: { style: 'medium', color: { argb: 'FF4F46E5' } },
           right: { style: 'medium', color: { argb: 'FF4F46E5' } }
         }
       },
@@ -4401,10 +4403,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF3730A3' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E7FF' } }, // Light indigo
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF6366F1' } }, 
-          left: { style: 'thin', color: { argb: 'FF6366F1' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF6366F1' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF6366F1' } },
+          left: { style: 'thin', color: { argb: 'FF6366F1' } },
+          bottom: { style: 'thin', color: { argb: 'FF6366F1' } },
           right: { style: 'thin', color: { argb: 'FF6366F1' } }
         }
       },
@@ -4426,10 +4428,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF9F1239' } }, // Rose
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FFE11D48' } }, 
-          left: { style: 'medium', color: { argb: 'FFE11D48' } }, 
-          bottom: { style: 'medium', color: { argb: 'FFE11D48' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FFE11D48' } },
+          left: { style: 'medium', color: { argb: 'FFE11D48' } },
+          bottom: { style: 'medium', color: { argb: 'FFE11D48' } },
           right: { style: 'medium', color: { argb: 'FFE11D48' } }
         }
       },
@@ -4437,10 +4439,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF9F1239' }, size: 10, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7F3' } }, // Light rose
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
-          left: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
-          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FFF43F5E' } },
+          left: { style: 'thin', color: { argb: 'FFF43F5E' } },
+          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } },
           right: { style: 'thin', color: { argb: 'FFF43F5E' } }
         }
       },
@@ -4448,10 +4450,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF9F1239' }, size: 9, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFDF2F8' } },
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
-          left: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
-          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FFF43F5E' } },
+          left: { style: 'thin', color: { argb: 'FFF43F5E' } },
+          bottom: { style: 'thin', color: { argb: 'FFF43F5E' } },
           right: { style: 'thin', color: { argb: 'FFF43F5E' } }
         }
       },
@@ -4473,10 +4475,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { bold: true, color: { argb: 'FF000000' }, size: 12, name: 'Calibri' }, // SİYAH FONT!
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF374151' } }, // Gray
         alignment: { horizontal: 'center', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FF6B7280' } }, 
-          left: { style: 'medium', color: { argb: 'FF6B7280' } }, 
-          bottom: { style: 'medium', color: { argb: 'FF6B7280' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FF6B7280' } },
+          left: { style: 'medium', color: { argb: 'FF6B7280' } },
+          bottom: { style: 'medium', color: { argb: 'FF6B7280' } },
           right: { style: 'medium', color: { argb: 'FF6B7280' } }
         }
       },
@@ -4498,10 +4500,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { color: { argb: 'FF065F46' }, size: 9, bold: true, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6FFFA' } }, // Very light green
         alignment: { horizontal: 'left', vertical: 'middle' },
-        border: { 
-          top: { style: 'thin', color: { argb: 'FF059669' } }, 
-          left: { style: 'thin', color: { argb: 'FF059669' } }, 
-          bottom: { style: 'thin', color: { argb: 'FF059669' } }, 
+        border: {
+          top: { style: 'thin', color: { argb: 'FF059669' } },
+          left: { style: 'thin', color: { argb: 'FF059669' } },
+          bottom: { style: 'thin', color: { argb: 'FF059669' } },
           right: { style: 'thin', color: { argb: 'FF059669' } }
         }
       },
@@ -4509,83 +4511,83 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         font: { color: { argb: 'FF8B0000' }, size: 9, bold: true, name: 'Calibri' },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE6E6' } }, // Light red
         alignment: { horizontal: 'left', vertical: 'middle' },
-        border: { 
-          top: { style: 'medium', color: { argb: 'FFFF0000' } }, 
+        border: {
+          top: { style: 'medium', color: { argb: 'FFFF0000' } },
           bottom: { style: 'medium', color: { argb: 'FFFF0000' } },
-          left: { style: 'medium', color: { argb: 'FFFF0000' } }, 
+          left: { style: 'medium', color: { argb: 'FFFF0000' } },
           right: { style: 'medium', color: { argb: 'FFFF0000' } }
         }
       }
     };
     // 🏗️ BUILD 4-LEVEL HEADER STRUCTURE WITH SECTION-BASED CORPORATE COLORS
     console.log(`📊 [${exportId}] 4 seviyeli kurumsal renk şemalı başlık yapısı oluşturuluyor...`);
-    
+
     // 🎨 Section styling mapping function - DÜZELTİLMİŞ VERSİYON
     const getSectionStyle = (colIndex, level) => {
       console.log(`🎨 [${exportId}] getSectionStyle called: colIndex=${colIndex}, level=${level}`);
-      
+
       // KÜNYE BİLGLERİ: 1-17
       if (colIndex >= 1 && colIndex <= 17) {
-        return level === 1 ? styles.kunyeLevel1 : 
-               level === 2 ? styles.kunyeLevel2 : 
-               level === 3 ? styles.kunyeLevel2 : // Level 3 fallback
-               level === 4 ? styles.kunyeColumn : styles.kunyeLevel1;
+        return level === 1 ? styles.kunyeLevel1 :
+          level === 2 ? styles.kunyeLevel2 :
+            level === 3 ? styles.kunyeLevel2 : // Level 3 fallback
+              level === 4 ? styles.kunyeColumn : styles.kunyeLevel1;
       }
       // YATIRIM BİLGLERİ: 18-34
       else if (colIndex >= 18 && colIndex <= 34) {
-        return level === 1 ? styles.yatirimLevel1 : 
-               level === 2 ? styles.yatirimLevel2 : 
-               level === 3 ? styles.yatirimLevel2 : // Level 3 fallback
-               level === 4 ? styles.yatirimColumn : styles.yatirimLevel1;
+        return level === 1 ? styles.yatirimLevel1 :
+          level === 2 ? styles.yatirimLevel2 :
+            level === 3 ? styles.yatirimLevel2 : // Level 3 fallback
+              level === 4 ? styles.yatirimColumn : styles.yatirimLevel1;
       }
       // İSTİHDAM: 35-36
       else if (colIndex >= 35 && colIndex <= 36) {
-        return level === 1 ? styles.istihdamLevel1 : 
-               level === 2 ? styles.istihdamLevel2 : 
-               level === 3 ? styles.istihdamLevel2 : // Level 3 fallback
-               level === 4 ? styles.istihdamColumn : styles.istihdamLevel1;
+        return level === 1 ? styles.istihdamLevel1 :
+          level === 2 ? styles.istihdamLevel2 :
+            level === 3 ? styles.istihdamLevel2 : // Level 3 fallback
+              level === 4 ? styles.istihdamColumn : styles.istihdamLevel1;
       }
       // ÜRÜN BİLGLERİ: 37-90
       else if (colIndex >= 37 && colIndex <= 90) {
-        return level === 1 ? styles.urunLevel1 : 
-               level === 2 ? styles.urunLevel2 : 
-               level === 3 ? styles.urunLevel2 : // Level 3 fallback
-               level === 4 ? styles.urunColumn : styles.urunLevel1;
+        return level === 1 ? styles.urunLevel1 :
+          level === 2 ? styles.urunLevel2 :
+            level === 3 ? styles.urunLevel2 : // Level 3 fallback
+              level === 4 ? styles.urunColumn : styles.urunLevel1;
       }
       // DESTEK UNSURLARI: 91-106
       else if (colIndex >= 91 && colIndex <= 106) {
-        return level === 1 ? styles.destekLevel1 : 
-               level === 2 ? styles.destekLevel2 : 
-               level === 3 ? styles.destekLevel2 : // Level 3 fallback
-               level === 4 ? styles.destekColumn : styles.destekLevel1;
+        return level === 1 ? styles.destekLevel1 :
+          level === 2 ? styles.destekLevel2 :
+            level === 3 ? styles.destekLevel2 : // Level 3 fallback
+              level === 4 ? styles.destekColumn : styles.destekLevel1;
       }
       // ÖZEL ŞARTLAR: 107-134
       else if (colIndex >= 107 && colIndex <= 134) {
-        return level === 1 ? styles.ozelLevel1 : 
-               level === 2 ? styles.ozelLevel2 : 
-               level === 3 ? styles.ozelLevel2 : // Level 3 fallback
-               level === 4 ? styles.ozelColumn : styles.ozelLevel1;
+        return level === 1 ? styles.ozelLevel1 :
+          level === 2 ? styles.ozelLevel2 :
+            level === 3 ? styles.ozelLevel2 : // Level 3 fallback
+              level === 4 ? styles.ozelColumn : styles.ozelLevel1;
       }
       // FİNANSAL BİLGLER: 135-160
       else if (colIndex >= 135 && colIndex <= 160) {
-        return level === 1 ? styles.finansalLevel1 : 
-               level === 2 ? styles.finansalLevel2 : 
-               level === 3 ? styles.finansalLevel3 :
-               level === 4 ? styles.finansalColumn : styles.finansalLevel1;
+        return level === 1 ? styles.finansalLevel1 :
+          level === 2 ? styles.finansalLevel2 :
+            level === 3 ? styles.finansalLevel3 :
+              level === 4 ? styles.finansalColumn : styles.finansalLevel1;
       }
       // REVİZE TARİHİ: 161
       else if (colIndex >= 161) {
-        return level === 1 ? styles.revizyonLevel1 : 
-               level === 2 ? styles.revizyonLevel1 : // Level 2 fallback
-               level === 3 ? styles.revizyonLevel1 : // Level 3 fallback
-               level === 4 ? styles.revizyonColumn : styles.revizyonLevel1;
+        return level === 1 ? styles.revizyonLevel1 :
+          level === 2 ? styles.revizyonLevel1 : // Level 2 fallback
+            level === 3 ? styles.revizyonLevel1 : // Level 3 fallback
+              level === 4 ? styles.revizyonColumn : styles.revizyonLevel1;
       }
-      
+
       return styles.kunyeLevel1; // Default
     };
     // 🏆 ENTERPRISE-LEVEL KURUMSAL EXCEL ŞABLONU - AŞK OLACAKSIN!
     console.log(`🏆 [${exportId}] PROFESYONEL KURUMSAL ŞABLON OLUŞTURULUYOR...`);
-    
+
     // 🎨 KURUMSAL PROFESYONEL STİLLER - HER BÖLÜM ÖZEL RENK!
     const professionalStyles = {
       // 🏢 KÜNYE BİLGLERİ - Navy Blue Corporate
@@ -4736,7 +4738,7 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
         }
       }
     };
-    
+
     // 🎯 BÖLÜM TANIMLAMALARI - KURUMSAL RENKLER İLE
     const sections = [
       { name: 'KÜNYE BİLGLERİ', start: 1, end: 17, style: professionalStyles.kunye },
@@ -4747,13 +4749,13 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       { name: 'ÖZEL ŞARTLAR', start: 107, end: 134, style: professionalStyles.ozel },
       { name: 'FİNANSAL BİLGLER', start: 135, end: 161, style: professionalStyles.finansal }
     ];
-    
+
     // 🏆 SATIR 1 - ANA BÖLÜM BAŞLIKLARI (KURUMSAL RENKLER)
     console.log(`🏆 [${exportId}] Level 1 - Ana bölüm başlıkları kurumsal renklerle...`);
     sections.forEach(section => {
       // Merge cells for entire section
       sheet.mergeCells(1, section.start, 1, section.end);
-      
+
       // Apply corporate styling to merged area
       for (let col = section.start; col <= section.end; col++) {
         const cell = sheet.getCell(1, col);
@@ -4762,10 +4764,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       }
       console.log(`🎨 Merged: ${section.name} (${section.start}-${section.end}) - ${section.style.level1.fill.fgColor.argb}`);
     });
-    
+
     // 🎯 SATIR 2 - ALT BÖLÜM BAŞLIKLARI (KURUMSAL RENKLER)
     console.log(`🎯 [${exportId}] Level 2 - Alt bölüm başlıkları kurumsal renklerle...`);
-    
+
     // KÜNYE alt bölümleri
     sheet.mergeCells(2, 1, 2, 6);
     for (let c = 1; c <= 6; c++) {
@@ -4788,7 +4790,7 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       { name: 'ÖZEL ŞARTLAR', start: 107, end: 134, style: professionalStyles.ozel.level2 },
       { name: 'FİNANSAL BİLGLER', start: 135, end: 161, style: professionalStyles.finansal.level2 }
     ];
-    
+
     level2Sections.forEach(section => {
       sheet.mergeCells(2, section.start, 2, section.end);
       for (let c = section.start; c <= section.end; c++) {
@@ -4798,17 +4800,17 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       }
       console.log(`🎨 Level2: ${section.name} (${section.start}-${section.end})`);
     });
-    
+
     // 📝 SATIR 4 - SÜTUN İSİMLERİ (BÖLÜM BAZLI KURUMSAL RENKLER)
     console.log(`📝 [${exportId}] Level 4 - Sütun isimleri bölüm renkleryle...`);
     csvStructure.level4.forEach((columnName, index) => {
       const cell = sheet.getCell(4, index + 1);
       cell.value = columnName;
-      
+
       // Bölüm bazlı stil ata
       const colNum = index + 1;
       let columnStyle = professionalStyles.kunye.column; // Default
-      
+
       if (colNum >= 1 && colNum <= 17) columnStyle = professionalStyles.kunye.column;
       else if (colNum >= 18 && colNum <= 34) columnStyle = professionalStyles.yatirim.column;
       else if (colNum >= 35 && colNum <= 36) columnStyle = professionalStyles.istihdam.column;
@@ -4816,22 +4818,22 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       else if (colNum >= 91 && colNum <= 106) columnStyle = professionalStyles.destek.column;
       else if (colNum >= 107 && colNum <= 134) columnStyle = professionalStyles.ozel.column;
       else if (colNum >= 135 && colNum <= 161) columnStyle = professionalStyles.finansal.column;
-      
+
       cell.style = columnStyle;
-      
+
       if (index < 10) {
         console.log(`🎨 Col ${colNum}: "${columnName}"`);
       }
     });
-    
+
     console.log(`🏆 [${exportId}] KURUMSAL ŞABLON TAMAMLANDI - 161 sütun, 7 renkli bölüm!`);
-    
+
     // 🎨 PROFESYONEL SATIR YÜKSEKLİKLERİ & DONDURMALAR
     sheet.getRow(1).height = 35; // Ana bölüm başlıkları - daha yüksek
     sheet.getRow(2).height = 30; // Alt bölüm başlıkları  
     sheet.getRow(3).height = 25; // Boş satır (ileride kullanım için)
     sheet.getRow(4).height = 28; // Sütun isimleri - daha yüksek
-    
+
     // Freeze header rows for better user experience
     sheet.views = [{
       state: 'frozen',
@@ -4841,10 +4843,10 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       activeCell: 'A5'
     }];
     console.log(`📊 [${exportId}] Başlık yapısı tamamlandı: ${csvStructure.totalColumns} sütun`);
-    
+
     // 📊 POPULATE DATA ROWS WITH SECTION-BASED CORPORATE COLORS
     console.log(`📊 [${exportId}] Kurumsal renk şemalı veri satırları oluşturuluyor: ${revisionData.length} satır`);
-    
+
     // 🎨 Section data styling function
     const getSectionDataStyle = (colIndex, isInitial = false, isChanged = false) => {
       // İlk satır için özel stil
@@ -4855,7 +4857,7 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       if (isChanged) {
         return styles.changedCell;
       }
-      
+
       // Section-based normal data styles
       // KÜNYE BİLGLERİ: 1-17 (Blue theme)
       if (colIndex >= 1 && colIndex <= 17) {
@@ -4889,26 +4891,26 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       else if (colIndex >= 161) {
         return styles.revizyonData;
       }
-      
+
       return styles.kunyeData; // Default
     };
-    
+
     let currentRow = 5;
-    
+
     revisionData.forEach((revision, revisionIndex) => {
       revision.rowData.forEach((value, colIndex) => {
         const cell = sheet.getCell(currentRow, colIndex + 1);
-            cell.value = value;
-        
+        cell.value = value;
+
         // Determine styling based on section and state
         const isChanged = includeColors && revision.changes?.some(c => c.columnIndex === colIndex);
         const baseStyle = getSectionDataStyle(colIndex + 1, revision.isInitial, isChanged);
-        
+
         // 🎨 ADD ALTERNATING ROW EFFECT (subtle gradient-like effect)
         if (!revision.isInitial && !isChanged && revisionIndex % 2 === 1) {
           // Create slightly darker version for alternating rows
           const alternatingStyle = { ...baseStyle };
-          
+
           // Section-specific alternating colors
           if (colIndex + 1 >= 1 && colIndex + 1 <= 17) { // KÜNYE
             alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8F9FF' } };
@@ -4927,13 +4929,13 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
           } else { // REVİZYON
             alternatingStyle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCFCFC' } };
           }
-          
+
           cell.style = alternatingStyle;
         } else {
           cell.style = baseStyle;
         }
       });
-      
+
       // 🎨 ENHANCED ROW HEIGHTS
       if (revision.isInitial) {
         sheet.getRow(currentRow).height = 22; // Initial row daha yüksek
@@ -4942,39 +4944,39 @@ const createProfessionalWorkbook = async (csvStructure, revisionData, includeCol
       } else {
         sheet.getRow(currentRow).height = 18; // Normal rows
       }
-      
+
       currentRow++;
     });
-    
+
     // 📏 COLUMN WIDTHS
     console.log(`📊 [${exportId}] Sütun genişlikleri ayarlanıyor...`);
-    
+
     const columnWidths = [
       8, 12, 8, 10, 35, 12, 25, 12, 12, 15, 12, 15, 12, 15, 15, 12, 15, // KÜNYE + YATIRIM
       25, 10, 10, 10, 10, 18, 12, 12, 8, 8, 20, 20, 20, 15, 15, 15, 12, 10, 10, // YATIRIM devam + İSTİHDAM
     ];
-    
+
     // Ürün bilgileri için sütun genişlikleri (54 sütun)
     for (let i = 0; i < 54; i++) {
       if (i % 6 === 0) columnWidths.push(12); // NACE
       else if (i % 6 === 1) columnWidths.push(25); // Ürün adı
       else columnWidths.push(8); // Diğer alanlar
     }
-    
+
     // Kalan sütunlar için
     for (let i = columnWidths.length; i < csvStructure.totalColumns; i++) {
       columnWidths.push(12);
     }
-    
+
     columnWidths.forEach((width, index) => {
       if (sheet.getColumn(index + 1)) {
         sheet.getColumn(index + 1).width = width;
       }
     });
-    
+
     console.log(`✅ [${exportId}] Professional workbook oluşturuldu`);
     return workbook;
-    
+
   } catch (error) {
     console.error(`❌ [${exportId}] Workbook creation hatası:`, error);
     throw error;
@@ -4986,7 +4988,7 @@ const generateFileName = (tesvik) => {
   const firmId = tesvik.firma?.firmaId || 'A000000';
   const tesvikId = tesvik.tesvikId || tesvik.gmId || 'UNKNOWN';
   const date = new Date().toISOString().split('T')[0];
-  
+
   return `sistem_excel_ciktisi_${firmId}_${tesvikId}_${date}.xlsx`;
 };
 
@@ -5053,7 +5055,7 @@ module.exports = {
       const { yerli = [], ithal = [] } = req.body || {};
       const YeniTesvik = require('../models/YeniTesvik');
       const tesvik = await YeniTesvik.findById(id);
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
       // Normalize helpers
       const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
@@ -5159,21 +5161,21 @@ module.exports = {
         }
       }, { timestamps: true });
 
-      return res.json({ success:true, message:'Makine listeleri kaydedildi' });
+      return res.json({ success: true, message: 'Makine listeleri kaydedildi' });
     } catch (error) {
       console.error('saveMakineListeleri error:', error);
-      return res.status(500).json({ success:false, message:'Makine listeleri kaydedilemedi', error: error.message });
+      return res.status(500).json({ success: false, message: 'Makine listeleri kaydedilemedi', error: error.message });
     }
   },
-  
+
   // 🆕 Makine Revizyon Başlat - Atomic $push
   startMakineRevizyon: async (req, res) => {
     try {
       const { id } = req.params;
       const { aciklama } = req.body || {};
-      
+
       const tesvik = await YeniTesvik.findById(id).select('makineListeleri').lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
       const snapshot = {
         revizeTuru: 'start',
@@ -5190,10 +5192,10 @@ module.exports = {
       });
 
       console.log(`✅ startMakineRevizyon OK: ${id}`);
-      res.json({ success:true, message:'Revizyon başlatıldı' });
+      res.json({ success: true, message: 'Revizyon başlatıldı' });
     } catch (error) {
       console.error('❌ startMakineRevizyon error:', error.message);
-      res.status(500).json({ success:false, message:'Revizyon başlatılamadı', error: error.message });
+      res.status(500).json({ success: false, message: 'Revizyon başlatılamadı', error: error.message });
     }
   },
   // 🆕 Makine Revizyon Finalize (save + snapshot TEK ÇAĞRI)
@@ -5202,13 +5204,13 @@ module.exports = {
     try {
       const { id } = req.params;
       const { aciklama, yerli, ithal } = req.body || {};
-      
+
       if (Array.isArray(yerli) || Array.isArray(ithal)) {
         // Save + Finalize TEK atomic op
         const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
         const str = (v) => (v ?? '').toString();
         const mapRow = (r, idx) => ({
-          rowId: str(r.rowId) || undefined, siraNo: nz(r.siraNo) || (idx+1), makineId: str(r.makineId),
+          rowId: str(r.rowId) || undefined, siraNo: nz(r.siraNo) || (idx + 1), makineId: str(r.makineId),
           gtipKodu: str(r.gtipKodu), gtipAciklamasi: str(r.gtipAciklamasi || r.gtipAciklama),
           adiVeOzelligi: str(r.adiVeOzelligi || r.adi), miktar: nz(r.miktar), birim: str(r.birim),
           birimAciklamasi: str(r.birimAciklamasi),
@@ -5231,26 +5233,26 @@ module.exports = {
           talep: r.talep ? { durum: r.talep.durum, istenenAdet: nz(r.talep.istenenAdet), talepTarihi: r.talep.talepTarihi ? new Date(r.talep.talepTarihi) : undefined } : undefined,
           karar: r.karar ? { kararDurumu: r.karar.kararDurumu, onaylananAdet: nz(r.karar.onaylananAdet), kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined } : undefined
         });
-        
+
         const yerliMapped = Array.isArray(yerli) ? yerli.map(mapRow) : undefined;
         const ithalMapped = Array.isArray(ithal) ? ithal.map(mapRow) : undefined;
-        
+
         const snapshot = {
           revizeTuru: 'final', revizeTarihi: new Date(),
           aciklama: aciklama || 'Makine revizyonu finalize edildi',
           yapanKullanici: req.user?._id,
           yerli: yerliMapped || [], ithal: ithalMapped || []
         };
-        
+
         const updateOps = { $push: { makineRevizyonlari: snapshot }, $set: { sonGuncelleyen: req.user?._id } };
         if (yerliMapped) updateOps.$set['makineListeleri.yerli'] = yerliMapped;
         if (ithalMapped) updateOps.$set['makineListeleri.ithal'] = ithalMapped;
-        
+
         await YeniTesvik.findByIdAndUpdate(id, updateOps);
-        console.log(`✅ finalize+save OK: ${id} (${Date.now()-startTime}ms)`);
+        console.log(`✅ finalize+save OK: ${id} (${Date.now() - startTime}ms)`);
       } else {
         const tesvik = await YeniTesvik.findById(id).select('makineListeleri').lean();
-        if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+        if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
         const snapshot = {
           revizeTuru: 'final', revizeTarihi: new Date(),
           aciklama: aciklama || 'Makine revizyonu finalize edildi',
@@ -5259,15 +5261,15 @@ module.exports = {
           ithal: (tesvik.makineListeleri?.ithal || []).map(r => ({ ...r }))
         };
         await YeniTesvik.findByIdAndUpdate(id, { $push: { makineRevizyonlari: snapshot }, $set: { sonGuncelleyen: req.user?._id } });
-        console.log(`✅ finalize OK: ${id} (${Date.now()-startTime}ms)`);
+        console.log(`✅ finalize OK: ${id} (${Date.now() - startTime}ms)`);
       }
-      res.json({ success:true, message:'Revizyon finalize edildi' });
+      res.json({ success: true, message: 'Revizyon finalize edildi' });
     } catch (error) {
-      console.error(`❌ finalizeMakineRevizyon error (${Date.now()-startTime}ms):`, error.message);
-      res.status(500).json({ success:false, message:'Revizyon finalize edilemedi', error: error.message });
+      console.error(`❌ finalizeMakineRevizyon error (${Date.now() - startTime}ms):`, error.message);
+      res.status(500).json({ success: false, message: 'Revizyon finalize edilemedi', error: error.message });
     }
   },
-  
+
   // 🆕 Makine Revizyon Listesi
   listMakineRevizyonlari: async (req, res) => {
     try {
@@ -5276,27 +5278,27 @@ module.exports = {
       const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const revs = Array.isArray(tesvik.makineRevizyonlari) ? tesvik.makineRevizyonlari : [];
-      const sorted = [...revs].sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
-      res.json({ success:true, data: sorted });
+      const sorted = [...revs].sort((a, b) => new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      res.json({ success: true, data: sorted });
     } catch (error) {
       console.error('listMakineRevizyonlari error:', error);
-      res.status(500).json({ success:false, message:'Revizyonlar alınamadı' });
+      res.status(500).json({ success: false, message: 'Revizyonlar alınamadı' });
     }
   },
-  
+
   // 🆕 Makine Revizyonundan Dön (seçilen revizeId durumuna dön ve yeni "revert" snapshot oluştur)
   revertMakineRevizyon: async (req, res) => {
     try {
       const { id } = req.params;
       const { revizeId, aciklama } = req.body || {};
-      if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
+      if (!revizeId) return res.status(400).json({ success: false, message: 'revizeId gerekli' });
       // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
-      if (!target) return res.status(404).json({ success:false, message:'Revizyon bulunamadı' });
+      if (!target) return res.status(404).json({ success: false, message: 'Revizyon bulunamadı' });
       // Eski halleri uygula
       tesvik.makineListeleri.yerli = (target.yerli || []).map(r => ({
         ...r,
@@ -5330,11 +5332,11 @@ module.exports = {
       tesvik.makineRevizyonlari.push(snapshot);
       tesvik.sonGuncelleyen = req.user?._id;
       await tesvik.save();
-      const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length-1];
-      res.json({ success:true, message:'Revizyon geri dönüş uygulandı', data:{ revizeId: last.revizeId, revizeTarihi: last.revizeTarihi }, makineListeleri: tesvik.makineListeleri });
+      const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length - 1];
+      res.json({ success: true, message: 'Revizyon geri dönüş uygulandı', data: { revizeId: last.revizeId, revizeTarihi: last.revizeTarihi }, makineListeleri: tesvik.makineListeleri });
     } catch (error) {
       console.error('revertMakineRevizyon error:', error);
-      res.status(500).json({ success:false, message:'Revizyon geri dönüşü uygulanamadı' });
+      res.status(500).json({ success: false, message: 'Revizyon geri dönüşü uygulanamadı' });
     }
   },
 
@@ -5343,60 +5345,60 @@ module.exports = {
     try {
       const { id } = req.params; // Tesvik Id
       const { revizeId, meta } = req.body;
-      if (!revizeId) return res.status(400).json({ success:false, message:'revizeId gerekli' });
+      if (!revizeId) return res.status(400).json({ success: false, message: 'revizeId gerekli' });
       // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const list = tesvik.makineRevizyonlari || [];
       const idx = list.findIndex(r => r.revizeId === revizeId);
-      if (idx === -1) return res.status(404).json({ success:false, message:'Revizyon kaydı bulunamadı' });
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Revizyon kaydı bulunamadı' });
       // Form: talepNo, belgeNo, belgeId, basvuruTarihi, odemeTalebi, retSebebi
-      const allowed = ['talepNo','belgeNo','belgeId','basvuruTarihi','odemeTalebi','retSebebi'];
+      const allowed = ['talepNo', 'belgeNo', 'belgeId', 'basvuruTarihi', 'odemeTalebi', 'retSebebi'];
       allowed.forEach(k => { if (meta && meta[k] !== undefined) list[idx][k] = meta[k]; });
       tesvik.markModified('makineRevizyonlari');
       await tesvik.save();
-      res.json({ success:true, message:'Revize meta güncellendi', data: tesvik.makineRevizyonlari[idx] });
+      res.json({ success: true, message: 'Revize meta güncellendi', data: tesvik.makineRevizyonlari[idx] });
     } catch (error) {
       console.error('updateMakineRevizyonMeta error:', error);
-      res.status(500).json({ success:false, message:'Revize meta güncellenemedi' });
+      res.status(500).json({ success: false, message: 'Revize meta güncellenemedi' });
     }
   },
-  
+
   // 🧾 Makine Revizyon Excel Export (hücre bazlı farkları KIRMIZI ile vurgula)
   exportMakineRevizyonExcel: async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       // 🔒 ID Validasyonu
       if (!id || id === 'undefined' || id === 'null') {
         console.error('❌ exportMakineRevizyonExcel: Geçersiz ID:', id);
         return res.status(400).json({ success: false, message: 'Geçersiz teşvik ID\'si' });
       }
-      
+
       // YeniTesvik modeli zaten dosya başında import edildi
       const ExcelJS = require('exceljs');
-      
+
       console.log(`📊 Makine Revizyon Excel export başlatılıyor: ${id}`);
 
       const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
-      
+
       if (!tesvik) {
         console.error('❌ exportMakineRevizyonExcel: Teşvik bulunamadı:', id);
         return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       }
-      
+
       console.log(`✅ Teşvik bulundu: ${tesvik.tesvikId || tesvik.gmId || id}`);
 
       // 📋 Revizyon verilerini güvenli şekilde al
       const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
-      
+
       // 📝 Revizyon yoksa bilgilendirici yanıt dön
       if (revs.length === 0) {
         console.log('⚠️ Makine revizyonu bulunamadı, boş Excel oluşturuluyor');
       }
-      
+
       revs.sort((a, b) => {
         const dateA = a?.revizeTarihi ? new Date(a.revizeTarihi) : new Date(0);
         const dateB = b?.revizeTarihi ? new Date(b.revizeTarihi) : new Date(0);
@@ -5408,118 +5410,118 @@ module.exports = {
       wb.created = new Date();
 
       const redFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC0C0' } };
-      const headerStyle = { font:{ bold:true }, alignment:{ horizontal:'center' }, fill: { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE5E7EB' } } };
+      const headerStyle = { font: { bold: true }, alignment: { horizontal: 'center' }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } } };
 
       // Helper fonksiyon: Alan de\u011ferini al
       const getFieldValue = (obj, field) => {
-        if (field==='toplamTutarFobUsd') return obj.toplamTutarFobUsd ?? obj.toplamUsd;
-        if (field==='toplamTutarFobTl') return obj.toplamTutarFobTl ?? obj.toplamTl;
-        if (field==='toplamTutariTl') return obj.toplamTutariTl ?? obj.toplamTl;
-        if (field==='birimAciklamasi') return obj.birimAciklamasi || '';
-        if (field==='dovizAciklamasi') return obj.dovizAciklamasi || '';
-        if (field==='kurManuel') return obj.kurManuel ? 'EVET' : 'HAYIR';
-        if (field==='kurManuelDeger') return obj.kurManuelDeger || 0;
-        if (field==='etuysSecili') return obj.etuysSecili ? 'EVET' : 'HAYIR';
-        if (field==='dosyaSayisi') return Array.isArray(obj.dosyalar) ? obj.dosyalar.length : 0;
-        if (field==='talepDurum') return obj.talep?.durum;
-        if (field==='talepIstenenAdet') return obj.talep?.istenenAdet;
-        if (field==='kalemTalepTarihi') return obj.talep?.talepTarihi ? new Date(obj.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
-        if (field==='kararDurumu') return obj.karar?.kararDurumu;
-        if (field==='kararOnaylananAdet') return obj.karar?.onaylananAdet;
-        if (field==='kalemKararTarihi') return obj.karar?.kararTarihi ? new Date(obj.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
+        if (field === 'toplamTutarFobUsd') return obj.toplamTutarFobUsd ?? obj.toplamUsd;
+        if (field === 'toplamTutarFobTl') return obj.toplamTutarFobTl ?? obj.toplamTl;
+        if (field === 'toplamTutariTl') return obj.toplamTutariTl ?? obj.toplamTl;
+        if (field === 'birimAciklamasi') return obj.birimAciklamasi || '';
+        if (field === 'dovizAciklamasi') return obj.dovizAciklamasi || '';
+        if (field === 'kurManuel') return obj.kurManuel ? 'EVET' : 'HAYIR';
+        if (field === 'kurManuelDeger') return obj.kurManuelDeger || 0;
+        if (field === 'etuysSecili') return obj.etuysSecili ? 'EVET' : 'HAYIR';
+        if (field === 'dosyaSayisi') return Array.isArray(obj.dosyalar) ? obj.dosyalar.length : 0;
+        if (field === 'talepDurum') return obj.talep?.durum;
+        if (field === 'talepIstenenAdet') return obj.talep?.istenenAdet;
+        if (field === 'kalemTalepTarihi') return obj.talep?.talepTarihi ? new Date(obj.talep.talepTarihi).toLocaleDateString('tr-TR') : '';
+        if (field === 'kararDurumu') return obj.karar?.kararDurumu;
+        if (field === 'kararOnaylananAdet') return obj.karar?.onaylananAdet;
+        if (field === 'kalemKararTarihi') return obj.karar?.kararTarihi ? new Date(obj.karar.kararTarihi).toLocaleDateString('tr-TR') : '';
         return obj[field];
       };
 
       const addSheetFor = (name, type) => {
         const ws = wb.addWorksheet(name);
-        const isYerli = type==='yerli';
+        const isYerli = type === 'yerli';
         const baseCols = [
-          { header:'Revize ID', key:'revizeId', width: 24 },
-          { header:'Revize Türü', key:'revizeTuru', width: 12 },
-          { header:'Revize Tarihi', key:'revizeTarihi', width: 18 },
-          { header:'Revize Kullanıcı', key:'revizeUser', width: 26 },
-          { header:'Talep Tarihi', key:'muracaat', width: 18 },
-          { header:'Onay/Red Tarihi', key:'onay', width: 18 },
-          { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
-          { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
-          { header:'İşlem', key:'islem', width: 10 },
-          { header:'Durum', key:'durum', width: 12 },
-          { header:'Silinme Tarihi', key:'silinmeTarihi', width: 16 },
-          { header:'Sıra No', key:'siraNo', width: 8 },
-          { header:'Makine ID', key:'makineId', width: 12 },
-          { header:'GTIP', key:'gtipKodu', width: 16 },
-          { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
-          { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
-          { header:'Miktar', key:'miktar', width: 10 },
-          { header:'Birim', key:'birim', width: 10 },
-          { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
+          { header: 'Revize ID', key: 'revizeId', width: 24 },
+          { header: 'Revize Türü', key: 'revizeTuru', width: 12 },
+          { header: 'Revize Tarihi', key: 'revizeTarihi', width: 18 },
+          { header: 'Revize Kullanıcı', key: 'revizeUser', width: 26 },
+          { header: 'Talep Tarihi', key: 'muracaat', width: 18 },
+          { header: 'Onay/Red Tarihi', key: 'onay', width: 18 },
+          { header: 'Hazırlık Tarihi', key: 'hazirlikTarihi', width: 18 },
+          { header: 'Karar Tarihi', key: 'kararTarihi', width: 18 },
+          { header: 'İşlem', key: 'islem', width: 10 },
+          { header: 'Durum', key: 'durum', width: 12 },
+          { header: 'Silinme Tarihi', key: 'silinmeTarihi', width: 16 },
+          { header: 'Sıra No', key: 'siraNo', width: 8 },
+          { header: 'Makine ID', key: 'makineId', width: 12 },
+          { header: 'GTIP', key: 'gtipKodu', width: 16 },
+          { header: 'GTIP Açıklama', key: 'gtipAciklamasi', width: 32 },
+          { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 36 },
+          { header: 'Miktar', key: 'miktar', width: 10 },
+          { header: 'Birim', key: 'birim', width: 10 },
+          { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
           ...(isYerli ? [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük TL tutarlar "########" olarak görünüyordu
-            { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28, style: { numFmt: '#,##0' } },
-            { header:'Toplam (TL)', key:'toplamTl', width: 28, style: { numFmt: '#,##0' } },
-            { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
+            { header: 'Birim Fiyatı (TL)', key: 'birimFiyatiTl', width: 28, style: { numFmt: '#,##0' } },
+            { header: 'Toplam (TL)', key: 'toplamTl', width: 28, style: { numFmt: '#,##0' } },
+            { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 },
           ] : [
             // 🔧 FIX: Sütun genişlikleri artırıldı - büyük döviz/TL tutarlar "########" olarak görünüyordu
-            { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28, style: { numFmt: '#,##0' } },
-            { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
-            { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
-            { header:'Manuel Kur', key:'kurManuel', width: 12 },
-            { header:'Manuel Kur Değeri', key:'kurManuelDeger', width: 20 },
-            { header:'Toplam ($)', key:'toplamUsd', width: 28, style: { numFmt: '#,##0' } },
-            { header:'Toplam (TL)', key:'toplamTl', width: 28, style: { numFmt: '#,##0' } },
-            { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
-            { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
-            { header:'Araç mı', key:'aracMi', width: 10 },
-            { header:'KDV Muafiyeti', key:'kdvMuafiyeti', width: 14 },
-            { header:'Gümrük Vergisi Muaf', key:'gumrukVergisiMuafiyeti', width: 18 },
+            { header: 'FOB Birim Fiyat', key: 'birimFiyatiFob', width: 28, style: { numFmt: '#,##0' } },
+            { header: 'Döviz', key: 'gumrukDovizKodu', width: 10 },
+            { header: 'Döviz Açıklama', key: 'dovizAciklamasi', width: 16 },
+            { header: 'Manuel Kur', key: 'kurManuel', width: 12 },
+            { header: 'Manuel Kur Değeri', key: 'kurManuelDeger', width: 20 },
+            { header: 'Toplam ($)', key: 'toplamUsd', width: 28, style: { numFmt: '#,##0' } },
+            { header: 'Toplam (TL)', key: 'toplamTl', width: 28, style: { numFmt: '#,##0' } },
+            { header: 'Kullanılmış', key: 'kullanilmisMakine', width: 12 },
+            { header: 'CKD/SKD', key: 'ckdSkdMi', width: 10 },
+            { header: 'Araç mı', key: 'aracMi', width: 10 },
+            { header: 'KDV Muafiyeti', key: 'kdvMuafiyeti', width: 14 },
+            { header: 'Gümrük Vergisi Muaf', key: 'gumrukVergisiMuafiyeti', width: 18 },
           ]),
-          { header:'Makine Teçhizat Tipi', key:'makineTechizatTipi', width: 18 },
-          { header:'FK mı?', key:'finansalKiralamaMi', width: 10 },
-          { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
-          { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
-          { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
-          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 20 },
-          { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
-          { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
-          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 22 },
+          { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
+          { header: 'FK mı?', key: 'finansalKiralamaMi', width: 10 },
+          { header: 'FK Adet', key: 'finansalKiralamaAdet', width: 10 },
+          { header: 'FK Şirket', key: 'finansalKiralamaSirket', width: 16 },
+          { header: 'Gerç. Adet', key: 'gerceklesenAdet', width: 10 },
+          { header: 'Gerç. Tutar', key: 'gerceklesenTutar', width: 20 },
+          { header: 'İade/Devir/Satış?', key: 'iadeDevirSatisVarMi', width: 16 },
+          { header: 'İade/Devir/Satış Adet', key: 'iadeDevirSatisAdet', width: 18 },
+          { header: 'İade/Devir/Satış Tutar', key: 'iadeDevirSatisTutar', width: 22 },
           // UI ek alanlar
-          { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
-          { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
-          { header:'Talep Durumu', key:'talepDurum', width: 16 },
-          { header:'İstenen Adet', key:'talepIstenenAdet', width: 14 },
-          { header:'Talep Tarihi (Kalem)', key:'kalemTalepTarihi', width: 18 },
-          { header:'Karar Durumu', key:'kararDurumu', width: 16 },
-          { header:'Onaylanan Adet', key:'kararOnaylananAdet', width: 18 },
-          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 },
+          { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
+          { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
+          { header: 'Talep Durumu', key: 'talepDurum', width: 16 },
+          { header: 'İstenen Adet', key: 'talepIstenenAdet', width: 14 },
+          { header: 'Talep Tarihi (Kalem)', key: 'kalemTalepTarihi', width: 18 },
+          { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+          { header: 'Onaylanan Adet', key: 'kararOnaylananAdet', width: 18 },
+          { header: 'Karar Tarihi (Kalem)', key: 'kalemKararTarihi', width: 18 },
           // ETUYS meta sütunları (en sona taşındı)
-          { header:'Talep No', key:'talepNo', width: 14 },
-          { header:'Belge No', key:'belgeNo', width: 14 },
-          { header:'Belge Id', key:'belgeId', width: 16 },
-          { header:'Talep Tipi', key:'talepTipi', width: 22 },
-          { header:'Talep Detayı', key:'talepDetayi', width: 28 },
-          { header:'Durum', key:'durum', width: 16 },
-          { header:'Daire', key:'daire', width: 22 },
-          { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 }
+          { header: 'Talep No', key: 'talepNo', width: 14 },
+          { header: 'Belge No', key: 'belgeNo', width: 14 },
+          { header: 'Belge Id', key: 'belgeId', width: 16 },
+          { header: 'Talep Tipi', key: 'talepTipi', width: 22 },
+          { header: 'Talep Detayı', key: 'talepDetayi', width: 28 },
+          { header: 'Durum', key: 'durum', width: 16 },
+          { header: 'Daire', key: 'daire', width: 22 },
+          { header: 'Başvuru Tarihi', key: 'basvuruTarihi', width: 18 }
         ];
         ws.columns = baseCols;
-        ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
-        
+        ws.getRow(1).eachCell(c => { c.style = headerStyle; });
+
         // 🔧 FIX: Fiyat sütunlarına numara formatı ekle (büyük sayıların okunabilirliği için)
         const numFmt = '#,##0';
         ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
           const col = ws.getColumn(key);
           if (col) col.numFmt = numFmt;
         });
-        
+
         // Önceki snapshot kıyaslaması için map
         // Yalnızca FINAL snapshot'ları işle; hiç final yoksa tüm snapshot'ları kullan
-        const iterateRevs = Array.isArray(revs) && revs.some(r=> r.revizeTuru==='final')
-          ? revs.filter(r=> r.revizeTuru==='final')
+        const iterateRevs = Array.isArray(revs) && revs.some(r => r.revizeTuru === 'final')
+          ? revs.filter(r => r.revizeTuru === 'final')
           : revs;
 
         // En güncel (mevcut) makine listelerini anahtara göre map'le.
         // Böylece snapshot'ta talep/karar boş ise güncel listedeki değerlerle doldurabiliriz.
-        const makeKey = (x) => x?.rowId || (x?.siraNo ? `sira_${x.siraNo}` : `${x?.gtipKodu||''}|${x?.adiVeOzelligi||''}|${x?.miktar||0}`);
+        const makeKey = (x) => x?.rowId || (x?.siraNo ? `sira_${x.siraNo}` : `${x?.gtipKodu || ''}|${x?.adiVeOzelligi || ''}|${x?.miktar || 0}`);
         const latestMap = new Map();
         const latestArr = Array.isArray(tesvik.makineListeleri?.[type]) ? tesvik.makineListeleri[type] : [];
         latestArr.forEach(x => latestMap.set(makeKey(x), x));
@@ -5541,19 +5543,19 @@ module.exports = {
               });
             }
             // rowId varsa kullan, yoksa sıra numarasını veya gtip+ad kombinasyonunu kullan
-            const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu||''}|${r.adiVeOzelligi||''}|${r.miktar||0}`);
+            const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu || ''}|${r.adiVeOzelligi || ''}|${r.miktar || 0}`);
             currMap.set(key, r);
-            
+
             // Sadece değişen veya yeni satırları yaz
             const prev = prevMap.get(key);
             let hasChange = !prev; // Yeni satır
-            
+
             // Eğer önceki revizyonda varsa, değişiklikleri kontrol et
             if (prev) {
-              const compareFields = (isYerli ? ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
-                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
-              
+              const compareFields = (isYerli ? ['gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiTl', 'toplamTutariTl', 'kdvIstisnasi', 'makineTechizatTipi', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar']
+                : ['gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiFob', 'gumrukDovizKodu', 'kurManuel', 'kurManuelDeger', 'toplamTutarFobUsd', 'toplamTutarFobTl', 'kullanilmisMakine', 'ckdSkdMi', 'aracMi', 'makineTechizatTipi', 'kdvMuafiyeti', 'gumrukVergisiMuafiyeti', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar'])
+                .concat(['etuysSecili', 'dosyaSayisi', 'talepDurum', 'talepIstenenAdet', 'kalemTalepTarihi', 'kararDurumu', 'kararOnaylananAdet', 'kalemKararTarihi']);
+
               for (const field of compareFields) {
                 const prevVal = getFieldValue(prev, field);
                 const currVal = getFieldValue(r, field);
@@ -5563,14 +5565,14 @@ module.exports = {
                 }
               }
             }
-            
+
             // Tüm satırları yaz (değişiklik kontrolü sadece boyama için kullanılacak)
-            
+
             // Silinme durumunu belirle
             const isSilindi = !!r.silinmeTarihi;
             const durumText = isSilindi ? 'SİLİNDİ' : 'AKTİF';
             const silinmeTarihiText = r.silinmeTarihi ? new Date(r.silinmeTarihi).toLocaleDateString('tr-TR') : '';
-            
+
             // Satırı yaz
             const rowVals = {
               revizeId: rev.revizeId,
@@ -5652,20 +5654,20 @@ module.exports = {
                 excelRow.getCell(i).fill = redFill;
               }
             }
-            
+
             // Hücre bazlı fark boyama
             if (prev) {
-              const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
-                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
+              const compareFields = (isYerli ? ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiTl', 'toplamTutariTl', 'kdvIstisnasi', 'makineTechizatTipi', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar']
+                : ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiFob', 'gumrukDovizKodu', 'dovizAciklamasi', 'kurManuel', 'kurManuelDeger', 'toplamTutarFobUsd', 'toplamTutarFobTl', 'kullanilmisMakine', 'ckdSkdMi', 'aracMi', 'makineTechizatTipi', 'kdvMuafiyeti', 'gumrukVergisiMuafiyeti', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar'])
+                .concat(['etuysSecili', 'dosyaSayisi', 'talepDurum', 'talepIstenenAdet', 'kalemTalepTarihi', 'kararDurumu', 'kararOnaylananAdet', 'kalemKararTarihi']);
               compareFields.forEach((field) => {
                 const prevVal = getFieldValue(prev, field);
                 const currVal = getFieldValue(r, field);
-                
+
                 // Değerleri string'e dönüştürerek karşılaştır (undefined ve null kontrolü)
                 const prevStr = prevVal === undefined || prevVal === null ? '' : String(prevVal);
                 const currStr = currVal === undefined || currVal === null ? '' : String(currVal);
-                
+
                 if (prevStr !== currStr) {
                   // Excel column key'ini bul
                   let excelKey = field;
@@ -5679,7 +5681,7 @@ module.exports = {
                   else if (field === 'kararDurumu') excelKey = 'kararDurumu';
                   else if (field === 'kararOnaylananAdet') excelKey = 'kararOnaylananAdet';
                   else if (field === 'kalemKararTarihi') excelKey = 'kalemKararTarihi';
-                  
+
                   // Sütun index'ini bul
                   const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
                   if (colIndex > 0) {
@@ -5692,16 +5694,16 @@ module.exports = {
               });
             } else {
               // Yeni satırlar için tüm dolu alanları kırmızı boyama
-              const fieldsToCheck = isYerli 
-                ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTl','kdvIstisnasi']
-                : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','toplamUsd','toplamTl'];
-              
+              const fieldsToCheck = isYerli
+                ? ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiTl', 'toplamTl', 'kdvIstisnasi']
+                : ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiFob', 'gumrukDovizKodu', 'dovizAciklamasi', 'toplamUsd', 'toplamTl'];
+
               fieldsToCheck.forEach((field) => {
                 let excelKey = field;
                 // Alan adı eşleştirmeleri
                 if (field === 'toplamTutariTl' || field === 'toplamTl') excelKey = 'toplamTl';
                 else if (field === 'toplamTutarFobUsd' || field === 'toplamUsd') excelKey = 'toplamUsd';
-                
+
                 const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
                 if (colIndex > 0 && rowVals[excelKey]) {
                   excelRow.getCell(colIndex).fill = redFill;
@@ -5709,11 +5711,11 @@ module.exports = {
               });
             }
           });
-            // Silinen satırlar için kontrol
+          // Silinen satırlar için kontrol
           prevMap.forEach((prevRow, prevKey) => {
             if (!currMap.has(prevKey)) {
               // Sıra numarası ile de kontrol et
-              const found = Array.from(currMap.values()).find(r => 
+              const found = Array.from(currMap.values()).find(r =>
                 (r.siraNo && prevRow.siraNo && r.siraNo === prevRow.siraNo) ||
                 (r.gtipKodu === prevRow.gtipKodu && r.adiVeOzelligi === prevRow.adiVeOzelligi)
               );
@@ -5760,81 +5762,81 @@ module.exports = {
       // 🆕 Değişiklik Yapılanlar - yalnızca farklı olan satırları içeren birleşik sayfa
       const addChangesOnlySheet = () => {
         const ws = wb.addWorksheet('Değişiklik Yapılanlar');
-        const headerStyle = { font:{ bold:true }, alignment:{ horizontal:'center' }, fill: { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE5E7EB' } } };
+        const headerStyle = { font: { bold: true }, alignment: { horizontal: 'center' }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } } };
         // Birleşik (superset) kolonlar: hem yerli hem ithal alanlarını kapsar
         const cols = [
-          { header:'Liste', key:'liste', width: 8 },
-          { header:'Revize ID', key:'revizeId', width: 24 },
-          { header:'Revize Türü', key:'revizeTuru', width: 12 },
-          { header:'Revize Tarihi', key:'revizeTarihi', width: 18 },
-          { header:'Revize Kullanıcı', key:'revizeUser', width: 26 },
-          { header:'Talep Tarihi', key:'muracaat', width: 18 },
-          { header:'Onay/Red Tarihi', key:'onay', width: 18 },
-          { header:'Hazırlık Tarihi', key:'hazirlikTarihi', width: 18 },
-          { header:'Karar Tarihi', key:'kararTarihi', width: 18 },
-          { header:'İşlem', key:'islem', width: 10 },
-          { header:'Sıra No', key:'siraNo', width: 8 },
-          { header:'GTIP', key:'gtipKodu', width: 16 },
-          { header:'GTIP Açıklama', key:'gtipAciklamasi', width: 32 },
-          { header:'Adı ve Özelliği', key:'adiVeOzelligi', width: 36 },
-          { header:'Miktar', key:'miktar', width: 10 },
-          { header:'Birim', key:'birim', width: 10 },
-          { header:'Birim Açıklama', key:'birimAciklamasi', width: 20 },
+          { header: 'Liste', key: 'liste', width: 8 },
+          { header: 'Revize ID', key: 'revizeId', width: 24 },
+          { header: 'Revize Türü', key: 'revizeTuru', width: 12 },
+          { header: 'Revize Tarihi', key: 'revizeTarihi', width: 18 },
+          { header: 'Revize Kullanıcı', key: 'revizeUser', width: 26 },
+          { header: 'Talep Tarihi', key: 'muracaat', width: 18 },
+          { header: 'Onay/Red Tarihi', key: 'onay', width: 18 },
+          { header: 'Hazırlık Tarihi', key: 'hazirlikTarihi', width: 18 },
+          { header: 'Karar Tarihi', key: 'kararTarihi', width: 18 },
+          { header: 'İşlem', key: 'islem', width: 10 },
+          { header: 'Sıra No', key: 'siraNo', width: 8 },
+          { header: 'GTIP', key: 'gtipKodu', width: 16 },
+          { header: 'GTIP Açıklama', key: 'gtipAciklamasi', width: 32 },
+          { header: 'Adı ve Özelliği', key: 'adiVeOzelligi', width: 36 },
+          { header: 'Miktar', key: 'miktar', width: 10 },
+          { header: 'Birim', key: 'birim', width: 10 },
+          { header: 'Birim Açıklama', key: 'birimAciklamasi', width: 20 },
           // Yerli özel - 🔧 FIX: Sütun genişlikleri artırıldı
-          { header:'Birim Fiyatı (TL)', key:'birimFiyatiTl', width: 28 },
-          { header:'Toplam (TL)', key:'toplamTl', width: 28 },
-          { header:'KDV İstisnası', key:'kdvIstisnasi', width: 14 },
+          { header: 'Birim Fiyatı (TL)', key: 'birimFiyatiTl', width: 28 },
+          { header: 'Toplam (TL)', key: 'toplamTl', width: 28 },
+          { header: 'KDV İstisnası', key: 'kdvIstisnasi', width: 14 },
           // İthal özel - 🔧 FIX: Sütun genişlikleri artırıldı
-          { header:'FOB Birim Fiyat', key:'birimFiyatiFob', width: 28 },
-          { header:'Döviz', key:'gumrukDovizKodu', width: 10 },
-          { header:'Döviz Açıklama', key:'dovizAciklamasi', width: 16 },
-          { header:'Toplam ($)', key:'toplamUsd', width: 28 },
-          { header:'Toplam (TL-FOB)', key:'toplamTlFob', width: 22 },
-          { header:'Kullanılmış', key:'kullanilmisMakine', width: 12 },
-          { header:'CKD/SKD', key:'ckdSkdMi', width: 10 },
-          { header:'Araç mı', key:'aracMi', width: 10 },
-          { header:'KDV Muafiyeti', key:'kdvMuafiyeti', width: 14 },
-          { header:'Gümrük Vergisi Muaf', key:'gumrukVergisiMuafiyeti', width: 18 },
+          { header: 'FOB Birim Fiyat', key: 'birimFiyatiFob', width: 28 },
+          { header: 'Döviz', key: 'gumrukDovizKodu', width: 10 },
+          { header: 'Döviz Açıklama', key: 'dovizAciklamasi', width: 16 },
+          { header: 'Toplam ($)', key: 'toplamUsd', width: 28 },
+          { header: 'Toplam (TL-FOB)', key: 'toplamTlFob', width: 22 },
+          { header: 'Kullanılmış', key: 'kullanilmisMakine', width: 12 },
+          { header: 'CKD/SKD', key: 'ckdSkdMi', width: 10 },
+          { header: 'Araç mı', key: 'aracMi', width: 10 },
+          { header: 'KDV Muafiyeti', key: 'kdvMuafiyeti', width: 14 },
+          { header: 'Gümrük Vergisi Muaf', key: 'gumrukVergisiMuafiyeti', width: 18 },
           // Ortak meta
-          { header:'Makine Teçhizat Tipi', key:'makineTechizatTipi', width: 18 },
-          { header:'FK mı?', key:'finansalKiralamaMi', width: 10 },
-          { header:'FK Adet', key:'finansalKiralamaAdet', width: 10 },
-          { header:'FK Şirket', key:'finansalKiralamaSirket', width: 16 },
-          { header:'Gerç. Adet', key:'gerceklesenAdet', width: 10 },
-          { header:'Gerç. Tutar', key:'gerceklesenTutar', width: 20 },
-          { header:'İade/Devir/Satış?', key:'iadeDevirSatisVarMi', width: 16 },
-          { header:'İade/Devir/Satış Adet', key:'iadeDevirSatisAdet', width: 18 },
-          { header:'İade/Devir/Satış Tutar', key:'iadeDevirSatisTutar', width: 22 },
-          { header:'ETUYS Seçili', key:'etuysSecili', width: 12 },
-          { header:'Dosya Sayısı', key:'dosyaSayisi', width: 12 },
-          { header:'Talep Durumu', key:'talepDurum', width: 16 },
-          { header:'İstenen Adet', key:'talepIstenenAdet', width: 14 },
-          { header:'Talep Tarihi (Kalem)', key:'kalemTalepTarihi', width: 18 },
-          { header:'Karar Durumu', key:'kararDurumu', width: 16 },
-          { header:'Onaylanan Adet', key:'kararOnaylananAdet', width: 18 },
-          { header:'Karar Tarihi (Kalem)', key:'kalemKararTarihi', width: 18 },
+          { header: 'Makine Teçhizat Tipi', key: 'makineTechizatTipi', width: 18 },
+          { header: 'FK mı?', key: 'finansalKiralamaMi', width: 10 },
+          { header: 'FK Adet', key: 'finansalKiralamaAdet', width: 10 },
+          { header: 'FK Şirket', key: 'finansalKiralamaSirket', width: 16 },
+          { header: 'Gerç. Adet', key: 'gerceklesenAdet', width: 10 },
+          { header: 'Gerç. Tutar', key: 'gerceklesenTutar', width: 20 },
+          { header: 'İade/Devir/Satış?', key: 'iadeDevirSatisVarMi', width: 16 },
+          { header: 'İade/Devir/Satış Adet', key: 'iadeDevirSatisAdet', width: 18 },
+          { header: 'İade/Devir/Satış Tutar', key: 'iadeDevirSatisTutar', width: 22 },
+          { header: 'ETUYS Seçili', key: 'etuysSecili', width: 12 },
+          { header: 'Dosya Sayısı', key: 'dosyaSayisi', width: 12 },
+          { header: 'Talep Durumu', key: 'talepDurum', width: 16 },
+          { header: 'İstenen Adet', key: 'talepIstenenAdet', width: 14 },
+          { header: 'Talep Tarihi (Kalem)', key: 'kalemTalepTarihi', width: 18 },
+          { header: 'Karar Durumu', key: 'kararDurumu', width: 16 },
+          { header: 'Onaylanan Adet', key: 'kararOnaylananAdet', width: 18 },
+          { header: 'Karar Tarihi (Kalem)', key: 'kalemKararTarihi', width: 18 },
         ];
         ws.columns = cols;
-        ws.getRow(1).eachCell(c=>{ c.style = headerStyle; });
+        ws.getRow(1).eachCell(c => { c.style = headerStyle; });
 
         const redFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFC0C0' } };
 
         const writeChangedFor = (type, label) => {
-          const isYerli = type==='yerli';
-          const compareFields = (isYerli ? ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar']
-                                           : ['siraNo','gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','dovizAciklamasi','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'])
-                                           .concat(['etuysSecili','dosyaSayisi','talepDurum','talepIstenenAdet','kalemTalepTarihi','kararDurumu','kararOnaylananAdet','kalemKararTarihi']);
+          const isYerli = type === 'yerli';
+          const compareFields = (isYerli ? ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiTl', 'toplamTutariTl', 'kdvIstisnasi', 'makineTechizatTipi', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar']
+            : ['siraNo', 'gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiFob', 'gumrukDovizKodu', 'dovizAciklamasi', 'kurManuel', 'kurManuelDeger', 'toplamTutarFobUsd', 'toplamTutarFobTl', 'kullanilmisMakine', 'ckdSkdMi', 'aracMi', 'makineTechizatTipi', 'kdvMuafiyeti', 'gumrukVergisiMuafiyeti', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar'])
+            .concat(['etuysSecili', 'dosyaSayisi', 'talepDurum', 'talepIstenenAdet', 'kalemTalepTarihi', 'kararDurumu', 'kararOnaylananAdet', 'kalemKararTarihi']);
 
           let prevMap = new Map();
           // Yalnızca FINAL snapshot'ları dolaş; hiç final yoksa tüm snapshot'ları kullan
-          const revList = Array.isArray(revs) && revs.some(r=> r.revizeTuru==='final')
-            ? revs.filter(r=> r.revizeTuru==='final')
+          const revList = Array.isArray(revs) && revs.some(r => r.revizeTuru === 'final')
+            ? revs.filter(r => r.revizeTuru === 'final')
             : revs;
           revList.forEach((rev) => {
             const list = Array.isArray(rev[type]) ? rev[type] : [];
             const currMap = new Map();
             list.forEach((r) => {
-              const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu||''}|${r.adiVeOzelligi||''}`);
+              const key = r.rowId || (r.siraNo ? `sira_${r.siraNo}` : `${r.gtipKodu || ''}|${r.adiVeOzelligi || ''}`);
               currMap.set(key, r);
               const prev = prevMap.get(key);
               // Row değerlerini hazırla
@@ -5912,7 +5914,7 @@ module.exports = {
                       if (field === 'toplamTutariTl') excelKey = 'toplamTl';
                       else if (field === 'toplamTutarFobUsd') excelKey = 'toplamUsd';
                       else if (field === 'toplamTutarFobTl') excelKey = 'toplamTlFob';
-                      
+
                       // Sütun index'ini bul
                       const colIndex = ws.columns.findIndex(c => c.key === excelKey) + 1;
                       if (colIndex > 0) {
@@ -5925,7 +5927,7 @@ module.exports = {
                   });
                 } else {
                   // Yeni satır - temel alanları renklendir
-                  ['gtipKodu','adiVeOzelligi','miktar','birim'].forEach((k)=>{
+                  ['gtipKodu', 'adiVeOzelligi', 'miktar', 'birim'].forEach((k) => {
                     const colIndex = ws.columns.findIndex(c => c.key === k) + 1;
                     if (colIndex) excelRow.getCell(colIndex).fill = redFill;
                   });
@@ -5941,26 +5943,26 @@ module.exports = {
         // Önce Yerli sonra İthal değişiklikleri yaz
         writeChangedFor('yerli', 'YERLİ');
         writeChangedFor('ithal', 'İTHAL');
-        
+
         // 🔧 FIX: Fiyat sütunlarına numFmt ekle (Değişiklik Yapılanlar sayfasında eksikti)
         ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
           const col = ws.getColumn(key);
           if (col) col.numFmt = '#,##0';
         });
-        
+
         return ws;
       };
 
       addChangesOnlySheet();
 
       const buffer = await wb.xlsx.writeBuffer();
-      const fileName = `makine_revizyon_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `makine_revizyon_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.send(buffer);
     } catch (error) {
       console.error('exportMakineRevizyonExcel error:', error);
-      res.status(500).json({ success:false, message:'Revizyon Excel export sırasında hata oluştu' });
+      res.status(500).json({ success: false, message: 'Revizyon Excel export sırasında hata oluştu' });
     }
   },
   // 🧾 Makine Revizyon İşlem Geçmişi Excel (alan bazlı tek tek değişiklik listesi)
@@ -5973,46 +5975,46 @@ module.exports = {
       const tesvik = await YeniTesvik.findById(id)
         .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
         .lean();
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
       const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
-      revs.sort((a,b)=> new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
+      revs.sort((a, b) => new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('İşlem Geçmişi');
       ws.columns = [
-        { header:'Revize Sıra', key:'no', width: 10 },
-        { header:'Revize ID', key:'revizeId', width: 24 },
-        { header:'Tür', key:'tur', width: 10 },
-        { header:'Tarih', key:'tarih', width: 18 },
-        { header:'Kullanıcı', key:'user', width: 28 },
-        { header:'Talep No', key:'talepNo', width: 14 },
-        { header:'Belge No', key:'belgeNo', width: 14 },
-        { header:'Belge Id', key:'belgeId', width: 16 },
-        { header:'Talep Tipi', key:'talepTipi', width: 22 },
-        { header:'Talep Detayı', key:'talepDetayi', width: 28 },
-        { header:'Durum', key:'durum', width: 16 },
-        { header:'Daire', key:'daire', width: 22 },
-        { header:'Başvuru Tarihi', key:'basvuruTarihi', width: 18 },
-        { header:'Liste', key:'liste', width: 8 },
-        { header:'RowID', key:'rowId', width: 24 },
-        { header:'#', key:'siraNo', width: 6 },
-        { header:'GTIP', key:'gtip', width: 16 },
-        { header:'Ad', key:'ad', width: 32 },
-        { header:'Alan', key:'field', width: 24 },
-        { header:'Eski', key:'old', width: 28 },
-        { header:'Yeni', key:'new', width: 28 },
-        { header:'Değişim', key:'change', width: 12 }
+        { header: 'Revize Sıra', key: 'no', width: 10 },
+        { header: 'Revize ID', key: 'revizeId', width: 24 },
+        { header: 'Tür', key: 'tur', width: 10 },
+        { header: 'Tarih', key: 'tarih', width: 18 },
+        { header: 'Kullanıcı', key: 'user', width: 28 },
+        { header: 'Talep No', key: 'talepNo', width: 14 },
+        { header: 'Belge No', key: 'belgeNo', width: 14 },
+        { header: 'Belge Id', key: 'belgeId', width: 16 },
+        { header: 'Talep Tipi', key: 'talepTipi', width: 22 },
+        { header: 'Talep Detayı', key: 'talepDetayi', width: 28 },
+        { header: 'Durum', key: 'durum', width: 16 },
+        { header: 'Daire', key: 'daire', width: 22 },
+        { header: 'Başvuru Tarihi', key: 'basvuruTarihi', width: 18 },
+        { header: 'Liste', key: 'liste', width: 8 },
+        { header: 'RowID', key: 'rowId', width: 24 },
+        { header: '#', key: 'siraNo', width: 6 },
+        { header: 'GTIP', key: 'gtip', width: 16 },
+        { header: 'Ad', key: 'ad', width: 32 },
+        { header: 'Alan', key: 'field', width: 24 },
+        { header: 'Eski', key: 'old', width: 28 },
+        { header: 'Yeni', key: 'new', width: 28 },
+        { header: 'Değişim', key: 'change', width: 12 }
       ];
-      ws.getRow(1).font = { bold:true };
+      ws.getRow(1).font = { bold: true };
       ws.autoFilter = 'A1:N1';
 
-      const compareYerliFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimFiyatiTl','toplamTutariTl','kdvIstisnasi','makineTechizatTipi','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
-      const compareIthalFields = ['gtipKodu','gtipAciklamasi','adiVeOzelligi','miktar','birim','birimAciklamasi','birimFiyatiFob','gumrukDovizKodu','kurManuel','kurManuelDeger','toplamTutarFobUsd','toplamTutarFobTl','kullanilmisMakine','ckdSkdMi','aracMi','makineTechizatTipi','kdvMuafiyeti','gumrukVergisiMuafiyeti','finansalKiralamaMi','finansalKiralamaAdet','finansalKiralamaSirket','gerceklesenAdet','gerceklesenTutar','iadeDevirSatisVarMi','iadeDevirSatisAdet','iadeDevirSatisTutar'];
+      const compareYerliFields = ['gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimFiyatiTl', 'toplamTutariTl', 'kdvIstisnasi', 'makineTechizatTipi', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar'];
+      const compareIthalFields = ['gtipKodu', 'gtipAciklamasi', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi', 'birimFiyatiFob', 'gumrukDovizKodu', 'kurManuel', 'kurManuelDeger', 'toplamTutarFobUsd', 'toplamTutarFobTl', 'kullanilmisMakine', 'ckdSkdMi', 'aracMi', 'makineTechizatTipi', 'kdvMuafiyeti', 'gumrukVergisiMuafiyeti', 'finansalKiralamaMi', 'finansalKiralamaAdet', 'finansalKiralamaSirket', 'gerceklesenAdet', 'gerceklesenTutar', 'iadeDevirSatisVarMi', 'iadeDevirSatisAdet', 'iadeDevirSatisTutar'];
 
       const mapByKey = (arr, type) => {
         const out = new Map();
-        (arr||[]).forEach(r => {
-          const key = r.rowId || `${r.gtipKodu||''}|${r.adiVeOzelligi||''}`;
+        (arr || []).forEach(r => {
+          const key = r.rowId || `${r.gtipKodu || ''}|${r.adiVeOzelligi || ''}`;
           out.set(key, r);
         });
         return out;
@@ -6021,7 +6023,7 @@ module.exports = {
         ws.addRow({
           no,
           revizeId: rev.revizeId,
-          tur: (rev.revizeTuru||'').toUpperCase(),
+          tur: (rev.revizeTuru || '').toUpperCase(),
           tarih: rev.revizeTarihi ? new Date(rev.revizeTarihi).toLocaleString('tr-TR') : '',
           user: rev.yapanKullanici ? (rev.yapanKullanici.adSoyad || rev.yapanKullanici.email || '') : '',
           talepNo: rev.talepNo || '',
@@ -6045,8 +6047,8 @@ module.exports = {
       };
 
       let seq = 0;
-      for (let i=1;i<revs.length;i++) {
-        const prev = revs[i-1];
+      for (let i = 1; i < revs.length; i++) {
+        const prev = revs[i - 1];
         const curr = revs[i];
         seq++;
         // Yerli
@@ -6076,8 +6078,8 @@ module.exports = {
           if (!a && b) { pushChange(seq, curr, 'ithal', b, '-', '', JSON.stringify(b), 'added'); return; }
           if (!a || !b) return;
           compareIthalFields.forEach(f => {
-            const oldVal = f==='toplamTutarFobUsd' ? (a.toplamTutarFobUsd ?? a.toplamUsd) : f==='toplamTutarFobTl' ? (a.toplamTutarFobTl ?? a.toplamTl) : a[f];
-            const newVal = f==='toplamTutarFobUsd' ? (b.toplamTutarFobUsd ?? b.toplamUsd) : f==='toplamTutarFobTl' ? (b.toplamTutarFobTl ?? b.toplamTl) : b[f];
+            const oldVal = f === 'toplamTutarFobUsd' ? (a.toplamTutarFobUsd ?? a.toplamUsd) : f === 'toplamTutarFobTl' ? (a.toplamTutarFobTl ?? a.toplamTl) : a[f];
+            const newVal = f === 'toplamTutarFobUsd' ? (b.toplamTutarFobUsd ?? b.toplamUsd) : f === 'toplamTutarFobTl' ? (b.toplamTutarFobTl ?? b.toplamTl) : b[f];
             if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
               pushChange(seq, curr, 'ithal', b, f, oldVal, newVal, 'modified');
             }
@@ -6087,13 +6089,13 @@ module.exports = {
 
       // finalize
       const buffer = await wb.xlsx.writeBuffer();
-      const fileName = `makine_revizyon_islem_gecmisi_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0,10)}.xlsx`;
+      const fileName = `makine_revizyon_islem_gecmisi_${tesvik.tesvikId || tesvik.gmId}_${new Date().toISOString().slice(0, 10)}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.send(buffer);
     } catch (error) {
       console.error('exportMakineRevizyonHistoryExcel error:', error);
-      res.status(500).json({ success:false, message:'İşlem geçmişi Excel oluşturulamadı' });
+      res.status(500).json({ success: false, message: 'İşlem geçmişi Excel oluşturulamadı' });
     }
   },
   // 🆕 Makine Talep/Karar API'leri
@@ -6101,33 +6103,33 @@ module.exports = {
     try {
       const { id } = req.params; // Tesvik Id
       const { liste, rowId, talep, match } = req.body; // liste: 'yerli' | 'ithal'
-      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
+      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success: false, message: 'Geçersiz liste' });
       // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];
       let idx = arr.findIndex(r => r.rowId === rowId);
       if (idx === -1 && match) {
-        idx = arr.findIndex(r => 
+        idx = arr.findIndex(r =>
           (match.gtipKodu ? (r.gtipKodu || '').toString() === (match.gtipKodu || '').toString() : true) &&
           (match.adiVeOzelligi ? (r.adiVeOzelligi || '').toString() === (match.adiVeOzelligi || '').toString() : true) &&
-          (match.miktar != null ? Number(r.miktar||0) === Number(match.miktar||0) : true) &&
+          (match.miktar != null ? Number(r.miktar || 0) === Number(match.miktar || 0) : true) &&
           (match.birim ? (r.birim || '').toString() === (match.birim || '').toString() : true)
         );
       }
-      if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
-      
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Makine satırı bulunamadı' });
+
       // Mevcut talep durumu
       const currentDurum = arr[idx].talep?.durum || 'taslak';
       const newDurum = talep?.durum || currentDurum;
-      
+
       // Durum değişiyorsa ve taslak'tan farklı bir duruma geçiyorsa otomatik tarih ata
       let autoTalepTarihi = arr[idx].talep?.talepTarihi;
       if (newDurum !== currentDurum && newDurum !== 'taslak' && !talep?.talepTarihi) {
         autoTalepTarihi = new Date();
         console.log(`🗓️ Talep durumu değişti (${currentDurum} → ${newDurum}), tarih atandı:`, autoTalepTarihi);
       }
-      
+
       arr[idx].talep = {
         durum: newDurum,
         istenenAdet: talep?.istenenAdet ?? arr[idx].talep?.istenenAdet ?? 0,
@@ -6139,43 +6141,43 @@ module.exports = {
       }
       tesvik.markModified('makineListeleri');
       await tesvik.save();
-      res.json({ success:true, message:'Talep durumu güncellendi', data: tesvik.toSafeJSON() });
+      res.json({ success: true, message: 'Talep durumu güncellendi', data: tesvik.toSafeJSON() });
     } catch (error) {
       console.error('setMakineTalepDurumu error:', error);
-      res.status(500).json({ success:false, message:'Talep güncellenemedi' });
+      res.status(500).json({ success: false, message: 'Talep güncellenemedi' });
     }
   },
   setMakineKararDurumu: async (req, res) => {
     try {
       const { id } = req.params; // Tesvik Id
       const { liste, rowId, karar, match } = req.body; // kararDurumu, onaylananAdet, kararNotu
-      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success:false, message:'Geçersiz liste' });
+      if (!['yerli', 'ithal'].includes(liste)) return res.status(400).json({ success: false, message: 'Geçersiz liste' });
       // YeniTesvik modeli zaten dosya başında import edildi
       const tesvik = await YeniTesvik.findById(id);
-      if (!tesvik) return res.status(404).json({ success:false, message:'Teşvik bulunamadı' });
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const arr = tesvik.makineListeleri[liste] || [];
       let idx = arr.findIndex(r => r.rowId === rowId);
       if (idx === -1 && match) {
-        idx = arr.findIndex(r => 
+        idx = arr.findIndex(r =>
           (match.gtipKodu ? (r.gtipKodu || '').toString() === (match.gtipKodu || '').toString() : true) &&
           (match.adiVeOzelligi ? (r.adiVeOzelligi || '').toString() === (match.adiVeOzelligi || '').toString() : true) &&
-          (match.miktar != null ? Number(r.miktar||0) === Number(match.miktar||0) : true) &&
+          (match.miktar != null ? Number(r.miktar || 0) === Number(match.miktar || 0) : true) &&
           (match.birim ? (r.birim || '').toString() === (match.birim || '').toString() : true)
         );
       }
-      if (idx === -1) return res.status(404).json({ success:false, message:'Makine satırı bulunamadı' });
-      
+      if (idx === -1) return res.status(404).json({ success: false, message: 'Makine satırı bulunamadı' });
+
       // Mevcut karar durumu
       const currentKarar = arr[idx].karar?.kararDurumu || 'beklemede';
       const newKarar = karar?.kararDurumu || currentKarar;
-      
+
       // Durum değişiyorsa ve beklemede'den farklı bir duruma geçiyorsa otomatik tarih ata
       let autoKararTarihi = arr[idx].karar?.kararTarihi;
       if (newKarar !== currentKarar && newKarar !== 'beklemede' && !karar?.kararTarihi) {
         autoKararTarihi = new Date();
         console.log(`🗓️ Karar durumu değişti (${currentKarar} → ${newKarar}), tarih atandı:`, autoKararTarihi);
       }
-      
+
       arr[idx].karar = {
         kararDurumu: newKarar,
         onaylananAdet: karar?.onaylananAdet ?? arr[idx].karar?.onaylananAdet ?? 0,
@@ -6187,44 +6189,44 @@ module.exports = {
       }
       tesvik.markModified('makineListeleri');
       await tesvik.save();
-      res.json({ success:true, message:'Karar durumu güncellendi', data: tesvik.toSafeJSON() });
+      res.json({ success: true, message: 'Karar durumu güncellendi', data: tesvik.toSafeJSON() });
     } catch (error) {
       console.error('setMakineKararDurumu error:', error);
-      res.status(500).json({ success:false, message:'Karar güncellenemedi' });
+      res.status(500).json({ success: false, message: 'Karar güncellenemedi' });
     }
   },
-  
+
   // 📄 EXCEL EXPORT - Excel benzeri renk kodlamalı çıktı (ExcelJS ile)
   exportTesvikExcel: async (req, res) => {
     try {
-        const { id } = req.params;
-  const { format = 'xlsx', includeColors = true } = req.query;
-  
-  console.log(`📊 Excel export başlatılıyor: ${id}`);
-  
-  // ID validation
-  if (!id || id === 'undefined') {
-    return res.status(400).json({
-      success: false,
-      message: 'Geçersiz teşvik ID\'si'
-    });
-  }
-  // Teşvik verisini getir
-  const tesvik = await YeniTesvik.findById(id)
+      const { id } = req.params;
+      const { format = 'xlsx', includeColors = true } = req.query;
+
+      console.log(`📊 Excel export başlatılıyor: ${id}`);
+
+      // ID validation
+      if (!id || id === 'undefined') {
+        return res.status(400).json({
+          success: false,
+          message: 'Geçersiz teşvik ID\'si'
+        });
+      }
+      // Teşvik verisini getir
+      const tesvik = await YeniTesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
         .lean();
-        
+
       if (!tesvik) {
         return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       }
-      
+
       // ExcelJS workbook oluştur
       const ExcelJS = require('exceljs');
       const workbook = new ExcelJS.Workbook();
-      
+
       // Ana sayfa - Teşvik Detayları
       const mainSheet = workbook.addWorksheet('Teşvik Detayları');
-      
+
       // Başlık stilleri
       const headerStyle = {
         font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 14 },
@@ -6237,13 +6239,13 @@ module.exports = {
           right: { style: 'thin' }
         }
       };
-      
+
       const subHeaderStyle = {
         font: { bold: true, color: { argb: 'FF000000' }, size: 12 },
         fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F3FF' } },
         alignment: { horizontal: 'left', vertical: 'middle' }
       };
-      
+
       const dataStyle = {
         font: { color: { argb: 'FF000000' }, size: 11 },
         alignment: { horizontal: 'left', vertical: 'middle' },
@@ -6254,12 +6256,12 @@ module.exports = {
           right: { style: 'thin' }
         }
       };
-      
+
       // Ana başlık
       mainSheet.mergeCells('A1:G1');
       mainSheet.getCell('A1').value = 'TEŞVİK BELGESI';
       mainSheet.getCell('A1').style = headerStyle;
-      
+
       // Temel bilgiler
       let row = 3;
       mainSheet.getCell(`A${row}`).value = 'GM ID:';
@@ -6270,7 +6272,7 @@ module.exports = {
       mainSheet.getCell(`D${row}`).style = subHeaderStyle;
       mainSheet.getCell(`E${row}`).value = tesvik.tesvikId || '';
       mainSheet.getCell(`E${row}`).style = dataStyle;
-      
+
       row++;
       mainSheet.getCell(`A${row}`).value = 'Firma:';
       mainSheet.getCell(`A${row}`).style = subHeaderStyle;
@@ -6280,20 +6282,20 @@ module.exports = {
       mainSheet.getCell(`D${row}`).style = subHeaderStyle;
       mainSheet.getCell(`E${row}`).value = tesvik.firma?.vergiNo || '';
       mainSheet.getCell(`E${row}`).style = dataStyle;
-      
+
       // Künye bilgileri bölümü
       row += 2;
       mainSheet.mergeCells(`A${row}:G${row}`);
       mainSheet.getCell(`A${row}`).value = 'KÜNYE BİLGİLERİ';
       mainSheet.getCell(`A${row}`).style = headerStyle;
-      
+
       row++;
       const kunyeFields = [
         ['Karar Tarihi:', tesvik.kunyeBilgileri?.kararTarihi || '', 'Karar Sayısı:', tesvik.kunyeBilgileri?.kararSayisi || ''],
         ['Başvuru Tarihi:', tesvik.kunyeBilgileri?.basvuruTarihi || '', 'Dosya No:', tesvik.kunyeBilgileri?.dosyaNo || ''],
         ['Proje Bedeli:', tesvik.kunyeBilgileri?.projeBedeli || 0, 'Teşvik Miktarı:', tesvik.kunyeBilgileri?.tesvikMiktari || 0]
       ];
-      
+
       kunyeFields.forEach(fieldRow => {
         mainSheet.getCell(`A${row}`).value = fieldRow[0];
         mainSheet.getCell(`A${row}`).style = subHeaderStyle;
@@ -6305,13 +6307,13 @@ module.exports = {
         mainSheet.getCell(`E${row}`).style = dataStyle;
         row++;
       });
-      
+
       // Finansal bilgiler bölümü
       row++;
       mainSheet.mergeCells(`A${row}:G${row}`);
       mainSheet.getCell(`A${row}`).value = 'FİNANSAL BİLGİLER';
       mainSheet.getCell(`A${row}`).style = headerStyle;
-      
+
       row++;
       const finansalFields = [
         ['Toplam Sabit Yatırım:', tesvik.maliHesaplamalar?.toplamSabitYatirim || 0],
@@ -6320,7 +6322,7 @@ module.exports = {
         ['İthal Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0],
         ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0]
       ];
-      
+
       finansalFields.forEach(fieldRow => {
         mainSheet.getCell(`A${row}`).value = fieldRow[0];
         mainSheet.getCell(`A${row}`).style = subHeaderStyle;
@@ -6328,19 +6330,19 @@ module.exports = {
         mainSheet.getCell(`B${row}`).style = dataStyle;
         row++;
       });
-      
+
       // Sütun genişlikleri
       mainSheet.columns = [
         { width: 25 }, { width: 20 }, { width: 5 }, { width: 20 }, { width: 20 }, { width: 10 }, { width: 10 }
       ];
       // Ürün bilgileri sayfası
       const urunSheet = workbook.addWorksheet('Ürün Bilgileri');
-      
+
       // Ürün sayfası başlığı
       urunSheet.mergeCells('A1:G1');
       urunSheet.getCell('A1').value = 'ÜRÜN BİLGİLERİ (U$97 KODLARI)';
       urunSheet.getCell('A1').style = headerStyle;
-      
+
       // Ürün tablosu başlıkları
       const urunHeaders = ['Kod', 'Açıklama', 'Mevcut', 'İlave', 'Toplam', 'Kapasite', 'Birim'];
       urunHeaders.forEach((header, index) => {
@@ -6348,16 +6350,16 @@ module.exports = {
         cell.value = header;
         cell.style = subHeaderStyle;
       });
-      
+
       // Ürün verileri - Sadece anlamlı verisi olan ürünler
       if (tesvik.urunler && tesvik.urunler.length > 0) {
         // 🔧 FİLTRE: SADECE 1+ kapasitesi olan ürünleri göster (Kod/açıklama olsa bile kapasite 0 ise gösterme)
-        const filteredUrunler = tesvik.urunler.filter(urun => 
+        const filteredUrunler = tesvik.urunler.filter(urun =>
           (urun.mevcutKapasite && urun.mevcutKapasite > 0) ||
           (urun.ilaveKapasite && urun.ilaveKapasite > 0) ||
           (urun.toplamKapasite && urun.toplamKapasite > 0)
         );
-        
+
         filteredUrunler.forEach((urun, index) => {
           const rowIndex = index + 4;
           const urunData = [
@@ -6369,7 +6371,7 @@ module.exports = {
             urun.toplamKapasite || 0,
             urun.kapasiteBirimi || ''
           ];
-          
+
           urunData.forEach((value, colIndex) => {
             const cell = urunSheet.getCell(rowIndex, colIndex + 1);
             cell.value = value;
@@ -6377,7 +6379,7 @@ module.exports = {
           });
         });
       }
-      
+
       // Ürün sayfası sütun genişlikleri
       urunSheet.columns = [
         { width: 15 }, { width: 40 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 15 }, { width: 12 }
@@ -6390,7 +6392,7 @@ module.exports = {
           column.eachCell({ includeEmpty: false }, cell => {
             const val = cell.value;
             if (val !== null && val !== undefined) {
-              const len = typeof val === 'number' 
+              const len = typeof val === 'number'
                 ? val.toLocaleString('tr-TR').length + 2
                 : val.toString().length;
               if (len > maxLen) maxLen = len;
@@ -6500,15 +6502,15 @@ module.exports = {
         });
       }
       autoFitColumns(yerliSheet);
-      
+
       // Destek unsurları sayfası
       const destekSheet = workbook.addWorksheet('Destek Unsurları');
-      
+
       // Destek sayfası başlığı
       destekSheet.mergeCells('A1:D1');
       destekSheet.getCell('A1').value = 'DESTEK UNSURLARI';
       destekSheet.getCell('A1').style = headerStyle;
-      
+
       // Destek tablosu başlıkları
       const destekHeaders = ['Sıra', 'Destek Unsuru', 'Şartları', 'Açıklama'];
       destekHeaders.forEach((header, index) => {
@@ -6516,7 +6518,7 @@ module.exports = {
         cell.value = header;
         cell.style = subHeaderStyle;
       });
-      
+
       // Destek verileri
       if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
         tesvik.destekUnsurlari.forEach((destek, index) => {
@@ -6527,7 +6529,7 @@ module.exports = {
             destek.sarti || '',
             destek.aciklama || ''
           ];
-          
+
           destekData.forEach((value, colIndex) => {
             const cell = destekSheet.getCell(rowIndex, colIndex + 1);
             cell.value = value;
@@ -6535,26 +6537,26 @@ module.exports = {
           });
         });
       }
-      
+
       // Destek sayfası sütun genişlikleri
       destekSheet.columns = [
         { width: 8 }, { width: 50 }, { width: 40 }, { width: 40 }
       ];
-      
+
       // Excel dosyasını buffer olarak oluştur
       const excelBuffer = await workbook.xlsx.writeBuffer();
-      
+
       // Response headers ayarla
       const fileName = `tesvik_${tesvik.gmId || tesvik.tesvikId}_${new Date().toISOString().split('T')[0]}.xlsx`;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
       res.setHeader('Content-Length', excelBuffer.length);
-      
+
       // Excel dosyasını gönder
       res.send(excelBuffer);
-      
+
       console.log(`✅ Excel export tamamlandı: ${fileName}`);
-      
+
     } catch (error) {
       console.error('❌ Excel export hatası:', error);
       res.status(500).json({
@@ -6564,39 +6566,39 @@ module.exports = {
       });
     }
   },
-  
+
   // 📄 PDF EXPORT - Excel benzeri görsel PDF çıktı
   exportTesvikPDF: async (req, res) => {
     try {
       const { id } = req.params;
       const { includeColors = true } = req.query;
-      
+
       console.log(`📄 PDF export başlatılıyor: ${id}`);
-      
+
       // Teşvik verisini getir
       const tesvik = await YeniTesvik.findById(id)
         .populate('firma', 'unvan vergiNo')
         .lean();
-        
+
       if (!tesvik) {
         return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       }
-      
+
       // PDF document oluştur
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
-      
+
       // Response headers ayarla
       const fileName = `tesvik_${tesvik.gmId || tesvik.tesvikId}_${new Date().toISOString().split('T')[0]}.pdf`;
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-      
+
       // PDF stream'i response'a pipe et
       doc.pipe(res);
-      
+
       // Başlık
       doc.fontSize(20).font('Helvetica-Bold').text('TEŞVİK BELGESI', { align: 'center' });
       doc.moveDown(2);
-      
+
       // Temel bilgiler
       doc.fontSize(12).font('Helvetica-Bold').text('TEMEL BİLGİLER', { underline: true });
       doc.moveDown(0.5);
@@ -6606,7 +6608,7 @@ module.exports = {
       doc.text(`Firma: ${tesvik.firma?.unvan || 'Belirtilmemiş'}`);
       doc.text(`Vergi No: ${tesvik.firma?.vergiNo || 'Belirtilmemiş'}`);
       doc.moveDown(1);
-      
+
       // Künye bilgileri
       doc.font('Helvetica-Bold').text('KÜNYE BİLGİLERİ', { underline: true });
       doc.moveDown(0.5);
@@ -6618,7 +6620,7 @@ module.exports = {
       doc.text(`Proje Bedeli: ${tesvik.kunyeBilgileri?.projeBedeli || 0} TL`);
       doc.text(`Teşvik Miktarı: ${tesvik.kunyeBilgileri?.tesvikMiktari || 0} TL`);
       doc.moveDown(1);
-      
+
       // Finansal bilgiler
       doc.font('Helvetica-Bold').text('FİNANSAL BİLGİLER', { underline: true });
       doc.moveDown(0.5);
@@ -6631,41 +6633,41 @@ module.exports = {
       doc.text(`İthal Makine: ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.ithalMakine || 0} TL`);
       doc.text(`Toplam Makine (TL): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.tl?.toplamMakineTeç || 0} TL`);
       doc.moveDown(0.5);
-      
+
       // Makine teçhizat USD
       doc.text(`İthal Makine (USD): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.ithalMakine || 0} USD`);
       doc.text(`Toplam İthal (USD): ${tesvik.finansalBilgiler?.makineTeçhizatGiderleri?.dolar?.toplamIthalMakine || 0} USD`);
       doc.moveDown(1);
-      
+
       // Yeni sayfa - Ürün bilgileri
       doc.addPage();
       doc.fontSize(16).font('Helvetica-Bold').text('ÜRÜN BİLGİLERİ (U$97 KODLARI)', { align: 'center' });
       doc.moveDown(1);
-      
+
       if (tesvik.urunBilgileri && tesvik.urunBilgileri.length > 0) {
         // Tablo başlıkları
         doc.fontSize(10).font('Helvetica-Bold');
         const tableTop = doc.y;
         const colWidths = [60, 150, 60, 60, 60, 80, 60];
         let currentX = 50;
-        
+
         ['Kod', 'Açıklama', 'Mevcut', 'İlave', 'Toplam', 'Kapasite', 'Birim'].forEach((header, i) => {
           doc.text(header, currentX, tableTop, { width: colWidths[i], align: 'center' });
           currentX += colWidths[i];
         });
-        
+
         doc.moveDown(0.5);
-        
+
         // Tablo verileri
         doc.font('Helvetica');
         tesvik.urunBilgileri.forEach((urun, index) => {
           if (doc.y > 700) { // Sayfa sonu kontrolü
             doc.addPage();
           }
-          
+
           currentX = 50;
           const rowY = doc.y;
-          
+
           [
             urun.kod || '',
             urun.aciklama || '',
@@ -6678,22 +6680,22 @@ module.exports = {
             doc.text(String(value), currentX, rowY, { width: colWidths[i], align: 'center' });
             currentX += colWidths[i];
           });
-          
+
           doc.moveDown(0.3);
         });
       }
-      
+
       // Yeni sayfa - Destek unsurları
       doc.addPage();
       doc.fontSize(16).font('Helvetica-Bold').text('DESTEK UNSURLARI', { align: 'center' });
       doc.moveDown(1);
-      
+
       if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
         tesvik.destekUnsurlari.forEach((destek, index) => {
           if (doc.y > 700) { // Sayfa sonu kontrolü
             doc.addPage();
           }
-          
+
           doc.fontSize(12).font('Helvetica-Bold').text(`${index + 1}. ${destek.destekUnsuru || 'Belirtilmemiş'}`);
           doc.fontSize(10).font('Helvetica');
           doc.text(`Şartları: ${destek.sarti || 'Belirtilmemiş'}`);
@@ -6705,9 +6707,9 @@ module.exports = {
       }
       // PDF'i sonlandır
       doc.end();
-      
+
       console.log(`✅ PDF export tamamlandı: ${fileName}`);
-      
+
     } catch (error) {
       console.error('❌ PDF export hatası:', error);
       res.status(500).json({
@@ -6720,20 +6722,20 @@ module.exports = {
   getTesvikTimeline: async (req, res) => {
     try {
       const { id } = req.params;
-      
+
       // Teşvik kaydını bul
       const tesvik = await YeniTesvik.findById(id).populate('revizyonlar.user', 'name email');
-      
+
       if (!tesvik) {
         return res.status(404).json({
           success: false,
           message: 'Teşvik kaydı bulunamadı'
         });
       }
-      
+
       // Revizyon geçmişini hazırla
       const timeline = [];
-      
+
       // İlk oluşturma kaydı
       timeline.push({
         _id: 'created',
@@ -6744,7 +6746,7 @@ module.exports = {
         createdAt: tesvik.createdAt,
         changes: []
       });
-      
+
       // Revizyonları ekle
       if (tesvik.revizyonlar && tesvik.revizyonlar.length > 0) {
         tesvik.revizyonlar.forEach(revizyon => {
@@ -6761,7 +6763,7 @@ module.exports = {
           });
         });
       }
-      
+
       // Durum değişikliklerini ekle
       if (tesvik.durumGecmisi && tesvik.durumGecmisi.length > 0) {
         tesvik.durumGecmisi.forEach(durum => {
@@ -6781,15 +6783,15 @@ module.exports = {
           });
         });
       }
-      
+
       // Tarihe göre sırala (en yeni en üstte)
       timeline.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      
+
       res.json({
         success: true,
         data: timeline
       });
-      
+
     } catch (error) {
       console.error('🚨 Timeline hatası:', error);
       res.status(500).json({
@@ -6809,7 +6811,7 @@ module.exports = {
   addNewOption: addNewOption,
   getOptionsForType: getOptionsForType,
   getTesvikRevisions: getTesvikRevisions,
-  
+
   // 🎯 DİNAMİK VERİ YÖNETİMİ API'LERİ
   getDynamicDestekUnsurlari: getDynamicDestekUnsurlari,
   addDestekUnsuru: addDestekUnsuru,
