@@ -74,9 +74,9 @@ const buildSuggestions = (codes, term, recent, favorites, limit = 8) => {
     .map(x => x.item);
 };
 
-const NaceSuperSearch = ({ 
-  value, 
-  onChange, 
+const NaceSuperSearch = ({
+  value,
+  onChange,
   size = 'small',
   placeholder = 'NACE kodu veya açıklama ara...'
 }) => {
@@ -111,8 +111,8 @@ const NaceSuperSearch = ({
       setCategories(cats);
 
       // Local storage
-      try { setRecentCodes(JSON.parse(localStorage.getItem('nace_recent') || '[]').slice(0, 10)); } catch {}
-      try { setFavoriteCodes(JSON.parse(localStorage.getItem('nace_favorites') || '[]')); } catch {}
+      try { setRecentCodes(JSON.parse(localStorage.getItem('nace_recent') || '[]').slice(0, 10)); } catch { }
+      try { setFavoriteCodes(JSON.parse(localStorage.getItem('nace_favorites') || '[]')); } catch { }
     } catch (error) {
       console.error('🚨 NACE kodları yükleme hatası:', error);
       setAllCodes([]);
@@ -128,7 +128,16 @@ const NaceSuperSearch = ({
   useEffect(() => {
     if (value && typeof value === 'string') {
       const foundCode = allCodes.find(code => code.kod === value);
-      if (foundCode) setSelectedCode(foundCode);
+      if (foundCode) {
+        setSelectedCode(foundCode);
+      } else if (allCodes.length > 0) {
+        // 🔧 FIX: Kod NACE koleksiyonunda bulunamasa bile fallback obje oluştur
+        // Böylece kaydedilmiş kod düzenleme ekranında görünür
+        setSelectedCode({ kod: value, aciklama: '', kategori: '' });
+      } else {
+        // allCodes henüz yüklenmedi - yüklenince tekrar denenecek
+        setSelectedCode({ kod: value, aciklama: '(yükleniyor...)', kategori: '' });
+      }
     } else if (!value) {
       setSelectedCode(null);
     }
@@ -219,7 +228,7 @@ const NaceSuperSearch = ({
       {/* Trigger input */}
       <TextField
         ref={inputRef}
-        value={selectedCode ? `${selectedCode.kod} - ${selectedCode.aciklama?.substring(0, 60)}${(selectedCode.aciklama || '').length > 60 ? '...' : ''}` : ''}
+        value={selectedCode ? `${selectedCode.kod}${selectedCode.aciklama ? ` - ${selectedCode.aciklama.substring(0, 60)}${selectedCode.aciklama.length > 60 ? '...' : ''}` : ''}` : (value || '')}
         onClick={() => setIsOpen(true)}
         placeholder={placeholder}
         size={size}
@@ -246,18 +255,18 @@ const NaceSuperSearch = ({
             boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
           }
         }}
-        BackdropProps={{ 
-          sx: { 
-            backgroundColor: 'rgba(15, 23, 42, 0.7)', 
-            backdropFilter: 'blur(12px)' 
-          } 
+        BackdropProps={{
+          sx: {
+            backgroundColor: 'rgba(15, 23, 42, 0.7)',
+            backdropFilter: 'blur(12px)'
+          }
         }}
       >
         {/* Compact Header */}
-        <DialogTitle sx={{ 
-          background: 'linear-gradient(135deg, #059669, #047857)', 
-          color: 'white', 
-          py: 1.5, 
+        <DialogTitle sx={{
+          background: 'linear-gradient(135deg, #059669, #047857)',
+          color: 'white',
+          py: 1.5,
           px: 3
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -272,10 +281,10 @@ const NaceSuperSearch = ({
                 </Typography>
               </Box>
             </Box>
-            <IconButton 
-              onClick={() => setIsOpen(false)} 
+            <IconButton
+              onClick={() => setIsOpen(false)}
               size="small"
-              sx={{ 
+              sx={{
                 color: 'white',
                 '&:hover': { backgroundColor: 'rgba(255,255,255,0.1)' }
               }}
@@ -288,9 +297,9 @@ const NaceSuperSearch = ({
         {/* Content */}
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', minHeight: 0, height: '80vh' }}>
           {/* Ultra Compact Header */}
-          <Box sx={{ 
-            p: 1.5, 
-            borderBottom: '1px solid #e5e7eb', 
+          <Box sx={{
+            p: 1.5,
+            borderBottom: '1px solid #e5e7eb',
             background: 'white'
           }}>
             {/* Single Row Layout */}
@@ -320,19 +329,19 @@ const NaceSuperSearch = ({
                     )
                   }}
                 />
-                
+
                 {/* Compact suggestions dropdown */}
                 {suggestions.length > 0 && (
                   <Box sx={{ position: 'relative' }}>
-                    <Box sx={{ 
-                      position: 'absolute', 
-                      zIndex: 15, 
-                      mt: 0.5, 
-                      left: 0, 
-                      right: 0, 
-                      bgcolor: 'white', 
-                      border: '1px solid #d1d5db', 
-                      borderRadius: 1, 
+                    <Box sx={{
+                      position: 'absolute',
+                      zIndex: 15,
+                      mt: 0.5,
+                      left: 0,
+                      right: 0,
+                      bgcolor: 'white',
+                      border: '1px solid #d1d5db',
+                      borderRadius: 1,
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       maxHeight: '150px',
                       overflowY: 'auto'
@@ -341,16 +350,16 @@ const NaceSuperSearch = ({
                         <Box
                           key={`sugg-${s.kod}`}
                           onClick={() => handleCodeSelect(s)}
-                          sx={{ 
-                            p: 1, 
+                          sx={{
+                            p: 1,
                             cursor: 'pointer',
                             '&:hover': { bgcolor: '#f9fafb' },
                             borderBottom: idx < 4 ? '1px solid #f3f4f6' : 'none'
                           }}
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="caption" sx={{ 
-                              bgcolor: '#d1fae5', 
+                            <Typography variant="caption" sx={{
+                              bgcolor: '#d1fae5',
                               color: '#065f46',
                               px: 1,
                               py: 0.25,
@@ -374,8 +383,8 @@ const NaceSuperSearch = ({
 
               {/* Inline Mode Buttons */}
               <Box sx={{ display: 'flex', gap: 0.5 }}>
-                <Button 
-                  variant={showMode === 'all' ? 'contained' : 'text'} 
+                <Button
+                  variant={showMode === 'all' ? 'contained' : 'text'}
                   size="small"
                   onClick={() => { setShowMode('all'); setDisplayLimit(50); }}
                   sx={{
@@ -396,8 +405,8 @@ const NaceSuperSearch = ({
                 >
                   Tümü
                 </Button>
-                <Button 
-                  variant={showMode === 'recent' ? 'contained' : 'text'} 
+                <Button
+                  variant={showMode === 'recent' ? 'contained' : 'text'}
                   size="small"
                   onClick={() => { setShowMode('recent'); setDisplayLimit(50); }}
                   sx={{
@@ -418,8 +427,8 @@ const NaceSuperSearch = ({
                 >
                   Son
                 </Button>
-                <Button 
-                  variant={showMode === 'favorites' ? 'contained' : 'text'} 
+                <Button
+                  variant={showMode === 'favorites' ? 'contained' : 'text'}
                   size="small"
                   onClick={() => { setShowMode('favorites'); setDisplayLimit(50); }}
                   sx={{
@@ -441,13 +450,13 @@ const NaceSuperSearch = ({
                   ⭐
                 </Button>
               </Box>
-              
+
               {/* Minimal Category Toggle */}
-              <Button 
+              <Button
                 variant="text"
                 size="small"
                 onClick={() => setShowCategories(v => !v)}
-                sx={{ 
+                sx={{
                   minWidth: 'auto',
                   px: 1,
                   py: 0.25,
@@ -463,8 +472,8 @@ const NaceSuperSearch = ({
 
             {/* Ultra Compact Categories */}
             {showCategories && (
-              <Box sx={{ 
-                p: 1.5, 
+              <Box sx={{
+                p: 1.5,
                 borderBottom: '1px solid #e5e7eb',
                 bgcolor: '#f9fafb'
               }}>
@@ -491,12 +500,12 @@ const NaceSuperSearch = ({
                       {selectedCats.length} seçili
                     </Typography>
                   )}
-                  <Button 
-                    size="small" 
+                  <Button
+                    size="small"
                     variant="text"
                     onClick={() => setSelectedCats([])}
                     disabled={selectedCats.length === 0}
-                    sx={{ 
+                    sx={{
                       fontSize: '0.7rem',
                       color: '#dc2626',
                       minWidth: 'auto',
@@ -509,7 +518,7 @@ const NaceSuperSearch = ({
                 </Box>
 
                 {/* Horizontal Scrollable Categories */}
-                <Box sx={{ 
+                <Box sx={{
                   display: 'flex',
                   gap: 0.5,
                   overflowX: 'auto',
@@ -521,40 +530,40 @@ const NaceSuperSearch = ({
                   {categories
                     .filter(cat => !categorySearchTerm || cat.toLowerCase().includes(categorySearchTerm.toLowerCase()))
                     .map((cat) => (
-                    <Chip
-                      key={cat}
-                      label={cat.length > 25 ? `${cat.substring(0, 25)}...` : cat}
-                      clickable
-                      size="small"
-                      onClick={() => toggleCategory(cat)}
-                      variant={selectedCats.includes(cat) ? 'filled' : 'outlined'}
-                      sx={{
-                        fontSize: '0.7rem',
-                        height: '24px',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                        ...(selectedCats.includes(cat) ? {
-                          bgcolor: '#059669',
-                          color: 'white',
-                          '&:hover': { bgcolor: '#047857' }
-                        } : {
-                          borderColor: '#d1d5db',
-                          color: '#6b7280',
-                          '&:hover': { borderColor: '#059669', bgcolor: 'rgba(5,150,105,0.05)' }
-                        })
-                      }}
-                    />
-                  ))}
+                      <Chip
+                        key={cat}
+                        label={cat.length > 25 ? `${cat.substring(0, 25)}...` : cat}
+                        clickable
+                        size="small"
+                        onClick={() => toggleCategory(cat)}
+                        variant={selectedCats.includes(cat) ? 'filled' : 'outlined'}
+                        sx={{
+                          fontSize: '0.7rem',
+                          height: '24px',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0,
+                          ...(selectedCats.includes(cat) ? {
+                            bgcolor: '#059669',
+                            color: 'white',
+                            '&:hover': { bgcolor: '#047857' }
+                          } : {
+                            borderColor: '#d1d5db',
+                            color: '#6b7280',
+                            '&:hover': { borderColor: '#059669', bgcolor: 'rgba(5,150,105,0.05)' }
+                          })
+                        }}
+                      />
+                    ))}
                 </Box>
               </Box>
             )}
           </Box>
 
           {/* List - Optimized Layout */}
-          <Box sx={{ 
-            flex: 1, 
-            overflowY: 'auto', 
-            px: 2, 
+          <Box sx={{
+            flex: 1,
+            overflowY: 'auto',
+            px: 2,
             py: 1,
             '&::-webkit-scrollbar': { width: 8 },
             '&::-webkit-scrollbar-track': { backgroundColor: '#f3f4f6', borderRadius: 4 },
@@ -581,23 +590,23 @@ const NaceSuperSearch = ({
               <>
                 {/* Minimal Results Info */}
                 {filteredCodes.length > 0 && (
-                  <Box sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                  <Box sx={{
+                    display: 'flex',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                     mb: 1,
                     px: 1
                   }}>
-                    <Typography variant="caption" sx={{ 
-                      color: '#6b7280', 
+                    <Typography variant="caption" sx={{
+                      color: '#6b7280',
                       fontWeight: 500,
                       fontSize: '0.75rem'
                     }}>
                       {filteredCodes.length} sonuç bulundu
                     </Typography>
                     {searchTerm && (
-                      <Typography variant="caption" sx={{ 
-                        color: '#059669', 
+                      <Typography variant="caption" sx={{
+                        color: '#059669',
                         fontWeight: 600,
                         fontSize: '0.75rem'
                       }}>
@@ -608,57 +617,57 @@ const NaceSuperSearch = ({
                 )}
 
                 {/* Code List - Enhanced Visual Hierarchy */}
-                 {filteredCodes.map((code, idx) => (
-                   <Box
-                     key={`${code.kod}-${idx}`}
-                     onClick={() => handleCodeSelect(code)}
-                     sx={{ 
-                       p: { xs: 2, sm: 2.5 },
-                       mb: 1.5,
-                       borderRadius: 2,
-                       border: idx === highlightIndex ? '2px solid #059669' : '1px solid #f1f5f9',
-                       bgcolor: idx === highlightIndex ? '#f0fdf4' : 'white',
-                       cursor: 'pointer',
-                       transition: 'all 0.2s ease',
-                       boxShadow: idx === highlightIndex ? '0 4px 16px rgba(5,150,105,0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
-                       '&:hover': { 
-                         borderColor: '#059669',
-                         bgcolor: '#f9fafb',
-                         transform: 'translateY(-1px)',
-                         boxShadow: '0 4px 12px rgba(5,150,105,0.1)'
-                       }
-                     }}
-                   >
-                    <Box sx={{ 
-                      display: 'flex', 
-                      alignItems: 'flex-start', 
-                      gap: { xs: 2, sm: 3 }, 
+                {filteredCodes.map((code, idx) => (
+                  <Box
+                    key={`${code.kod}-${idx}`}
+                    onClick={() => handleCodeSelect(code)}
+                    sx={{
+                      p: { xs: 2, sm: 2.5 },
+                      mb: 1.5,
+                      borderRadius: 2,
+                      border: idx === highlightIndex ? '2px solid #059669' : '1px solid #f1f5f9',
+                      bgcolor: idx === highlightIndex ? '#f0fdf4' : 'white',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: idx === highlightIndex ? '0 4px 16px rgba(5,150,105,0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
+                      '&:hover': {
+                        borderColor: '#059669',
+                        bgcolor: '#f9fafb',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 4px 12px rgba(5,150,105,0.1)'
+                      }
+                    }}
+                  >
+                    <Box sx={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: { xs: 2, sm: 3 },
                       width: '100%',
                       flexDirection: { xs: 'column', sm: 'row' }
                     }}>
                       {/* Clean Code Badge */}
-                        <Box sx={{ 
-                          bgcolor: '#059669',
-                          color: 'white',
-                          px: { xs: 1.5, sm: 2 },
-                          py: { xs: 0.5, sm: 0.8 },
-                          borderRadius: 1.5,
-                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas',
-                          fontWeight: 700,
-                          fontSize: { xs: '0.8rem', sm: '0.9rem' },
-                          minWidth: { xs: 'auto', sm: '100px' },
-                          textAlign: 'center',
-                          alignSelf: { xs: 'flex-start', sm: 'flex-start' }
-                        }}>
-                          {code.kod}
-                        </Box>
-                      
+                      <Box sx={{
+                        bgcolor: '#059669',
+                        color: 'white',
+                        px: { xs: 1.5, sm: 2 },
+                        py: { xs: 0.5, sm: 0.8 },
+                        borderRadius: 1.5,
+                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas',
+                        fontWeight: 700,
+                        fontSize: { xs: '0.8rem', sm: '0.9rem' },
+                        minWidth: { xs: 'auto', sm: '100px' },
+                        textAlign: 'center',
+                        alignSelf: { xs: 'flex-start', sm: 'flex-start' }
+                      }}>
+                        {code.kod}
+                      </Box>
+
                       {/* Content */}
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography 
-                          variant="body1" 
-                          sx={{ 
-                            color: '#374151', 
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: '#374151',
                             lineHeight: 1.4,
                             fontWeight: 500,
                             mb: 0.5,
@@ -668,31 +677,31 @@ const NaceSuperSearch = ({
                           {code.aciklama}
                         </Typography>
                         {code.kategori && (
-                           <Typography variant="caption" sx={{ 
-                             color: '#6b7280',
-                             fontSize: '0.75rem',
-                             fontWeight: 500
-                           }}>
-                             🏢 {code.kategori}
-                           </Typography>
-                         )}
+                          <Typography variant="caption" sx={{
+                            color: '#6b7280',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}>
+                            🏢 {code.kategori}
+                          </Typography>
+                        )}
                       </Box>
 
                       {/* Simple Favorite */}
-                       <IconButton 
-                         onClick={(e) => { e.stopPropagation(); toggleFavorite(code); }}
-                         size="small"
-                         sx={{
-                           color: favoriteCodes.some(f => f.kod === code.kod) ? '#f59e0b' : '#d1d5db',
-                           alignSelf: { xs: 'flex-end', sm: 'flex-start' },
-                           '&:hover': { 
-                             color: '#f59e0b',
-                             transform: 'scale(1.1)'
-                           }
-                         }}
-                       >
-                         {favoriteCodes.some(f => f.kod === code.kod) ? <StarIcon /> : <StarBorderIcon />}
-                       </IconButton>
+                      <IconButton
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(code); }}
+                        size="small"
+                        sx={{
+                          color: favoriteCodes.some(f => f.kod === code.kod) ? '#f59e0b' : '#d1d5db',
+                          alignSelf: { xs: 'flex-end', sm: 'flex-start' },
+                          '&:hover': {
+                            color: '#f59e0b',
+                            transform: 'scale(1.1)'
+                          }
+                        }}
+                      >
+                        {favoriteCodes.some(f => f.kod === code.kod) ? <StarIcon /> : <StarBorderIcon />}
+                      </IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -700,17 +709,17 @@ const NaceSuperSearch = ({
                 {/* Load More Controls */}
                 {!loading && filteredCodes.length >= displayLimit && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 3, gap: 2 }}>
-                    <Button 
-                      variant="outlined" 
-                      startIcon={<KeyboardArrowUpIcon />} 
+                    <Button
+                      variant="outlined"
+                      startIcon={<KeyboardArrowUpIcon />}
                       onClick={() => setDisplayLimit(l => Math.max(50, l - 50))}
                       sx={{ borderColor: '#d1d5db', '&:hover': { borderColor: '#059669', bgcolor: 'rgba(5,150,105,0.06)' } }}
                     >
                       Daha Az Göster
                     </Button>
-                    <Button 
-                      variant="contained" 
-                      startIcon={<KeyboardArrowDownIcon />} 
+                    <Button
+                      variant="contained"
+                      startIcon={<KeyboardArrowDownIcon />}
                       onClick={() => setDisplayLimit(l => l + 50)}
                       sx={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
                     >
@@ -723,10 +732,10 @@ const NaceSuperSearch = ({
           </Box>
         </DialogContent>
 
-        <DialogActions sx={{ 
-          p: 1.5, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
+        <DialogActions sx={{
+          p: 1.5,
+          display: 'flex',
+          justifyContent: 'space-between',
           alignItems: 'center',
           borderTop: '1px solid #e5e7eb',
           background: '#f8fafc'
@@ -737,20 +746,20 @@ const NaceSuperSearch = ({
               ⭐ {favoriteCodes.length} • 🕒 {recentCodes.length}
             </Typography>
           </Box>
-          
+
           {/* Compact Action Buttons */}
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
-              variant="outlined" 
+            <Button
+              variant="outlined"
               size="small"
               onClick={() => { setSelectedCats([]); setSearchTerm(''); setShowMode('all'); setDisplayLimit(50); }}
-              sx={{ 
+              sx={{
                 color: '#6b7280',
                 borderColor: '#d1d5db',
                 fontSize: '0.75rem',
                 py: 0.5,
                 px: 2,
-                '&:hover': { 
+                '&:hover': {
                   color: '#dc2626',
                   borderColor: '#dc2626'
                 }
@@ -758,11 +767,11 @@ const NaceSuperSearch = ({
             >
               Temizle
             </Button>
-            <Button 
+            <Button
               variant="contained"
               size="small"
               onClick={() => setIsOpen(false)}
-              sx={{ 
+              sx={{
                 bgcolor: '#059669',
                 fontSize: '0.75rem',
                 py: 0.5,

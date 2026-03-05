@@ -30,9 +30,9 @@ import {
 } from '@mui/icons-material';
 import axios from '../utils/axios';
 
-const US97SuperSearch = ({ 
-  value, 
-  onChange, 
+const US97SuperSearch = ({
+  value,
+  onChange,
   size = "small",
   placeholder = "US97 kod seç..."
 }) => {
@@ -46,7 +46,7 @@ const US97SuperSearch = ({
   const [favoriteCodes, setFavoriteCodes] = useState([]);
   const [showMode, setShowMode] = useState('all'); // 'all', 'recent', 'favorites'
   const [displayLimit, setDisplayLimit] = useState(50); // Infinite scroll için
-  
+
   const inputRef = useRef(null);
 
   // 🎯 US 97 KODLARI YÜKLENİYOR
@@ -56,13 +56,13 @@ const US97SuperSearch = ({
       // 🚀 Backend endpoint fix: /us97/search (baseURL zaten /api içeriyor)
       const response = await axios.get('/us97/search?limit=5000');
       const codes = response.data?.data || []; // Backend returns {success, count, data}
-      
+
       setAllCodes(codes);
-      
+
       // 📦 LOCAL STORAGE'DAN RECENT VE FAVORİLER
       let loadedRecent = [];
       let loadedFavorites = [];
-      
+
       try {
         const stored = localStorage.getItem('us97_recent') || '[]';
         loadedRecent = JSON.parse(stored).slice(0, 10); // Son 10
@@ -106,7 +106,7 @@ const US97SuperSearch = ({
       case 'recent':
         codes = recentCodes;
         break;
-      case 'favorites': 
+      case 'favorites':
         codes = favoriteCodes;
         break;
       default:
@@ -116,7 +116,7 @@ const US97SuperSearch = ({
     // SEARCH TERİM FİLTRESİ
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase().trim();
-      codes = codes.filter(code => 
+      codes = codes.filter(code =>
         code.kod?.toLowerCase().includes(term) ||
         code.aciklama?.toLowerCase().includes(term) ||
         code.bolum?.toLowerCase().includes(term)
@@ -130,25 +130,25 @@ const US97SuperSearch = ({
   // 🎯 CODE SELECTION HANDLER
   const handleCodeSelect = useCallback((code) => {
     setSelectedCode(code);
-    
+
     // 📝 RECENT CODES'A EKLE
     const updatedRecent = [
       code,
       ...recentCodes.filter(r => r.kod !== code.kod)
     ].slice(0, 10);
-    
+
     setRecentCodes(updatedRecent);
     localStorage.setItem('us97_recent', JSON.stringify(updatedRecent));
-    
+
     // 🎯 PARENT COMPONENT'E BİLDİR - HER İKİ DEĞERİ DE GÖNDER!
     if (onChange) {
       onChange(code.kod, code.aciklama);
     }
-    
+
     // 📱 MODAL'I KAPAT
     setIsOpen(false);
     setSearchTerm('');
-    
+
     if (process.env.NODE_ENV === 'development') {
       console.log('✅ US97 Kod Seçildi:', {
         kod: code.kod,
@@ -186,6 +186,14 @@ const US97SuperSearch = ({
       const foundCode = allCodes.find(code => code.kod === value);
       if (foundCode) {
         setSelectedCode(foundCode);
+      } else if (allCodes.length > 0) {
+        // 🔧 FIX: Kod US97 koleksiyonunda bulunamasa bile fallback obje oluştur
+        // Böylece kaydedilmiş kod düzenleme ekranında görünür
+        setSelectedCode({ kod: value, aciklama: '', kategori: '' });
+      } else {
+        // allCodes henüz yüklenmedi - yüklenince tekrar denenecek
+        // Şimdilik fallback olarak value'dan geçici obje oluştur
+        setSelectedCode({ kod: value, aciklama: '(yükleniyor...)', kategori: '' });
       }
     } else if (!value) {
       setSelectedCode(null);
@@ -197,7 +205,7 @@ const US97SuperSearch = ({
       {/* 🚀 ENTERPRISE MODAL TRIGGER */}
       <TextField
         ref={inputRef}
-        value={selectedCode ? `${selectedCode.kod} - ${selectedCode.aciklama?.substring(0, 40)}...` : ''}
+        value={selectedCode ? `${selectedCode.kod}${selectedCode.aciklama ? ` - ${selectedCode.aciklama.substring(0, 40)}${selectedCode.aciklama.length > 40 ? '...' : ''}` : ''}` : (value || '')}
         onClick={() => setIsOpen(true)}
         placeholder={placeholder}
         size={size}
@@ -215,7 +223,7 @@ const US97SuperSearch = ({
             '& fieldset': {
               borderColor: '#e5e7eb'
             },
-            '&:hover': { 
+            '&:hover': {
               backgroundColor: '#f8fafc',
               transform: 'translateY(-1px)',
               boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)',
@@ -224,7 +232,7 @@ const US97SuperSearch = ({
                 borderWidth: '2px'
               }
             },
-            '&.Mui-focused fieldset': { 
+            '&.Mui-focused fieldset': {
               borderColor: '#3b82f6',
               borderWidth: '2px'
             }
@@ -233,8 +241,8 @@ const US97SuperSearch = ({
         InputProps={{
           startAdornment: (
             <InputAdornment position="start">
-              <SearchIcon sx={{ 
-                color: '#3b82f6', 
+              <SearchIcon sx={{
+                color: '#3b82f6',
                 fontSize: '1.2rem',
                 transition: 'transform 0.2s ease',
                 '&:hover': {
@@ -247,9 +255,9 @@ const US97SuperSearch = ({
             <InputAdornment position="end">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 {selectedCode && (
-                  <Chip 
-                    label="Seçildi" 
-                    size="small" 
+                  <Chip
+                    label="Seçildi"
+                    size="small"
                     color="primary"
                     sx={{ fontSize: '0.7rem', height: 20 }}
                   />
@@ -285,7 +293,7 @@ const US97SuperSearch = ({
         }}
       >
         {/* 🎯 MODAL HEADER */}
-        <DialogTitle sx={{ 
+        <DialogTitle sx={{
           background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
           color: 'white',
           py: 3,
@@ -306,19 +314,19 @@ const US97SuperSearch = ({
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Badge badgeContent={allCodes.length} color="secondary" max={9999}>
-                <Chip 
-                  label="Toplam Kod" 
-                  variant="outlined" 
-                  sx={{ 
-                    color: 'white', 
+                <Chip
+                  label="Toplam Kod"
+                  variant="outlined"
+                  sx={{
+                    color: 'white',
                     borderColor: 'rgba(255,255,255,0.3)',
                     backgroundColor: 'rgba(255,255,255,0.1)'
-                  }} 
+                  }}
                 />
               </Badge>
-              <IconButton 
+              <IconButton
                 onClick={() => setIsOpen(false)}
-                sx={{ 
+                sx={{
                   color: 'white',
                   '&:hover': {
                     backgroundColor: 'rgba(255,255,255,0.1)'
@@ -334,8 +342,8 @@ const US97SuperSearch = ({
         {/* 🔍 MODAL CONTENT */}
         <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
           {/* 🎯 SEARCH & FILTERS BAR */}
-          <Box sx={{ 
-            p: 3, 
+          <Box sx={{
+            p: 3,
             borderBottom: '1px solid rgba(0,0,0,0.06)',
             background: 'rgba(248,250,252,0.5)'
           }}>
@@ -451,10 +459,10 @@ const US97SuperSearch = ({
           {/* 📋 RESULTS LIST */}
           <Box sx={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
             {loading ? (
-              <Box sx={{ 
-                display: 'flex', 
+              <Box sx={{
+                display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center', 
+                alignItems: 'center',
                 justifyContent: 'center',
                 minHeight: 300,
                 gap: 2
@@ -468,7 +476,7 @@ const US97SuperSearch = ({
               <Box>
                 {filteredCodes.map((code, index) => {
                   const isRecent = recentCodes.some(r => r.kod === code.kod);
-                  
+
                   return (
                     <ListItemButton
                       key={`${code.kod}-${index}`}
@@ -503,7 +511,7 @@ const US97SuperSearch = ({
                       <Box sx={{ width: '100%' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Typography variant="h6" sx={{ 
+                            <Typography variant="h6" sx={{
                               fontWeight: 700,
                               color: '#1e40af',
                               fontSize: '1.1rem',
@@ -513,19 +521,19 @@ const US97SuperSearch = ({
                               {code.kod}
                             </Typography>
                             {isRecent && (
-                              <Chip 
-                                label="YENİ" 
-                                size="small" 
+                              <Chip
+                                label="YENİ"
+                                size="small"
                                 color="primary"
-                                sx={{ 
-                                  fontSize: '0.65rem', 
+                                sx={{
+                                  fontSize: '0.65rem',
                                   height: 20,
                                   fontWeight: 600
-                                }} 
+                                }}
                               />
                             )}
                           </Box>
-                          <Typography variant="caption" sx={{ 
+                          <Typography variant="caption" sx={{
                             color: '#6b7280',
                             backgroundColor: '#f1f5f9',
                             px: 1.5,
@@ -537,7 +545,7 @@ const US97SuperSearch = ({
                             {code.bolum || 'Tarım'}
                           </Typography>
                         </Box>
-                        <Typography variant="body2" sx={{ 
+                        <Typography variant="body2" sx={{
                           color: '#374151',
                           fontSize: '0.9rem',
                           lineHeight: 1.5
@@ -574,10 +582,10 @@ const US97SuperSearch = ({
                 )}
               </Box>
             ) : (
-              <Box sx={{ 
-                display: 'flex', 
+              <Box sx={{
+                display: 'flex',
                 flexDirection: 'column',
-                alignItems: 'center', 
+                alignItems: 'center',
                 justifyContent: 'center',
                 minHeight: 300,
                 gap: 2,
@@ -596,9 +604,9 @@ const US97SuperSearch = ({
         </DialogContent>
 
         {/* 📋 MODAL ACTIONS */}
-        <DialogActions sx={{ 
-          px: 3, 
-          py: 2, 
+        <DialogActions sx={{
+          px: 3,
+          py: 2,
           borderTop: '1px solid rgba(0,0,0,0.06)',
           backgroundColor: '#f8fafc'
         }}>
