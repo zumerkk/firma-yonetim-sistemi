@@ -2074,8 +2074,13 @@ const TesvikForm = () => {
           serbsetBolge: formData.yatirimBilgileri2?.serbsetBolge || '' // 🆕 YENİ ALAN
         },
 
-        // Ürün bilgilerini model formatına çevir
-        urunler: formData.urunBilgileri?.map(urun => ({
+        // Ürün bilgilerini model formatına çevir - 🔧 FIX: Boş satırları filtreleme
+        urunler: formData.urunBilgileri?.filter(urun => {
+          // Boş satırları filtreleme: en az kod VEYA açıklama olmalı
+          const hasCode = !!(urun.kod && urun.kod.toString().trim());
+          const hasName = !!(urun.aciklama && urun.aciklama.toString().trim());
+          return hasCode || hasName;
+        }).map(urun => ({
           u97Kodu: urun.kod || '',
           urunAdi: urun.aciklama || '',
           mevcutKapasite: safeParseInt(urun.mevcut),

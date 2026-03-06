@@ -42,6 +42,8 @@ function normalizeAndMergeUrunler(urunler = []) {
 
       // En azından kod veya ad olmalı; ikisi de boşsa atla
       if (!u97Kodu && !urunAdi) return;
+      // 🔧 FIX: Tüm kapasite alanları 0 ve birim boşsa, hayalet satır atla
+      if (mevcutKapasite === 0 && ilaveKapasite === 0 && toplamKapasite === 0 && !kapasiteBirimi) return;
 
       result.push({
         u97Kodu,
