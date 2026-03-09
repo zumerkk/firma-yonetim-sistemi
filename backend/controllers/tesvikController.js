@@ -386,10 +386,21 @@ const getTesvik = async (req, res) => {
       }
     });
 
+    // 🔧 FIX: Response'ta hayalet ürün satırlarını temizle (mevcut DB verisi)
+    const responseData = tesvik.toSafeJSON();
+    if (responseData.urunler && Array.isArray(responseData.urunler)) {
+      responseData.urunler = responseData.urunler.filter(u => {
+        const mevcut = Number(u.mevcutKapasite) || 0;
+        const ilave = Number(u.ilaveKapasite) || 0;
+        const toplam = Number(u.toplamKapasite) || 0;
+        return mevcut > 0 || ilave > 0 || toplam > 0;
+      });
+    }
+
     res.json({
       success: true,
       message: 'Teşvik detayı getirildi',
-      data: tesvik.toSafeJSON()
+      data: responseData
     });
 
   } catch (error) {

@@ -1113,7 +1113,8 @@ const TesvikDetail = () => {
               </Typography>
               {(() => {
                 const validCount = (tesvik.urunler || []).filter(u =>
-                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim()))
+                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim())) &&
+                  ((Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0)
                 ).length;
                 return validCount > 0 ? (
                   <Chip label={validCount > 6 ? `+${validCount - 6} ürün daha` : `${validCount} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
@@ -1127,7 +1128,11 @@ const TesvikDetail = () => {
               const validUrunler = (tesvik.urunler || []).filter(urun => {
                 const hasCode = !!(urun.u97Kodu || urun.us97Kodu);
                 const hasName = !!(urun.urunAdi && urun.urunAdi.trim());
-                return (hasCode || hasName);
+                // 🔧 FIX: Tüm kapasiteleri 0 olan hayalet satırları gösterme
+                const hasCapacity = (Number(urun.mevcutKapasite) || 0) > 0 ||
+                  (Number(urun.ilaveKapasite) || 0) > 0 ||
+                  (Number(urun.toplamKapasite) || 0) > 0;
+                return (hasCode || hasName) && hasCapacity;
               });
 
               return validUrunler.length > 0 ? (
