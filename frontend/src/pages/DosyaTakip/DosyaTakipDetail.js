@@ -140,6 +140,7 @@ const DosyaTakipDetail = () => {
     const [users, setUsers] = useState([]);
     const [atamaEditing, setAtamaEditing] = useState(false);
     const [atamaData, setAtamaData] = useState({});
+    const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
 
     useEffect(() => {
         if (id) fetchTalep(id);
@@ -158,7 +159,7 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Not silme
+    // Not silme (onay sonrası)
     const handleNotSil = async (notId, alan) => {
         try {
             await notSil(id, notId, alan);
@@ -168,7 +169,7 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Dosya silme
+    // Dosya silme (onay sonrası)
     const handleDosyaSil = async (dosyaId, alan) => {
         try {
             await dosyaSil(id, dosyaId, alan);
@@ -176,6 +177,21 @@ const DosyaTakipDetail = () => {
         } catch (err) {
             setSnackbar({ open: true, message: 'Dosya silinemedi.', severity: 'error' });
         }
+    };
+
+    // Silme onay dialogu
+    const handleConfirmDelete = async () => {
+        const { type, id: itemId, alan } = confirmDialog;
+        setConfirmDialog({ open: false, type: '', id: '', alan: '', label: '' });
+        if (type === 'not') {
+            await handleNotSil(itemId, alan);
+        } else if (type === 'dosya') {
+            await handleDosyaSil(itemId, alan);
+        }
+    };
+
+    const askDeleteConfirm = (type, itemId, alan, label = '') => {
+        setConfirmDialog({ open: true, type, id: itemId, alan, label });
     };
 
     // Atama kaydet
@@ -346,42 +362,52 @@ const DosyaTakipDetail = () => {
                             </Typography>
                         </Grid>
                     </Grid>
+                    {/* Atama Durumu */}
+                    <Grid item xs={12}>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                            {(seciliTalep.muraacatOncesi?.gorusmeYapan?.adSoyad || seciliTalep.muraacatOncesi?.gorusmeYapanAdi) ? (
+                                <Chip size="small" label={`Görüşme: ${seciliTalep.muraacatOncesi?.gorusmeYapan?.adSoyad || seciliTalep.muraacatOncesi?.gorusmeYapanAdi}`}
+                                    sx={{ fontSize: '0.65rem', height: 22, background: '#dcfce7', color: '#16a34a' }} />
+                            ) : (
+                                <Chip size="small" label="⚠️ Görüşme atanımadı" onClick={() => setActiveTab(3)}
+                                    sx={{ fontSize: '0.65rem', height: 22, background: '#fef3c7', color: '#92400e', cursor: 'pointer' }} />
+                            )}
+                            {(seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi) && (
+                                <Chip size="small" label={`Takip: ${seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi}`}
+                                    sx={{ fontSize: '0.65rem', height: 22, background: '#dbeafe', color: '#1e40af' }} />
+                            )}
+                        </Box>
+                    </Grid>
                 </Paper>
 
-                {/* Ek Bilgiler Kartı - Issue #2 */}
-                {(seciliTalep.gmId || seciliTalep.belgeGoruntulemeLinki || seciliTalep.belgeDurumu || seciliTalep.durumAciklamasi) && (
-                    <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
-                            <InfoIcon sx={{ fontSize: 18, color: '#f59e0b' }} /> Ek Bilgiler
-                        </Typography>
-                        <Grid container spacing={2}>
-                            {seciliTalep.gmId && (
-                                <Grid item xs={12} md={3}>
-                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>GM ID</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.gmId}</Typography>
-                                </Grid>
-                            )}
-                            {seciliTalep.belgeDurumu && (
-                                <Grid item xs={12} md={3}>
-                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Durumu</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.belgeDurumu}</Typography>
-                                </Grid>
-                            )}
-                            {seciliTalep.belgeGoruntulemeLinki && (
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Görüntüleme Linki</Typography>
-                                    <Typography variant="body2"><MuiLink href={seciliTalep.belgeGoruntulemeLinki} target="_blank" rel="noopener">{seciliTalep.belgeGoruntulemeLinki}</MuiLink></Typography>
-                                </Grid>
-                            )}
-                            {seciliTalep.durumAciklamasi && (
-                                <Grid item xs={12}>
-                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
-                                    <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>{seciliTalep.durumAciklamasi}</Typography>
-                                </Grid>
+                {/* Ek Bilgiler Kartı - Her zaman göster */}
+                <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+                        <InfoIcon sx={{ fontSize: 18, color: '#f59e0b' }} /> Ek Bilgiler
+                    </Typography>
+                    <Grid container spacing={2}>
+                        <Grid item xs={12} md={3}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>GM ID</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.gmId || '-'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Durumu</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.belgeDurumu || '-'}</Typography>
+                        </Grid>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Görüntüleme Linki</Typography>
+                            {seciliTalep.belgeGoruntulemeLinki ? (
+                                <Typography variant="body2"><MuiLink href={seciliTalep.belgeGoruntulemeLinki} target="_blank" rel="noopener">{seciliTalep.belgeGoruntulemeLinki}</MuiLink></Typography>
+                            ) : (
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>
                             )}
                         </Grid>
-                    </Paper>
-                )}
+                        <Grid item xs={12}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>{seciliTalep.durumAciklamasi || '-'}</Typography>
+                        </Grid>
+                    </Grid>
+                </Paper>
 
                 {/* Ana İçerik: Sol Timeline + Sağ Panel */}
                 <Grid container spacing={3}>
@@ -535,7 +561,7 @@ const DosyaTakipDetail = () => {
                                         </Box>
 
                                         {/* Not listesi */}
-                                        {renderNotlar(seciliTalep, handleNotSil)}
+                                        {renderNotlar(seciliTalep, askDeleteConfirm)}
                                     </Box>
                                 )}
 
@@ -554,7 +580,7 @@ const DosyaTakipDetail = () => {
                                                 <input hidden type="file" onChange={handleDosyaYukle} />
                                             </Button>
                                         </Box>
-                                        {renderDosyalar(seciliTalep, handleDosyaSil)}
+                                        {renderDosyalar(seciliTalep, askDeleteConfirm)}
                                     </Box>
                                 )}
 
@@ -756,6 +782,37 @@ const DosyaTakipDetail = () => {
                         {snackbar.message}
                     </Alert>
                 </Snackbar>
+
+                {/* Silme Onay Dialogı */}
+                <Dialog open={confirmDialog.open} onClose={() => setConfirmDialog({ open: false, type: '', id: '', alan: '', label: '' })} maxWidth="xs" fullWidth>
+                    <DialogTitle sx={{ fontWeight: 600, borderBottom: '1px solid #e2e8f0' }}>
+                        ⚠️ Silme Onayı
+                    </DialogTitle>
+                    <DialogContent sx={{ pt: '16px !important' }}>
+                        <Typography variant="body2" sx={{ color: '#374151' }}>
+                            {confirmDialog.type === 'not'
+                                ? `Bu notu silmek istediğinize emin misiniz?${confirmDialog.label ? `\n"${confirmDialog.label}"` : ''}`
+                                : `Bu dosyayı silmek istediğinize emin misiniz?${confirmDialog.label ? `\n"${confirmDialog.label}"` : ''}`
+                            }
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#ef4444', mt: 1, display: 'block' }}>
+                            Bu işlem geri alınamaz.
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions sx={{ p: 2, borderTop: '1px solid #e2e8f0' }}>
+                        <Button onClick={() => setConfirmDialog({ open: false, type: '', id: '', alan: '', label: '' })} sx={{ textTransform: 'none' }}>
+                            İptal
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={handleConfirmDelete}
+                            sx={{ textTransform: 'none', borderRadius: 2 }}
+                        >
+                            Sil
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Box>
         </LayoutWrapper>
     );
@@ -794,8 +851,9 @@ function renderNotlar(talep, onNotSil) {
                     secondaryAction={
                         not._id && onNotSil && (
                             <Tooltip title="Notu Sil">
-                                <IconButton size="small" onClick={() => onNotSil(not._id, not.alan)} sx={{ color: '#ef4444' }}>
-                                    <DeleteIcon sx={{ fontSize: 16 }} />
+                                <IconButton size="small" onClick={() => onNotSil('not', not._id, not.alan, not.metin?.substring(0, 50))}
+                                    sx={{ color: '#ef4444', '&:hover': { background: '#fef2f2' } }}>
+                                    <DeleteIcon sx={{ fontSize: 18 }} />
                                 </IconButton>
                             </Tooltip>
                         )
@@ -870,17 +928,48 @@ function renderDosyalar(talep, onDosyaSil) {
                         }
                     />
                     {dosya.dosyaYolu && (
-                        <Tooltip title="İndir">
-                            <IconButton size="small" component="a"
-                                href={dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`}
-                                target="_blank" download>
-                                <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
-                            </IconButton>
-                        </Tooltip>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            {/* Görüntüleme (yeni sekmede aç) */}
+                            {dosya.dosyaYolu.startsWith('http') && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(dosya.dosyaAdi) && (
+                                <Tooltip title="Görüntüle">
+                                    <IconButton size="small" component="a"
+                                        href={dosya.dosyaYolu}
+                                        target="_blank" rel="noopener noreferrer">
+                                        <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
+                                    </IconButton>
+                                </Tooltip>
+                            )}
+                            {/* İndirme - Cloudinary için programatik blob download */}
+                            <Tooltip title="İndir">
+                                <IconButton size="small" onClick={async () => {
+                                    try {
+                                        const url = dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`;
+                                        const response = await fetch(url);
+                                        if (!response.ok) throw new Error('Dosya indirilemedi');
+                                        const blob = await response.blob();
+                                        const blobUrl = URL.createObjectURL(blob);
+                                        const a = document.createElement('a');
+                                        a.href = blobUrl;
+                                        a.download = dosya.dosyaAdi || 'dosya';
+                                        document.body.appendChild(a);
+                                        a.click();
+                                        document.body.removeChild(a);
+                                        URL.revokeObjectURL(blobUrl);
+                                    } catch (err) {
+                                        console.error('İndirme hatası:', err);
+                                        // Fallback: yeni sekmede aç
+                                        window.open(dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`, '_blank');
+                                    }
+                                }}>
+                                    <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                                </IconButton>
+                            </Tooltip>
+                        </Box>
                     )}
                     {dosya._id && onDosyaSil && (
                         <Tooltip title="Dosyayı Sil">
-                            <IconButton size="small" onClick={() => onDosyaSil(dosya._id, dosya.alan)} sx={{ color: '#ef4444', ml: 0.5 }}>
+                            <IconButton size="small" onClick={() => onDosyaSil('dosya', dosya._id, dosya.alan, dosya.dosyaAdi)}
+                                sx={{ color: '#ef4444', ml: 0.5, '&:hover': { background: '#fef2f2' } }}>
                                 <DeleteIcon sx={{ fontSize: 18 }} />
                             </IconButton>
                         </Tooltip>

@@ -5,7 +5,8 @@ import React, { useEffect, useState } from 'react';
 import {
     Box, Typography, Button, TextField, MenuItem, Grid,
     Paper, Stepper, Step, StepLabel, Autocomplete,
-    Alert, CircularProgress, Divider
+    Alert, CircularProgress, Divider, Chip, List, ListItem,
+    ListItemIcon, ListItemText
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -13,7 +14,9 @@ import {
     Save as SaveIcon,
     Business as BusinessIcon,
     Assignment as AssignmentIcon,
-    Description as DescriptionIcon
+    Description as DescriptionIcon,
+    Folder as FolderIcon,
+    Info as InfoIcon
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
@@ -35,6 +38,8 @@ const DosyaTakipForm = () => {
     const [selectedFirma, setSelectedFirma] = useState(null);
     const [users, setUsers] = useState([]);
     const [success, setSuccess] = useState('');
+    const [firmaninBelgeleri, setFirmaninBelgeleri] = useState([]);
+    const [firmaBelgeLoading, setFirmaBelgeLoading] = useState(false);
 
     const [formData, setFormData] = useState({
         firma: null,
@@ -139,6 +144,29 @@ const DosyaTakipForm = () => {
         setFormData(prev => ({ ...prev, [field]: e.target.value }));
     };
 
+    // Firma seçildiğinde mevcut belgeleri ve GM ID'yi otomatik getir
+    const fetchFirmaBelgeleri = async (firmaObjectId) => {
+        try {
+            setFirmaBelgeLoading(true);
+            const { data } = await axios.get(`/dosya-takip?firma=${firmaObjectId}&limit=50`);
+            const belgeler = data?.data || [];
+            setFirmaninBelgeleri(Array.isArray(belgeler) ? belgeler : []);
+
+            // İlk belgedeki GM ID'yi otomatik getir (varsa ve form'da boşsa)
+            if (belgeler.length > 0) {
+                const ilkGmId = belgeler.find(b => b.gmId)?.gmId;
+                if (ilkGmId) {
+                    setFormData(prev => prev.gmId ? prev : ({ ...prev, gmId: ilkGmId }));
+                }
+            }
+        } catch (err) {
+            console.error('Firma belgeleri yüklenemedi:', err);
+            setFirmaninBelgeleri([]);
+        } finally {
+            setFirmaBelgeLoading(false);
+        }
+    };
+
     const handleFirmaSelect = (event, value) => {
         if (value) {
             setSelectedFirma(value);
@@ -148,8 +176,11 @@ const DosyaTakipForm = () => {
                 firmaId: value.firmaId || '',
                 firmaUnvan: value.tamUnvan || ''
             }));
+            // Firmaya ait mevcut belgeleri getir
+            fetchFirmaBelgeleri(value._id);
         } else {
             setSelectedFirma(null);
+            setFirmaninBelgeleri([]);
             setFormData(prev => ({
                 ...prev,
                 firma: null,
@@ -297,6 +328,53 @@ const DosyaTakipForm = () => {
                                     <Typography variant="caption" sx={{ color: '#64748b' }}>
                                         Firma ID: {formData.firmaId}
                                     </Typography>
+                                </Paper>
+                            )}
+
+                            {/* Firmaya ait mevcut belgeler */}
+                            {formData.firma && (
+                                <Paper sx={{ p: 2, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, mb: 3 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <FolderIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                                            Firmaya Ait Kayıtlı Belgeler
+                                        </Typography>
+                                        {firmaBelgeLoading && <CircularProgress size={16} />}
+                                    </Box>
+                                    {!firmaBelgeLoading && firmaninBelgeleri.length === 0 && (
+                                        <Typography variant="body2" sx={{ color: '#64748b', fontStyle: 'italic' }}>
+                                            Bu firmaya ait kayıtlı belge bulunamadı.
+                                        </Typography>
+                                    )}
+                                    {firmaninBelgeleri.length > 0 && (
+                                        <List dense sx={{ p: 0 }}>
+                                            {firmaninBelgeleri.slice(0, 10).map((belge, idx) => (
+                                                <ListItem key={belge._id || idx} sx={{ px: 0, py: 0.5 }}>
+                                                    <ListItemIcon sx={{ minWidth: 32 }}>
+                                                        <InfoIcon sx={{ fontSize: 16, color: '#94a3b8' }} />
+                                                    </ListItemIcon>
+                                                    <ListItemText
+                                                        primary={
+                                                            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                                <strong>{belge.takipId}</strong> — {belge.talepTuru || '-'}
+                                                            </Typography>
+                                                        }
+                                                        secondary={
+                                                            <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                                                {belge.durumEtiketi || belge.durum || '-'} • {belge.createdAt ? new Date(belge.createdAt).toLocaleDateString('tr-TR') : '-'}
+                                                                {belge.gmId && ` • GM ID: ${belge.gmId}`}
+                                                            </Typography>
+                                                        }
+                                                    />
+                                                </ListItem>
+                                            ))}
+                                            {firmaninBelgeleri.length > 10 && (
+                                                <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
+                                                    ... ve {firmaninBelgeleri.length - 10} belge daha
+                                                </Typography>
+                                            )}
+                                        </List>
+                                    )}
                                 </Paper>
                             )}
 

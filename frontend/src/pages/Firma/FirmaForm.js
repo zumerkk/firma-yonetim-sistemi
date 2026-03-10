@@ -3,6 +3,7 @@
 // State-of-the-art React best practices implementation
 
 import React, { useState, useEffect, useCallback, memo } from 'react';
+import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
@@ -1490,6 +1491,7 @@ const FirmaForm = () => {
                         value={formData.etuysYetkiBitisTarihi}
                         onChange={handleBasicFieldChange('etuysYetkiBitisTarihi')}
                         InputLabelProps={{ shrink: true }}
+                        inputProps={{ onPaste: createFormDatePasteHandler(setFormData, 'etuysYetkiBitisTarihi') }}
                       />
                     </Grid>
 
@@ -1504,6 +1506,7 @@ const FirmaForm = () => {
                         value={formData.dysYetkiBitisTarihi}
                         onChange={handleBasicFieldChange('dysYetkiBitisTarihi')}
                         InputLabelProps={{ shrink: true }}
+                        inputProps={{ onPaste: createFormDatePasteHandler(setFormData, 'dysYetkiBitisTarihi') }}
                       />
                     </Grid>
                   </Grid>
