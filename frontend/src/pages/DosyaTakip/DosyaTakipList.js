@@ -202,14 +202,17 @@ const DosyaTakipList = () => {
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Tooltip title="Detay">
-                        <IconButton size="small" onClick={() => navigate(`/dosya-takip/${params.row._id}`)} sx={{ color: '#3b82f6' }}>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/dosya-takip/${params.row._id}`); }} sx={{ color: '#3b82f6' }}>
                             <VisibilityIcon sx={{ fontSize: 18 }} />
                         </IconButton>
                     </Tooltip>
                     <Tooltip title="Sil">
                         <IconButton
                             size="small"
-                            onClick={() => setDeleteDialog({ open: true, id: params.row._id, takipId: params.row.takipId })}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setDeleteDialog({ open: true, id: params.row._id, takipId: params.row.takipId });
+                            }}
                             sx={{ color: '#ef4444' }}
                         >
                             <DeleteIcon sx={{ fontSize: 18 }} />
