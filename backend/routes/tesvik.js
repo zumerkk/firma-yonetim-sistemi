@@ -372,9 +372,9 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       const rowData = [
         tesvik.gmId || '',
         tesvik.tesvikId || '',
-        tesvik.firma?.unvan || '',
+        tesvik.firma?.unvan || tesvik.yatirimciUnvan || '',
         durum,
-        tesvik.firma?.il || '',
+        tesvik.firma?.il || tesvik.yatirimBilgileri?.yerinIl || '',
         tesvik.kunyeBilgileri?.projeBedeli || 0,
         tesvik.kunyeBilgileri?.tesvikMiktari || 0,
         tesvik.olusturmaTarihi ? new Date(tesvik.olusturmaTarihi).toLocaleDateString('tr-TR') : ''

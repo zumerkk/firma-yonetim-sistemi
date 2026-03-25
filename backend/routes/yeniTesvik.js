@@ -97,22 +97,22 @@ router.get('/dashboard', authenticate, async (req, res) => {
     }
     
     // Temel istatistikler
-    const totalIncentives = await Tesvik.countDocuments({ aktif: true, ...dateFilter });
-    const activeIncentives = await Tesvik.countDocuments({ 
+    const totalIncentives = await YeniTesvik.countDocuments({ aktif: true, ...dateFilter });
+    const activeIncentives = await YeniTesvik.countDocuments({ 
       aktif: true, 
       'durumBilgileri.durum': { $in: ['onaylandi', 'inceleniyor'] },
       ...dateFilter 
     });
     
     // Toplam tutar hesaplama
-    const totalAmountResult = await Tesvik.aggregate([
+    const totalAmountResult = await YeniTesvik.aggregate([
       { $match: { aktif: true, ...dateFilter } },
       { $group: { _id: null, total: { $sum: '$kunyeBilgileri.tesvikMiktari' } } }
     ]);
     const totalAmount = totalAmountResult[0]?.total || 0;
     
     // Onay oranı
-    const approvedCount = await Tesvik.countDocuments({ 
+    const approvedCount = await YeniTesvik.countDocuments({ 
       aktif: true, 
       'durumBilgileri.durum': 'onaylandi',
       ...dateFilter 
@@ -120,14 +120,14 @@ router.get('/dashboard', authenticate, async (req, res) => {
     const approvalRate = totalIncentives > 0 ? ((approvedCount / totalIncentives) * 100).toFixed(1) : 0;
     
     // Durum dağılımı
-    const statusDistribution = await Tesvik.aggregate([
+    const statusDistribution = await YeniTesvik.aggregate([
       { $match: { aktif: true, ...dateFilter } },
       { $group: { _id: '$durumBilgileri.durum', count: { $sum: 1 } } },
       { $project: { name: '$_id', value: '$count', _id: 0 } }
     ]);
     
     // Aylık trend
-    const monthlyTrends = await Tesvik.aggregate([
+    const monthlyTrends = await YeniTesvik.aggregate([
       { $match: { aktif: true, ...dateFilter } },
       {
         $group: {
@@ -166,7 +166,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     ]);
     
     // En çok teşvik alan firmalar
-    const topCompanies = await Tesvik.aggregate([
+    const topCompanies = await YeniTesvik.aggregate([
       { $match: { aktif: true, ...dateFilter } },
       { $lookup: { from: 'firmas', localField: 'firma', foreignField: '_id', as: 'firmaInfo' } },
       { $unwind: '$firmaInfo' },
@@ -184,7 +184,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     ]);
     
     // Kategori dağılımı (destek sınıfına göre)
-    const categoryBreakdown = await Tesvik.aggregate([
+    const categoryBreakdown = await YeniTesvik.aggregate([
       { $match: { aktif: true, ...dateFilter } },
       { $group: { _id: '$yatirimBilgileri1.destekSinifi', count: { $sum: 1 } } },
       { $project: { category: '$_id', count: 1, _id: 0 } },
@@ -192,7 +192,7 @@ router.get('/dashboard', authenticate, async (req, res) => {
     ]);
     
     // Son aktiviteler
-    const recentActivities = await Tesvik.find({ aktif: true, ...dateFilter })
+    const recentActivities = await YeniTesvik.find({ aktif: true, ...dateFilter })
       .populate('firma', 'unvan')
       .sort({ guncellenmeTarihi: -1 })
       .limit(10)
@@ -252,7 +252,7 @@ router.get('/:id/pdf-export', authenticate, exportTesvikPDF);
 // Query params: includeColors (true/false)
 router.get('/:id/revizyon-excel-export', authenticate, checkPermission('raporGoruntule'), exportRevizyonExcel);
 
-// 📊 GET /api/tesvik/bulk-excel-export - Toplu Excel Export (Filtrelenebilir, Renk Kodlamalı)
+// 📊 GET /api/yeni-tesvik/bulk-excel-export - Toplu Excel Export (Filtrelenebilir, Renk Kodlamalı)
 // Query params: durum, il, firma, tarihBaslangic, tarihBitis
 router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule'), async (req, res) => {
   try {
@@ -276,11 +276,11 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       if (tarihBitis) filter.olusturmaTarihi.$lte = new Date(tarihBitis);
     }
     
-    const Tesvik = require('../models/Tesvik');
+    const YeniTesvikModel = require('../models/YeniTesvik');
     const ExcelJS = require('exceljs');
     
-    // Filtrelenmiş teşvikleri getir
-    const tesvikler = await Tesvik.find(filter)
+    // Filtrelenmiş yeni teşvikleri getir
+    const tesvikler = await YeniTesvikModel.find(filter)
       .populate('firma', 'unvan vergiNo il')
       .lean()
       .limit(1000); // Performans için limit
@@ -342,7 +342,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     
     // Ana başlık
     worksheet.mergeCells('A1:H1');
-    worksheet.getCell('A1').value = 'TEŞVİK LİSTESİ ÖZET RAPORU';
+    worksheet.getCell('A1').value = 'YENİ TEŞVİK LİSTESİ ÖZET RAPORU';
     worksheet.getCell('A1').style = headerStyle;
     
     // Özet bilgiler
@@ -372,9 +372,9 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       const rowData = [
         tesvik.gmId || '',
         tesvik.tesvikId || '',
-        tesvik.firma?.unvan || '',
+        tesvik.firma?.unvan || tesvik.yatirimciUnvan || '',
         durum,
-        tesvik.firma?.il || '',
+        tesvik.firma?.il || tesvik.yatirimBilgileri?.yatirim2?.il || tesvik.yatirimBilgileri?.yerinIl || '',
         tesvik.kunyeBilgileri?.projeBedeli || 0,
         tesvik.kunyeBilgileri?.tesvikMiktari || 0,
         tesvik.olusturmaTarihi ? new Date(tesvik.olusturmaTarihi).toLocaleDateString('tr-TR') : ''
@@ -421,7 +421,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     const excelBuffer = await workbook.xlsx.writeBuffer();
     
     // Response headers ayarla
-    const fileName = `tesvik_listesi_${new Date().toISOString().split('T')[0]}.xlsx`;
+    const fileName = `yeni_tesvik_listesi_${new Date().toISOString().split('T')[0]}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.setHeader('Content-Length', excelBuffer.length);
@@ -543,8 +543,8 @@ router.patch('/:id/restore',
   checkPermission('belgeDuzenle'),
   async (req, res) => {
     try {
-      const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findByIdAndUpdate(
+      const YeniTesvikModel = require('../models/YeniTesvik');
+      const tesvik = await YeniTesvikModel.findByIdAndUpdate(
         req.params.id,
         { aktif: true, sonGuncelleyen: req.user._id },
         { new: true }
