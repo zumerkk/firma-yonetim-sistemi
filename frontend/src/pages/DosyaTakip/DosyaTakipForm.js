@@ -40,6 +40,7 @@ const DosyaTakipForm = () => {
     const [success, setSuccess] = useState('');
     const [firmaninBelgeleri, setFirmaninBelgeleri] = useState([]);
     const [firmaBelgeLoading, setFirmaBelgeLoading] = useState(false);
+    const firmaBelgeRequestRef = React.useRef(0); // Race-condition koruması
 
     const [formData, setFormData] = useState({
         firma: null,
@@ -97,6 +98,9 @@ const DosyaTakipForm = () => {
                     const firmaObj = typeof data.firma === 'object' ? data.firma : { _id: data.firma, tamUnvan: data.firmaUnvan };
                     setSelectedFirma(firmaObj);
                     setFirmalar([firmaObj]);
+                    // 🔧 FIX: Edit modunda da firmaya ait belgeleri yükle
+                    const firmaId = typeof data.firma === 'object' ? data.firma._id : data.firma;
+                    if (firmaId) fetchFirmaBelgeleri(firmaId);
                 }
             }
         } catch (err) {
@@ -145,25 +149,38 @@ const DosyaTakipForm = () => {
     };
 
     // Firma seçildiğinde mevcut belgeleri ve GM ID'yi otomatik getir
+    // 🔧 FIX: Race-condition koruması eklendi - eski isteklerin sonuçları yeni sonuçları ezmesini önler
     const fetchFirmaBelgeleri = async (firmaObjectId) => {
+        if (!firmaObjectId) return;
+        const requestId = ++firmaBelgeRequestRef.current;
         try {
             setFirmaBelgeLoading(true);
+            setFirmaninBelgeleri([]); // Önceki sonuçları temizle
             const { data } = await axios.get(`/dosya-takip?firma=${firmaObjectId}&limit=50`);
+
+            // Race-condition: Bu istek artık güncel değilse sonucu yoksay
+            if (requestId !== firmaBelgeRequestRef.current) return;
+
             const belgeler = data?.data || [];
             setFirmaninBelgeleri(Array.isArray(belgeler) ? belgeler : []);
 
             // İlk belgedeki GM ID'yi otomatik getir (varsa ve form'da boşsa)
-            if (belgeler.length > 0) {
+            if (Array.isArray(belgeler) && belgeler.length > 0) {
                 const ilkGmId = belgeler.find(b => b.gmId)?.gmId;
                 if (ilkGmId) {
                     setFormData(prev => prev.gmId ? prev : ({ ...prev, gmId: ilkGmId }));
                 }
             }
         } catch (err) {
+            // Race-condition: Bu istek artık güncel değilse hata yoksay
+            if (requestId !== firmaBelgeRequestRef.current) return;
             console.error('Firma belgeleri yüklenemedi:', err);
             setFirmaninBelgeleri([]);
         } finally {
-            setFirmaBelgeLoading(false);
+            // Race-condition: Sadece güncel istek loading'i kapatabilir
+            if (requestId === firmaBelgeRequestRef.current) {
+                setFirmaBelgeLoading(false);
+            }
         }
     };
 

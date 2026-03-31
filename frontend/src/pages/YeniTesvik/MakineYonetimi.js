@@ -1721,32 +1721,148 @@ const MakineYonetimi = () => {
   };
 
   const importExcel = async (file) => {
-    const data = await file.arrayBuffer();
-    const wb = XLSX.read(data);
-    const toJSON = (sheet) => XLSX.utils.sheet_to_json(wb.Sheets[sheet] || {}, { defval: '' });
-    const yerli = toJSON('Yerli');
-    const ithal = toJSON('İthal');
-    const yerliMapped = yerli.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), siraNo: r['Sıra No'] || 0, makineId: r['Makine ID'] || '', gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimAciklamasi: r['Birim Açıklaması'] || '', birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'], toplamTl: r['Toplam Tutar (TL)'], kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV Muafiyeti (EVET/HAYIR)'] || r['KDV İstisnası'], makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, dosyalar: [] };
-      const errs = [];
-      if (!obj.adi) errs.push('Adı boş');
-      if (!obj.birim) errs.push('Birim boş');
-      if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
-      if (errs.length) obj._errors = errs;
-      return calcYerli(obj);
-    });
-    const ithalMapped = ithal.map(r => {
-      const obj = { id: Math.random().toString(36).slice(2), siraNo: r['Sıra No'] || 0, makineId: r['Makine ID'] || '', gtipKodu: r['GTIP No'], gtipAciklama: r['GTIP Açıklama'], adi: r['Adı ve Özelliği'], miktar: r['Miktarı'], birim: r['Birimi'], birimAciklamasi: r['Birim Açıklaması'] || '', birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'], doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'], toplamUsd: r['Toplam Tutar (FOB $)'], toplamTl: r['Toplam Tutar (FOB TL)'], kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'], kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', makineTechizatTipi: r['Makine Teçhizat Tipi'] || '', kdvMuafiyeti: r['KDV Muafiyeti'] || '', gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || '', finansalKiralamaMi: r['Finansal Kiralama Mı'] || '', finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || 0, finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', gerceklesenAdet: r['Gerçekleşen Adet'] || 0, gerceklesenTutar: r['Gerçekleşen Tutar '] || 0, iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || '', iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, ckdSkd: '', aracMi: '', dosyalar: [] };
-      const errs = [];
-      if (!obj.adi) errs.push('Adı boş');
-      if (!obj.birim) errs.push('Birim boş');
-      if (!obj.doviz) errs.push('Döviz boş');
-      if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
-      if (errs.length) obj._errors = errs;
-      return calcIthal(obj);
-    });
-    if (yerli.length) setYerliRows(yerliMapped);
-    if (ithal.length) setIthalRows(ithalMapped);
+    try {
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
+      
+      const processYerliData = (yerliData) => {
+        const yerliMapped = yerliData.map((r, idx) => {
+          const obj = { 
+            id: Math.random().toString(36).slice(2), 
+            siraNo: r['Sıra No'] || (idx + 1), 
+            makineId: r['Makine ID'] || '', 
+            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || '', 
+            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || '', 
+            adi: r['Adı ve Özelliği'] || r['Adı'] || '', 
+            miktar: r['Miktarı'] || r['Miktar'] || 0, 
+            birim: r['Birimi'] || r['Birim'] || '', 
+            birimAciklamasi: r['Birim Açıklaması'] || '', 
+            birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'] || r['Birim Fiyatı'] || 0, 
+            toplamTl: r['Toplam Tutar (TL)'] || r['Toplam Tutarı'] || r['Toplam Tutar'] || 0, 
+            kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV Muafiyeti (EVET/HAYIR)'] || r['KDV İstisnası'] || 'HAYIR', 
+            makineTechizatTipi: r['Makine Teçhizat Tipi'] || 'Ana Makine', 
+            finansalKiralamaMi: r['Finansal Kiralama Mı'] || 'HAYIR', 
+            finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || r['Finansal Kiralama İzin Verilen Miktar'] || 0, 
+            finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', 
+            gerceklesenAdet: r['Gerçekleşen Adet'] || r['Fatura Gerçekleşen Miktar'] || 0, 
+            gerceklesenTutar: r['Gerçekleşen Tutar '] || r['Fatura Gerçekleşen Değer'] || 0, 
+            iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
+            iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
+            iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
+            dosyalar: [] 
+          };
+          const errs = [];
+          if (!obj.adi) errs.push('Adı boş');
+          if (!obj.birim) errs.push('Birim boş');
+          if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
+          if (errs.length) obj._errors = errs;
+          return calcYerli(obj);
+        });
+        setYerliRows(yerliMapped);
+        if (yerliMapped.length > 0) openToast('success', `${yerliMapped.length} adet yerli makine içe aktarıldı.`);
+      };
+
+      const processIthalData = (ithalData) => {
+        const ithalMapped = ithalData.map((r, idx) => {
+          const obj = { 
+            id: Math.random().toString(36).slice(2), 
+            siraNo: r['Sıra No'] || (idx + 1), 
+            makineId: r['Makine ID'] || '', 
+            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || '', 
+            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || '', 
+            adi: r['Adı ve Özelliği'] || r['Adı'] || '', 
+            miktar: r['Miktarı'] || r['Miktar'] || 0, 
+            birim: r['Birimi'] || r['Birim'] || '', 
+            birimAciklamasi: r['Birim Açıklaması'] || '', 
+            birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'] || r['Menşe Ülke Döviz Birim Fiyatı'] || 0, 
+            doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'] || r['Döviz Cinsi'] || '', 
+            toplamUsd: r['Toplam Tutar (FOB $)'] || r['Toplam Tutar (FOB$)'] || 0, 
+            toplamTl: r['Toplam Tutar (FOB TL)'] || r['Toplam Tutar (FOBTL)'] || 0, 
+            kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'] || r['Kullanılmış Mı?'] || 'HAYIR', 
+            kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', 
+            makineTechizatTipi: r['Makine Teçhizat Tipi'] || 'Ana Makine', 
+            kdvMuafiyeti: r['KDV Muafiyeti'] || 'EVET', 
+            gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || 'EVET', 
+            finansalKiralamaMi: r['Finansal Kiralama Mı'] || 'HAYIR', 
+            finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || r['Finansal Kiralama İzin Verilen Miktar'] || 0, 
+            finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', 
+            gerceklesenAdet: r['Gerçekleşen Adet'] || r['Gümrük Gerçekleşen Miktar'] || 0, 
+            gerceklesenTutar: r['Gerçekleşen Tutar '] || r['Gümrük Gerçekleşen Değer'] || 0, 
+            iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
+            iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
+            iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
+            ckdSkd: r['CKD'] || 'HAYIR', 
+            aracMi: 'HAYIR', 
+            dosyalar: [] 
+          };
+          const errs = [];
+          if (!obj.adi) errs.push('Adı boş');
+          if (!obj.birim) errs.push('Birim boş');
+          if (!obj.doviz) errs.push('Döviz boş');
+          if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
+          if (errs.length) obj._errors = errs;
+          return calcIthal(obj);
+        });
+        setIthalRows(ithalMapped);
+        if (ithalMapped.length > 0) openToast('success', `${ithalMapped.length} adet ithal makine içe aktarıldı.`);
+      };
+
+      if (isCsv) {
+        // Handle CSV specifically for semi-colon delimited or standard
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) {
+          openToast('error', 'CSV dosyası boş veya hatalı formatta.');
+          return;
+        }
+
+        // Determine delimiter (comma or semi-colon)
+        const delimiter = lines[0].includes(';') ? ';' : ',';
+        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+        
+        const data = lines.slice(1).map(line => {
+          const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+          let obj = {};
+          headers.forEach((h, i) => {
+            obj[h] = values[i] || '';
+          });
+          return obj;
+        });
+
+        const upperName = file.name.toUpperCase();
+        // İthal check: File name has ITHAL or column has 'Döviz Cinsi' or 'Menşe'
+        const isIthal = upperName.includes('İTHAL') || upperName.includes('ITHAL') || 
+                        headers.some(h => h.includes('Döviz') || h.includes('Menşe') || h.includes('FOB'));
+
+        if (isIthal) {
+          processIthalData(data);
+        } else {
+          processYerliData(data);
+        }
+      } else {
+        // Default Excel processing
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array' });
+        
+        const getSheetData = (possibleNames) => {
+          const name = possibleNames.find(n => wb.SheetNames.includes(n));
+          if (name) return XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '' });
+          return [];
+        };
+
+        const yerliData = getSheetData(['Yerli', 'YERLİ LİSTE', 'YERLI LISTE', 'YERLI', 'Yerli Liste']);
+        const ithalData = getSheetData(['İthal', 'Ithal', 'İTHAL LİSTE', 'ITHAL LISTE', 'İthal Liste']);
+        
+        if (yerliData.length) processYerliData(yerliData);
+        if (ithalData.length) processIthalData(ithalData);
+        
+        if (!yerliData.length && !ithalData.length) {
+          openToast('error', 'Excel dosyasında "Yerli" veya "İthal" isimli sekmeler bulunamadı.');
+        }
+      }
+    } catch (err) {
+      console.error("İçe aktarma hatası:", err);
+      openToast('error', 'Dosya okunurken veya dönüştürülürken bir hata oluştu');
+    }
   };
 
   const recalcIthalTotals = async () => {
@@ -3932,7 +4048,7 @@ const MakineYonetimi = () => {
             </span></Tooltip>
             <Tooltip title="İçe Aktar" arrow>
               <label>
-                <input type="file" accept=".xlsx" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} />
+                <input type="file" accept=".xlsx, .xls, .csv" hidden onChange={(e)=>{const f=e.target.files?.[0]; if(f) importExcel(f); e.target.value='';}} />
                 <IconButton component="span" size="small" sx={{ color: theme.accent }}>
                   <ImportIcon sx={{ fontSize: 17 }}/>
                 </IconButton>
