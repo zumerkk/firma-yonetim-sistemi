@@ -149,35 +149,102 @@ const DosyaTakipForm = () => {
     };
 
     // Firma seçildiğinde mevcut belgeleri ve GM ID'yi otomatik getir
-    // 🔧 FIX: Race-condition koruması eklendi - eski isteklerin sonuçları yeni sonuçları ezmesini önler
+    // 🔧 FIX v2: Hem Teşvik belgelerini (Eski + Yeni) hem de DosyaTakip taleplerini çeker
+    // Race-condition koruması eklendi - eski isteklerin sonuçları yeni sonuçları ezmesini önler
     const fetchFirmaBelgeleri = async (firmaObjectId) => {
         if (!firmaObjectId) return;
         const requestId = ++firmaBelgeRequestRef.current;
         try {
             setFirmaBelgeLoading(true);
-            setFirmaninBelgeleri([]); // Önceki sonuçları temizle
-            const { data } = await axios.get(`/dosya-takip?firma=${firmaObjectId}&limit=50`);
+            setFirmaninBelgeleri([]);
+
+            // 3 kaynağı paralel sorgula: Eski Teşvik, Yeni Teşvik, Dosya Takip
+            const [eskiTesvikRes, yeniTesvikRes, dosyaTakipRes] = await Promise.allSettled([
+                axios.get(`/tesvik/firma/${firmaObjectId}`),
+                axios.get(`/yeni-tesvik/firma/${firmaObjectId}`),
+                axios.get(`/dosya-takip?firma=${firmaObjectId}&limit=50`)
+            ]);
 
             // Race-condition: Bu istek artık güncel değilse sonucu yoksay
             if (requestId !== firmaBelgeRequestRef.current) return;
 
-            const belgeler = data?.data || [];
-            setFirmaninBelgeleri(Array.isArray(belgeler) ? belgeler : []);
+            // Her kaynaktan gelen verileri normalize et ve birleştir
+            const tumBelgeler = [];
+
+            // Eski Teşvik belgeleri
+            if (eskiTesvikRes.status === 'fulfilled') {
+                const eskiList = eskiTesvikRes.value?.data?.data || [];
+                (Array.isArray(eskiList) ? eskiList : []).forEach(t => {
+                    tumBelgeler.push({
+                        _id: t._id,
+                        _kaynak: 'Eski Teşvik',
+                        _kaynakRenk: '#3b82f6',
+                        takipId: t.tesvikId || t.gmId || '-',
+                        talepTuru: t.yatirimBilgileri?.yatirimKonusu || 'Teşvik Belgesi',
+                        durum: t.durumBilgileri?.genelDurum || '-',
+                        durumEtiketi: t.durumBilgileri?.genelDurum?.replace(/_/g, ' ') || '-',
+                        gmId: t.gmId,
+                        createdAt: t.createdAt,
+                        belgeId: t.belgeYonetimi?.belgeId || ''
+                    });
+                });
+            }
+
+            // Yeni Teşvik belgeleri
+            if (yeniTesvikRes.status === 'fulfilled') {
+                const yeniList = yeniTesvikRes.value?.data?.data || [];
+                (Array.isArray(yeniList) ? yeniList : []).forEach(t => {
+                    tumBelgeler.push({
+                        _id: t._id,
+                        _kaynak: 'Yeni Teşvik',
+                        _kaynakRenk: '#10b981',
+                        takipId: t.tesvikId || t.gmId || '-',
+                        talepTuru: t.yatirimBilgileri?.yatirimKonusu || 'Teşvik Belgesi',
+                        durum: t.durumBilgileri?.genelDurum || '-',
+                        durumEtiketi: t.durumBilgileri?.genelDurum?.replace(/_/g, ' ') || '-',
+                        gmId: t.gmId,
+                        createdAt: t.createdAt,
+                        belgeId: t.belgeYonetimi?.belgeId || ''
+                    });
+                });
+            }
+
+            // Dosya Takip talepleri
+            if (dosyaTakipRes.status === 'fulfilled') {
+                const dtList = dosyaTakipRes.value?.data?.data || [];
+                (Array.isArray(dtList) ? dtList : []).forEach(t => {
+                    tumBelgeler.push({
+                        _id: t._id,
+                        _kaynak: 'Dosya Takip',
+                        _kaynakRenk: '#f59e0b',
+                        takipId: t.takipId || '-',
+                        talepTuru: t.talepTuru || '-',
+                        durum: t.durum || '-',
+                        durumEtiketi: t.durumEtiketi || t.durum || '-',
+                        gmId: t.gmId,
+                        createdAt: t.createdAt,
+                        belgeId: t.belgeId || ''
+                    });
+                });
+            }
+
+            // Tarihe göre sırala (en yeni en üstte)
+            tumBelgeler.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+            setFirmaninBelgeleri(tumBelgeler);
 
             // İlk belgedeki GM ID'yi otomatik getir (varsa ve form'da boşsa)
-            if (Array.isArray(belgeler) && belgeler.length > 0) {
-                const ilkGmId = belgeler.find(b => b.gmId)?.gmId;
+            if (tumBelgeler.length > 0) {
+                const ilkGmId = tumBelgeler.find(b => b.gmId)?.gmId;
                 if (ilkGmId) {
                     setFormData(prev => prev.gmId ? prev : ({ ...prev, gmId: ilkGmId }));
                 }
             }
         } catch (err) {
-            // Race-condition: Bu istek artık güncel değilse hata yoksay
             if (requestId !== firmaBelgeRequestRef.current) return;
             console.error('Firma belgeleri yüklenemedi:', err);
             setFirmaninBelgeleri([]);
         } finally {
-            // Race-condition: Sadece güncel istek loading'i kapatabilir
             if (requestId === firmaBelgeRequestRef.current) {
                 setFirmaBelgeLoading(false);
             }
@@ -365,29 +432,44 @@ const DosyaTakipForm = () => {
                                     )}
                                     {firmaninBelgeleri.length > 0 && (
                                         <List dense sx={{ p: 0 }}>
-                                            {firmaninBelgeleri.slice(0, 10).map((belge, idx) => (
+                                            {firmaninBelgeleri.slice(0, 15).map((belge, idx) => (
                                                 <ListItem key={belge._id || idx} sx={{ px: 0, py: 0.5 }}>
                                                     <ListItemIcon sx={{ minWidth: 32 }}>
-                                                        <InfoIcon sx={{ fontSize: 16, color: '#94a3b8' }} />
+                                                        <InfoIcon sx={{ fontSize: 16, color: belge._kaynakRenk || '#94a3b8' }} />
                                                     </ListItemIcon>
                                                     <ListItemText
                                                         primary={
-                                                            <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                                                                <strong>{belge.takipId}</strong> — {belge.talepTuru || '-'}
-                                                            </Typography>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                <Chip
+                                                                    label={belge._kaynak || 'Belge'}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.65rem',
+                                                                        fontWeight: 600,
+                                                                        backgroundColor: belge._kaynakRenk ? `${belge._kaynakRenk}20` : '#e2e8f0',
+                                                                        color: belge._kaynakRenk || '#64748b',
+                                                                        border: `1px solid ${belge._kaynakRenk || '#94a3b8'}40`
+                                                                    }}
+                                                                />
+                                                                <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
+                                                                    <strong>{belge.takipId}</strong> — {belge.talepTuru || '-'}
+                                                                </Typography>
+                                                            </Box>
                                                         }
                                                         secondary={
                                                             <Typography variant="caption" sx={{ color: '#64748b' }}>
                                                                 {belge.durumEtiketi || belge.durum || '-'} • {belge.createdAt ? new Date(belge.createdAt).toLocaleDateString('tr-TR') : '-'}
                                                                 {belge.gmId && ` • GM ID: ${belge.gmId}`}
+                                                                {belge.belgeId && ` • Belge: ${belge.belgeId}`}
                                                             </Typography>
                                                         }
                                                     />
                                                 </ListItem>
                                             ))}
-                                            {firmaninBelgeleri.length > 10 && (
+                                            {firmaninBelgeleri.length > 15 && (
                                                 <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
-                                                    ... ve {firmaninBelgeleri.length - 10} belge daha
+                                                    ... ve {firmaninBelgeleri.length - 15} belge daha
                                                 </Typography>
                                             )}
                                         </List>
