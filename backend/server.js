@@ -137,8 +137,8 @@ const connectDB = async () => {
         console.log(`⏳ ${RETRY_DELAY_MS / 1000} saniye sonra tekrar denenecek...`);
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       } else {
-        console.error('💀 MongoDB bağlantısı tüm denemelerde başarısız oldu. Sunucu kapatılıyor.');
-        process.exit(1);
+        console.error('💀 MongoDB bağlantısı tüm denemelerde başarısız oldu.');
+        throw new Error('MongoDB bağlantısı kurulamadı');
       }
     }
   }
@@ -366,26 +366,32 @@ const setupCronJobs = () => {
 
 // 🚀 Server'ı başlat
 const startServer = async () => {
-  await connectDB();
-
-  // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
-  try {
-    const { fixDestekSiniflari } = require('./fixDestekSiniflari');
-    await fixDestekSiniflari(true);
-    console.log('✅ Destek sınıfı verileri kontrol edildi/düzeltildi');
-  } catch (err) {
-    console.error('⚠️ Destek sınıfı düzeltme hatası (kritik değil):', err.message);
-  }
-
-  // Cron job'larını başlat
-  setupCronJobs();
-
+  // 🚀 ÖNCELİKLE Express server'ı başlat (Render port timeout'unu önle)
   app.listen(PORT, () => {
     console.log(`\n🚀 Server çalışıyor: http://localhost:${PORT}`);
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📊 API dokümantasyonu: http://localhost:${PORT}/`);
     console.log('🎯 Ctrl+C ile durdurabilirsiniz\n');
   });
+
+  // Cron job'larını başlat
+  setupCronJobs();
+
+  // 🗄️ MongoDB'ye arka planda bağlan (server port açıldıktan sonra)
+  try {
+    await connectDB();
+
+    // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
+    try {
+      const { fixDestekSiniflari } = require('./fixDestekSiniflari');
+      await fixDestekSiniflari(true);
+      console.log('✅ Destek sınıfı verileri kontrol edildi/düzeltildi');
+    } catch (err) {
+      console.error('⚠️ Destek sınıfı düzeltme hatası (kritik değil):', err.message);
+    }
+  } catch (dbError) {
+    console.error('❌ MongoDB bağlantısı kurulamadı ama server çalışmaya devam ediyor:', dbError.message);
+  }
 };
 
 // 💀 Graceful shutdown
@@ -396,7 +402,8 @@ process.on('SIGINT', () => {
 
 process.on('unhandledRejection', (err) => {
   console.error('🚨 Unhandled Rejection:', err);
-  process.exit(1);
+  // Render'da process.exit yapmak yerine sadece logla
+  // process.exit(1);
 });
 
 startServer();
