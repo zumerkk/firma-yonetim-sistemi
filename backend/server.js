@@ -93,19 +93,54 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // 📁 Static file serving for uploads
 app.use('/uploads', express.static('uploads'));
 
-// 🗄️ MongoDB bağlantısı
+// 🗄️ MongoDB bağlantısı (Render free tier cold-start dayanıklılığı)
 const connectDB = async () => {
-  try {
-    // Modern Mongoose artık bu seçenekleri otomatik olarak kullanıyor
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/firma-yonetim');
-    console.log(`✅ MongoDB Bağlandı: ${conn.connection.host}`);
+  const MAX_RETRIES = 5;
+  const RETRY_DELAY_MS = 5000; // 5 saniye bekle her denemede
 
-    // 🔧 FIX: Problematik unique index'leri temizle
-    await cleanupProblematicIndexes(conn);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      console.log(`🔄 MongoDB bağlantı denemesi ${attempt}/${MAX_RETRIES}...`);
 
-  } catch (error) {
-    console.error('❌ MongoDB bağlantı hatası:', error.message);
-    process.exit(1);
+      const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/firma-yonetim', {
+        // Render free tier cold-start için artırılmış timeout'lar
+        connectTimeoutMS: 60000,        // 60 saniye (default 30s)
+        serverSelectionTimeoutMS: 60000, // 60 saniye 
+        socketTimeoutMS: 90000,          // 90 saniye
+        heartbeatFrequencyMS: 15000,     // 15 saniye
+        maxPoolSize: 10,
+        minPoolSize: 2,
+        retryWrites: true,
+        retryReads: true,
+      });
+      console.log(`✅ MongoDB Bağlandı: ${conn.connection.host} (deneme ${attempt})`);
+
+      // Bağlantı event listener'ları
+      mongoose.connection.on('disconnected', () => {
+        console.warn('⚠️ MongoDB bağlantısı kesildi, yeniden bağlanmaya çalışılıyor...');
+      });
+      mongoose.connection.on('reconnected', () => {
+        console.log('✅ MongoDB yeniden bağlandı!');
+      });
+      mongoose.connection.on('error', (err) => {
+        console.error('❌ MongoDB connection error:', err.message);
+      });
+
+      // 🔧 FIX: Problematik unique index'leri temizle
+      await cleanupProblematicIndexes(conn);
+      return; // Başarılı bağlantı, döngüden çık
+
+    } catch (error) {
+      console.error(`❌ MongoDB bağlantı hatası (deneme ${attempt}/${MAX_RETRIES}):`, error.message);
+
+      if (attempt < MAX_RETRIES) {
+        console.log(`⏳ ${RETRY_DELAY_MS / 1000} saniye sonra tekrar denenecek...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      } else {
+        console.error('💀 MongoDB bağlantısı tüm denemelerde başarısız oldu. Sunucu kapatılıyor.');
+        process.exit(1);
+      }
+    }
   }
 };
 
