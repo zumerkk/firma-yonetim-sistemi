@@ -37,6 +37,7 @@ const oecdKategoriRoutes = require('./routes/oecdKategori'); // 🌍 OECD Katego
 const naceRoutes = require('./routes/nace'); // 🌐 NACE 6-lı Kodları API
 const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
 const dosyaTakipRoutes = require('./routes/dosyaTakip'); // 📋 Dosya İş Akış Takip Sistemi
+const tesvikImportRoutes = require('./routes/tesvikImport'); // 📊 Excel/CSV Teşvik Import Sistemi
 
 const app = express();
 // Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
@@ -304,6 +305,7 @@ app.use('/api/oecd-kategori', oecdKategoriRoutes); // 🌍 OECD Kategori API
 app.use('/api/lookup', lookupRoutes); // 🔎 Unit & Currency lookup API
 app.use('/api/nace', naceRoutes); // 🌐 NACE 6-lı Kodları API
 app.use('/api/dosya-takip', dosyaTakipRoutes); // 📋 Dosya İş Akış Takip Sistemi
+app.use('/api/tesvik-import', tesvikImportRoutes); // 📊 Excel/CSV Teşvik Import Sistemi
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {

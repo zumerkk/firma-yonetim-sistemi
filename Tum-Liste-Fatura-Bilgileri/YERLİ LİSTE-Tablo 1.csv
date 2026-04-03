@@ -1,0 +1,6 @@
+Sıra No;Adı ve Özelliği;Miktarı;Birim;Birim Fiyatı;Toplam Tutarı;KDV İstisnası;Finansal Kiralama İzin Verilen Miktar;Finansal Kiralama İzin Verilen Değer;Devir Giden Miktar;Devir Giden Değer;Devir Gelen Miktar;Devir Gelen Tutar;Satış İzin Verilen Miktar;Satış İzin Verilen Değer;İhraç İzin Verilen Miktar;İhraç İzin Verilen Değer;Fatura Gerçekleşen Miktar;Fatura Gerçekleşen Değer;Finansal Kiralama Gerçekleşen Miktar;Finansal Kiralama Gerçekleşen Değer
+1;Kompresör Aksesuarları ile Birlikte Komple;1;ADET(UNIT);0;90000;EVET;0;0;0;0;0;0;0;0;0;0;0;0;0;0
+2;Forklift;1;ADET(UNIT);0;90000;EVET;0;0;0;0;0;0;0;0;0;0;0;0;0;0
+3;Trafo ve Ataşmanları ile Birlikte Komple {BİNA-İNŞAAT-TESİSAT HARİÇ};1;ADET(UNIT);0;100000;EVET;0;0;0;0;0;0;0;0;0;0;0;0;0;0
+4;Üretim İçin Cad/Cam Tasarım Yazılımı Aksesuarları ile Birlikte Komple;1;ADET(UNIT);0;90000;EVET;0;0;0;0;0;0;0;0;0;0;0;0;0;0
+5;Bilgisayar (Üretim İçin) Aksesuarları ile Birlikte Komple;2;ADET(UNIT);0;20000;EVET;0;0;0;0;0;0;0;0;0;0;0;0;0;0

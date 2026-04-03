@@ -58,6 +58,21 @@ const yeniTesvikService = {
   async updateMakineRevizyonMeta(id, revizeId, meta) {
     const res = await api.patch(`/yeni-tesvik/${id}/makine-revizyon/meta`, { revizeId, meta });
     return res.data;
+  },
+
+  // 📊 Excel/CSV Teşvik Import Servisleri
+  async uploadPreview(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/tesvik-import/upload-preview', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000 // 60s timeout (büyük dosyalar için)
+    });
+    return res.data;
+  },
+  async confirmImport(importSessionId, selectedRows = null) {
+    const res = await api.post('/tesvik-import/confirm', { importSessionId, selectedRows });
+    return res.data;
   }
 };
 

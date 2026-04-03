@@ -35,6 +35,7 @@ import YeniTesvikList from '../pages/YeniTesvik/YeniTesvikList';
 import YeniTesvikForm from '../pages/YeniTesvik/YeniTesvikForm';
 import YeniTesvikDetail from '../pages/YeniTesvik/YeniTesvikDetail';
 import YeniMakineYonetimi from '../pages/YeniTesvik/MakineYonetimi';
+import TesvikImport from '../pages/YeniTesvik/TesvikImport';
 
 // 📋 Dosya İş Akış Takip Sistemi Pages
 import DosyaTakipDashboard from '../pages/DosyaTakip/DosyaTakipDashboard';
@@ -175,6 +176,13 @@ const AppRouter = () => {
       <Route path="/yeni-tesvik/:id/duzenle" element={
         <ProtectedRoute permission="belgeDuzenle">
           <YeniTesvikForm />
+        </ProtectedRoute>
+      } />
+
+      {/* 📊 Yeni Teşvik - Excel/CSV Import */}
+      <Route path="/yeni-tesvik/import" element={
+        <ProtectedRoute permission="belgeEkle">
+          <TesvikImport />
         </ProtectedRoute>
       } />
 

@@ -467,6 +467,29 @@ const YeniTesvikDashboard = () => {
                         Teşvik Listesi
                       </Button>
                     </Grid>
+
+                    {user?.yetkiler?.belgeEkle && (
+                      <Grid item xs={12}>
+                        <Button
+                          fullWidth
+                          variant="outlined"
+                          color="secondary"
+                          startIcon={<EmojiEventsIcon />}
+                          onClick={() => navigate('/yeni-tesvik/import')}
+                          sx={{
+                            py: 1.5,
+                            borderColor: '#6d28d9',
+                            color: '#6d28d9',
+                            '&:hover': {
+                              borderColor: '#5b21b6',
+                              bgcolor: 'rgba(109, 40, 217, 0.04)'
+                            }
+                          }}
+                        >
+                          📊 Excel'den Import
+                        </Button>
+                      </Grid>
+                    )}
                   </Grid>
 
                   <Divider sx={{ my: 3 }} />
