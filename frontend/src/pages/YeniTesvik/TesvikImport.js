@@ -44,7 +44,7 @@ import {
   Article as ArticleIcon,
 } from '@mui/icons-material';
 
-import MainLayout from '../../components/Layout/MainLayout';
+import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import yeniTesvikService from '../../services/yeniTesvikService';
 
 // ═════════════════════════════════ STYLES ═════════════════════════════════
@@ -824,7 +824,7 @@ const TesvikImport = () => {
   const steps = ['Dosya Yükle', 'Önizle & Doğrula', 'Tamamlandı'];
 
   return (
-    <MainLayout>
+    <LayoutWrapper>
       <Box sx={styles.pageContainer}>
         <Box sx={{ maxWidth: 1400, mx: 'auto', px: 3, pt: 4 }}>
           {/* Hero Section */}
@@ -894,7 +894,7 @@ const TesvikImport = () => {
           {activeStep === 2 && renderSuccessStep()}
         </Box>
       </Box>
-    </MainLayout>
+    </LayoutWrapper>
   );
 };
 
