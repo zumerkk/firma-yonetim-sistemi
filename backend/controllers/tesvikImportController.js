@@ -245,18 +245,36 @@ const parseOzelSartlar = (row) => {
 
 // ────────────────────────── MALİ HESAPLAMALAR PARSER ──────────────────────────
 const parseMaliHesaplamalar = (row) => {
+  const araziArsa = cleanTurkishNumber(row['ARAZİ ARSA BEDELİ']);
+  const binaInsaat = cleanTurkishNumber(row['TOPLAM BİNA İNŞAAT GİDERİ']);
+  const makinaToplam = cleanTurkishNumber(row['Toplam Makine Teçhizat']);
+  const digerYatirim = cleanTurkishNumber(row['TOPLAM DİĞER YATIRIM HARCAMALARI']);
+  const finansmanToplam = cleanTurkishNumber(row['TOPLAM FİNANSMAN']);
+  
+  // 🔧 FIX: toplamSabitYatirim — Excel'den geliyorsa onu kullan,
+  // yoksa alt bileşenlerden otomatik hesapla
+  let toplamSabit = cleanTurkishNumber(row['TOPLAM SABİT YATIRIM TUTARI TL']);
+  if (!toplamSabit) {
+    // Alt bileşenlerden hesapla: arazi + bina + makine + diğer
+    toplamSabit = araziArsa + binaInsaat + makinaToplam + digerYatirim;
+  }
+  // Hala 0 ise finansman toplamını kullan (çoğu durumda eşit)
+  if (!toplamSabit && finansmanToplam > 0) {
+    toplamSabit = finansmanToplam;
+  }
+  
   return {
     maliyetlenen: {
       aciklama: String(row['Arazi-Arsa Bedeli Açıklama'] || '').trim(),
       sl: cleanTurkishNumber(row['Metrekaresi']),
       sm: cleanTurkishNumber(row['Birim Fiyatı TL']),
-      sn: cleanTurkishNumber(row['ARAZİ ARSA BEDELİ'])
+      sn: araziArsa
     },
     binaInsaatGideri: {
       aciklama: String(row['Bina İnşaat Gideri Açıklama'] || '').trim(),
       anaBinaGideri: cleanTurkishNumber(row['Ana Bina ve Tesisleri']),
       yardimciBinaGideri: cleanTurkishNumber(row['Yardımcı İş. Bina ve Tesisleri']),
-      toplamBinaGideri: cleanTurkishNumber(row['TOPLAM BİNA İNŞAAT GİDERİ'])
+      toplamBinaGideri: binaInsaat
     },
     yatirimHesaplamalari: {
       et: cleanTurkishNumber(row['Yardımcı İşl. Mak. Teç. Gid.']),
@@ -265,12 +283,12 @@ const parseMaliHesaplamalar = (row) => {
       ew: cleanTurkishNumber(row['Montaj Giderleri']),
       ex: cleanTurkishNumber(row['Etüd ve Proje Giderleri']),
       ey: cleanTurkishNumber(row['Diğer Giderleri']),
-      ez: cleanTurkishNumber(row['TOPLAM DİĞER YATIRIM HARCAMALARI'])
+      ez: digerYatirim
     },
     makinaTechizat: {
       ithalMakina: cleanTurkishNumber(row['İthal']),
       yerliMakina: cleanTurkishNumber(row['Yerli']),
-      toplamMakina: cleanTurkishNumber(row['Toplam Makine Teçhizat']),
+      toplamMakina: makinaToplam,
       yeniMakina: cleanTurkishNumber(row['Yeni Makine']),
       kullanimisMakina: cleanTurkishNumber(row['Kullanılmış Makine']),
       toplamYeniMakina: cleanTurkishNumber(row['TOPLAM İTHAL MAKİNE ($)'])
@@ -278,9 +296,13 @@ const parseMaliHesaplamalar = (row) => {
     finansman: {
       yabanciKaynak: cleanTurkishNumber(row['Toplam Yabancı Kaynak']),
       ozKaynak: cleanTurkishNumber(row['Öz kaynak']),
-      toplamFinansman: cleanTurkishNumber(row['TOPLAM FİNANSMAN'])
+      toplamFinansman: finansmanToplam
     },
-    toplamSabitYatirim: cleanTurkishNumber(row['TOPLAM SABİT YATIRIM TUTARI TL']),
+    // 🔧 FIX: toplamSabitYatirim — alt bileşenlerden hesaplanmış veya Excel'den gelen
+    toplamSabitYatirim: toplamSabit,
+    // 🔧 FIX: araciArsaBedeli — frontend bu alanı okuyor, maliyetlenen.sn ile senkron
+    araciArsaBedeli: araziArsa,
+    yatiriminTutari: toplamSabit,
     idareBindalari: cleanTurkishNumber(row['İdare Binaları'])
   };
 };

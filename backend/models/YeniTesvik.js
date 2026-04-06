@@ -868,6 +868,33 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
   const finansman = this.maliHesaplamalar.finansman;
   finansman.toplamFinansman = (finansman.yabanciKaynak || 0) + (finansman.ozKaynak || 0);
   
+  // 🔧 FIX: araciArsaBedeli senkronizasyonu — maliyetlenen.sn'den üst seviye alana kopyala
+  // Frontend araciArsaBedeli'ni okuyor, import ise maliyetlenen.sn'ye yazıyor
+  if (this.maliHesaplamalar.maliyetlenen.sn && !this.maliHesaplamalar.araciArsaBedeli) {
+    this.maliHesaplamalar.araciArsaBedeli = this.maliHesaplamalar.maliyetlenen.sn;
+  }
+  if (this.maliHesaplamalar.araciArsaBedeli && !this.maliHesaplamalar.maliyetlenen.sn) {
+    this.maliHesaplamalar.maliyetlenen.sn = this.maliHesaplamalar.araciArsaBedeli;
+  }
+  
+  // 🔧 FIX: TOPLAM SABİT YATIRIM TUTARI otomatik hesaplama
+  // Excel import'ta bu alan genellikle boş geliyor → alt bileşenlerden hesapla
+  const araziArsa = this.maliHesaplamalar.maliyetlenen?.sn || this.maliHesaplamalar.araciArsaBedeli || 0;
+  const binaInsaat = this.maliHesaplamalar.binaInsaatGideri?.toplamBinaGideri || 0;
+  const makinaToplam = makina.toplamMakina || 0;
+  const digerYatirim = yatirim.ez || 0;
+  const hesaplananToplam = araziArsa + binaInsaat + makinaToplam + digerYatirim;
+  
+  // Eğer toplamSabitYatirim 0 veya boşsa → alt bileşenlerden hesapla
+  if (!this.maliHesaplamalar.toplamSabitYatirim && hesaplananToplam > 0) {
+    this.maliHesaplamalar.toplamSabitYatirim = hesaplananToplam;
+  }
+  
+  // 🔧 FIX: yatiriminTutari senkronizasyonu  
+  if (!this.maliHesaplamalar.yatiriminTutari && this.maliHesaplamalar.toplamSabitYatirim) {
+    this.maliHesaplamalar.yatiriminTutari = this.maliHesaplamalar.toplamSabitYatirim;
+  }
+  
   // İstihdam toplamı
   this.istihdam.toplamKisi = (this.istihdam.mevcutKisi || 0) + (this.istihdam.ilaveKisi || 0);
   
