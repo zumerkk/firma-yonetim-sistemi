@@ -1012,65 +1012,87 @@ const YeniTesvikDetail = () => {
               <Chip label="Form Verileri" size="small" sx={{ ml: 'auto', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '0.6rem', height: 20 }} />
             </Box>
 
-            {/* Ana Toplam */}
-            <Paper sx={{
-              p: 2,
-              mb: 1.5,
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-              color: 'white',
-              borderRadius: 2
-            }}>
-              <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                ₺{Number(tesvik.maliHesaplamalar?.toplamSabitYatirim || 0).toLocaleString('tr-TR')}
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.9 }}>
-                TOPLAM SABİT YATIRIM TUTARI TL
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                Ana yatırım tutarı • Form verisi
-              </Typography>
-            </Paper>
+            {/* Ana Toplam — DB'deki değer 0 ise alt bileşenlerden hesapla */}
+            {(() => {
+              const mali = tesvik.maliHesaplamalar || {};
+              const araziArsa = Number(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn || 0);
+              const binaInsaat = Number(mali.binaInsaatGideri?.toplamBinaGideri || 0);
+              const makinaToplam = Number(mali.makinaTechizat?.toplamMakina || 0);
+              const digerYatirim = Number(mali.yatirimHesaplamalari?.ez || 0);
+              const finansmanToplam = Number(mali.finansman?.toplamFinansman || 0);
+              
+              // toplamSabitYatirim: DB'den varsa onu al, yoksa alt bileşenlerden hesapla, yoksa finansmandan al
+              let toplamSabit = Number(mali.toplamSabitYatirim || 0);
+              if (!toplamSabit) {
+                toplamSabit = araziArsa + binaInsaat + makinaToplam + digerYatirim;
+              }
+              if (!toplamSabit && finansmanToplam > 0) {
+                toplamSabit = finansmanToplam;
+              }
 
-            {/* Finansal Detay Kartları */}
-            <Grid container spacing={0.5}>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef7cd', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400e', mb: 0.5, fontSize: '0.6rem' }}>Arazi Arsa Bedeli</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.araciArsaBedeli || tesvik.maliHesaplamalar?.araziArsaBedeli || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dcfce7', border: '1px solid #4ade80', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', mb: 0.5, fontSize: '0.6rem' }}>Bina İnşaat Giderleri</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#15803d', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dbeafe', border: '1px solid #60a5fa', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#1e40af', mb: 0.5, fontSize: '0.6rem' }}>Finansman TL</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fae8ff', border: '1px solid #c084fc', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', mb: 0.5, fontSize: '0.6rem' }}>Makine Teçhizat</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#dc2626', mb: 0.5, fontSize: '0.6rem' }}>Diğer Yatırım Harc.</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', mb: 0.5, fontSize: '0.6rem' }}>Finansal Durum</Typography>
-                  <Chip label="✓ Hazır" size="small" sx={{ backgroundColor: '#10b981', color: 'white', fontWeight: 600, fontSize: '0.6rem', height: 18 }} />
-                </Paper>
-              </Grid>
-            </Grid>
+              return (
+                <>
+                  <Paper sx={{
+                    p: 2,
+                    mb: 1.5,
+                    textAlign: 'center',
+                    background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+                    color: 'white',
+                    borderRadius: 2
+                  }}>
+                    <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                      ₺{toplamSabit.toLocaleString('tr-TR')}
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.9 }}>
+                      TOPLAM SABİT YATIRIM TUTARI TL
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
+                      Ana yatırım tutarı • {mali.toplamSabitYatirim ? 'Form verisi' : 'Hesaplanan'}
+                    </Typography>
+                  </Paper>
+
+                  {/* Finansal Detay Kartları */}
+                  <Grid container spacing={0.5}>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef7cd', border: '1px solid #fbbf24', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400e', mb: 0.5, fontSize: '0.6rem' }}>Arazi Arsa Bedeli</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{araziArsa.toLocaleString('tr-TR')}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dcfce7', border: '1px solid #4ade80', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', mb: 0.5, fontSize: '0.6rem' }}>Bina İnşaat Giderleri</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#15803d', fontSize: '0.8rem' }}>₺{binaInsaat.toLocaleString('tr-TR')}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dbeafe', border: '1px solid #60a5fa', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#1e40af', mb: 0.5, fontSize: '0.6rem' }}>Finansman TL</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{finansmanToplam.toLocaleString('tr-TR')}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fae8ff', border: '1px solid #c084fc', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', mb: 0.5, fontSize: '0.6rem' }}>Makine Teçhizat</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{makinaToplam.toLocaleString('tr-TR')}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#dc2626', mb: 0.5, fontSize: '0.6rem' }}>Diğer Yatırım Harc.</Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>₺{digerYatirim.toLocaleString('tr-TR')}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={6} sm={4} md={2}>
+                      <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: 1 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', mb: 0.5, fontSize: '0.6rem' }}>Finansal Durum</Typography>
+                        <Chip label="✓ Hazır" size="small" sx={{ backgroundColor: '#10b981', color: 'white', fontWeight: 600, fontSize: '0.6rem', height: 18 }} />
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                </>
+              );
+            })()}
           </Paper>
 
           {/* 📦 ÜRÜN BİLGİLERİ & US97 KODLARI */}
