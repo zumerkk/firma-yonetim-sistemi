@@ -58,6 +58,18 @@ const tesvikService = {
   async updateMakineRevizyonMeta(id, revizeId, meta) {
     const res = await api.patch(`/tesvik/${id}/makine-revizyon/meta`, { revizeId, meta });
     return res.data;
+  },
+
+  // 📊 Excel Import (Eski Teşvik Sistemi)
+  async importUpload(formData) {
+    const res = await api.post('/eski-tesvik-import/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return res.data;
+  },
+  async importConfirm(importSessionId, selectedRows) {
+    const res = await api.post('/eski-tesvik-import/confirm', { importSessionId, selectedRows });
+    return res.data;
   }
 };
 

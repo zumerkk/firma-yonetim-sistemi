@@ -36,6 +36,7 @@ import YeniTesvikForm from '../pages/YeniTesvik/YeniTesvikForm';
 import YeniTesvikDetail from '../pages/YeniTesvik/YeniTesvikDetail';
 import YeniMakineYonetimi from '../pages/YeniTesvik/MakineYonetimi';
 import TesvikImport from '../pages/YeniTesvik/TesvikImport';
+import EskiTesvikImport from '../pages/Tesvik/EskiTesvikImport';
 
 // 📋 Dosya İş Akış Takip Sistemi Pages
 import DosyaTakipDashboard from '../pages/DosyaTakip/DosyaTakipDashboard';
@@ -145,6 +146,13 @@ const AppRouter = () => {
       <Route path="/tesvik/makine-yonetimi" element={
         <ProtectedRoute>
           <MakineYonetimi />
+        </ProtectedRoute>
+      } />
+
+      {/* 📊 Eski Teşvik - Excel Import */}
+      <Route path="/tesvik/import" element={
+        <ProtectedRoute permission="belgeEkle">
+          <EskiTesvikImport />
         </ProtectedRoute>
       } />
 
