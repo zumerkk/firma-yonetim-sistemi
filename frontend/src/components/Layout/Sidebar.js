@@ -31,7 +31,8 @@ import {
   AdminPanelSettings as AdminPanelSettingsIcon, // 🔐 Admin Panel ikonu
   Folder as FolderIcon, // 📁 File Manager ikonu
   BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
-  Assignment as AssignmentIcon // 📋 İş Akış Takip ikonu
+  Assignment as AssignmentIcon, // 📋 İş Akış Takip ikonu
+  ImportExport as ImportExportIcon // 📥 Import/Export ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -217,6 +218,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: 'linear-gradient(135deg, #0e7490, #0891b2)',
       permission: 'raporGoruntule',
       description: 'PDF/Excel raporlar',
+      isNew: true
+    },
+    {
+      text: 'Import Sihirbazı',
+      icon: <ImportExportIcon />,
+      path: '/import',
+      color: '#1e40af',
+      gradient: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
+      description: 'Genel ingest/import akışı',
       isNew: true
     }
   ];

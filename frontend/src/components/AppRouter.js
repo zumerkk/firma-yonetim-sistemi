@@ -56,6 +56,9 @@ import ReportCenter from '../pages/Reports/ReportCenter';
 // 📁 File Manager
 import FileManager from '../pages/Files/FileManager';
 
+// 📥 Import Wizard
+import ImportWizard from '../pages/Import/ImportWizard';
+
 const AppRouter = () => {
   // 🛡️ Page refresh handler - F5 basınca 404 engelleme
   usePageRefreshHandler();
@@ -251,6 +254,13 @@ const AppRouter = () => {
       <Route path="/dosyalar" element={
         <ProtectedRoute>
           <FileManager />
+        </ProtectedRoute>
+      } />
+
+      {/* 📥 Import Wizard */}
+      <Route path="/import" element={
+        <ProtectedRoute>
+          <ImportWizard />
         </ProtectedRoute>
       } />
 
