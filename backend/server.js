@@ -40,6 +40,7 @@ const dosyaTakipRoutes = require('./routes/dosyaTakip'); // 📋 Dosya İş Akı
 const tesvikImportRoutes = require('./routes/tesvikImport'); // 📊 Excel/CSV Teşvik Import Sistemi
 const eskiTesvikImportRoutes = require('./routes/eskiTesvikImport'); // 📊 Eski Teşvik Import Sistemi
 const backupRoutes = require('./routes/backup'); // 💾 Sistem Yedekleme
+const ingestRoutes = require('./routes/ingest'); // 🧠 Akıllı veri yükleme (preview/commit)
 
 const app = express();
 // Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
@@ -310,6 +311,7 @@ app.use('/api/dosya-takip', dosyaTakipRoutes); // 📋 Dosya İş Akış Takip S
 app.use('/api/tesvik-import', tesvikImportRoutes); // 📊 Excel/CSV Teşvik Import Sistemi
 app.use('/api/eski-tesvik-import', eskiTesvikImportRoutes); // 📊 Eski Teşvik Import Sistemi
 app.use('/api/backup', backupRoutes); // 💾 Sistem Yedekleme API
+app.use('/api/ingest', ingestRoutes); // 🧠 Akıllı veri yükleme (preview/commit)
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
