@@ -38,6 +38,8 @@ const SYNONYMS = {
   },
   DOSYA_TAKIP: {
     takipId: ['takipid', 'takip id', 'id'],
+    firmaId: ['firma id', 'firmaid'],
+    vergiNoTC: ['vergi no', 'vkn', 'tckn', 'vergino'],
     talepTuru: ['talepturu', 'talep türü', 'talep turu'],
     durum: ['durum', 'durum kodu', 'state'],
     anaAsama: ['ana aşama', 'ana asama', 'asama'],
@@ -48,4 +50,3 @@ const SYNONYMS = {
 };
 
 module.exports = { SYNONYMS, normalizeHeader };
-
