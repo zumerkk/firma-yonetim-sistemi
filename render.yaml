@@ -36,6 +36,8 @@ services:
         sync: false  # Manuel olarak Render dashboard'dan eklenecek
       - key: CLOUDINARY_API_SECRET
         sync: false  # Manuel olarak Render dashboard'dan eklenecek
+      - key: GEMINI_API_KEY
+        sync: false  # Opsiyonel: sadece import kolon eşleştirme fallback (backend)
     healthCheckPath: /api/health
 
   # 🎨 Frontend Service - React Web Service with SPA Routing

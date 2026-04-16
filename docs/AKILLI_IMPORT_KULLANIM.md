@@ -26,6 +26,8 @@ Backend `.env` dosyanıza şunları ekleyin:
 GEMINI_API_KEY=...          # opsiyonel (mapping fallback)
 ```
 
+> Not: Gemini anahtarını sohbet içinde paylaşmayın; iptal/rotate gerektirir.
+
 Ardından backend’i başlatın:
 
 ```bash
@@ -139,4 +141,3 @@ DT-0001,Revize Talebi,2.1.1_GORUSULUYOR,2.1,Örnek A.Ş.
 
 3) **Büyük dosyalar**
 - Preview session Phase-1’de payload satırlarını sınırlayabilir (ör. 2000 satır). Büyük import için chunk upload planlanacaktır.
-

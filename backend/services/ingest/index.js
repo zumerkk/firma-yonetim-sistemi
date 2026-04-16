@@ -5,6 +5,7 @@ const { IngestModule } = require('./types');
 const { parseXlsx } = require('./parsers/xlsxParser');
 const { parseCsv } = require('./parsers/csvParser');
 const { suggestGeminiMapping } = require('./mapping/geminiMapper');
+const { TARGET_FIELDS } = require('./mapping/targets');
 
 const IngestSession = require('../../models/IngestSession');
 
@@ -71,6 +72,8 @@ async function previewIngest({ userId, filename, buffer, opts = {} }) {
     classification,
     mapping,
     geminiSuggestion,
+    // UI tarafının "manuel mapping override" ekranında yardımcı olsun
+    targetFields: TARGET_FIELDS[classification.module] || [],
     requiredFieldCheck: [], // Phase-1 minimal
     rowPreview: sampleRows,
     ingestSessionId: session._id.toString(),
@@ -78,4 +81,3 @@ async function previewIngest({ userId, filename, buffer, opts = {} }) {
 }
 
 module.exports = { previewIngest, detectFileType };
-
