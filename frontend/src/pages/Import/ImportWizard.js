@@ -84,7 +84,7 @@ const ImportWizard = () => {
   const [commitLoading, setCommitLoading] = useState(false);
 
   const [previewData, setPreviewData] = useState(null);
-  const [previewId, setPreviewId] = useState(null);
+  const [ingestSessionId, setIngestSessionId] = useState(null);
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -141,9 +141,13 @@ const ImportWizard = () => {
     }
 
     const data = result.data;
-    const resolvedPreviewId = data?.previewId || data?.preview_id || data?.id || data?._id || null;
-
-    setPreviewData(data);
+    const resolvedSessionId =
+      data?.ingestSessionId ||
+      data?.ingest_session_id ||
+      data?.ingestSessionID ||
+      data?.previewId || // geriye dönük uyumluluk (eski UI)
+      null;
+    setIngestSessionId(resolvedSessionId);
     setPreviewId(resolvedPreviewId);
     setSuccess(result?.message || 'Önizleme hazır');
     setActiveStep(2);
@@ -154,9 +158,9 @@ const ImportWizard = () => {
     setSuccess(null);
     setCommitLoading(true);
 
-    const result = await ingestService.commitIngest({
-      previewId,
-      payload: previewId ? undefined : previewData,
+    const { data } = await ingestService.commitIngest({
+      ingestSessionId,
+      payload: ingestSessionId ? undefined : previewData,
     });
 
     setCommitLoading(false);
@@ -268,7 +272,7 @@ const ImportWizard = () => {
                     <>
                       <Divider sx={{ my: 2 }} />
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                        Önizleme Çıktısı {previewId ? `(previewId: ${previewId})` : ''}
+                        Önizleme Çıktısı {ingestSessionId ? `(ingestSessionId: ${ingestSessionId})` : ''}
                       </Typography>
                       <Box component="pre" sx={styles.codeBlock}>
                         {JSON.stringify(previewData, null, 2)}
@@ -317,4 +321,3 @@ const ImportWizard = () => {
 };
 
 export default ImportWizard;
-

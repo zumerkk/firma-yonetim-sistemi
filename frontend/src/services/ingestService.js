@@ -80,12 +80,12 @@ export const previewIngest = async ({ file, payload, params } = {}) => {
 
 /**
  * Commit: önizleme sonucunu kalıcılaştırır.
- * - previewId verilirse { previewId } JSON gönderir
+ * - ingestSessionId verilirse { ingestSessionId } JSON gönderir
  * - payload verilirse olduğu gibi gönderir
  */
-export const commitIngest = async ({ previewId, payload } = {}) => {
+export const commitIngest = async ({ ingestSessionId, payload } = {}) => {
   try {
-    const body = payload ?? (previewId ? { previewId } : {});
+    const body = payload ?? (ingestSessionId ? { ingestSessionId } : {});
     const response = await api.post('/ingest/commit', body);
     return handleResponse(response);
   } catch (error) {
