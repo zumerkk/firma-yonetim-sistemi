@@ -2,11 +2,15 @@ const IngestSession = require('../models/IngestSession');
 const { IngestModule } = require('../services/ingest/types');
 const { previewIngest } = require('../services/ingest');
 const { normalizeFirma, validateFirma, upsertFirma } = require('../services/ingest/ingestors/FirmaIngestor');
+const { normalizeDosyaTakip, validateDosyaTakip, upsertDosyaTakip } = require('../services/ingest/ingestors/DosyaTakipIngestor');
 const {
-  normalizeDosyaTakip,
-  validateDosyaTakip,
-  upsertDosyaTakip,
-} = require('../services/ingest/ingestors/DosyaTakipIngestor');
+  normalizeTesvik,
+  validateTesvik,
+  normalizeYeniTesvik,
+  validateYeniTesvik,
+  upsertTesvik,
+  upsertYeniTesvik,
+} = require('../services/ingest/ingestors/TesvikIngestor');
 
 exports.preview = async (req, res) => {
   try {
@@ -85,10 +89,35 @@ exports.commit = async (req, res) => {
           errors.push({ row: i + 1, issues: [e.message], raw: rows[i] });
         }
       }
+    } else if (session.module === IngestModule.TESVIK) {
+      for (let i = 0; i < rows.length; i++) {
+        const mapped = applyMapping(rows[i]);
+        const n = normalizeTesvik(mapped);
+        const issues = validateTesvik(n);
+        if (issues.length) {
+          errors.push({ row: i + 1, issues, raw: rows[i] });
+          continue;
+        }
+        const r = await upsertTesvik(n, { userId: req.user._id, mode });
+        results.push(r);
+      }
+    } else if (session.module === IngestModule.YENI_TESVIK) {
+      for (let i = 0; i < rows.length; i++) {
+        const mapped = applyMapping(rows[i]);
+        const n = normalizeYeniTesvik(mapped);
+        const issues = validateYeniTesvik(n);
+        if (issues.length) {
+          errors.push({ row: i + 1, issues, raw: rows[i] });
+          continue;
+        }
+        const r = await upsertYeniTesvik(n, { userId: req.user._id, mode });
+        results.push(r);
+      }
     } else {
-      return res
-        .status(400)
-        .json({ success: false, message: `module not supported in phase-1: ${session.module}` });
+      return res.status(400).json({
+        success: false,
+        message: `module not supported yet: ${session.module}`,
+      });
     }
 
     res.json({
@@ -107,4 +136,3 @@ exports.commit = async (req, res) => {
     res.status(500).json({ success: false, message: e.message });
   }
 };
-
