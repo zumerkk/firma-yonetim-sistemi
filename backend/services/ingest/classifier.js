@@ -4,6 +4,8 @@ const { normalizeHeader } = require('./mapping/synonyms');
 const scoreByPresence = (headersNorm, needles) =>
   needles.reduce((acc, n) => acc + (headersNorm.has(n) ? 1 : 0), 0);
 
+const normalizeNeedles = (normalizeHeaderFn, needles) => needles.map((n) => normalizeHeaderFn(n));
+
 function classify({ headers }) {
   const hs = (headers || []).map(normalizeHeader);
   const set = new Set(hs);
@@ -20,8 +22,15 @@ function classify({ headers }) {
       h.includes('bonustutari')
   );
 
-  const tesvikNeedlesCore = ['gmid', 'firmaid', 'yatirimciunvan', 'yatirimkonusu', 'desteksinifi', 'yerinil'];
-  const tesvikNeedlesBelge = ['belgeid', 'belgeno', 'belgetarihi'];
+  const tesvikNeedlesCore = normalizeNeedles(normalizeHeader, [
+    'gmId',
+    'firmaId',
+    'yatirimciUnvan',
+    'yatirimKonusu',
+    'destekSinifi',
+    'yerinIl',
+  ]);
+  const tesvikNeedlesBelge = normalizeNeedles(normalizeHeader, ['belgeId', 'belgeNo', 'belgeTarihi']);
   const tesvikCoreScore = scoreByPresence(set, tesvikNeedlesCore);
   const tesvikBelgeScore = scoreByPresence(set, tesvikNeedlesBelge);
 
@@ -48,8 +57,8 @@ function classify({ headers }) {
   }
 
   // Phase-1: Firma vs DosyaTakip
-  const firmaNeedles = ['vkn', 'vergi no', 'tam ünvan', 'adres', 'il', 'ilk irtibat'];
-  const dosyaNeedles = ['talep türü', 'talepturu', 'durum', 'ana asama', 'ana aşama', 'takipid'];
+  const firmaNeedles = normalizeNeedles(normalizeHeader, ['vkn', 'vergi no', 'tam ünvan', 'adres', 'il', 'ilk irtibat']);
+  const dosyaNeedles = normalizeNeedles(normalizeHeader, ['talep türü', 'talepturu', 'durum', 'ana asama', 'ana aşama', 'takipid']);
 
   const firmaScore = scoreByPresence(set, firmaNeedles);
   const dosyaScore = scoreByPresence(set, dosyaNeedles);
