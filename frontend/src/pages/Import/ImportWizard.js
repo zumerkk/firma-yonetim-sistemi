@@ -14,6 +14,10 @@ import {
   Alert,
   LinearProgress,
   Divider,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -85,6 +89,8 @@ const ImportWizard = () => {
 
   const [previewData, setPreviewData] = useState(null);
   const [ingestSessionId, setIngestSessionId] = useState(null);
+  const [mappingDraft, setMappingDraft] = useState({});
+  const [commitMode, setCommitMode] = useState('upsert');
 
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -109,7 +115,8 @@ const ImportWizard = () => {
 
   const resetFlow = () => {
     setPreviewData(null);
-    setPreviewId(null);
+    setIngestSessionId(null);
+    setMappingDraft({});
     setError(null);
     setSuccess(null);
   };
@@ -141,6 +148,7 @@ const ImportWizard = () => {
     }
 
     const data = result.data;
+    setPreviewData(data);
     const resolvedSessionId =
       data?.ingestSessionId ||
       data?.ingest_session_id ||
@@ -148,7 +156,16 @@ const ImportWizard = () => {
       data?.previewId || // geriye dönük uyumluluk (eski UI)
       null;
     setIngestSessionId(resolvedSessionId);
-    setPreviewId(resolvedPreviewId);
+
+    // Mapping draft: her header için seçili hedef alan
+    const headers = Array.isArray(data?.headers) ? data.headers : [];
+    const base = data?.mapping || {};
+    const draft = {};
+    headers.forEach((h) => {
+      draft[h] = base[h] || '';
+    });
+    setMappingDraft(draft);
+
     setSuccess(result?.message || 'Önizleme hazır');
     setActiveStep(2);
   };
@@ -158,8 +175,14 @@ const ImportWizard = () => {
     setSuccess(null);
     setCommitLoading(true);
 
-    const { data } = await ingestService.commitIngest({
+    const mappingOverrides = Object.fromEntries(
+      Object.entries(mappingDraft || {}).filter(([, v]) => Boolean(v))
+    );
+
+    const result = await ingestService.commitIngest({
       ingestSessionId,
+      mappingOverrides,
+      mode: commitMode,
       payload: ingestSessionId ? undefined : previewData,
     });
 
@@ -274,6 +297,50 @@ const ImportWizard = () => {
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
                         Önizleme Çıktısı {ingestSessionId ? `(ingestSessionId: ${ingestSessionId})` : ''}
                       </Typography>
+
+                      {/* Mapping override */}
+                      {Array.isArray(previewData?.headers) && previewData.headers.length > 0 && (
+                        <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr', gap: 1.25 }}>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                            Kolon Eşleştirme (gerekirse düzelt)
+                          </Typography>
+                          {previewData.headers.map((h) => (
+                            <Box
+                              key={h}
+                              sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', md: '1.1fr 0.9fr' },
+                                gap: 1,
+                                alignItems: 'center',
+                              }}
+                            >
+                              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                {h}
+                              </Typography>
+                              <FormControl size="small" fullWidth>
+                                <InputLabel>Hedef Alan</InputLabel>
+                                <Select
+                                  label="Hedef Alan"
+                                  value={mappingDraft?.[h] ?? ''}
+                                  onChange={(e) =>
+                                    setMappingDraft((prev) => ({ ...(prev || {}), [h]: e.target.value }))
+                                  }
+                                >
+                                  <MenuItem value="">
+                                    <em>(boş)</em>
+                                  </MenuItem>
+                                  {(previewData?.targetFields || []).map((f) => (
+                                    <MenuItem key={f} value={f}>
+                                      {f}
+                                    </MenuItem>
+                                  ))}
+                                </Select>
+                              </FormControl>
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+
                       <Box component="pre" sx={styles.codeBlock}>
                         {JSON.stringify(previewData, null, 2)}
                       </Box>
@@ -304,11 +371,25 @@ const ImportWizard = () => {
                       color="success"
                       startIcon={<SaveIcon />}
                       onClick={handleCommit}
-                      disabled={commitLoading || !previewData}
+                      disabled={commitLoading || !previewData || !ingestSessionId}
                       sx={{ textTransform: 'none', fontWeight: 800 }}
                     >
                       Commit Et
                     </Button>
+                  </Box>
+
+                  <Box sx={{ mt: 2, maxWidth: 260 }}>
+                    <FormControl size="small" fullWidth>
+                      <InputLabel>Commit modu</InputLabel>
+                      <Select
+                        label="Commit modu"
+                        value={commitMode}
+                        onChange={(e) => setCommitMode(e.target.value)}
+                      >
+                        <MenuItem value="upsert">upsert (önerilen)</MenuItem>
+                        <MenuItem value="create_only">create_only</MenuItem>
+                      </Select>
+                    </FormControl>
                   </Box>
                 </StepContent>
               </Step>

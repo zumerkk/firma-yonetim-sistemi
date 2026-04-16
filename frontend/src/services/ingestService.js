@@ -83,9 +83,17 @@ export const previewIngest = async ({ file, payload, params } = {}) => {
  * - ingestSessionId verilirse { ingestSessionId } JSON gönderir
  * - payload verilirse olduğu gibi gönderir
  */
-export const commitIngest = async ({ ingestSessionId, payload } = {}) => {
+export const commitIngest = async ({ ingestSessionId, mappingOverrides = {}, mode = 'upsert', payload } = {}) => {
   try {
-    const body = payload ?? (ingestSessionId ? { ingestSessionId } : {});
+    const body =
+      payload ??
+      (ingestSessionId
+        ? {
+            ingestSessionId,
+            mappingOverrides,
+            mode,
+          }
+        : {});
     const response = await api.post('/ingest/commit', body);
     return handleResponse(response);
   } catch (error) {
