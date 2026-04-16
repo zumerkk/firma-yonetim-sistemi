@@ -69,6 +69,7 @@ async function previewIngest({ userId, filename, buffer, opts = {} }) {
   return {
     fileType,
     meta: parsed.meta,
+    headers: parsed.headers,
     classification,
     mapping,
     geminiSuggestion,
