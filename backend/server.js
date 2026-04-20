@@ -41,6 +41,7 @@ const tesvikImportRoutes = require('./routes/tesvikImport'); // 📊 Excel/CSV T
 const eskiTesvikImportRoutes = require('./routes/eskiTesvikImport'); // 📊 Eski Teşvik Import Sistemi
 const backupRoutes = require('./routes/backup'); // 💾 Sistem Yedekleme
 const ingestRoutes = require('./routes/ingest'); // 🧠 Akıllı veri yükleme (preview/commit)
+const screenshotImportRoutes = require('./routes/screenshotImport'); // 📸 Ekran görüntüsünden teşvik oluşturma
 
 const app = express();
 // Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
@@ -50,6 +51,7 @@ app.set('trust proxy', 1);
 const allowedOrigins = [
   'http://localhost:3000', // Development
   'http://localhost:3001', // Development alternate
+  'http://localhost:3002', // Development alternate 2
   'https://cahit-firma-frontend.onrender.com', // Production frontend
   process.env.FRONTEND_URL // Environment'tan gelen URL
 ].filter(Boolean); // undefined değerleri filtrele
@@ -183,83 +185,85 @@ const cleanupProblematicIndexes = async (conn) => {
   }
 };
 
-// 🔍 DEBUG ENDPOINT - VERİTABANI VERİSİ KONTROL
-app.get('/debug/tesvik/:tesvikId', async (req, res) => {
-  try {
-    const tesvik = await Tesvik.findOne({ tesvikId: req.params.tesvikId }).lean();
-    if (!tesvik) {
-      return res.json({ error: 'Teşvik bulunamadı!' });
-    }
-
-    const result = {
-      tesvikId: tesvik.tesvikId,
-      destekUnsurlari: {
-        count: tesvik.destekUnsurlari?.length || 0,
-        data: tesvik.destekUnsurlari?.map(d => ({
-          destekUnsuru: d.destekUnsuru,
-          sarti: d.sarti,
-          sartlari: d.sartlari
-        }))
-      },
-      ozelSartlar: {
-        count: tesvik.ozelSartlar?.length || 0,
-        data: tesvik.ozelSartlar?.map(s => ({
-          kisaltma: s.kisaltma,
-          koşulMetni: s.koşulMetni,
-          notu: s.notu,
-          aciklamaNotu: s.aciklamaNotu
-        }))
-      },
-      urunler: {
-        count: tesvik.urunler?.length || 0,
-        data: tesvik.urunler?.map(u => ({
-          us97Kodu: u.us97Kodu,
-          urunAdi: u.urunAdi,
-          mevcutKapasite: u.mevcutKapasite,
-          ilaveKapasite: u.ilaveKapasite
-        }))
-      },
-      maliHesaplamalar: {
-        keys: Object.keys(tesvik.maliHesaplamalar || {}),
-        araziArsaBedeli: tesvik.maliHesaplamalar?.araziArsaBedeli,
-        araciArsaBedeli: tesvik.maliHesaplamalar?.araciArsaBedeli,
-        toplamSabitYatirimTutari: tesvik.maliHesaplamalar?.toplamSabitYatirimTutari,
-        toplamSabitYatirim: tesvik.maliHesaplamalar?.toplamSabitYatirim
-      },
-      revizyonlar: {
-        count: tesvik.revizyonlar?.length || 0
+// 🔍 DEBUG ENDPOINTS - Sadece development ortamında aktif (production'da kapalı)
+if (process.env.NODE_ENV !== 'production') {
+  // 🔍 DEBUG ENDPOINT - VERİTABANI VERİSİ KONTROL
+  app.get('/debug/tesvik/:tesvikId', async (req, res) => {
+    try {
+      const tesvik = await Tesvik.findOne({ tesvikId: req.params.tesvikId }).lean();
+      if (!tesvik) {
+        return res.json({ error: 'Teşvik bulunamadı!' });
       }
-    };
 
-    res.json(result);
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-});
+      const result = {
+        tesvikId: tesvik.tesvikId,
+        destekUnsurlari: {
+          count: tesvik.destekUnsurlari?.length || 0,
+          data: tesvik.destekUnsurlari?.map(d => ({
+            destekUnsuru: d.destekUnsuru,
+            sarti: d.sarti,
+            sartlari: d.sartlari
+          }))
+        },
+        ozelSartlar: {
+          count: tesvik.ozelSartlar?.length || 0,
+          data: tesvik.ozelSartlar?.map(s => ({
+            kisaltma: s.kisaltma,
+            koşulMetni: s.koşulMetni,
+            notu: s.notu,
+            aciklamaNotu: s.aciklamaNotu
+          }))
+        },
+        urunler: {
+          count: tesvik.urunler?.length || 0,
+          data: tesvik.urunler?.map(u => ({
+            us97Kodu: u.us97Kodu,
+            urunAdi: u.urunAdi,
+            mevcutKapasite: u.mevcutKapasite,
+            ilaveKapasite: u.ilaveKapasite
+          }))
+        },
+        maliHesaplamalar: {
+          keys: Object.keys(tesvik.maliHesaplamalar || {}),
+          araziArsaBedeli: tesvik.maliHesaplamalar?.araziArsaBedeli,
+          araciArsaBedeli: tesvik.maliHesaplamalar?.araciArsaBedeli,
+          toplamSabitYatirimTutari: tesvik.maliHesaplamalar?.toplamSabitYatirimTutari,
+          toplamSabitYatirim: tesvik.maliHesaplamalar?.toplamSabitYatirim
+        },
+        revizyonlar: {
+          count: tesvik.revizyonlar?.length || 0
+        }
+      };
 
-// 🧪 TEST CSV EXPORT (NO AUTH)
-app.get('/test/csv-export/:tesvikId', async (req, res) => {
-  try {
-    const tesvikController = require('./controllers/tesvikController');
-    // Mock request object
-    const mockReq = {
-      params: { id: req.params.tesvikId },
-      query: { format: 'csv' },
-      user: { _id: 'test-user' }
-    };
-    const mockRes = {
-      setHeader: (key, value) => res.setHeader(key, value),
-      send: (data) => res.send(data),
-      status: (code) => res.status(code),
-      json: (data) => res.json(data)
-    };
+      res.json(result);
+    } catch (error) {
+      res.json({ error: error.message });
+    }
+  });
 
-    // Call the actual controller
-    await tesvikController.exportRevizyonExcel(mockReq, mockRes);
-  } catch (error) {
-    res.json({ error: error.message });
-  }
-});
+  // 🧪 TEST CSV EXPORT (NO AUTH)
+  app.get('/test/csv-export/:tesvikId', async (req, res) => {
+    try {
+      const tesvikController = require('./controllers/tesvikController');
+      const mockReq = {
+        params: { id: req.params.tesvikId },
+        query: { format: 'csv' },
+        user: { _id: 'test-user' }
+      };
+      const mockRes = {
+        setHeader: (key, value) => res.setHeader(key, value),
+        send: (data) => res.send(data),
+        status: (code) => res.status(code),
+        json: (data) => res.json(data)
+      };
+      await tesvikController.exportRevizyonExcel(mockReq, mockRes);
+    } catch (error) {
+      res.json({ error: error.message });
+    }
+  });
+
+  console.log('🧪 Debug endpoint\'leri aktif (development mode)');
+}
 
 // 🎯 Ana rotalar
 app.get('/', (req, res) => {
@@ -312,6 +316,7 @@ app.use('/api/tesvik-import', tesvikImportRoutes); // 📊 Excel/CSV Teşvik Imp
 app.use('/api/eski-tesvik-import', eskiTesvikImportRoutes); // 📊 Eski Teşvik Import Sistemi
 app.use('/api/backup', backupRoutes); // 💾 Sistem Yedekleme API
 app.use('/api/ingest', ingestRoutes); // 🧠 Akıllı veri yükleme (preview/commit)
+app.use('/api/screenshot-import', screenshotImportRoutes); // 📸 Ekran görüntüsünden teşvik oluşturma
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {

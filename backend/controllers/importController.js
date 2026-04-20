@@ -202,94 +202,127 @@ const parseCSV = (filePath) => {
 };
 
 // 🔄 Excel/CSV verilerini Firma modeline map et
+// Her alan için BİRDEN FAZLA sütun adı kabul edilir (esnek eşleşme)
 const mapExcelToFirma = (row, rowNumber) => {
-  // Excel/CSV sütun isimleri (yeni format)
-  const firmaId = row['Firma ID (Boş Bırak)'] || row['Firma ID'] || row['firmaId'] || '';
-  const vergiNoTC = row['Vergi No/TC No'] || row['vergiNoTC'] || row['VergiNo'] || '';
-  const tamUnvan = row['Tam Unvan (NOKTASIZ BÜYÜK)'] || row['tamUnvan'] || row['Unvan'] || '';
-  const adres = row['Adres'] || row['adres'] || '';
-  const firmaIl = row['Firma İl'] || row['firmaIl'] || row['Il'] || '';
-  const firmaIlce = row['Firma İlçe'] || row['firmaIlce'] || row['Ilce'] || '';
-  const kepAdresi = row['KEP Adresi'] || row['kepAdresi'] || row['KEP'] || '';
-  const yabanciSermaye = row['Yabancı Sermayeli mi?'] || row['yabanciSermaye'] || '';
-  const anaFaaliyetKonusu = row['Ana Faaliyet Konusu'] || row['anaFaaliyetKonusu'] || '';
-  const ilkIrtibatKisi = row['İlk İrtibat Kişisi'] || row['ilkIrtibatKisi'] || '';
-  const etuysYetki = row['ETUYS YETKİ BİTİŞ'] || row['etuysYetki'] || '';
-  const dysYetki = row['DYS YETKİ BİTİŞ'] || row['dysYetki'] || '';
-  
-  // Yetkili kişi bilgileri - Yeni format
-  const yetkili1Ad = row['Yetkili Kişi1'] || row['YetkiliAd1'] || '';
-  const yetkili1Tel1 = row['Yetkili Kişi1 Tel'] || row['YetkiliTel1'] || '';
-  const yetkili1Tel2 = row['Yetkili Kişi1 Tel2'] || row['YetkiliTel2'] || '';
-  const yetkili1Email1 = row['Yetkili Kişi1 Mail'] || row['YetkiliEmail1'] || '';
-  const yetkili1Email2 = row['Yetkili Kişi1 Mail2'] || row['YetkiliEmail2'] || '';
+  // Yardımcı: birden fazla sütun adı dene, ilk bulanı döndür
+  const pick = (...keys) => {
+    for (const k of keys) {
+      if (row[k] !== undefined && row[k] !== null && row[k].toString().trim() !== '') {
+        return row[k].toString().trim();
+      }
+    }
+    return '';
+  };
 
-  const yetkili2Ad = row['Yetkili Kişi2'] || row['YetkiliAd2'] || '';
-  const yetkili2Tel1 = row['Yetkili Kişi2 Tel'] || row['YetkiliTel21'] || '';
-  const yetkili2Tel2 = row['Yetkili Kişi2 Tel2'] || row['YetkiliTel22'] || '';
-  const yetkili2Email1 = row['Yetkili Kişi2 Mail'] || row['YetkiliEmail21'] || '';
-  const yetkili2Email2 = row['Yetkili Kişi,2 Mail2'] || row['Yetkili Kişi2 Mail2'] || row['YetkiliEmail22'] || '';
+  // Temel alanlar
+  const firmaId     = pick('Firma ID (Boş Bırak)', 'Firma ID', 'firmaId', 'FirmaID');
+  const vergiNoTC   = pick('Vergi No/TC No', 'Vergi No/TC', 'vergiNoTC', 'VergiNo', 'Vergi No');
+  const tamUnvan    = pick('Tam Unvan (NOKTASIZ BÜYÜK)', 'Tam Ünvan', 'Tam Unvan', 'tamUnvan', 'Unvan');
+  const adres       = pick('Adres', 'adres');
+  const firmaIl     = pick('Firma İl', 'Firma Il', 'firmaIl', 'İl', 'Il');
+  const firmaIlce   = pick('Firma İlçe', 'Firma Ilce', 'firmaIlce', 'İlçe', 'Ilce');
+  const kepAdresi   = pick('KEP Adresi', 'kepAdresi', 'KEP');
+  const firmaTelefon = pick('Firma Telefon', 'firmaTelefon', 'Telefon');
+  const firmaEmail  = pick('Firma Email', 'Firma E-Posta', 'firmaEmail', 'E-Posta');
+  const firmaWebsite = pick('Firma Website', 'firmaWebsite', 'Website', 'Web');
+  const yabanciSermaye = pick('Yabancı Sermayeli mi?', 'Yabancı Sermayeli', 'yabanciSermaye', 'Yabancı');
+  const anaFaaliyetKonusu = pick('Ana Faaliyet Konusu', 'anaFaaliyetKonusu', 'Faaliyet');
+  const ilkIrtibatKisi = pick('İlk İrtibat Kişisi', 'ilkIrtibatKisi', 'İlk İrtibat');
+  const etuysYetki  = pick('ETUYS YETKİ BİTİŞ', 'ETUYS Yetki Bitiş', 'etuysYetki', 'ETUYS');
+  const dysYetki    = pick('DYS YETKİ BİTİŞ', 'DYS Yetki Bitiş', 'dysYetki', 'DYS');
+  const notlar      = pick('Notlar', 'notlar', 'Not');
 
-  // Boş değerleri kontrol et ve atla
-  if (!vergiNoTC || !tamUnvan) {
+  // Yetkili kişi bilgileri - Birden fazla format destekle
+  const yetkili1Ad     = pick('Yetkili Kişi1', 'Yetkili 1 Ad Soyad', 'YetkiliAd1', 'Yetkili1');
+  const yetkili1Tel1   = pick('Yetkili Kişi1 Tel', 'Yetkili 1 Telefon', 'YetkiliTel1', 'Yetkili1Tel');
+  const yetkili1Tel2   = pick('Yetkili Kişi1 Tel2', 'Yetkili 1 Telefon 2', 'YetkiliTel2', 'Yetkili1Tel2');
+  const yetkili1Email1 = pick('Yetkili Kişi1 Mail', 'Yetkili 1 Email', 'YetkiliEmail1', 'Yetkili1Email');
+  const yetkili1Email2 = pick('Yetkili Kişi1 Mail2', 'Yetkili 1 Email 2', 'YetkiliEmail2', 'Yetkili1Email2');
+
+  const yetkili2Ad     = pick('Yetkili Kişi2', 'Yetkili 2 Ad Soyad', 'YetkiliAd2', 'Yetkili2');
+  const yetkili2Tel1   = pick('Yetkili Kişi2 Tel', 'Yetkili 2 Telefon', 'YetkiliTel21', 'Yetkili2Tel');
+  const yetkili2Tel2   = pick('Yetkili Kişi2 Tel2', 'Yetkili 2 Telefon 2', 'YetkiliTel22', 'Yetkili2Tel2');
+  const yetkili2Email1 = pick('Yetkili Kişi2 Mail', 'Yetkili 2 Email', 'YetkiliEmail21', 'Yetkili2Email');
+  const yetkili2Email2 = pick('Yetkili Kişi,2 Mail2', 'Yetkili Kişi2 Mail2', 'Yetkili 2 Email 2', 'YetkiliEmail22', 'Yetkili2Email2');
+
+  // Doğrulama — vergiNoTC veya tamUnvan zorunlu
+  if (!vergiNoTC && !tamUnvan) {
     throw new Error('Vergi No/TC ve Tam ünvan zorunludur');
+  }
+
+  // En az biri olsun
+  if (!tamUnvan) {
+    throw new Error(`Satır ${rowNumber}: Tam Ünvan zorunludur`);
   }
 
   // Yetkili kişiler array'i
   const yetkiliKisiler = [];
   
   // Yetkili Kişi 1
-  if (yetkili1Ad && yetkili1Ad.trim() !== '') {
-    // Telefon numarası yoksa varsayılan ekle
-    const tel1 = yetkili1Tel1 && yetkili1Tel1.trim() !== '' ? yetkili1Tel1.trim() : '0000000000';
-    const email1 = yetkili1Email1 && yetkili1Email1.trim() !== '' ? yetkili1Email1.trim() : `${yetkili1Ad.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+  if (yetkili1Ad) {
+    const tel1 = yetkili1Tel1 || '0000000000';
+    const email1 = yetkili1Email1 || `import@system.local`;
     
     yetkiliKisiler.push({
-      adSoyad: yetkili1Ad.trim(),
+      adSoyad: yetkili1Ad,
       telefon1: tel1,
-      telefon2: yetkili1Tel2 || '',
+      telefon2: yetkili1Tel2,
       eposta1: email1,
-      eposta2: yetkili1Email2 || ''
+      eposta2: yetkili1Email2
     });
   }
 
   // Yetkili Kişi 2
-  if (yetkili2Ad && yetkili2Ad.trim() !== '') {
-    // Telefon numarası yoksa varsayılan ekle
-    const tel1 = yetkili2Tel1 && yetkili2Tel1.trim() !== '' ? yetkili2Tel1.trim() : '0000000000';
-    const email1 = yetkili2Email1 && yetkili2Email1.trim() !== '' ? yetkili2Email1.trim() : `${yetkili2Ad.toLowerCase().replace(/\s+/g, '.')}@example.com`;
+  if (yetkili2Ad) {
+    const tel1 = yetkili2Tel1 || '0000000000';
+    const email1 = yetkili2Email1 || `import@system.local`;
     
     yetkiliKisiler.push({
-      adSoyad: yetkili2Ad.trim(),
+      adSoyad: yetkili2Ad,
       telefon1: tel1,
-      telefon2: yetkili2Tel2 || '',
+      telefon2: yetkili2Tel2,
       eposta1: email1,
-      eposta2: yetkili2Email2 || ''
+      eposta2: yetkili2Email2
     });
   }
 
   // Eğer hiç yetkili kişi yoksa varsayılan ekle
   if (yetkiliKisiler.length === 0) {
-    const defaultName = ilkIrtibatKisi && ilkIrtibatKisi.trim() !== '' ? ilkIrtibatKisi.trim() : 'Belirtilmemiş';
+    const defaultName = ilkIrtibatKisi || 'Belirtilmemiş';
     yetkiliKisiler.push({
-      adSoyad: defaultName,
+      adSoyad: defaultName.split(' - ')[0].trim(), // "Hüseyin Cahit Ağır - cahit@gmplanlama.com" → "Hüseyin Cahit Ağır"
       telefon1: '0000000000',
       telefon2: '',
-      eposta1: 'bilgi@example.com',
+      eposta1: defaultName.includes('@') ? defaultName.split(' - ').pop().trim() : 'bilgi@example.com',
       eposta2: ''
     });
   }
 
-  // Tarihleri parse et
+  // Tarihleri parse et (Excel serial date desteği dahil)
   const parseDate = (dateStr) => {
     if (!dateStr || dateStr.toString().trim() === '') return null;
     
     try {
       const str = dateStr.toString().trim();
       
+      // Excel serial number (ör: 46980 → tarih)
+      if (/^\d{4,5}$/.test(str)) {
+        const serial = parseInt(str);
+        // Excel serial date: 1 Ocak 1900 = 1
+        const excelEpoch = new Date(1899, 11, 30); // 30 Aralık 1899
+        const date = new Date(excelEpoch.getTime() + serial * 86400000);
+        return isNaN(date.getTime()) ? null : date;
+      }
+      
       // DD.MM.YYYY formatı
       if (str.match(/^\d{2}\.\d{2}\.\d{4}$/)) {
         const [day, month, year] = str.split('.');
+        return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      }
+      
+      // DD/MM/YYYY formatı
+      if (str.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+        const [day, month, year] = str.split('/');
         return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
       }
       
@@ -300,26 +333,66 @@ const mapExcelToFirma = (row, rowNumber) => {
       return null;
     }
   };
+  // Sanitize yardımcılar
+  const sanitizePhone = (val) => {
+    if (!val) return '';
+    // Email gelmiş mi kontrol et (bazı satırlarda telefon yerine email yazılmış)
+    if (val.includes('@')) return '';
+    // Sadece rakam, +, boşluk, tire, parantez kalsın
+    const cleaned = val.replace(/[^0-9+\s\-\(\)]/g, '');
+    return cleaned.length >= 10 && cleaned.length <= 20 ? cleaned : '';
+  };
+
+  const sanitizeEmail = (val) => {
+    if (!val) return '';
+    const v = val.toLowerCase().trim();
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? v : '';
+  };
+
+  const sanitizeWebsite = (val) => {
+    if (!val) return '';
+    let v = val.trim();
+    if (v && !v.startsWith('http://') && !v.startsWith('https://')) {
+      v = 'https://' + v;
+    }
+    return v;
+  };
+
+  // Yetkili kişilerin telefon/email alanlarını sanitize et
+  yetkiliKisiler.forEach(yk => {
+    yk.telefon1 = sanitizePhone(yk.telefon1) || '0000000000';
+    yk.telefon2 = sanitizePhone(yk.telefon2);
+    yk.eposta1 = sanitizeEmail(yk.eposta1) || 'import@system.local';
+    yk.eposta2 = sanitizeEmail(yk.eposta2);
+  });
 
   const result = {
-    vergiNoTC: vergiNoTC.toString().trim(),
-    tamUnvan: tamUnvan.toString().trim(),
-    adres: adres ? adres.toString().trim() : 'Belirtilmemiş',
-    firmaIl: firmaIl ? firmaIl.toString().toUpperCase().trim() : 'İSTANBUL',
-    firmaIlce: firmaIlce ? firmaIlce.toString().toUpperCase().trim() : 'MERKEZ',
-    kepAdresi: kepAdresi ? kepAdresi.toString().toLowerCase().trim() : '',
-    yabanciSermayeli: yabanciSermaye === 'EVET' || yabanciSermaye === 'Evet' || yabanciSermaye === true,
-    anaFaaliyetKonusu: anaFaaliyetKonusu ? anaFaaliyetKonusu.toString().trim() : '',
-    ilkIrtibatKisi: ilkIrtibatKisi ? ilkIrtibatKisi.toString().trim() : yetkiliKisiler[0].adSoyad,
+    vergiNoTC: (vergiNoTC || `IMPORT${Date.now()}${rowNumber}`).replace(/\s/g, ''),
+    tamUnvan: tamUnvan,
+    adres: adres || 'Belirtilmemiş',
+    firmaIl: firmaIl ? firmaIl.toUpperCase() : 'BELİRTİLMEMİŞ',
+    firmaIlce: firmaIlce ? firmaIlce.toUpperCase() : 'MERKEZ',
+    kepAdresi: sanitizeEmail(kepAdresi),
+    firmaTelefon: sanitizePhone(firmaTelefon),
+    firmaEmail: sanitizeEmail(firmaEmail),
+    firmaWebsite: sanitizeWebsite(firmaWebsite),
+    yabanciSermayeli: ['EVET', 'Evet', 'evet', 'true', 'TRUE'].includes(yabanciSermaye),
+    anaFaaliyetKonusu: anaFaaliyetKonusu || '',
+    ilkIrtibatKisi: ilkIrtibatKisi ? ilkIrtibatKisi.split(' - ')[0].trim() : yetkiliKisiler[0].adSoyad,
     etuysYetkiBitisTarihi: parseDate(etuysYetki),
     dysYetkiBitisTarihi: parseDate(dysYetki),
     yetkiliKisiler,
     aktif: true
   };
 
+  // Notlar varsa ekle
+  if (notlar) {
+    result.notlar = notlar;
+  }
+
   // Firma ID varsa ekle
-  if (firmaId && firmaId.toString().trim() !== '') {
-    result.firmaId = firmaId.toString().toUpperCase().trim();
+  if (firmaId) {
+    result.firmaId = firmaId.toUpperCase();
   }
 
   return result;

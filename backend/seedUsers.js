@@ -31,7 +31,7 @@ const users = [
   {
     adSoyad: 'Merve Koç',
     email: 'merve@gmplanlama.com',
-    sifre: 'merve',
+    sifre: 'merve123',
     telefon: '+90 555 234 5678',
     rol: 'kullanici',
     aktif: true
@@ -39,7 +39,7 @@ const users = [
   {
     adSoyad: 'Selin Nergiz',
     email: 'selin@gmplanlama.com',
-    sifre: 'selin',
+    sifre: 'selin123',
     telefon: '+90 555 345 6789',
     rol: 'kullanici', 
     aktif: true
@@ -47,7 +47,7 @@ const users = [
   {
     adSoyad: 'Seda Durak',
     email: 'seda@gmplanlama.com',
-    sifre: 'seda',
+    sifre: 'seda1234',
     telefon: '+90 555 456 7890',
     rol: 'kullanici',
     aktif: true
@@ -63,7 +63,7 @@ const users = [
   {
     adSoyad: 'Hüseyin Cahit Ağır',
     email: 'cahit@gmplanlama.com', 
-    sifre: 'cahit',
+    sifre: 'cahit123',
     telefon: '+90 555 678 9012',
     rol: 'admin', // Cahit de admin
     aktif: true
@@ -87,13 +87,9 @@ const seedUsers = async () => {
         continue;
       }
 
-      // Şifreyi hash'le
-      const hashedPassword = await bcrypt.hash(userData.sifre, 12);
-      
-      // Kullanıcıyı oluştur
+      // Kullanıcıyı oluştur (pre-save hook şifreyi kendi hashleyecek)
       const user = new User({
-        ...userData,
-        sifre: hashedPassword
+        ...userData
       });
 
       await user.save();

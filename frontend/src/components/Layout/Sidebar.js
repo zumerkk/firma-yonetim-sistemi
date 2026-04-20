@@ -59,6 +59,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#1e40af',
       gradient: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
       description: 'Ana kontrol paneli'
+    },
+    {
+      text: 'Akıllı Excel Yükleme',
+      icon: <ImportExportIcon />,
+      path: '/import',
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #5b21b6, #7c3aed)',
+      description: 'Dosya analiz & toplu import',
+      isNew: true
     }
   ];
 
@@ -218,15 +227,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: 'linear-gradient(135deg, #0e7490, #0891b2)',
       permission: 'raporGoruntule',
       description: 'PDF/Excel raporlar',
-      isNew: true
-    },
-    {
-      text: 'Import Sihirbazı',
-      icon: <ImportExportIcon />,
-      path: '/import',
-      color: '#1e40af',
-      gradient: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
-      description: 'Genel ingest/import akışı',
       isNew: true
     }
   ];

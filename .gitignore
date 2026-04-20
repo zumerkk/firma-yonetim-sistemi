@@ -7,14 +7,16 @@ yarn-error.log*
 # Production builds
 /frontend/build
 /backend/dist
+build/
 
-# Environment variables
+# Environment variables — CRITICAL: Never commit secrets
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 .env.production
+backend/.env
 
 # Database
 *.db
@@ -38,6 +40,7 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+.trae/
 
 # Uploads
 /backend/uploads/*.xlsx
@@ -45,5 +48,14 @@ Thumbs.db
 
 # Keep uploads directory but ignore files
 !/backend/uploads/.gitkeep
-build/
+
+# Data samples (Excel/CSV files in project root)
 *.xlsx
+*.csv
+!talepler.csv
+
+# Playwright/Test artifacts
+.playwright-mcp/
+
+# Backup/debug files
+debug_*.js

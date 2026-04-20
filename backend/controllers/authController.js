@@ -64,8 +64,10 @@ const register = async (req, res) => {
 // 🔑 Kullanıcı Girişi
 const login = async (req, res) => {
   try {
+    console.log(`🔍 Giriş isteği alındı: ${req.body.email}`);
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.warn(`⚠️ Giriş başarısız: Validasyon hatası (${req.body.email})`, errors.array());
       return res.status(400).json({
         success: false,
         message: 'Girilen bilgilerde hatalar var',
@@ -81,6 +83,7 @@ const login = async (req, res) => {
     }).select('+sifre');
     
     if (!user) {
+      console.warn(`⚠️ Başarısız giriş denemesi: Bulunamayan e-posta (${email})`);
       return res.status(401).json({
         success: false,
         message: 'E-posta veya şifre hatalı'
@@ -88,6 +91,7 @@ const login = async (req, res) => {
     }
     
     if (!user.aktif) {
+      console.warn(`⚠️ Başarısız giriş denemesi: Pasif hesap (${email})`);
       return res.status(401).json({
         success: false,
         message: 'Hesabınız deaktive edilmiş. Lütfen yönetici ile iletişime geçin.'
@@ -97,6 +101,7 @@ const login = async (req, res) => {
     // Şifre kontrolü
     const isPasswordCorrect = await user.sifreKontrol(sifre);
     if (!isPasswordCorrect) {
+      console.warn(`⚠️ Başarısız giriş denemesi: Hatalı şifre (${email})`);
       return res.status(401).json({
         success: false,
         message: 'E-posta veya şifre hatalı'
@@ -110,6 +115,7 @@ const login = async (req, res) => {
     // Token oluştur
     const token = user.jwtTokenOlustur();
     
+    console.log(`✅ Başarılı giriş: ${email}`);
     res.json({
       success: true,
       message: 'Giriş başarılı',
@@ -123,8 +129,8 @@ const login = async (req, res) => {
     console.error('🚨 Login Hatası:', error);
     res.status(500).json({
       success: false,
-      message: 'Giriş yapılırken hata oluştu',
-      error: error.message
+      message: 'Giriş yapılırken sunucu hatası oluştu',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };

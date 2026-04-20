@@ -31,6 +31,8 @@ import { useFirma } from '../../contexts/FirmaContext';
 import activityService from '../../services/activityService';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
+import SmartUpload from '../../components/Dashboard/SmartUpload';
+import ScreenshotImport from '../../components/Dashboard/ScreenshotImport';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -385,6 +387,12 @@ const Dashboard = () => {
 
       {/* Loading Bar */}
       {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
+
+      {/* 🧠 Akıllı Dosya Yükleme Modülü */}
+      <SmartUpload />
+
+      {/* 📸 Ekran Görüntüsünden Belge Oluşturma Modülü */}
+      <ScreenshotImport />
 
       {/* 🚨 Critical Alerts Section */}
       {criticalAlerts.length > 0 && (
