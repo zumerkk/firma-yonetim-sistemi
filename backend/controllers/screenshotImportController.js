@@ -199,6 +199,9 @@ function escapeRegex(str) {
 }
 
 function buildBelgeData(merged, firmaDoc, userId, parseDate) {
+  // Yatırım cinsleri (max 4 slot)
+  const cinsleri = merged.yatirimCinsleri || [];
+
   return {
     firma: firmaDoc._id,
     firmaId: firmaDoc.firmaId || firmaDoc._id.toString(),
@@ -226,7 +229,7 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       kararSayisi: merged.kararnameNo || '',
     },
 
-    // Yatırım bilgileri
+    // Yatırım bilgileri — TÜM alanlar dahil
     yatirimBilgileri: {
       yatirimKonusu: merged.yatirimKonusu || '',
       destekSinifi: merged.destekSinifi || '',
@@ -236,12 +239,30 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       osbIseMudurluk: merged.osbAdi || '',
       ilBazliBolge: merged.ilBazliBolge || '',
       ilceBazliBolge: merged.ilceBazliBolge || '',
-      cazibeMerkeziMi: (merged.cazibeMerkezliMi || '').toLowerCase() === 'evet' ? 'evet' : 'hayir',
-      savunmaSanayiProjesi: (merged.savunmaSanayiProjesi || '').toLowerCase() === 'evet' ? 'evet' : 'hayir',
-      hamleMi: (merged.hamleMi || '').toLowerCase() === 'evet' ? 'evet' : 'hayir',
-      vergiIndirimsizDestek: (merged.vergiIndirimsizDestek || '').toLowerCase() === 'evet' ? 'evet' : 'hayir',
+      ada: merged.ada || '',
+      parsel: merged.parsel || '',
+      cazibeMerkeziMi: normalizeEvetHayir(merged.cazibeMerkezliMi),
+      savunmaSanayiProjesi: normalizeEvetHayir(merged.savunmaSanayiProjesi),
+      hamleMi: normalizeEvetHayir(merged.hamleMi),
+      vergiIndirimsizDestek: normalizeEvetHayir(merged.vergiIndirimsizDestek),
+      cazibeMerkezi2018: normalizeEvetHayir(merged.cazibeMerkezi2018),
+      cazibeMerkeziDeprem: normalizeEvetHayir(merged.cazibeMerkeziDeprem),
+      enerjiUretimKaynagi: merged.enerjiUretimKaynagi || '',
       oecdKategori: merged.oecdKategori || '',
-      sCinsi1: merged.yatirimCinsleri?.[0] || '',
+      // Yatırım cinsleri (4 slot)
+      sCinsi1: cinsleri[0] || '',
+      tCinsi2: cinsleri[1] || '',
+      uCinsi3: cinsleri[2] || '',
+      vCinsi4: cinsleri[3] || '',
+    },
+
+    // Sermaye türü (künye'den)
+    sermayeTuru: merged.sermayeTuru || '',
+
+    // Öncelikli / Büyük Ölçekli yatırım
+    oncelikliYatirim: {
+      durumu: merged.oncelikliYatirim ? 'evet' : 'hayir',
+      turu: merged.oncelikliYatirim || '',
     },
 
     // İstihdam
@@ -260,6 +281,27 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       toplamKapasite: u.toplamKapasite || 0,
       kapasiteBirimi: u.birim || '',
     })),
+
+    // Makine Listeleri (Yerli + İthal)
+    makineListeleri: {
+      yerli: (merged.yerliMakineler || []).map((m, i) => ({
+        siraNo: m.siraNo || (i + 1),
+        makineCinsi: m.makineCinsi || '',
+        adedi: m.adedi || 0,
+        tutarTL: m.tutarTL || 0,
+        aciklama: m.aciklama || '',
+      })),
+      ithal: (merged.ithalMakineler || []).map((m, i) => ({
+        siraNo: m.siraNo || (i + 1),
+        makineCinsi: m.makineCinsi || '',
+        adedi: m.adedi || 0,
+        tutarDolar: m.tutarDolar || 0,
+        tutarTL: m.tutarTL || 0,
+        menseUlke: m.menseUlke || '',
+        yeniKullanilmis: m.yeniKullanilmis || '',
+        aciklama: m.aciklama || '',
+      })),
+    },
 
     // Destek Unsurları
     destekUnsurlari: (merged.destekUnsurlari || []).map((d) => ({
@@ -288,9 +330,17 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
     olusturanKullanici: userId,
     aktif: true,
     notlar: {
-      dahiliNotlar: `📸 Ekran görüntüsünden otomatik oluşturuldu (${new Date().toLocaleString('tr-TR')})`,
+      dahiliNotlar: `📸 Ekran görüntüsünden otomatik oluşturuldu (${new Date().toLocaleString('tr-TR')})${merged.projeTanitimi ? '\n\n📋 Proje Tanıtımı: ' + merged.projeTanitimi : ''}`,
     },
   };
+}
+
+/**
+ * EVET/HAYIR string normalizasyonu
+ */
+function normalizeEvetHayir(val) {
+  if (!val) return 'hayir';
+  return val.toString().toLowerCase().trim() === 'evet' ? 'evet' : 'hayir';
 }
 
 function buildFinansalData(finansal) {

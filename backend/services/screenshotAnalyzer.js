@@ -1,16 +1,20 @@
 /**
- * 📸 Screenshot Analyzer Service
+ * 📸 Screenshot Analyzer Service - v2.0
  * 
- * Gemini Vision API kullanarak ETUYS/DYS devlet portalı ekran görüntülerinden
+ * AI Vision API kullanarak ETUYS/DYS devlet portalı ekran görüntülerinden
  * teşvik belgesi verilerini otomatik çıkarır.
  * 
  * Desteklenen Tab Türleri:
  * 1. Belge Künye Bilgileri
  * 2. Yatırım Cinsi
  * 3. Ürün Bilgileri
- * 4. Finansal Bilgiler
- * 5. Özel Şartlar
- * 6. Destek Unsurları
+ * 4. Yerli Liste (makine/teçhizat)
+ * 5. İthal Liste (makine/teçhizat)
+ * 6. Finansal Bilgiler
+ * 7. Özel Şartlar (liste + popup detay)
+ * 8. Destek Unsurları
+ * 9. Proje Tanıtımı
+ * 10. Evrak Listesi
  */
 
 const https = require('https');
@@ -20,123 +24,189 @@ const TAB_TYPES = {
   BELGE_KUNYE: 'belge_kunye',
   YATIRIM_CINSI: 'yatirim_cinsi',
   URUN_BILGILERI: 'urun_bilgileri',
+  YERLI_LISTE: 'yerli_liste',
+  ITHAL_LISTE: 'ithal_liste',
   FINANSAL_BILGILER: 'finansal_bilgiler',
   OZEL_SARTLAR: 'ozel_sartlar',
+  OZEL_SART_DETAY: 'ozel_sart_detay',
   DESTEK_UNSURLARI: 'destek_unsurlari',
+  PROJE_TANITIMI: 'proje_tanitimi',
+  EVRAK_LISTESI: 'evrak_listesi',
   UNKNOWN: 'unknown',
 };
 
-// ─── Tab-Specific Gemini Prompt Şablonları ──────────────────────
+// ─── Tab-Specific AI Prompt Şablonları ──────────────────────────
 
 const PROMPTS = {
   // Genel: Tab tespiti
   DETECT_TAB: `Bu ekran görüntüsü bir Türk devlet teşvik portalından (ETUYS/DYS) alınmıştır.
-Görüntüdeki aktif tab (sekme) hangisidir? Sadece aşağıdaki seçeneklerden birini JSON olarak döndür:
-- "belge_kunye" (Belge Künye Bilgileri - firma adı, belge no, il gibi genel bilgiler)
-- "yatirim_cinsi" (Yatırım Cinsi - KOMPLE YENİ YATIRIM, TEVSİ, MODERNİZASYON)
-- "urun_bilgileri" (Ürün Bilgileri - ürün kodu, ürün adı, kapasite tablosu)
-- "finansal_bilgiler" (Finansal Bilgiler - arazi, bina, makine teçhizat, finansman)  
-- "ozel_sartlar" (Özel Şartlar - şart listesi tablosu)
-- "destek_unsurlari" (Destek Unsurları - destek unsuru adı ve oranı tablosu)
-- "unknown" (tanınamadı)
+Görüntüdeki aktif tab (sekme) veya pencere türünü tespit et.
+
+POPUP/MODAL PENCERELER:
+- Eğer görüntüde küçük bir popup/modal pencere açıksa (başlığında "Özel Şart Görüntüleme" yazıyorsa), bu bir özel şart detayıdır → "ozel_sart_detay"
+- Popup pencerelerde genellikle "Özel Şart:", "Açıklama:" etiketleri ve "Kapat" butonu bulunur
+
+ANA SEKMELER:
+- "belge_kunye" → Belge Künye Bilgileri (firma adı, belge no, il, belge tarihi, sermaye türü gibi genel bilgiler)
+- "yatirim_cinsi" → Yatırım Cinsi (KOMPLE YENİ YATIRIM, TEVSİ, MODERNİZASYON listesi)
+- "urun_bilgileri" → Ürün Bilgileri (ürün kodu US-97/NACE, ürün adı, kapasite tablosu)
+- "yerli_liste" → Yerli Liste (yerli makine/teçhizat listesi - sıra no, cinsi, adedi, tutarı)
+- "ithal_liste" → İthal Liste (ithal makine/teçhizat listesi - sıra no, cinsi, adedi, tutarı)
+- "finansal_bilgiler" → Finansal Bilgiler (arazi, bina, makine teçhizat, finansman tutarları)
+- "ozel_sartlar" → Özel Şartlar (özel şart listesi tablosu - şart adı ve açıklama sütunları)
+- "destek_unsurlari" → Destek Unsurları (destek unsuru adı ve oranı tablosu)
+- "proje_tanitimi" → Proje Tanıtımı (proje açıklama metni)
+- "evrak_listesi" → Evrak Listesi (belge/evrak tablosu)
+- "unknown" → tanınamadı
 
 Yanıt formatı (sadece JSON, açıklama yok): {"tabType": "...", "confidence": 0.0-1.0}`,
 
   // Tab 1: Belge Künye Bilgileri
   [TAB_TYPES.BELGE_KUNYE]: `Bu ekran görüntüsü bir ETUYS/DYS teşvik belgesi portalının "Belge Künye Bilgileri" sekmesini göstermektedir.
 
+SAYFA YAPISI: Sol tarafta "Yatırımcı ile ilgili bilgiler" ve "Yatırım ile ilgili bilgiler" bölümleri, sağ tarafta "Belge ile ilgili bilgiler" bölümü bulunur.
+
 Lütfen görüntüdeki TÜM alanları dikkatlice oku ve aşağıdaki JSON yapısında döndür. Boş veya okunamayan alanlar için null kullan.
 
 {
-  "firmaAdi": "string",
+  "firmaAdi": "string (ör: BAYRAM ÖZEL, METSAN MAKİNA LTD. ŞTİ.)",
   "sgkSicilNo": "string|null",
-  "sermayeTuru": "string (ör: Tamamı Yerli Firma)",
-  "yatirimKonusu": "string (ör: 2930 - B.Y.S. EV ALETLERİ İMALATI veya 22.26 - Diğer plastik ürünlerin imalatı)",
-  "kararnameNo": "string (tarih ve sayılı kararname)",
-  "il": "string",
-  "ilce": "string",
-  "adres": "string|null",
+  "sermayeTuru": "string (ör: Tamamı Yerli Firma, Yabancı Sermayeli)",
+  "yatirimKonusu": "string (Yatırımın Konusu satırındaki tam metin, ör: 2929 - DİĞER ÖZEL AMAÇLI MAKİNELERİN İMALATI veya 22.26 - Diğer plastik ürünlerin imalatı)",
+  "kararnameNo": "string (ör: 15.06.2012 tarih 2012-3305 sayılı)",
+  "il": "string (ör: KONYA, İSTANBUL)",
+  "ilce": "string (ör: Karatay, Gebze)",
+  "adres": "string|null (tam adres metni)",
   "osbAdi": "string|null",
   "sbAdi": "string|null",
   "ilBazliBolge": "string (ör: 2. Bölge, 5. Bölge)",
   "ilceBazliBolge": "string|null",
-  "mevcutIstihdam": number,
-  "ilaveIstihdam": number,
-  "belgeId": "string",
-  "belgeNo": "string",
-  "belgeTarihi": "string (DD/MM/YYYY)",
+  "mevcutIstihdam": "number (boşsa 0)",
+  "ilaveIstihdam": "number (boşsa 0)",
+  "belgeId": "string (ör: 1022039)",
+  "belgeNo": "string (ör: 516931)",
+  "belgeTarihi": "string (DD/MM/YYYY formatında, ör: 16/11/2020)",
   "muracaatTarihi": "string (DD/MM/YYYY)|null",
-  "muracaatSayisi": "string|null",
+  "muracaatSayisi": "string|null (ör: 21919)",
   "belgeBaslamaTarihi": "string (DD/MM/YYYY)|null",
   "belgeBitisTarihi": "string (DD/MM/YYYY)|null",
-  "sureUzatimTarihi": "string (DD/MM/YYYY)|null",
-  "oecdKategori": "string|null",
-  "destekSinifi": "string (ör: BÖLGESEL, HEDEF YATIRIMLAR - ALT BÖLGE)",
-  "oncelikliYatirim": "string|null",
-  "buyukOlcekli": "string|null",
-  "cazibeMerkezliMi": "string (EVET/HAYIR)",
-  "savunmaSanayiProjesi": "string (EVET/HAYIR)|null",
+  "sureUzatimTarihi": "string (DD/MM/YYYY)|null (Süre Uzatım Tarihi satırı)",
+  "oecdKategori": "string|null (OECD satırındaki tam metin, ör: B.Y.S. Makine ve Teçhizat İmalatı)",
+  "destekSinifi": "string (ör: BÖLGESEL, GENEL, HEDEF YATIRIMLAR - ALT BÖLGE)",
+  "oncelikliYatirim": "string|null (boşsa null)",
+  "buyukOlcekli": "string|null (boşsa null)",
+  "cazibeMerkezliMi": "string (EVET veya HAYIR)",
+  "savunmaSanayiProjesi": "string (EVET veya HAYIR)|null",
+  "ada": "string|null",
+  "parsel": "string|null",
   "belgeMuracaatTalepTipi": "string (ör: YATIRIM TEŞVİK BELGESİ)",
   "enerjiUretimKaynagi": "string|null",
-  "cazibeMerkezi2018": "string (EVET/HAYIR)|null",
-  "cazibeMerkeziDeprem": "string (EVET/HAYIR)|null",
-  "hamleMi": "string (EVET/HAYIR)",
-  "vergiIndirimsizDestek": "string (EVET/HAYIR)",
+  "cazibeMerkezi2018": "string (EVET veya HAYIR)|null",
+  "cazibeMerkeziDeprem": "string (EVET veya HAYIR)|null",
+  "hamleMi": "string (EVET veya HAYIR)",
+  "vergiIndirimsizDestek": "string (EVET veya HAYIR)",
   "belgeFormati": "eski|yeni"
 }
 
-ÖNEMLI KURALLAR:
-- \"belgeFormati\" alanını tespit et. BU ÇOK KRİTİK:
-  * \"eski\" → Yatırım konusu kodu US97 formatındadır. US97 kodları 4 HANELİ SAYIYLA BAŞLAR: ör: \"2930\", \"2899\", \"1520\", \"2610\". Ürün kodları \"2930.1.15\" gibi 4haneli.1haneli.2haneli formattadır. Yatırım konusu satırında \"2930 - B.Y.S. EV ALETLERİ İMALATI\" gibi yazılır.
-  * \"yeni\" → Yatırım konusu kodu NACE Rev.2 formatındadır. NACE kodları 2 HANELİ SAYIYLA BAŞLAR ve nokta ile ayrılır: ör: \"22.26\", \"10.71\", \"28.99\". Ürün kodları \"22.26.01\" gibi 2haneli.2haneli.2haneli formattadır.
-  * AYIRT ETME KURALI: Yatırım konusu kodunun İLK SAYISI kaç hanelidir?
-    - 4 haneli başlangıç (2930, 2899, 1520) → \"eski\" (US97)
-    - 2 haneli başlangıç (22.26, 10.71) → \"yeni\" (NACE)
-    - DİKKAT: US97 kodları da nokta içerebilir (2930.1.15) — bu NACE değildir!
-- Tarihleri DD/MM/YYYY formatında döndür.
-- Sayısal değerleri number olarak döndür (string değil).
+BELGE FORMATI TESPİT KURALLARI (ÇOK KRİTİK):
+- Sayfada "Yatırımın Konusu(US97):" etiketi varsa → "eski"
+- Sayfada "Yatırımın Konusu(Nace):" etiketi varsa → "yeni"
+- Yatırım konusu kodu 4 haneli başlıyorsa (2929, 2930, 1520) → "eski" (US97)
+- Yatırım konusu kodu 2 haneli+nokta+2 haneli başlıyorsa (22.26, 10.71) → "yeni" (NACE)
+- Tarihleri mutlaka DD/MM/YYYY formatında döndür.
+- Sayısal değerleri number olarak döndür.
 - Sadece JSON döndür, açıklama metni ekleme.`,
 
   // Tab 2: Yatırım Cinsi
   [TAB_TYPES.YATIRIM_CINSI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yatırım Cinsi" sekmesini göstermektedir.
-Tablodaki yatırım cinsi değerlerini oku.
+Tabloda "Yatırım Cinsi" başlıklı sütunun altındaki tüm değerleri oku.
 
 Yanıt formatı (sadece JSON):
 {
-  "yatirimCinsleri": ["string"] 
+  "yatirimCinsleri": ["string"]
 }
 
-Örnek: {"yatirimCinsleri": ["KOMPLE YENİ YATIRIM"]} veya {"yatirimCinsleri": ["TEVSİ"]}`,
+Örnek: {"yatirimCinsleri": ["KOMPLE YENİ YATIRIM"]}
+Diğer olası değerler: TEVSİ, MODERNİZASYON, ÜRÜN ÇEŞİTLENDİRME, ENTEGRASYON`,
 
   // Tab 3: Ürün Bilgileri
   [TAB_TYPES.URUN_BILGILERI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Ürün Bilgileri" sekmesini göstermektedir.
-Tablodaki tüm ürün satırlarını oku.
+Tablodaki tüm ürün satırlarını dikkatlice oku.
 
 Yanıt formatı (sadece JSON):
 {
   "kodTipi": "US97|NACE6",
   "urunler": [
     {
-      "urunKodu": "string (ör: 2930.1.15 veya 22.26.01)",
-      "urunAdi": "string",
+      "urunKodu": "string (ör: 2929.2.09 veya 22.26.01)",
+      "urunAdi": "string (ör: KALIP, PLASTİK BORU)",
       "mevcutKapasite": number,
       "ilaveKapasite": number,
       "toplamKapasite": number,
-      "birim": "string (ör: KG/YIL, ADET/YIL)"
+      "birim": "string (ör: KG/YIL, ADET/YIL, TON/YIL, M2/YIL)"
     }
   ]
 }
 
-ÖNEMLI:
-- kodTipi belirleme: 
-  * Kolon başlığında "Ürün Kodu (Nace6)" veya "NACE" yazıyorsa → kodTipi: "NACE6"
-  * Kolon başlığında "Ürün Kodu" (NACE ifadesi YOKSA) → kodTipi: "US97"
-  * Ürün kodu formatından da belirlenebilir: 2930.1.15 (4 haneli başlangıç) → US97, 22.26.01 (2 haneli başlangıç) → NACE6
-- Sayıları number olarak döndür.`,
+KOD TİPİ BELİRLEME KURALLARI:
+1. Kolon başlığı "Ürün Kodu (US-97)" veya "Ürün Kodu (US97)" ise → kodTipi: "US97"
+2. Kolon başlığı "Ürün Kodu (Nace6)" veya "NACE" ise → kodTipi: "NACE6"
+3. Başlık okunamazsa ürün kodu formatından:
+   - 2929.2.09 (4haneli.1-2haneli.2haneli) → US97
+   - 22.26.01 (2haneli.2haneli.2haneli) → NACE6
+- Sayıları number olarak döndür.
+- Sadece JSON döndür.`,
 
-  // Tab 4: Finansal Bilgiler
+  // Tab 4: Yerli Liste
+  [TAB_TYPES.YERLI_LISTE]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yerli Liste" sekmesini göstermektedir.
+Bu sekme yerli (Türkiye'de üretilmiş) makine ve teçhizatların listesini gösterir.
+
+Tablodaki tüm makine/teçhizat satırlarını oku.
+
+Yanıt formatı (sadece JSON):
+{
+  "yerliMakineler": [
+    {
+      "siraNo": number,
+      "makineCinsi": "string (ör: CNC TORNA, PRES, KAYNAK MAKİNESİ)",
+      "adedi": number,
+      "tutarTL": number,
+      "aciklama": "string|null"
+    }
+  ]
+}
+
+ÖNEMLI: Türk sayı formatını doğru oku: 1.250.000 = 1250000 (nokta binlik ayracı). Sadece JSON döndür.`,
+
+  // Tab 5: İthal Liste
+  [TAB_TYPES.ITHAL_LISTE]: `Bu ekran görüntüsü ETUYS/DYS portalının "İthal Liste" sekmesini göstermektedir.
+Bu sekme ithal (yurt dışından getirilen) makine ve teçhizatların listesini gösterir.
+
+Tablodaki tüm makine/teçhizat satırlarını oku.
+
+Yanıt formatı (sadece JSON):
+{
+  "ithalMakineler": [
+    {
+      "siraNo": number,
+      "makineCinsi": "string (ör: ENJEKSİYON MAKİNESİ, CNC İŞLEME MERKEZİ)",
+      "adedi": number,
+      "tutarDolar": number,
+      "tutarTL": number|null,
+      "menseUlke": "string|null (ör: ALMANYA, ÇİN, İTALYA)",
+      "yeniKullanilmis": "string|null (YENİ veya KULLANILMIŞ)",
+      "aciklama": "string|null"
+    }
+  ]
+}
+
+ÖNEMLI: Sayı ayracı: 561.676,72 → 561676.72 (nokta binlik, virgül ondalık). Sadece JSON döndür.`,
+
+  // Tab 6: Finansal Bilgiler
   [TAB_TYPES.FINANSAL_BILGILER]: `Bu ekran görüntüsü ETUYS/DYS portalının "Finansal Bilgiler" sekmesini göstermektedir.
-Tüm finansal değerleri dikkatlice oku. Noktalı sayıları (ör: 3.058.667) doğru parse et.
+Sol tarafta giderler (Arazi-Arsa, Bina-İnşaat, Diğer Yatırım Harcamaları), sağ tarafta Makina Teçhizat, İthal Makine($), Yabancı Kaynaklar, Özkaynaklar ve TOPLAM FİNANSMAN bulunur.
+
+Tüm finansal değerleri dikkatlice oku.
 
 Yanıt formatı (sadece JSON):
 {
@@ -185,35 +255,86 @@ Yanıt formatı (sadece JSON):
   "toplamFinansman": number
 }
 
-ÖNEMLI: Türk sayı formatını doğru oku: 3.058.667 = 3058667 (nokta binlik ayracı). Boş alanlar için 0 kullan.`,
+ÖNEMLI: Türk sayı formatı: 12.819.990 = 12819990 (nokta binlik ayracı). Virgül ondalık ayracıdır: 561.676,72 = 561676.72. Boş alanlar için 0 kullan. Sadece JSON döndür.`,
 
-  // Tab 5: Özel Şartlar
+  // Tab 7: Özel Şartlar (Liste)
   [TAB_TYPES.OZEL_SARTLAR]: `Bu ekran görüntüsü ETUYS/DYS portalının "Özel Şartlar" sekmesini göstermektedir.
-Tablodaki tüm özel şart satırlarını oku.
+Tabloda "Özel Şart Adı" ve "Özel Şart Açıklaması" sütunları bulunur.
+
+DİKKAT: Açıklama metinleri tabloda kısaltılmış olabilir (... ile biten). Görünen kadarını yaz.
 
 Yanıt formatı (sadece JSON):
 {
   "ozelSartlar": [
     {
-      "sartAdi": "string",
-      "sartAciklamasi": "string (mümkünse tam metin, kısaltılmışsa görünen kadar)"
+      "sartAdi": "string (ör: Kullanılmış Makine Münferit, BÖL - Faaliyet Zorunluluğu, 3305 - SGK : Bölgesel - 4. Bölge)",
+      "sartAciklamasi": "string (görünen kadar, kısaltılmışsa ... ekle)"
     }
   ]
-}`,
+}
 
-  // Tab 6: Destek Unsurları
+Not: Yaygın özel şart isimleri: Kullanılmış Makine Münferit, Diğer Kurum, BÖL - Faaliyet Zorunluluğu, 3305 - Yatırım Konusu Zorunluluğu, BÖL - SGK NO, 3305 - (OECD), 3305 - SGK : Bölgesel, BÖL - Faiz Desteği, Süre Uzatımı. Sadece JSON döndür.`,
+
+  // Tab 7b: Özel Şart Detay Popup
+  [TAB_TYPES.OZEL_SART_DETAY]: `Bu ekran görüntüsü bir "Özel Şart Görüntüleme" popup penceresidir.
+Pencerede "Özel Şart:" ve "Açıklama:" etiketleri altında detaylı bilgi bulunur.
+
+Açıklama metnini TAM OLARAK, hiç kısaltmadan oku.
+
+Yanıt formatı (sadece JSON):
+{
+  "ozelSartDetay": {
+    "sartAdi": "string (ör: BÖL - Faiz Desteği, Süre Uzatımı, 3305 - Yatırım Konusu Zorunluluğu)",
+    "sartAciklamasi": "string (açıklama metninin TAMAMI - hiçbir şeyi atlama)"
+  }
+}
+
+Sadece JSON döndür, açıklama metni ekleme.`,
+
+  // Tab 8: Destek Unsurları
   [TAB_TYPES.DESTEK_UNSURLARI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Destek Unsurları" sekmesini göstermektedir.
-Tablodaki tüm destek unsurlarını ve oranlarını oku.
+Tabloda "Destek Unsuru Adı" ve "Destek Oranı" sütunları bulunur.
 
 Yanıt formatı (sadece JSON):
 {
   "destekUnsurlari": [
     {
-      "destekUnsuru": "string (ör: Vergi İndirimi, Sigorta Primi İşveren Hissesi)",
-      "destekOrani": "string (ör: %55, YKO %20, 3 Yıl, boş)"
+      "destekUnsuru": "string (ör: Vergi İndirimi, Sigorta Primi İşveren Hissesi, Gümrük Vergisi Muafiyeti, KDV İstisnası, Faiz Desteği)",
+      "destekOrani": "string (ör: %70 YKO %30, 6 Yıl, boş ise empty string)"
     }
   ]
-}`,
+}
+
+DİKKAT: Bazı destek unsurlarının oranı boş olabilir (sadece adı var). Bu durumda destekOrani'ni boş string "" olarak döndür. Sadece JSON döndür.`,
+
+  // Tab 9: Proje Tanıtımı
+  [TAB_TYPES.PROJE_TANITIMI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Proje Tanıtımı" sekmesini göstermektedir.
+Proje açıklama metnini tam olarak oku.
+
+Yanıt formatı (sadece JSON):
+{
+  "projeTanitimi": "string (proje açıklama metninin tamamı)"
+}
+
+Sadece JSON döndür.`,
+
+  // Tab 10: Evrak Listesi
+  [TAB_TYPES.EVRAK_LISTESI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Evrak Listesi" sekmesini göstermektedir.
+Tablodaki tüm evrak/belge bilgilerini oku.
+
+Yanıt formatı (sadece JSON):
+{
+  "evrakListesi": [
+    {
+      "evrakAdi": "string",
+      "evrakTarihi": "string|null",
+      "evrakDurumu": "string|null",
+      "aciklama": "string|null"
+    }
+  ]
+}
+
+Sadece JSON döndür.`,
 };
 
 // ─── HTTP ve Parse Yardımcıları ─────────────────────────────────
@@ -521,10 +642,18 @@ function mergeResults(results) {
     sureUzatimTarihi: null,
     destekSinifi: null,
     oecdKategori: null,
+    oncelikliYatirim: null,
+    buyukOlcekli: null,
     cazibeMerkezliMi: null,
+    savunmaSanayiProjesi: null,
+    ada: null,
+    parsel: null,
     hamleMi: null,
     vergiIndirimsizDestek: null,
     belgeMuracaatTalepTipi: null,
+    enerjiUretimKaynagi: null,
+    cazibeMerkezi2018: null,
+    cazibeMerkeziDeprem: null,
     belgeFormati: 'eski',
 
     // Yatırım Cinsi
@@ -534,6 +663,10 @@ function mergeResults(results) {
     kodTipi: null,
     urunler: [],
 
+    // Makine Listeleri
+    yerliMakineler: [],
+    ithalMakineler: [],
+
     // Finansal
     finansal: null,
 
@@ -542,6 +675,12 @@ function mergeResults(results) {
 
     // Destek Unsurları
     destekUnsurlari: [],
+
+    // Proje Tanıtımı
+    projeTanitimi: null,
+
+    // Evrak Listesi
+    evrakListesi: [],
   };
 
   for (const result of results) {
@@ -565,19 +704,63 @@ function mergeResults(results) {
         }
         break;
 
+      case TAB_TYPES.YERLI_LISTE:
+        if (result.data.yerliMakineler) {
+          merged.yerliMakineler = result.data.yerliMakineler;
+        }
+        break;
+
+      case TAB_TYPES.ITHAL_LISTE:
+        if (result.data.ithalMakineler) {
+          merged.ithalMakineler = result.data.ithalMakineler;
+        }
+        break;
+
       case TAB_TYPES.FINANSAL_BILGILER:
         merged.finansal = result.data;
         break;
 
       case TAB_TYPES.OZEL_SARTLAR:
         if (result.data.ozelSartlar) {
-          merged.ozelSartlar = result.data.ozelSartlar;
+          merged.ozelSartlar = [...merged.ozelSartlar, ...result.data.ozelSartlar];
+        }
+        break;
+
+      case TAB_TYPES.OZEL_SART_DETAY:
+        // Popup detay — mevcut özel şartı güncelle veya yeni ekle
+        if (result.data.ozelSartDetay) {
+          const detay = result.data.ozelSartDetay;
+          const existing = merged.ozelSartlar.find(s => 
+            s.sartAdi && detay.sartAdi && s.sartAdi.includes(detay.sartAdi.slice(0, 15))
+          );
+          if (existing) {
+            // Var olan şartın açıklamasını tam metinle güncelle
+            existing.sartAciklamasi = detay.sartAciklamasi;
+          } else {
+            // Yeni şart olarak ekle
+            merged.ozelSartlar.push({
+              sartAdi: detay.sartAdi,
+              sartAciklamasi: detay.sartAciklamasi,
+            });
+          }
         }
         break;
 
       case TAB_TYPES.DESTEK_UNSURLARI:
         if (result.data.destekUnsurlari) {
           merged.destekUnsurlari = result.data.destekUnsurlari;
+        }
+        break;
+
+      case TAB_TYPES.PROJE_TANITIMI:
+        if (result.data.projeTanitimi) {
+          merged.projeTanitimi = result.data.projeTanitimi;
+        }
+        break;
+
+      case TAB_TYPES.EVRAK_LISTESI:
+        if (result.data.evrakListesi) {
+          merged.evrakListesi = result.data.evrakListesi;
         }
         break;
     }
