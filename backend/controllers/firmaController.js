@@ -578,14 +578,14 @@ const searchFirmalar = async (req, res) => {
       }
 
       firmalar = await Firma.find(filter)
-        .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi')
+        .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi yetkiliKisiler etuysYetkiBitisTarihi dysYetkiBitisTarihi aktif')
         .sort({ tamUnvan: 1 })
         .limit(20)
         .lean();
     } else {
       // Genel arama - Türkçe karakter duyarsız
       firmalar = await Firma.searchFirmalar(q)
-        .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi')
+        .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi yetkiliKisiler etuysYetkiBitisTarihi dysYetkiBitisTarihi aktif')
         .limit(20)
         .lean();
     }

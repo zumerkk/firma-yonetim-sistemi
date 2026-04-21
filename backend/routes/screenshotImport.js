@@ -9,12 +9,12 @@ const multer = require('multer');
 const screenshotImportController = require('../controllers/screenshotImportController');
 const { authenticate } = require('../middleware/auth');
 
-// Multer: memory storage, max 10 dosya, 10MB/dosya
+// Multer: memory storage, max 30 dosya, 10MB/dosya
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10 MB
-    files: 10,
+    files: 30,
   },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
@@ -27,7 +27,7 @@ const upload = multer({
 });
 
 // POST /api/screenshot-import/analyze - Çoklu ekran görüntüsü analizi
-router.post('/analyze', upload.array('screenshots', 10), screenshotImportController.analyze);
+router.post('/analyze', upload.array('screenshots', 30), screenshotImportController.analyze);
 
 // POST /api/screenshot-import/commit - Onaylanan veriyi DB'ye kaydet (auth gerekli)
 router.post('/commit', authenticate, express.json(), screenshotImportController.commit);

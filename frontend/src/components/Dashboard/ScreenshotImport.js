@@ -462,7 +462,7 @@ const ScreenshotImport = () => {
                   ETUYS/DYS ekran görüntülerini sürükleyin
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5, fontSize: '0.8rem' }}>
-                  veya tıklayarak seçin • PNG, JPEG, WebP • Maks 10 görsel
+                  veya tıklayarak seçin • PNG, JPEG, WebP • Maks 30 görsel
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.8, justifyContent: 'center', mt: 2, flexWrap: 'wrap' }}>
                   {Object.entries(TAB_META)

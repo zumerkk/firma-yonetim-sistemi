@@ -188,10 +188,14 @@ const importExcel = async (req, res) => {
 // CSV Parse Helper
 const parseCSV = (filePath) => {
   return new Promise((resolve, reject) => {
+    // Read a chunk to detect separator
+    const chunk = fs.readFileSync(filePath, { encoding: 'utf8', flag: 'r' }).substring(0, 1024);
+    const separator = (chunk.match(/;/g) || []).length > (chunk.match(/,/g) || []).length ? ';' : ',';
+    
     const results = [];
     fs.createReadStream(filePath)
       .pipe(csv({
-        separator: ',',
+        separator: separator,
         encoding: 'utf8',
         skipLinesWithError: true
       }))

@@ -561,7 +561,7 @@ const FirmaList = () => {
               {yetkili.adSoyad}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-              {yetkili.telefon}
+              {yetkili.telefon1 || yetkili.telefon || '-'}
             </Typography>
           </Box>
         );
