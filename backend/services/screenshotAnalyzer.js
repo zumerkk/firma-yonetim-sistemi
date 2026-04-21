@@ -730,17 +730,21 @@ function mergeResults(results) {
         // Popup detay — mevcut özel şartı güncelle veya yeni ekle
         if (result.data.ozelSartDetay) {
           const detay = result.data.ozelSartDetay;
+          // İsmi eşleşen, ancak henüz detayı ile GÜNCELLENMEMİŞ ilk şartı bul (aynı isimden birden fazla varsa diye)
           const existing = merged.ozelSartlar.find(s => 
-            s.sartAdi && detay.sartAdi && s.sartAdi.includes(detay.sartAdi.slice(0, 15))
+            s.sartAdi && detay.sartAdi && s.sartAdi.includes(detay.sartAdi.slice(0, 15)) && !s._isUpdated
           );
+          
           if (existing) {
-            // Var olan şartın açıklamasını tam metinle güncelle
+            // Var olan şartın açıklamasını tam metinle güncelle ve işaretle
             existing.sartAciklamasi = detay.sartAciklamasi;
+            existing._isUpdated = true;
           } else {
-            // Yeni şart olarak ekle
+            // Eşleşen güncellenmemiş satır bulunamadıysa yeni şart olarak ekle
             merged.ozelSartlar.push({
               sartAdi: detay.sartAdi,
               sartAciklamasi: detay.sartAciklamasi,
+              _isUpdated: true
             });
           }
         }
