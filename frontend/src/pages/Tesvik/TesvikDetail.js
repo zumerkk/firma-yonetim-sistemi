@@ -933,7 +933,7 @@ const TesvikDetail = () => {
                 <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Konusu</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri2?.yatirimKonusu || '1513'}
+                    {tesvik.yatirimBilgileri?.yatirimKonusu || tesvik.yatirimBilgileri2?.yatirimKonusu || '-'}
                   </Typography>
                 </Box>
               </Grid>
