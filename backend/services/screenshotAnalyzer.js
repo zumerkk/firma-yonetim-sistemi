@@ -39,27 +39,28 @@ const TAB_TYPES = {
 
 const PROMPTS = {
   // Genel: Tab tespiti
-  DETECT_TAB: `Bu ekran görüntüsü bir Türk devlet teşvik portalından (ETUYS/DYS) alınmıştır.
-Görüntüdeki aktif tab (sekme) veya pencere türünü tespit et.
+  DETECT_TAB: `Bu ekran görüntüsü bir devlet teşvik portalından (ETUYS/DYS) alınmıştır. 
+Lütfen ekrandaki aktif sekmeyi (üst menüdeki seçili butonları) veya açılmış olan popup pencerelerin başlıklarını çok dikkatli inceleyerek ne olduğunu tespit et.
 
-POPUP/MODAL PENCERELER:
-- Eğer görüntüde küçük bir popup/modal pencere açıksa (başlığında "Özel Şart Görüntüleme" yazıyorsa), bu bir özel şart detayıdır → "ozel_sart_detay"
-- Popup pencerelerde genellikle "Özel Şart:", "Açıklama:" etiketleri ve "Kapat" butonu bulunur
+İPUÇLARI:
+- Eğer ekranın ortasında küçük bir popup/modal pencere varsa ve başlığı "Özel Şart Görüntüleme" ise → "ozel_sart_detay"
+- Menü çubuğunda mavi (seçili) olan sekmeye veya direkt olarak büyük tablo başlıklarına bak.
 
-ANA SEKMELER:
-- "belge_kunye" → Belge Künye Bilgileri (firma adı, belge no, il, belge tarihi, sermaye türü gibi genel bilgiler)
-- "yatirim_cinsi" → Yatırım Cinsi (KOMPLE YENİ YATIRIM, TEVSİ, MODERNİZASYON listesi)
-- "urun_bilgileri" → Ürün Bilgileri (ürün kodu US-97/NACE, ürün adı, kapasite tablosu)
-- "yerli_liste" → Yerli Liste (yerli makine/teçhizat listesi - sıra no, cinsi, adedi, tutarı)
-- "ithal_liste" → İthal Liste (ithal makine/teçhizat listesi - sıra no, cinsi, adedi, tutarı)
-- "finansal_bilgiler" → Finansal Bilgiler (arazi, bina, makine teçhizat, finansman tutarları)
-- "ozel_sartlar" → Özel Şartlar (özel şart listesi tablosu - şart adı ve açıklama sütunları)
-- "destek_unsurlari" → Destek Unsurları (destek unsuru adı ve oranı tablosu)
-- "proje_tanitimi" → Proje Tanıtımı (proje açıklama metni)
-- "evrak_listesi" → Evrak Listesi (belge/evrak tablosu)
-- "unknown" → tanınamadı
+GEÇERLİ KATEGORİLER (LÜTFEN SADECE AŞAĞIDAKİ DEĞERLERDEN BİRİNİ SEÇ):
+- "belge_kunye": Belge Künye Bilgileri (Firma adı, SGK no, yatırım konusu vb. form)
+- "yatirim_cinsi": Yatırım Cinsi (KOMPLE YENİ YATIRIM, TEVSİ, MODERNİZASYON kelimelerini içeren tablo)
+- "urun_bilgileri": Ürün Bilgileri (Ürün kodu US-97/Nace6, Kapasite tablosu)
+- "yerli_liste": Yerli Liste (Yerli makine/teçhizat listesi)
+- "ithal_liste": İthal Liste (İthal makine/teçhizat listesi, $ işareti bulunur)
+- "finansal_bilgiler": Finansal Bilgiler (Arazi, bina, toplam finansman değerleri)
+- "ozel_sartlar": Özel Şartlar (Özel şartlar listesi tablosu)
+- "destek_unsurlari": Destek Unsurları (Destek adı ve oranı listesi)
+- "proje_tanitimi": Proje Tanıtımı (Düz açıklama metni)
+- "evrak_listesi": Evrak Listesi (Belgelerin durumu listesi)
+- "unknown": Görüntü çok bulanıksa veya bunlardan hiçbirine benzemiyorsa
 
-Yanıt formatı (sadece JSON, açıklama yok): {"tabType": "...", "confidence": 0.0-1.0}`,
+SADECE JSON OLARAK YANIT VER:
+{"tabType": "gecerli_kategori_adi", "confidence": 1.0}`,
 
   // Tab 1: Belge Künye Bilgileri
   [TAB_TYPES.BELGE_KUNYE]: `Bu ekran görüntüsü bir ETUYS/DYS teşvik belgesi portalının "Belge Künye Bilgileri" sekmesini göstermektedir.
@@ -459,6 +460,7 @@ async function callGeminiVisionDirect(imageBuffer, prompt, mimeType = 'image/png
       temperature: 0.1,
       topP: 0.9,
       maxOutputTokens: 4096,
+      responseMimeType: "application/json",
     },
   };
 
@@ -472,14 +474,14 @@ async function callGeminiVisionDirect(imageBuffer, prompt, mimeType = 'image/png
 }
 
 /**
- * Multi-provider Vision API — Retry + Fallback
- * OpenAI önce (2 deneme), sonra Gemini (3 deneme, aralıklı)
+ * Sadece Gemini Vision API — Sınırsız / Ücretsiz analiz için
  */
 async function callGeminiVision(imageBuffer, prompt, mimeType = 'image/png') {
   const providers = [
-    { name: 'OpenAI GPT-4o-mini', fn: () => callOpenAIVision(imageBuffer, prompt, mimeType), retries: 2, delay: 1000 },
-    { name: 'Gemini 2.5 Flash', fn: () => callGeminiVisionDirect(imageBuffer, prompt, mimeType), retries: 3, delay: 3000 },
+    { name: 'Gemini 2.5 Flash', fn: () => callGeminiVisionDirect(imageBuffer, prompt, mimeType), retries: 4, delay: 5000 },
   ];
+
+  let lastErrorMsg = 'Bilinmeyen Hata';
 
   for (const provider of providers) {
     for (let attempt = 1; attempt <= provider.retries; attempt++) {
@@ -491,7 +493,9 @@ async function callGeminiVision(imageBuffer, prompt, mimeType = 'image/png') {
           return result;
         }
         console.log(`    ⚠️ ${provider.name} (deneme ${attempt}): JSON parse başarısız`);
+        lastErrorMsg = 'JSON parse edilemedi';
       } catch (err) {
+        lastErrorMsg = err.message;
         const msg = err.message.slice(0, 120);
         console.log(`    ⚠️ ${provider.name} (deneme ${attempt}/${provider.retries}): ${msg}`);
         if (attempt < provider.retries) {
@@ -503,7 +507,7 @@ async function callGeminiVision(imageBuffer, prompt, mimeType = 'image/png') {
     }
   }
 
-  throw new Error('Tüm AI provider\'lar başarısız oldu (OpenAI, Gemini)');
+  throw new Error(`API Hatası: ${lastErrorMsg.slice(0, 100)}`);
 }
 
 // ─── Yüksek Seviye Fonksiyonlar ─────────────────────────────────
@@ -512,12 +516,16 @@ async function callGeminiVision(imageBuffer, prompt, mimeType = 'image/png') {
  * Ekran görüntüsündeki tab tipini algıla
  */
 async function detectTabType(imageBuffer, mimeType) {
-  const result = await callGeminiVision(imageBuffer, PROMPTS.DETECT_TAB, mimeType);
-  if (result.parsed?.tabType) {
-    return {
-      tabType: result.parsed.tabType,
-      confidence: result.parsed.confidence || 0.5,
-    };
+  try {
+    const result = await callGeminiVision(imageBuffer, PROMPTS.DETECT_TAB, mimeType);
+    if (result.parsed?.tabType) {
+      return {
+        tabType: result.parsed.tabType,
+        confidence: result.parsed.confidence || 0.5,
+      };
+    }
+  } catch (err) {
+    console.log(`    ⚠️ Tab tespiti yapılamadı: ${err.message}`);
   }
   return { tabType: TAB_TYPES.UNKNOWN, confidence: 0 };
 }
@@ -563,6 +571,9 @@ async function analyzeScreenshot(imageBuffer, mimeType = 'image/png', tabHint = 
     };
   }
 
+  // Rate Limit Koruması: Aynı görsel için Tab Tespiti ve Veri Çıkarma istekleri arasına 1.5 saniye esneklik koy
+  await new Promise(r => setTimeout(r, 1500));
+
   // Veri çıkar
   const data = await extractTabData(imageBuffer, detection.tabType, mimeType);
   return {
@@ -590,6 +601,14 @@ async function analyzeMultipleScreenshots(images) {
         ...result,
       });
       console.log(`  ✅ Tab: ${result.detectedTab} (${Math.round((result.confidence || 0) * 100)}%)`);
+      
+      // Rate Limit Koruması: Her başarılı görsel analizinden sonra bekleyerek istek hızını dengele
+      // 15 İstek/Dakika = 4 saniyede 1 istek limiti demektir.
+      // Her görsel 2 istek (Tab bul + Veri çıkar) attığı için, görseller arası en az 8 saniye beklemeliyiz.
+      if (i < images.length - 1) {
+        console.log(`  ⏱️ Rate Limit koruması: 8.5 saniye bekleniyor...`);
+        await new Promise(r => setTimeout(r, 8500));
+      }
     } catch (err) {
       console.error(`  ❌ Hata: ${err.message}`);
       errors.push({

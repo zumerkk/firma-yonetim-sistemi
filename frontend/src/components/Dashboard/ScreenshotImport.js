@@ -189,7 +189,7 @@ const ScreenshotImport = () => {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
-        timeout: 120000, // 2 dakika timeout
+        timeout: 600000, // 10 dakika timeout (Çoklu görsel için)
       });
 
       clearInterval(progressInterval);
@@ -623,9 +623,20 @@ const ScreenshotImport = () => {
                   ))}
                 </Box>
                 {analysisResult.errors?.length > 0 && (
-                  <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
-                    ⚠️ {analysisResult.errors.length} görsel analiz edilemedi
-                  </Typography>
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="error" sx={{ display: 'block', fontWeight: 'bold' }}>
+                      ⚠️ {analysisResult.errors.length} görsel analiz edilemedi:
+                    </Typography>
+                    <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                      {analysisResult.errors.map((err, idx) => (
+                        <li key={idx}>
+                          <Typography variant="caption" color="error">
+                            {err.filename}: {err.error}
+                          </Typography>
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
                 )}
               </Alert>
 

@@ -27,7 +27,11 @@ const upload = multer({
 });
 
 // POST /api/screenshot-import/analyze - Çoklu ekran görüntüsü analizi
-router.post('/analyze', upload.array('screenshots', 30), screenshotImportController.analyze);
+router.post('/analyze', upload.array('screenshots', 30), (req, res, next) => {
+  req.setTimeout(600000); // 10 dakika timeout
+  res.setTimeout(600000);
+  next();
+}, screenshotImportController.analyze);
 
 // POST /api/screenshot-import/commit - Onaylanan veriyi DB'ye kaydet (auth gerekli)
 router.post('/commit', authenticate, express.json(), screenshotImportController.commit);
