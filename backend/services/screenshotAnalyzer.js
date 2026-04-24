@@ -1,23 +1,14 @@
 /**
- * 📸 Screenshot Analyzer Service - v2.0
+ * 📸 Screenshot Analyzer Service - v3.1 (Free-Only Multi-Provider + High Accuracy)
  * 
- * AI Vision API kullanarak ETUYS/DYS devlet portalı ekran görüntülerinden
- * teşvik belgesi verilerini otomatik çıkarır.
+ * ETUYS/DYS devlet portalı ekran görüntülerinden teşvik belgesi verilerini
+ * tamamen ücretsiz AI API'ler ile otomatik çıkarır.
  * 
- * Desteklenen Tab Türleri:
- * 1. Belge Künye Bilgileri
- * 2. Yatırım Cinsi
- * 3. Ürün Bilgileri
- * 4. Yerli Liste (makine/teçhizat)
- * 5. İthal Liste (makine/teçhizat)
- * 6. Finansal Bilgiler
- * 7. Özel Şartlar (liste + popup detay)
- * 8. Destek Unsurları
- * 9. Proje Tanıtımı
- * 10. Evrak Listesi
+ * v3.1: Doğruluk artırıldı (Tab tespiti ve veri çıkarma tekrar 2 aşamalı hale getirildi).
  */
 
 const https = require('https');
+const ScreenshotJob = require('../models/ScreenshotJob');
 
 // ─── Tab Tipi Sabitleri ─────────────────────────────────────────
 const TAB_TYPES = {
@@ -35,7 +26,73 @@ const TAB_TYPES = {
   UNKNOWN: 'unknown',
 };
 
-// ─── Tab-Specific AI Prompt Şablonları ──────────────────────────
+// ─── Rate Limiter ───────────────────────────────────────────────
+class RateLimiter {
+  constructor() {
+    this.counters = {};
+  }
+  _getKey(providerId) {
+    if (!this.counters[providerId]) this.counters[providerId] = { rpm: [], rpd: 0, rpdDate: '' };
+    const today = new Date().toISOString().slice(0, 10);
+    if (this.counters[providerId].rpdDate !== today) {
+      this.counters[providerId].rpd = 0;
+      this.counters[providerId].rpdDate = today;
+    }
+    return this.counters[providerId];
+  }
+  canRequest(providerId, maxRpm, maxRpd) {
+    const c = this._getKey(providerId);
+    const now = Date.now();
+    c.rpm = c.rpm.filter(t => now - t < 60000);
+    return c.rpm.length < maxRpm && c.rpd < maxRpd;
+  }
+  record(providerId) {
+    const c = this._getKey(providerId);
+    c.rpm.push(Date.now());
+    c.rpd++;
+  }
+  getStats() {
+    const stats = {};
+    for (const [id, c] of Object.entries(this.counters)) {
+      stats[id] = { rpmUsed: c.rpm.filter(t => Date.now() - t < 60000).length, rpdUsed: c.rpd };
+    }
+    return stats;
+  }
+}
+const rateLimiter = new RateLimiter();
+
+// ─── HTTP Helpers ───────────────────────────────────────────────
+function httpPost(url, body, headers = {}) {
+  return new Promise((resolve, reject) => {
+    const data = Buffer.from(JSON.stringify(body), 'utf-8');
+    const u = new URL(url);
+    const req = https.request({
+      method: 'POST', hostname: u.hostname, path: u.pathname + u.search,
+      headers: { 'Content-Type': 'application/json', 'Content-Length': data.length, ...headers },
+      timeout: 120000,
+    }, (res) => {
+      let raw = '';
+      res.setEncoding('utf8');
+      res.on('data', chunk => raw += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 400) return reject(new Error(`HTTP ${res.statusCode}: ${raw.slice(0, 300)}`));
+        try { resolve(JSON.parse(raw)); } catch (e) { reject(new Error(`JSON parse: ${e.message}`)); }
+      });
+    });
+    req.on('error', reject);
+    req.on('timeout', () => { req.destroy(); reject(new Error('API timeout')); });
+    req.write(data);
+    req.end();
+  });
+}
+
+function safeJsonExtract(text) {
+  const m = String(text || '').match(/\{[\s\S]*\}/);
+  if (!m) return null;
+  try { return JSON.parse(m[0]); } catch { return null; }
+}
+
+// ─── Tab-Specific AI Prompt Şablonları (Yüksek Doğruluk) ────────
 
 const PROMPTS = {
   // Genel: Tab tespiti
@@ -64,746 +121,393 @@ SADECE JSON OLARAK YANIT VER:
 
   // Tab 1: Belge Künye Bilgileri
   [TAB_TYPES.BELGE_KUNYE]: `Bu ekran görüntüsü bir ETUYS/DYS teşvik belgesi portalının "Belge Künye Bilgileri" sekmesini göstermektedir.
-
-SAYFA YAPISI: Sol tarafta "Yatırımcı ile ilgili bilgiler" ve "Yatırım ile ilgili bilgiler" bölümleri, sağ tarafta "Belge ile ilgili bilgiler" bölümü bulunur.
-
 Lütfen görüntüdeki TÜM alanları dikkatlice oku ve aşağıdaki JSON yapısında döndür. Boş veya okunamayan alanlar için null kullan.
-
 {
-  "firmaAdi": "string (ör: BAYRAM ÖZEL, METSAN MAKİNA LTD. ŞTİ.)",
+  "firmaAdi": "string",
   "sgkSicilNo": "string|null",
-  "sermayeTuru": "string (ör: Tamamı Yerli Firma, Yabancı Sermayeli)",
-  "yatirimKonusu": "string (Yatırımın Konusu satırındaki tam metin, ör: 2929 - DİĞER ÖZEL AMAÇLI MAKİNELERİN İMALATI veya 22.26 - Diğer plastik ürünlerin imalatı)",
-  "kararnameNo": "string (ör: 15.06.2012 tarih 2012-3305 sayılı)",
-  "il": "string (ör: KONYA, İSTANBUL)",
-  "ilce": "string (ör: Karatay, Gebze)",
-  "adres": "string|null (tam adres metni)",
+  "sermayeTuru": "string",
+  "yatirimKonusu": "string",
+  "kararnameNo": "string",
+  "il": "string",
+  "ilce": "string",
+  "adres": "string|null",
   "osbAdi": "string|null",
   "sbAdi": "string|null",
-  "ilBazliBolge": "string (ör: 2. Bölge, 5. Bölge)",
+  "ilBazliBolge": "string",
   "ilceBazliBolge": "string|null",
-  "mevcutIstihdam": "number (boşsa 0)",
-  "ilaveIstihdam": "number (boşsa 0)",
-  "belgeId": "string (ör: 1022039)",
-  "belgeNo": "string (ör: 516931)",
-  "belgeTarihi": "string (DD/MM/YYYY formatında, ör: 16/11/2020)",
+  "mevcutIstihdam": 0,
+  "ilaveIstihdam": 0,
+  "belgeId": "string",
+  "belgeNo": "string",
+  "belgeTarihi": "string (DD/MM/YYYY)",
   "muracaatTarihi": "string (DD/MM/YYYY)|null",
-  "muracaatSayisi": "string|null (ör: 21919)",
+  "muracaatSayisi": "string|null",
   "belgeBaslamaTarihi": "string (DD/MM/YYYY)|null",
   "belgeBitisTarihi": "string (DD/MM/YYYY)|null",
-  "sureUzatimTarihi": "string (DD/MM/YYYY)|null (Süre Uzatım Tarihi satırı)",
-  "oecdKategori": "string|null (OECD satırındaki tam metin, ör: B.Y.S. Makine ve Teçhizat İmalatı)",
-  "destekSinifi": "string (ör: BÖLGESEL, GENEL, HEDEF YATIRIMLAR - ALT BÖLGE)",
-  "oncelikliYatirim": "string|null (boşsa null)",
-  "buyukOlcekli": "string|null (boşsa null)",
-  "cazibeMerkezliMi": "string (EVET veya HAYIR)",
-  "savunmaSanayiProjesi": "string (EVET veya HAYIR)|null",
+  "sureUzatimTarihi": "string (DD/MM/YYYY)|null",
+  "oecdKategori": "string|null",
+  "destekSinifi": "string",
+  "oncelikliYatirim": "string|null",
+  "buyukOlcekli": "string|null",
+  "cazibeMerkezliMi": "EVET/HAYIR",
+  "savunmaSanayiProjesi": "EVET/HAYIR|null",
   "ada": "string|null",
   "parsel": "string|null",
-  "belgeMuracaatTalepTipi": "string (ör: YATIRIM TEŞVİK BELGESİ)",
+  "belgeMuracaatTalepTipi": "string",
   "enerjiUretimKaynagi": "string|null",
-  "cazibeMerkezi2018": "string (EVET veya HAYIR)|null",
-  "cazibeMerkeziDeprem": "string (EVET veya HAYIR)|null",
-  "hamleMi": "string (EVET veya HAYIR)",
-  "vergiIndirimsizDestek": "string (EVET veya HAYIR)",
+  "cazibeMerkezi2018": "EVET/HAYIR|null",
+  "cazibeMerkeziDeprem": "EVET/HAYIR|null",
+  "hamleMi": "EVET/HAYIR",
+  "vergiIndirimsizDestek": "EVET/HAYIR",
   "belgeFormati": "eski|yeni"
 }
 
-BELGE FORMATI TESPİT KURALLARI (ÇOK KRİTİK):
-- Sayfada "Yatırımın Konusu(US97):" etiketi varsa → "eski"
-- Sayfada "Yatırımın Konusu(Nace):" etiketi varsa → "yeni"
-- Yatırım konusu kodu 4 haneli başlıyorsa (2929, 2930, 1520) → "eski" (US97)
-- Yatırım konusu kodu 2 haneli+nokta+2 haneli başlıyorsa (22.26, 10.71) → "yeni" (NACE)
-- Tarihleri mutlaka DD/MM/YYYY formatında döndür.
-- Sayısal değerleri number olarak döndür.
-- Sadece JSON döndür, açıklama metni ekleme.`,
+BELGE FORMATI KURALLARI:
+- "Yatırımın Konusu(US97):" varsa → "eski"
+- "Yatırımın Konusu(Nace):" varsa → "yeni"
+- Kod 4 hane başlıyorsa (2929) → "eski"
+- Kod 2 hane.2 hane başlıyorsa (22.26) → "yeni"
+Sadece JSON döndür.`,
 
   // Tab 2: Yatırım Cinsi
-  [TAB_TYPES.YATIRIM_CINSI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yatırım Cinsi" sekmesini göstermektedir.
-Tabloda "Yatırım Cinsi" başlıklı sütunun altındaki tüm değerleri oku.
-
+  [TAB_TYPES.YATIRIM_CINSI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yatırım Cinsi" sekmesidir.
 Yanıt formatı (sadece JSON):
-{
-  "yatirimCinsleri": ["string"]
-}
-
-Örnek: {"yatirimCinsleri": ["KOMPLE YENİ YATIRIM"]}
-Diğer olası değerler: TEVSİ, MODERNİZASYON, ÜRÜN ÇEŞİTLENDİRME, ENTEGRASYON`,
+{"yatirimCinsleri": ["string"]}`,
 
   // Tab 3: Ürün Bilgileri
-  [TAB_TYPES.URUN_BILGILERI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Ürün Bilgileri" sekmesini göstermektedir.
-Tablodaki tüm ürün satırlarını dikkatlice oku.
-
+  [TAB_TYPES.URUN_BILGILERI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Ürün Bilgileri" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "kodTipi": "US97|NACE6",
   "urunler": [
     {
-      "urunKodu": "string (ör: 2929.2.09 veya 22.26.01)",
-      "urunAdi": "string (ör: KALIP, PLASTİK BORU)",
+      "urunKodu": "string",
+      "urunAdi": "string",
       "mevcutKapasite": number,
       "ilaveKapasite": number,
       "toplamKapasite": number,
-      "birim": "string (ör: KG/YIL, ADET/YIL, TON/YIL, M2/YIL)"
+      "birim": "string"
     }
   ]
-}
-
-KOD TİPİ BELİRLEME KURALLARI:
-1. Kolon başlığı "Ürün Kodu (US-97)" veya "Ürün Kodu (US97)" ise → kodTipi: "US97"
-2. Kolon başlığı "Ürün Kodu (Nace6)" veya "NACE" ise → kodTipi: "NACE6"
-3. Başlık okunamazsa ürün kodu formatından:
-   - 2929.2.09 (4haneli.1-2haneli.2haneli) → US97
-   - 22.26.01 (2haneli.2haneli.2haneli) → NACE6
-- Sayıları number olarak döndür.
-- Sadece JSON döndür.`,
+}`,
 
   // Tab 4: Yerli Liste
-  [TAB_TYPES.YERLI_LISTE]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yerli Liste" sekmesini göstermektedir.
-Bu sekme yerli (Türkiye'de üretilmiş) makine ve teçhizatların listesini gösterir.
-
-Tablodaki tüm makine/teçhizat satırlarını oku.
-
+  [TAB_TYPES.YERLI_LISTE]: `Bu ekran görüntüsü "Yerli Liste" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "yerliMakineler": [
     {
       "siraNo": number,
-      "makineCinsi": "string (ör: CNC TORNA, PRES, KAYNAK MAKİNESİ)",
+      "makineCinsi": "string",
       "adedi": number,
       "tutarTL": number,
       "aciklama": "string|null"
     }
   ]
 }
-
-ÖNEMLI: Türk sayı formatını doğru oku: 1.250.000 = 1250000 (nokta binlik ayracı). Sadece JSON döndür.`,
+ÖNEMLI: Türk sayı formatı: 1.250.000 = 1250000`,
 
   // Tab 5: İthal Liste
-  [TAB_TYPES.ITHAL_LISTE]: `Bu ekran görüntüsü ETUYS/DYS portalının "İthal Liste" sekmesini göstermektedir.
-Bu sekme ithal (yurt dışından getirilen) makine ve teçhizatların listesini gösterir.
-
-Tablodaki tüm makine/teçhizat satırlarını oku.
-
+  [TAB_TYPES.ITHAL_LISTE]: `Bu ekran görüntüsü "İthal Liste" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "ithalMakineler": [
     {
       "siraNo": number,
-      "makineCinsi": "string (ör: ENJEKSİYON MAKİNESİ, CNC İŞLEME MERKEZİ)",
+      "makineCinsi": "string",
       "adedi": number,
       "tutarDolar": number,
       "tutarTL": number|null,
-      "menseUlke": "string|null (ör: ALMANYA, ÇİN, İTALYA)",
-      "yeniKullanilmis": "string|null (YENİ veya KULLANILMIŞ)",
+      "menseUlke": "string|null",
+      "yeniKullanilmis": "string|null",
       "aciklama": "string|null"
     }
   ]
-}
-
-ÖNEMLI: Sayı ayracı: 561.676,72 → 561676.72 (nokta binlik, virgül ondalık). Sadece JSON döndür.`,
+}`,
 
   // Tab 6: Finansal Bilgiler
-  [TAB_TYPES.FINANSAL_BILGILER]: `Bu ekran görüntüsü ETUYS/DYS portalının "Finansal Bilgiler" sekmesini göstermektedir.
-Sol tarafta giderler (Arazi-Arsa, Bina-İnşaat, Diğer Yatırım Harcamaları), sağ tarafta Makina Teçhizat, İthal Makine($), Yabancı Kaynaklar, Özkaynaklar ve TOPLAM FİNANSMAN bulunur.
-
-Tüm finansal değerleri dikkatlice oku.
-
+  [TAB_TYPES.FINANSAL_BILGILER]: `Bu ekran görüntüsü "Finansal Bilgiler" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
-  "araziArsaBedeli": {
-    "aciklama": "string|null",
-    "metrekare": number|null,
-    "birimFiyat": number|null,
-    "toplam": number
-  },
-  "binaInsaatGiderleri": {
-    "aciklama": "string|null",
-    "anaBina": number,
-    "yardimciBina": number,
-    "idareBinalari": number,
-    "toplam": number
-  },
-  "digerYatirimHarcamalari": {
-    "yardimciIsletmeMakine": number,
-    "ithalatGumrukleme": number,
-    "tasimaSigorta": number,
-    "montaj": number,
-    "etudProje": number,
-    "faizKarPayi": number|null,
-    "kurFarki": number|null,
-    "maddiOlmayanVarlik": number|null,
-    "digerGiderler": number,
-    "toplam": number
-  },
+  "araziArsaBedeli": {"aciklama": "string|null", "metrekare": number|null, "birimFiyat": number|null, "toplam": number},
+  "binaInsaatGiderleri": {"aciklama": "string|null", "anaBina": number, "yardimciBina": number, "idareBinalari": number, "toplam": number},
+  "digerYatirimHarcamalari": {"yardimciIsletmeMakine": number, "ithalatGumrukleme": number, "tasimaSigorta": number, "montaj": number, "etudProje": number, "faizKarPayi": number|null, "kurFarki": number|null, "maddiOlmayanVarlik": number|null, "digerGiderler": number, "toplam": number},
   "toplamSabitYatirimTutari": number,
-  "makinaTechizatGiderleri": {
-    "ithal": number,
-    "yerli": number,
-    "toplamMakine": number
-  },
-  "ithalMakineDolar": {
-    "yeniMakine": number,
-    "kullanilmisMakine": number,
-    "toplam": number
-  },
-  "yabanciKaynaklar": {
-    "toplamYabanciKaynak": number
-  },
-  "ozkaynaklar": {
-    "ozkaynakToplam": number
-  },
+  "makinaTechizatGiderleri": {"ithal": number, "yerli": number, "toplamMakine": number},
+  "ithalMakineDolar": {"yeniMakine": number, "kullanilmisMakine": number, "toplam": number},
+  "yabanciKaynaklar": {"toplamYabanciKaynak": number},
+  "ozkaynaklar": {"ozkaynakToplam": number},
   "toplamFinansman": number
-}
+}`,
 
-ÖNEMLI: Türk sayı formatı: 12.819.990 = 12819990 (nokta binlik ayracı). Virgül ondalık ayracıdır: 561.676,72 = 561676.72. Boş alanlar için 0 kullan. Sadece JSON döndür.`,
-
-  // Tab 7: Özel Şartlar (Liste)
-  [TAB_TYPES.OZEL_SARTLAR]: `Bu ekran görüntüsü ETUYS/DYS portalının "Özel Şartlar" sekmesini göstermektedir.
-Tabloda "Özel Şart Adı" ve "Özel Şart Açıklaması" sütunları bulunur.
-
-DİKKAT: Açıklama metinleri tabloda kısaltılmış olabilir (... ile biten). Görünen kadarını yaz.
-
+  // Tab 7: Özel Şartlar
+  [TAB_TYPES.OZEL_SARTLAR]: `Bu ekran görüntüsü "Özel Şartlar" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "ozelSartlar": [
-    {
-      "sartAdi": "string (ör: Kullanılmış Makine Münferit, BÖL - Faaliyet Zorunluluğu, 3305 - SGK : Bölgesel - 4. Bölge)",
-      "sartAciklamasi": "string (görünen kadar, kısaltılmışsa ... ekle)"
-    }
+    {"sartAdi": "string", "sartAciklamasi": "string"}
   ]
-}
+}`,
 
-Not: Yaygın özel şart isimleri: Kullanılmış Makine Münferit, Diğer Kurum, BÖL - Faaliyet Zorunluluğu, 3305 - Yatırım Konusu Zorunluluğu, BÖL - SGK NO, 3305 - (OECD), 3305 - SGK : Bölgesel, BÖL - Faiz Desteği, Süre Uzatımı. Sadece JSON döndür.`,
-
-  // Tab 7b: Özel Şart Detay Popup
-  [TAB_TYPES.OZEL_SART_DETAY]: `Bu ekran görüntüsü bir "Özel Şart Görüntüleme" popup penceresidir.
-Pencerede "Özel Şart:" ve "Açıklama:" etiketleri altında detaylı bilgi bulunur.
-
-Açıklama metnini TAM OLARAK, hiç kısaltmadan oku.
-
+  // Tab 7b: Özel Şart Detay
+  [TAB_TYPES.OZEL_SART_DETAY]: `Bu ekran görüntüsü "Özel Şart Görüntüleme" popup penceresidir. Açıklamayı TAM OLARAK oku.
 Yanıt formatı (sadece JSON):
 {
-  "ozelSartDetay": {
-    "sartAdi": "string (ör: BÖL - Faiz Desteği, Süre Uzatımı, 3305 - Yatırım Konusu Zorunluluğu)",
-    "sartAciklamasi": "string (açıklama metninin TAMAMI - hiçbir şeyi atlama)"
-  }
-}
-
-Sadece JSON döndür, açıklama metni ekleme.`,
+  "ozelSartDetay": {"sartAdi": "string", "sartAciklamasi": "string"}
+}`,
 
   // Tab 8: Destek Unsurları
-  [TAB_TYPES.DESTEK_UNSURLARI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Destek Unsurları" sekmesini göstermektedir.
-Tabloda "Destek Unsuru Adı" ve "Destek Oranı" sütunları bulunur.
-
+  [TAB_TYPES.DESTEK_UNSURLARI]: `Bu ekran görüntüsü "Destek Unsurları" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "destekUnsurlari": [
-    {
-      "destekUnsuru": "string (ör: Vergi İndirimi, Sigorta Primi İşveren Hissesi, Gümrük Vergisi Muafiyeti, KDV İstisnası, Faiz Desteği)",
-      "destekOrani": "string (ör: %70 YKO %30, 6 Yıl, boş ise empty string)"
-    }
+    {"destekUnsuru": "string", "destekOrani": "string"}
   ]
-}
-
-DİKKAT: Bazı destek unsurlarının oranı boş olabilir (sadece adı var). Bu durumda destekOrani'ni boş string "" olarak döndür. Sadece JSON döndür.`,
+}`,
 
   // Tab 9: Proje Tanıtımı
-  [TAB_TYPES.PROJE_TANITIMI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Proje Tanıtımı" sekmesini göstermektedir.
-Proje açıklama metnini tam olarak oku.
-
+  [TAB_TYPES.PROJE_TANITIMI]: `Bu ekran görüntüsü "Proje Tanıtımı" sekmesidir.
 Yanıt formatı (sadece JSON):
-{
-  "projeTanitimi": "string (proje açıklama metninin tamamı)"
-}
-
-Sadece JSON döndür.`,
+{"projeTanitimi": "string"}`,
 
   // Tab 10: Evrak Listesi
-  [TAB_TYPES.EVRAK_LISTESI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Evrak Listesi" sekmesini göstermektedir.
-Tablodaki tüm evrak/belge bilgilerini oku.
-
+  [TAB_TYPES.EVRAK_LISTESI]: `Bu ekran görüntüsü "Evrak Listesi" sekmesidir.
 Yanıt formatı (sadece JSON):
 {
   "evrakListesi": [
-    {
-      "evrakAdi": "string",
-      "evrakTarihi": "string|null",
-      "evrakDurumu": "string|null",
-      "aciklama": "string|null"
-    }
+    {"evrakAdi": "string", "evrakTarihi": "string|null", "evrakDurumu": "string|null", "aciklama": "string|null"}
   ]
-}
-
-Sadece JSON döndür.`,
+}`,
 };
 
-// ─── HTTP ve Parse Yardımcıları ─────────────────────────────────
+// ─── Free-Only Provider Engine ──────────────────────────────────
 
-function postJson(url, body, extraHeaders = {}) {
-  return new Promise((resolve, reject) => {
-    const data = Buffer.from(JSON.stringify(body), 'utf-8');
-    const u = new URL(url);
-
-    const req = https.request(
-      {
-        method: 'POST',
-        hostname: u.hostname,
-        path: u.pathname + u.search,
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': data.length,
-          ...extraHeaders,
-        },
-        timeout: 90000,
-      },
-      (res) => {
-        let raw = '';
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => (raw += chunk));
-        res.on('end', () => {
-          if (res.statusCode && res.statusCode >= 400) {
-            return reject(new Error(`HTTP ${res.statusCode}: ${raw.slice(0, 500)}`));
-          }
-          try {
-            resolve(JSON.parse(raw));
-          } catch (e) {
-            reject(new Error(`JSON parse error: ${e.message}`));
-          }
-        });
-      }
-    );
-
-    req.on('error', reject);
-    req.on('timeout', () => {
-      req.destroy();
-      reject(new Error('API timeout (90s)'));
-    });
-    req.write(data);
-    req.end();
-  });
+function getGeminiKeys() {
+  return [
+    process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY,
+    process.env.GEMINI_API_KEY_2,
+    process.env.GEMINI_API_KEY_3
+  ].filter(Boolean);
 }
 
-function safeJsonExtract(text) {
-  const m = String(text || '').match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    return JSON.parse(m[0]);
-  } catch {
-    return null;
-  }
+async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
+  const providerId = `gemini-${model}-${apiKey.slice(-6)}`;
+  const limits = model.includes('lite') ? { rpm: 15, rpd: 1000 } : { rpm: 10, rpd: 250 };
+  
+  if (!rateLimiter.canRequest(providerId, limits.rpm, limits.rpd)) return null;
+
+  const base64 = imageBuffer.toString('base64');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  
+  const resp = await httpPost(url, {
+    contents: [{ role: 'user', parts: [
+      { inlineData: { mimeType, data: base64 } },
+      { text: prompt },
+    ]}],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' },
+  });
+  
+  rateLimiter.record(providerId);
+  const text = resp?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
+  const parsed = safeJsonExtract(text);
+  return { raw: text, parsed, success: !!parsed, provider: providerId };
 }
 
-// ─── Multi-Provider Vision API ──────────────────────────────────
+async function callGroq(imageBuffer, prompt, mimeType) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+  
+  const providerId = 'groq-llama4-scout';
+  if (!rateLimiter.canRequest(providerId, 30, 1000)) return null;
 
-/**
- * OpenAI GPT-4o-mini Vision API çağrısı
- */
-async function callOpenAIVision(imageBuffer, prompt, mimeType = 'image/png') {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return null; // key yoksa skip
-
-  const base64Image = imageBuffer.toString('base64');
-  const dataUrl = `data:${mimeType};base64,${base64Image}`;
-
-  const payload = {
-    model: 'gpt-4o-mini',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image_url',
-            image_url: { url: dataUrl, detail: 'high' },
-          },
-          {
-            type: 'text',
-            text: prompt,
-          },
-        ],
-      },
-    ],
-    max_tokens: 4096,
-    temperature: 0.1,
-  };
-
-  const resp = await postJson('https://api.openai.com/v1/chat/completions', payload, {
-    Authorization: `Bearer ${apiKey}`,
-  });
-
+  const base64 = imageBuffer.toString('base64');
+  const resp = await httpPost('https://api.groq.com/openai/v1/chat/completions', {
+    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+    messages: [{ role: 'user', content: [
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+      { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
+    ]}],
+    temperature: 0.1, max_tokens: 4096, response_format: { type: 'json_object' },
+  }, { Authorization: `Bearer ${apiKey}` });
+  
+  rateLimiter.record(providerId);
   const text = resp?.choices?.[0]?.message?.content || '';
   const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: 'openai' };
+  return { raw: text, parsed, success: !!parsed, provider: providerId };
 }
 
-/**
- * Gemini Vision API çağrısı
- */
-async function callGeminiVisionDirect(imageBuffer, prompt, mimeType = 'image/png') {
-  const apiKey = process.env.GEMINI_API_KEY;
+async function callHuggingFace(imageBuffer, prompt, mimeType) {
+  const apiKey = process.env.HUGGINGFACE_API_KEY;
   if (!apiKey) return null;
+  
+  const providerId = 'hf-qwen2.5-vl';
+  if (!rateLimiter.canRequest(providerId, 8, 300)) return null;
 
-  const base64Image = imageBuffer.toString('base64');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-
-  const payload = {
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { inlineData: { mimeType, data: base64Image } },
-          { text: prompt },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.1,
-      topP: 0.9,
-      maxOutputTokens: 4096,
-      responseMimeType: "application/json",
-    },
-  };
-
-  const resp = await postJson(url, payload);
-  const text =
-    resp?.candidates?.[0]?.content?.parts?.map((p) => p.text).join('\n') ||
-    resp?.candidates?.[0]?.content?.parts?.[0]?.text ||
-    '';
+  const base64 = imageBuffer.toString('base64');
+  const resp = await httpPost('https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions', {
+    model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+    messages: [{ role: 'user', content: [
+      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+      { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
+    ]}],
+    temperature: 0.1, max_tokens: 4096,
+  }, { Authorization: `Bearer ${apiKey}` });
+  
+  rateLimiter.record(providerId);
+  const text = resp?.choices?.[0]?.message?.content || '';
   const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: 'gemini' };
+  return { raw: text, parsed, success: !!parsed, provider: providerId };
 }
 
-/**
- * Sadece Gemini Vision API — Sınırsız / Ücretsiz analiz için
- */
-async function callGeminiVision(imageBuffer, prompt, mimeType = 'image/png') {
-  const providers = [
-    { name: 'Gemini 2.5 Flash', fn: () => callGeminiVisionDirect(imageBuffer, prompt, mimeType), retries: 4, delay: 5000 },
-  ];
+async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
+  const geminiKeys = getGeminiKeys();
+  const providers = [];
+  
+  for (const key of geminiKeys) {
+    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1500 });
+  }
+  for (const key of geminiKeys) {
+    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
+  }
+  if (process.env.GROQ_API_KEY) providers.push({ name: 'Groq Llama 4', fn: () => callGroq(imageBuffer, prompt, mimeType), retries: 2, delay: 2000 });
+  if (process.env.HUGGINGFACE_API_KEY) providers.push({ name: 'HuggingFace Qwen', fn: () => callHuggingFace(imageBuffer, prompt, mimeType), retries: 2, delay: 3000 });
 
-  let lastErrorMsg = 'Bilinmeyen Hata';
-
+  let lastError = 'Bilinmeyen Hata';
   for (const provider of providers) {
     for (let attempt = 1; attempt <= provider.retries; attempt++) {
       try {
         const result = await provider.fn();
-        if (result === null) break; // key yok, skip to next provider
-        if (result && result.success) {
-          console.log(`    🤖 ${provider.name} (deneme ${attempt}) ✅`);
-          return result;
-        }
-        console.log(`    ⚠️ ${provider.name} (deneme ${attempt}): JSON parse başarısız`);
-        lastErrorMsg = 'JSON parse edilemedi';
+        if (result === null) break;
+        if (result?.success) return result;
+        lastError = 'JSON parse edilemedi';
       } catch (err) {
-        lastErrorMsg = err.message;
-        const msg = err.message.slice(0, 120);
-        console.log(`    ⚠️ ${provider.name} (deneme ${attempt}/${provider.retries}): ${msg}`);
-        if (attempt < provider.retries) {
-          const wait = provider.delay * attempt;
-          console.log(`    ⏳ ${wait}ms bekleniyor...`);
-          await new Promise(r => setTimeout(r, wait));
-        }
+        lastError = err.message;
+        if (err.message.includes('404') || err.message.includes('503')) break;
+        if (attempt < provider.retries) await new Promise(r => setTimeout(r, provider.delay * attempt));
       }
     }
   }
-
-  throw new Error(`API Hatası: ${lastErrorMsg.slice(0, 100)}`);
+  throw new Error(`API Hatası: ${lastError.slice(0, 150)}`);
 }
 
-// ─── Yüksek Seviye Fonksiyonlar ─────────────────────────────────
+// ─── High-Level Analysis Functions ──────────────────────────────
 
-/**
- * Ekran görüntüsündeki tab tipini algıla
- */
 async function detectTabType(imageBuffer, mimeType) {
   try {
-    const result = await callGeminiVision(imageBuffer, PROMPTS.DETECT_TAB, mimeType);
+    const result = await callVisionAPI(imageBuffer, PROMPTS.DETECT_TAB, mimeType);
     if (result.parsed?.tabType) {
-      return {
-        tabType: result.parsed.tabType,
-        confidence: result.parsed.confidence || 0.5,
-      };
+      return { tabType: result.parsed.tabType, confidence: result.parsed.confidence || 0.5 };
     }
-  } catch (err) {
-    console.log(`    ⚠️ Tab tespiti yapılamadı: ${err.message}`);
-  }
+  } catch (err) {}
   return { tabType: TAB_TYPES.UNKNOWN, confidence: 0 };
 }
 
-/**
- * Bilinen tab tipine göre veri çıkar
- */
 async function extractTabData(imageBuffer, tabType, mimeType) {
   const prompt = PROMPTS[tabType];
-  if (!prompt) {
-    return { success: false, error: `Bilinmeyen tab tipi: ${tabType}`, data: null };
-  }
-
-  const result = await callGeminiVision(imageBuffer, prompt, mimeType);
-  return {
-    success: result.success,
-    tabType,
-    data: result.parsed,
-    rawResponse: result.raw?.slice(0, 500),
-  };
+  if (!prompt) return { success: false, error: 'Bilinmeyen tab', data: null };
+  const result = await callVisionAPI(imageBuffer, prompt, mimeType);
+  return { success: result.success, tabType, data: result.parsed, rawResponse: result.raw?.slice(0, 300), provider: result.provider };
 }
 
-/**
- * Tek bir ekran görüntüsünü tam analiz et (tab algıla + veri çıkar)
- */
 async function analyzeScreenshot(imageBuffer, mimeType = 'image/png', tabHint = null) {
-  // Tab zaten biliniyorsa direkt çıkar
   if (tabHint && PROMPTS[tabHint]) {
     const data = await extractTabData(imageBuffer, tabHint, mimeType);
     return { ...data, detectedTab: tabHint, confidence: 1.0 };
   }
 
-  // Tab algıla
   const detection = await detectTabType(imageBuffer, mimeType);
-
   if (detection.tabType === TAB_TYPES.UNKNOWN) {
-    return {
-      success: false,
-      detectedTab: TAB_TYPES.UNKNOWN,
-      confidence: 0,
-      error: 'Tab tipi algılanamadı',
-      data: null,
-    };
+    return { success: false, detectedTab: TAB_TYPES.UNKNOWN, confidence: 0, error: 'Tab tipi algılanamadı', data: null };
   }
 
-  // Rate Limit Koruması: Aynı görsel için Tab Tespiti ve Veri Çıkarma istekleri arasına 1.5 saniye esneklik koy
-  await new Promise(r => setTimeout(r, 1500));
-
-  // Veri çıkar
+  // Rate Limit koruması için kısa delay
+  await new Promise(r => setTimeout(r, 1000));
+  
   const data = await extractTabData(imageBuffer, detection.tabType, mimeType);
-  return {
-    ...data,
-    detectedTab: detection.tabType,
-    confidence: detection.confidence,
-  };
+  return { ...data, detectedTab: detection.tabType, confidence: detection.confidence };
 }
 
-/**
- * Çoklu ekran görüntüsünü analiz edip birleştirilmiş belge verisi üret
- */
-async function analyzeMultipleScreenshots(images) {
+async function analyzeMultipleScreenshots(images, jobId = null) {
   const results = [];
   const errors = [];
+  const providerStats = {};
 
   for (let i = 0; i < images.length; i++) {
     const { buffer, mimeType, originalName } = images[i];
     try {
       console.log(`📸 [${i + 1}/${images.length}] Analiz ediliyor: ${originalName}`);
       const result = await analyzeScreenshot(buffer, mimeType || 'image/png');
-      results.push({
-        index: i,
-        filename: originalName,
-        ...result,
-      });
+      results.push({ index: i, filename: originalName, ...result });
+      
+      if (result.provider) providerStats[result.provider] = (providerStats[result.provider] || 0) + 1;
       console.log(`  ✅ Tab: ${result.detectedTab} (${Math.round((result.confidence || 0) * 100)}%)`);
       
-      // Rate Limit Koruması: Her başarılı görsel analizinden sonra bekleyerek istek hızını dengele
-      // 15 İstek/Dakika = 4 saniyede 1 istek limiti demektir.
-      // Her görsel 2 istek (Tab bul + Veri çıkar) attığı için, görseller arası en az 8 saniye beklemeliyiz.
-      if (i < images.length - 1) {
-        console.log(`  ⏱️ Rate Limit koruması: 8.5 saniye bekleniyor...`);
-        await new Promise(r => setTimeout(r, 8500));
+      if (jobId) {
+        const progress = Math.round(((i + 1) / images.length) * 100);
+        await ScreenshotJob.findByIdAndUpdate(jobId, { processedImages: i + 1, progress }).catch(() => {});
       }
+      
+      if (i < images.length - 1) await new Promise(r => setTimeout(r, 3000));
     } catch (err) {
       console.error(`  ❌ Hata: ${err.message}`);
-      errors.push({
-        index: i,
-        filename: originalName,
-        error: err.message,
-      });
+      errors.push({ index: i, filename: originalName, error: err.message });
     }
   }
 
-  // Birleştirilmiş belge verisi oluştur
   const merged = mergeResults(results);
-
-  return {
-    screenshots: results,
-    errors,
-    merged,
-    belgeFormati: merged.belgeFormati || 'eski',
-    totalAnalyzed: results.length,
-    totalErrors: errors.length,
-  };
+  return { screenshots: results, errors, merged, belgeFormati: merged.belgeFormati || 'eski', totalAnalyzed: results.length, totalErrors: errors.length, providerStats, rateLimiterStats: rateLimiter.getStats() };
 }
 
-/**
- * Analiz sonuçlarını tek bir belge yapısına birleştir
- */
+// ─── Merge Results ──────────────────────────────────────────────
+
 function mergeResults(results) {
   const merged = {
-    // Belge Künye
-    firmaAdi: null,
-    sgkSicilNo: null,
-    sermayeTuru: null,
-    yatirimKonusu: null,
-    kararnameNo: null,
-    il: null,
-    ilce: null,
-    adres: null,
-    osbAdi: null,
-    ilBazliBolge: null,
-    ilceBazliBolge: null,
-    mevcutIstihdam: 0,
-    ilaveIstihdam: 0,
-    belgeId: null,
-    belgeNo: null,
-    belgeTarihi: null,
-    muracaatTarihi: null,
-    muracaatSayisi: null,
-    belgeBaslamaTarihi: null,
-    belgeBitisTarihi: null,
-    sureUzatimTarihi: null,
-    destekSinifi: null,
-    oecdKategori: null,
-    oncelikliYatirim: null,
-    buyukOlcekli: null,
-    cazibeMerkezliMi: null,
-    savunmaSanayiProjesi: null,
-    ada: null,
-    parsel: null,
-    hamleMi: null,
-    vergiIndirimsizDestek: null,
-    belgeMuracaatTalepTipi: null,
-    enerjiUretimKaynagi: null,
-    cazibeMerkezi2018: null,
-    cazibeMerkeziDeprem: null,
+    firmaAdi: null, sgkSicilNo: null, sermayeTuru: null, yatirimKonusu: null,
+    kararnameNo: null, il: null, ilce: null, adres: null, osbAdi: null,
+    ilBazliBolge: null, ilceBazliBolge: null, mevcutIstihdam: 0, ilaveIstihdam: 0,
+    belgeId: null, belgeNo: null, belgeTarihi: null, muracaatTarihi: null,
+    muracaatSayisi: null, belgeBaslamaTarihi: null, belgeBitisTarihi: null,
+    sureUzatimTarihi: null, destekSinifi: null, oecdKategori: null,
+    oncelikliYatirim: null, buyukOlcekli: null, cazibeMerkezliMi: null,
+    savunmaSanayiProjesi: null, ada: null, parsel: null, hamleMi: null,
+    vergiIndirimsizDestek: null, belgeMuracaatTalepTipi: null,
+    enerjiUretimKaynagi: null, cazibeMerkezi2018: null, cazibeMerkeziDeprem: null,
     belgeFormati: 'eski',
-
-    // Yatırım Cinsi
-    yatirimCinsleri: [],
-
-    // Ürün Bilgileri
-    kodTipi: null,
-    urunler: [],
-
-    // Makine Listeleri
-    yerliMakineler: [],
-    ithalMakineler: [],
-
-    // Finansal
-    finansal: null,
-
-    // Özel Şartlar
-    ozelSartlar: [],
-
-    // Destek Unsurları
-    destekUnsurlari: [],
-
-    // Proje Tanıtımı
-    projeTanitimi: null,
-
-    // Evrak Listesi
-    evrakListesi: [],
+    yatirimCinsleri: [], kodTipi: null, urunler: [],
+    yerliMakineler: [], ithalMakineler: [],
+    finansal: null, ozelSartlar: [], destekUnsurlari: [],
+    projeTanitimi: null, evrakListesi: [],
   };
 
   for (const result of results) {
     if (!result.success || !result.data) continue;
 
     switch (result.detectedTab) {
-      case TAB_TYPES.BELGE_KUNYE:
-        Object.assign(merged, result.data);
-        break;
-
-      case TAB_TYPES.YATIRIM_CINSI:
-        if (result.data.yatirimCinsleri) {
-          merged.yatirimCinsleri = result.data.yatirimCinsleri;
-        }
-        break;
-
-      case TAB_TYPES.URUN_BILGILERI:
-        if (result.data.urunler) {
-          merged.urunler = result.data.urunler;
-          merged.kodTipi = result.data.kodTipi || null;
-        }
-        break;
-
-      case TAB_TYPES.YERLI_LISTE:
-        if (result.data.yerliMakineler) {
-          merged.yerliMakineler = result.data.yerliMakineler;
-        }
-        break;
-
-      case TAB_TYPES.ITHAL_LISTE:
-        if (result.data.ithalMakineler) {
-          merged.ithalMakineler = result.data.ithalMakineler;
-        }
-        break;
-
-      case TAB_TYPES.FINANSAL_BILGILER:
-        merged.finansal = result.data;
-        break;
-
-      case TAB_TYPES.OZEL_SARTLAR:
-        if (result.data.ozelSartlar) {
-          merged.ozelSartlar = [...merged.ozelSartlar, ...result.data.ozelSartlar];
-        }
-        break;
-
+      case TAB_TYPES.BELGE_KUNYE: Object.assign(merged, result.data); break;
+      case TAB_TYPES.YATIRIM_CINSI: if (result.data.yatirimCinsleri) merged.yatirimCinsleri = result.data.yatirimCinsleri; break;
+      case TAB_TYPES.URUN_BILGILERI: if (result.data.urunler) { merged.urunler = result.data.urunler; merged.kodTipi = result.data.kodTipi || null; } break;
+      case TAB_TYPES.YERLI_LISTE: if (result.data.yerliMakineler) merged.yerliMakineler = result.data.yerliMakineler; break;
+      case TAB_TYPES.ITHAL_LISTE: if (result.data.ithalMakineler) merged.ithalMakineler = result.data.ithalMakineler; break;
+      case TAB_TYPES.FINANSAL_BILGILER: merged.finansal = result.data; break;
+      case TAB_TYPES.OZEL_SARTLAR: if (result.data.ozelSartlar) merged.ozelSartlar = [...merged.ozelSartlar, ...result.data.ozelSartlar]; break;
+      case TAB_TYPES.DESTEK_UNSURLARI: if (result.data.destekUnsurlari) merged.destekUnsurlari = result.data.destekUnsurlari; break;
+      case TAB_TYPES.PROJE_TANITIMI: if (result.data.projeTanitimi) merged.projeTanitimi = result.data.projeTanitimi; break;
+      case TAB_TYPES.EVRAK_LISTESI: if (result.data.evrakListesi) merged.evrakListesi = result.data.evrakListesi; break;
       case TAB_TYPES.OZEL_SART_DETAY:
-        // Popup detay — mevcut özel şartı güncelle veya yeni ekle
         if (result.data.ozelSartDetay) {
           const detay = result.data.ozelSartDetay;
-          // İsmi eşleşen, ancak henüz detayı ile GÜNCELLENMEMİŞ ilk şartı bul (aynı isimden birden fazla varsa diye)
-          const existing = merged.ozelSartlar.find(s => 
-            s.sartAdi && detay.sartAdi && s.sartAdi.includes(detay.sartAdi.slice(0, 15)) && !s._isUpdated
-          );
-          
-          if (existing) {
-            // Var olan şartın açıklamasını tam metinle güncelle ve işaretle
-            existing.sartAciklamasi = detay.sartAciklamasi;
-            existing._isUpdated = true;
-          } else {
-            // Eşleşen güncellenmemiş satır bulunamadıysa yeni şart olarak ekle
-            merged.ozelSartlar.push({
-              sartAdi: detay.sartAdi,
-              sartAciklamasi: detay.sartAciklamasi,
-              _isUpdated: true
-            });
-          }
-        }
-        break;
-
-      case TAB_TYPES.DESTEK_UNSURLARI:
-        if (result.data.destekUnsurlari) {
-          merged.destekUnsurlari = result.data.destekUnsurlari;
-        }
-        break;
-
-      case TAB_TYPES.PROJE_TANITIMI:
-        if (result.data.projeTanitimi) {
-          merged.projeTanitimi = result.data.projeTanitimi;
-        }
-        break;
-
-      case TAB_TYPES.EVRAK_LISTESI:
-        if (result.data.evrakListesi) {
-          merged.evrakListesi = result.data.evrakListesi;
+          const existing = merged.ozelSartlar.find(s => s.sartAdi && detay.sartAdi && s.sartAdi.includes(detay.sartAdi.slice(0, 15)) && !s._isUpdated);
+          if (existing) { existing.sartAciklamasi = detay.sartAciklamasi; existing._isUpdated = true; }
+          else merged.ozelSartlar.push({ sartAdi: detay.sartAdi, sartAciklamasi: detay.sartAciklamasi, _isUpdated: true });
         }
         break;
     }
   }
 
-  // Belge formatı finalize
-  if (merged.kodTipi === 'NACE6' || merged.belgeFormati === 'yeni') {
-    merged.belgeFormati = 'yeni';
-  }
-
+  if (merged.kodTipi === 'NACE6' || merged.belgeFormati === 'yeni') merged.belgeFormati = 'yeni';
   return merged;
 }
 
-// ─── Export ─────────────────────────────────────────────────────
-
 module.exports = {
-  TAB_TYPES,
-  analyzeScreenshot,
-  analyzeMultipleScreenshots,
-  detectTabType,
-  extractTabData,
-  mergeResults,
+  TAB_TYPES, PROMPTS, analyzeScreenshot, analyzeMultipleScreenshots, detectTabType, extractTabData, mergeResults
 };

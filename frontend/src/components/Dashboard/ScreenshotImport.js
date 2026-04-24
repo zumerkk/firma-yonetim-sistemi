@@ -5,7 +5,7 @@
  * analiz edip otomatik teşvik belgesi oluşturur.
  */
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -56,9 +56,14 @@ const TAB_META = {
   belge_kunye: { label: 'Belge Künye', icon: <BelgeIcon />, color: '#3b82f6' },
   yatirim_cinsi: { label: 'Yatırım Cinsi', icon: <DocIcon />, color: '#8b5cf6' },
   urun_bilgileri: { label: 'Ürün Bilgileri', icon: <UrunIcon />, color: '#10b981' },
+  yerli_liste: { label: 'Yerli Liste', icon: <UrunIcon />, color: '#84cc16' },
+  ithal_liste: { label: 'İthal Liste', icon: <UrunIcon />, color: '#facc15' },
   finansal_bilgiler: { label: 'Finansal Bilgiler', icon: <MoneyIcon />, color: '#f59e0b' },
   ozel_sartlar: { label: 'Özel Şartlar', icon: <SartIcon />, color: '#ef4444' },
+  ozel_sart_detay: { label: 'Özel Şart Detay', icon: <SartIcon />, color: '#f87171' },
   destek_unsurlari: { label: 'Destek Unsurları', icon: <DestekIcon />, color: '#06b6d4' },
+  proje_tanitimi: { label: 'Proje Tanıtımı', icon: <DocIcon />, color: '#6366f1' },
+  evrak_listesi: { label: 'Evrak Listesi', icon: <DocIcon />, color: '#a855f7' },
   unknown: { label: 'Bilinmeyen', icon: <ImageIcon />, color: '#6b7280' },
 };
 
@@ -67,6 +72,9 @@ const ScreenshotImport = () => {
   const [collapsed, setCollapsed] = useState(true);
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
+  const [currentJobId, setCurrentJobId] = useState(() => localStorage.getItem('currentScreenshotJobId') || null);
+  const [allScreenshots, setAllScreenshots] = useState([]);
+  const [cumulativeErrors, setCumulativeErrors] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeProgress, setAnalyzeProgress] = useState(0);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -127,16 +135,25 @@ const ScreenshotImport = () => {
   }, []);
 
   const addFiles = (newFiles) => {
-    setError(null);
-    setAnalysisResult(null);
-    setEditedData(null);
+    const allowedNewFiles = newFiles.slice(0, 50);
+    if (newFiles.length > 50) {
+      setError('Bir partide en fazla 50 görsel yükleyebilirsiniz. Fazla olanlar yoksayıldı.');
+    } else {
+      setError(null);
+    }
+    
+    // Sadece İLK yüklemede eski sonuçları temizle
+    if (allScreenshots.length === 0) {
+      setAnalysisResult(null);
+      setEditedData(null);
+    }
     setCommitResult(null);
 
-    const updatedFiles = [...files, ...newFiles];
+    const updatedFiles = [...files, ...allowedNewFiles];
     setFiles(updatedFiles);
 
     // Create previews
-    newFiles.forEach((file) => {
+    allowedNewFiles.forEach((file) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviews((prev) => [
@@ -155,15 +172,99 @@ const ScreenshotImport = () => {
     setEditedData(null);
   };
 
-  // Analiz
+  // Component mount olduğunda devam eden bir iş varsa geri yükle
+  useEffect(() => {
+    if (currentJobId) {
+      setAnalyzing(true);
+    }
+  }, [currentJobId]);
+
+  // Arka Plan İşlemini Sorgulama (Polling)
+  useEffect(() => {
+    let interval;
+    if (currentJobId && analyzing) {
+      interval = setInterval(async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const res = await axios.get(`${API_BASE}/screenshot-import/job/${currentJobId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (res.data.success) {
+            const job = res.data.data;
+            setAnalyzeProgress(job.progress);
+            
+            if (job.status === 'completed') {
+              clearInterval(interval);
+              setCurrentJobId(null);
+              localStorage.removeItem('currentScreenshotJobId');
+              handleJobCompletion(job);
+            } else if (job.status === 'error') {
+              clearInterval(interval);
+              setCurrentJobId(null);
+              localStorage.removeItem('currentScreenshotJobId');
+              setError(job.errorMessage || 'Arka plan analizi sırasında hata oluştu.');
+              setAnalyzing(false);
+            }
+          }
+        } catch (err) {
+          console.error("Job polling hatası:", err);
+          // Hata durumunda hemen iptal etmiyoruz, geçici ağ hatası olabilir.
+        }
+      }, 2000); // Her 2 saniyede bir sor
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [currentJobId, analyzing, allScreenshots, cumulativeErrors]);
+
+  const handleJobCompletion = async (job) => {
+    const newScreenshots = job.results || [];
+    const newErrors = job.errors || [];
+    
+    const combinedScreenshots = [...allScreenshots, ...newScreenshots];
+    const combinedErrors = [...cumulativeErrors, ...newErrors];
+    
+    setAllScreenshots(combinedScreenshots);
+    setCumulativeErrors(combinedErrors);
+
+    setAnalysisResult({
+      screenshots: combinedScreenshots,
+      errors: combinedErrors,
+    });
+
+    const token = localStorage.getItem('token');
+    
+    if (allScreenshots.length > 0) {
+      try {
+        const mergeRes = await axios.post(`${API_BASE}/screenshot-import/merge`, {
+          screenshots: combinedScreenshots
+        }, { headers: { Authorization: `Bearer ${token}` } });
+        
+        if (mergeRes.data.success) {
+          setEditedData(JSON.parse(JSON.stringify(mergeRes.data.data.merged)));
+        }
+      } catch (e) {
+         console.error('Merge error', e);
+      }
+    } else {
+      setEditedData(JSON.parse(JSON.stringify(job.mergedData)));
+    }
+
+    setFiles([]);
+    setPreviews([]);
+    setAnalyzing(false);
+    setAnalyzeProgress(100);
+  };
+
+  // Analiz Başlatma (Arka Plan - Async)
   const handleAnalyze = async () => {
     if (files.length === 0) return;
 
     setAnalyzing(true);
     setAnalyzeProgress(0);
     setError(null);
-    setAnalysisResult(null);
-    setEditedData(null);
     setCommitResult(null);
 
     try {
@@ -172,39 +273,26 @@ const ScreenshotImport = () => {
         formData.append('screenshots', file);
       });
 
-      // Progress simulation
-      const progressInterval = setInterval(() => {
-        setAnalyzeProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + (90 - prev) * 0.1;
-        });
-      }, 500);
-
       const token = localStorage.getItem('token');
-      const response = await axios.post(`${API_BASE}/screenshot-import/analyze`, formData, {
+      // Direkt analyze yerine analyze-async endpoint'ine gidiyoruz
+      const response = await axios.post(`${API_BASE}/screenshot-import/analyze-async`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           Authorization: `Bearer ${token}`,
         },
-        timeout: 600000, // 10 dakika timeout (Çoklu görsel için)
       });
 
-      clearInterval(progressInterval);
-      setAnalyzeProgress(100);
-
-      if (response.data.success) {
-        setAnalysisResult(response.data.data);
-        setEditedData(JSON.parse(JSON.stringify(response.data.data.merged)));
+      if (response.data.success && response.data.jobId) {
+         // İşlem başladı, Job ID'yi state ve localStorage'a kaydet
+         setCurrentJobId(response.data.jobId);
+         localStorage.setItem('currentScreenshotJobId', response.data.jobId);
       } else {
-        setError(response.data.message || 'Analiz başarısız oldu.');
+         setError(response.data.message || 'Arka plan işlemi başlatılamadı.');
+         setAnalyzing(false);
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Analiz sırasında hata oluştu.';
+      const msg = err.response?.data?.message || err.message || 'İşlem başlatılırken hata oluştu.';
       setError(msg);
-    } finally {
       setAnalyzing(false);
     }
   };
@@ -246,13 +334,20 @@ const ScreenshotImport = () => {
 
   // Reset
   const handleReset = () => {
+    if (currentJobId) {
+      localStorage.removeItem('currentScreenshotJobId');
+      setCurrentJobId(null);
+    }
     setFiles([]);
     setPreviews([]);
+    setAllScreenshots([]);
+    setCumulativeErrors([]);
     setAnalysisResult(null);
     setEditedData(null);
     setCommitResult(null);
     setError(null);
     setAnalyzeProgress(0);
+    setAnalyzing(false);
   };
 
   // Editable field updater
@@ -384,7 +479,7 @@ const ScreenshotImport = () => {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Chip
-            label="AI Powered"
+            label="Free AI"
             size="small"
             sx={{
               backgroundColor: 'rgba(255,255,255,0.15)',
@@ -427,7 +522,7 @@ const ScreenshotImport = () => {
           )}
 
           {/* Step 1: File Upload */}
-          {!analysisResult && !commitResult && (
+          {allScreenshots.length === 0 && !commitResult && (
             <>
               {/* Drop Zone */}
               <Box
@@ -462,7 +557,7 @@ const ScreenshotImport = () => {
                   ETUYS/DYS ekran görüntülerini sürükleyin
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5, fontSize: '0.8rem' }}>
-                  veya tıklayarak seçin • PNG, JPEG, WebP • Maks 30 görsel
+                  veya tıklayarak seçin • PNG, JPEG, WebP • Maks 50 görsel (1. Parti)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.8, justifyContent: 'center', mt: 2, flexWrap: 'wrap' }}>
                   {Object.entries(TAB_META)
@@ -572,7 +667,7 @@ const ScreenshotImport = () => {
                         },
                       }}
                     >
-                      {analyzing ? 'Gemini Analiz Ediyor...' : `🤖 AI ile Analiz Et (${files.length} görsel)`}
+                      {analyzing ? 'AI Analiz Ediyor...' : `🤖 AI ile Analiz Et (${files.length} görsel)`}
                     </Button>
                     <Button
                       variant="outlined"
@@ -601,7 +696,7 @@ const ScreenshotImport = () => {
                         }}
                       />
                       <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Gemini Vision API ile ekran görüntüleri analiz ediliyor...{' '}
+                        AI Vision API ile ekran görüntüleri analiz ediliyor...{' '}
                         {Math.round(analyzeProgress)}%
                       </Typography>
                     </Box>
@@ -639,6 +734,82 @@ const ScreenshotImport = () => {
                   </Box>
                 )}
               </Alert>
+
+              {/* Daha Fazla Görsel Ekle (Batching) */}
+              <Box sx={{ mb: 3 }}>
+                <Box
+                  ref={dropZoneRef}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{
+                    border: '2px dashed rgba(59, 130, 246, 0.5)',
+                    borderRadius: 3,
+                    p: 2,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    backgroundColor: '#eff6ff',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      borderColor: '#2563eb',
+                      background: '#dbeafe',
+                    },
+                  }}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    multiple
+                    onChange={handleFileSelect}
+                    style={{ display: 'none' }}
+                  />
+                  <UploadIcon sx={{ fontSize: 32, color: '#3b82f6', mb: 1 }} />
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e3a8a' }}>
+                    Daha Fazla Görsel Ekle (Kalanları Yükle)
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#3b82f6' }}>
+                    15'ten fazla görseliniz varsa, sıradaki partiyi buraya sürükleyip sonuçlara ekleyebilirsiniz.
+                  </Typography>
+                </Box>
+                
+                {/* Eğer yeni batch dosyaları seçilmişse buton göster */}
+                {files.length > 0 && (
+                  <Box sx={{ mt: 2, p: 2, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                     <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                       📁 Yeni Eklenecek Görseller ({files.length})
+                     </Typography>
+                     <Grid container spacing={1}>
+                       {previews.map((preview, index) => (
+                         <Grid item xs={4} sm={3} md={2} key={index}>
+                           <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden' }}>
+                             <img src={preview.url} alt={preview.name} style={{ width: '100%', height: 60, objectFit: 'cover' }} />
+                             <IconButton size="small" onClick={(e) => { e.stopPropagation(); removeFile(index); }} sx={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(239,68,68,0.9)', color: '#fff', width: 20, height: 20 }}>
+                               <DeleteIcon sx={{ fontSize: 12 }} />
+                             </IconButton>
+                           </Box>
+                         </Grid>
+                       ))}
+                     </Grid>
+                     <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                       <Button variant="contained" onClick={handleAnalyze} disabled={analyzing} startIcon={analyzing ? <CircularProgress size={18} color="inherit" /> : <UploadIcon />} sx={{ textTransform: 'none', borderRadius: 2, background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
+                         {analyzing ? 'Analiz Ediliyor...' : `Yeni Partiyi Analiz Et ve Birleştir`}
+                       </Button>
+                     </Box>
+                     
+                     {/* Progress */}
+                     {analyzing && (
+                       <Box sx={{ mt: 2 }}>
+                         <LinearProgress variant="determinate" value={analyzeProgress} sx={{ height: 6, borderRadius: 3 }} />
+                         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                           AI Vision API ile yeni görseller analiz ediliyor... {Math.round(analyzeProgress)}%
+                         </Typography>
+                       </Box>
+                     )}
+                  </Box>
+                )}
+              </Box>
 
               {/* Belge Format Badge */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>

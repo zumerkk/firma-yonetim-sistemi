@@ -4,10 +4,11 @@
  * Ekran görüntülerinden teşvik belgesi verisi çıkarıp DB'ye kaydeder.
  */
 
-const { analyzeMultipleScreenshots } = require('../services/screenshotAnalyzer');
+const { analyzeMultipleScreenshots, mergeResults } = require('../services/screenshotAnalyzer');
 const Tesvik = require('../models/Tesvik');
 const YeniTesvik = require('../models/YeniTesvik');
 const Firma = require('../models/Firma');
+const ScreenshotJob = require('../models/ScreenshotJob');
 
 /**
  * POST /api/screenshot-import/analyze
@@ -22,10 +23,11 @@ exports.analyze = async (req, res) => {
       });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    const hasAnyKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_1 || process.env.GROQ_API_KEY || process.env.HUGGINGFACE_API_KEY;
+    if (!hasAnyKey) {
       return res.status(500).json({
         success: false,
-        message: 'GEMINI_API_KEY tanımlı değil. Lütfen backend .env dosyasına GEMINI_API_KEY ekleyin.',
+        message: 'Hiçbir AI API key tanımlı değil. GEMINI_API_KEY_1, GROQ_API_KEY veya HUGGINGFACE_API_KEY ekleyin.',
       });
     }
 
@@ -50,6 +52,139 @@ exports.analyze = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Ekran görüntüsü analiz edilemedi.',
+    });
+  }
+};
+
+/**
+ * POST /api/screenshot-import/analyze-async
+ * Çoklu ekran görüntüsünü arka planda asenkron olarak analiz eder (Job Queue)
+ */
+exports.analyzeAsync = async (req, res) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ success: false, message: 'En az bir ekran görüntüsü yükleyin.' });
+    }
+
+    const hasAnyKey = process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_1 || process.env.GROQ_API_KEY || process.env.HUGGINGFACE_API_KEY;
+    if (!hasAnyKey) {
+      return res.status(500).json({ success: false, message: 'Hiçbir AI API key tanımlı değil.' });
+    }
+
+    // 1. Create Job in DB
+    const job = await ScreenshotJob.create({
+      userId: req.user.id,
+      status: 'pending',
+      totalImages: req.files.length,
+      progress: 0,
+    });
+
+    // 2. Prepare Memory Buffers (Node.js retains this in memory for the async job)
+    const images = req.files.map((f) => ({
+      buffer: f.buffer,
+      mimeType: f.mimetype || 'image/png',
+      originalName: f.originalname,
+    }));
+
+    // 3. Start Background processing WITHOUT await
+    processBackgroundJob(job._id, images).catch(err => console.error('Background job başlatılamadı:', err));
+
+    // 4. Return immediately to the user
+    res.json({
+      success: true,
+      jobId: job._id,
+      message: 'Arka plan analizi başlatıldı.'
+    });
+
+  } catch (error) {
+    console.error('❌ Asenkron analiz başlatma hatası:', error.message);
+    res.status(500).json({ success: false, message: 'İşlem başlatılamadı.' });
+  }
+};
+
+// Background Processor (No req, res attached)
+async function processBackgroundJob(jobId, images) {
+  try {
+    await ScreenshotJob.findByIdAndUpdate(jobId, { status: 'processing' });
+    
+    // Analyzer içine jobId gönderiyoruz ki progress güncelleyebilsin
+    const result = await analyzeMultipleScreenshots(images, jobId);
+    
+    // İşlem bittiğinde DB'yi tamamlandı olarak işaretle ve veriyi kaydet
+    await ScreenshotJob.findByIdAndUpdate(jobId, {
+      status: 'completed',
+      progress: 100,
+      results: result.screenshots,
+      mergedData: result.merged,
+      errors: result.errors,
+    });
+  } catch (error) {
+    console.error(`❌ Background Job Hatası (${jobId}):`, error);
+    await ScreenshotJob.findByIdAndUpdate(jobId, {
+      status: 'error',
+      errorMessage: error.message || 'Bilinmeyen arka plan hatası',
+    });
+  }
+}
+
+/**
+ * GET /api/screenshot-import/job/:jobId
+ * Arka planda çalışan analizin durumunu sorgular (Polling)
+ */
+exports.getJobStatus = async (req, res) => {
+  try {
+    const job = await ScreenshotJob.findById(req.params.jobId);
+    if (!job) return res.status(404).json({ success: false, message: 'İşlem bulunamadı' });
+    
+    // Güvenlik: Sadece işlemi başlatan kullanıcı görebilir
+    if (job.userId.toString() !== req.user.id) {
+       return res.status(403).json({ success: false, message: 'Bu işleme erişim yetkiniz yok' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        status: job.status,
+        progress: job.progress,
+        processedImages: job.processedImages,
+        totalImages: job.totalImages,
+        // Yalnızca completed olunca sonuçları dönüyoruz (ağ trafiğini boğmamak için)
+        results: job.status === 'completed' ? job.results : null,
+        mergedData: job.status === 'completed' ? job.mergedData : null,
+        errors: job.errors,
+        errorMessage: job.errorMessage,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Job durumu sorgulama hatası' });
+  }
+};
+
+/**
+ * POST /api/screenshot-import/merge
+ * Frontend'den gönderilen tüm analiz sonuçlarını (eski + yeni) tek bir havuzda birleştirir
+ */
+exports.merge = async (req, res) => {
+  try {
+    const { screenshots } = req.body;
+    if (!screenshots || !Array.isArray(screenshots)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Geçersiz veri. screenshots array gereklidir.',
+      });
+    }
+
+    const merged = mergeResults(screenshots);
+    
+    res.json({
+      success: true,
+      data: { merged },
+    });
+  } catch (error) {
+    console.error('❌ Screenshot merge hatası:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Sonuçlar birleştirilemedi.',
     });
   }
 };
