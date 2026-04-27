@@ -171,6 +171,7 @@ Sadece JSON döndür.`,
 
   // Tab 2: Yatırım Cinsi
   [TAB_TYPES.YATIRIM_CINSI]: `Bu ekran görüntüsü ETUYS/DYS portalının "Yatırım Cinsi" sekmesidir.
+DİKKAT: Sadece yatırım cinsinin KENDİSİNİ yazın (Örn: "TEVSİ", "KOMPLE YENİ YATIRIM", "MODERNİZASYON"). "Yatırım Cinsi," veya benzeri başlık/etiket metinlerini dahil ETMEYİN. Ekranda "Yatırım Cinsi, TEVSİ" yazıyorsa sadece "TEVSİ" alın.
 Yanıt formatı (sadece JSON):
 {"yatirimCinsleri": ["string"]}`,
 
@@ -242,6 +243,8 @@ Yanıt formatı (sadece JSON):
 
   // Tab 7: Özel Şartlar
   [TAB_TYPES.OZEL_SARTLAR]: `Bu ekran görüntüsü "Özel Şartlar" sekmesidir.
+DİKKAT: Portal bazen bir şartı iki satıra böler. Örneğin sol tarafta "Özel Şart" sağda "Söz konusu belge...", hemen altındaki satırda sol tarafta "Açıklama" sağda "Bakanlıkça..." yazar. 
+Kesinlikle "Açıklama" diye yeni bir şart uydurmayın! Eğer solda "Açıklama" yazıyorsa, bu bir önceki şartın devamı veya detayıdır, onu önceki şartın açıklaması ile birleştirin.
 Yanıt formatı (sadece JSON):
 {
   "ozelSartlar": [
