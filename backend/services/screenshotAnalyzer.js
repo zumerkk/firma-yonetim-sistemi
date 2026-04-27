@@ -542,7 +542,7 @@ function mergeResults(results) {
         if (result.data.destekUnsurlari) {
           merged.destekUnsurlari = result.data.destekUnsurlari.filter(d => {
             const name = (d.destekUnsuru || '').trim().toUpperCase();
-            return name && name !== 'DESTEK UNSURLARI LİSTESİ' && name !== 'DESTEK UNSURLARI LISTESI' && name !== 'DESTEK UNSURU';
+            return name && !name.startsWith('DESTEK UNSUR');
           });
         }
         break;
