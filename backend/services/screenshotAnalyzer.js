@@ -487,13 +487,37 @@ function mergeResults(results) {
 
     switch (result.detectedTab) {
       case TAB_TYPES.BELGE_KUNYE: Object.assign(merged, result.data); break;
-      case TAB_TYPES.YATIRIM_CINSI: if (result.data.yatirimCinsleri) merged.yatirimCinsleri = result.data.yatirimCinsleri; break;
+      case TAB_TYPES.YATIRIM_CINSI:
+        if (result.data.yatirimCinsleri) {
+          merged.yatirimCinsleri = result.data.yatirimCinsleri.map(c => c.replace(/^Yatırım Cinsi[,\:\s]*/i, '').trim());
+        }
+        break;
       case TAB_TYPES.URUN_BILGILERI: if (result.data.urunler) { merged.urunler = result.data.urunler; merged.kodTipi = result.data.kodTipi || null; } break;
       case TAB_TYPES.YERLI_LISTE: if (result.data.yerliMakineler) merged.yerliMakineler = result.data.yerliMakineler; break;
       case TAB_TYPES.ITHAL_LISTE: if (result.data.ithalMakineler) merged.ithalMakineler = result.data.ithalMakineler; break;
       case TAB_TYPES.FINANSAL_BILGILER: merged.finansal = result.data; break;
-      case TAB_TYPES.OZEL_SARTLAR: if (result.data.ozelSartlar) merged.ozelSartlar = [...merged.ozelSartlar, ...result.data.ozelSartlar]; break;
-      case TAB_TYPES.DESTEK_UNSURLARI: if (result.data.destekUnsurlari) merged.destekUnsurlari = result.data.destekUnsurlari; break;
+      case TAB_TYPES.OZEL_SARTLAR:
+        if (result.data.ozelSartlar) {
+          const cleanedSartlar = [];
+          for (const current of result.data.ozelSartlar) {
+            const name = (current.sartAdi || '').trim().toUpperCase();
+            if (name === 'AÇIKLAMA' || name === 'ACIKLAMA') {
+              if (cleanedSartlar.length > 0) cleanedSartlar[cleanedSartlar.length - 1].sartAciklamasi += '\n' + (current.sartAciklamasi || '');
+            } else if (name) {
+              cleanedSartlar.push(current);
+            }
+          }
+          merged.ozelSartlar = [...merged.ozelSartlar, ...cleanedSartlar];
+        }
+        break;
+      case TAB_TYPES.DESTEK_UNSURLARI:
+        if (result.data.destekUnsurlari) {
+          merged.destekUnsurlari = result.data.destekUnsurlari.filter(d => {
+            const name = (d.destekUnsuru || '').trim().toUpperCase();
+            return name && name !== 'DESTEK UNSURLARI LİSTESİ' && name !== 'DESTEK UNSURLARI LISTESI' && name !== 'DESTEK UNSURU';
+          });
+        }
+        break;
       case TAB_TYPES.PROJE_TANITIMI: if (result.data.projeTanitimi) merged.projeTanitimi = result.data.projeTanitimi; break;
       case TAB_TYPES.EVRAK_LISTESI: if (result.data.evrakListesi) merged.evrakListesi = result.data.evrakListesi; break;
       case TAB_TYPES.OZEL_SART_DETAY:
