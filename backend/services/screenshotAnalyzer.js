@@ -500,13 +500,40 @@ function mergeResults(results) {
         if (result.data.ozelSartlar) {
           const cleanedSartlar = [];
           for (const current of result.data.ozelSartlar) {
-            const name = (current.sartAdi || '').trim().toUpperCase();
+            let name = (current.sartAdi || '').trim().toUpperCase();
+            name = name.replace(/[:]/g, '').trim(); // Temizlik
+            
             if (name === 'AÇIKLAMA' || name === 'ACIKLAMA') {
-              if (cleanedSartlar.length > 0) cleanedSartlar[cleanedSartlar.length - 1].sartAciklamasi += '\n' + (current.sartAciklamasi || '');
+              if (cleanedSartlar.length > 0) {
+                const prev = cleanedSartlar[cleanedSartlar.length - 1];
+                const prevNameUpper = (prev.sartAdi || '').trim().toUpperCase().replace(/[:]/g, '');
+                
+                // Eğer bir önceki şartın adı "Özel Şart" ise, aslında "sartAciklamasi" alanındaki metin gerçek şart adıdır.
+                // Çünkü ETUYS tablosu [Özel Şart] | [BÖL - SGK NO] şeklinde gösteriyor.
+                if (prevNameUpper === 'ÖZEL ŞART' || prevNameUpper === 'OZEL SART') {
+                  prev.sartAdi = prev.sartAciklamasi || 'Özel Şart';
+                  prev.sartAciklamasi = current.sartAciklamasi || '';
+                } else {
+                  prev.sartAciklamasi += '\n' + (current.sartAciklamasi || '');
+                }
+              }
             } else if (name) {
               cleanedSartlar.push(current);
             }
           }
+          
+          // Son bir kontrol: Eğer hala adı "Özel Şart" olan kaldıysa ve açıklaması newline içeriyorsa böl
+          for (const s of cleanedSartlar) {
+             const n = (s.sartAdi || '').trim().toUpperCase().replace(/[:]/g, '');
+             if (n === 'ÖZEL ŞART' || n === 'OZEL SART') {
+                 const parts = (s.sartAciklamasi || '').split('\n');
+                 if (parts.length > 1) {
+                     s.sartAdi = parts[0].trim();
+                     s.sartAciklamasi = parts.slice(1).join('\n').trim();
+                 }
+             }
+          }
+          
           merged.ozelSartlar = [...merged.ozelSartlar, ...cleanedSartlar];
         }
         break;
