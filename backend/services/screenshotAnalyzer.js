@@ -243,8 +243,9 @@ Yanıt formatı (sadece JSON):
 
   // Tab 7: Özel Şartlar
   [TAB_TYPES.OZEL_SARTLAR]: `Bu ekran görüntüsü "Özel Şartlar" sekmesidir.
-DİKKAT: Portal bazen bir şartı iki satıra böler. Örneğin sol tarafta "Özel Şart" sağda "Söz konusu belge...", hemen altındaki satırda sol tarafta "Açıklama" sağda "Bakanlıkça..." yazar. 
-Kesinlikle "Açıklama" diye yeni bir şart uydurmayın! Eğer solda "Açıklama" yazıyorsa, bu bir önceki şartın devamı veya detayıdır, onu önceki şartın açıklaması ile birleştirin.
+DİKKAT: Tabloyu tam olarak ekranda gördüğün gibi satır satır JSON'a çevir. 
+Sol kolondaki metni "sartAdi", sağ kolondaki metni "sartAciklamasi" yap. 
+Kesinlikle satırları kendi kendine BİRLEŞTİRMEYE ÇALIŞMA! Eğer sol kolonda "Açıklama" yazıyorsa sartAdi olarak "Açıklama" yaz ve geç. Bizim sistemimiz onları arka planda düzeltecektir.
 Yanıt formatı (sadece JSON):
 {
   "ozelSartlar": [
