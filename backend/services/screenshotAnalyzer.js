@@ -541,8 +541,21 @@ function mergeResults(results) {
       case TAB_TYPES.DESTEK_UNSURLARI:
         if (result.data.destekUnsurlari) {
           merged.destekUnsurlari = result.data.destekUnsurlari.filter(d => {
-            const name = (d.destekUnsuru || '').trim().toUpperCase();
-            return name && !name.startsWith('DESTEK UNSUR');
+            let name = (d.destekUnsuru || '').trim().toUpperCase();
+            if (!name) return false;
+            
+            const excludeKeywords = [
+              'DESTEK UNSURLARI LİSTESİ', 
+              'DESTEK UNSURLARI LISTESI', 
+              'DESTEK UNSURU', 
+              'DESTEK UNSURLARI ADI'
+            ];
+            
+            for (const keyword of excludeKeywords) {
+                if (name.includes(keyword)) return false;
+            }
+            
+            return true;
           });
         }
         break;
