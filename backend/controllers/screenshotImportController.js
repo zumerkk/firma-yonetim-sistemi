@@ -295,6 +295,38 @@ exports.commit = async (req, res) => {
     // Belge verisi hazırla
     const belgeData = buildBelgeData(mergedData, firmaDoc, userId, parseDate);
 
+    // Mükerrer (Duplicate) Belge Kontrolü
+    const bId = belgeData.belgeYonetimi.belgeId?.trim();
+    const bNo = belgeData.belgeYonetimi.belgeNo?.trim();
+    
+    if (bId || bNo) {
+      const orConditions = [];
+      if (bId) orConditions.push({ 'belgeYonetimi.belgeId': bId });
+      if (bNo) orConditions.push({ 'belgeYonetimi.belgeNo': bNo });
+      
+      const query = { 
+        firma: firmaDoc._id,
+        $or: orConditions,
+        aktif: true
+      };
+      
+      let existingDoc = null;
+      if (isYeni) {
+        existingDoc = await YeniTesvik.findOne(query).select('_id tesvikId').lean();
+      } else {
+        existingDoc = await Tesvik.findOne(query).select('_id tesvikId').lean();
+      }
+      
+      if (existingDoc) {
+        return res.status(400).json({
+          success: false,
+          message: `Bu belge (${bId || bNo}) sisteme daha önce eklenmiş. Lütfen mevcut belgeyi kullanın.`,
+          duplicate: true,
+          existingId: existingDoc._id
+        });
+      }
+    }
+
     let savedDoc;
 
     if (isYeni) {
