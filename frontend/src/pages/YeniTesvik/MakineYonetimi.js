@@ -9,6 +9,7 @@ import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
+import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, Speed as SpeedIcon, ViewList as ViewListIcon, FlashOn as FlashOnIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
@@ -1724,15 +1725,31 @@ const MakineYonetimi = () => {
     try {
       const isCsv = file.name.toLowerCase().endsWith('.csv');
       
+      const lookupGtipDescription = (gtipKodu) => {
+        if (!gtipKodu) return '';
+        const cleanKodu = gtipKodu.toString().replace(/\D/g, '');
+        if (!cleanKodu) return '';
+        const found = GTIP_DATA.GTIP_CODES.find(c => {
+          const cleanC = c.replace(/^"|"$/g, '').split(' - ')[0].replace(/\D/g, '');
+          return cleanC === cleanKodu || cleanC.startsWith(cleanKodu) || cleanKodu.startsWith(cleanC);
+        });
+        if (found) {
+          const parts = found.replace(/^"|"$/g, '').split(' - ');
+          parts.shift();
+          return parts.join(' - ').trim();
+        }
+        return '';
+      };
+
       const processYerliData = (yerliData) => {
         const yerliMapped = yerliData.map((r, idx) => {
           const obj = { 
             id: Math.random().toString(36).slice(2), 
             siraNo: r['Sıra No'] || (idx + 1), 
             makineId: r['Makine ID'] || '', 
-            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || '', 
-            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || '', 
-            adi: r['Adı ve Özelliği'] || r['Adı'] || '', 
+            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || r['GTIP'] || '', 
+            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || r['GTIP Açk.'] || lookupGtipDescription(r['GTIP No'] || r['GTIP Kodu'] || r['GTIP']) || '', 
+            adi: r['Adı ve Özelliği'] || r['Adı'] || r['Makina ve Teçhizatın Cinsi'] || '', 
             miktar: r['Miktarı'] || r['Miktar'] || 0, 
             birim: r['Birimi'] || r['Birim'] || '', 
             birimAciklamasi: r['Birim Açıklaması'] || '', 
@@ -1767,9 +1784,9 @@ const MakineYonetimi = () => {
             id: Math.random().toString(36).slice(2), 
             siraNo: r['Sıra No'] || (idx + 1), 
             makineId: r['Makine ID'] || '', 
-            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || '', 
-            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || '', 
-            adi: r['Adı ve Özelliği'] || r['Adı'] || '', 
+            gtipKodu: r['GTIP No'] || r['GTIP Kodu'] || r['GTIP'] || '', 
+            gtipAciklama: r['GTIP Açıklama'] || r['GTIP Aciklama'] || r['GTIP Açk.'] || lookupGtipDescription(r['GTIP No'] || r['GTIP Kodu'] || r['GTIP']) || '', 
+            adi: r['Adı ve Özelliği'] || r['Adı'] || r['Makina ve Teçhizatın Cinsi'] || '', 
             miktar: r['Miktarı'] || r['Miktar'] || 0, 
             birim: r['Birimi'] || r['Birim'] || '', 
             birimAciklamasi: r['Birim Açıklaması'] || '', 
