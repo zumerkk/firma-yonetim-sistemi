@@ -1000,7 +1000,7 @@ const YeniTesvikDetail = () => {
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
                         <thead style={{ backgroundColor: '#f1f5f9' }}>
                           <tr>
-                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Kod</th>
+                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>NACE Kodu</th>
                             <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Ürün Adı</th>
                             <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Mevcut</th>
                             <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>İlave</th>
@@ -1107,7 +1107,9 @@ const YeniTesvikDetail = () => {
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ex || 0).toLocaleString('tr-TR')}</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Faiz veya Kâr Payı Giderleri</Typography></Grid>
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.eu || 0).toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kur Farkı Giderleri / Maddi Olmayan Duran Varlık</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kur Farkı Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺0</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Maddi Olmayan Duran Varlık (marka, lisans, know-how vb.) Giderleri</Typography></Grid>
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺0</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Diğer Giderler</Typography></Grid>
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ey || 0).toLocaleString('tr-TR')}</Typography></Grid>
