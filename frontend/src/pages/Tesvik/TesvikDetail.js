@@ -761,7 +761,11 @@ const TesvikDetail = () => {
             <Grid item xs={6} sm={3}>
               <Paper sx={{
                 p: 1,
-                height: 80,
+                minHeight: 80,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
                 background: '#ffffff',
                 border: `2px solid ${getDurumColor(tesvik.durumBilgileri?.genelDurum)}`,
                 borderRadius: 1,
@@ -803,7 +807,11 @@ const TesvikDetail = () => {
             <Grid item xs={6} sm={3}>
               <Paper sx={{
                 p: 1,
-                height: 80,
+                minHeight: 80,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #3b82f6',
                 borderRadius: 1,
@@ -847,7 +855,11 @@ const TesvikDetail = () => {
             <Grid item xs={6} sm={3}>
               <Paper sx={{
                 p: 1,
-                height: 80,
+                minHeight: 80,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #10b981',
                 borderRadius: 1,
@@ -885,7 +897,11 @@ const TesvikDetail = () => {
             <Grid item xs={6} sm={3}>
               <Paper sx={{
                 p: 1,
-                height: 80,
+                minHeight: 80,
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #f59e0b',
                 borderRadius: 1,
