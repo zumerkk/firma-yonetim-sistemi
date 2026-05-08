@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Chip, Paper, Button, Avatar, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, TextField, Alert, Stack,
-  FormControl, InputLabel, Select, MenuItem, Divider, Switch, FormControlLabel
+  FormControl, InputLabel, Select, MenuItem, Divider, Switch, FormControlLabel,
+  Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import {
   EmojiEvents as EmojiEventsIcon,
@@ -13,7 +14,8 @@ import {
   ArrowBack as ArrowBackIcon,
   Home as HomeIcon,
   Business as BusinessIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 
 // API Utils
@@ -936,429 +938,281 @@ const TesvikDetail = () => {
             </Grid>
           </Grid>
 
-          {/* 💼 YATIRIM İLE İLGİLİ BİLGİLER */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                💼 Yatırım İle İlgili Bilgiler
-              </Typography>
-            </Box>
-            <Grid container spacing={1}>
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0' }}>
-                  <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Konusu</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri?.yatirimKonusu || tesvik.yatirimBilgileri2?.yatirimKonusu || '-'}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#fef7ff', borderRadius: 1, border: '1px solid #e9d5ff' }}>
-                  <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>Destek Sınıfı</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#8b5cf6', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri?.destekSinifi || tesvik.yatirimBilgileri2?.destekSinifi || '-'}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#f0f9ff', borderRadius: 1, border: '1px solid #bae6fd' }}>
-                  <Typography variant="caption" sx={{ color: '#0369a1', fontSize: '0.65rem', fontWeight: 500 }}>🌍 OECD (Orta-Yüksek)</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284c7', fontSize: '0.8rem' }}>
-                    {tesvik.yatirimBilgileri?.oecdKategori || '-'}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#eff6ff', borderRadius: 1, border: '1px solid #dbeafe' }}>
-                  <Typography variant="caption" sx={{ color: '#1d4ed8', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Lokasyonu</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb', fontSize: '0.8rem' }}>
-                    {(tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri2?.il || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || tesvik.yatirimBilgileri2?.ilce || '-')}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#fefce8', borderRadius: 1, border: '1px solid #fef08a' }}>
-                  <Typography variant="caption" sx={{ color: '#ca8a04', fontSize: '0.65rem', fontWeight: 500 }}>Yatırım Adresi</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', wordBreak: 'break-word' }} title={tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-'}>
-                    {tesvik.yatirimBilgileri?.yatirimAdresi1 || tesvik.yatirimBilgileri2?.yatirimAdresi1 || '-'}
-                  </Typography>
-                  {(tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2) && (
-                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
-                      {tesvik.yatirimBilgileri?.yatirimAdresi2 || tesvik.yatirimBilgileri2?.yatirimAdresi2}
-                    </Typography>
-                  )}
-                  {(tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3) && (
-                    <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', display: 'block' }}>
-                      {tesvik.yatirimBilgileri?.yatirimAdresi3 || tesvik.yatirimBilgileri2?.yatirimAdresi3}
-                    </Typography>
-                  )}
-                </Box>
-              </Grid>
-              {/* 📋 Belge Müracaat Talep Tipi */}
-              <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#fdf4ff', borderRadius: 1, border: '1px solid #f0abfc' }}>
-                  <Typography variant="caption" sx={{ color: '#a21caf', fontSize: '0.65rem', fontWeight: 500 }}>📋 Belge Müracaat Talep Tipi</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: '#c026d3', fontSize: '0.8rem' }}>
-                    {tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || '-'}
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
+          {/* ========================================================= */}
+          {/* 6 BÖLÜMLÜ EXCEL ŞABLONU ACCORDION YAPISI                 */}
+          {/* ========================================================= */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            
+            {/* 1- YATIRIMCI İLE İLGİLİ BİLGİLER */}
+            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>1- YATIRIMCI İLE İLGİLİ BİLGİLER</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>1- FİRMA ADI VE UNVANI :</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firmaBilgileri?.unvan || tesvik.firma?.tamUnvan || '-'}</Typography></Grid>
 
-          {/* 👥 İSTİHDAM BİLGİLERİ */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                👥 İstihdam Bilgileri
-              </Typography>
-            </Box>
-            <Grid container spacing={1}>
-              <Grid item xs={4}>
-                <Box sx={{ p: 1, backgroundColor: '#fef7ff', borderRadius: 1, border: '1px solid #e9d5ff', textAlign: 'center' }}>
-                  <Typography variant="h5" sx={{ fontWeight: 700, color: '#f59e0b', fontSize: '1.5rem' }}>
-                    {tesvik.istihdam?.toplamKisi ?? 0}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#7c3aed', fontSize: '0.65rem', fontWeight: 500 }}>
-                    Toplam İstihdam
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={4}>
-                <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0', textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#10b981', fontSize: '1.2rem' }}>
-                    {tesvik.istihdam?.mevcutKisi ?? 0}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>
-                    Mevcut Kişi
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={4}>
-                <Box sx={{ p: 1, backgroundColor: '#ecfdf5', borderRadius: 1, border: '1px solid #a7f3d0', textAlign: 'center' }}>
-                  <Typography variant="h6" sx={{ fontWeight: 700, color: '#059669', fontSize: '1.2rem' }}>
-                    +{tesvik.istihdam?.ilaveKisi ?? 0}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#047857', fontSize: '0.65rem', fontWeight: 500 }}>
-                    İlave Kişi
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </Paper>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>2- ADRESİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firmaBilgileri?.adres || tesvik.firma?.adres || '-'}</Typography></Grid>
 
-          {/* 💰 FİNANSAL BİLGİLER - KOMPAKT FORM STİLİ */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#3b82f6' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                💰 Finansal Bilgiler
-              </Typography>
-              <Chip label="Form Verileri" size="small" sx={{ ml: 'auto', backgroundColor: '#eff6ff', color: '#1d4ed8', fontSize: '0.6rem', height: 20 }} />
-            </Box>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>3- VERGİ NO</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firmaBilgileri?.vergiNo || tesvik.firma?.vergiNoTC || '-'}</Typography></Grid>
 
-            {/* Ana Toplam */}
-            <Paper sx={{
-              p: 2,
-              mb: 1.5,
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
-              color: 'white',
-              borderRadius: 2
-            }}>
-              <Typography variant="h4" sx={{ fontWeight: 900, mb: 0.5, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                ₺{Number(tesvik.maliHesaplamalar?.toplamSabitYatirim || 0).toLocaleString('tr-TR')}
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.9 }}>
-                TOPLAM SABİT YATIRIM TUTARI TL
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8, fontSize: '0.7rem' }}>
-                Ana yatırım tutarı • Form verisi
-              </Typography>
-            </Paper>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>4- TELEFON VE FAX</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.firmaTelefon || '-'}</Typography></Grid>
 
-            {/* Finansal Detay Kartları */}
-            <Grid container spacing={0.5}>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef7cd', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400e', mb: 0.5, fontSize: '0.6rem' }}>Arazi Arsa Bedeli</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#78350f', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.araciArsaBedeli || tesvik.maliHesaplamalar?.araziArsaBedeli || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dcfce7', border: '1px solid #4ade80', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#166534', mb: 0.5, fontSize: '0.6rem' }}>Bina İnşaat Giderleri</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#15803d', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#dbeafe', border: '1px solid #60a5fa', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#1e40af', mb: 0.5, fontSize: '0.6rem' }}>Finansman TL</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#1d4ed8', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fae8ff', border: '1px solid #c084fc', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#7c3aed', mb: 0.5, fontSize: '0.6rem' }}>Makine Teçhizat</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#8b5cf6', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#dc2626', mb: 0.5, fontSize: '0.6rem' }}>Diğer Yatırım Harc.</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#991b1b', fontSize: '0.8rem' }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0).toLocaleString('tr-TR')}</Typography>
-                </Paper>
-              </Grid>
-              <Grid item xs={6} sm={4} md={2}>
-                <Paper sx={{ p: 1, textAlign: 'center', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#059669', mb: 0.5, fontSize: '0.6rem' }}>Finansal Durum</Typography>
-                  <Chip label="✓ Hazır" size="small" sx={{ backgroundColor: '#10b981', color: 'white', fontWeight: 600, fontSize: '0.6rem', height: 18 }} />
-                </Paper>
-              </Grid>
-            </Grid>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>5- E-POSTA ADRESİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.firmaEmail || '-'}</Typography></Grid>
 
-            {/* Eski Belge Diğer Yatırım Harcamaları Detayı */}
-            <Box sx={{ mt: 2, p: 1.5, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 1, display: 'block' }}>
-                DİĞER YATIRIM HARCAMALARI DETAYI
-              </Typography>
-              <Grid container spacing={1}>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>Yardımcı İşletme Makine Teçhizat Giderleri</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0).toLocaleString('tr-TR')}</Typography>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>6- SGK İŞYERİ SİCİL NO</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>7- SERMAYE TÜRÜ :</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</Typography></Grid>
                 </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>İthalat ve Gümrükleme</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0).toLocaleString('tr-TR')}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>Taşıma ve Sigorta</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0).toLocaleString('tr-TR')}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>Montaj</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.et || 0).toLocaleString('tr-TR')}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>Etüd ve Proje</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0).toLocaleString('tr-TR')}</Typography>
-                </Grid>
-                <Grid item xs={6} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>Diğer Giderler</Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0).toLocaleString('tr-TR')}</Typography>
-                </Grid>
-              </Grid>
-            </Box>
-          </Paper>
+              </AccordionDetails>
+            </Accordion>
 
-          {/* 📦 ÜRÜN BİLGİLERİ & US97 KODLARI */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#8b5cf6' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                📦 Ürün Bilgileri & US97 Kodları
-              </Typography>
-              {(() => {
-                const validCount = (tesvik.urunler || []).filter(u =>
-                  ((u.u97Kodu || u.us97Kodu) || (u.urunAdi && u.urunAdi.trim())) &&
-                  ((Number(u.mevcutKapasite) || 0) > 0 || (Number(u.ilaveKapasite) || 0) > 0 || (Number(u.toplamKapasite) || 0) > 0)
-                ).length;
-                return validCount > 0 ? (
-                  <Chip label={validCount > 6 ? `+${validCount - 6} ürün daha` : `${validCount} ürün`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
-                ) : null;
-              })()}
-            </Box>
+            {/* 2- YATIRIM İLE İLGİLİ BİLGİLER */}
+            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>2- YATIRIM İLE İLGİLİ BİLGİLER</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>1- SEKTÖRÜ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
 
-            {/* Kompakt Ürün Listesi - SADECE GEÇERLİ VERİSİ OLAN ÜRÜNLER */}
-            {(() => {
-              // Geçerli ürünleri filtrele: En az kod VEYA ad olmalı VE kapasite > 0 olmalı
-              const validUrunler = (tesvik.urunler || []).filter(urun => {
-                const hasCode = !!(urun.u97Kodu || urun.us97Kodu);
-                const hasName = !!(urun.urunAdi && urun.urunAdi.trim());
-                // 🔧 FIX: Tüm kapasiteleri 0 olan hayalet satırları gösterme
-                const hasCapacity = (Number(urun.mevcutKapasite) || 0) > 0 ||
-                  (Number(urun.ilaveKapasite) || 0) > 0 ||
-                  (Number(urun.toplamKapasite) || 0) > 0;
-                return (hasCode || hasName) && hasCapacity;
-              });
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>2- KONUSU</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimKonusu || '-'}</Typography></Grid>
 
-              return validUrunler.length > 0 ? (
-                <Grid container spacing={0.5}>
-                  {validUrunler.slice(0, 6).map((urun, index) => (
-                    <Grid item xs={12} sm={6} md={4} key={index}>
-                      <Paper sx={{
-                        p: 1,
-                        backgroundColor: '#fafbfc',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: 1,
-                        transition: 'all 0.2s ease',
-                        '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }
-                      }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, color: '#475569', fontSize: '0.65rem' }}>
-                            Ürün #{index + 1}
-                          </Typography>
-                          {(urun.u97Kodu || urun.us97Kodu) && (
-                            <Chip
-                              label={urun.u97Kodu || urun.us97Kodu}
-                              size="small"
-                              sx={{
-                                backgroundColor: '#fef7ff',
-                                color: '#8b5cf6',
-                                fontWeight: 500,
-                                fontSize: '0.6rem',
-                                height: 18
-                              }}
-                            />
-                          )}
-                        </Box>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>3- CİNSİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimCinsi || '-'}</Typography></Grid>
 
-                        <Typography variant="body2" sx={{
-                          mb: 0.5,
-                          fontWeight: 500,
-                          fontSize: '0.75rem',
-                          minHeight: 32,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical'
-                        }}>
-                          {urun.urunAdi || '-'}
-                        </Typography>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>4- YERİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(tesvik.yatirimBilgileri?.yerinIl || '-')} / {(tesvik.yatirimBilgileri?.yerinIlce || '-')}</Typography></Grid>
 
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#10b981', fontSize: '0.8rem' }}>
-                              {(Number(urun.mevcutKapasite) || 0).toLocaleString('tr-TR')}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>Mevcut</Typography>
-                          </Box>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#f59e0b', fontSize: '0.8rem' }}>
-                              +{(Number(urun.ilaveKapasite) || 0).toLocaleString('tr-TR')}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>İlave</Typography>
-                          </Box>
-                          <Box sx={{ textAlign: 'center' }}>
-                            <Typography variant="body1" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '0.85rem' }}>
-                              {(Number(urun.toplamKapasite) || 0).toLocaleString('tr-TR')}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.6rem' }}>{urun.kapasiteBirimi || '-'}</Typography>
-                          </Box>
-                        </Box>
-                      </Paper>
+                  {/* İstihdam Tablosu */}
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'block', mb: 1 }}>5- İLAVE İSTİHDAM</Typography>
+                    <Grid container sx={{ border: '1px solid #e2e8f0', borderRadius: 1, overflow: 'hidden' }}>
+                      <Grid item xs={4} sx={{ p: 1, backgroundColor: '#f1f5f9', borderRight: '1px solid #e2e8f0' }}><Typography variant="caption" sx={{ fontWeight: 600 }}>Mevcut (kişi)</Typography></Grid>
+                      <Grid item xs={4} sx={{ p: 1, backgroundColor: '#f1f5f9', borderRight: '1px solid #e2e8f0' }}><Typography variant="caption" sx={{ fontWeight: 600 }}>İlave (kişi)</Typography></Grid>
+                      <Grid item xs={4} sx={{ p: 1, backgroundColor: '#f1f5f9' }}><Typography variant="caption" sx={{ fontWeight: 600 }}>TOPLAM (kişi)</Typography></Grid>
+                      
+                      <Grid item xs={4} sx={{ p: 1, borderRight: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.mevcutKisi || '0'}</Typography></Grid>
+                      <Grid item xs={4} sx={{ p: 1, borderRight: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0' }}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.ilaveKisi || '0'}</Typography></Grid>
+                      <Grid item xs={4} sx={{ p: 1, borderTop: '1px solid #e2e8f0' }}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.toplamKisi || '0'}</Typography></Grid>
                     </Grid>
-                  ))}
+                  </Grid>
+
+                  {/* Kapasite / Ürünler Tablosu */}
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, display: 'block', mb: 1 }}>6- KAPASİTE</Typography>
+                    <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 1, overflow: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                        <thead style={{ backgroundColor: '#f1f5f9' }}>
+                          <tr>
+                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Kod</th>
+                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Ürün Adı</th>
+                            <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>Mevcut</th>
+                            <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>İlave</th>
+                            <th style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>TOPLAM</th>
+                            <th style={{ padding: '8px', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>Birim</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tesvik.urunler && tesvik.urunler.length > 0 ? (
+                            tesvik.urunler.map((urun, i) => (
+                              <tr key={i}>
+                                <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>{urun.u97Kodu || urun.us97Kodu || urun.naceKodu || '-'}</td>
+                                <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', fontWeight: 600 }}>{urun.urunAdi || '-'}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #f1f5f9' }}>{(Number(urun.mevcutKapasite) || 0).toLocaleString('tr-TR')}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #f1f5f9' }}>{(Number(urun.ilaveKapasite) || 0).toLocaleString('tr-TR')}</td>
+                                <td style={{ padding: '8px', textAlign: 'right', borderBottom: '1px solid #f1f5f9' }}>{(Number(urun.toplamKapasite) || 0).toLocaleString('tr-TR')}</td>
+                                <td style={{ padding: '8px', borderBottom: '1px solid #f1f5f9' }}>{urun.kapasiteBirimi || '-'}</td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr><td colSpan="6" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8' }}>Ürün bulunamadı</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </Box>
+                  </Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>7- BAŞLAMA TARİHİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.baslamaTarihi || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>8- BİTİŞ TARİHİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.bitisTarihi || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>9- İŞLETMEYE GEÇİŞ TARİHİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
                 </Grid>
-              ) : (
-                <Paper sx={{ p: 1, backgroundColor: '#f9fafb', textAlign: 'center', borderRadius: 1 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                    Henüz ürün bilgisi tanımlanmamış
-                  </Typography>
-                </Paper>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* 3- YATIRIMIN YARARLANACAĞI DESTEK UNSURLARI */}
+            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>3- YATIRIMIN YARARLANACAĞI DESTEK UNSURLARI</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                <Grid container spacing={1}>
+                  {tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0 ? (
+                    tesvik.destekUnsurlari.map((destek, i) => (
+                      <React.Fragment key={i}>
+                        <Grid item xs={12} sm={6}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>{destek.destekUnsuru || '-'}</Typography></Grid>
+                        <Grid item xs={12} sm={6}><Typography variant="body2" sx={{ fontWeight: 600 }}>VAR</Typography></Grid>
+                        <Grid item xs={12}><Divider sx={{ my: 0.5 }} /></Grid>
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <Grid item xs={12}><Typography variant="body2" sx={{ color: '#94a3b8' }}>Destek unsuru bulunamadı</Typography></Grid>
+                  )}
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* 4- YATIRIMIN TUTARI */}
+            {(() => {
+              const mali = tesvik.maliHesaplamalar || {};
+              const araziArsa = Number(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn || 0);
+              const binaInsaat = Number(mali.binaInsaatGideri?.toplamBinaGideri || 0);
+              const digerYatirim = Number(mali.yatirimHesaplamalari?.ez || 0);
+              const ithalMak = Number(mali.makinaTechizat?.ithalMakina || 0);
+              const yerliMak = Number(mali.makinaTechizat?.yerliMakina || 0);
+              const toplamMak = Number(mali.makinaTechizat?.toplamMakina || 0);
+              const yeniMakUsd = Number(mali.makinaTechizat?.yeniMakine || 0);
+              const kullMakUsd = Number(mali.makinaTechizat?.kullanimisMakina || 0);
+              const topMakUsd = yeniMakUsd + kullMakUsd;
+              let topSabit = Number(mali.toplamSabitYatirim || 0);
+              if (!topSabit) topSabit = araziArsa + binaInsaat + toplamMak + digerYatirim;
+
+              return (
+                <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>4- YATIRIMIN TUTARI</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Arazi-Arsa Bedeli</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Arazi-Arsa Bedeli Toplamı</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{araziArsa.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>BİNA İNŞAAT GİDERLERİ</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Ana Bina ve Tesisleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.binaInsaatGideri?.anaBinaGideri || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yardımcı İş. Bina ve Tesisleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.binaInsaatGideri?.yardimciBinaGideri || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Bina İnşaat Gideri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{binaInsaat.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>DİĞER YATIRIM HARCAMALARI</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>İthalat ve Gümrükleme Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ev || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Taşıma ve Sigorta Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ew || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Montaj Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.et || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Etüd ve Proje Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ex || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Faiz veya Kâr Payı Giderleri</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.eu || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kur Farkı Giderleri / Maddi Olmayan Duran Varlık</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺0</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Diğer Giderler</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.yatirimHesaplamalari?.ey || 0).toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Diğer Yatırım Harc.</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{digerYatirim.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#fef3c7', p: 1, borderRadius: 1, display: 'block', textAlign: 'center', mt: 1 }}>TOPLAM SABİT YATIRIM TUTARI : ₺{topSabit.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>MAKİNE TEÇHİZAT GİDERLERİ</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>İthal</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{ithalMak.toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yerli</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{yerliMak.toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Makine Teçhizat</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{toplamMak.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>İTHAL MAKİNE ($)</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yeni Makine</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>${yeniMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kullanılmış Makine</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>${kullMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam İthal Makine ($)</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>${topMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
               );
             })()}
-          </Paper>
 
-          {/* 🛡️ DESTEK UNSURLARI - DİNAMİK */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#8b5cf6' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                🛡️ Destek Unsurları
-              </Typography>
-              {tesvik?.destekUnsurlari && tesvik.destekUnsurlari.length > 0 && (
-                <Chip label={`${tesvik.destekUnsurlari.length} unsur`} size="small" sx={{ ml: 'auto', backgroundColor: '#fef7ff', color: '#8b5cf6', fontSize: '0.6rem', height: 20 }} />
-              )}
-            </Box>
+            {/* 5- FİNANSMAN */}
+            {(() => {
+              const mali = tesvik.maliHesaplamalar || {};
+              const yabanci = Number(mali.finansman?.yabanciKaynak || 0);
+              const ozkaynak = Number(mali.finansman?.ozKaynak || 0);
+              const topFin = Number(mali.finansman?.toplamFinansman || 0);
 
-            {/* Dinamik Destek Unsurları */}
-            <Grid container spacing={0.5}>
-              {(tesvik?.destekUnsurlari && tesvik.destekUnsurlari.filter(d => d?.destekUnsuru).length > 0) ? (
-                tesvik.destekUnsurlari
-                  .filter(destek => destek?.destekUnsuru) // Sadece dolu olanları göster
-                  .map((destek, idx) => (
-                    <Grid item xs={12} sm={6} key={idx}>
-                      <Paper sx={{ p: 1, backgroundColor: '#fef7ff', border: '1px solid #d8b4fe', borderRadius: 1 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 500, color: '#7c3aed', fontSize: '0.75rem' }}>
-                            {destek?.destekUnsuru || '-'}
+              return (
+                <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>5- FİNANSMAN</Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>YABANCI KAYNAKLAR</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Toplam Yabancı Kaynak</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{yabanci.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>ÖZKAYNAKLAR</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Özkaynaklar</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{ozkaynak.toLocaleString('tr-TR')}</Typography></Grid>
+
+                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#e0f2fe', p: 0.5, borderRadius: 1, display: 'block' }}>TOPLAM FİNANSMAN</Typography></Grid>
+                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Finansman</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right', color: '#0369a1' }}>₺{topFin.toLocaleString('tr-TR')}</Typography></Grid>
+                    </Grid>
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })()}
+
+            {/* 6- ÖZEL ŞARTLAR */}
+            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>6- ÖZEL ŞARTLAR</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                <Grid container spacing={2}>
+                  {tesvik.ozelSartlar && tesvik.ozelSartlar.length > 0 ? (
+                    tesvik.ozelSartlar.map((sart, i) => (
+                      <Grid item xs={12} key={i}>
+                        <Box sx={{ p: 1.5, backgroundColor: '#fffbeb', borderRadius: 1, border: '1px solid #fef3c7' }}>
+                          <Typography variant="body2" sx={{ color: '#92400e', lineHeight: 1.6 }}>
+                            {sart?.koşulMetni || sart?.kisaltma || sart?.sart || sart?.metin || '-'}
                           </Typography>
-                          <Chip label="beklemede" size="small" sx={{ backgroundColor: '#fef3c7', color: '#92400e', fontSize: '0.6rem', height: 18 }} />
                         </Box>
-                        {/* 🔧 FIX: Hem sarti hem sartlari field'larını kontrol et */}
-                        {(destek?.sarti || destek?.sartlari) && (
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', mt: 0.5, display: 'block' }}>
-                            {destek.sarti || destek.sartlari}
-                          </Typography>
-                        )}
-                        {destek?.aciklama && (
-                          <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.6rem', mt: 0.25, display: 'block', fontStyle: 'italic' }}>
-                            {destek.aciklama}
-                          </Typography>
-                        )}
-                      </Paper>
-                    </Grid>
-                  ))
-              ) : (
-                <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                    Destek unsuru bulunmuyor.
-                  </Typography>
+                      </Grid>
+                    ))
+                  ) : (
+                    <Grid item xs={12}><Typography variant="body2" sx={{ color: '#94a3b8' }}>Özel şart bulunamadı</Typography></Grid>
+                  )}
+                  <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+                  
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>DAYANDIĞI KANUN</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>BELGE MÜRACAAT TARİHİ</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.basvuruTarihi || '-'}</Typography></Grid>
                 </Grid>
-              )}
-            </Grid>
-          </Paper>
-
-          {/* ⚖️ ÖZEL ŞARTLAR - DİNAMİK + AÇIKLAMA */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#f59e0b' }} />
-              <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
-                ⚖️ Özel Şartlar
-              </Typography>
-              {tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0 && (
-                <Chip label={`${tesvik.ozelSartlar.length} şart`} size="small" sx={{ ml: 'auto', backgroundColor: '#fffbeb', color: '#d97706', fontSize: '0.6rem', height: 20 }} />
-              )}
-            </Box>
-
-            <Grid container spacing={0.75}>
-              {(tesvik?.ozelSartlar && tesvik.ozelSartlar.length > 0) ? (
-                tesvik.ozelSartlar.map((sart, idx) => {
-                  // Multiple field name desteği - backend'den gelen farklı formatlara uyum
-                  const sartMetni = sart?.koşulMetni || sart?.kisaltma || sart?.sart || sart?.metin || '-';
-                  const sartAciklama = sart?.aciklamaNotu || sart?.notu || sart?.aciklama || sart?.description || '';
-
-                  return (
-                    <Grid item xs={12} sm={6} md={4} key={idx}>
-                      <Paper sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.75rem', mb: 0.5 }}>
-                          {`Şart #${sart?.koşulNo || idx + 1}`}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.7rem', display: 'block' }}>
-                          {sartMetni}
-                        </Typography>
-                        {sartAciklama && sartAciklama.trim() !== '' && (
-                          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.65rem', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
-                            📝 {sartAciklama}
-                          </Typography>
-                        )}
-                      </Paper>
-                    </Grid>
-                  );
-                })
-              ) : (
-                <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                    Özel şart bulunmuyor.
-                  </Typography>
-                </Grid>
-              )}
-            </Grid>
-          </Paper>
+              </AccordionDetails>
+            </Accordion>
+          </Box>
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
