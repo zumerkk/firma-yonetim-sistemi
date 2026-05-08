@@ -6284,9 +6284,18 @@ module.exports = {
       const finansalFields = [
         ['Toplam Sabit Yatırım:', tesvik.maliHesaplamalar?.toplamSabitYatirim || 0],
         ['Arazi/Arsa Bedeli:', tesvik.maliHesaplamalar?.araciArsaBedeli || 0],
+        ['Bina İnşaat Giderleri:', tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0],
         ['Yerli Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0],
         ['İthal Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0],
-        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0]
+        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0],
+        ['--- DİĞER YATIRIM HARCAMALARI ---', ''],
+        ['Yardımcı İşletme Makine Teçhizat Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0],
+        ['İthalat ve Gümrükleme Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0],
+        ['Taşıma ve Sigorta Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0],
+        ['Montaj Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.et || 0],
+        ['Etüd ve Proje Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0],
+        ['Diğer Giderler:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0],
+        ['Toplam Diğer Yatırım Harcamaları:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0]
       ];
 
       finansalFields.forEach(fieldRow => {

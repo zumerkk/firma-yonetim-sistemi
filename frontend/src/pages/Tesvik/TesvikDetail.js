@@ -1102,6 +1102,39 @@ const TesvikDetail = () => {
                 </Paper>
               </Grid>
             </Grid>
+
+            {/* Eski Belge Diğer Yatırım Harcamaları Detayı */}
+            <Box sx={{ mt: 2, p: 1.5, backgroundColor: '#f8fafc', borderRadius: 2, border: '1px dashed #cbd5e1' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', mb: 1, display: 'block' }}>
+                DİĞER YATIRIM HARCAMALARI DETAYI
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>Yardımcı İşletme Makine Teçhizat Giderleri</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>İthalat ve Gümrükleme</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>Taşıma ve Sigorta</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>Montaj</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.et || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>Etüd ve Proje</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+                <Grid item xs={6} sm={4}>
+                  <Typography variant="caption" sx={{ color: '#64748b' }}>Diğer Giderler</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>₺{Number(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0).toLocaleString('tr-TR')}</Typography>
+                </Grid>
+              </Grid>
+            </Box>
           </Paper>
 
           {/* 📦 ÜRÜN BİLGİLERİ & US97 KODLARI */}
