@@ -1,10 +1,29 @@
 import ExcelJS from "exceljs";
 
+// Sayıyı güvenli biçimde Türk lirası formatında göster
+const tl = (val) => {
+  const n = Number(val);
+  if (!val && val !== 0) return "-";
+  if (isNaN(n)) return "-";
+  return n.toLocaleString("tr-TR") + " ₺";
+};
+
+// String değeri güvenli döndür
+const str = (val) => (val && val !== "" ? String(val) : "-");
+
 export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Teşvik Belgesi");
 
-  // Format Helpers
+  // ── Yardımcı fonksiyonlar ───────────────────────────────────────────────────
+  const BORDER = { top: { style: "thin", color: { argb: "FFCBD5E1" } }, left: { style: "thin", color: { argb: "FFCBD5E1" } }, bottom: { style: "thin", color: { argb: "FFCBD5E1" } }, right: { style: "thin", color: { argb: "FFCBD5E1" } } };
+  const LABEL_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
+
+  const applyBorder = (row, count = 4) => {
+    for (let i = 1; i <= count; i++) row.getCell(i).border = BORDER;
+  };
+
+  // Bölüm başlığı (mavi, tam satır)
   const addHeaderRow = (title) => {
     const row = worksheet.addRow([title]);
     row.getCell(1).font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
@@ -15,253 +34,219 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     return row;
   };
 
+  // İki sütunlu satır: Etiket | Değer | Etiket | Değer
   const addDataRow = (label1, value1, label2, value2) => {
-    const row = worksheet.addRow([label1 || "", value1 || "-", label2 || "", value2 || ""]);
-    
-    // Label cells
-    if (label1) {
-      row.getCell(1).font = { bold: true };
-      row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-    }
-    if (label2) {
-      row.getCell(3).font = { bold: true };
-      row.getCell(3).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-    }
-
-    // Wrap text for values
+    const row = worksheet.addRow([label1 || "", str(value1), label2 || "", str(value2)]);
+    if (label1) { row.getCell(1).font = { bold: true }; row.getCell(1).fill = LABEL_FILL; }
+    if (label2) { row.getCell(3).font = { bold: true }; row.getCell(3).fill = LABEL_FILL; }
     row.getCell(2).alignment = { wrapText: true, vertical: "middle" };
     row.getCell(4).alignment = { wrapText: true, vertical: "middle" };
-    
-    // Add borders to all cells in the row
-    for(let i=1; i<=4; i++) {
-        row.getCell(i).border = {
-            top: {style:"thin", color: {argb:"FFCBD5E1"}},
-            left: {style:"thin", color: {argb:"FFCBD5E1"}},
-            bottom: {style:"thin", color: {argb:"FFCBD5E1"}},
-            right: {style:"thin", color: {argb:"FFCBD5E1"}}
-        };
-    }
+    applyBorder(row);
     return row;
   };
 
-  const addFullWidthDataRow = (label, value) => {
-    const row = worksheet.addRow([label || "", value || ""]);
+  // Tek satır: Etiket | Değer (B:D birleşik)
+  const addWideRow = (label, value) => {
+    const row = worksheet.addRow([label || "", str(value), "", ""]);
     worksheet.mergeCells(`B${row.number}:D${row.number}`);
-    
-    if (label) {
-      row.getCell(1).font = { bold: true };
-      row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-    }
-    
+    if (label) { row.getCell(1).font = { bold: true }; row.getCell(1).fill = LABEL_FILL; }
     row.getCell(2).alignment = { wrapText: true, vertical: "middle" };
-    
-    for(let i=1; i<=4; i++) {
-        row.getCell(i).border = {
-            top: {style:"thin", color: {argb:"FFCBD5E1"}},
-            left: {style:"thin", color: {argb:"FFCBD5E1"}},
-            bottom: {style:"thin", color: {argb:"FFCBD5E1"}},
-            right: {style:"thin", color: {argb:"FFCBD5E1"}}
-        };
-    }
+    applyBorder(row);
     return row;
   };
 
-  // Set column widths
+  // Kırılım satırı (finansal)
+  const addKirilimRow = (label, value) => {
+    const row = worksheet.addRow([label, value, "", ""]);
+    worksheet.mergeCells(`B${row.number}:D${row.number}`);
+    row.getCell(1).font = { bold: true };
+    applyBorder(row);
+  };
+
+  // Sütun genişlikleri
   worksheet.columns = [
-    { width: 25 }, // A
-    { width: 45 }, // B
-    { width: 25 }, // C
-    { width: 45 }  // D
+    { width: 30 }, // A
+    { width: 40 }, // B
+    { width: 28 }, // C
+    { width: 40 }  // D
   ];
 
-  // 1. GMdigi Bilgileri
-  addHeaderRow("1. GMdigi BİLGİLERİ");
-  addDataRow("Kayıt ID (GMdigi)", tesvik.gmId, "Firma ID", tesvik.firma?.gmId);
-  addDataRow("Kayıt Sahibi (Kullanıcı)", tesvik.createdBy?.name || tesvik.kullaniciBilgileri?.kaydeden, "Genel Talep Durumu", tesvik.durumBilgileri?.genelDurum);
-  addFullWidthDataRow("Kayıt Tarihi", tesvik.createdAt ? new Date(tesvik.createdAt).toLocaleDateString("tr-TR") : "");
-  worksheet.addRow([]);
-
-  // 2. Yatırımcı
-  addHeaderRow("2. YATIRIMCI İLE İLGİLİ BİLGİLER");
+  // ── 1. YATIRIMCI İLE İLGİLİ BİLGİLER ─────────────────────────────────────
+  addHeaderRow("1. YATIRIMCI İLE İLGİLİ BİLGİLER");
   addDataRow("Yatırımcı Ünvanı", tesvik.firmaBilgileri?.unvan || tesvik.firma?.tamUnvan, "Vergi Dairesi", tesvik.firmaBilgileri?.vergiDairesi || tesvik.firma?.vergiDairesi);
   addDataRow("Vergi No", tesvik.firmaBilgileri?.vergiNo || tesvik.firma?.vergiNo, "SGK Sicil No", tesvik.kunyeBilgileri?.sgkSicilNo);
   worksheet.addRow([]);
 
-  // 3. Yatırım
-  addHeaderRow("3. YATIRIM İLE İLGİLİ BİLGİLER");
+  // ── 2. YATIRIM İLE İLGİLİ BİLGİLER ──────────────────────────────────────
+  addHeaderRow("2. YATIRIM İLE İLGİLİ BİLGİLER");
   addDataRow("Yatırımın Yeri (İl)", tesvik.yatirimBilgileri?.yerinIl, "Yatırımın Yeri (İlçe)", tesvik.yatirimBilgileri?.yerinIlce);
-  addFullWidthDataRow("Yatırım Adresi", [tesvik.yatirimBilgileri?.yatirimAdresi1, tesvik.yatirimBilgileri?.yatirimAdresi2, tesvik.yatirimBilgileri?.yatirimAdresi3].filter(Boolean).join(", "));
+  addWideRow("Yatırım Adresi", [tesvik.yatirimBilgileri?.yatirimAdresi1, tesvik.yatirimBilgileri?.yatirimAdresi2, tesvik.yatirimBilgileri?.yatirimAdresi3].filter(Boolean).join(" "));
   addDataRow("OSB Adı", tesvik.yatirimBilgileri?.osbIseMudurluk, "Serbest Bölge Adı", tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge);
   addDataRow("İl Bazlı Bölgesi", tesvik.yatirimBilgileri?.ilBazliBolge, "İlçe Bazlı Bölgesi", tesvik.yatirimBilgileri?.ilceBazliBolge);
   addDataRow("Mevcut İstihdam", tesvik.istihdam?.mevcutKisi, "İlave İstihdam", tesvik.istihdam?.ilaveKisi);
   worksheet.addRow([]);
 
-  // 4. Belge
-  addHeaderRow("4. BELGE İLE İLGİLİ BİLGİLER");
-  addDataRow("Belge ID", tesvik._id, "Belge NO", tesvik.belgeNo);
-  addDataRow("Belge Tarihi", tesvik.kunyeBilgileri?.belgeTarihi || tesvik.kunyeBilgileri?.kararTarihi, "Müracaat Tarihi", tesvik.kunyeBilgileri?.basvuruTarihi);
-  addDataRow("Müracaat Sayısı", tesvik.kunyeBilgileri?.dosyaNo, "Belge Başlama Tarihi", tesvik.kunyeBilgileri?.baslamaTarihi);
-  addDataRow("Belge Bitiş Tarihi", tesvik.kunyeBilgileri?.bitisTarihi, "Süre Uzatım Tarihi", "-");
-  
+  // ── 3. BELGE İLE İLGİLİ BİLGİLER ─────────────────────────────────────────
+  addHeaderRow("3. BELGE İLE İLGİLİ BİLGİLER");
+  addDataRow("Belge NO", tesvik.belgeNo || tesvik.gmId, "Karar Sayısı", tesvik.kunyeBilgileri?.kararSayisi);
+  addDataRow(
+    "Belge / Karar Tarihi",
+    tesvik.kunyeBilgileri?.belgeTarihi || (tesvik.kunyeBilgileri?.kararTarihi ? new Date(tesvik.kunyeBilgileri.kararTarihi).toLocaleDateString("tr-TR") : "-"),
+    "Müracaat Tarihi",
+    tesvik.kunyeBilgileri?.basvuruTarihi ? new Date(tesvik.kunyeBilgileri.basvuruTarihi).toLocaleDateString("tr-TR") : "-"
+  );
+  addDataRow("Dosya / Müracaat No", tesvik.kunyeBilgileri?.dosyaNo, "Başlama Tarihi", tesvik.kunyeBilgileri?.baslamaTarihi ? new Date(tesvik.kunyeBilgileri.baslamaTarihi).toLocaleDateString("tr-TR") : "-");
+  addDataRow("Bitiş Tarihi", tesvik.kunyeBilgileri?.bitisTarihi ? new Date(tesvik.kunyeBilgileri.bitisTarihi).toLocaleDateString("tr-TR") : "-", "Süre Uzatım Tarihi", "-");
+
   const ozellikli = [
     tesvik.yatirimBilgileri?.cazibeMerkeziMi === "evet" ? "Cazibe Merkezi" : null,
     tesvik.yatirimBilgileri?.savunmaSanayiProjesi === "evet" ? "Savunma Sanayi" : null,
-    tesvik.yatirimBilgileri?.hamleMi === "evet" ? "Hamle" : null
+    tesvik.yatirimBilgileri?.hamleMi === "evet" ? "Hamle" : null,
   ].filter(Boolean).join(", ");
-  addDataRow("Özellikli Yatırım İse", ozellikli, "Ada", tesvik.yatirimBilgileri?.ada);
-  
+  addDataRow("Özellikli Yatırım İse", ozellikli || "-", "Ada / Parsel", `${tesvik.yatirimBilgileri?.ada || "-"} / ${tesvik.yatirimBilgileri?.parsel || "-"}`);
+
   const yatirimCinsi = [
     tesvik.yatirimBilgileri?.sCinsi1,
     tesvik.yatirimBilgileri?.tCinsi2,
     tesvik.yatirimBilgileri?.uCinsi3,
-    tesvik.yatirimBilgileri?.vCinsi4
+    tesvik.yatirimBilgileri?.vCinsi4,
   ].filter(Boolean).join(", ") || tesvik.yatirimBilgileri?.yatirimCinsi;
-  addDataRow("Parsel", tesvik.yatirimBilgileri?.parsel, "Yatırım Cinsi", yatirimCinsi);
+  addDataRow("Yatırım Cinsi", yatirimCinsi, "Destek Sınıfı", tesvik.yatirimBilgileri?.destekSinifi);
   worksheet.addRow([]);
 
-  // 5. Ürün
-  addHeaderRow("5. ÜRÜN BİLGİLERİ");
-  const tableHeaderRow5 = worksheet.addRow([isEski ? "US97 Kodu" : "NACE Kodu", "Kapasite Adı / Cinsi", "Miktar", "Birim"]);
-  tableHeaderRow5.eachCell(cell => {
+  // ── 4. ÜRÜN BİLGİLERİ ─────────────────────────────────────────────────────
+  addHeaderRow("4. ÜRÜN BİLGİLERİ");
+  // Tablo başlığı
+  const urunHeader = worksheet.addRow([
+    isEski ? "US97 / U97 Kodu" : "NACE / U97 Kodu",
+    "Ürün Adı / Cinsi",
+    "Toplam Kapasite",
+    "Birim"
+  ]);
+  urunHeader.eachCell(cell => {
     cell.font = { bold: true };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-    cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} };
+    cell.fill = LABEL_FILL;
+    cell.border = BORDER;
   });
 
   if (tesvik.urunler && tesvik.urunler.length > 0) {
     tesvik.urunler.forEach(u => {
-      const row = worksheet.addRow([
-        isEski ? (u.us97Kodu || "-") : (u.naceKodu || u.gümrükTarifeIstatistikPozisyonu || u.kodu || "-"),
-        u.cinsi || u.adi || u.urunCinsi || "-",
-        u.miktar || u.kapasite || "0",
-        u.birim || "-"
-      ]);
+      // Hem eski hem yeni belge u97Kodu alanını kullanıyor
+      const kod = u.u97Kodu || u.us97Kodu || u.naceKodu || u.kodu || "-";
+      const ad = u.urunAdi || u.cinsi || u.adi || u.urunCinsi || "-";
+      const kapasite = u.toplamKapasite ?? u.ilaveKapasite ?? u.mevcutKapasite ?? u.miktar ?? u.kapasite ?? "-";
+      const birim = u.kapasiteBirimi || u.birim || "-";
+      const row = worksheet.addRow([kod, ad, String(kapasite), birim]);
       row.eachCell(cell => {
-        cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} };
+        cell.border = BORDER;
         cell.alignment = { wrapText: true, vertical: "middle" };
       });
     });
   } else {
     const row = worksheet.addRow(["Belirtilmemiş", "-", "-", "-"]);
-    row.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+    applyBorder(row);
   }
   worksheet.addRow([]);
 
-  // 6. Finansal
-  addHeaderRow("6. FİNANSAL BİLGİLER");
-  addDataRow("Toplam Makine ve Teçhizat", tesvik.maliHesaplamalar?.makineTechizatToplami?.toLocaleString("tr-TR") + " ₺", "Bina-İnşaat Harcaması", tesvik.maliHesaplamalar?.binaInsaatToplami?.toLocaleString("tr-TR") + " ₺");
-  addFullWidthDataRow("Diğer Yatırım Harcamaları", tesvik.maliHesaplamalar?.digerYatirimHarcamalari?.toLocaleString("tr-TR") + " ₺");
-  
-  // Detay Kırılımı (Finansal)
-  addFullWidthDataRow("DİĞER YATIRIM HARCAMALARI KIRILIMI", "TUTAR");
-  const addKirilimRow = (label, value) => {
-    const row = worksheet.addRow([label, value, "", ""]);
-    worksheet.mergeCells(`B${row.number}:D${row.number}`);
-    row.getCell(1).font = { bold: true };
-    for(let i=1; i<=4; i++) {
-        row.getCell(i).border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} };
-    }
-  };
+  // ── 5. FİNANSAL BİLGİLER ──────────────────────────────────────────────────
+  addHeaderRow("5. FİNANSAL BİLGİLER");
+  const mt = tesvik.maliHesaplamalar || {};
+  const toplamMakina = mt.makinaTechizat?.toplamMakina ?? 0;
+  const toplamBina = mt.binaInsaatGideri?.toplamBinaGideri ?? 0;
+  const araziArsa = mt.maliyetlenen?.sn ?? mt.araciArsaBedeli ?? 0;
+  const toplamSabit = mt.toplamSabitYatirim ?? 0;
 
-  const mt = tesvik.maliHesaplamalar;
+  addDataRow("Toplam Makine ve Teçhizat", tl(toplamMakina), "Bina-İnşaat Harcaması", tl(toplamBina));
+  addDataRow("Arazi-Arsa Bedeli", tl(araziArsa), "Toplam Sabit Yatırım", tl(toplamSabit));
+  addDataRow("Yabancı Kaynak", tl(mt.finansman?.yabanciKaynak), "Öz Kaynak", tl(mt.finansman?.ozKaynak));
+
+  worksheet.addRow([]);
+
+  // Kırılım başlığı
+  const kirilimHeader = worksheet.addRow(["YATIRIM HARCAMALARI KIRILIMI", "TUTAR", "", ""]);
+  worksheet.mergeCells(`B${kirilimHeader.number}:D${kirilimHeader.number}`);
+  kirilimHeader.getCell(1).font = { bold: true };
+  kirilimHeader.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+  kirilimHeader.getCell(2).font = { bold: true };
+  kirilimHeader.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+  applyBorder(kirilimHeader);
+
+  const yh = mt.yatirimHesaplamalari || {};
   if (isEski) {
-    addKirilimRow("Yardımcı İşletme Makine Ve Teçhizat", (mt?.yardimciIsletmeMakineVeTechizat || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("İthalat Ve Gümrükleme Giderleri", (mt?.ithalatVeGumruklemeGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Taşıma Ve Sigorta Giderleri", (mt?.tasimaVeSigortaGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Montaj Giderleri", (mt?.montajGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Etüd Proje Giderleri", (mt?.etudProjeGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Diğer Harcamalar", (mt?.digerHarcamalar || 0).toLocaleString("tr-TR") + " ₺");
+    addKirilimRow("Yardımcı İşletme Makine Ve Teçhizat", tl(yh.et));
+    addKirilimRow("İthalat Ve Gümrükleme Giderleri", tl(yh.eu));
+    addKirilimRow("Taşıma Ve Sigorta Giderleri", tl(yh.ev));
+    addKirilimRow("Montaj Giderleri", tl(yh.ew));
+    addKirilimRow("Etüd Proje Giderleri", tl(yh.ex));
+    addKirilimRow("Diğer Harcamalar", tl(yh.ey));
   } else {
-    addKirilimRow("Arazi - Arsa Giderleri", (mt?.araziArsaGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Bina - İnşaat Giderleri (Yardımcı İşl.)", (mt?.yardimciIsletmeBinaInsaatGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Makine Ve Teçhizat Giderleri (Yardımcı İşl.)", (mt?.yardimciIsletmeMakineVeTechizat || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("İthalat Ve Gümrükleme Giderleri", (mt?.ithalatVeGumruklemeGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Taşıma Ve Sigorta Giderleri", (mt?.tasimaVeSigortaGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Montaj Giderleri", (mt?.montajGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Etüd Proje Giderleri", (mt?.etudProjeGiderleri || 0).toLocaleString("tr-TR") + " ₺");
-    addKirilimRow("Faiz Gibi Giderler + İşletme Malzemesi + ...", (mt?.yatirimaGirenDigerHarcamalar || mt?.digerHarcamalar || 0).toLocaleString("tr-TR") + " ₺");
+    addKirilimRow("Arazi - Arsa Giderleri", tl(araziArsa));
+    addKirilimRow("Bina-İnşaat Giderleri (Yardımcı İşl.)", tl(mt.binaInsaatGideri?.yardimciBinaGideri));
+    addKirilimRow("Makine Ve Teçhizat (Yerli)", tl(mt.makinaTechizat?.yerliMakina));
+    addKirilimRow("Makine Ve Teçhizat (İthal)", tl(mt.makinaTechizat?.ithalMakina));
+    addKirilimRow("İthalat Ve Gümrükleme Giderleri", tl(yh.eu));
+    addKirilimRow("Taşıma Ve Sigorta Giderleri", tl(yh.ev));
+    addKirilimRow("Montaj Giderleri", tl(yh.ew));
+    addKirilimRow("Etüd Proje / Diğer Giderler", tl(yh.ey));
   }
 
-  addFullWidthDataRow("TOPLAM SABİT YATIRIM TUTARI", (mt?.toplamSabitYatirim || 0).toLocaleString("tr-TR") + " ₺");
+  addKirilimRow("TOPLAM SABİT YATIRIM TUTARI", tl(toplamSabit));
   worksheet.addRow([]);
 
-  // 7. Özel Şartlar
-  addHeaderRow("7. ÖZEL ŞARTLAR");
-  const tableHeaderRow7 = worksheet.addRow(["Kısaltma", "Açıklama", "", ""]);
-  worksheet.mergeCells(`B${tableHeaderRow7.number}:D${tableHeaderRow7.number}`);
-  tableHeaderRow7.getCell(1).font = { bold: true }; tableHeaderRow7.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  tableHeaderRow7.getCell(2).font = { bold: true }; tableHeaderRow7.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  tableHeaderRow7.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+  // ── 6. ÖZEL ŞARTLAR ───────────────────────────────────────────────────────
+  addHeaderRow("6. ÖZEL ŞARTLAR");
+  const sartHeader = worksheet.addRow(["Şart Adı / Kısaltma", "Açıklama", "", ""]);
+  worksheet.mergeCells(`B${sartHeader.number}:D${sartHeader.number}`);
+  sartHeader.getCell(1).font = { bold: true }; sartHeader.getCell(1).fill = LABEL_FILL;
+  sartHeader.getCell(2).font = { bold: true }; sartHeader.getCell(2).fill = LABEL_FILL;
+  applyBorder(sartHeader);
 
   if (tesvik.ozelSartlar && tesvik.ozelSartlar.length > 0) {
     tesvik.ozelSartlar.forEach((sart, i) => {
       const row = worksheet.addRow([
-        sart?.koşulMetni || sart?.kisaltma || `Şart ${i+1}`,
+        sart?.koşulMetni || sart?.kisaltma || `Şart ${i + 1}`,
         sart?.aciklamaNotu || sart?.sart || sart?.metin || sart?.aciklama || "-"
       ]);
       worksheet.mergeCells(`B${row.number}:D${row.number}`);
-      row.eachCell(cell => {
-        cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} };
-        cell.alignment = { wrapText: true, vertical: "top" };
-      });
+      row.eachCell(cell => { cell.border = BORDER; cell.alignment = { wrapText: true, vertical: "top" }; });
     });
   } else {
-    const row = worksheet.addRow(["-", "Bulunmuyor"]);
+    const row = worksheet.addRow(["-", "Özel şart bulunmuyor."]);
     worksheet.mergeCells(`B${row.number}:D${row.number}`);
-    row.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+    applyBorder(row);
   }
   worksheet.addRow([]);
 
-  // 8. Destek Unsurları
-  addHeaderRow("8. DESTEK UNSURLARI");
-  const tableHeaderRow8 = worksheet.addRow(["Destek Adı", "Oran / Tutar", "", ""]);
-  worksheet.mergeCells(`B${tableHeaderRow8.number}:D${tableHeaderRow8.number}`);
-  tableHeaderRow8.getCell(1).font = { bold: true }; tableHeaderRow8.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  tableHeaderRow8.getCell(2).font = { bold: true }; tableHeaderRow8.getCell(2).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  tableHeaderRow8.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+  // ── 7. DESTEK UNSURLARI ───────────────────────────────────────────────────
+  addHeaderRow("7. DESTEK UNSURLARI");
+  const destekHeader = worksheet.addRow(["Destek Adı", "Şartı / Açıklama", "", ""]);
+  worksheet.mergeCells(`B${destekHeader.number}:D${destekHeader.number}`);
+  destekHeader.getCell(1).font = { bold: true }; destekHeader.getCell(1).fill = LABEL_FILL;
+  destekHeader.getCell(2).font = { bold: true }; destekHeader.getCell(2).fill = LABEL_FILL;
+  applyBorder(destekHeader);
 
   if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
     tesvik.destekUnsurlari.forEach(d => {
-      const row = worksheet.addRow([
-        d.adi || d.destekAdi || "-",
-        d.orani ? d.orani + " %" : (d.tutari ? d.tutari + " ₺" : "Yok")
-      ]);
+      // Gerçek DB alan adları: destekUnsuru, sarti, aciklama
+      const ad = d.destekUnsuru || d.adi || d.destekAdi || "-";
+      const sart = d.sarti || d.aciklama || (d.orani ? d.orani + " %" : d.tutari ? d.tutari + " ₺" : "-");
+      const row = worksheet.addRow([ad, sart]);
       worksheet.mergeCells(`B${row.number}:D${row.number}`);
-      row.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+      row.eachCell(cell => { cell.border = BORDER; cell.alignment = { wrapText: true, vertical: "middle" }; });
     });
   } else {
-    const row = worksheet.addRow(["-", "Bulunmuyor"]);
+    const row = worksheet.addRow(["-", "Destek unsuru bulunmuyor."]);
     worksheet.mergeCells(`B${row.number}:D${row.number}`);
-    row.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
+    applyBorder(row);
   }
-  worksheet.addRow([]);
 
-  // 9. Proje Tanıtım
-  addHeaderRow("9. PROJE TANITIMI");
-  const projRow = worksheet.addRow(["Proje Özeti", tesvik.projeOzeti || "Boş", "", ""]);
-  worksheet.mergeCells(`B${projRow.number}:D${projRow.number}`);
-  projRow.getCell(1).font = { bold: true }; projRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  projRow.eachCell(cell => {
-    cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} };
-    cell.alignment = { wrapText: true, vertical: "top" };
-  });
-  projRow.height = 60;
-  worksheet.addRow([]);
-
-  // 10. Evrak Listesi
-  addHeaderRow("10. EVRAK LİSTESİ");
-  const evrakRow = worksheet.addRow(["Ekli Evraklar", "Sistem üzerinden taranmış evrakları görüntüleyebilirsiniz.", "", ""]);
-  worksheet.mergeCells(`B${evrakRow.number}:D${evrakRow.number}`);
-  evrakRow.getCell(1).font = { bold: true }; evrakRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFF1F5F9" } };
-  evrakRow.eachCell(cell => cell.border = { top: {style:"thin", color: {argb:"FFCBD5E1"}}, left: {style:"thin", color: {argb:"FFCBD5E1"}}, bottom: {style:"thin", color: {argb:"FFCBD5E1"}}, right: {style:"thin", color: {argb:"FFCBD5E1"}} });
-
-  // İndirme işlemi
+  // ── İndirme ───────────────────────────────────────────────────────────────
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Tesvik_Detay_${tesvik.belgeNo || tesvik._id}.xlsx`;
+  a.download = `Tesvik_${tesvik.belgeNo || tesvik.gmId || tesvik._id}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
