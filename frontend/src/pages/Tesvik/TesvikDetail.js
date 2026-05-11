@@ -979,7 +979,7 @@ const TesvikDetail = () => {
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firmaBilgileri?.unvan || tesvik.firma?.tamUnvan || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>SGK Sicil No</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.sgkSicilNo || '-'}</Typography></Grid>
                 </Grid>
               </AccordionDetails>
             </Accordion>
@@ -1019,16 +1019,16 @@ const TesvikDetail = () => {
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OSB Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Serbest Bölge Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İl Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçe Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mevcut İstihdam</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.mevcutKisi || '0'}</Typography></Grid>
@@ -1047,19 +1047,19 @@ const TesvikDetail = () => {
               <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge ID</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik._id || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge NO</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeNo || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.belgeTarihi || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.belgeTarihi || tesvik.kunyeBilgileri?.kararTarihi || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.basvuruTarihi || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Sayısı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.dosyaNo || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge Başlama Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.baslamaTarihi || '-'}</Typography></Grid>
@@ -1071,16 +1071,29 @@ const TesvikDetail = () => {
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Özellikli Yatırım İse</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {[
+                      tesvik.yatirimBilgileri?.cazibeMerkeziMi === 'evet' ? 'Cazibe Merkezi' : null,
+                      tesvik.yatirimBilgileri?.savunmaSanayiProjesi === 'evet' ? 'Savunma Sanayi' : null,
+                      tesvik.yatirimBilgileri?.hamleMi === 'evet' ? 'Hamle' : null
+                    ].filter(Boolean).join(', ') || '-'}
+                  </Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Ada</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ada || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Parsel</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>-</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.parsel || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırım Cinsi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimCinsi || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {[
+                      tesvik.yatirimBilgileri?.sCinsi1,
+                      tesvik.yatirimBilgileri?.tCinsi2,
+                      tesvik.yatirimBilgileri?.uCinsi3,
+                      tesvik.yatirimBilgileri?.vCinsi4
+                    ].filter(Boolean).join(', ') || tesvik.yatirimBilgileri?.yatirimCinsi || '-'}
+                  </Typography></Grid>
                 </Grid>
               </AccordionDetails>
             </Accordion>
@@ -1247,8 +1260,8 @@ const TesvikDetail = () => {
                     {tesvik.ozelSartlar && tesvik.ozelSartlar.length > 0 ? (
                       tesvik.ozelSartlar.map((sart, i) => (
                         <tr key={i}>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>{sart?.kisaltma || `Şart ${i+1}`}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{sart?.koşulMetni || sart?.sart || sart?.metin || sart?.aciklama || '-'}</td>
+                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>{sart?.koşulMetni || sart?.kisaltma || `Şart ${i+1}`}</td>
+                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{sart?.aciklamaNotu || sart?.sart || sart?.metin || sart?.aciklama || '-'}</td>
                         </tr>
                       ))
                     ) : (
