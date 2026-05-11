@@ -15,8 +15,10 @@ import {
   Home as HomeIcon,
   Business as BusinessIcon,
   Assignment as AssignmentIcon,
-  ExpandMore as ExpandMoreIcon
+  ExpandMore as ExpandMoreIcon,
+  Build as BuildIcon
 } from '@mui/icons-material';
+import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 
 // API Utils
 import api from '../../utils/axios';
@@ -709,7 +711,49 @@ const YeniTesvikDetail = () => {
                 }
               }}
             >
-              {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Exel Revizyon'}
+              {exportingRevizyon ? 'Excel Hazırlanıyor...' : 'Sistem Excel Revizyon'}
+            </Button>
+
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<BuildIcon />}
+              onClick={() => navigate('/yeni-tesvik/makine-yonetimi', { state: { autoSelectBelgeId: tesvik._id } })}
+              sx={{
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'white',
+                fontWeight: 500,
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '0.8rem',
+                '&:hover': { background: 'rgba(255,255,255,0.3)' }
+              }}
+            >
+              Makine Listesine Git
+            </Button>
+
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<FileDownloadIcon />}
+              onClick={() => exportTesvikToExcel(tesvik, false)}
+              sx={{
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'white',
+                fontWeight: 500,
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '0.8rem',
+                '&:hover': { background: 'rgba(255,255,255,0.3)' }
+              }}
+            >
+              Müşteri Görünümü (Excel)
             </Button>
           </Box>
 

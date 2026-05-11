@@ -11,7 +11,7 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, Speed as SpeedIcon, ViewList as ViewListIcon, FlashOn as FlashOnIcon } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 import { FixedSizeList as List } from 'react-window';
 
@@ -200,6 +200,7 @@ const GtipCell = memo(({ value, rowId, onCommit, style, disabled }) => {
 
 const MakineYonetimi = () => {
   const navigate = useNavigate(); // 🧭 Navigasyon hook'u
+  const location = useLocation(); // 📍 Nereden gelindi takibi
   const [tab, setTab] = useState('yerli');
   const [selectedTesvik, setSelectedTesvik] = useState(null);
   const [tesvikOptions, setTesvikOptions] = useState([]);
@@ -558,6 +559,31 @@ const MakineYonetimi = () => {
       }
     })();
   }, []);
+
+  // 🎯 Auto-select: Detay sayfasından "Makine Listesine Git" ile gelindiyse belgeyi otomatik seç
+  useEffect(() => {
+    const autoId = location?.state?.autoSelectBelgeId;
+    if (!autoId || tesvikOptions.length === 0) return;
+    const found = tesvikOptions.find(t => t._id === autoId);
+    if (found) {
+      setSelectedTesvik(found);
+      loadMakineData(found._id);
+    } else {
+      // Liste kısa olabilir, direkt API'den çek
+      (async () => {
+        try {
+          const res = await api.get(`/yeni-tesvik/${autoId}`);
+          const t = res.data?.data || res.data;
+          if (t?._id) {
+            setSelectedTesvik(t);
+            loadMakineData(t._id);
+            setTesvikOptions(prev => prev.find(x => x._id === t._id) ? prev : [t, ...prev]);
+          }
+        } catch (e) { console.error('Auto-select hata:', e); }
+      })();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tesvikOptions, location?.state?.autoSelectBelgeId]);
   
   // Seçili teşvik değişince revizyon listesini getir ve modu sıfırla
   useEffect(()=>{
