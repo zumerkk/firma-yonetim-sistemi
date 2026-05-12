@@ -156,11 +156,9 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     "Müracaat Talep Tipi",
     by.belgeMuracaatTalepTipi
   );
-  addDataRow(
+  addWideRow(
     "Müracaat Tarihi",
-    fmtDate(by.belgeMuracaatTarihi || kunye.basvuruTarihi),
-    "Belge Durumu",
-    by.belgeDurumu || tesvik.durumBilgileri?.genelDurum
+    fmtDate(by.belgeMuracaatTarihi || kunye.basvuruTarihi)
   );
   addDataRow(
     "Belge Başlama Tarihi",
@@ -358,7 +356,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
 
   // ── 7. DESTEK UNSURLARI ───────────────────────────────────────────────────
   addHeaderRow("7. DESTEK UNSURLARI");
-  const destekHeader = worksheet.addRow(["Destek Adı", "Şartı", "Açıklama", "Durum"]);
+  const destekHeader = worksheet.addRow(["Destek Adı", "Şartı", "Açıklama", ""]);
+  worksheet.mergeCells(`C${destekHeader.number}:D${destekHeader.number}`);
   destekHeader.eachCell((cell) => { cell.font = { bold: true }; cell.fill = LABEL_FILL; cell.border = BORDER; cell.alignment = { horizontal: "center", vertical: "middle" }; });
 
   if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
@@ -366,13 +365,95 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       const ad = d.destekUnsuru || d.adi || d.destekAdi || "-";
       const sart = d.sarti || d.sart || "-";
       const aciklama = d.aciklama || (d.orani ? d.orani + " %" : d.tutari ? d.tutari + " ₺" : "-");
-      const durum = d.durum || "beklemede";
-      const row = worksheet.addRow([ad, sart, aciklama, durum]);
+      const row = worksheet.addRow([ad, sart, aciklama, ""]);
+      worksheet.mergeCells(`C${row.number}:D${row.number}`);
       row.eachCell((cell) => { cell.border = BORDER; cell.alignment = { wrapText: true, vertical: "middle" }; });
     });
   } else {
-    const row = worksheet.addRow(["-", "-", "Destek unsuru bulunmuyor.", "-"]);
+    const row = worksheet.addRow(["-", "-", "Destek unsuru bulunmuyor.", ""]);
+    worksheet.mergeCells(`C${row.number}:D${row.number}`);
     applyBorder(row);
+  }
+
+  // ── 8. MAKİNE LİSTELERİ ───────────────────────────────────────────────────
+  const yerliList = tesvik.makineListeleri?.yerli || [];
+  if (yerliList.length > 0) {
+    const yerliSheet = workbook.addWorksheet("Yerli Makine Listesi");
+    yerliSheet.columns = [
+      { width: 10 }, // Sıra No
+      { width: 15 }, // Makine ID
+      { width: 15 }, // GTİP Kodu
+      { width: 45 }, // Adı ve Özelliği
+      { width: 12 }, // Miktar
+      { width: 15 }, // Birim
+      { width: 20 }, // Birim Fiyatı (TL)
+      { width: 20 }, // Toplam Tutar (TL)
+      { width: 15 }, // KDV İstisnası
+      { width: 20 }  // Tip
+    ];
+    
+    const hRow = yerliSheet.addRow([
+      "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
+      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası", "Makine Tipi"
+    ]);
+    hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
+
+    yerliList.forEach(m => {
+      const r = yerliSheet.addRow([
+        m.siraNo || "-",
+        m.makineId || "-",
+        m.gtipKodu || "-",
+        m.adiVeOzelligi || "-",
+        num(m.miktar),
+        m.birim || "-",
+        tl(m.birimFiyatiTl),
+        tl(m.toplamTutariTl || m.toplamTl),
+        m.kdvIstisnasi || "-",
+        m.makineTechizatTipi || "-"
+      ]);
+      r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
+    });
+  }
+
+  const ithalList = tesvik.makineListeleri?.ithal || [];
+  if (ithalList.length > 0) {
+    const ithalSheet = workbook.addWorksheet("İthal Makine Listesi");
+    ithalSheet.columns = [
+      { width: 10 }, // Sıra No
+      { width: 15 }, // Makine ID
+      { width: 15 }, // GTİP Kodu
+      { width: 45 }, // Adı ve Özelliği
+      { width: 12 }, // Miktar
+      { width: 15 }, // Birim
+      { width: 20 }, // Birim Fiyatı
+      { width: 15 }, // Döviz
+      { width: 20 }, // Toplam Tutar (USD)
+      { width: 20 }, // Toplam Tutar (TL)
+      { width: 20 }  // Makine Tipi
+    ];
+
+    const hRow = ithalSheet.addRow([
+      "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
+      "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)", "Makine Tipi"
+    ]);
+    hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
+
+    ithalList.forEach(m => {
+      const r = ithalSheet.addRow([
+        m.siraNo || "-",
+        m.makineId || "-",
+        m.gtipKodu || "-",
+        m.adiVeOzelligi || "-",
+        num(m.miktar),
+        m.birim || "-",
+        num(m.birimFiyatiFob),
+        m.gumrukDovizKodu || "-",
+        usd(m.toplamTutarFobUsd || m.toplamUsd),
+        tl(m.toplamTutarFobTl || m.toplamTl),
+        m.makineTechizatTipi || "-"
+      ]);
+      r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
+    });
   }
 
   // ── İndirme ───────────────────────────────────────────────────────────────
