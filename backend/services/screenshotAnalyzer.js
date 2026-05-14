@@ -322,7 +322,7 @@ async function callGroq(imageBuffer, prompt, mimeType) {
   if (!apiKey) return null;
   
   const providerId = 'groq-llama4-scout';
-  if (!rateLimiter.canRequest(providerId, 14, 500)) return null;
+  if (!rateLimiter.canRequest(providerId, 30, 1000)) return null;
 
   const base64 = imageBuffer.toString('base64');
   const resp = await httpPost('https://api.groq.com/openai/v1/chat/completions', {
@@ -344,41 +344,24 @@ async function callHuggingFace(imageBuffer, prompt, mimeType) {
   const apiKey = process.env.HUGGINGFACE_API_KEY;
   if (!apiKey) return null;
   
-  const providerId = 'hf-vision';
+  const providerId = 'hf-qwen2.5-vl';
   if (!rateLimiter.canRequest(providerId, 8, 300)) return null;
 
   const base64 = imageBuffer.toString('base64');
-  const body = (model) => ({
-    model,
+  // 🔧 FIX: hf-inference provider artık Qwen2.5-VL desteklemiyor → novita provider'a geçildi
+  const resp = await httpPost('https://router.huggingface.co/novita/v3/openai/chat/completions', {
+    model: 'Qwen/Qwen2.5-VL-7B-Instruct',
     messages: [{ role: 'user', content: [
       { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
       { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
     ]}],
     temperature: 0.1, max_tokens: 4096,
-  });
-  const authHeader = { Authorization: `Bearer ${apiKey}` };
-
-  // Birden fazla provider/model dene (hf-inference artık Qwen VL desteklemiyor)
-  const attempts = [
-    { url: 'https://router.huggingface.co/novita/v3/openai/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'novita-qwen' },
-    { url: 'https://router.huggingface.co/nebius/v1/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'nebius-qwen' },
-    { url: 'https://router.huggingface.co/fireworks-ai/inference/v1/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'fireworks-qwen' },
-    { url: 'https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-11B-Vision-Instruct/v1/chat/completions', model: 'meta-llama/Llama-3.2-11B-Vision-Instruct', label: 'hf-llama-vision' },
-  ];
-
-  for (const attempt of attempts) {
-    try {
-      const resp = await httpPost(attempt.url, body(attempt.model), authHeader);
-      rateLimiter.record(providerId);
-      const text = resp?.choices?.[0]?.message?.content || '';
-      const parsed = safeJsonExtract(text);
-      if (parsed) return { raw: text, parsed, success: true, provider: `hf-${attempt.label}` };
-    } catch (err) {
-      console.log(`  ⚠️ HF ${attempt.label} başarısız: ${err.message?.slice(0, 80)}`);
-      continue; // Sonraki provider'ı dene
-    }
-  }
-  return null; // Hiçbir provider çalışmadı
+  }, { Authorization: `Bearer ${apiKey}` });
+  
+  rateLimiter.record(providerId);
+  const text = resp?.choices?.[0]?.message?.content || '';
+  const parsed = safeJsonExtract(text);
+  return { raw: text, parsed, success: !!parsed, provider: providerId };
 }
 
 async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
@@ -386,28 +369,26 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   const providers = [];
   
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 2000 });
+    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1500 });
   }
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2500 });
+    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
   }
-  if (process.env.GROQ_API_KEY) providers.push({ name: 'Groq Llama 4', fn: () => callGroq(imageBuffer, prompt, mimeType), retries: 1, delay: 3000 });
-  if (process.env.HUGGINGFACE_API_KEY) providers.push({ name: 'HuggingFace Vision', fn: () => callHuggingFace(imageBuffer, prompt, mimeType), retries: 1, delay: 3000 });
+  if (process.env.GROQ_API_KEY) providers.push({ name: 'Groq Llama 4', fn: () => callGroq(imageBuffer, prompt, mimeType), retries: 2, delay: 2000 });
+  if (process.env.HUGGINGFACE_API_KEY) providers.push({ name: 'HuggingFace Qwen', fn: () => callHuggingFace(imageBuffer, prompt, mimeType), retries: 2, delay: 3000 });
 
   let lastError = 'Bilinmeyen Hata';
   for (const provider of providers) {
     for (let attempt = 1; attempt <= provider.retries; attempt++) {
       try {
-        console.log(`  🔍 ${provider.name} deneniyor (deneme ${attempt})...`);
         const result = await provider.fn();
-        if (result === null) { console.log(`  ⏭️ ${provider.name}: rate limit veya key yok, atlaniyor`); break; }
-        if (result?.success) { console.log(`  ✅ ${provider.name} başarılı!`); return result; }
+        if (result === null) break;
+        if (result?.success) return result;
         lastError = 'JSON parse edilemedi';
       } catch (err) {
         lastError = err.message;
-        console.log(`  ⚠️ ${provider.name} hata: ${err.message?.slice(0, 100)}`);
-        // 400=model desteklenmiyor, 404=bulunamadı, 429=rate limit, 503=servis hatası → hemen atla
-        if (err.message.includes('400') || err.message.includes('404') || err.message.includes('429') || err.message.includes('503')) break;
+        // 🔧 FIX: 400 (Model not supported) hatasında da hemen sonraki provider'a geç
+        if (err.message.includes('400') || err.message.includes('404') || err.message.includes('503')) break;
         if (attempt < provider.retries) await new Promise(r => setTimeout(r, provider.delay * attempt));
       }
     }
@@ -456,7 +437,6 @@ async function analyzeMultipleScreenshots(images, jobId = null) {
   const results = [];
   const errors = [];
   const providerStats = {};
-  let consecutiveErrors = 0; // Rate limit backoff için
 
   for (let i = 0; i < images.length; i++) {
     const { buffer, mimeType, originalName } = images[i];
@@ -464,7 +444,6 @@ async function analyzeMultipleScreenshots(images, jobId = null) {
       console.log(`📸 [${i + 1}/${images.length}] Analiz ediliyor: ${originalName}`);
       const result = await analyzeScreenshot(buffer, mimeType || 'image/png');
       results.push({ index: i, filename: originalName, ...result });
-      consecutiveErrors = 0; // Başarılı olunca sıfırla
       
       if (result.provider) providerStats[result.provider] = (providerStats[result.provider] || 0) + 1;
       console.log(`  ✅ Tab: ${result.detectedTab} (${Math.round((result.confidence || 0) * 100)}%)`);
@@ -474,21 +453,10 @@ async function analyzeMultipleScreenshots(images, jobId = null) {
         await ScreenshotJob.findByIdAndUpdate(jobId, { processedImages: i + 1, progress }).catch(() => {});
       }
       
-      // Her görsel arası 6 saniye bekle (rate limit önlemi)
-      if (i < images.length - 1) await new Promise(r => setTimeout(r, 6000));
+      if (i < images.length - 1) await new Promise(r => setTimeout(r, 3000));
     } catch (err) {
       console.error(`  ❌ Hata: ${err.message}`);
       errors.push({ index: i, filename: originalName, error: err.message });
-      consecutiveErrors++;
-      
-      // Ardı ardına hata alıyorsa progresif bekleme (rate limit recovery)
-      if (consecutiveErrors >= 2 && err.message.includes('429')) {
-        const backoffMs = Math.min(consecutiveErrors * 10000, 60000); // max 60sn
-        console.log(`  ⏳ Rate limit tespit edildi, ${backoffMs / 1000}sn bekleniyor...`);
-        await new Promise(r => setTimeout(r, backoffMs));
-      } else if (i < images.length - 1) {
-        await new Promise(r => setTimeout(r, 4000)); // Normal hata sonrası 4sn bekle
-      }
     }
   }
 
