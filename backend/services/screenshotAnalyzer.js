@@ -286,15 +286,43 @@ Yanıt formatı (sadece JSON):
 
 // ─── Free-Only Provider Engine ──────────────────────────────────
 
+// 🔧 Gemini key sağlık takibi — ardışık 429 alan key'leri geçici devre dışı bırak
+const keyHealth = {}; // { keyHash: { failures: 0, disabledUntil: 0 } }
+function isKeyHealthy(apiKey) {
+  const h = keyHealth[apiKey.slice(-6)];
+  if (!h) return true;
+  if (h.disabledUntil && Date.now() < h.disabledUntil) return false;
+  return true;
+}
+function markKeyFailure(apiKey) {
+  const k = apiKey.slice(-6);
+  if (!keyHealth[k]) keyHealth[k] = { failures: 0, disabledUntil: 0 };
+  keyHealth[k].failures++;
+  // 3 ardışık 429 → 10 dakika devre dışı
+  if (keyHealth[k].failures >= 3) {
+    keyHealth[k].disabledUntil = Date.now() + 10 * 60 * 1000;
+    console.log(`  🚫 Gemini key [${k}] 10dk devre dışı (ardışık ${keyHealth[k].failures} hata)`);
+  }
+}
+function markKeySuccess(apiKey) {
+  const k = apiKey.slice(-6);
+  if (keyHealth[k]) { keyHealth[k].failures = 0; keyHealth[k].disabledUntil = 0; }
+}
+
 function getGeminiKeys() {
   return [
     process.env.GEMINI_API_KEY_1 || process.env.GEMINI_API_KEY,
     process.env.GEMINI_API_KEY_2,
-    process.env.GEMINI_API_KEY_3
+    process.env.GEMINI_API_KEY_3,
+    process.env.GEMINI_API_KEY_4,
+    process.env.GEMINI_API_KEY_5
   ].filter(Boolean);
 }
 
 async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
+  // Sağlıksız key'i atla
+  if (!isKeyHealthy(apiKey)) return null;
+  
   const providerId = `gemini-${model}-${apiKey.slice(-6)}`;
   const limits = model.includes('lite') ? { rpm: 15, rpd: 1000 } : { rpm: 10, rpd: 250 };
   
@@ -303,18 +331,26 @@ async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
   const base64 = imageBuffer.toString('base64');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   
-  const resp = await httpPost(url, {
-    contents: [{ role: 'user', parts: [
-      { inlineData: { mimeType, data: base64 } },
-      { text: prompt },
-    ]}],
-    generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' },
-  });
-  
-  rateLimiter.record(providerId);
-  const text = resp?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
-  const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: providerId };
+  try {
+    const resp = await httpPost(url, {
+      contents: [{ role: 'user', parts: [
+        { inlineData: { mimeType, data: base64 } },
+        { text: prompt },
+      ]}],
+      generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' },
+    });
+    
+    rateLimiter.record(providerId);
+    markKeySuccess(apiKey);
+    const text = resp?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
+    const parsed = safeJsonExtract(text);
+    return { raw: text, parsed, success: !!parsed, provider: providerId };
+  } catch (err) {
+    if (err.message.includes('429') || err.message.includes('403')) {
+      markKeyFailure(apiKey);
+    }
+    throw err;
+  }
 }
 
 async function callGroq(imageBuffer, prompt, mimeType) {
@@ -340,42 +376,64 @@ async function callGroq(imageBuffer, prompt, mimeType) {
   return { raw: text, parsed, success: !!parsed, provider: providerId };
 }
 
-async function callHuggingFace(imageBuffer, prompt, mimeType) {
-  const apiKey = process.env.HUGGINGFACE_API_KEY;
+// 🆕 OpenRouter — Ücretsiz vision modelleri her zaman çalışır (API key ile)
+async function callOpenRouter(imageBuffer, prompt, mimeType) {
+  const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) return null;
   
-  const providerId = 'hf-qwen3-vl';
-  if (!rateLimiter.canRequest(providerId, 8, 300)) return null;
+  const providerId = 'openrouter-gemma4';
+  if (!rateLimiter.canRequest(providerId, 20, 500)) return null;
 
   const base64 = imageBuffer.toString('base64');
-  // 🔧 FIX v3: Qwen2.5-VL hiçbir provider'da yok → Qwen3-VL-8B-Instruct (novita'da aktif)
-  const resp = await httpPost('https://router.huggingface.co/novita/v3/openai/chat/completions', {
-    model: 'Qwen/Qwen3-VL-8B-Instruct',
-    messages: [{ role: 'user', content: [
-      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-      { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER. Düşünme adımları yazma, doğrudan JSON döndür.' },
-    ]}],
-    temperature: 0.1, max_tokens: 4096,
-  }, { Authorization: `Bearer ${apiKey}` });
   
-  rateLimiter.record(providerId);
-  const text = resp?.choices?.[0]?.message?.content || '';
-  const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: providerId };
+  // Önce Gemma-4 Vision, olmazsa Nemotron
+  const models = [
+    'google/gemma-4-26b-a4b-it:free',
+    'nvidia/nemotron-nano-12b-v2-vl:free'
+  ];
+  
+  for (const model of models) {
+    try {
+      const resp = await httpPost('https://openrouter.ai/api/v1/chat/completions', {
+        model,
+        messages: [{ role: 'user', content: [
+          { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+          { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
+        ]}],
+        temperature: 0.1, max_tokens: 4096,
+      }, { 
+        Authorization: `Bearer ${apiKey}`,
+        'HTTP-Referer': 'https://cahit-firma-frontend.onrender.com',
+        'X-Title': 'GM Planlama Tesvik Sistemi'
+      });
+      
+      rateLimiter.record(providerId);
+      const text = resp?.choices?.[0]?.message?.content || '';
+      const parsed = safeJsonExtract(text);
+      if (parsed) return { raw: text, parsed, success: true, provider: `openrouter-${model.split('/')[1].slice(0,10)}` };
+    } catch (err) {
+      console.log(`  ⚠️ OpenRouter ${model} hata: ${err.message.slice(0, 80)}`);
+      continue;
+    }
+  }
+  return { raw: '', parsed: null, success: false, provider: providerId };
 }
 
 async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   const geminiKeys = getGeminiKeys();
   const providers = [];
   
+  // Önce sağlıklı Gemini key'leri
   for (const key of geminiKeys) {
     providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1500 });
   }
   for (const key of geminiKeys) {
     providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
   }
+  // Groq
   if (process.env.GROQ_API_KEY) providers.push({ name: 'Groq Llama 4', fn: () => callGroq(imageBuffer, prompt, mimeType), retries: 2, delay: 2000 });
-  if (process.env.HUGGINGFACE_API_KEY) providers.push({ name: 'HuggingFace Qwen3-VL', fn: () => callHuggingFace(imageBuffer, prompt, mimeType), retries: 2, delay: 3000 });
+  // OpenRouter (her zaman çalışan son çare)
+  if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'OpenRouter Vision', fn: () => callOpenRouter(imageBuffer, prompt, mimeType), retries: 2, delay: 3000 });
 
   let lastError = 'Bilinmeyen Hata';
   for (const provider of providers) {
@@ -383,14 +441,14 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
       try {
         console.log(`  🔄 ${provider.name} deneniyor... (deneme ${attempt})`);
         const result = await provider.fn();
-        if (result === null) { console.log(`  ⏭️ ${provider.name} atlandı (rate limit / key yok)`); break; }
+        if (result === null) { console.log(`  ⏭️ ${provider.name} atlandı (rate limit / key yok / sağlıksız)`); break; }
         if (result?.success) { console.log(`  ✅ ${provider.name} başarılı!`); return result; }
         lastError = 'JSON parse edilemedi';
         console.log(`  ⚠️ ${provider.name} JSON parse başarısız`);
       } catch (err) {
         lastError = err.message;
         console.log(`  ❌ ${provider.name} hata: ${err.message.slice(0, 120)}`);
-        // 🔧 FIX: 400/403/404/429/503 → hemen sonraki provider'a geç (retry boşuna)
+        // 400/403/404/429/503 → hemen sonraki provider'a geç
         if (err.message.includes('400') || err.message.includes('403') || 
             err.message.includes('404') || err.message.includes('429') || 
             err.message.includes('503')) break;
