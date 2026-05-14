@@ -353,27 +353,42 @@ async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
   }
 }
 
-async function callGroq(imageBuffer, prompt, mimeType) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
+async function callGroqWithKey(imageBuffer, prompt, mimeType, apiKey, keyIndex) {
+  if (!apiKey || !isKeyHealthy(apiKey)) return null;
   
-  const providerId = 'groq-llama4-scout';
-  if (!rateLimiter.canRequest(providerId, 30, 1000)) return null;
+  const providerId = `groq-llama4-${keyIndex}`;
+  if (!rateLimiter.canRequest(providerId, 28, 800)) return null;
 
   const base64 = imageBuffer.toString('base64');
-  const resp = await httpPost('https://api.groq.com/openai/v1/chat/completions', {
-    model: 'meta-llama/llama-4-scout-17b-16e-instruct',
-    messages: [{ role: 'user', content: [
-      { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
-      { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
-    ]}],
-    temperature: 0.1, max_tokens: 4096, response_format: { type: 'json_object' },
-  }, { Authorization: `Bearer ${apiKey}` });
-  
-  rateLimiter.record(providerId);
-  const text = resp?.choices?.[0]?.message?.content || '';
-  const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: providerId };
+  try {
+    const resp = await httpPost('https://api.groq.com/openai/v1/chat/completions', {
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: [{ role: 'user', content: [
+        { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
+        { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
+      ]}],
+      temperature: 0.1, max_tokens: 4096, response_format: { type: 'json_object' },
+    }, { Authorization: `Bearer ${apiKey}` });
+    
+    rateLimiter.record(providerId);
+    markKeySuccess(apiKey);
+    const text = resp?.choices?.[0]?.message?.content || '';
+    const parsed = safeJsonExtract(text);
+    return { raw: text, parsed, success: !!parsed, provider: providerId };
+  } catch (err) {
+    if (err.message.includes('429') || err.message.includes('403')) {
+      markKeyFailure(apiKey);
+    }
+    throw err;
+  }
+}
+
+function getGroqKeys() {
+  return [
+    process.env.GROQ_API_KEY_1 || process.env.GROQ_API_KEY,
+    process.env.GROQ_API_KEY_2,
+    process.env.GROQ_API_KEY_3
+  ].filter(Boolean);
 }
 
 // 🆕 OpenRouter — Ücretsiz vision modelleri her zaman çalışır (API key ile)
@@ -421,18 +436,22 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
 
 async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   const geminiKeys = getGeminiKeys();
+  const groqKeys = getGroqKeys();
   const providers = [];
   
-  // Önce sağlıklı Gemini key'leri
+  // 1️⃣ Gemini Flash-Lite (en hızlı, en yüksek kota)
   for (const key of geminiKeys) {
     providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1500 });
   }
+  // 2️⃣ Gemini Flash (daha güçlü model)
   for (const key of geminiKeys) {
     providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
   }
-  // Groq
-  if (process.env.GROQ_API_KEY) providers.push({ name: 'Groq Llama 4', fn: () => callGroq(imageBuffer, prompt, mimeType), retries: 2, delay: 2000 });
-  // OpenRouter (her zaman çalışan son çare)
+  // 3️⃣ Groq (3 key rotasyonlu — toplam ~90 RPM)
+  groqKeys.forEach((key, i) => {
+    providers.push({ name: `Groq Llama4 [Key${i+1}]`, fn: () => callGroqWithKey(imageBuffer, prompt, mimeType, key, i+1), retries: 1, delay: 2000 });
+  });
+  // 4️⃣ OpenRouter (son çare — her zaman çalışır)
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: 'OpenRouter Vision', fn: () => callOpenRouter(imageBuffer, prompt, mimeType), retries: 2, delay: 3000 });
 
   let lastError = 'Bilinmeyen Hata';
