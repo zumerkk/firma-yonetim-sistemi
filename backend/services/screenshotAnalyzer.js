@@ -344,23 +344,41 @@ async function callHuggingFace(imageBuffer, prompt, mimeType) {
   const apiKey = process.env.HUGGINGFACE_API_KEY;
   if (!apiKey) return null;
   
-  const providerId = 'hf-qwen2.5-vl';
+  const providerId = 'hf-vision';
   if (!rateLimiter.canRequest(providerId, 8, 300)) return null;
 
   const base64 = imageBuffer.toString('base64');
-  const resp = await httpPost('https://router.huggingface.co/hf-inference/models/Qwen/Qwen2.5-VL-7B-Instruct/v1/chat/completions', {
-    model: 'Qwen/Qwen2.5-VL-7B-Instruct',
+  const body = (model) => ({
+    model,
     messages: [{ role: 'user', content: [
       { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
       { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
     ]}],
     temperature: 0.1, max_tokens: 4096,
-  }, { Authorization: `Bearer ${apiKey}` });
-  
-  rateLimiter.record(providerId);
-  const text = resp?.choices?.[0]?.message?.content || '';
-  const parsed = safeJsonExtract(text);
-  return { raw: text, parsed, success: !!parsed, provider: providerId };
+  });
+  const authHeader = { Authorization: `Bearer ${apiKey}` };
+
+  // Birden fazla provider/model dene (hf-inference artık Qwen VL desteklemiyor)
+  const attempts = [
+    { url: 'https://router.huggingface.co/novita/v3/openai/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'novita-qwen' },
+    { url: 'https://router.huggingface.co/nebius/v1/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'nebius-qwen' },
+    { url: 'https://router.huggingface.co/fireworks-ai/inference/v1/chat/completions', model: 'Qwen/Qwen2.5-VL-7B-Instruct', label: 'fireworks-qwen' },
+    { url: 'https://router.huggingface.co/hf-inference/models/meta-llama/Llama-3.2-11B-Vision-Instruct/v1/chat/completions', model: 'meta-llama/Llama-3.2-11B-Vision-Instruct', label: 'hf-llama-vision' },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const resp = await httpPost(attempt.url, body(attempt.model), authHeader);
+      rateLimiter.record(providerId);
+      const text = resp?.choices?.[0]?.message?.content || '';
+      const parsed = safeJsonExtract(text);
+      if (parsed) return { raw: text, parsed, success: true, provider: `hf-${attempt.label}` };
+    } catch (err) {
+      console.log(`  ⚠️ HF ${attempt.label} başarısız: ${err.message?.slice(0, 80)}`);
+      continue; // Sonraki provider'ı dene
+    }
+  }
+  return null; // Hiçbir provider çalışmadı
 }
 
 async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
@@ -386,7 +404,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
         lastError = 'JSON parse edilemedi';
       } catch (err) {
         lastError = err.message;
-        if (err.message.includes('404') || err.message.includes('503')) break;
+        if (err.message.includes('400') || err.message.includes('404') || err.message.includes('503')) break;
         if (attempt < provider.retries) await new Promise(r => setTimeout(r, provider.delay * attempt));
       }
     }
