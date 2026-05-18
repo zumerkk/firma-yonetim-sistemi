@@ -87,9 +87,31 @@ function httpPost(url, body, headers = {}) {
 }
 
 function safeJsonExtract(text) {
-  const m = String(text || '').match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try { return JSON.parse(m[0]); } catch { return null; }
+  if (!text) return null;
+  let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+  
+  try { return JSON.parse(cleaned); } catch (e) {}
+  
+  const firstBrace = cleaned.indexOf('{');
+  const firstBracket = cleaned.indexOf('[');
+  let start = -1;
+  if (firstBrace !== -1 && firstBracket !== -1) start = Math.min(firstBrace, firstBracket);
+  else if (firstBrace !== -1) start = firstBrace;
+  else if (firstBracket !== -1) start = firstBracket;
+  
+  if (start !== -1) {
+    const endChar = cleaned[start] === '{' ? '}' : ']';
+    const end = cleaned.lastIndexOf(endChar);
+    if (end > start) {
+      let candidate = cleaned.substring(start, end + 1);
+      // Remove trailing commas before } or ]
+      candidate = candidate.replace(/,\s*([}\]])/g, '$1');
+      try { return JSON.parse(candidate); } catch (e) {
+        console.error("JSON parse hatası:", e.message);
+      }
+    }
+  }
+  return null;
 }
 
 // ─── Tab-Specific AI Prompt Şablonları (Yüksek Doğruluk) ────────
@@ -461,7 +483,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
         if (result === null) { console.log(`  ⏭️ ${provider.name} atlandı (rate limit / key yok / sağlıksız)`); break; }
         if (result?.success) { console.log(`  ✅ ${provider.name} başarılı!`); return result; }
         lastError = 'JSON parse edilemedi';
-        console.log(`  ⚠️ ${provider.name} JSON parse başarısız`);
+        console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 300));
       } catch (err) {
         lastError = err.message;
         console.log(`  ❌ ${provider.name} hata: ${err.message.slice(0, 120)}`);
