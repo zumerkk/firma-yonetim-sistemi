@@ -466,10 +466,13 @@ function markKeyFailure(apiKey) {
   const k = apiKey.slice(-6);
   if (!keyHealth[k]) keyHealth[k] = { failures: 0, disabledUntil: 0 };
   keyHealth[k].failures++;
-  // 3 ardışık 429 → 10 dakika devre dışı
-  if (keyHealth[k].failures >= 3) {
-    keyHealth[k].disabledUntil = Date.now() + 10 * 60 * 1000;
-    console.log(`  🚫 Gemini key [${k}] 10dk devre dışı (ardışık ${keyHealth[k].failures} hata)`);
+  // 🔧 Daha akıllı: 5 ardışık 429 → 2dk devre dışı
+  // (Önceki 3/10dk değeri batch işlerde keyleri çok hızlı disable ediyordu;
+  //  Gemini RPM penceresi 1dk olduğundan 2dk yeterli ve 5 görsel sonrası
+  //  diğer keylere geçişi sağlıyor.)
+  if (keyHealth[k].failures >= 5) {
+    keyHealth[k].disabledUntil = Date.now() + 2 * 60 * 1000;
+    console.log(`  🚫 Gemini key [${k}] 2dk devre dışı (ardışık ${keyHealth[k].failures} hata)`);
   }
 }
 function markKeySuccess(apiKey) {
@@ -510,9 +513,20 @@ async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
     
     rateLimiter.record(providerId);
     markKeySuccess(apiKey);
-    const text = resp?.candidates?.[0]?.content?.parts?.map(p => p.text).join('\n') || '';
+    const candidate = resp?.candidates?.[0];
+    const text = candidate?.content?.parts?.map(p => p.text).join('\n') || '';
+    const finishReason = candidate?.finishReason || 'UNKNOWN';
+
+    // 🆕 Boş yanıt = ayrı hata tipi (SAFETY filter, MAX_TOKENS, RECITATION, vs.)
+    // Bu durum genelde retry ile düzelmez ama net loglayalım ki müşteriye sebep söyleyebilelim.
+    if (!text || text.trim().length === 0) {
+      const promptFeedback = resp?.promptFeedback?.blockReason || '';
+      const detail = promptFeedback ? `prompt blocked: ${promptFeedback}` : `finishReason: ${finishReason}`;
+      throw new Error(`Gemini boş yanıt (${detail})`);
+    }
+
     const parsed = safeJsonExtract(text);
-    return { raw: text, parsed, success: !!parsed, provider: providerId };
+    return { raw: text, parsed, success: !!parsed, provider: providerId, finishReason };
   } catch (err) {
     if (err.message.includes('429') || err.message.includes('403')) {
       markKeyFailure(apiKey);
@@ -600,7 +614,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   
   // ─── KATMAN 1: Gemini Flash-Lite (en hızlı, en yüksek kota) ───
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1000 });
+    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 2, delay: 1500 });
   }
   
   // ─── KATMAN 2: Groq (her key ayrı rate limit → 3 key = 3x kapasite) ───
@@ -610,7 +624,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   
   // ─── KATMAN 3: Gemini Flash (daha güçlü model, daha düşük kota) ───
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
+    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 2, delay: 2500 });
   }
   
   // ─── KATMAN 4: OpenRouter (garanti son çare, her zaman çalışır) ───
@@ -634,19 +648,32 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
         console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 500));
       } catch (err) {
         lastError = err.message;
-        console.log(`  ❌ ${provider.name} hata: ${err.message.slice(0, 120)}`);
-        // 400/403/404/429/503 → hemen sonraki provider'a geç
-        if (err.message.includes('400') || err.message.includes('403') || 
-            err.message.includes('404') || err.message.includes('429') || 
-            err.message.includes('503')) break;
+        const msg = err.message;
+        console.log(`  ❌ ${provider.name} hata: ${msg.slice(0, 140)}`);
+
+        // 🆕 Boş yanıt (SAFETY/MAX_TOKENS) — aynı key ile retry mantıklı değil,
+        //    sıradaki provider'a geç (farklı model deneyelim).
+        if (msg.includes('Gemini boş yanıt')) break;
+
+        // 400/403/404/429 → kalıcı sorun (key/quota), sonraki provider'a geç
+        if (msg.includes('400') || msg.includes('403') ||
+            msg.includes('404') || msg.includes('429')) break;
+
+        // 503 (overloaded) — aynı provider'da retry değerli, server tarafı geçici
+        // diğer hatalar — exponential backoff ile retry
         if (attempt < provider.retries) await new Promise(r => setTimeout(r, provider.delay * attempt));
       }
     }
   }
-  // Tüm provider'lar JSON parse edemediyse, son ham önizlemeyi de ekle (debug/destek için)
-  const detail = lastRawPreview && lastError === 'JSON parse edilemedi'
-    ? `${lastError} | Son yanıt önizleme: ${lastRawPreview.replace(/\s+/g, ' ').slice(0, 100)}`
-    : lastError;
+  // Tüm provider'lar başarısız → kullanıcıya anlamlı sebep döndür
+  let detail = lastError;
+  if (lastError.includes('Gemini boş yanıt')) {
+    detail = 'AI modeli görselden veri çıkaramadı (görsel kalitesi düşük veya içerik filtrelendi). Görseli yeniden çekip deneyin.';
+  } else if (lastError === 'JSON parse edilemedi' && lastRawPreview) {
+    detail = `${lastError} | Son yanıt önizleme: ${lastRawPreview.replace(/\s+/g, ' ').slice(0, 100)}`;
+  } else if (lastError.includes('429')) {
+    detail = 'Tüm AI sağlayıcıları geçici olarak limit aşımında. 1-2 dakika bekleyip yeniden deneyin.';
+  }
   throw new Error(`API Hatası: ${detail.slice(0, 250)}`);
 }
 
