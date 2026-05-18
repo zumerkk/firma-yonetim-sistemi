@@ -460,19 +460,22 @@ function isKeyHealthy(apiKey) {
   const h = keyHealth[apiKey.slice(-6)];
   if (!h) return true;
   if (h.disabledUntil && Date.now() < h.disabledUntil) return false;
+  // ✅ Cooldown bitti → failures sayacını sıfırla. Aksi halde key tek bir
+  // 429 yiyince anında tekrar 10dk askıya alınıyordu (chicken-and-egg bug).
+  if (h.disabledUntil && Date.now() >= h.disabledUntil) {
+    h.failures = 0;
+    h.disabledUntil = 0;
+  }
   return true;
 }
 function markKeyFailure(apiKey) {
   const k = apiKey.slice(-6);
   if (!keyHealth[k]) keyHealth[k] = { failures: 0, disabledUntil: 0 };
   keyHealth[k].failures++;
-  // 🔧 Daha akıllı: 5 ardışık 429 → 2dk devre dışı
-  // (Önceki 3/10dk değeri batch işlerde keyleri çok hızlı disable ediyordu;
-  //  Gemini RPM penceresi 1dk olduğundan 2dk yeterli ve 5 görsel sonrası
-  //  diğer keylere geçişi sağlıyor.)
-  if (keyHealth[k].failures >= 5) {
-    keyHealth[k].disabledUntil = Date.now() + 2 * 60 * 1000;
-    console.log(`  🚫 Gemini key [${k}] 2dk devre dışı (ardışık ${keyHealth[k].failures} hata)`);
+  // 3 ardışık 429 → 10 dakika devre dışı
+  if (keyHealth[k].failures >= 3) {
+    keyHealth[k].disabledUntil = Date.now() + 10 * 60 * 1000;
+    console.log(`  🚫 Gemini key [${k}] 10dk devre dışı (ardışık ${keyHealth[k].failures} hata)`);
   }
 }
 function markKeySuccess(apiKey) {
@@ -508,21 +511,33 @@ async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
         { inlineData: { mimeType, data: base64 } },
         { text: prompt },
       ]}],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json' },
+      generationConfig: {
+        temperature: 0.1,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json',
+        // ❗ Gemini 2.5 Flash/Flash-Lite default olarak thinking AÇIK
+        // ve thinking token'ları maxOutputTokens bütçesinden yiyor → bazen
+        // tüm bütçe thinking'e gidip içerik BOŞ dönüyor. Vision OCR
+        // görevimizde reasoning'e ihtiyaç yok; thinking'i kapatıyoruz.
+        thinkingConfig: { thinkingBudget: 0 },
+      },
     });
     
     rateLimiter.record(providerId);
     markKeySuccess(apiKey);
     const candidate = resp?.candidates?.[0];
-    const text = candidate?.content?.parts?.map(p => p.text).join('\n') || '';
+    const text = candidate?.content?.parts?.map(p => p.text).filter(Boolean).join('\n') || '';
     const finishReason = candidate?.finishReason || 'UNKNOWN';
 
-    // 🆕 Boş yanıt = ayrı hata tipi (SAFETY filter, MAX_TOKENS, RECITATION, vs.)
-    // Bu durum genelde retry ile düzelmez ama net loglayalım ki müşteriye sebep söyleyebilelim.
-    if (!text || text.trim().length === 0) {
-      const promptFeedback = resp?.promptFeedback?.blockReason || '';
-      const detail = promptFeedback ? `prompt blocked: ${promptFeedback}` : `finishReason: ${finishReason}`;
-      throw new Error(`Gemini boş yanıt (${detail})`);
+    // Boş içerik geldiğinde nedeni log'a yaz (debug ve sonraki provider'a anlamlı geçiş için)
+    if (!text) {
+      console.log(`  ⚠️ ${providerId} BOŞ yanıt — finishReason=${finishReason}`);
+      if (finishReason === 'SAFETY' || finishReason === 'RECITATION' || finishReason === 'BLOCKLIST') {
+        // Bu görsel için içerik blokluğu var; sonraki provider denenebilir
+        return { raw: '', parsed: null, success: false, provider: providerId, blockedReason: finishReason };
+      }
+      // MAX_TOKENS / OTHER vs. — yine başarısız ama parse edilebilir bir şey yok
+      return { raw: '', parsed: null, success: false, provider: providerId, emptyReason: finishReason };
     }
 
     const parsed = safeJsonExtract(text);
@@ -580,6 +595,7 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
     'nvidia/nemotron-nano-12b-v2-vl:free'
   ];
   
+  let lastErrMessage = 'Tüm OpenRouter modelleri başarısız oldu';
   for (const model of models) {
     try {
       const resp = await httpPost('https://openrouter.ai/api/v1/chat/completions', {
@@ -599,12 +615,14 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
       const text = resp?.choices?.[0]?.message?.content || '';
       const parsed = safeJsonExtract(text);
       if (parsed) return { raw: text, parsed, success: true, provider: `openrouter-${model.split('/')[1].slice(0,10)}` };
+      return { raw: text, parsed: null, success: false, provider: `openrouter-${model.split('/')[1].slice(0,10)}` };
     } catch (err) {
+      lastErrMessage = err.message;
       console.log(`  ⚠️ OpenRouter ${model} hata: ${err.message.slice(0, 80)}`);
       continue;
     }
   }
-  return { raw: '', parsed: null, success: false, provider: providerId };
+  throw new Error(`OpenRouter API Hatası: ${lastErrMessage}`);
 }
 
 async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
@@ -614,7 +632,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   
   // ─── KATMAN 1: Gemini Flash-Lite (en hızlı, en yüksek kota) ───
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 2, delay: 1500 });
+    providers.push({ name: `Gemini Flash-Lite [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash-lite', key), retries: 1, delay: 1000 });
   }
   
   // ─── KATMAN 2: Groq (her key ayrı rate limit → 3 key = 3x kapasite) ───
@@ -624,7 +642,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   
   // ─── KATMAN 3: Gemini Flash (daha güçlü model, daha düşük kota) ───
   for (const key of geminiKeys) {
-    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 2, delay: 2500 });
+    providers.push({ name: `Gemini Flash [${key.slice(-4)}]`, fn: () => callGemini(imageBuffer, prompt, mimeType, 'gemini-2.5-flash', key), retries: 1, delay: 2000 });
   }
   
   // ─── KATMAN 4: OpenRouter (garanti son çare, her zaman çalışır) ───
@@ -634,47 +652,65 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
 
   console.log(`  📊 Toplam ${providers.length} provider hazır (${geminiKeys.length} Gemini + ${groqKeys.length} Groq + ${process.env.OPENROUTER_API_KEY ? '1 OpenRouter' : '0 OpenRouter'})`);
 
+  // İstatistikler — kullanıcı-dostu hata mesajı için
   let lastError = 'Bilinmeyen Hata';
   let lastRawPreview = '';
+  let parseFailCount = 0;
+  let emptyCount = 0;
+  let blockedCount = 0;
+  let rateLimitCount = 0;
+  let triedCount = 0;
+
   for (const provider of providers) {
     for (let attempt = 1; attempt <= provider.retries; attempt++) {
       try {
         console.log(`  🔄 ${provider.name} deneniyor... (deneme ${attempt})`);
         const result = await provider.fn();
         if (result === null) { console.log(`  ⏭️ ${provider.name} atlandı (rate limit / key yok / sağlıksız)`); break; }
+        triedCount++;
         if (result?.success) { console.log(`  ✅ ${provider.name} başarılı!`); return result; }
-        lastError = 'JSON parse edilemedi';
-        lastRawPreview = (result?.raw || '').slice(0, 200);
-        console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 500));
+        // Boş yanıt mı, parse hatası mı?
+        if (result?.blockedReason) {
+          blockedCount++;
+          lastError = `İçerik bloklandı (${result.blockedReason})`;
+          console.log(`  🚫 ${provider.name} bloklu: ${result.blockedReason}`);
+        } else if (result?.emptyReason || (!result?.raw && result?.success === false)) {
+          emptyCount++;
+          lastError = `Boş yanıt (${result?.emptyReason || 'NO_CONTENT'})`;
+          console.log(`  ⚠️ ${provider.name} BOŞ yanıt — ${result?.emptyReason || 'NO_CONTENT'}`);
+        } else {
+          parseFailCount++;
+          lastRawPreview = (result?.raw || '').slice(0, 200);
+          lastError = 'JSON parse edilemedi';
+          console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 500));
+        }
       } catch (err) {
+        if (err.message.includes('429')) rateLimitCount++;
         lastError = err.message;
-        const msg = err.message;
-        console.log(`  ❌ ${provider.name} hata: ${msg.slice(0, 140)}`);
-
-        // 🆕 Boş yanıt (SAFETY/MAX_TOKENS) — aynı key ile retry mantıklı değil,
-        //    sıradaki provider'a geç (farklı model deneyelim).
-        if (msg.includes('Gemini boş yanıt')) break;
-
-        // 400/403/404/429 → kalıcı sorun (key/quota), sonraki provider'a geç
-        if (msg.includes('400') || msg.includes('403') ||
-            msg.includes('404') || msg.includes('429')) break;
-
-        // 503 (overloaded) — aynı provider'da retry değerli, server tarafı geçici
-        // diğer hatalar — exponential backoff ile retry
+        console.log(`  ❌ ${provider.name} hata: ${err.message.slice(0, 120)}`);
+        // 400/403/404/429/503 → hemen sonraki provider'a geç
+        if (err.message.includes('400') || err.message.includes('403') || 
+            err.message.includes('404') || err.message.includes('429') || 
+            err.message.includes('503')) break;
         if (attempt < provider.retries) await new Promise(r => setTimeout(r, provider.delay * attempt));
       }
     }
   }
-  // Tüm provider'lar başarısız → kullanıcıya anlamlı sebep döndür
-  let detail = lastError;
-  if (lastError.includes('Gemini boş yanıt')) {
-    detail = 'AI modeli görselden veri çıkaramadı (görsel kalitesi düşük veya içerik filtrelendi). Görseli yeniden çekip deneyin.';
-  } else if (lastError === 'JSON parse edilemedi' && lastRawPreview) {
+
+  // Akıllı hata mesajı — neyin baskın olduğuna göre kullanıcıya farklı uyarı
+  let detail;
+  if (rateLimitCount >= triedCount && triedCount > 0) {
+    detail = `Tüm AI sağlayıcıları bugünlük kotayı doldurdu (rate limit). Lütfen 5-10 dakika bekleyip tekrar deneyin.`;
+  } else if (blockedCount > 0 && parseFailCount === 0 && emptyCount === 0) {
+    detail = `Görsel içeriği AI güvenlik filtresine takıldı. Lütfen ekran görüntüsünü yeniden alın veya farklı bir bölgeyi kırpın.`;
+  } else if (emptyCount > 0 && parseFailCount === 0) {
+    detail = `AI modeli bu görsel için boş yanıt döndü. Görselin okunaklı/yatay olduğundan emin olun ve tekrar yükleyin.`;
+  } else if (lastRawPreview && lastError === 'JSON parse edilemedi') {
     detail = `${lastError} | Son yanıt önizleme: ${lastRawPreview.replace(/\s+/g, ' ').slice(0, 100)}`;
-  } else if (lastError.includes('429')) {
-    detail = 'Tüm AI sağlayıcıları geçici olarak limit aşımında. 1-2 dakika bekleyip yeniden deneyin.';
+  } else {
+    detail = lastError;
   }
-  throw new Error(`API Hatası: ${detail.slice(0, 250)}`);
+  throw new Error(`API Hatası: ${detail.slice(0, 300)}`);
 }
 
 // ─── High-Level Analysis Functions ──────────────────────────────
