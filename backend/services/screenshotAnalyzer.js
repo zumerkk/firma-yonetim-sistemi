@@ -86,32 +86,178 @@ function httpPost(url, body, headers = {}) {
   });
 }
 
+/**
+ * 🛡️ Çok Katmanlı JSON Onarma — AI çıktılarındaki tipik bozulmaları toparlar:
+ *  - BOM / sıfır-genişlik karakterler
+ *  - Markdown kod çitleri (üç ters tırnak)
+ *  - Tek-satır ve blok yorumları
+ *  - Akıllı tırnaklar (smart quotes)
+ *  - Sondaki virgüller (trailing commas)
+ *  - Tırnaksız anahtarlar
+ *  - String içinde escape edilmemiş newline / tab / kontrol karakterleri
+ *  - max_tokens'ta KESİLMİŞ JSON (eksik tırnak/küme/dizi otomatik kapatılır)
+ */
 function safeJsonExtract(text) {
-  if (!text) return null;
-  let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  
-  try { return JSON.parse(cleaned); } catch (e) {}
-  
-  const firstBrace = cleaned.indexOf('{');
-  const firstBracket = cleaned.indexOf('[');
-  let start = -1;
-  if (firstBrace !== -1 && firstBracket !== -1) start = Math.min(firstBrace, firstBracket);
-  else if (firstBrace !== -1) start = firstBrace;
-  else if (firstBracket !== -1) start = firstBracket;
-  
-  if (start !== -1) {
-    const endChar = cleaned[start] === '{' ? '}' : ']';
-    const end = cleaned.lastIndexOf(endChar);
-    if (end > start) {
-      let candidate = cleaned.substring(start, end + 1);
-      // Remove trailing commas before } or ]
-      candidate = candidate.replace(/,\s*([}\]])/g, '$1');
-      try { return JSON.parse(candidate); } catch (e) {
-        console.error("JSON parse hatası:", e.message);
-      }
+  if (!text || typeof text !== 'string') return null;
+
+  // ─── 1) Temel temizlik ───────────────────────────────────────
+  let cleaned = text
+    .replace(/^\uFEFF/, '')                  // BOM
+    .replace(/[\u200B-\u200D\u2060]/g, '')   // sıfır genişlik
+    .replace(/[\u201C\u201D]/g, '"')         // akıllı çift tırnak
+    .replace(/[\u2018\u2019]/g, "'")         // akıllı tek tırnak
+    .trim();
+
+  // Markdown kod çitlerini sök (her durumda)
+  cleaned = cleaned
+    .replace(/^```(?:json|JSON|javascript|js)?\s*\r?\n?/i, '')
+    .replace(/\r?\n?\s*```\s*$/i, '')
+    .replace(/```/g, '')
+    .trim();
+
+  // Bazı modeller başa "Here is the JSON:" gibi metin ekliyor → ilk { veya [ öncesini at
+  // (extractBalanced zaten ilk açılış parantezini buluyor; ama önce direkt parse şansı verelim)
+
+  const tryParse = (s) => { try { return JSON.parse(s); } catch { return null; } };
+
+  // Direkt deneme
+  let r = tryParse(cleaned);
+  if (r !== null) return r;
+
+  // ─── 2) Yorumları temizle ────────────────────────────────────
+  // (string içindeki // veya /* */ değerlerini bozmamak için string-aware)
+  cleaned = stripCommentsRespectingStrings(cleaned);
+
+  r = tryParse(cleaned);
+  if (r !== null) return r;
+
+  // ─── 3) Dengelemeli (string-aware) JSON aralığı çıkar ────────
+  const candidate = extractBalancedJson(cleaned);
+  if (!candidate) return null;
+
+  // ─── 4) Artan agresiflikte onarım stratejileri ───────────────
+  const strategies = [
+    (s) => s,
+    (s) => s.replace(/,\s*([}\]])/g, '$1'),                         // trailing comma
+    (s) => s.replace(/,\s*([}\]])/g, '$1')
+            .replace(/([\{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":'), // tırnaksız key
+    (s) => escapeControlsInsideStrings(s.replace(/,\s*([}\]])/g, '$1')),
+    (s) => escapeControlsInsideStrings(
+             s.replace(/,\s*([}\]])/g, '$1')
+              .replace(/([\{,]\s*)([A-Za-z_$][\w$]*)\s*:/g, '$1"$2":')
+           ),
+  ];
+
+  for (const fix of strategies) {
+    try {
+      const repaired = fix(candidate);
+      const parsed = JSON.parse(repaired);
+      return parsed;
+    } catch { /* sıradakini dene */ }
+  }
+
+  return null;
+}
+
+// Yardımcı: string içeriğini koruyarak yorumları çıkarır
+function stripCommentsRespectingStrings(input) {
+  let out = '';
+  let i = 0, inStr = false, strCh = '"', esc = false;
+  while (i < input.length) {
+    const c = input[i];
+    if (inStr) {
+      out += c;
+      if (esc) esc = false;
+      else if (c === '\\') esc = true;
+      else if (c === strCh) inStr = false;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") { inStr = true; strCh = c; out += c; i++; continue; }
+    if (c === '/' && input[i + 1] === '/') {
+      while (i < input.length && input[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && input[i + 1] === '*') {
+      i += 2;
+      while (i < input.length && !(input[i] === '*' && input[i + 1] === '/')) i++;
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
+// Yardımcı: ilk { veya [ ile başlayan dengeli JSON bloğunu çıkarır.
+// Truncation varsa eksik kapanışları otomatik tamamlar.
+function extractBalancedJson(input) {
+  const a = input.indexOf('{');
+  const b = input.indexOf('[');
+  let start;
+  if (a === -1 && b === -1) return null;
+  else if (a === -1) start = b;
+  else if (b === -1) start = a;
+  else start = Math.min(a, b);
+
+  const stack = [];
+  let inStr = false, esc = false;
+  let end = -1;
+
+  for (let i = start; i < input.length; i++) {
+    const c = input[i];
+    if (esc) { esc = false; continue; }
+    if (c === '\\') { esc = true; continue; }
+    if (c === '"') { inStr = !inStr; continue; }
+    if (inStr) continue;
+
+    if (c === '{' || c === '[') stack.push(c);
+    else if (c === '}' || c === ']') {
+      stack.pop();
+      if (stack.length === 0) { end = i; break; }
     }
   }
-  return null;
+
+  if (end !== -1) return input.substring(start, end + 1);
+
+  // ─── Truncation onarımı: kalan açık parantezleri otomatik kapat ───
+  let repaired = input.substring(start);
+  // Yarım kalmış string varsa kapat (son virgülü/tırnağı temizle)
+  if (inStr) {
+    // Eksik string'i sonlandır; sondaki kısmi içeriği ":null" gibi düşürmeyelim,
+    // mevcut kısmi değeri olduğu gibi bırakıp kapatalım.
+    repaired += '"';
+  }
+  // Sondaki yarım kalan ", veya : işaretlerini at
+  repaired = repaired.replace(/[,:\s]+$/, '');
+  // Kalan parantezleri kapat (LIFO)
+  for (let i = stack.length - 1; i >= 0; i--) {
+    repaired += stack[i] === '{' ? '}' : ']';
+  }
+  return repaired;
+}
+
+// Yardımcı: string DEĞERLERİ içindeki ham \n \r \t ve diğer kontrol karakterlerini escape eder
+function escapeControlsInsideStrings(input) {
+  let out = '';
+  let inStr = false, esc = false;
+  for (const c of input) {
+    if (esc) { out += c; esc = false; continue; }
+    if (c === '\\') { out += c; esc = true; continue; }
+    if (c === '"') { out += c; inStr = !inStr; continue; }
+    if (inStr) {
+      const code = c.charCodeAt(0);
+      if (c === '\n') out += '\\n';
+      else if (c === '\r') out += '\\r';
+      else if (c === '\t') out += '\\t';
+      else if (code < 0x20) { /* diğer kontrol karakterlerini düşür */ }
+      else out += c;
+    } else {
+      out += c;
+    }
+  }
+  return out;
 }
 
 // ─── Tab-Specific AI Prompt Şablonları (Yüksek Doğruluk) ────────
@@ -359,7 +505,7 @@ async function callGemini(imageBuffer, prompt, mimeType, model, apiKey) {
         { inlineData: { mimeType, data: base64 } },
         { text: prompt },
       ]}],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 4096, responseMimeType: 'application/json' },
+      generationConfig: { temperature: 0.1, maxOutputTokens: 8192, responseMimeType: 'application/json' },
     });
     
     rateLimiter.record(providerId);
@@ -386,7 +532,7 @@ async function callGroqWithKey(imageBuffer, prompt, mimeType, apiKey, keyIndex) 
       { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
       { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
     ]}],
-    temperature: 0.1, max_tokens: 4096, response_format: { type: 'json_object' },
+    temperature: 0.1, max_tokens: 8192, response_format: { type: 'json_object' },
   }, { Authorization: `Bearer ${apiKey}` });
   
   rateLimiter.record(providerId);
@@ -428,7 +574,7 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
           { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
           { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
         ]}],
-        temperature: 0.1, max_tokens: 4096,
+        temperature: 0.1, max_tokens: 8192,
       }, { 
         Authorization: `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://cahit-firma-frontend.onrender.com',
@@ -475,6 +621,7 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
   console.log(`  📊 Toplam ${providers.length} provider hazır (${geminiKeys.length} Gemini + ${groqKeys.length} Groq + ${process.env.OPENROUTER_API_KEY ? '1 OpenRouter' : '0 OpenRouter'})`);
 
   let lastError = 'Bilinmeyen Hata';
+  let lastRawPreview = '';
   for (const provider of providers) {
     for (let attempt = 1; attempt <= provider.retries; attempt++) {
       try {
@@ -483,7 +630,8 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
         if (result === null) { console.log(`  ⏭️ ${provider.name} atlandı (rate limit / key yok / sağlıksız)`); break; }
         if (result?.success) { console.log(`  ✅ ${provider.name} başarılı!`); return result; }
         lastError = 'JSON parse edilemedi';
-        console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 300));
+        lastRawPreview = (result?.raw || '').slice(0, 200);
+        console.log(`  ⚠️ ${provider.name} JSON parse başarısız. RAW:`, (result?.raw || '').slice(0, 500));
       } catch (err) {
         lastError = err.message;
         console.log(`  ❌ ${provider.name} hata: ${err.message.slice(0, 120)}`);
@@ -495,7 +643,11 @@ async function callVisionAPI(imageBuffer, prompt, mimeType = 'image/png') {
       }
     }
   }
-  throw new Error(`API Hatası: ${lastError.slice(0, 150)}`);
+  // Tüm provider'lar JSON parse edemediyse, son ham önizlemeyi de ekle (debug/destek için)
+  const detail = lastRawPreview && lastError === 'JSON parse edilemedi'
+    ? `${lastError} | Son yanıt önizleme: ${lastRawPreview.replace(/\s+/g, ' ').slice(0, 100)}`
+    : lastError;
+  throw new Error(`API Hatası: ${detail.slice(0, 250)}`);
 }
 
 // ─── High-Level Analysis Functions ──────────────────────────────
