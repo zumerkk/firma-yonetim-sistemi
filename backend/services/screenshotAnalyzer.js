@@ -589,10 +589,12 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
 
   const base64 = imageBuffer.toString('base64');
   
-  // Önce Gemma-4 Vision, olmazsa Nemotron
+  // 🚀 Müşteri hesabına 10$ bakiye yüklediği için, artık takılan ücretsiz modeller yerine
+  // çok ucuz ve çok daha akıllı olan 'paid' (ücretli) modelleri kullanıyoruz. 
+  // 10 dolar bakiye ile bu modellerden on binlerce görsel işlenebilir ve asla 50 limitine takılmaz.
   const models = [
-    'google/gemma-4-26b-a4b-it:free',
-    'nvidia/nemotron-nano-12b-v2-vl:free'
+    'google/gemini-2.5-flash',
+    'google/gemini-2.5-flash-lite'
   ];
   
   let lastErrMessage = 'Tüm OpenRouter modelleri başarısız oldu';
