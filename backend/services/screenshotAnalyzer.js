@@ -606,7 +606,7 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
           { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64}` } },
           { type: 'text', text: prompt + '\n\nÖNEMLİ: SADECE JSON YANITI VER.' },
         ]}],
-        temperature: 0.1, max_tokens: 8192,
+        temperature: 0.1, max_tokens: 2048,
       }, { 
         Authorization: `Bearer ${apiKey}`,
         'HTTP-Referer': 'https://cahit-firma-frontend.onrender.com',
