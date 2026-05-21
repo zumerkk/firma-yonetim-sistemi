@@ -2513,7 +2513,7 @@ const YeniTesvikForm = () => {
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 150 }}>
-                    Yatırımın Konusu (Nace4):
+                    Yatırımın Konusu (Nace):
                   </Typography>
                   <FormControl fullWidth size="small">
                     <Select
@@ -2521,7 +2521,7 @@ const YeniTesvikForm = () => {
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
                     >
-                      <MenuItem value="">OECD 4 haneli kodu seçiniz...</MenuItem>
+                      <MenuItem value="">Nace Kodu seçiniz...</MenuItem>
                       {templateData.yatirimKonusuKodlari && templateData.yatirimKonusuKodlari.map((item) => (
                         <MenuItem key={item.kod} value={item.kod}>
                           {item.kod} - {item.tanim.substring(0, 60)}{item.tanim.length > 60 && '...'}

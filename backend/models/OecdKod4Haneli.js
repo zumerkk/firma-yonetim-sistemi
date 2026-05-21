@@ -13,10 +13,10 @@ const oecdKod4HaneliSchema = new mongoose.Schema({
     maxlength: 10,
     validate: {
       validator: function(v) {
-        // XX.XX formatını kontrol et
-        return /^\d{2}\.\d{2}$/.test(v);
+        // Nace kodlarını (XX, XX.XX, XX.XX.XX vb.) destekle
+        return /^[A-Z0-9\.]+$/.test(v);
       },
-      message: props => `${props.value} geçerli bir 4 haneli OECD kodu değil! (XX.XX formatı olmalı)`
+      message: props => `${props.value} geçerli bir kod formatı değil!`
     }
   },
   tanim: {
