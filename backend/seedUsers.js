@@ -53,9 +53,9 @@ const users = [
     aktif: true
   },
   {
-    adSoyad: 'Ayşegül Gezer', 
-    email: 'aysegul@gmplanlama.com',
-    sifre: 'aysegul',
+    adSoyad: 'Berk Acar', 
+    email: 'berk.acar@gmplanlama.com',
+    sifre: 'Berk2025!',
     telefon: '+90 555 567 8901',
     rol: 'kullanici',
     aktif: true

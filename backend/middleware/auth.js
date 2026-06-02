@@ -52,8 +52,7 @@ const authenticate = async (req, res, next) => {
       console.log('🔒 JWT Token geçersiz (malformed token)');
       return res.status(401).json({
         success: false,
-        message: 'Token geçersiz.',
-        clearToken: true // Frontend'e token'ı temizle sinyali
+        message: 'Token geçersiz.'
       });
     }
     
@@ -61,8 +60,7 @@ const authenticate = async (req, res, next) => {
       console.log('⏰ JWT Token süresi dolmuş');
       return res.status(401).json({
         success: false,
-        message: 'Token süresi dolmuş. Lütfen tekrar giriş yapın.',
-        clearToken: true
+        message: 'Token süresi dolmuş. Lütfen tekrar giriş yapın.'
       });
     }
     

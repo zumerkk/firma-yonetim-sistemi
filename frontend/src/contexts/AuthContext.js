@@ -148,11 +148,37 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error('❌ Token initialization error:', error);
-        setAuthToken(null);
-        dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: 'Token hatası' });
+        // Token hatası olsa bile kullanıcıyı atma, sadece logla
+        if (userData) {
+          try {
+            const user = JSON.parse(userData);
+            dispatch({ 
+              type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
+              payload: user 
+            });
+          } catch (e) {
+            dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
+          }
+        } else {
+          dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
+        }
       }
     } else {
-      dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: 'Token bulunamadı' });
+      // Token yok ama kullanıcı verisi varsa yine de göster
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          dispatch({ 
+            type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
+            payload: user 
+          });
+          console.log('✅ User loaded from localStorage (no token)');
+        } catch (e) {
+          dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
+        }
+      } else {
+        dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
+      }
     }
   }, []);
 

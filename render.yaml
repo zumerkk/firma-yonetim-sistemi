@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         sync: false  # Manuel olarak Render dashboard'dan eklenecek
       - key: JWT_EXPIRE
-        value: 7d
+        value: 365d
       - key: FRONTEND_URL
         value: https://cahit-firma-frontend.onrender.com
       - key: MAX_FILE_SIZE

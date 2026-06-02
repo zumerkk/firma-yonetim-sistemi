@@ -46,26 +46,10 @@ api.interceptors.response.use(
       console.error('❌ API Error', error.config?.url, error.response?.status || '-', msg);
     }
 
-    // 401 Unauthorized - token geçersiz veya süresi dolmuş
+    // 401 Unauthorized - sessiz hata yönetimi (kullanıcıyı atma)
     if (error.response?.status === 401) {
-      const shouldClearToken = error.response?.data?.clearToken;
-
-      if (shouldClearToken) {
-        console.log('🧹 Geçersiz token temizleniyor...');
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-
-        // Header'dan da temizle
-        delete api.defaults.headers.common['Authorization'];
-
-        // Sadece login olmayan sayfalarda yönlendir
-        if (!window.location.pathname.includes('/login')) {
-          console.log('↩️ Login sayfasına yönlendiriliyor...');
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 1500);
-        }
-      }
+      // Token sorunu varsa sadece logla, kullanıcıyı login'e yönlendirme
+      console.log('⚠️ 401 hatası alındı, oturum devam ediyor...');
     }
 
     return Promise.reject(error);

@@ -24,9 +24,9 @@ const userPasswords = [
     yeniSifre: 'Seda2025!'
   },
   {
-    email: 'aysegul@gmplanlama.com',
-    adSoyad: 'Ayşegül Gezer',
-    yeniSifre: 'Aysegul2025!'
+    email: 'berk.acar@gmplanlama.com',
+    adSoyad: 'Berk Acar',
+    yeniSifre: 'Berk2025!'
   },
   {
     email: 'cahit@gmplanlama.com',
