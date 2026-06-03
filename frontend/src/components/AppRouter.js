@@ -59,6 +59,13 @@ import FileManager from '../pages/Files/FileManager';
 // 📥 Import Wizard
 import ImportWizard from '../pages/Import/ImportWizard';
 
+// 🛠️ Teşvik Makine Teçhizat Yönetimi
+import TesvikMakineList from '../pages/TesvikMakine/TesvikMakineList';
+import TesvikMakineDetail from '../pages/TesvikMakine/TesvikMakineDetail';
+import TesvikRaporlar from '../pages/TesvikMakine/TesvikRaporlar';
+import BakanlikMailParser from '../pages/TesvikMakine/BakanlikMailParser';
+import PublicUpload from '../pages/TesvikMakine/PublicUpload';
+
 const AppRouter = () => {
   // 🛡️ Page refresh handler - F5 basınca 404 engelleme
   usePageRefreshHandler();
@@ -67,6 +74,31 @@ const AppRouter = () => {
     <Routes>
       {/* 🔑 Giriş Sayfası */}
       <Route path="/login" element={<Login />} />
+
+      {/* 🌐 Public Evrak Yükleme (token tabanlı, AUTH YOK) */}
+      <Route path="/upload/tesvik/:token" element={<PublicUpload />} />
+
+      {/* 🛠️ Teşvik Makine Teçhizat Yönetimi */}
+      <Route path="/tesvikler" element={
+        <ProtectedRoute>
+          <TesvikMakineList />
+        </ProtectedRoute>
+      } />
+      <Route path="/tesvikler/raporlar" element={
+        <ProtectedRoute>
+          <TesvikRaporlar />
+        </ProtectedRoute>
+      } />
+      <Route path="/tesvikler/bakanlik-mail" element={
+        <ProtectedRoute>
+          <BakanlikMailParser />
+        </ProtectedRoute>
+      } />
+      <Route path="/tesvikler/:tesvikModel/:tesvikId" element={
+        <ProtectedRoute>
+          <TesvikMakineDetail />
+        </ProtectedRoute>
+      } />
 
       {/* 🛡️ Korumalı Rotalar */}
       <Route path="/" element={

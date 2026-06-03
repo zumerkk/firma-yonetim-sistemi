@@ -1,0 +1,34 @@
+// 🔐 UPLOAD TOKEN SERVICE - Tahmin edilemez public yükleme tokenları
+// crypto.randomBytes ile 256-bit token. Süre opsiyonel (UPLOAD_TOKEN_DAYS env veya parametre).
+
+const crypto = require('crypto');
+
+function generateToken() {
+  // 32 byte → 43 karakter base64url (tahmin edilemez)
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+// days verilmezse env'e, o da yoksa null'a (süresiz) düşer
+function computeExpiry(days) {
+  const d = days !== undefined && days !== null && days !== ''
+    ? Number(days)
+    : (process.env.UPLOAD_TOKEN_DAYS ? Number(process.env.UPLOAD_TOKEN_DAYS) : null);
+  if (!d || Number.isNaN(d) || d <= 0) return null; // süresiz
+  const exp = new Date();
+  exp.setDate(exp.getDate() + d);
+  return exp;
+}
+
+function isExpired(expiresAt) {
+  if (!expiresAt) return false; // süresiz
+  return new Date(expiresAt).getTime() < Date.now();
+}
+
+// Public link (frontend route). FRONTEND_URL varsa tam url, yoksa göreli path.
+function buildUploadLink(token) {
+  const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const path = `/upload/tesvik/${token}`;
+  return base ? `${base}${path}` : path;
+}
+
+module.exports = { generateToken, computeExpiry, isExpired, buildUploadLink };

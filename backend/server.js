@@ -42,6 +42,9 @@ const eskiTesvikImportRoutes = require('./routes/eskiTesvikImport'); // 📊 Esk
 const backupRoutes = require('./routes/backup'); // 💾 Sistem Yedekleme
 const ingestRoutes = require('./routes/ingest'); // 🧠 Akıllı veri yükleme (preview/commit)
 const screenshotImportRoutes = require('./routes/screenshotImport'); // 📸 Ekran görüntüsünden teşvik oluşturma
+const tesvikMakineRoutes = require('./routes/tesvikMakine'); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin)
+const tesvikEvrakUploadRoutes = require('./routes/tesvikEvrakUpload'); // 🌐 Teşvik Evrak Public Upload (token)
+const tesvikReminderService = require('./services/tesvikMakine/reminderService'); // ⏰ Makine hatırlatma cron servisi
 
 const app = express();
 // Behind Render/Proxy: trust proxy so rate-limit & req.ip work correctly
@@ -317,6 +320,8 @@ app.use('/api/eski-tesvik-import', eskiTesvikImportRoutes); // 📊 Eski Teşvik
 app.use('/api/backup', backupRoutes); // 💾 Sistem Yedekleme API
 app.use('/api/ingest', ingestRoutes); // 🧠 Akıllı veri yükleme (preview/commit)
 app.use('/api/screenshot-import', screenshotImportRoutes); // 📸 Ekran görüntüsünden teşvik oluşturma
+app.use('/api/tesvik-makine', tesvikMakineRoutes); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin/consultant)
+app.use('/api/tesvik-evrak', tesvikEvrakUploadRoutes); // 🌐 Teşvik Evrak Public Upload (token tabanlı)
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
@@ -374,7 +379,20 @@ const setupCronJobs = () => {
     }
   });
 
-  console.log('⏰ Cron jobs configured - Activity cleanup (02:00) & Backend warm-up (*/10min)');
+  // ⏰ Teşvik Makine Hatırlatma Cron - Her gün 08:00'de vadesi gelmiş hatırlatmaları işler
+  //    (7 gün cevap/durum/dosya yoksa tedarikçi/müşteriye hatırlatma maili gönderir)
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      const summary = await tesvikReminderService.processDueReminders({ now: new Date() });
+      console.log(`⏰ [${new Date().toLocaleString('tr-TR')}] Teşvik hatırlatma: tarandı=${summary.scanned} gönderildi=${summary.sent} atlandı=${summary.skipped} hata=${summary.failed}`);
+    } catch (error) {
+      console.error('🚨 Teşvik hatırlatma cron hatası:', error.message);
+    }
+  }, {
+    timezone: 'Europe/Istanbul'
+  });
+
+  console.log('⏰ Cron jobs configured - Activity cleanup (02:00), Backend warm-up (*/10min) & Teşvik hatırlatma (08:00)');
 };
 
 // 🚀 Server'ı başlat
@@ -393,6 +411,14 @@ const startServer = async () => {
   // 🗄️ MongoDB'ye arka planda bağlan (server port açıldıktan sonra)
   try {
     await connectDB();
+
+    // ✉️ Teşvik Makine mail şablonlarını seed et (DB boşsa varsayılanları ekler)
+    try {
+      const { seedMailTemplates } = require('./services/tesvikMakine/mailTemplateProvider');
+      await seedMailTemplates();
+    } catch (err) {
+      console.error('⚠️ Mail şablonu seed hatası (kritik değil):', err.message);
+    }
 
     // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
     try {
