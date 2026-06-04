@@ -59,3 +59,21 @@ Thumbs.db
 
 # Backup/debug files
 debug_*.js
+
+# Generated reports (uploads)
+/backend/uploads/reports/
+
+# Sample/example document files
+*.docx
+*.pdf
+!PROJE_KAPSAMLI_ANALIZ_RAPORU.pdf
+eski-belge-*
+yeni belge *
+zmk*belge*
+
+# Scratch/debug files
+**/scratch.js
+backend/db_fields.json
+
+# AI assistant configs
+.claude/
