@@ -1,7 +1,7 @@
 // 📋 TEŞVİK MAKİNE LİSTESİ - /tesvikler
 // Dashboard kartları + teşvik belgeleri tablosu (server-side sayfalama + filtre).
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Paper, Grid, Card, CardContent, Typography, TextField, MenuItem, Stack, Chip,
   InputAdornment, IconButton, Tooltip, Snackbar, Alert
@@ -33,7 +33,14 @@ export default function TesvikMakineList() {
   const [loading, setLoading] = useState(false);
   const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
   const [q, setQ] = useState('');
-  const [model, setModel] = useState('');
+  // Belge türü filtresi URL'den türetilir → sidebar'daki eski/yeni grupları ön-filtreli açar
+  const [searchParams, setSearchParams] = useSearchParams();
+  const model = searchParams.get('model') || '';
+  const setModel = (v) => {
+    const sp = new URLSearchParams(searchParams);
+    if (v) sp.set('model', v); else sp.delete('model');
+    setSearchParams(sp, { replace: true });
+  };
   const [snack, setSnack] = useState(null);
 
   const loadDash = useCallback(() => { svc.dashboard().then(setDash).catch(() => {}); }, []);
