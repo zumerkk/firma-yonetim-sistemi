@@ -421,7 +421,7 @@ const TesvikList = () => {
                         </InputAdornment>
                       ),
                     }}
-                    placeholder="Teşvik ID, GM ID veya ünvan ara..."
+                    placeholder="Belge No, Belge ID veya ünvan ara..."
                   />
                 </Grid>
                 
@@ -462,8 +462,7 @@ const TesvikList = () => {
               <Table>
                 <TableHead sx={{ backgroundColor: '#f8fafc' }}>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Teşvik ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>GM ID</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Belge No</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Belge ID</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Yatırımcı Ünvanı</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
@@ -477,7 +476,7 @@ const TesvikList = () => {
                   {loading ? (
                     Array.from({ length: 10 }).map((_, index) => (
                       <TableRow key={index}>
-                        {Array.from({ length: 9 }).map((_, cellIndex) => (
+                        {Array.from({ length: 8 }).map((_, cellIndex) => (
                           <TableCell key={cellIndex}>
                             <Skeleton />
                           </TableCell>
@@ -502,15 +501,9 @@ const TesvikList = () => {
                               🏆
                             </Avatar>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                              {tesvik.tesvikId}
+                              {tesvik.belgeYonetimi?.belgeNo || '-'}
                             </Typography>
                           </Box>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <Typography variant="body2">
-                            {tesvik.gmId}
-                          </Typography>
                         </TableCell>
 
                         <TableCell>
@@ -608,7 +601,7 @@ const TesvikList = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={9}>
+                      <TableCell colSpan={8}>
                         <Alert severity="info">
                           Henüz teşvik kaydı bulunmuyor
                         </Alert>
