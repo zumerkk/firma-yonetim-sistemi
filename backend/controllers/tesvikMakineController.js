@@ -3,12 +3,15 @@
 // Yetki route katmanında uygulanır (read: herkes, write: admin+kullanici, ayar: admin).
 
 const mongoose = require('mongoose');
+const path = require('path');
+const fs = require('fs-extra');
 const Tesvik = require('../models/Tesvik');
 const YeniTesvik = require('../models/YeniTesvik');
 const MachineProcess = require('../models/MachineProcess');
 const MailLog = require('../models/MailLog');
 const MailTemplate = require('../models/MailTemplate');
 const UploadedDocument = require('../models/UploadedDocument');
+const DocumentFolder = require('../models/DocumentFolder');
 const ReminderJob = require('../models/ReminderJob');
 const MachineProcessLog = require('../models/MachineProcessLog');
 
@@ -197,6 +200,7 @@ exports.listCertificates = wrap(async (req, res) => {
 exports.getCertificate = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   getModel(tesvikModel);
+  await resolver.ensureRowIds(tesvikModel, tesvikId); // eski kayıtlarda eksik rowId'leri tamamla
   const cert = await resolver.loadCertificate(tesvikModel, tesvikId, { populateFirma: true });
   if (!cert) { const e = new Error('Teşvik belgesi bulunamadı.'); e.code = 'CERT_NOT_FOUND'; throw e; }
   const identity = resolver.extractCertIdentity(cert);
@@ -261,13 +265,14 @@ exports.ensureProcess = wrap(async (req, res) => {
 
 exports.getProcess = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  const [timeline, mails, docs, reminders] = await Promise.all([
+  const [timeline, mails, docs, reminders, folder] = await Promise.all([
     mps.getTimeline(proc),
     MailLog.find({ machineProcessId: proc._id }).sort({ createdAt: -1 }).limit(200).lean(),
     UploadedDocument.find({ machineProcessId: proc._id }).sort({ createdAt: -1 }).limit(200).lean(),
-    ReminderJob.find({ machineProcessId: proc._id }).sort({ dueAt: -1 }).limit(50).lean()
+    ReminderJob.find({ machineProcessId: proc._id }).sort({ dueAt: -1 }).limit(50).lean(),
+    proc.folderId ? DocumentFolder.findById(proc.folderId).lean() : Promise.resolve(null)
   ]);
-  res.json({ success: true, data: { process: proc, statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders } });
+  res.json({ success: true, data: { process: proc, statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder } });
 });
 
 exports.updateProcessFields = wrap(async (req, res) => {
@@ -351,6 +356,51 @@ exports.adminUpload = wrap(async (req, res) => {
     note: (req.body && req.body.note) || '', originalName: req.file.originalname
   });
   res.json({ success: true, data: doc });
+});
+
+// ───────── EVRAK İNDİR / SİL ─────────
+// İndirme API üzerinden (auth'lu) yapılır: /uploads statik yolu frontend domaininde çözülemiyordu ("Not Found").
+exports.downloadDocument = wrap(async (req, res) => {
+  const doc = await UploadedDocument.findById(req.params.id).lean();
+  if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
+  const abs = doc.filePath ? path.resolve(storageService.absOf(doc.filePath)) : '';
+  const base = path.resolve(storageService.BASE_DIR);
+  if (!abs || !abs.startsWith(base)) {
+    return res.status(403).json({ success: false, message: 'Yetkisiz dosya erişimi.' });
+  }
+  if (!(await fs.pathExists(abs))) {
+    return res.status(404).json({
+      success: false,
+      message: 'Dosya sunucuda bulunamadı. Sunucu yeniden başlatıldığında eski dosyalar silinmiş olabilir (kalıcı disk önerilir).'
+    });
+  }
+  res.download(abs, doc.originalName || doc.fileName);
+});
+
+exports.deleteDocument = wrap(async (req, res) => {
+  const doc = await UploadedDocument.findById(req.params.id);
+  if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
+  // Diskten sil (yoksa sorun değil — kayıt yine kaldırılır)
+  try {
+    const abs = doc.filePath ? path.resolve(storageService.absOf(doc.filePath)) : '';
+    const base = path.resolve(storageService.BASE_DIR);
+    if (abs && abs.startsWith(base) && (await fs.pathExists(abs))) await fs.remove(abs);
+  } catch (err) { console.warn('⚠️ [tesvikMakine] dosya silinemedi:', err && err.message); }
+
+  await doc.deleteOne();
+  if (doc.machineProcessId) {
+    const proc = await MachineProcess.findById(doc.machineProcessId);
+    if (proc) {
+      proc.documentCount = Math.max(0, (proc.documentCount || 0) - 1);
+      await proc.save();
+      await mps.addLog({
+        proc, actionType: 'fields_updated',
+        note: `Evrak silindi: ${doc.originalName || doc.fileName}`,
+        meta: { deletedDocumentId: doc._id, documentType: doc.documentType }, user: req.user
+      });
+    }
+  }
+  res.json({ success: true });
 });
 
 // ───────── TOPLU İŞLEM ─────────

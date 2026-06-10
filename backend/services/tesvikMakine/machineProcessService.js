@@ -135,6 +135,7 @@ async function ensureProcess({ tesvikModel, tesvikId, listType, rowId, user }) {
 
 // /tesvikler/[id]/makineler → tüm makine satırları + (varsa) süreçleri birleşik
 async function listForCertificate({ tesvikModel, tesvikId }) {
+  await resolver.ensureRowIds(tesvikModel, tesvikId); // eski kayıtlarda eksik rowId'leri tamamla
   const cert = await resolver.loadCertificate(tesvikModel, tesvikId, { populateFirma: true });
   if (!cert) { const e = new Error('Teşvik belgesi bulunamadı.'); e.code = 'CERT_NOT_FOUND'; throw e; }
   const identity = resolver.extractCertIdentity(cert);
@@ -180,6 +181,11 @@ async function updateFields(proc, fields = {}, user) {
   if (fields.supplierEmails !== undefined) { proc.supplierEmails = parseEmails(fields.supplierEmails); changed.supplierEmails = proc.supplierEmails; }
   if (fields.supplierCcEmails !== undefined) { proc.supplierCcEmails = parseEmails(fields.supplierCcEmails); changed.supplierCcEmails = proc.supplierCcEmails; }
   if (fields.customerEmails !== undefined) { proc.customerEmails = parseEmails(fields.customerEmails); changed.customerEmails = proc.customerEmails; }
+  // Barkod düzeltme/temizleme — durum akışını TETİKLEMEZ (akış için setBarcode kullanılır)
+  if (fields.barcode !== undefined) {
+    const code = String(fields.barcode || '').trim();
+    if (code !== proc.barcode) { proc.barcode = code; changed.barcode = code || '(temizlendi)'; }
+  }
   proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
   await proc.save();
   if (Object.keys(changed).length) {

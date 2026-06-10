@@ -187,6 +187,44 @@ describe('hatırlatma cron', () => {
   });
 });
 
+describe('rowId backfill (eski kayıtlar)', () => {
+  test('rowId olmayan satırlar tamamlanır ve listelenir', async () => {
+    const resolver = require('../../services/tesvikMakine/certificateResolver');
+    const oldCertId = new ObjectId();
+    // rowId ALANI OLMAYAN eski tarz satırlar
+    await mongoose.connection.collection('tesviks').insertOne({
+      _id: oldCertId, tesvikId: 'TESOLD', gmId: 'GM2', firmaId: 'F2',
+      yatirimciUnvan: 'BAŞARI PLASTİK SAN. A.Ş.',
+      belgeYonetimi: { belgeNo: '111222', belgeId: '333444', belgeTarihi: new Date('2025-05-01') },
+      makineListeleri: {
+        yerli: [{ siraNo: 1, adiVeOzelligi: 'ESKİ MAKİNE 1', miktar: 1, birimFiyatiTl: 10, toplamTutariTl: 10 }],
+        ithal: [{ siraNo: 2, adiVeOzelligi: 'ESKİ MAKİNE 2', miktar: 1, birimFiyatiFob: 20, toplamTutarFobUsd: 20 }]
+      }
+    });
+    const changed = await resolver.ensureRowIds('Tesvik', oldCertId);
+    expect(changed).toBe(true);
+    const { rows } = await mps.listForCertificate({ tesvikModel: 'Tesvik', tesvikId: oldCertId });
+    expect(rows.length).toBe(2);
+    expect(rows.every((r) => r.rowId && r.rowId.length > 0)).toBe(true);
+    // İkinci çağrı no-op olmalı
+    expect(await resolver.ensureRowIds('Tesvik', oldCertId)).toBe(false);
+  });
+});
+
+describe('barkod temizleme (updateFields)', () => {
+  test('barkod akış tetiklemeden düzeltilebilir/temizlenebilir', async () => {
+    const p = await mps.ensureProcess(baseTarget);
+    await mps.setBarcode(p, 'WRONG1', { user, autoSend: false });
+    expect(p.barcode).toBe('WRONG1');
+    const statusAfterFlow = p.status;
+    await mps.updateFields(p, { barcode: '' }, user);
+    expect(p.barcode).toBe('');
+    expect(p.status).toBe(statusAfterFlow); // durum değişmedi
+    await mps.updateFields(p, { barcode: 'RIGHT2' }, user);
+    expect(p.barcode).toBe('RIGHT2');
+  });
+});
+
 describe('bakanlık mail parser eşleştirme', () => {
   test('eşleşen mail → match + doğru rowId', async () => {
     const body = 'Belge No: 518097 Belge Id: 1023736 Makine Adı: NST CİHAZI Gtip No: 901812000000 Barkod: zzz';

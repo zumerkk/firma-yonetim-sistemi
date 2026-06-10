@@ -46,6 +46,10 @@ router.post('/bulk', editor, ctrl.bulk);
 // Mail yeniden gönder
 router.post('/mail/:mailLogId/resend', editor, ctrl.resendMail);
 
+// Evrak indir (auth'lu proxy) & sil
+router.get('/document/:id/download', ctrl.downloadDocument);
+router.delete('/document/:id', editor, ctrl.deleteDocument);
+
 // Sertifika (teşvik belgesi) listesi & detayları
 router.get('/certificates', ctrl.listCertificates);
 router.get('/certificates/:tesvikModel/:tesvikId', ctrl.getCertificate);

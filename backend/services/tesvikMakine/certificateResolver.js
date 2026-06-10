@@ -1,6 +1,7 @@
 // 🧭 CERTIFICATE RESOLVER - Mevcut Tesvik/YeniTesvik gömülü verisini okur
 // Süreç katmanı makine MASTER verisini buradan çözer (rowId ile). Tek doğruluk kaynağı = gömülü satır.
 
+const mongoose = require('mongoose');
 const Tesvik = require('../../models/Tesvik');
 const YeniTesvik = require('../../models/YeniTesvik');
 let Firma; try { Firma = require('../../models/Firma'); } catch (_) { Firma = null; }
@@ -29,6 +30,29 @@ async function loadCertificate(tesvikModel, tesvikId, { populateFirma = false } 
   if (populateFirma && Firma) q = q.populate('firma', 'tamUnvan vergiNoTC adres firmaEmail');
   const cert = await q.lean();
   return cert;
+}
+
+// 🩹 rowId backfill — rowId alanı şemaya eklenmeden önce kaydedilmiş makine satırlarında
+// rowId yoktur; bu satırlar süreç katmanında adreslenemez/listelenemez. Eksikleri yerinde üretir.
+// Pre-save hook'larını (mali hesaplama vb.) tetiklememek için doğrudan $set ile yazar. Asla throw etmez.
+async function ensureRowIds(tesvikModel, tesvikId) {
+  try {
+    const M = modelFor(tesvikModel);
+    const cert = await M.findById(tesvikId).select('makineListeleri').lean();
+    if (!cert || !cert.makineListeleri) return false;
+    const sets = {};
+    for (const key of ['yerli', 'ithal']) {
+      (cert.makineListeleri[key] || []).forEach((row, i) => {
+        if (!row.rowId) sets[`makineListeleri.${key}.${i}.rowId`] = new mongoose.Types.ObjectId().toString();
+      });
+    }
+    if (!Object.keys(sets).length) return false;
+    await M.collection.updateOne({ _id: cert._id }, { $set: sets });
+    return true;
+  } catch (err) {
+    console.warn('⚠️ [tesvikMakine] rowId backfill atlandı:', err && err.message);
+    return false;
+  }
 }
 
 // Belge kimliği (snapshot + placeholder kaynağı)
@@ -140,6 +164,7 @@ module.exports = {
   modelFor,
   formatDateTR,
   loadCertificate,
+  ensureRowIds,
   extractCertIdentity,
   listFor,
   findMachineRow,

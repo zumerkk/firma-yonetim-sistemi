@@ -10,6 +10,16 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import svc from '../../services/tesvikMakineService';
 import { listTypeLabel } from './helpers';
 
+// Component DIŞINDA tanımlı olmalı: içeride tanımlanırsa her render'da yeni component
+// kimliği oluşur, alt ağaç remount olur ve input her tuşta focus kaybeder.
+function Wrapper({ children }) {
+  return (
+    <Box sx={{ minHeight: '100vh', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+      <Paper sx={{ p: { xs: 3, sm: 4 }, maxWidth: 520, width: '100%' }}>{children}</Paper>
+    </Box>
+  );
+}
+
 export default function PublicUpload() {
   const { token } = useParams();
   const [info, setInfo] = useState(null);
@@ -49,12 +59,6 @@ export default function PublicUpload() {
       setSubmitError(err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
     } finally { setSubmitting(false); }
   };
-
-  const Wrapper = ({ children }) => (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Paper sx={{ p: { xs: 3, sm: 4 }, maxWidth: 520, width: '100%' }}>{children}</Paper>
-    </Box>
-  );
 
   if (loading) return <Wrapper><Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress /></Box></Wrapper>;
   if (error) return <Wrapper><Alert severity="error">{error}</Alert></Wrapper>;
