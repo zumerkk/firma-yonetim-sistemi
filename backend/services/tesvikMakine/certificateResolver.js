@@ -160,11 +160,35 @@ function buildPlaceholderData({ process: proc, identity, signature, uploadLink, 
   };
 }
 
+// 🔁 Mükerrer belge ayıklama (liste görünümü için)
+// Aynı belgeNo+belgeId çifti birden fazla kayıtta varsa yalnızca KANONİK olanı gösterilir:
+// tercih sırası → YeniTesvik > Tesvik, sonra makinesi olan, sonra en yeni kayıt.
+// belgeNo VE belgeId ikisi de boşsa kayıt tekilleştirilmez (taslaklar birbirini gizlemesin).
+function dedupeCertificateRows(rows) {
+  const score = (r) =>
+    (r.tesvikModel === 'YeniTesvik' ? 100 : 0) +
+    (((r.localCount || 0) + (r.importCount || 0)) > 0 ? 10 : 0);
+  const newer = (a, b) => new Date(a.createdAt || 0) >= new Date(b.createdAt || 0);
+  const keep = new Map();
+  for (const r of rows) {
+    const no = String(r.belgeNo || '').trim();
+    const id = String(r.belgeId || '').trim();
+    if (!no && !id) { keep.set(`uniq:${r.tesvikModel}:${r._id}`, r); continue; }
+    const key = `${no}|${id}`;
+    const prev = keep.get(key);
+    if (!prev || score(r) > score(prev) || (score(r) === score(prev) && newer(r, prev))) {
+      keep.set(key, r);
+    }
+  }
+  return Array.from(keep.values());
+}
+
 module.exports = {
   modelFor,
   formatDateTR,
   loadCertificate,
   ensureRowIds,
+  dedupeCertificateRows,
   extractCertIdentity,
   listFor,
   findMachineRow,

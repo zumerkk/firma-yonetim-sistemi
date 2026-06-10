@@ -132,6 +132,49 @@ describe('uploadTokenService - güvenlik', () => {
   });
 });
 
+describe('dedupeCertificateRows - mükerrer belge ayıklama', () => {
+  const { dedupeCertificateRows } = require('../../services/tesvikMakine/certificateResolver');
+  const row = (o) => ({ _id: o.id, tesvikModel: 'Tesvik', belgeNo: '604372', belgeId: '1106317', localCount: 0, importCount: 0, createdAt: new Date('2026-01-01'), ...o });
+
+  test('aynı belgeNo+belgeId → YeniTesvik tercih edilir (BAŞARI PLASTİK senaryosu)', () => {
+    const rows = [
+      row({ id: 'eski1', tesvikModel: 'Tesvik', localCount: 5 }),
+      row({ id: 'eski2', tesvikModel: 'Tesvik' }),
+      row({ id: 'yeni1', tesvikModel: 'YeniTesvik' }) // TES20260019 — makinesi olmasa bile kanonik
+    ];
+    const out = dedupeCertificateRows(rows);
+    expect(out.length).toBe(1);
+    expect(out[0]._id).toBe('yeni1');
+  });
+
+  test('aynı model içinde makinesi olan > boş taslak; eşitse en yeni kazanır', () => {
+    const rows = [
+      row({ id: 'a', localCount: 3, createdAt: new Date('2026-01-01') }),
+      row({ id: 'bos-taslak', createdAt: new Date('2026-03-01') }),
+      row({ id: 'b', localCount: 2, createdAt: new Date('2026-02-01') })
+    ];
+    const out = dedupeCertificateRows(rows);
+    expect(out.length).toBe(1);
+    expect(out[0]._id).toBe('b'); // makineli + daha yeni
+  });
+
+  test('belgeNo ve belgeId ikisi de boşsa tekilleştirilmez', () => {
+    const rows = [
+      row({ id: 't1', belgeNo: '', belgeId: '' }),
+      row({ id: 't2', belgeNo: '', belgeId: '' })
+    ];
+    expect(dedupeCertificateRows(rows).length).toBe(2);
+  });
+
+  test('farklı belgeler birbirini gizlemez', () => {
+    const rows = [
+      row({ id: 'x', belgeNo: '111' , belgeId: 'A'}),
+      row({ id: 'y', belgeNo: '222', belgeId: 'B' })
+    ];
+    expect(dedupeCertificateRows(rows).length).toBe(2);
+  });
+});
+
 describe('status constants - tek merkez', () => {
   test('17 durum + geçerlilik', () => {
     expect(status.STATUS_VALUES.length).toBe(17);

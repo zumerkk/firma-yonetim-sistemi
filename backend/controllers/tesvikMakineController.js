@@ -120,7 +120,7 @@ function certAggPipeline(match) {
   return [
     { $match: match },
     { $project: {
-      tesvikId: 1, yatirimciUnvan: 1,
+      tesvikId: 1, yatirimciUnvan: 1, createdAt: 1,
       belgeNo: '$belgeYonetimi.belgeNo', belgeId: '$belgeYonetimi.belgeId', belgeTarihi: '$belgeYonetimi.belgeTarihi',
       yatirimKonusu: '$yatirimBilgileri.yatirimKonusu',
       localCount: { $size: { $ifNull: ['$makineListeleri.yerli', []] } },
@@ -151,7 +151,9 @@ exports.listCertificates = wrap(async (req, res) => {
   const tasks = [];
   if (!wantModel || wantModel === 'Tesvik') tasks.push(Tesvik.aggregate(certAggPipeline(match)).then((r) => r.map((x) => ({ ...x, tesvikModel: 'Tesvik' }))));
   if (!wantModel || wantModel === 'YeniTesvik') tasks.push(YeniTesvik.aggregate(certAggPipeline(match)).then((r) => r.map((x) => ({ ...x, tesvikModel: 'YeniTesvik' }))));
-  const merged = (await Promise.all(tasks)).flat();
+  // Aynı belgeNo+belgeId'ye sahip mükerrer kayıtlardan yalnızca kanonik olanı göster
+  // (müşteri talebi: "Belge no olarak 1 tane olması yeterli")
+  const merged = resolver.dedupeCertificateRows((await Promise.all(tasks)).flat());
   merged.sort((a, b) => new Date(b.belgeTarihi || 0) - new Date(a.belgeTarihi || 0));
 
   const total = merged.length;
