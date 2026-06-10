@@ -5,9 +5,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, TextField, MenuItem,
   Switch, FormControlLabel, Box, Typography, Divider, Chip, IconButton, Snackbar, Alert,
-  CircularProgress, List, ListItem, ListItemText, Tooltip, InputAdornment, Stack
+  CircularProgress, List, ListItem, ListItemText, Tooltip, InputAdornment, Stack,
+  Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+import ClearIcon from '@mui/icons-material/Clear';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import QrCode2Icon from '@mui/icons-material/QrCode2';
 import SaveIcon from '@mui/icons-material/Save';
@@ -18,7 +22,7 @@ import FolderIcon from '@mui/icons-material/CreateNewFolder';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import svc from '../../services/tesvikMakineService';
-import { StatusChip, formatDate, formatMoney, listTypeLabel } from './helpers';
+import { StatusChip, formatDate, formatMoney, listTypeLabel, actionLabel } from './helpers';
 
 const emptyForm = {
   barcode: '', supplierCompanyName: '', supplierTaxNumber: '', supplierEmails: '', supplierCcEmails: '',
@@ -33,6 +37,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const [proc, setProc] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [timeline, setTimeline] = useState([]);
+  const [folderInfo, setFolderInfo] = useState(null);
   const [uploadLink, setUploadLink] = useState('');
   const [templateCode, setTemplateCode] = useState('');
   const [preview, setPreview] = useState(null);
@@ -61,12 +66,13 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
 
   useEffect(() => {
     if (!open || !target) return;
-    setLoading(true); setUploadLink(''); setPreview(null);
+    setLoading(true); setUploadLink(''); setPreview(null); setFolderInfo(null);
     svc.ensureProcess({ tesvikModel: target.tesvikModel, tesvikId: target.tesvikId, listType: target.listType, rowId: target.rowId })
       .then(async (p) => {
         hydrate(p);
         const full = await svc.getProcess(p._id);
         setTimeline(full.timeline || []);
+        setFolderInfo(full.folder || null);
         setProc(full.process); hydrate(full.process);
       })
       .catch((e) => notify(errMsg(e), 'error'))
@@ -75,7 +81,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   }, [open, target]);
 
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
-  const reloadTimeline = async (id) => { try { const f = await svc.getProcess(id); setTimeline(f.timeline || []); setProc(f.process); } catch (_) {} };
+  const reloadTimeline = async (id) => { try { const f = await svc.getProcess(id); setTimeline(f.timeline || []); setFolderInfo(f.folder || null); setProc(f.process); } catch (_) {} };
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setSwitch = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
@@ -131,8 +137,17 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
 
   const doFolders = async () => {
     setBusy('folder');
-    try { const f = await svc.ensureFolders(proc._id); notify('Klasör oluşturuldu: ' + f.folderPath); reloadTimeline(proc._id); }
+    try { const f = await svc.ensureFolders(proc._id); setFolderInfo(f); notify('Evrak klasörü hazır'); reloadTimeline(proc._id); }
     catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+
+  // Barkodu akış tetiklemeden temizle (yanlış girildiyse)
+  const doClearBarcode = async () => {
+    setBusy('barcode');
+    try {
+      const updated = await svc.updateFields(proc._id, { barcode: '' });
+      hydrate(updated); notify('Barkod temizlendi'); reloadTimeline(proc._id); onChanged && onChanged();
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
   const doUpload = async (e) => {
@@ -194,7 +209,16 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth size="small" label="Barkod / Otomasyon Kodu" value={form.barcode} onChange={setField('barcode')}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><QrCode2Icon fontSize="small" /></InputAdornment> }} />
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start"><QrCode2Icon fontSize="small" /></InputAdornment>,
+                    endAdornment: (proc.barcode || form.barcode) ? (
+                      <InputAdornment position="end">
+                        <Tooltip title="Barkodu temizle">
+                          <IconButton size="small" onClick={doClearBarcode} disabled={busy === 'barcode'}><ClearIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                      </InputAdornment>
+                    ) : null
+                  }} />
               </Grid>
               <Grid item xs={12} sm={3}>
                 <FormControlLabel control={<Switch checked={form.autoSendEnabled} onChange={setSwitch('autoSendEnabled')} />} label="Otomatik gönder" />
@@ -271,25 +295,41 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
                 <Tooltip title="Kopyala"><IconButton onClick={copyLink}><ContentCopyIcon /></IconButton></Tooltip>
               </Box>
             )}
+            {folderInfo?.folderPath && (
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <FolderOpenIcon fontSize="small" color="action" />
+                <Typography variant="caption" color="text.secondary">
+                  Evrak klasörü (sunucuda): <b>{folderInfo.folderPath}</b> — yüklenen dosyalar bu yapıda saklanır, "Evraklar" sekmesinden erişilir.
+                </Typography>
+              </Box>
+            )}
             {proc.nextReminderAt && !proc.reminderStopped && (
               <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                 Sonraki hatırlatma: {formatDate(proc.nextReminderAt, true)}
               </Typography>
             )}
 
-            {/* Timeline */}
-            <SectionTitle>İşlem Geçmişi</SectionTitle>
-            <List dense sx={{ maxHeight: 220, overflow: 'auto', bgcolor: '#fafafa', borderRadius: 1 }}>
-              {timeline.length === 0 && <ListItem><ListItemText secondary="Henüz kayıt yok" /></ListItem>}
-              {timeline.map((t) => (
-                <ListItem key={t.id} divider>
-                  <ListItemText
-                    primary={`${actionLabel(t.actionType)}${t.newStatusLabel ? ' → ' + t.newStatusLabel : ''}`}
-                    secondary={`${formatDate(t.at, true)} · ${t.by}${t.note ? ' · ' + t.note : ''}`}
-                  />
-                </ListItem>
-              ))}
-            </List>
+            {/* Timeline — varsayılan kapalı (yer kaplamasın) */}
+            <Accordion disableGutters sx={{ mt: 2, bgcolor: '#fafafa' }} defaultExpanded={false}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#334155' }}>
+                  İşlem Geçmişi ({timeline.length})
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0 }}>
+                <List dense sx={{ maxHeight: 240, overflow: 'auto' }}>
+                  {timeline.length === 0 && <ListItem><ListItemText secondary="Henüz kayıt yok" /></ListItem>}
+                  {timeline.map((t) => (
+                    <ListItem key={t.id} divider>
+                      <ListItemText
+                        primary={`${actionLabel(t.actionType)}${t.newStatusLabel ? ' → ' + t.newStatusLabel : ''}`}
+                        secondary={`${formatDate(t.at, true)} · ${t.by}${t.note ? ' · ' + t.note : ''}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </AccordionDetails>
+            </Accordion>
           </Box>
         )}
       </DialogContent>
@@ -334,13 +374,4 @@ function Info({ label, value, xs, sm }) {
 }
 function SectionTitle({ children }) {
   return <><Divider sx={{ my: 2 }} /><Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, color: '#334155' }}>{children}</Typography></>;
-}
-function actionLabel(a) {
-  const map = {
-    created: 'Süreç başlatıldı', status_change: 'Durum değişti', mail_draft: 'Mail taslağı', mail_sent: 'Mail gönderildi',
-    mail_failed: 'Mail başarısız', reminder_sent: 'Hatırlatma gönderildi', reminder_stopped: 'Hatırlatma durduruldu',
-    document_uploaded: 'Evrak yüklendi', folder_created: 'Klasör oluşturuldu', upload_link_created: 'Upload link üretildi',
-    note_added: 'Not eklendi', barcode_entered: 'Otomasyon kodu girildi', parser_matched: 'Mail eşleşti', fields_updated: 'Bilgiler güncellendi'
-  };
-  return map[a] || a;
 }

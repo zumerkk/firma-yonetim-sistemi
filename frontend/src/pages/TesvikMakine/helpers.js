@@ -40,6 +40,45 @@ export function listTypeLabel(lt) {
   return lt === 'import' ? 'İthal' : 'Yerli';
 }
 
+// 🇹🇷 Sistem kodları → Türkçe etiketler (müşteri geri bildirimi: İngilizce/alt-çizgili kodlar kafa karıştırıyor)
+export const MAIL_STATUS_TR = { draft: 'Taslak', sent: 'Gönderildi', failed: 'Başarısız' };
+export const REMINDER_STATUS_TR = { pending: 'Bekliyor', sent: 'Gönderildi', skipped: 'Atlandı', failed: 'Başarısız' };
+export const UPLOADER_TR = { admin: 'Personel', customer: 'Müşteri', supplier: 'Tedarikçi' };
+export const DOC_TYPE_TR = {
+  kdv_muafiyet: 'KDV Muafiyet Yazısı', proforma_teklif: 'Proforma / Teklif', fatura_taslak: 'Fatura Taslağı',
+  fatura_onayli: 'Onaylı Fatura', sevk_teslimat: 'Sevk / Teslimat', diger: 'Diğer'
+};
+export const TEMPLATE_TR = {
+  supplier_verification_invoice_instruction: 'Tedarikçi Doğrulama / Fatura Yönergesi',
+  customer_document_request: 'Müşteri Evrak Talebi',
+  supplier_info_request: 'Tedarikçi Bilgi / GTİP Talebi',
+  reminder_no_response: 'Hatırlatma (Cevapsız)',
+  invoice_draft_approved: 'Fatura Taslağı Onayı'
+};
+const ACTION_TR = {
+  created: 'Süreç başlatıldı', status_change: 'Durum değişti', mail_draft: 'Mail taslağı oluşturuldu',
+  mail_sent: 'Mail gönderildi', mail_failed: 'Mail gönderilemedi', reminder_sent: 'Hatırlatma gönderildi',
+  reminder_stopped: 'Hatırlatma durduruldu', document_uploaded: 'Evrak yüklendi', folder_created: 'Klasör oluşturuldu',
+  upload_link_created: 'Yükleme linki üretildi', note_added: 'Not eklendi', barcode_entered: 'Otomasyon kodu girildi',
+  parser_matched: 'Bakanlık maili eşleşti', fields_updated: 'Bilgiler güncellendi'
+};
+export function actionLabel(a) { return ACTION_TR[a] || a; }
+export function mailStatusLabel(s) { return MAIL_STATUS_TR[s] || s; }
+export function templateLabel(code) { return TEMPLATE_TR[code] || code; }
+export function docTypeLabel(k) { return DOC_TYPE_TR[k] || k; }
+export function uploaderLabel(t) { return UPLOADER_TR[t] || t; }
+export function reminderStatusLabel(s) { return REMINDER_STATUS_TR[s] || s; }
+
+// 📥 axios blob cevabını dosya olarak indir
+export function saveBlobResponse(res, fallbackName = 'dosya') {
+  const blob = new Blob([res.data]);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fallbackName;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // 📤 Basit CSV export (bağımlılıksız, Türkçe/Excel uyumlu — BOM + ; ayraç)
 export function exportCsv(filename, columns, rows) {
   const esc = (v) => {

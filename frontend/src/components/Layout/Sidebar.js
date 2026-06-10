@@ -110,10 +110,10 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
     {
       text: 'Makine Teçhizat Takip',
       icon: <EmojiEventsIcon />,
-      path: '/tesvikler?model=Tesvik',
+      path: '/tesvikler',
       color: '#7c3aed',
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Süreç, mail, evrak ve hatırlatma takibi',
+      description: 'Süreç, mail, evrak ve hatırlatma takibi (eski + yeni)',
       isNew: true
     },
     {
@@ -170,31 +170,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
       description: 'Makine/Teçhizat kayıt ve yönetimi',
       isNew: true
-    },
-    {
-      text: 'Makine Teçhizat Takip',
-      icon: <EmojiEventsIcon />,
-      path: '/tesvikler?model=YeniTesvik',
-      color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Süreç, mail, evrak ve hatırlatma takibi',
-      isNew: true
-    },
-    {
-      text: 'Makine Raporları',
-      icon: <ListIcon />,
-      path: '/tesvikler/raporlar',
-      color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Firma/tedarikçi/KDV/fatura raporları'
-    },
-    {
-      text: 'Bakanlık Mail Ayrıştırma',
-      icon: <ImportExportIcon />,
-      path: '/tesvikler/bakanlik-mail',
-      color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Gelen makine talebi mailini ayrıştır/bağla'
     }
   ];
 

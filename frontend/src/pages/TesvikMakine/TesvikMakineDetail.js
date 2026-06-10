@@ -13,7 +13,10 @@ import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import MakineDetailModal from './MakineDetailModal';
-import { StatusChip, formatDate, formatMoney, listTypeLabel } from './helpers';
+import {
+  StatusChip, formatDate, formatMoney, listTypeLabel,
+  mailStatusLabel, templateLabel, docTypeLabel, uploaderLabel, reminderStatusLabel, actionLabel, saveBlobResponse
+} from './helpers';
 
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
@@ -244,10 +247,27 @@ export default function TesvikMakineDetail() {
               columns={[
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
                 { field: 'originalName', headerName: 'Dosya', flex: 1, minWidth: 200 },
-                { field: 'documentType', headerName: 'Tür', width: 140 },
-                { field: 'uploadedByType', headerName: 'Yükleyen', width: 110 },
+                { field: 'documentType', headerName: 'Tür', width: 160, valueGetter: (p) => docTypeLabel(p.row.documentType) },
+                { field: 'uploadedByType', headerName: 'Yükleyen', width: 110, valueGetter: (p) => uploaderLabel(p.row.uploadedByType) },
                 { field: 'uploaderName', headerName: 'Ad', width: 140 },
-                { field: 'fileUrl', headerName: 'Aç', width: 80, renderCell: (p) => p.value ? <Button size="small" href={p.value} target="_blank">Aç</Button> : '-' }
+                {
+                  field: 'islem', headerName: 'İşlem', width: 150, sortable: false, renderCell: (p) => (
+                    <Stack direction="row" spacing={0.5}>
+                      <Button size="small" onClick={async () => {
+                        try { const res = await svc.downloadDocument(p.row._id); saveBlobResponse(res, p.row.originalName || p.row.fileName); }
+                        catch (e) {
+                          const msg = e?.response?.data instanceof Blob ? 'Dosya sunucuda bulunamadı.' : (e?.response?.data?.message || 'Dosya indirilemedi');
+                          notify(msg, 'error');
+                        }
+                      }}>İndir</Button>
+                      <Button size="small" color="error" onClick={async () => {
+                        if (!window.confirm(`"${p.row.originalName || p.row.fileName}" silinsin mi?`)) return;
+                        try { await svc.deleteDocument(p.row._id); notify('Evrak silindi'); setDocs(null); svc.getCertDocuments(tesvikModel, tesvikId).then(setDocs); }
+                        catch (e) { notify(e?.response?.data?.message || 'Silinemedi', 'error'); }
+                      }}>Sil</Button>
+                    </Stack>
+                  )
+                }
               ]} density="compact" disableRowSelectionOnClick />
           </Paper>
         )}
@@ -260,8 +280,8 @@ export default function TesvikMakineDetail() {
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
                 { field: 'subject', headerName: 'Konu', flex: 1, minWidth: 220 },
                 { field: 'toEmails', headerName: 'Kime', width: 200, valueGetter: (p) => (p.row.toEmails || []).join(', ') },
-                { field: 'templateCode', headerName: 'Şablon', width: 180 },
-                { field: 'status', headerName: 'Durum', width: 110, renderCell: (p) => <Chip size="small" label={p.value} color={p.value === 'sent' ? 'success' : p.value === 'failed' ? 'error' : 'default'} /> },
+                { field: 'templateCode', headerName: 'Şablon', width: 200, valueGetter: (p) => templateLabel(p.row.templateCode) },
+                { field: 'status', headerName: 'Durum', width: 110, renderCell: (p) => <Chip size="small" label={mailStatusLabel(p.value)} color={p.value === 'sent' ? 'success' : p.value === 'failed' ? 'error' : 'default'} /> },
                 { field: 'resend', headerName: '', width: 110, sortable: false, renderCell: (p) => (p.row.status !== 'sent') ? <Button size="small" onClick={async () => { try { await svc.resendMail(p.row._id); notify('Yeniden gönderildi'); setMails(null); } catch (e) { notify(e?.response?.data?.message || 'Hata', 'error'); } }}>Tekrar Gönder</Button> : null }
               ]} density="compact" disableRowSelectionOnClick />
           </Paper>
@@ -273,9 +293,9 @@ export default function TesvikMakineDetail() {
             <DataGrid rows={reminders?.jobs || []} loading={reminders === null} getRowId={(r) => r._id}
               columns={[
                 { field: 'dueAt', headerName: 'Vade', width: 150, valueGetter: (p) => formatDate(p.row.dueAt, true) },
-                { field: 'status', headerName: 'Durum', width: 120, renderCell: (p) => <Chip size="small" label={p.value} color={p.value === 'sent' ? 'success' : p.value === 'failed' ? 'error' : p.value === 'skipped' ? 'default' : 'info'} /> },
-                { field: 'reminderType', headerName: 'Tür', width: 160 },
-                { field: 'skipReason', headerName: 'Atlama Nedeni', flex: 1, minWidth: 160 },
+                { field: 'status', headerName: 'Durum', width: 120, renderCell: (p) => <Chip size="small" label={reminderStatusLabel(p.value)} color={p.value === 'sent' ? 'success' : p.value === 'failed' ? 'error' : p.value === 'skipped' ? 'default' : 'info'} /> },
+                { field: 'reminderType', headerName: 'Tür', width: 160, valueGetter: () => 'Cevapsız Hatırlatma' },
+                { field: 'skipReason', headerName: 'Atlama Nedeni', flex: 1, minWidth: 160, valueGetter: (p) => skipReasonLabel(p.row.skipReason) },
                 { field: 'sentAt', headerName: 'Gönderim', width: 150, valueGetter: (p) => formatDate(p.row.sentAt, true) }
               ]} density="compact" disableRowSelectionOnClick />
           </Paper>
@@ -287,7 +307,7 @@ export default function TesvikMakineDetail() {
             <DataGrid rows={timeline || []} loading={timeline === null} getRowId={(r) => r._id}
               columns={[
                 { field: 'createdAt', headerName: 'Tarih', width: 160, valueGetter: (p) => formatDate(p.row.createdAt, true) },
-                { field: 'actionType', headerName: 'İşlem', width: 170 },
+                { field: 'actionType', headerName: 'İşlem', width: 200, valueGetter: (p) => actionLabel(p.row.actionType) },
                 { field: 'newStatusLabel', headerName: 'Yeni Durum', width: 200 },
                 { field: 'note', headerName: 'Not', flex: 1, minWidth: 200 },
                 { field: 'performedByLabel', headerName: 'Yapan', width: 160 }
@@ -304,6 +324,16 @@ export default function TesvikMakineDetail() {
       </Snackbar>
     </LayoutWrapper>
   );
+}
+
+function skipReasonLabel(r) {
+  if (!r) return '';
+  if (r === 'response_detected') return 'Cevap algılandı';
+  if (r === 'manual_stop') return 'Elle durduruldu';
+  if (r === 'reminder_stopped') return 'Hatırlatma kapalı';
+  if (r === 'process_missing') return 'Süreç bulunamadı';
+  if (r.startsWith('status:')) return 'Süreç kapandı';
+  return r;
 }
 
 function Field({ label, value, md }) {

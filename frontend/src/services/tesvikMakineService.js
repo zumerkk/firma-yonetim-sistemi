@@ -35,6 +35,10 @@ const tesvikMakineService = {
   stopReminders: (id) => api.post(`${base}/process/${id}/reminders/stop`).then(d),
   resumeReminders: (id) => api.post(`${base}/process/${id}/reminders/resume`).then(d),
 
+  // Evrak indir (auth'lu blob) & sil
+  downloadDocument: (id) => api.get(`${base}/document/${id}/download`, { responseType: 'blob' }),
+  deleteDocument: (id) => api.delete(`${base}/document/${id}`).then((r) => r.data),
+
   // Toplu işlem & raporlar
   bulk: (body) => api.post(`${base}/bulk`, body).then(d),
   reports: (type) => api.get(`${base}/reports/${type}`).then(d),
