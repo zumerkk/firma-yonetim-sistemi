@@ -60,6 +60,7 @@ export default function TesvikMakineList() {
 
   const columns = [
     { field: 'firmaAdi', headerName: 'Firma', flex: 1, minWidth: 220 },
+    { field: 'tesvikKodu', headerName: 'Teşvik ID', width: 130, valueGetter: (p) => p.row.tesvikKodu || '-' },
     { field: 'belgeNo', headerName: 'Belge No', width: 110 },
     { field: 'belgeId', headerName: 'Belge ID', width: 110 },
     { field: 'belgeTarihi', headerName: 'Tarih', width: 110, valueGetter: (p) => formatDate(p.row.belgeTarihi) },

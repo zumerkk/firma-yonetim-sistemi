@@ -280,7 +280,9 @@ const getTesvikler = async (req, res) => {
         { tesvikId: turkishRegex },
         { gmId: turkishRegex },
         { yatirimciUnvan: turkishRegex },
-        { 'yatirimBilgileri.yatirimKonusu': turkishRegex }
+        { 'yatirimBilgileri.yatirimKonusu': turkishRegex },
+        { 'belgeYonetimi.belgeId': turkishRegex },
+        { 'belgeYonetimi.belgeNo': turkishRegex }
       ];
     }
 

@@ -464,6 +464,7 @@ const TesvikList = () => {
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Teşvik ID</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>GM ID</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Belge ID</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Yatırımcı Ünvanı</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>İl</TableCell>
@@ -476,7 +477,7 @@ const TesvikList = () => {
                   {loading ? (
                     Array.from({ length: 10 }).map((_, index) => (
                       <TableRow key={index}>
-                        {Array.from({ length: 8 }).map((_, cellIndex) => (
+                        {Array.from({ length: 9 }).map((_, cellIndex) => (
                           <TableCell key={cellIndex}>
                             <Skeleton />
                           </TableCell>
@@ -511,7 +512,13 @@ const TesvikList = () => {
                             {tesvik.gmId}
                           </Typography>
                         </TableCell>
-                        
+
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {tesvik.belgeYonetimi?.belgeId || '-'}
+                          </Typography>
+                        </TableCell>
+
                         <TableCell>
                           <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
                             {tesvik.yatirimciUnvan}
@@ -601,7 +608,7 @@ const TesvikList = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7}>
+                      <TableCell colSpan={9}>
                         <Alert severity="info">
                           Henüz teşvik kaydı bulunmuyor
                         </Alert>
