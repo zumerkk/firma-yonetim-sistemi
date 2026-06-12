@@ -18,7 +18,7 @@ class NotificationService {
     try {
       // Email (SMTP) Configuration
       if (process.env.SMTP_HOST && process.env.SMTP_USER) {
-        this.emailTransporter = nodemailer.createTransporter({
+        this.emailTransporter = nodemailer.createTransport({
           host: process.env.SMTP_HOST,
           port: process.env.SMTP_PORT || 587,
           secure: process.env.SMTP_SECURE === 'true',

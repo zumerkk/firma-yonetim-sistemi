@@ -361,32 +361,19 @@ exports.adminUpload = wrap(async (req, res) => {
 });
 
 // ───────── EVRAK İNDİR / SİL ─────────
-// İndirme API üzerinden (auth'lu) yapılır: /uploads statik yolu frontend domaininde çözülemiyordu ("Not Found").
+// İndirme API üzerinden (auth'lu) yapılır. Cloudinary dosyaları redirect, local dosyalar sendFile ile servis edilir.
 exports.downloadDocument = wrap(async (req, res) => {
   const doc = await UploadedDocument.findById(req.params.id).lean();
   if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
-  const abs = doc.filePath ? path.resolve(storageService.absOf(doc.filePath)) : '';
-  const base = path.resolve(storageService.BASE_DIR);
-  if (!abs || !abs.startsWith(base)) {
-    return res.status(403).json({ success: false, message: 'Yetkisiz dosya erişimi.' });
-  }
-  if (!(await fs.pathExists(abs))) {
-    return res.status(404).json({
-      success: false,
-      message: 'Dosya sunucuda bulunamadı. Sunucu yeniden başlatıldığında eski dosyalar silinmiş olabilir (kalıcı disk önerilir).'
-    });
-  }
-  res.download(abs, doc.originalName || doc.fileName);
+  return storageService.serveFile(doc, res);
 });
 
 exports.deleteDocument = wrap(async (req, res) => {
   const doc = await UploadedDocument.findById(req.params.id);
   if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
-  // Diskten sil (yoksa sorun değil — kayıt yine kaldırılır)
+  // Depolama sağlayıcıdan sil (Cloudinary veya local disk)
   try {
-    const abs = doc.filePath ? path.resolve(storageService.absOf(doc.filePath)) : '';
-    const base = path.resolve(storageService.BASE_DIR);
-    if (abs && abs.startsWith(base) && (await fs.pathExists(abs))) await fs.remove(abs);
+    await storageService.deleteFile(doc);
   } catch (err) { console.warn('⚠️ [tesvikMakine] dosya silinemedi:', err && err.message); }
 
   await doc.deleteOne();
