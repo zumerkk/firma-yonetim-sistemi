@@ -27,8 +27,12 @@ const MACHINE_SUBFOLDERS = ['KDV_Muafiyet', 'Proforma_Teklif', 'Fatura_Taslak', 
 // ────────── Cloudinary yapılandırma ──────────
 let _cloudinaryConfigured = false;
 
+// Teşvik makine evrak depolama için Cloudinary aktif mi?
+// CLOUDINARY_STORAGE_ENABLED=true olmalı + credentials tam olmalı.
+// (dosyaTakip modülü kendi Cloudinary config'ini kullanır, bu toggle ona etki etmez)
 function isCloudinaryConfigured() {
   return Boolean(
+    envBool(process.env.CLOUDINARY_STORAGE_ENABLED, false) &&
     process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_API_KEY &&
     process.env.CLOUDINARY_API_SECRET
