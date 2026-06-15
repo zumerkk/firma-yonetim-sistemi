@@ -10,6 +10,8 @@ const mailTemplateSchema = new mongoose.Schema({
   bodyTemplate: { type: String, required: true },
   description: { type: String, trim: true, default: '' },
   isActive: { type: Boolean, default: true },
+  // Varsayılan şablon sürümü — seed sırasında elle düzenlenmemiş kayıtları yeni varsayılana taşımak için
+  version: { type: Number, default: 1 },
   // Şablonda kullanılan placeholder'lar (otomatik tespit edilip kaydedilir — referans amaçlı)
   placeholders: { type: [String], default: [] },
   updatedByUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }

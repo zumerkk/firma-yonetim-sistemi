@@ -39,6 +39,23 @@ const fmtDate = (val) => {
 // String değeri güvenli döndür
 const str = (val) => (val && val !== "" ? String(val) : "-");
 
+// EVET/HAYIR → Evet/Hayır (müşteri görünümü için title-case)
+const evetHayir = (val) => {
+  const s = String(val || "").trim().toUpperCase();
+  if (s === "EVET") return "Evet";
+  if (s === "HAYIR") return "Hayır";
+  return "-";
+};
+
+// İthal makine yeni mi kullanılmış mı
+const kullanilmisDurum = (m) => {
+  const v = m.kullanilmisMakine;
+  if (v && String(v).trim() && String(v).trim() !== "0") {
+    return m.kullanilmisMakineAciklama ? String(m.kullanilmisMakineAciklama) : "Kullanılmış Makine";
+  }
+  return "Yeni Makine";
+};
+
 export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Teşvik Belgesi");
@@ -390,7 +407,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 20 }, // Toplam Tutar (TL)
       { width: 15 }  // KDV İstisnası
     ];
-    
+
     const hRow = yerliSheet.addRow([
       "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
       "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası"
@@ -422,12 +439,12 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 45 }, // Adı ve Özelliği
       { width: 12 }, // Miktar
       { width: 15 }, // Birim
-      { width: 20 }, // Birim Fiyatı
-      { width: 15 }, // Döviz
+      { width: 18 }, // Birim Fiyatı
+      { width: 10 }, // Döviz
       { width: 20 }, // Toplam Tutar (USD)
       { width: 20 }, // Toplam Tutar (TL)
-      { width: 20 }, // Kullanılmış Makine
-      { width: 25 }, // Gümrük Vergisi İstisnası
+      { width: 18 }, // Kullanılmış Makine
+      { width: 22 }, // Gümrük Vergisi İstisnası
       { width: 15 }  // KDV İstisnası
     ];
 
@@ -449,9 +466,9 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         m.gumrukDovizKodu || "-",
         usd(m.toplamTutarFobUsd || m.toplamUsd),
         tl(m.toplamTutarFobTl || m.toplamTl),
-        m.kullanilmisMakina || "Yeni Makine", // Default olarak Yeni Makine
-        m.gumrukVergisiIstisnasi || "-",
-        m.kdvIstisnasi || "-"
+        kullanilmisDurum(m),
+        evetHayir(m.gumrukVergisiMuafiyeti),
+        evetHayir(m.kdvMuafiyeti)
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });

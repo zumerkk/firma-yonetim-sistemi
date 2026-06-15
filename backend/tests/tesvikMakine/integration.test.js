@@ -225,6 +225,40 @@ describe('barkod temizleme (updateFields)', () => {
   });
 });
 
+describe('mail şablonu seed reconcile (invoice_draft_approved v2)', () => {
+  const MailTemplate = require('../../models/MailTemplate');
+  const { seedMailTemplates } = require('../../services/tesvikMakine/mailTemplateProvider');
+  const CODE = 'invoice_draft_approved';
+
+  beforeEach(async () => { await MailTemplate.deleteMany({}); });
+
+  test('boş DB → v2 + uploadLink placeholder; KDV cümlesi yok', async () => {
+    await seedMailTemplates();
+    const t = await MailTemplate.findOne({ code: CODE }).lean();
+    expect(t.version).toBe(2);
+    expect(t.bodyTemplate).toContain('{uploadLink}');
+    expect(t.bodyTemplate).toContain('XML ve PDF');
+    expect(t.bodyTemplate).not.toContain('KDV istisna açıklamasının');
+  });
+
+  test('elle düzenlenmemiş eski sürüm → otomatik güncellenir', async () => {
+    await MailTemplate.create({ code: CODE, name: 'eski', subjectTemplate: 'x', bodyTemplate: 'ESKİ İÇERİK', version: 1, isActive: true });
+    const res = await seedMailTemplates();
+    expect(res.updated).toBeGreaterThanOrEqual(1);
+    const t = await MailTemplate.findOne({ code: CODE }).lean();
+    expect(t.version).toBe(2);
+    expect(t.bodyTemplate).toContain('{uploadLink}');
+  });
+
+  test('admin elle düzenlediyse (updatedByUserId) → EZİLMEZ', async () => {
+    await MailTemplate.create({ code: CODE, name: 'özel', subjectTemplate: 'x', bodyTemplate: 'ADMIN ÖZEL METNİ', version: 1, isActive: true, updatedByUserId: new ObjectId() });
+    await seedMailTemplates();
+    const t = await MailTemplate.findOne({ code: CODE }).lean();
+    expect(t.bodyTemplate).toBe('ADMIN ÖZEL METNİ');
+    expect(t.version).toBe(1);
+  });
+});
+
 describe('bakanlık mail parser eşleştirme', () => {
   test('eşleşen mail → match + doğru rowId', async () => {
     const body = 'Belge No: 518097 Belge Id: 1023736 Makine Adı: NST CİHAZI Gtip No: 901812000000 Barkod: zzz';
