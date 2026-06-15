@@ -4,14 +4,15 @@
 const multer = require('multer');
 const path = require('path');
 
-const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.docx'];
+const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.docx', '.xml'];
 const ALLOWED_MIME = new Set([
   'application/pdf',
   'image/jpeg',
   'image/png',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
-  'application/octet-stream' // bazı tarayıcılar xlsx/docx'i böyle gönderir → uzantı ile doğrulanır
+  'application/xml', 'text/xml', // xml (e-fatura XML)
+  'application/octet-stream' // bazı tarayıcılar xlsx/docx/xml'i böyle gönderir → uzantı ile doğrulanır
 ]);
 
 function maxBytes() {

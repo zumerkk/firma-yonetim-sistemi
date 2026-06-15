@@ -119,16 +119,17 @@ const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED,
     name: 'Fatura Taslağı Kontrol Sonrası Onay Maili',
+    // v2 (müşteri talebi): KDV istisna cümlesi yerine fatura kesimi sonrası XML+PDF yükleme bağlantısı
+    version: 2,
     subjectTemplate: '{firmaAdi} - {makineAdi} - Fatura Taslağı Onayı',
     bodyTemplate: [
       'Merhabalar,',
       '',
       'İletmiş olduğunuz fatura taslağı kontrol edilmiştir.',
       '',
-      "{firmaAdi} firmasının {belgeNo} no'lu yatırım teşvik belgesi kapsamında {siraNo}. sırada yer alan {makineAdi} için fatura kesim işlemine geçebilirsiniz.",
+      '{firmaAdi} firmasının {belgeNo} no’lu yatırım teşvik belgesi kapsamında {siraNo}. sırada yer alan {makineAdi} için fatura kesim işlemine geçebilirsiniz.',
       '',
-      '',
-      'Fatura kesildikten sonra XML ve PDF Formatında aşağıdaki linke yüklemeniz rica olunur.',
+      'Fatura kesildikten sonra XML ve PDF formatında aşağıdaki bağlantıya yüklemenizi rica ederiz:',
       '',
       '{uploadLink}',
       '',
