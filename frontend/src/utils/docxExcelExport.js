@@ -388,13 +388,12 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 15 }, // Birim
       { width: 20 }, // Birim Fiyatı (TL)
       { width: 20 }, // Toplam Tutar (TL)
-      { width: 15 }, // KDV İstisnası
-      { width: 20 }  // Tip
+      { width: 15 }  // KDV İstisnası
     ];
     
     const hRow = yerliSheet.addRow([
       "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
-      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası", "Makine Tipi"
+      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
 
@@ -408,8 +407,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         m.birim || "-",
         tl(m.birimFiyatiTl),
         tl(m.toplamTutariTl || m.toplamTl),
-        m.kdvIstisnasi || "-",
-        m.makineTechizatTipi || "-"
+        m.kdvIstisnasi || "-"
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });
@@ -420,7 +418,6 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     const ithalSheet = workbook.addWorksheet("İthal Makine Listesi");
     ithalSheet.columns = [
       { width: 10 }, // Sıra No
-      { width: 15 }, // Makine ID
       { width: 15 }, // GTİP Kodu
       { width: 45 }, // Adı ve Özelliği
       { width: 12 }, // Miktar
@@ -429,19 +426,21 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 15 }, // Döviz
       { width: 20 }, // Toplam Tutar (USD)
       { width: 20 }, // Toplam Tutar (TL)
-      { width: 20 }  // Makine Tipi
+      { width: 20 }, // Kullanılmış Makine
+      { width: 25 }, // Gümrük Vergisi İstisnası
+      { width: 15 }  // KDV İstisnası
     ];
 
     const hRow = ithalSheet.addRow([
-      "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
-      "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)", "Makine Tipi"
+      "Sıra No", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
+      "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)",
+      "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
 
     ithalList.forEach(m => {
       const r = ithalSheet.addRow([
         m.siraNo || "-",
-        m.makineId || "-",
         m.gtipKodu || "-",
         m.adiVeOzelligi || "-",
         num(m.miktar),
@@ -450,7 +449,9 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         m.gumrukDovizKodu || "-",
         usd(m.toplamTutarFobUsd || m.toplamUsd),
         tl(m.toplamTutarFobTl || m.toplamTl),
-        m.makineTechizatTipi || "-"
+        m.kullanilmisMakina || "Yeni Makine", // Default olarak Yeni Makine
+        m.gumrukVergisiIstisnasi || "-",
+        m.kdvIstisnasi || "-"
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });
