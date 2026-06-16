@@ -66,35 +66,39 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const SUBHEADER_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
   const TOTAL_FILL = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
 
-  const applyBorder = (row, count = 4) => {
+  // Tüm satırlar 6 sütun (A:F) genişliğinde — ürün tablosu ile hizalı, sağdan taşma olmaz
+  const FULL = 6;
+  const colLetter = (n) => String.fromCharCode(64 + n); // 1→A ... 6→F
+  const applyBorder = (row, count = FULL) => {
     for (let i = 1; i <= count; i++) row.getCell(i).border = BORDER;
   };
 
-  // Bölüm başlığı (mavi, tam satır)
+  // Bölüm başlığı (mavi, tam satır A:F)
   const addHeaderRow = (title) => {
     const row = worksheet.addRow([title]);
     row.getCell(1).font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
     row.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1E3A8A" } };
     row.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
-    worksheet.mergeCells(`A${row.number}:D${row.number}`);
+    worksheet.mergeCells(`A${row.number}:${colLetter(FULL)}${row.number}`);
     row.height = 25;
     return row;
   };
 
-  // Alt-başlık (gri arka plan, tam satır)
+  // Alt-başlık (gri arka plan, tam satır A:F)
   const addSubHeaderRow = (title) => {
     const row = worksheet.addRow([title]);
     row.getCell(1).font = { bold: true, color: { argb: "FF0F172A" } };
     row.getCell(1).fill = SUBHEADER_FILL;
     row.getCell(1).alignment = { vertical: "middle", horizontal: "left" };
-    worksheet.mergeCells(`A${row.number}:D${row.number}`);
+    worksheet.mergeCells(`A${row.number}:${colLetter(FULL)}${row.number}`);
     applyBorder(row);
     return row;
   };
 
-  // İki sütunlu satır: Etiket | Değer | Etiket | Değer
+  // İki sütunlu satır: Etiket | Değer | Etiket | Değer(D:F birleşik → sağ kenara kadar)
   const addDataRow = (label1, value1, label2, value2) => {
     const row = worksheet.addRow([label1 || "", str(value1), label2 || "", str(value2)]);
+    worksheet.mergeCells(`D${row.number}:${colLetter(FULL)}${row.number}`);
     if (label1) { row.getCell(1).font = { bold: true }; row.getCell(1).fill = LABEL_FILL; }
     if (label2) { row.getCell(3).font = { bold: true }; row.getCell(3).fill = LABEL_FILL; }
     row.getCell(2).alignment = { wrapText: true, vertical: "middle" };
@@ -103,41 +107,54 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     return row;
   };
 
-  // Tek satır: Etiket | Değer (B:D birleşik)
+  // Tek satır: Etiket | Değer (B:F birleşik)
   const addWideRow = (label, value) => {
-    const row = worksheet.addRow([label || "", str(value), "", ""]);
-    worksheet.mergeCells(`B${row.number}:D${row.number}`);
+    const row = worksheet.addRow([label || "", str(value), "", "", "", ""]);
+    worksheet.mergeCells(`B${row.number}:${colLetter(FULL)}${row.number}`);
     if (label) { row.getCell(1).font = { bold: true }; row.getCell(1).fill = LABEL_FILL; }
     row.getCell(2).alignment = { wrapText: true, vertical: "middle" };
     applyBorder(row);
     return row;
   };
 
-  // Kırılım satırı (finansal) - A: Etiket, B-C: boş, D: Tutar (sağa yaslı)
+  // Kırılım satırı (finansal) - A: Etiket, B:E boş, F: Tutar (sağa yaslı)
   const addKirilimRow = (label, value, opts = {}) => {
-    const row = worksheet.addRow([label, "", "", value]);
-    worksheet.mergeCells(`B${row.number}:C${row.number}`);
+    const row = worksheet.addRow([label, "", "", "", "", value]);
+    worksheet.mergeCells(`B${row.number}:E${row.number}`);
     if (opts.bold) {
       row.getCell(1).font = { bold: true };
-      row.getCell(4).font = { bold: true };
+      row.getCell(FULL).font = { bold: true };
     }
     if (opts.fill) {
       row.getCell(1).fill = opts.fill;
       row.getCell(2).fill = opts.fill;
-      row.getCell(4).fill = opts.fill;
+      row.getCell(FULL).fill = opts.fill;
     }
-    row.getCell(4).alignment = { horizontal: "right", vertical: "middle" };
+    row.getCell(FULL).alignment = { horizontal: "right", vertical: "middle" };
     applyBorder(row);
     return row;
   };
 
-  // Sütun genişlikleri
+  // Sütun genişlikleri (6 sütun)
   worksheet.columns = [
-    { width: 38 }, // A
-    { width: 32 }, // B
-    { width: 28 }, // C
-    { width: 32 }  // D
+    { width: 30 }, // A - Etiket / US97 Kodu
+    { width: 30 }, // B - Değer / Ürün Adı
+    { width: 24 }, // C - Etiket2 / Mevcut Kapasite
+    { width: 15 }, // D - Değer2 / İlave Kapasite
+    { width: 15 }, // E - Toplam Kapasite
+    { width: 14 }  // F - Birim / Tutar
   ];
+
+  // 🖨️ PDF / yazdırma düzeni: tüm sütunlar tek sayfa enine sığsın (PDF'te taşma/bozulma olmaz)
+  worksheet.pageSetup = {
+    paperSize: 9, // A4
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    horizontalCentered: true,
+    margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 }
+  };
 
   // ── 1. YATIRIMCI İLE İLGİLİ BİLGİLER ─────────────────────────────────────
   addHeaderRow("1. YATIRIMCI İLE İLGİLİ BİLGİLER");
@@ -218,10 +235,6 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   //   Satır 2: kod | ad | mevcut | ilave    (değerler)
   //   Hemen alttaki satır: "" | "" | Toplam | Birim için ayrı bir alt satır
   // Daha doğru görünüm için 6 sütuna çıkıyoruz: E ve F kullanıyoruz, sayfa genişliği yeterli.
-  // ExcelJS, columns'tan fazla sütun verisi de yazabilir; ek genişlikleri ayarlayalım:
-  worksheet.getColumn(5).width = 22;
-  worksheet.getColumn(6).width = 16;
-
   const urunHeader = worksheet.addRow([
     isEski ? "US97 / U97 Kodu" : "NACE / U97 Kodu",
     "Ürün Adı / Cinsi",
@@ -349,8 +362,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
 
   // ── 6. ÖZEL ŞARTLAR ───────────────────────────────────────────────────────
   addHeaderRow("6. ÖZEL ŞARTLAR");
-  const sartHeader = worksheet.addRow(["Şart Adı / Kısaltma", "Açıklama", "", ""]);
-  worksheet.mergeCells(`B${sartHeader.number}:D${sartHeader.number}`);
+  const sartHeader = worksheet.addRow(["Şart Adı / Kısaltma", "Açıklama", "", "", "", ""]);
+  worksheet.mergeCells(`B${sartHeader.number}:F${sartHeader.number}`);
   sartHeader.getCell(1).font = { bold: true }; sartHeader.getCell(1).fill = LABEL_FILL;
   sartHeader.getCell(2).font = { bold: true }; sartHeader.getCell(2).fill = LABEL_FILL;
   applyBorder(sartHeader);
@@ -361,20 +374,20 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         sart?.koşulMetni || sart?.kisaltma || `Şart ${i + 1}`,
         sart?.aciklamaNotu || sart?.sart || sart?.metin || sart?.aciklama || "-"
       ]);
-      worksheet.mergeCells(`B${row.number}:D${row.number}`);
+      worksheet.mergeCells(`B${row.number}:F${row.number}`);
       row.eachCell((cell) => { cell.border = BORDER; cell.alignment = { wrapText: true, vertical: "top" }; });
     });
   } else {
     const row = worksheet.addRow(["-", "Özel şart bulunmuyor."]);
-    worksheet.mergeCells(`B${row.number}:D${row.number}`);
+    worksheet.mergeCells(`B${row.number}:F${row.number}`);
     applyBorder(row);
   }
   worksheet.addRow([]);
 
   // ── 7. DESTEK UNSURLARI ───────────────────────────────────────────────────
   addHeaderRow("7. DESTEK UNSURLARI");
-  const destekHeader = worksheet.addRow(["Destek Adı", "Şartı", "Açıklama", ""]);
-  worksheet.mergeCells(`C${destekHeader.number}:D${destekHeader.number}`);
+  const destekHeader = worksheet.addRow(["Destek Adı", "Şartı", "Açıklama", "", "", ""]);
+  worksheet.mergeCells(`C${destekHeader.number}:F${destekHeader.number}`);
   destekHeader.eachCell((cell) => { cell.font = { bold: true }; cell.fill = LABEL_FILL; cell.border = BORDER; cell.alignment = { horizontal: "center", vertical: "middle" }; });
 
   if (tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0) {
@@ -382,13 +395,13 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       const ad = d.destekUnsuru || d.adi || d.destekAdi || "-";
       const sart = d.sarti || d.sart || "-";
       const aciklama = d.aciklama || (d.orani ? d.orani + " %" : d.tutari ? d.tutari + " ₺" : "-");
-      const row = worksheet.addRow([ad, sart, aciklama, ""]);
-      worksheet.mergeCells(`C${row.number}:D${row.number}`);
+      const row = worksheet.addRow([ad, sart, aciklama, "", "", ""]);
+      worksheet.mergeCells(`C${row.number}:F${row.number}`);
       row.eachCell((cell) => { cell.border = BORDER; cell.alignment = { wrapText: true, vertical: "middle" }; });
     });
   } else {
-    const row = worksheet.addRow(["-", "-", "Destek unsuru bulunmuyor.", ""]);
-    worksheet.mergeCells(`C${row.number}:D${row.number}`);
+    const row = worksheet.addRow(["-", "-", "Destek unsuru bulunmuyor.", "", "", ""]);
+    worksheet.mergeCells(`C${row.number}:F${row.number}`);
     applyBorder(row);
   }
 
@@ -407,6 +420,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 20 }, // Toplam Tutar (TL)
       { width: 15 }  // KDV İstisnası
     ];
+    yerliSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
     const hRow = yerliSheet.addRow([
       "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
@@ -447,6 +461,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 22 }, // Gümrük Vergisi İstisnası
       { width: 15 }  // KDV İstisnası
     ];
+    ithalSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
     const hRow = ithalSheet.addRow([
       "Sıra No", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
