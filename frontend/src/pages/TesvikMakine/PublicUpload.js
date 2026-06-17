@@ -28,7 +28,7 @@ export default function PublicUpload() {
   const [docType, setDocType] = useState('kdv_muafiyet');
   const [note, setNote] = useState('');
   const [uploaderName, setUploaderName] = useState('');
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -44,11 +44,11 @@ export default function PublicUpload() {
   const submit = async (e) => {
     e.preventDefault();
     setSubmitError('');
-    if (!file) { setSubmitError('Lütfen bir dosya seçin.'); return; }
+    if (!files.length) { setSubmitError('Lütfen en az bir dosya seçin.'); return; }
     setSubmitting(true);
     try {
       const fd = new FormData();
-      fd.append('file', file);
+      files.forEach((f) => fd.append('files', f)); // çoklu (XML + PDF aynı anda)
       fd.append('documentType', docType);
       fd.append('note', note);
       fd.append('uploaderName', uploaderName);
@@ -69,7 +69,7 @@ export default function PublicUpload() {
         <CheckCircleIcon color="success" sx={{ fontSize: 64 }} />
         <Typography variant="h6" sx={{ mt: 1, fontWeight: 700 }}>Dosyanız başarıyla yüklendi</Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Teşekkür ederiz. Belgeniz tarafımıza ulaştı ve kontrol edilecektir.</Typography>
-        <Button sx={{ mt: 2 }} variant="outlined" onClick={() => { setDone(false); setFile(null); setNote(''); if (fileRef.current) fileRef.current.value = ''; }}>Yeni Dosya Yükle</Button>
+        <Button sx={{ mt: 2 }} variant="outlined" onClick={() => { setDone(false); setFiles([]); setNote(''); if (fileRef.current) fileRef.current.value = ''; }}>Yeni Dosya Yükle</Button>
       </Box>
     </Wrapper>
   );
@@ -93,8 +93,8 @@ export default function PublicUpload() {
             {(info.documentTypes || []).map((dt) => <MenuItem key={dt.key} value={dt.key}>{dt.label}</MenuItem>)}
           </TextField>
           <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}>
-            {file ? file.name : 'Dosya Seç'}
-            <input ref={fileRef} type="file" hidden accept={(info.allowedExtensions || []).join(',')} onChange={(e) => setFile(e.target.files?.[0] || null)} />
+            {files.length ? `${files.length} dosya seçildi` : 'Dosya Seç (birden fazla seçebilirsiniz)'}
+            <input ref={fileRef} type="file" hidden multiple accept={(info.allowedExtensions || []).join(',')} onChange={(e) => setFiles(Array.from(e.target.files || []))} />
           </Button>
           <Typography variant="caption" color="text.secondary">
             İzinli türler: {(info.allowedExtensions || []).join(', ')} · Maks {info.maxUploadMB} MB

@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize, adminAuth } = require('../middleware/auth');
-const { uploadSingle } = require('../middleware/tesvikUpload');
+const { uploadMultiple } = require('../middleware/tesvikUpload');
 const ctrl = require('../controllers/tesvikMakineController');
 
 // Consultant = kullanici. readonly yazamaz.
@@ -69,7 +69,7 @@ router.post('/process/:id/mail/preview', editor, ctrl.previewMail);
 router.post('/process/:id/mail/send', editor, ctrl.sendMail);
 router.post('/process/:id/folders', editor, ctrl.ensureFolders);
 router.post('/process/:id/upload-link', editor, ctrl.createUploadLink);
-router.post('/process/:id/upload', editor, uploadSingle('file'), ctrl.adminUpload);
+router.post('/process/:id/upload', editor, uploadMultiple('files'), ctrl.adminUpload);
 router.post('/process/:id/reminders/stop', editor, ctrl.stopReminders);
 router.post('/process/:id/reminders/resume', editor, ctrl.resumeReminders);
 

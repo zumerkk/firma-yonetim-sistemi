@@ -25,74 +25,24 @@ const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,
     name: 'Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi',
+    // v2 (müşteri talebi): ({tedarikciMail}) parantezi kaldırıldı + mail sonuna taslak yükleme linki eklendi
+    version: 2,
     subjectTemplate: '{firmaAdi} - {makineAdi} - YTB {belgeNo} Kapsamında Fatura Kesimi Hk.',
     bodyTemplate: [
       'Merhabalar,',
       '',
-      'Bakanlıktan doğrulama maili tarafınıza ({tedarikciMail}) iletilmiştir. Doğrulama işleminin tamamlanmasının ardından fatura kesim işlemine başlanabilir.',
+      'Bakanlıktan doğrulama maili tarafınıza iletilmiştir. Doğrulama işleminin tamamlanmasının ardından fatura kesim işlemine başlanabilir.',
       '',
       'Faturaya yazılması gereken açıklama aşağıdaki gibidir:',
       '',
       'AÇIKLAMA:',
       '3065 sayılı KDV Kanunu’nun 13/d maddesi gereğince, işbu fatura {firmaAdi} firmasının {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında, {makineId} makine ID numaralı {siraNo}. kalemin teslimatı olduğundan ilgili kanun gereğince KDV hesaplanmamıştır.',
       '',
-      'Faturanın taslak halinin kontrol amacıyla tarafımıza iletilmesini rica ederiz.',
+      'Faturanın taslak halini kontrol amacıyla aşağıdaki bağlantı üzerinden yüklemenizi rica ederiz:',
       '',
-      'İyi çalışmalar dileriz.',
-      '',
-      '{imza}'
-    ].join('\n')
-  },
-  {
-    code: MAIL_TEMPLATE_CODE.CUSTOMER_DOCUMENT_REQUEST,
-    name: 'Müşteriden KDV Muafiyet / Evrak Talep Maili',
-    subjectTemplate: '{firmaAdi} - {makineAdi} - Teşvik Evrak Yükleme Talebi',
-    bodyTemplate: [
-      'Merhabalar,',
-      '',
-      '{belgeNo} no’lu yatırım teşvik belgeniz kapsamında {siraNo}. sırada yer alan {makineAdi} için işlem başlatılmıştır.',
-      '',
-      'Sürecin ilerleyebilmesi için ilgili evrakları aşağıdaki bağlantı üzerinden yüklemenizi rica ederiz:',
-      '',
-      'Evrak Yükleme Linki:',
       '{uploadLink}',
       '',
-      'Gerekli evraklar:',
-      '- KDV muafiyet yazısı',
-      '- Proforma / teklif',
-      '- Fatura taslağı',
-      '- Varsa sevk / teslimat belgeleri',
-      '',
-      'Belgeler yüklendikten sonra tarafımızca kontrol edilerek süreç devam ettirilecektir.',
-      '',
-      'Saygılarımızla.',
-      '',
-      '{imza}'
-    ].join('\n')
-  },
-  {
-    code: MAIL_TEMPLATE_CODE.SUPPLIER_INFO_REQUEST,
-    name: 'Tedarikçi Bilgi / GTİP / Proforma Talep Maili',
-    subjectTemplate: '{firmaAdi} - {makineAdi} - GTİP ve Teşvik Bilgileri Hk.',
-    bodyTemplate: [
-      'Merhabalar,',
-      '',
-      '{firmaAdi} firmamız, yatırım teşvik belgesi kapsamında listenin {siraNo}. sırasında yer alan {makineAdi} için satın alma süreci başlatacaktır.',
-      '',
-      'Bu kapsamda aşağıdaki bilgilerin tarafımıza iletilmesini rica ederiz:',
-      '',
-      '- Makine / ekipman tam adı',
-      '- GTİP numarası',
-      '- Vergi numarası',
-      '- Fatura kesilecek unvan',
-      '- Proforma / teklif',
-      '- Termin bilgisi',
-      '- Varsa teknik doküman',
-      '',
-      'Mail: {tedarikciMail}',
-      'Vergi No: {tedarikciVergiNo}',
-      '',
-      'Bilgilerinize sunar, iyi çalışmalar dileriz.',
+      'İyi çalışmalar dileriz.',
       '',
       '{imza}'
     ].join('\n')
@@ -195,10 +145,18 @@ const REMINDER_TYPE = Object.freeze({
   NO_RESPONSE: 'no_response'
 });
 
+// ⛔ Kullanımdan kaldırılan şablonlar (müşteri talebi #1) — seed sırasında pasifleştirilir,
+// arayüz dropdown'ında görünmez. Kod sabitleri (MAIL_TEMPLATE_CODE) referanslar için korunur.
+const DEPRECATED_TEMPLATE_CODES = Object.freeze([
+  MAIL_TEMPLATE_CODE.CUSTOMER_DOCUMENT_REQUEST,
+  MAIL_TEMPLATE_CODE.SUPPLIER_INFO_REQUEST
+]);
+
 module.exports = {
   MAIL_TEMPLATE_CODE,
   DEFAULT_SIGNATURE,
   DEFAULT_TEMPLATES,
+  DEPRECATED_TEMPLATE_CODES,
   DOCUMENT_TYPES,
   DOCUMENT_TYPE_KEYS,
   getDocumentTypeFolder,

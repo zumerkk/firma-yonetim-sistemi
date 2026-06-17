@@ -36,21 +36,23 @@ const STATUS_CATEGORY = Object.freeze({
 
 // 📋 Durum meta verisi: etiket (TR) + kategori (renk)
 // Sıralama, akışın doğal ilerleyişini yansıtır (timeline/grid sıralaması için).
+// hidden: true → arayüz dropdown/filtrelerinde GÖSTERİLMEZ (müşteri talebi #9).
+// Enum değeri ve etiketi korunur (mevcut kayıtların badge'i çalışır, veri bozulmaz).
 const STATUS_META = Object.freeze({
-  [MACHINE_STATUS.NOT_STARTED]: { order: 0, label: 'İşlem Başlamadı', category: 'bekliyor' },
-  [MACHINE_STATUS.INQUIRY_SENT]: { order: 1, label: 'Bilgi / GTİP Talebi Gönderildi', category: 'islemde' },
-  [MACHINE_STATUS.SUPPLIER_CONFIRMED]: { order: 2, label: 'Tedarikçi Bilgisi Onaylandı', category: 'islemde' },
-  [MACHINE_STATUS.ORDERED]: { order: 3, label: 'Sipariş Geçildi', category: 'islemde' },
+  [MACHINE_STATUS.NOT_STARTED]: { order: 0, label: 'İşlem Başlamadı', category: 'bekliyor', hidden: true },
+  [MACHINE_STATUS.INQUIRY_SENT]: { order: 1, label: 'Bilgi / GTİP Talebi Gönderildi', category: 'islemde', hidden: true },
+  [MACHINE_STATUS.SUPPLIER_CONFIRMED]: { order: 2, label: 'Tedarikçi Bilgisi Onaylandı', category: 'islemde', hidden: true },
+  [MACHINE_STATUS.ORDERED]: { order: 3, label: 'Sipariş Geçildi', category: 'islemde', hidden: true },
   [MACHINE_STATUS.MINISTRY_CODE_RECEIVED]: { order: 4, label: 'Bakanlık / Teşvik Otomasyon Kodu Geldi', category: 'islemde' },
   [MACHINE_STATUS.VERIFICATION_MAIL_SENT]: { order: 5, label: 'Doğrulama Maili Gönderildi', category: 'islemde' },
-  [MACHINE_STATUS.WAITING_CUSTOMER_DOCUMENTS]: { order: 6, label: 'Müşteri Evrakı Bekleniyor', category: 'evrak' },
-  [MACHINE_STATUS.WAITING_KDV_EXEMPTION]: { order: 7, label: 'KDV Muafiyet Yazısı Bekleniyor', category: 'evrak' },
-  [MACHINE_STATUS.KDV_EXEMPTION_UPLOADED]: { order: 8, label: 'KDV Muafiyet Yazısı Yüklendi', category: 'islemde' },
+  [MACHINE_STATUS.WAITING_CUSTOMER_DOCUMENTS]: { order: 6, label: 'Müşteri Evrakı Bekleniyor', category: 'evrak', hidden: true },
+  [MACHINE_STATUS.WAITING_KDV_EXEMPTION]: { order: 7, label: 'KDV Muafiyet Yazısı Bekleniyor', category: 'evrak', hidden: true },
+  [MACHINE_STATUS.KDV_EXEMPTION_UPLOADED]: { order: 8, label: 'KDV Muafiyet Yazısı Yüklendi', category: 'islemde', hidden: true },
   [MACHINE_STATUS.WAITING_INVOICE_DRAFT]: { order: 9, label: 'Fatura Taslağı Bekleniyor', category: 'evrak' },
   [MACHINE_STATUS.INVOICE_DRAFT_RECEIVED]: { order: 10, label: 'Fatura Taslağı Geldi', category: 'islemde' },
   [MACHINE_STATUS.INVOICE_APPROVED]: { order: 11, label: 'Fatura Onaylandı', category: 'tamamlandi' },
-  [MACHINE_STATUS.DELIVERY_WAITING]: { order: 12, label: 'Sevk / Teslimat Bekleniyor', category: 'evrak' },
-  [MACHINE_STATUS.DELIVERED]: { order: 13, label: 'Teslim Edildi', category: 'islemde' },
+  [MACHINE_STATUS.DELIVERY_WAITING]: { order: 12, label: 'Sevk / Teslimat Bekleniyor', category: 'evrak', hidden: true },
+  [MACHINE_STATUS.DELIVERED]: { order: 13, label: 'Teslim Edildi', category: 'islemde', hidden: true },
   [MACHINE_STATUS.COMPLETED]: { order: 14, label: 'Tamamlandı', category: 'tamamlandi' },
   [MACHINE_STATUS.CANCELLED]: { order: 15, label: 'İptal', category: 'bekliyor' },
   [MACHINE_STATUS.BLOCKED]: { order: 16, label: 'Sorunlu / Askıda', category: 'sorunlu' }
@@ -107,10 +109,12 @@ function isReminderSuppressed(status) {
   return REMINDER_SUPPRESSED_STATUSES.includes(status);
 }
 
-// Frontend select / filtre için hazır liste
+// Frontend select / filtre için hazır liste.
+// Tüm durumlar `hidden` bayrağıyla döner; frontend dropdown'ları gizlileri filtreler,
+// badge/etiket çözümü için tam liste kullanılır.
 function statusOptions() {
   return STATUS_VALUES
-    .map((value) => ({ value, ...getStatusBadge(value), order: getStatusMeta(value).order }))
+    .map((value) => ({ value, ...getStatusBadge(value), order: getStatusMeta(value).order, hidden: !!getStatusMeta(value).hidden }))
     .sort((a, b) => a.order - b.order);
 }
 

@@ -24,9 +24,11 @@ function isExpired(expiresAt) {
   return new Date(expiresAt).getTime() < Date.now();
 }
 
-// Public link (frontend route). FRONTEND_URL varsa tam url, yoksa göreli path.
+// Public link (frontend route).
+// Öncelik: UPLOAD_PUBLIC_BASE_URL (müşteriye gösterilecek özel/şık alan adı, ör. https://gmplanlama.com)
+//          → yoksa FRONTEND_URL → yoksa göreli path.
 function buildUploadLink(token) {
-  const base = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const base = (process.env.UPLOAD_PUBLIC_BASE_URL || process.env.FRONTEND_URL || '').replace(/\/$/, '');
   const path = `/upload/tesvik/${token}`;
   return base ? `${base}${path}` : path;
 }

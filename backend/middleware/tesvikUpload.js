@@ -30,23 +30,50 @@ function fileFilter(req, file, cb) {
   return cb(err);
 }
 
+const MAX_FILES = Number(process.env.MAX_UPLOAD_FILES) || 10;
+
 const uploadMemory = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: maxBytes(), files: 1 },
   fileFilter
 });
 
-// multer hatalarını sade JSON'a çeviren tek-dosya sarmalayıcı (hem admin hem public route kullanır)
+// Çoklu dosya için ayrı instance (ör. XML + PDF aynı anda)
+const uploadMemoryMulti = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: maxBytes(), files: MAX_FILES },
+  fileFilter
+});
+
+function handleMulterError(err, res) {
+  const mb = Number(process.env.MAX_UPLOAD_MB) || 20;
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ success: false, message: `Dosya çok büyük. En fazla ${mb} MB yükleyebilirsiniz.` });
+  if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(413).json({ success: false, message: `En fazla ${MAX_FILES} dosya yükleyebilirsiniz.` });
+  if (err.code === 'UNSUPPORTED_FILE_TYPE') return res.status(415).json({ success: false, message: err.message });
+  return res.status(400).json({ success: false, message: err.message || 'Dosya yüklenemedi.' });
+}
+
+// multer hatalarını sade JSON'a çeviren tek-dosya sarmalayıcı
 function uploadSingle(field = 'file') {
   return (req, res, next) => {
     uploadMemory.single(field)(req, res, (err) => {
       if (!err) return next();
-      const mb = Number(process.env.MAX_UPLOAD_MB) || 20;
-      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ success: false, message: `Dosya çok büyük. En fazla ${mb} MB yükleyebilirsiniz.` });
-      if (err.code === 'UNSUPPORTED_FILE_TYPE') return res.status(415).json({ success: false, message: err.message });
-      return res.status(400).json({ success: false, message: err.message || 'Dosya yüklenemedi.' });
+      return handleMulterError(err, res);
     });
   };
 }
 
-module.exports = { uploadMemory, uploadSingle, ALLOWED_EXT, maxBytes };
+// Çoklu-dosya sarmalayıcı (req.files dizisi). Tekil 'file' alanını da kabul eder (geriye uyumluluk).
+function uploadMultiple(field = 'files') {
+  return (req, res, next) => {
+    uploadMemoryMulti.fields([{ name: field, maxCount: MAX_FILES }, { name: 'file', maxCount: MAX_FILES }])(req, res, (err) => {
+      if (err) return handleMulterError(err, res);
+      // İki alanı tek diziye topla
+      const f = req.files || {};
+      req.uploadedFiles = [].concat(f[field] || [], f.file || []);
+      next();
+    });
+  };
+}
+
+module.exports = { uploadMemory, uploadSingle, uploadMultiple, ALLOWED_EXT, maxBytes, MAX_FILES };

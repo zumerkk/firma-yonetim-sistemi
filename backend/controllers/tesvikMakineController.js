@@ -236,8 +236,17 @@ exports.getCertificateMails = wrap(async (req, res) => {
 
 exports.getCertificateDocuments = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
-  const docs = await UploadedDocument.find({ tesvikModel, tesvikId }).sort({ createdAt: -1 }).limit(500).lean();
-  res.json({ success: true, data: docs });
+  const docs = await UploadedDocument.find({ tesvikModel, tesvikId })
+    .populate('machineProcessId', 'machineName siraNo listType') // #3: hangi makineye ait olduğu görünsün
+    .sort({ createdAt: -1 }).limit(500).lean();
+  // Makine bilgisini düz alanlara taşı (frontend kolonu için)
+  const data = docs.map((d) => ({
+    ...d,
+    machineName: d.machineProcessId?.machineName || '',
+    machineSiraNo: d.machineProcessId?.siraNo || null,
+    machineListType: d.machineProcessId?.listType || ''
+  }));
+  res.json({ success: true, data });
 });
 
 exports.getCertificateReminders = wrap(async (req, res) => {
@@ -340,24 +349,30 @@ exports.resumeReminders = wrap(async (req, res) => {
   res.json({ success: true, data: proc });
 });
 
-// Admin paneli üzerinden evrak yükleme
+// Admin paneli üzerinden evrak yükleme (çoklu dosya destekli)
 exports.adminUpload = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  if (!req.file) { const e = new Error('Dosya bulunamadı.'); e.code = 'NO_RECIPIENT'; throw e; }
+  const files = req.uploadedFiles || (req.file ? [req.file] : []);
+  if (!files.length) { const e = new Error('Dosya bulunamadı.'); e.code = 'NO_RECIPIENT'; throw e; }
   const documentType = (req.body && req.body.documentType) || 'diger';
   const { identity, machineFields } = await mps.buildContext(proc);
   const folderRel = storageService.machineFolderRel(identity, machineFields, proc.listType);
   await storageService.ensureMachineStructure(identity, machineFields, proc.listType);
-  const saved = await storageService.saveBuffer({
-    folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
-    originalName: req.file.originalname, buffer: req.file.buffer
-  });
-  const doc = await mps.recordUploadedDocument({
-    proc, documentType, saved, fileSize: req.file.size, mimeType: req.file.mimetype,
-    uploadedBy: req.user._id, uploadedByType: 'admin', uploaderName: req.user.adSoyad || req.user.email,
-    note: (req.body && req.body.note) || '', originalName: req.file.originalname
-  });
-  res.json({ success: true, data: doc });
+
+  const docs = [];
+  for (const file of files) {
+    const saved = await storageService.saveBuffer({
+      folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
+      originalName: file.originalname, buffer: file.buffer
+    });
+    const doc = await mps.recordUploadedDocument({
+      proc, documentType, saved, fileSize: file.size, mimeType: file.mimetype,
+      uploadedBy: req.user._id, uploadedByType: 'admin', uploaderName: req.user.adSoyad || req.user.email,
+      note: (req.body && req.body.note) || '', originalName: file.originalname
+    });
+    docs.push(doc);
+  }
+  res.json({ success: true, data: docs, count: docs.length });
 });
 
 // ───────── EVRAK İNDİR / SİL ─────────

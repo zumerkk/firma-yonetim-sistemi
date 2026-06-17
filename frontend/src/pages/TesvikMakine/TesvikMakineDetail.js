@@ -35,7 +35,6 @@ export default function TesvikMakineDetail() {
   // Filtreler
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState('');
-  const [fList, setFList] = useState('');
   const [fQuick, setFQuick] = useState(''); // '' | 'docs' | 'overdue'
   const [selection, setSelection] = useState([]);
 
@@ -72,18 +71,38 @@ export default function TesvikMakineDetail() {
 
   const refreshAll = () => { setDocs(null); setMails(null); setReminders(null); setTimeline(null); loadCore(); };
 
-  // Makine tablosu filtreleme
+  // Bu modülde sadece YERLİ makineler kullanılır (#5 — ithal gizlendi)
+  const localMachines = useMemo(() => machines.filter((m) => m.listType === 'local'), [machines]);
+
+  // Makine tablosu filtreleme (yerli üzerinden)
   const now = Date.now();
   const filteredRows = useMemo(() => {
-    let rows = machines;
+    let rows = localMachines;
     if (q.trim()) { const s = q.toLocaleLowerCase('tr'); rows = rows.filter((r) => `${r.machineName} ${r.makineId} ${r.gtipNo} ${r.supplierCompanyName}`.toLocaleLowerCase('tr').includes(s)); }
     if (fStatus) rows = rows.filter((r) => r.status === fStatus);
-    if (fList) rows = rows.filter((r) => r.listType === fList);
     if (fQuick === 'docs') rows = rows.filter((r) => r.statusBadge?.category === 'evrak');
     if (fQuick === 'overdue') rows = rows.filter((r) => r.nextReminderAt && new Date(r.nextReminderAt).getTime() < now && !(r.process?.reminderStopped));
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [machines, q, fStatus, fList, fQuick]);
+  }, [localMachines, q, fStatus, fQuick]);
+
+  // Yerli Liste düzenlenebilir fatura alanları kaydı (#4)
+  const handleYerliRowUpdate = async (newRow) => {
+    let processId = newRow.process?._id;
+    if (!processId) {
+      const p = await svc.ensureProcess({ tesvikModel, tesvikId, listType: 'local', rowId: newRow.rowId });
+      processId = p._id;
+    }
+    await svc.updateFields(processId, {
+      invoiceRealizedValue: Number(newRow.invoiceRealizedValue) || 0,
+      invoiceRealizedQty: Number(newRow.invoiceRealizedQty) || 0,
+      invoiceNo: newRow.invoiceNo || '',
+      invoiceDate: newRow.invoiceDate || null
+    });
+    notify('Fatura bilgisi kaydedildi');
+    svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || []));
+    return newRow;
+  };
 
   const machineColumns = [
     { field: 'siraNo', headerName: 'Sıra', width: 70 },
@@ -95,7 +114,6 @@ export default function TesvikMakineDetail() {
     { field: 'totalPrice', headerName: 'Tutar', width: 130, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
     { field: 'kdvExempt', headerName: 'KDV İst.', width: 90, renderCell: (p) => p.value ? <Chip size="small" color="success" label="Evet" /> : <Chip size="small" label="Hayır" variant="outlined" /> },
     { field: 'supplierCompanyName', headerName: 'Tedarikçi', width: 150, valueGetter: (p) => p.row.supplierCompanyName || '-' },
-    { field: 'barcode', headerName: 'Barkod', width: 110, valueGetter: (p) => p.row.barcode || '-' },
     { field: 'status', headerName: 'Durum', width: 200, renderCell: (p) => <StatusChip badge={p.row.statusBadge} /> },
     { field: 'lastMailAt', headerName: 'Son Mail', width: 110, valueGetter: (p) => formatDate(p.row.lastMailAt) },
     { field: 'documentCount', headerName: 'Evrak', width: 80, valueGetter: (p) => p.row.documentCount || 0 },
@@ -142,15 +160,15 @@ export default function TesvikMakineDetail() {
         </Stack>
 
         <Paper sx={{ mb: 2 }}>
+          {/* İthal Liste tab'ı kaldırıldı (#5). value'lar sabit tutuldu ki içerik index'leri kaymasın. */}
           <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
-            <Tab label="Belge Künyesi" />
-            <Tab label={`Yerli Liste (${cert?.totals?.localCount || 0})`} />
-            <Tab label={`İthal Liste (${cert?.totals?.importCount || 0})`} />
-            <Tab label="Makine Talepleri" />
-            <Tab label="Evraklar" />
-            <Tab label="Mail Geçmişi" />
-            <Tab label="Hatırlatmalar" />
-            <Tab label="Notlar / Geçmiş" />
+            <Tab label="Belge Künyesi" value={0} />
+            <Tab label={`Yerli Liste (${cert?.totals?.localCount || 0})`} value={1} />
+            <Tab label="Makine Talepleri" value={3} />
+            <Tab label="Evraklar" value={4} />
+            <Tab label="Mail Geçmişi" value={5} />
+            <Tab label="Hatırlatmalar" value={6} />
+            <Tab label="Notlar / Geçmiş" value={7} />
           </Tabs>
         </Paper>
 
@@ -171,25 +189,34 @@ export default function TesvikMakineDetail() {
           </Paper>
         )}
 
-        {/* 1 & 2 Yerli / İthal ham listeler */}
-        {(tab === 1 || tab === 2) && (
-          <Paper sx={{ height: 560 }}>
-            <DataGrid
-              rows={(tab === 1 ? cert?.yerli : cert?.ithal) || []}
-              getRowId={(r) => r.rowId}
-              columns={[
-                { field: 'siraNo', headerName: 'Sıra', width: 70 },
-                { field: 'makineId', headerName: 'Makine ID', width: 100 },
-                { field: 'gtipNo', headerName: 'GTİP', width: 130 },
-                { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 220 },
-                { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
-                { field: 'unitPrice', headerName: 'Birim Fiyat', width: 130, valueGetter: (p) => formatMoney(p.row.unitPrice, p.row.currency) },
-                { field: 'totalPrice', headerName: 'Toplam', width: 140, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
-                { field: 'kdvExempt', headerName: 'KDV İst.', width: 90, valueGetter: (p) => p.row.kdvExempt ? 'Evet' : 'Hayır' }
-              ]}
-              density="compact" disableRowSelectionOnClick
-              initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-            />
+        {/* 1 Yerli Liste — düzenlenebilir fatura alanları (#4). GTİP ve KDV kolonları kaldırıldı. */}
+        {tab === 1 && (
+          <Paper sx={{ p: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+              Sarı kolonlardaki fatura bilgilerini hücreye çift tıklayıp düzenleyebilirsiniz (Enter ile kaydedilir).
+            </Typography>
+            <Box sx={{ height: 540 }}>
+              <DataGrid
+                rows={localMachines}
+                getRowId={(r) => r.rowId}
+                processRowUpdate={handleYerliRowUpdate}
+                onProcessRowUpdateError={(e) => notify(e?.response?.data?.message || 'Kaydedilemedi', 'error')}
+                columns={[
+                  { field: 'siraNo', headerName: 'Sıra', width: 64 },
+                  { field: 'makineId', headerName: 'Makine ID', width: 100 },
+                  { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
+                  { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
+                  { field: 'totalPrice', headerName: 'Toplam', width: 130, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
+                  { field: 'invoiceRealizedValue', headerName: 'Fatura Gerçekleşen Değer', width: 190, editable: true, type: 'number', cellClassName: 'fatura-cell' },
+                  { field: 'invoiceRealizedQty', headerName: 'Fatura Gerçekleşen Adet', width: 180, editable: true, type: 'number', cellClassName: 'fatura-cell' },
+                  { field: 'invoiceNo', headerName: 'Fatura NO', width: 140, editable: true, cellClassName: 'fatura-cell' },
+                  { field: 'invoiceDate', headerName: 'Fatura Tarihi', width: 150, editable: true, type: 'date', cellClassName: 'fatura-cell', valueGetter: (p) => p.row.invoiceDate ? new Date(p.row.invoiceDate) : null }
+                ]}
+                density="compact" disableRowSelectionOnClick
+                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+                sx={{ '& .fatura-cell': { backgroundColor: '#fffbeb' } }}
+              />
+            </Box>
           </Paper>
         )}
 
@@ -200,10 +227,7 @@ export default function TesvikMakineDetail() {
               <TextField size="small" label="Ara" value={q} onChange={(e) => setQ(e.target.value)} sx={{ minWidth: 180 }} />
               <TextField select size="small" label="Durum" value={fStatus} onChange={(e) => setFStatus(e.target.value)} sx={{ minWidth: 180 }}>
                 <MenuItem value="">Tümü</MenuItem>
-                {(meta?.statuses || []).map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
-              </TextField>
-              <TextField select size="small" label="Liste" value={fList} onChange={(e) => setFList(e.target.value)} sx={{ minWidth: 120 }}>
-                <MenuItem value="">Tümü</MenuItem><MenuItem value="local">Yerli</MenuItem><MenuItem value="import">İthal</MenuItem>
+                {(meta?.statuses || []).filter((s) => !s.hidden).map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
               </TextField>
               <Chip label="Evrak Bekleyenler" color={fQuick === 'docs' ? 'warning' : 'default'} onClick={() => setFQuick(fQuick === 'docs' ? '' : 'docs')} />
               <Chip label="7 Günü Geçenler" color={fQuick === 'overdue' ? 'error' : 'default'} onClick={() => setFQuick(fQuick === 'overdue' ? '' : 'overdue')} />
@@ -224,7 +248,7 @@ export default function TesvikMakineDetail() {
               <Box sx={{ p: 2, width: 280 }}>
                 <Typography variant="subtitle2" sx={{ mb: 1 }}>Seçili {selection.length} makine</Typography>
                 <TextField select fullWidth size="small" label="Durum Ata" value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} sx={{ mb: 1 }}>
-                  {(meta?.statuses || []).map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+                  {(meta?.statuses || []).filter((s) => !s.hidden).map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
                 </TextField>
                 <Button fullWidth size="small" variant="outlined" sx={{ mb: 1 }} disabled={!bulkStatus} onClick={() => runBulk('set_status', { status: bulkStatus })}>Durumu Uygula</Button>
                 <Divider sx={{ my: 1 }} />
@@ -246,10 +270,11 @@ export default function TesvikMakineDetail() {
             <DataGrid rows={docs || []} loading={docs === null} getRowId={(r) => r._id}
               columns={[
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
-                { field: 'originalName', headerName: 'Dosya', flex: 1, minWidth: 200 },
-                { field: 'documentType', headerName: 'Tür', width: 160, valueGetter: (p) => docTypeLabel(p.row.documentType) },
-                { field: 'uploadedByType', headerName: 'Yükleyen', width: 110, valueGetter: (p) => uploaderLabel(p.row.uploadedByType) },
-                { field: 'uploaderName', headerName: 'Ad', width: 140 },
+                { field: 'machine', headerName: 'Makine', width: 200, valueGetter: (p) => p.row.machineName ? `${p.row.machineSiraNo ? p.row.machineSiraNo + '. ' : ''}${p.row.machineName}` : '-' },
+                { field: 'originalName', headerName: 'Dosya', flex: 1, minWidth: 180 },
+                { field: 'documentType', headerName: 'Tür', width: 150, valueGetter: (p) => docTypeLabel(p.row.documentType) },
+                { field: 'uploadedByType', headerName: 'Yükleyen', width: 100, valueGetter: (p) => uploaderLabel(p.row.uploadedByType) },
+                { field: 'uploaderName', headerName: 'Ad', width: 130 },
                 {
                   field: 'islem', headerName: 'İşlem', width: 150, sortable: false, renderCell: (p) => (
                     <Stack direction="row" spacing={0.5}>

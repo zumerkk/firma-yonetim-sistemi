@@ -3,13 +3,13 @@
 
 const express = require('express');
 const router = express.Router();
-const { uploadSingle } = require('../middleware/tesvikUpload');
+const { uploadMultiple } = require('../middleware/tesvikUpload');
 const ctrl = require('../controllers/tesvikEvrakUploadController');
 
 // Yükleme ekranı bilgisi
 router.get('/:token', ctrl.getInfo);
 
-// Dosya yükle
-router.post('/:token', uploadSingle('file'), ctrl.upload);
+// Dosya yükle (çoklu)
+router.post('/:token', uploadMultiple('files'), ctrl.upload);
 
 module.exports = router;
