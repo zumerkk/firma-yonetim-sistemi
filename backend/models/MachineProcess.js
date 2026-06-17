@@ -49,6 +49,12 @@ const machineProcessSchema = new mongoose.Schema({
   autoSendEnabled: { type: Boolean, default: false }, // Kod girilince otomatik mail gönder
   dueDate: { type: Date }, // Beklenen dönüş / son tarih
 
+  // 🧾 Fatura gerçekleşme bilgileri (müşteri talebi #4 — Yerli Liste'de düzenlenebilir)
+  invoiceRealizedValue: { type: Number, default: 0 }, // Fatura gerçekleşen değer
+  invoiceRealizedQty: { type: Number, default: 0 },   // Fatura gerçekleşen adet
+  invoiceNo: { type: String, trim: true, default: '' }, // Fatura no
+  invoiceDate: { type: Date },                          // Fatura tarihi
+
   // 🚦 Süreç durumu
   status: { type: String, enum: STATUS_VALUES, default: MACHINE_STATUS.NOT_STARTED, index: true },
   notes: { type: String, trim: true, default: '', maxlength: 4000 },

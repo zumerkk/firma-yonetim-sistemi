@@ -49,7 +49,8 @@ exports.upload = async (req, res) => {
   try {
     const { proc, error } = await resolveByToken(req.params.token);
     if (error) return fail(res, error[0], error[1]);
-    if (!req.file) return fail(res, 400, 'Lütfen bir dosya seçin.');
+    const files = req.uploadedFiles || (req.file ? [req.file] : []);
+    if (!files.length) return fail(res, 400, 'Lütfen en az bir dosya seçin.');
 
     let documentType = (req.body && req.body.documentType) || 'diger';
     if (!DOCUMENT_TYPE_KEYS.includes(documentType)) documentType = 'diger';
@@ -62,16 +63,22 @@ exports.upload = async (req, res) => {
     const { identity, machineFields } = await mps.buildContext(proc);
     const folderRel = storageService.machineFolderRel(identity, machineFields, proc.listType);
     await storageService.ensureMachineStructure(identity, machineFields, proc.listType);
-    const saved = await storageService.saveBuffer({
-      folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
-      originalName: req.file.originalname, buffer: req.file.buffer
-    });
-    await mps.recordUploadedDocument({
-      proc, documentType, saved, fileSize: req.file.size, mimeType: req.file.mimetype,
-      uploadedBy: null, uploadedByType, uploaderName, note, originalName: req.file.originalname
-    });
 
-    return res.json({ success: true, message: 'Dosyanız başarıyla yüklendi. Teşekkür ederiz.' });
+    for (const file of files) {
+      const saved = await storageService.saveBuffer({
+        folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
+        originalName: file.originalname, buffer: file.buffer
+      });
+      await mps.recordUploadedDocument({
+        proc, documentType, saved, fileSize: file.size, mimeType: file.mimetype,
+        uploadedBy: null, uploadedByType, uploaderName, note, originalName: file.originalname
+      });
+    }
+
+    const msg = files.length > 1
+      ? `${files.length} dosyanız başarıyla yüklendi. Teşekkür ederiz.`
+      : 'Dosyanız başarıyla yüklendi. Teşekkür ederiz.';
+    return res.json({ success: true, message: msg, count: files.length });
   } catch (err) {
     if (err && err.code === 'UNSUPPORTED_FILE_TYPE') return fail(res, 415, err.message);
     console.error('🚨 [tesvikEvrak] upload:', err && (err.stack || err.message));

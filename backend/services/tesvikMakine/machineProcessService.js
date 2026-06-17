@@ -160,7 +160,12 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
       supplierEmails: p ? p.supplierEmails : [],
       customerContactName: p ? p.customerContactName : '',
       customerEmails: p ? p.customerEmails : [],
-      barcode: p ? p.barcode : ''
+      barcode: p ? p.barcode : '',
+      // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
+      invoiceRealizedValue: p ? p.invoiceRealizedValue : 0,
+      invoiceRealizedQty: p ? p.invoiceRealizedQty : 0,
+      invoiceNo: p ? p.invoiceNo : '',
+      invoiceDate: p ? p.invoiceDate : null
     };
   });
   return { certificate: { _id: cert._id, tesvikModel, ...identity }, rows };
@@ -170,7 +175,9 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
 
 const EDITABLE_FIELDS = [
   'supplierCompanyName', 'supplierTaxNumber', 'customerContactName',
-  'kdvExemptRequired', 'invoiceDescriptionAuto', 'autoSendEnabled', 'dueDate', 'notes'
+  'kdvExemptRequired', 'invoiceDescriptionAuto', 'autoSendEnabled', 'dueDate', 'notes',
+  // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
+  'invoiceRealizedValue', 'invoiceRealizedQty', 'invoiceNo', 'invoiceDate'
 ];
 
 async function updateFields(proc, fields = {}, user) {

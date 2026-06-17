@@ -5,11 +5,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, TextField, MenuItem,
   Switch, FormControlLabel, Box, Typography, Divider, Chip, IconButton, Snackbar, Alert,
-  CircularProgress, List, ListItem, ListItemText, Tooltip, InputAdornment, Stack,
+  CircularProgress, List, ListItem, ListItemText, Tooltip, Stack,
   Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
-import ClearIcon from '@mui/icons-material/Clear';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
@@ -102,17 +101,6 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
-  const doBarcode = async () => {
-    if (!form.barcode.trim()) return notify('Barkod/otomasyon kodu girin', 'warning');
-    setBusy('barcode');
-    try {
-      const r = await svc.setBarcode(proc._id, { barcode: form.barcode.trim(), autoSend: form.autoSendEnabled });
-      hydrate(r.process);
-      if (r.warning) notify(r.warning, 'warning');
-      else notify(r.autoSent ? 'Otomasyon kodu girildi, doğrulama maili gönderildi' : 'Otomasyon kodu girildi, mail taslağı hazırlandı');
-      reloadTimeline(proc._id); onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
-  };
 
   const doPreview = async () => {
     if (!templateCode) return notify('Şablon seçin', 'warning');
@@ -141,22 +129,15 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
     catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
-  // Barkodu akış tetiklemeden temizle (yanlış girildiyse)
-  const doClearBarcode = async () => {
-    setBusy('barcode');
-    try {
-      const updated = await svc.updateFields(proc._id, { barcode: '' });
-      hydrate(updated); notify('Barkod temizlendi'); reloadTimeline(proc._id); onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
-  };
-
   const doUpload = async (e) => {
-    const file = e.target.files?.[0]; if (!file) return;
+    const files = Array.from(e.target.files || []); if (!files.length) return;
     setBusy('upload');
     try {
-      const fd = new FormData(); fd.append('file', file); fd.append('documentType', docType);
-      await svc.adminUpload(proc._id, fd);
-      notify('Evrak yüklendi'); reloadTimeline(proc._id); onChanged && onChanged();
+      const fd = new FormData();
+      files.forEach((f) => fd.append('files', f)); // çoklu dosya (XML + PDF aynı anda)
+      fd.append('documentType', docType);
+      const res = await svc.adminUpload(proc._id, fd);
+      notify(`${res?.length || files.length} evrak yüklendi`); reloadTimeline(proc._id); onChanged && onChanged();
     } catch (err) { notify(errMsg(err), 'error'); } finally { setBusy(''); if (fileRef.current) fileRef.current.value = ''; }
   };
 
@@ -171,7 +152,9 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const copyLink = () => { navigator.clipboard?.writeText(uploadLink); notify('Link kopyalandı'); };
 
   const m = target?.machine || {};
-  const statuses = meta?.statuses || [];
+  const allStatuses = meta?.statuses || [];
+  // Dropdown'da gizli durumları gösterme; ancak mevcut durum gizliyse onu da ekle (Select boş kalmasın)
+  const statusItems = allStatuses.filter((s) => !s.hidden || s.value === form.status);
   const templates = meta?.templates || [];
   const docTypes = meta?.documentTypes || [];
 
@@ -204,57 +187,31 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
               </Grid>
             </Box>
 
-            {/* Barkod akışı */}
-            <SectionTitle>Bakanlık / Teşvik Otomasyon Kodu</SectionTitle>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth size="small" label="Barkod / Otomasyon Kodu" value={form.barcode} onChange={setField('barcode')}
-                  InputProps={{
-                    startAdornment: <InputAdornment position="start"><QrCode2Icon fontSize="small" /></InputAdornment>,
-                    endAdornment: (proc.barcode || form.barcode) ? (
-                      <InputAdornment position="end">
-                        <Tooltip title="Barkodu temizle">
-                          <IconButton size="small" onClick={doClearBarcode} disabled={busy === 'barcode'}><ClearIcon fontSize="small" /></IconButton>
-                        </Tooltip>
-                      </InputAdornment>
-                    ) : null
-                  }} />
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <FormControlLabel control={<Switch checked={form.autoSendEnabled} onChange={setSwitch('autoSendEnabled')} />} label="Otomatik gönder" />
-              </Grid>
-              <Grid item xs={12} sm={3}>
-                <Button variant="contained" fullWidth onClick={doBarcode} disabled={busy === 'barcode'} startIcon={busy === 'barcode' ? <CircularProgress size={16} /> : <QrCode2Icon />}>Kodu Uygula</Button>
-              </Grid>
-            </Grid>
-
             {/* Tedarikçi */}
             <SectionTitle>Tedarikçi Bilgileri</SectionTitle>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Tedarikçi Firma" value={form.supplierCompanyName} onChange={setField('supplierCompanyName')} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Tedarikçi Vergi No" value={form.supplierTaxNumber} onChange={setField('supplierTaxNumber')} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Tedarikçi Mail(ler)" placeholder="a@x.com, b@x.com" value={form.supplierEmails} onChange={setField('supplierEmails')} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="CC Mail(ler)" value={form.supplierCcEmails} onChange={setField('supplierCcEmails')} /></Grid>
             </Grid>
 
-            {/* Müşteri */}
-            <SectionTitle>Müşteri / Firma Yetkilisi</SectionTitle>
+            {/* Firma Yetkilisi */}
+            <SectionTitle>Firma Yetkilisi</SectionTitle>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Yetkili Adı" value={form.customerContactName} onChange={setField('customerContactName')} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Müşteri Mail(ler)" value={form.customerEmails} onChange={setField('customerEmails')} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth size="small" label="Mail(ler)" value={form.customerEmails} onChange={setField('customerEmails')} /></Grid>
             </Grid>
 
             {/* Ayarlar + durum */}
             <SectionTitle>Süreç Ayarları</SectionTitle>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={4}>
+              <Grid item xs={12} sm={5}>
                 <TextField select fullWidth size="small" label="Durum" value={form.status} onChange={setField('status')}>
-                  {statuses.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+                  {statusItems.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={3}><TextField type="date" fullWidth size="small" label="Beklenen Dönüş" InputLabelProps={{ shrink: true }} value={form.dueDate} onChange={setField('dueDate')} /></Grid>
-              <Grid item xs={6} sm={2}><FormControlLabel control={<Switch checked={form.kdvExemptRequired} onChange={setSwitch('kdvExemptRequired')} />} label="KDV muaf." /></Grid>
-              <Grid item xs={6} sm={3}><FormControlLabel control={<Switch checked={form.invoiceDescriptionAuto} onChange={setSwitch('invoiceDescriptionAuto')} />} label="Fatura açıklaması oto." /></Grid>
+              <Grid item xs={6} sm={3}><FormControlLabel control={<Switch checked={form.kdvExemptRequired} onChange={setSwitch('kdvExemptRequired')} />} label="KDV muaf." /></Grid>
+              <Grid item xs={6} sm={4}><FormControlLabel control={<Switch checked={form.invoiceDescriptionAuto} onChange={setSwitch('invoiceDescriptionAuto')} />} label="Fatura açıklaması oto." /></Grid>
               <Grid item xs={12}><TextField fullWidth size="small" multiline minRows={2} label="Not" value={form.notes} onChange={setField('notes')} /></Grid>
             </Grid>
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
@@ -283,7 +240,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
                 {docTypes.map((dt) => <MenuItem key={dt.key} value={dt.key}>{dt.label}</MenuItem>)}
               </TextField>
               <Button variant="outlined" onClick={() => fileRef.current?.click()} disabled={busy === 'upload'} startIcon={<UploadFileIcon />}>Evrak Yükle</Button>
-              <input type="file" ref={fileRef} hidden onChange={doUpload} />
+              <input type="file" ref={fileRef} hidden multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml" onChange={doUpload} />
               <Button variant="outlined" color={proc.reminderStopped ? 'success' : 'warning'} onClick={toggleReminder} disabled={busy === 'rem'}
                 startIcon={proc.reminderStopped ? <NotificationsActiveIcon /> : <NotificationsOffIcon />}>
                 {proc.reminderStopped ? 'Hatırlatmayı Aç' : 'Hatırlatmayı Durdur'}

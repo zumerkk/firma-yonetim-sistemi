@@ -2,7 +2,7 @@
 // DB'de MailTemplate varsa onu, yoksa constants'taki varsayılanı kullanır.
 
 const MailTemplate = require('../../models/MailTemplate');
-const { DEFAULT_TEMPLATES } = require('../../constants/tesvikMakineMail');
+const { DEFAULT_TEMPLATES, DEPRECATED_TEMPLATE_CODES } = require('../../constants/tesvikMakineMail');
 const { extractPlaceholders } = require('./mailTemplateEngine');
 
 // DB boşsa varsayılan şablonları ekler. Mevcut şablonları KURAL ile günceller:
@@ -35,10 +35,19 @@ async function seedMailTemplates() {
       updated += 1;
     }
   }
-  if (created > 0 || updated > 0) {
-    console.log(`✉️  [tesvikMakine] mail şablonları: ${created} eklendi, ${updated} güncellendi`);
+  // Kullanımdan kaldırılan şablonları pasifleştir (arayüzde görünmesin)
+  let deactivated = 0;
+  if (DEPRECATED_TEMPLATE_CODES && DEPRECATED_TEMPLATE_CODES.length) {
+    const res = await MailTemplate.updateMany(
+      { code: { $in: DEPRECATED_TEMPLATE_CODES }, isActive: true },
+      { $set: { isActive: false } }
+    );
+    deactivated = res.modifiedCount || res.nModified || 0;
   }
-  return { created, updated };
+  if (created > 0 || updated > 0 || deactivated > 0) {
+    console.log(`✉️  [tesvikMakine] mail şablonları: ${created} eklendi, ${updated} güncellendi, ${deactivated} pasifleştirildi`);
+  }
+  return { created, updated, deactivated };
 }
 
 // code → şablon (DB öncelikli, sonra constants fallback)

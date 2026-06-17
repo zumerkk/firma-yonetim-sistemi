@@ -129,16 +129,16 @@ describe('SMTP fail senaryosu', () => {
   test('SMTP yokken gönderim MailLog status=failed olur ve hata fırlatır', async () => {
     const p = await mps.ensureProcess(baseTarget);
     await mps.updateFields(p, { supplierEmails: 's@x.com', supplierTaxNumber: '1234567890' }, user);
-    await expect(mps.sendProcessMail(p, 'supplier_info_request', { user })).rejects.toThrow();
+    await expect(mps.sendProcessMail(p, 'supplier_verification_invoice_instruction', { user })).rejects.toThrow();
     const failed = await MailLog.findOne({ machineProcessId: p._id, status: 'failed' });
     expect(failed).toBeTruthy();
-    expect(failed.templateCode).toBe('supplier_info_request');
+    expect(failed.templateCode).toBe('supplier_verification_invoice_instruction');
   });
 
-  test('eksik placeholder gönderimden önce yakalanır', async () => {
+  test('alıcı yoksa gönderim öncesi yakalanır', async () => {
     const p = await mps.ensureProcess(baseTarget);
-    // supplier_info_request tedarikçi mail/vergi no ister → boş → TEMPLATE_INCOMPLETE
-    await expect(mps.sendProcessMail(p, 'supplier_info_request', { user })).rejects.toMatchObject({ code: expect.stringMatching(/INCOMPLETE|NO_RECIPIENT/) });
+    // Tedarikçi mail girilmemiş → alıcı yok → NO_RECIPIENT (SMTP'ye hiç gitmez)
+    await expect(mps.sendProcessMail(p, 'supplier_verification_invoice_instruction', { user })).rejects.toMatchObject({ code: expect.stringMatching(/INCOMPLETE|NO_RECIPIENT/) });
   });
 });
 
