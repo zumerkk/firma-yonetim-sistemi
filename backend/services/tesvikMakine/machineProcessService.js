@@ -180,6 +180,31 @@ const EDITABLE_FIELDS = [
   'invoiceRealizedValue', 'invoiceRealizedQty', 'invoiceNo', 'invoiceDate'
 ];
 
+// 🔄 Fatura gerçekleşme bilgilerini ana teşvik belgesinin gömülü makine satırına geri yaz.
+// MachineProcess'teki invoiceRealizedValue/Qty → YeniTesvik.makineListeleri.yerli[].gerceklesenTutar/Adet
+// Pre-save hook'ları tetiklememek için doğrudan $set ile yazar.
+async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar }) {
+  try {
+    const M = resolver.modelFor(proc.tesvikModel);
+    const lk = proc.listType === 'import' ? 'ithal' : 'yerli';
+
+    const cert = await M.findById(proc.tesvikId).select('makineListeleri').lean();
+    if (!cert || !cert.makineListeleri) return;
+
+    const list = cert.makineListeleri[lk] || [];
+    const idx = list.findIndex((r) => String(r.rowId) === String(proc.rowId));
+    if (idx < 0) return;
+
+    const update = {};
+    update[`makineListeleri.${lk}.${idx}.gerceklesenAdet`] = gerceklesenAdet;
+    update[`makineListeleri.${lk}.${idx}.gerceklesenTutar`] = gerceklesenTutar;
+
+    await M.collection.updateOne({ _id: cert._id }, { $set: update });
+  } catch (err) {
+    console.warn('⚠️ [tesvikMakine] fatura→master sync atlandı:', err && err.message);
+  }
+}
+
 async function updateFields(proc, fields = {}, user) {
   const changed = {};
   for (const f of EDITABLE_FIELDS) {
@@ -195,6 +220,15 @@ async function updateFields(proc, fields = {}, user) {
   }
   proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
   await proc.save();
+
+  // 🔄 Fatura gerçekleşme alanları değiştiyse ana belgenin gömülü makine satırını da güncelle
+  if (changed.invoiceRealizedValue !== undefined || changed.invoiceRealizedQty !== undefined) {
+    await syncInvoiceToMasterList(proc, {
+      gerceklesenAdet: proc.invoiceRealizedQty || 0,
+      gerceklesenTutar: proc.invoiceRealizedValue || 0
+    });
+  }
+
   if (Object.keys(changed).length) {
     await addLog({ proc, actionType: PROCESS_ACTION.FIELDS_UPDATED, note: 'Alanlar güncellendi', meta: { changed: Object.keys(changed) }, user });
   }
