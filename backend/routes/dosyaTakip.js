@@ -71,6 +71,9 @@ router.put('/:id', dosyaTakipController.talepGuncelle);
 // 🔄 Durum Değiştir (State Machine geçişi)
 router.patch('/:id/durum', dosyaTakipController.durumDegistir);
 
+// 🔄 Eksik (2.2.3) tamamlandı → Kurum Değerlendirme'ye (2.2.1) aktar + dosya/notları belge dossierine kaydet
+router.post('/:id/eksik-tamamla', dosyaTakipController.eksikTamamla);
+
 // 📝 Not Ekle
 router.post('/:id/not', dosyaTakipController.notEkle);
 
