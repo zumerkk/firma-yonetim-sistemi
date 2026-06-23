@@ -4,13 +4,13 @@
 import React, { useEffect, useState } from 'react';
 import {
     Box, Typography, Button, TextField, MenuItem, Grid,
-    Paper, Stepper, Step, StepLabel, Autocomplete,
+    Paper, Autocomplete,
     Alert, CircularProgress, Divider, Chip, List, ListItem,
-    ListItemIcon, ListItemText
+    ListItemIcon, ListItemText, Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
-    ArrowForward as ArrowForwardIcon,
+    ExpandMore as ExpandMoreIcon,
     Save as SaveIcon,
     Business as BusinessIcon,
     Assignment as AssignmentIcon,
@@ -23,7 +23,6 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
 
-const steps = ['Firma Seçimi', 'Talep Bilgileri', 'Ek Bilgiler'];
 
 const DosyaTakipForm = () => {
     const navigate = useNavigate();
@@ -31,7 +30,6 @@ const DosyaTakipForm = () => {
     const isEdit = Boolean(id);
     const { talepOlustur, talepGuncelle, fetchTalep, fetchEnums, enumDegerleri, loading, error, clearError } = useDosyaTakip();
 
-    const [activeStep, setActiveStep] = useState(0);
     const [firmalar, setFirmalar] = useState([]);
     const [firmaLoading, setFirmaLoading] = useState(false);
     const [firmaSearch, setFirmaSearch] = useState('');
@@ -327,8 +325,6 @@ const DosyaTakipForm = () => {
         }
     };
 
-    const handleNext = () => setActiveStep(prev => Math.min(prev + 1, steps.length - 1));
-    const handleBack = () => setActiveStep(prev => Math.max(prev - 1, 0));
 
     const handleSubmit = async () => {
         try {
@@ -394,27 +390,14 @@ const DosyaTakipForm = () => {
                 {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
                 {success && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{success}</Alert>}
 
-                {/* Stepper */}
-                <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-                    {steps.map((label, index) => (
-                        <Step key={label}>
-                            <StepLabel
-                                StepIconProps={{
-                                    sx: {
-                                        '&.Mui-active': { color: '#f59e0b' },
-                                        '&.Mui-completed': { color: '#22c55e' }
-                                    }
-                                }}
-                            >
-                                {label}
-                            </StepLabel>
-                        </Step>
-                    ))}
-                </Stepper>
+                {/* Tek sayfa — aç/kapa (accordion) bölümler */}
 
                 <Paper sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0' }}>
-                    {/* ADIM 1: FİRMA SEÇİMİ */}
-                    {activeStep === 0 && (
+                    {/* BÖLÜM 1: FİRMA & BELGE SEÇİMİ */}
+                    {(
+                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>1. Firma & Belge Seçimi</Typography></AccordionSummary>
+                        <AccordionDetails>
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                                 <BusinessIcon sx={{ color: '#f59e0b' }} />
@@ -535,41 +518,16 @@ const DosyaTakipForm = () => {
                                 </Paper>
                             )}
 
-                            <Divider sx={{ my: 3 }} />
-
-                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#374151', mb: 2 }}>
-                                Belge Bilgileri (Opsiyonel)
-                            </Typography>
-
-                            <Grid container spacing={2}>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        size="small"
-                                        select
-                                        label="Belge Sistemi"
-                                        value={formData.belgeSistemi}
-                                        onChange={handleChange('belgeSistemi')}
-                                    >
-                                        <MenuItem value="Tesvik">Eski Teşvik Sistemi</MenuItem>
-                                        <MenuItem value="YeniTesvik">Yeni Teşvik Sistemi</MenuItem>
-                                    </TextField>
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField fullWidth size="small" label="Belge ID" value={formData.belgeId} onChange={handleChange('belgeId')} />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField fullWidth size="small" select label="Belge Durumu" value={formData.belgeDurumu} onChange={handleChange('belgeDurumu')}>
-                                        <MenuItem value=""><em>Seçiniz</em></MenuItem>
-                                        {['TASLAK', 'AÇIK', 'KAPALI', 'İPTAL', 'KAPATMA TALEPLİ', 'SÜRESİ BİTMİŞ'].map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
-                                    </TextField>
-                                </Grid>
-                            </Grid>
                         </Box>
+                        </AccordionDetails>
+                        </Accordion>
                     )}
 
-                    {/* ADIM 2: TALEP BİLGİLERİ */}
-                    {activeStep === 1 && (
+                    {/* BÖLÜM 2: TALEP BİLGİLERİ */}
+                    {(
+                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>2. Talep Bilgileri</Typography></AccordionSummary>
+                        <AccordionDetails>
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                                 <AssignmentIcon sx={{ color: '#f59e0b' }} />
@@ -622,10 +580,15 @@ const DosyaTakipForm = () => {
                                 </Grid>
                             </Grid>
                         </Box>
+                        </AccordionDetails>
+                        </Accordion>
                     )}
 
-                    {/* ADIM 3: EK BİLGİLER */}
-                    {activeStep === 2 && (
+                    {/* BÖLÜM 3: EK BİLGİLER (opsiyonel) */}
+                    {(
+                        <Accordion sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>3. Ek Bilgiler (opsiyonel)</Typography></AccordionSummary>
+                        <AccordionDetails>
                         <Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
                                 <DescriptionIcon sx={{ color: '#f59e0b' }} />
@@ -643,7 +606,10 @@ const DosyaTakipForm = () => {
                                         onChange={handleChange('belgeGoruntulemeLinki')} />
                                 </Grid>
                                 <Grid item xs={12} md={6}>
-                                    <TextField fullWidth size="small" label="Belge Durumu" value={formData.belgeDurumu} onChange={handleChange('belgeDurumu')} />
+                                    <TextField fullWidth size="small" select label="Belge Durumu" value={formData.belgeDurumu} onChange={handleChange('belgeDurumu')}>
+                                        <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                                        {['TASLAK', 'AÇIK', 'KAPALI', 'İPTAL', 'KAPATMA TALEPLİ', 'SÜRESİ BİTMİŞ'].map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                    </TextField>
                                 </Grid>
                             </Grid>
 
@@ -671,52 +637,28 @@ const DosyaTakipForm = () => {
                                 </Typography>
                             </Paper>
                         </Box>
+                        </AccordionDetails>
+                        </Accordion>
                     )}
 
-                    {/* Butonlar */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4, pt: 3, borderTop: '1px solid #e2e8f0' }}>
+                    {/* Kaydet — tek buton */}
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3, pt: 3, borderTop: '1px solid #e2e8f0' }}>
                         <Button
-                            disabled={activeStep === 0}
-                            onClick={handleBack}
-                            startIcon={<ArrowBackIcon />}
-                            sx={{ textTransform: 'none', color: '#64748b' }}
+                            variant="contained"
+                            onClick={handleSubmit}
+                            disabled={loading || !isStepValid(0) || !isStepValid(1)}
+                            startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+                            sx={{
+                                textTransform: 'none',
+                                borderRadius: 2,
+                                px: 4,
+                                background: 'linear-gradient(135deg, #059669, #10b981)',
+                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                                '&:hover': { background: 'linear-gradient(135deg, #047857, #059669)' }
+                            }}
                         >
-                            Geri
+                            {isEdit ? 'Güncelle' : 'Talebi Oluştur'}
                         </Button>
-                        <Box sx={{ display: 'flex', gap: 1.5 }}>
-                            {activeStep < steps.length - 1 ? (
-                                <Button
-                                    variant="contained"
-                                    onClick={handleNext}
-                                    disabled={!isStepValid(activeStep)}
-                                    endIcon={<ArrowForwardIcon />}
-                                    sx={{
-                                        textTransform: 'none',
-                                        borderRadius: 2,
-                                        background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                                        '&:hover': { background: 'linear-gradient(135deg, #b45309, #d97706)' }
-                                    }}
-                                >
-                                    İleri
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="contained"
-                                    onClick={handleSubmit}
-                                    disabled={loading || !isStepValid(0) || !isStepValid(1)}
-                                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
-                                    sx={{
-                                        textTransform: 'none',
-                                        borderRadius: 2,
-                                        background: 'linear-gradient(135deg, #059669, #10b981)',
-                                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                                        '&:hover': { background: 'linear-gradient(135deg, #047857, #059669)' }
-                                    }}
-                                >
-                                    {isEdit ? 'Güncelle' : 'Talebi Oluştur'}
-                                </Button>
-                            )}
-                        </Box>
                     </Box>
                 </Paper>
             </Box>
