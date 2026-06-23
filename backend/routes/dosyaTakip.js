@@ -18,6 +18,9 @@ router.get('/dashboard', dosyaTakipController.getDashboardIstatistikleri);
 // 📦 Enum Değerleri (Talep Türleri, Durumlar)
 router.get('/enums', dosyaTakipController.getEnumDegerleri);
 
+// 💡 Daire/Uzman öneri listesi (mevcut kayıtlardan)
+router.get('/oneriler', dosyaTakipController.getOneriler);
+
 // 📋 Tüm Talepleri Listele (sayfalı + filtreleme)
 router.get('/', dosyaTakipController.getTumTalepler);
 
