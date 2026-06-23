@@ -2727,7 +2727,8 @@ const getTesvikByFirma = async (req, res) => {
 
     const tesvikler = await Tesvik.find({ firma: firmaId, aktif: true })
       .populate('olusturanKullanici', 'adSoyad')
-      .select('tesvikId gmId durumBilgileri istihdam maliHesaplamalar createdAt')
+      // belgeYonetimi + yatirimBilgileri + yatirimciUnvan → DosyaTakip belge seçiminde oto-doldurma için
+      .select('tesvikId gmId yatirimciUnvan durumBilgileri istihdam maliHesaplamalar belgeYonetimi yatirimBilgileri createdAt')
       .sort({ createdAt: -1 });
 
     res.json({
