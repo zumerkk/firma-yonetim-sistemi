@@ -754,6 +754,29 @@ exports.talepSil = async (req, res) => {
 // ============================================================================
 // 📦 ENUM DEĞERLERİNİ AL (Frontend için)
 // ============================================================================
+// ============================================================================
+// 💡 ÖNERİLER — daire/uzman seçim listesi (mevcut kayıtlardan distinct)
+// Müşteri: 'Daire Seçme List' / 'Uzman Seçme list'. Sabit master liste yerine,
+// daha önce girilmiş değerlerden öneri sunan freeSolo liste.
+// ============================================================================
+exports.getOneriler = async (req, res) => {
+    try {
+        const [daireler, uzmanlar] = await Promise.all([
+            DosyaTakip.distinct('muraacatSonrasi.kurumDegerlendirme.kurumDaire'),
+            DosyaTakip.distinct('muraacatSonrasi.kurumDegerlendirme.daireUzman')
+        ]);
+        res.json({
+            success: true,
+            data: {
+                daireler: (daireler || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'tr')),
+                uzmanlar: (uzmanlar || []).filter(Boolean).sort((a, b) => a.localeCompare(b, 'tr'))
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Öneriler alınamadı', error: error.message });
+    }
+};
+
 exports.getEnumDegerleri = async (req, res) => {
     try {
         res.json({

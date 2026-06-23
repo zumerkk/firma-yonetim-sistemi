@@ -145,10 +145,12 @@ const DosyaTakipDetail = () => {
     const [atamaEditing, setAtamaEditing] = useState(false);
     const [atamaData, setAtamaData] = useState({});
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
+    const [oneriler, setOneriler] = useState({ daireler: [], uzmanlar: [] }); // daire/uzman öneri listesi
 
     useEffect(() => {
         if (id) fetchTalep(id);
         loadUsers();
+        axios.get('/dosya-takip/oneriler').then(r => setOneriler(r.data?.data || { daireler: [], uzmanlar: [] })).catch(() => { });
     }, [id, fetchTalep]);
 
     const loadUsers = async () => {
@@ -235,6 +237,18 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: r?.message || 'Eksik tamamlandı, Kurum Değerlendirme\'ye aktarıldı.', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Eksik tamamlanamadı.', severity: 'error' });
+        }
+    };
+
+    // 🔀 İş akışını stepper'dan direkt seç/değiştir (müşteri: 'buradan direkt seçip değiştirebilelim')
+    const handleQuickDurum = async (key, label) => {
+        if (!key || key === seciliTalep.durum) return;
+        if (!window.confirm(`İş akışı durumu "${label}" olarak değiştirilsin mi?`)) return;
+        try {
+            await durumDegistir(id, key, '');
+            setSnackbar({ open: true, message: `Durum güncellendi: ${label}`, severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Durum değiştirilemedi.', severity: 'error' });
         }
     };
 
@@ -522,13 +536,18 @@ const DosyaTakipDetail = () => {
                                                             {step.subSteps.map(sub => {
                                                                 const isCurrentSub = seciliTalep.durum === sub.key;
                                                                 return (
-                                                                    <Box key={sub.key} sx={{
+                                                                    <Box key={sub.key}
+                                                                        onClick={() => handleQuickDurum(sub.key, sub.label)}
+                                                                        title="Bu duruma geç"
+                                                                        sx={{
                                                                         display: 'flex', alignItems: 'center', gap: 1,
                                                                         py: 0.75, px: 1, mb: 0.5,
                                                                         borderRadius: 1.5,
+                                                                        cursor: 'pointer',
                                                                         background: isCurrentSub ? `${step.color}10` : 'transparent',
                                                                         border: isCurrentSub ? `1px solid ${step.color}30` : '1px solid transparent',
-                                                                        transition: 'all 0.2s'
+                                                                        transition: 'all 0.2s',
+                                                                        '&:hover': { background: `${step.color}18`, border: `1px solid ${step.color}40` }
                                                                     }}>
                                                                         {isCurrentSub ?
                                                                             <PlayCircleIcon sx={{ fontSize: 14, color: step.color }} /> :
@@ -765,8 +784,10 @@ const DosyaTakipDetail = () => {
                                                 <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
                                                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Kurum Dairesi</Typography>
                                                     {atamaEditing ? (
-                                                        <TextField fullWidth size="small" value={atamaData['muraacatSonrasi.kurumDegerlendirme.kurumDaire'] || ''}
-                                                            onChange={(e) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.kurumDaire': e.target.value }))} />
+                                                        <Autocomplete freeSolo size="small" options={oneriler.daireler}
+                                                            value={atamaData['muraacatSonrasi.kurumDegerlendirme.kurumDaire'] || ''}
+                                                            onInputChange={(e, v) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.kurumDaire': v || '' }))}
+                                                            renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Daire seçin veya yazın" />} />
                                                     ) : (
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.kurumDaire || 'Belirtilmedi'}</Typography>
                                                     )}
@@ -776,8 +797,10 @@ const DosyaTakipDetail = () => {
                                                 <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
                                                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Daire Uzmanı</Typography>
                                                     {atamaEditing ? (
-                                                        <TextField fullWidth size="small" value={atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || ''}
-                                                            onChange={(e) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.daireUzman': e.target.value }))} />
+                                                        <Autocomplete freeSolo size="small" options={oneriler.uzmanlar}
+                                                            value={atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || ''}
+                                                            onInputChange={(e, v) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.daireUzman': v || '' }))}
+                                                            renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Uzman seçin veya yazın" />} />
                                                     ) : (
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || 'Belirtilmedi'}</Typography>
                                                     )}
