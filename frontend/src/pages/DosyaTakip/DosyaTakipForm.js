@@ -186,7 +186,15 @@ const DosyaTakipForm = () => {
                         durumEtiketi: t.durumBilgileri?.genelDurum?.replace(/_/g, ' ') || '-',
                         gmId: t.gmId,
                         createdAt: t.createdAt,
-                        belgeId: t.belgeYonetimi?.belgeId || ''
+                        belgeId: t.belgeYonetimi?.belgeId || '',
+                        // Oto-doldurma alanları
+                        firmaUnvan: t.yatirimciUnvan || '',
+                        ytbNo: t.belgeYonetimi?.belgeNo || '',
+                        ytbBaslamaTarihi: t.belgeYonetimi?.belgeBaslamaTarihi || '',
+                        ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
+                        belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
+                        sektorKonu: t.yatirimBilgileri?.yatirimKonusu || '',
+                        belgeDurumuRaw: t.belgeYonetimi?.belgeDurumu || ''
                     });
                 });
             }
@@ -205,7 +213,15 @@ const DosyaTakipForm = () => {
                         durumEtiketi: t.durumBilgileri?.genelDurum?.replace(/_/g, ' ') || '-',
                         gmId: t.gmId,
                         createdAt: t.createdAt,
-                        belgeId: t.belgeYonetimi?.belgeId || ''
+                        belgeId: t.belgeYonetimi?.belgeId || '',
+                        // Oto-doldurma alanları
+                        firmaUnvan: t.yatirimciUnvan || '',
+                        ytbNo: t.belgeYonetimi?.belgeNo || '',
+                        ytbBaslamaTarihi: t.belgeYonetimi?.belgeBaslamaTarihi || '',
+                        ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
+                        belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
+                        sektorKonu: t.yatirimBilgileri?.yatirimKonusu || '',
+                        belgeDurumuRaw: t.belgeYonetimi?.belgeDurumu || ''
                     });
                 });
             }
@@ -252,7 +268,22 @@ const DosyaTakipForm = () => {
         }
     };
 
-    // Müşteri: firmanın teşvik belgesini seç → kimlik + iç link otomatik dolsun
+    // Teşvik belgesinin durumunu DosyaTakip belge durumuna eşle (best-effort)
+    const mapBelgeDurumu = (raw) => {
+        if (!raw) return '';
+        const r = String(raw).toLowerCase();
+        if (r === 'onaylandi' || r === 'onaylandı') return 'AÇIK';
+        if (r === 'iptal' || r === 'reddedildi') return 'İPTAL';
+        if (['hazirlaniyor', 'başvuru_yapildi', 'basvuru_yapildi', 'inceleniyor', 'ek_belge_bekleniyor'].includes(r)) return 'TASLAK';
+        return '';
+    };
+    const toDateInput = (d) => {
+        if (!d) return '';
+        const dt = new Date(d);
+        return isNaN(dt.getTime()) ? '' : dt.toISOString().slice(0, 10);
+    };
+
+    // Müşteri: firmanın teşvik belgesini seç → kimlik bilgileri + iç link otomatik dolsun
     const handleBelgeSelect = (belge) => {
         const sistem = belge._kaynak === 'Yeni Teşvik' ? 'YeniTesvik' : 'Tesvik';
         const ic = `${sistem === 'YeniTesvik' ? '/yeni-tesvik' : '/tesvik'}/${belge._id}`;
@@ -262,6 +293,13 @@ const DosyaTakipForm = () => {
             belgeSistemi: sistem,
             belgeId: belge.belgeId || prev.belgeId,
             gmId: belge.gmId || prev.gmId,
+            firmaUnvan: prev.firmaUnvan || belge.firmaUnvan || '',
+            ytbNo: belge.ytbNo || prev.ytbNo,
+            ytbBaslamaTarihi: toDateInput(belge.ytbBaslamaTarihi) || prev.ytbBaslamaTarihi,
+            ytbBitisTarihi: toDateInput(belge.ytbBitisTarihi) || prev.ytbBitisTarihi,
+            belgeTuru: belge.belgeTuru || prev.belgeTuru,
+            sektorKonu: belge.sektorKonu || prev.sektorKonu,
+            belgeDurumu: mapBelgeDurumu(belge.belgeDurumuRaw) || prev.belgeDurumu,
             belgeGoruntulemeLinki: ic
         }));
     };
