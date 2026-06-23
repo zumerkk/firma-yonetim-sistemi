@@ -74,6 +74,9 @@ router.patch('/:id/durum', dosyaTakipController.durumDegistir);
 // 🔄 Eksik (2.2.3) tamamlandı → Kurum Değerlendirme'ye (2.2.1) aktar + dosya/notları belge dossierine kaydet
 router.post('/:id/eksik-tamamla', dosyaTakipController.eksikTamamla);
 
+// ✉️ 2.3 Kurum Sonuçlanma → sorumlu personele bilgilendirme maili düşür
+router.post('/:id/personel-mail', dosyaTakipController.personelMailDusur);
+
 // 📝 Not Ekle
 router.post('/:id/not', dosyaTakipController.notEkle);
 

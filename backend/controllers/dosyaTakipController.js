@@ -435,6 +435,79 @@ exports.eksikTamamla = async (req, res) => {
 };
 
 // ============================================================================
+// ✉️ 2.3 KURUM SONUÇLANMA — PERSONELE BİLGİLENDİRME MAİLİ DÜŞÜR
+// Müşteri: "Personel Mail düşürme (mail script) Bitti tiki"
+// Sorumlu personele (kurumSonuclanma.personel) otomatik bilgilendirme maili gönderir,
+// mailDusuruldu bayrağını işaretler. Çalışan SMTP servisi (tesvikMakine/mailService) kullanılır.
+// ============================================================================
+exports.personelMailDusur = async (req, res) => {
+    try {
+        const mailService = require('../services/tesvikMakine/mailService');
+        const talep = await DosyaTakip.findById(req.params.id)
+            .populate('kurumSonuclanma.personel', 'adSoyad email');
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+        const personel = talep.kurumSonuclanma && talep.kurumSonuclanma.personel;
+        const aliciMail = personel && personel.email;
+        if (!aliciMail) {
+            return res.status(400).json({ success: false, message: 'Önce e-postası olan bir Sonuçlama Personeli atayın.' });
+        }
+        if (!mailService.isConfigured()) {
+            return res.status(503).json({ success: false, message: 'SMTP yapılandırılmamış. Lütfen sunucu ayarlarını kontrol edin.' });
+        }
+
+        const sonucEtiket = {
+            firmaIletildi: 'Sonuç Firmaya İletildi',
+            bekletilecek: 'Sonuç Bekletilecek',
+            firmaIptal: 'Talep Firma Tarafından İptal',
+            gmIptal: 'Talep GM Tarafımızdan İptal'
+        }[talep.kurumSonuclanma.sonuc] || 'Belirtilmedi';
+
+        const imza = (process.env.MAIL_SIGNATURE && process.env.MAIL_SIGNATURE.replace(/\\n/g, '\n'))
+            || 'Genel Müşavirlik ve İşletmecilik Ltd. Şti.\nGM Planlama Yatırım Danışmanlık San. ve Tic. Ltd. Şti.';
+        const sonNot = (talep.kurumSonuclanma.sonucNotlari || []).slice(-1)[0]?.metin || '';
+        const subject = `${talep.firmaUnvan || 'Firma'} - ${talep.talepTuru || 'Talep'} - Kurum Sonuçlanma Bilgilendirmesi`;
+        const text = [
+            'Merhabalar,',
+            '',
+            `${talep.firmaUnvan || 'İlgili firma'}${talep.ytbNo ? ` (YTB ${talep.ytbNo})` : ''} kapsamındaki "${talep.talepTuru || '-'}" talebi kurum sonuçlanma aşamasına gelmiştir.`,
+            '',
+            `Sonuç: ${sonucEtiket}`,
+            sonNot ? `Not: ${sonNot}` : '',
+            `Takip No: ${talep.takipId || '-'}`,
+            '',
+            'Bilgilerinize sunarız.',
+            '',
+            imza
+        ].filter((l) => l !== '').join('\n');
+
+        try {
+            await mailService.sendMail({ to: aliciMail, subject, text });
+        } catch (mailErr) {
+            return res.status(502).json({ success: false, message: mailErr.message || 'Mail gönderilemedi.' });
+        }
+
+        talep.kurumSonuclanma.mailDusuruldu = true;
+        if (!Array.isArray(talep.kurumSonuclanma.sonucNotlari)) talep.kurumSonuclanma.sonucNotlari = [];
+        talep.kurumSonuclanma.sonucNotlari.push({
+            metin: `[Mail] Sorumlu personele bilgilendirme maili gönderildi: ${aliciMail}`,
+            tarih: new Date(),
+            yazan: req.user._id,
+            yazanAdi: req.user.adSoyad
+        });
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: talep, message: `Bilgilendirme maili gönderildi: ${aliciMail}` });
+    } catch (error) {
+        console.error('Personel mail düşürme hatası:', error);
+        res.status(500).json({ success: false, message: 'Mail gönderilirken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
 // 📝 NOT EKLE
 // ============================================================================
 exports.notEkle = async (req, res) => {

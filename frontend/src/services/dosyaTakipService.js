@@ -54,6 +54,12 @@ const dosyaTakipService = {
         return data;
     },
 
+    // ✉️ 2.3 Sonuçlanma → sorumlu personele bilgilendirme maili düşür
+    personelMailDusur: async (id) => {
+        const { data } = await axios.post(`${API_URL}/${id}/personel-mail`);
+        return data;
+    },
+
     // 📝 Not Ekle
     notEkle: async (id, metin, alan = 'genelNotlar') => {
         const { data } = await axios.post(`${API_URL}/${id}/not`, { metin, alan });
