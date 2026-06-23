@@ -48,6 +48,12 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 🔄 Eksik tamamla → Kurum Değerlendirme'ye aktar (dosya/notları belge ekine kaydeder)
+    eksikTamamla: async (id) => {
+        const { data } = await axios.post(`${API_URL}/${id}/eksik-tamamla`);
+        return data;
+    },
+
     // 📝 Not Ekle
     notEkle: async (id, metin, alan = 'genelNotlar') => {
         const { data } = await axios.post(`${API_URL}/${id}/not`, { metin, alan });

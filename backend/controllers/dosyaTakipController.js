@@ -355,6 +355,86 @@ exports.durumDegistir = async (req, res) => {
 };
 
 // ============================================================================
+// 🔄 EKSİK TAMAMLA → KURUM DEĞERLENDİRME'YE AKTAR
+// Müşteri: "2.2.3 Tamamlandığından 2.2.1'e aktarılacak. Dosyalar ve Notlar Belgenin ekine kaydedilecek."
+// Kurum Eksik (2.2.3.x) aşamasındaki gelen belgeler + beklenen eksik notları, talebin
+// ana Dosyalar/Notlar bölümüne (belge dossierine) kopyalanır ve durum 2.2.1'e taşınır.
+// ============================================================================
+exports.eksikTamamla = async (req, res) => {
+    try {
+        const talep = await DosyaTakip.findById(req.params.id);
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+        if (!String(talep.durum || '').startsWith('2.2.3')) {
+            return res.status(400).json({ success: false, message: "Bu işlem yalnızca 'Kurum Eksik' (2.2.3) aşamasındaki taleplerde yapılabilir." });
+        }
+
+        const ke = (talep.muraacatSonrasi && talep.muraacatSonrasi.kurumEksik) || {};
+        const altlar = [ke.firmadanBeklenen, ke.bizdenBeklenen, ke.herIkisindenBeklenen];
+        if (!Array.isArray(talep.dosyalar)) talep.dosyalar = [];
+        if (!Array.isArray(talep.genelNotlar)) talep.genelNotlar = [];
+
+        let aktarilanDosya = 0;
+        let aktarilanNot = 0;
+        for (const sub of altlar) {
+            if (!sub) continue;
+            (sub.gelenBelgeler || []).forEach((d) => {
+                talep.dosyalar.push({
+                    dosyaAdi: d.dosyaAdi,
+                    dosyaYolu: d.dosyaYolu,
+                    dosyaTipi: d.dosyaTipi,
+                    kategori: 'Eksik Bildirimleri',
+                    dosyaBoyutu: d.dosyaBoyutu,
+                    cloudinaryPublicId: d.cloudinaryPublicId,
+                    yukleyenKisi: d.yukleyenKisi,
+                    yukleyenAdi: d.yukleyenAdi,
+                    yuklemeTarihi: d.yuklemeTarihi || new Date()
+                });
+                aktarilanDosya += 1;
+            });
+            (sub.beklenenEksikler || []).forEach((n) => {
+                talep.genelNotlar.push({
+                    metin: `[Eksik → aktarıldı] ${n.metin}`,
+                    tarih: n.tarih || new Date(),
+                    yazan: n.yazan,
+                    yazanAdi: n.yazanAdi
+                });
+                aktarilanNot += 1;
+            });
+        }
+
+        const oncekiDurum = talep.durum;
+        const oncekiAnaAsama = talep.anaAsama;
+        talep.durum = '2.2.1_KURUM_DEGERLENDIRME';
+        talep.anaAsama = 'MURACAAT_SONRASI';
+        talep.durumRengi = DosyaTakip.durumRengiBelirle(talep.durum);
+        talep.durumGecmisi.push({
+            oncekiDurum,
+            yeniDurum: talep.durum,
+            oncekiAnaAsama,
+            yeniAnaAsama: talep.anaAsama,
+            degistiren: req.user._id,
+            degistirenAdi: req.user.adSoyad,
+            aciklama: `Eksik tamamlandı → Kurum Değerlendirme'ye aktarıldı. ${aktarilanDosya} dosya + ${aktarilanNot} not belge ekine kaydedildi.`,
+            tarih: new Date()
+        });
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({
+            success: true,
+            data: talep,
+            message: `Eksik tamamlandı. ${aktarilanDosya} dosya + ${aktarilanNot} not belge ekine kaydedildi, Kurum Değerlendirme'ye aktarıldı.`
+        });
+    } catch (error) {
+        console.error('Eksik tamamlama hatası:', error);
+        res.status(500).json({ success: false, message: 'Eksik tamamlanırken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
 // 📝 NOT EKLE
 // ============================================================================
 exports.notEkle = async (req, res) => {

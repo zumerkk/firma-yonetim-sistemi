@@ -121,6 +121,20 @@ export const DosyaTakipProvider = ({ children }) => {
         }
     }, []);
 
+    const eksikTamamla = useCallback(async (id) => {
+        try {
+            setLoading(true);
+            const result = await dosyaTakipService.eksikTamamla(id);
+            if (result.success) setSeciliTalep(result.data);
+            return result;
+        } catch (err) {
+            setError(err.response?.data?.message || 'Eksik tamamlanamadı');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     // 📝 Not Ekle
     const notEkle = useCallback(async (id, metin, alan) => {
         try {
@@ -197,6 +211,7 @@ export const DosyaTakipProvider = ({ children }) => {
         talepOlustur,
         talepGuncelle,
         durumDegistir,
+        eksikTamamla,
         notEkle,
         notSil,
         dosyaEkle,

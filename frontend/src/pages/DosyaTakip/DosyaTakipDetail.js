@@ -132,7 +132,7 @@ const getBackendUrl = () => {
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { seciliTalep, fetchTalep, durumDegistir, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
@@ -224,6 +224,17 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: 'Durum başarıyla güncellendi!', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: 'Durum değiştirilemedi.', severity: 'error' });
+        }
+    };
+
+    // 🔄 Eksik tamamla → Kurum Değerlendirme'ye aktar (dosya/notları belge ekine kaydeder)
+    const handleEksikTamamla = async () => {
+        if (!window.confirm('Kurum Eksik aşamasındaki dosya ve notlar belge ekine (Dosyalar/Notlar) kaydedilip durum "Kurum Değerlendirme"ye aktarılacak. Onaylıyor musunuz?')) return;
+        try {
+            const r = await eksikTamamla(id);
+            setSnackbar({ open: true, message: r?.message || 'Eksik tamamlandı, Kurum Değerlendirme\'ye aktarıldı.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Eksik tamamlanamadı.', severity: 'error' });
         }
     };
 
@@ -427,6 +438,14 @@ const DosyaTakipDetail = () => {
                         </Grid>
                     </Grid>
                 </Paper>
+
+                {/* Kurum Eksik (2.2.3) → Kurum Değerlendirme aktarım aksiyonu */}
+                {String(seciliTalep.durum || '').startsWith('2.2.3') && (
+                    <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}
+                        action={<Button color="inherit" size="small" variant="outlined" onClick={handleEksikTamamla}>Eksiği Tamamla → Değerlendirmeye Aktar</Button>}>
+                        Kurum Eksik aşamasındasınız. Eksikler tamamlandıysa bu aşamadaki dosya ve notlar belge ekine (Dosyalar/Notlar) kaydedilip durum otomatik <strong>Kurum Değerlendirme</strong>'ye taşınır.
+                    </Alert>
+                )}
 
                 {/* Ana İçerik: Sol Timeline + Sağ Panel */}
                 <Grid container spacing={3}>
