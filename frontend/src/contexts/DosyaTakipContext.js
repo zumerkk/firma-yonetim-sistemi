@@ -135,6 +135,20 @@ export const DosyaTakipProvider = ({ children }) => {
         }
     }, []);
 
+    const personelMailDusur = useCallback(async (id) => {
+        try {
+            setLoading(true);
+            const result = await dosyaTakipService.personelMailDusur(id);
+            if (result.success) setSeciliTalep(result.data);
+            return result;
+        } catch (err) {
+            setError(err.response?.data?.message || 'Mail gönderilemedi');
+            throw err;
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
     // 📝 Not Ekle
     const notEkle = useCallback(async (id, metin, alan) => {
         try {
@@ -212,6 +226,7 @@ export const DosyaTakipProvider = ({ children }) => {
         talepGuncelle,
         durumDegistir,
         eksikTamamla,
+        personelMailDusur,
         notEkle,
         notSil,
         dosyaEkle,

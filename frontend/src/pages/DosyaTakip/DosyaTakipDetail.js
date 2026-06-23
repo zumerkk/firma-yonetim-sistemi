@@ -132,7 +132,7 @@ const getBackendUrl = () => {
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, personelMailDusur, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
@@ -235,6 +235,17 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: r?.message || 'Eksik tamamlandı, Kurum Değerlendirme\'ye aktarıldı.', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Eksik tamamlanamadı.', severity: 'error' });
+        }
+    };
+
+    // ✉️ 2.3 Sonuçlanma → sorumlu personele bilgilendirme maili düşür
+    const handleMailDusur = async () => {
+        if (!window.confirm('Sorumlu personele sonuçlanma bilgilendirme maili gönderilecek. Onaylıyor musunuz?')) return;
+        try {
+            const r = await personelMailDusur(id);
+            setSnackbar({ open: true, message: r?.message || 'Bilgilendirme maili gönderildi.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Mail gönderilemedi.', severity: 'error' });
         }
     };
 
@@ -444,6 +455,18 @@ const DosyaTakipDetail = () => {
                     <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}
                         action={<Button color="inherit" size="small" variant="outlined" onClick={handleEksikTamamla}>Eksiği Tamamla → Değerlendirmeye Aktar</Button>}>
                         Kurum Eksik aşamasındasınız. Eksikler tamamlandıysa bu aşamadaki dosya ve notlar belge ekine (Dosyalar/Notlar) kaydedilip durum otomatik <strong>Kurum Değerlendirme</strong>'ye taşınır.
+                    </Alert>
+                )}
+
+                {/* Kurum Sonuçlanma (2.3) → sorumlu personele bilgilendirme maili */}
+                {String(seciliTalep.durum || '').startsWith('2.3') && (
+                    <Alert severity={seciliTalep.kurumSonuclanma?.mailDusuruldu ? 'success' : 'info'} sx={{ mb: 2, borderRadius: 2 }}
+                        action={<Button color="inherit" size="small" variant="outlined" onClick={handleMailDusur}>
+                            {seciliTalep.kurumSonuclanma?.mailDusuruldu ? 'Tekrar Gönder' : 'Personele Mail Gönder'}
+                        </Button>}>
+                        {seciliTalep.kurumSonuclanma?.mailDusuruldu
+                            ? '✓ Sorumlu personele bilgilendirme maili gönderildi.'
+                            : 'Kurum Sonuçlanma aşaması. Sorumlu personele (Sonuçlama Personeli) otomatik bilgilendirme maili gönderebilirsiniz.'}
                     </Alert>
                 )}
 
