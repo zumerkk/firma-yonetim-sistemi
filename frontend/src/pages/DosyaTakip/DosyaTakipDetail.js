@@ -6,6 +6,7 @@ import {
     Box, Typography, Button, Chip, Paper, Grid, Avatar,
     Stepper, Step, StepLabel, StepContent, TextField,
     MenuItem, IconButton, Divider, Alert, Snackbar,
+    Checkbox, FormControlLabel,
     Tooltip, LinearProgress, Collapse, Tabs, Tab,
     List, ListItem, ListItemIcon, ListItemText, ListItemAvatar,
     Dialog, DialogTitle, DialogContent, DialogActions,
@@ -146,12 +147,31 @@ const DosyaTakipDetail = () => {
     const [atamaData, setAtamaData] = useState({});
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
     const [oneriler, setOneriler] = useState({ daireler: [], uzmanlar: [] }); // daire/uzman öneri listesi
+    const [eksikData, setEksikData] = useState({ firmaYetkilisi: '', personel: '', personelBitti: false, firmaBitti: false }); // 2.2.3 alt-form
+    const [eksikNotText, setEksikNotText] = useState('');
 
     useEffect(() => {
         if (id) fetchTalep(id);
         loadUsers();
         axios.get('/dosya-takip/oneriler').then(r => setOneriler(r.data?.data || { daireler: [], uzmanlar: [] })).catch(() => { });
     }, [id, fetchTalep]);
+
+    // 2.2.3 alt-form alanlarını seçili talepten doldur
+    useEffect(() => {
+        const d = String(seciliTalep?.durum || '');
+        const ke = seciliTalep?.muraacatSonrasi?.kurumEksik || {};
+        const sub = d.startsWith('2.2.3.1') ? ke.firmadanBeklenen
+            : d.startsWith('2.2.3.2') ? ke.bizdenBeklenen
+                : d.startsWith('2.2.3.3') ? ke.herIkisindenBeklenen : null;
+        if (sub) {
+            setEksikData({
+                firmaYetkilisi: sub.firmaYetkilisi || '',
+                personel: (sub.personel && (sub.personel._id || sub.personel)) || '',
+                personelBitti: !!sub.personelBitti,
+                firmaBitti: !!sub.firmaBitti
+            });
+        }
+    }, [seciliTalep]);
 
     const loadUsers = async () => {
         try {
@@ -250,6 +270,58 @@ const DosyaTakipDetail = () => {
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Durum değiştirilemedi.', severity: 'error' });
         }
+    };
+
+    // 🧩 2.2.3 alt durum → model alt-anahtarı
+    const eksikSubKey = (() => {
+        const d = String(seciliTalep?.durum || '');
+        if (d.startsWith('2.2.3.1')) return 'firmadanBeklenen';
+        if (d.startsWith('2.2.3.2')) return 'bizdenBeklenen';
+        if (d.startsWith('2.2.3.3')) return 'herIkisindenBeklenen';
+        return null;
+    })();
+
+    const handleEksikKaydet = async () => {
+        if (!eksikSubKey) return;
+        const base = `muraacatSonrasi.kurumEksik.${eksikSubKey}`;
+        const updates = {};
+        if (eksikSubKey !== 'bizdenBeklenen') updates[`${base}.firmaYetkilisi`] = eksikData.firmaYetkilisi || '';
+        if (eksikSubKey !== 'firmadanBeklenen') {
+            updates[`${base}.personel`] = eksikData.personel || null;
+            updates[`${base}.personelAdi`] = (users.find(u => (u._id || u.id) === eksikData.personel)?.adSoyad) || '';
+        }
+        if (eksikSubKey === 'herIkisindenBeklenen') {
+            updates[`${base}.personelBitti`] = eksikData.personelBitti;
+            updates[`${base}.firmaBitti`] = eksikData.firmaBitti;
+        }
+        try {
+            await talepGuncelle(id, updates);
+            setSnackbar({ open: true, message: 'Eksik bilgileri kaydedildi.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Kaydedilemedi.', severity: 'error' });
+        }
+    };
+
+    const handleEksikNotEkle = async () => {
+        if (!eksikSubKey || !eksikNotText.trim()) return;
+        try {
+            await notEkle(id, eksikNotText.trim(), `muraacatSonrasi.kurumEksik.${eksikSubKey}.beklenenEksikler`);
+            setEksikNotText('');
+            setSnackbar({ open: true, message: 'Beklenen eksik notu eklendi.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Not eklenemedi.', severity: 'error' });
+        }
+    };
+
+    const handleEksikDosyaYukle = async (e) => {
+        const file = e.target.files?.[0];
+        if (!eksikSubKey || !file) { if (e.target) e.target.value = ''; return; }
+        try {
+            await dosyaEkle(id, file, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, 'Eksik Bildirimleri');
+            setSnackbar({ open: true, message: 'Belge yüklendi.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Belge yüklenemedi.', severity: 'error' });
+        } finally { if (e.target) e.target.value = ''; }
     };
 
     // ✉️ 2.3 Sonuçlanma → sorumlu personele bilgilendirme maili düşür
@@ -471,6 +543,147 @@ const DosyaTakipDetail = () => {
                         Kurum Eksik aşamasındasınız. Eksikler tamamlandıysa bu aşamadaki dosya ve notlar belge ekine (Dosyalar/Notlar) kaydedilip durum otomatik <strong>Kurum Değerlendirme</strong>'ye taşınır.
                     </Alert>
                 )}
+
+                {/* Kurum Eksik (2.2.3.x) → Alt-form: Firma Yetkilisi / Personel / Beklenen Eksikler / Gelen Belgeler */}
+                {eksikSubKey && (() => {
+                    const sub = seciliTalep.muraacatSonrasi?.kurumEksik?.[eksikSubKey] || {};
+                    const beklenen = sub.beklenenEksikler || [];
+                    const belgeler = sub.gelenBelgeler || [];
+                    const f = seciliTalep.firma || {};
+                    const irtibat = typeof f.ilkIrtibatKisi === 'string' ? f.ilkIrtibatKisi : (f.ilkIrtibatKisi?.adSoyad || '');
+                    const yetkililer = Array.from(new Set([
+                        ...((f.yetkiliKisiler || []).map(y => y?.adSoyad).filter(Boolean)),
+                        ...(irtibat ? [irtibat] : [])
+                    ]));
+                    const backendUrl = getBackendUrl();
+                    return (
+                        <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #fecaca', background: '#fef2f2' }}>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+                                <WarningIcon sx={{ fontSize: 18 }} /> Kurum Eksik Detayı — {DURUM_ETIKETLERI[seciliTalep.durum] || seciliTalep.durum}
+                            </Typography>
+
+                            <Grid container spacing={2} sx={{ mb: 1 }}>
+                                {eksikSubKey !== 'bizdenBeklenen' && (
+                                    <Grid item xs={12} md={6}>
+                                        <Autocomplete
+                                            freeSolo size="small" options={yetkililer}
+                                            value={eksikData.firmaYetkilisi || ''}
+                                            onInputChange={(e, v) => setEksikData(p => ({ ...p, firmaYetkilisi: v || '' }))}
+                                            renderInput={(params) => <TextField {...params} fullWidth size="small" label="Firma Yetkilisi" placeholder="Seçin veya yazın" />}
+                                        />
+                                    </Grid>
+                                )}
+                                {eksikSubKey !== 'firmadanBeklenen' && (
+                                    <Grid item xs={12} md={6}>
+                                        <TextField select fullWidth size="small" label="Sorumlu Personel"
+                                            value={eksikData.personel || ''}
+                                            onChange={(e) => setEksikData(p => ({ ...p, personel: e.target.value }))}>
+                                            <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                                            {(Array.isArray(users) ? users : []).map(u => (
+                                                <MenuItem key={u._id || u.id} value={u._id || u.id}>{u.adSoyad}</MenuItem>
+                                            ))}
+                                        </TextField>
+                                    </Grid>
+                                )}
+                                {eksikSubKey === 'herIkisindenBeklenen' && (
+                                    <Grid item xs={12}>
+                                        <FormControlLabel
+                                            control={<Checkbox size="small" checked={!!eksikData.personelBitti} onChange={(e) => setEksikData(p => ({ ...p, personelBitti: e.target.checked }))} />}
+                                            label="Personel tarafı bitti" />
+                                        <FormControlLabel
+                                            control={<Checkbox size="small" checked={!!eksikData.firmaBitti} onChange={(e) => setEksikData(p => ({ ...p, firmaBitti: e.target.checked }))} />}
+                                            label="Firma tarafı bitti" />
+                                    </Grid>
+                                )}
+                                <Grid item xs={12}>
+                                    <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleEksikKaydet}
+                                        sx={{ textTransform: 'none', borderRadius: 2, background: 'linear-gradient(135deg, #dc2626, #ef4444)' }}>
+                                        Eksik Bilgilerini Kaydet
+                                    </Button>
+                                </Grid>
+                            </Grid>
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Beklenen Eksikler */}
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', fontSize: '0.65rem' }}>Beklenen Eksikler</Typography>
+                            <Box sx={{ display: 'flex', gap: 1, mt: 0.5, mb: 1.5 }}>
+                                <TextField size="small" fullWidth placeholder="Beklenen eksik / not yazın..."
+                                    value={eksikNotText} onChange={(e) => setEksikNotText(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleEksikNotEkle()} />
+                                <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleEksikNotEkle} disabled={!eksikNotText.trim()}
+                                    sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>Ekle</Button>
+                            </Box>
+                            {beklenen.length === 0 ? (
+                                <Typography variant="caption" color="text.secondary">Henüz beklenen eksik notu yok.</Typography>
+                            ) : (
+                                <List dense sx={{ py: 0, mb: 1 }}>
+                                    {beklenen.map((n, i) => (
+                                        <ListItem key={n._id || i} sx={{ px: 0, py: 0.25 }}
+                                            secondaryAction={
+                                                <Tooltip title="Sil">
+                                                    <IconButton size="small" edge="end"
+                                                        onClick={() => askDeleteConfirm('not', n._id, `muraacatSonrasi.kurumEksik.${eksikSubKey}.beklenenEksikler`, n.metin)}>
+                                                        <DeleteIcon sx={{ fontSize: 16, color: '#ef4444' }} />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            }>
+                                            <ListItemText
+                                                primary={<Typography variant="body2" sx={{ fontSize: '0.82rem' }}>• {n.metin}</Typography>}
+                                                secondary={<Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                                                    {n.tarih ? new Date(n.tarih).toLocaleDateString('tr-TR') : ''}{n.yazanAdi ? ` · ${n.yazanAdi}` : ''}
+                                                </Typography>} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+
+                            <Divider sx={{ my: 2 }} />
+
+                            {/* Gelen Belgeler */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', textTransform: 'uppercase', fontSize: '0.65rem' }}>Gelen Belgeler</Typography>
+                                <Button size="small" variant="outlined" component="label" startIcon={<CloudUploadIcon />}
+                                    sx={{ textTransform: 'none', borderRadius: 2 }}>
+                                    Belge Yükle
+                                    <input hidden type="file" onChange={handleEksikDosyaYukle} />
+                                </Button>
+                            </Box>
+                            {belgeler.length === 0 ? (
+                                <Typography variant="caption" color="text.secondary">Henüz belge yüklenmedi.</Typography>
+                            ) : (
+                                <List dense sx={{ py: 0 }}>
+                                    {belgeler.map((d, i) => (
+                                        <ListItem key={d._id || i} sx={{ px: 0, py: 0.25 }}
+                                            secondaryAction={
+                                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                                    <Tooltip title="Aç / İndir">
+                                                        <IconButton size="small"
+                                                            onClick={() => window.open(d.dosyaYolu?.startsWith('http') ? d.dosyaYolu : `${backendUrl}${d.dosyaYolu}`, '_blank')}>
+                                                            <DownloadIcon sx={{ fontSize: 16, color: '#3b82f6' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Sil">
+                                                        <IconButton size="small"
+                                                            onClick={() => askDeleteConfirm('dosya', d._id, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, d.dosyaAdi)}>
+                                                            <DeleteIcon sx={{ fontSize: 16, color: '#ef4444' }} />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Box>
+                                            }>
+                                            <ListItemIcon sx={{ minWidth: 32 }}><DescriptionIcon sx={{ fontSize: 18, color: '#64748b' }} /></ListItemIcon>
+                                            <ListItemText
+                                                primary={<Typography variant="body2" sx={{ fontSize: '0.82rem' }}>{d.dosyaAdi}</Typography>}
+                                                secondary={<Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                                                    {d.yuklemeTarihi ? new Date(d.yuklemeTarihi).toLocaleDateString('tr-TR') : ''}
+                                                </Typography>} />
+                                        </ListItem>
+                                    ))}
+                                </List>
+                            )}
+                        </Paper>
+                    );
+                })()}
 
                 {/* Kurum Sonuçlanma (2.3) → sorumlu personele bilgilendirme maili */}
                 {String(seciliTalep.durum || '').startsWith('2.3') && (

@@ -29,6 +29,26 @@ const upload = multer({
 });
 
 // ============================================================================
+// 🔗 ORTAK POPULATE YAPISI
+// Detay ve tüm mutasyon dönüşlerinde aynı populate kullanılır; böylece
+// kaydetme sonrası firma.yetkiliKisiler / personel adları kaybolmaz.
+// ============================================================================
+const TALEP_POPULATE = [
+    { path: 'firma', select: 'tamUnvan firmaId vergiNoTC yetkiliKisiler ilkIrtibatKisi' }, // Firma Yetkili listesi için
+    { path: 'olusturanKullanici', select: 'adSoyad email' },
+    { path: 'sonGuncelleyen', select: 'adSoyad email' },
+    { path: 'muraacatOncesi.gorusmeYapan', select: 'adSoyad' },
+    { path: 'muraacatOncesi.muraacatHazirlayanPersonel', select: 'adSoyad' },
+    { path: 'muraacatSonrasi.takibiYapanPersonel', select: 'adSoyad' },
+    { path: 'muraacatSonrasi.kurumEksik.bizdenBeklenen.personel', select: 'adSoyad' },
+    { path: 'muraacatSonrasi.kurumEksik.herIkisindenBeklenen.personel', select: 'adSoyad' },
+    { path: 'kurumSonuclanma.personel', select: 'adSoyad' }
+];
+
+// Kaydedilmiş bir doc'u ortak populate ile yeniden yükle (frontend her zaman dolu veri alsın)
+const populateTalep = (id) => DosyaTakip.findById(id).populate(TALEP_POPULATE);
+
+// ============================================================================
 // 📊 DASHBOARD İSTATİSTİKLERİ
 // ============================================================================
 exports.getDashboardIstatistikleri = async (req, res) => {
@@ -170,14 +190,7 @@ exports.getTumTalepler = async (req, res) => {
 // ============================================================================
 exports.getTalepById = async (req, res) => {
     try {
-        const talep = await DosyaTakip.findById(req.params.id)
-            .populate('firma', 'tamUnvan firmaId vergiNoTC')
-            .populate('olusturanKullanici', 'adSoyad email')
-            .populate('sonGuncelleyen', 'adSoyad email')
-            .populate('muraacatOncesi.gorusmeYapan', 'adSoyad')
-            .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
-            .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
-            .populate('kurumSonuclanma.personel', 'adSoyad');
+        const talep = await populateTalep(req.params.id);
 
         if (!talep) {
             return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
@@ -276,7 +289,7 @@ exports.talepGuncelle = async (req, res) => {
             console.error('Activity log hatası:', actErr);
         }
 
-        res.json({ success: true, data: talep, message: 'Talep başarıyla güncellendi' });
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Talep başarıyla güncellendi' });
     } catch (error) {
         console.error('Talep güncelleme hatası:', error);
         res.status(500).json({ success: false, message: 'Talep güncellenirken hata oluştu', error: error.message });
@@ -345,7 +358,7 @@ exports.durumDegistir = async (req, res) => {
 
         res.json({
             success: true,
-            data: talep,
+            data: await populateTalep(talep._id),
             message: `Durum başarıyla güncellendi: ${getDurumEtiketi(yeniDurum)}`
         });
     } catch (error) {
@@ -425,7 +438,7 @@ exports.eksikTamamla = async (req, res) => {
 
         res.json({
             success: true,
-            data: talep,
+            data: await populateTalep(talep._id),
             message: `Eksik tamamlandı. ${aktarilanDosya} dosya + ${aktarilanNot} not belge ekine kaydedildi, Kurum Değerlendirme'ye aktarıldı.`
         });
     } catch (error) {
@@ -500,7 +513,7 @@ exports.personelMailDusur = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: talep, message: `Bilgilendirme maili gönderildi: ${aliciMail}` });
+        res.json({ success: true, data: await populateTalep(talep._id), message: `Bilgilendirme maili gönderildi: ${aliciMail}` });
     } catch (error) {
         console.error('Personel mail düşürme hatası:', error);
         res.status(500).json({ success: false, message: 'Mail gönderilirken hata oluştu', error: error.message });
@@ -553,7 +566,7 @@ exports.notEkle = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: talep, message: 'Not başarıyla eklendi' });
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Not başarıyla eklendi' });
     } catch (error) {
         console.error('Not ekleme hatası:', error);
         res.status(500).json({ success: false, message: 'Not eklenirken hata oluştu', error: error.message });
@@ -608,7 +621,7 @@ exports.dosyaEkle = [
             talep.sonGuncelleyenAdi = req.user.adSoyad;
             await talep.save();
 
-            res.json({ success: true, data: talep, message: 'Dosya başarıyla yüklendi' });
+            res.json({ success: true, data: await populateTalep(talep._id), message: 'Dosya başarıyla yüklendi' });
         } catch (error) {
             console.error('Dosya yükleme hatası:', error);
             res.status(500).json({ success: false, message: 'Dosya yüklenirken hata oluştu', error: error.message });
@@ -653,7 +666,7 @@ exports.notSil = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: talep, message: 'Not silindi' });
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Not silindi' });
     } catch (error) {
         console.error('Not silme hatası:', error);
         res.status(500).json({ success: false, message: 'Not silinirken hata oluştu', error: error.message });
@@ -708,7 +721,7 @@ exports.dosyaSil = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: talep, message: 'Dosya silindi' });
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Dosya silindi' });
     } catch (error) {
         console.error('Dosya silme hatası:', error);
         res.status(500).json({ success: false, message: 'Dosya silinirken hata oluştu', error: error.message });
