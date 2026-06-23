@@ -46,6 +46,7 @@ const DosyaTakipForm = () => {
         firma: null,
         firmaId: '',
         firmaUnvan: '',
+        belge: null,            // seçilen teşvik belgesinin ObjectId'si (iç link için)
         belgeSistemi: 'Tesvik',
         belgeId: '',
         ytbNo: '',
@@ -251,6 +252,20 @@ const DosyaTakipForm = () => {
         }
     };
 
+    // Müşteri: firmanın teşvik belgesini seç → kimlik + iç link otomatik dolsun
+    const handleBelgeSelect = (belge) => {
+        const sistem = belge._kaynak === 'Yeni Teşvik' ? 'YeniTesvik' : 'Tesvik';
+        const ic = `${sistem === 'YeniTesvik' ? '/yeni-tesvik' : '/tesvik'}/${belge._id}`;
+        setFormData(prev => ({
+            ...prev,
+            belge: belge._id,
+            belgeSistemi: sistem,
+            belgeId: belge.belgeId || prev.belgeId,
+            gmId: belge.gmId || prev.gmId,
+            belgeGoruntulemeLinki: ic
+        }));
+    };
+
     const handleFirmaSelect = (event, value) => {
         if (value) {
             setSelectedFirma(value);
@@ -425,15 +440,20 @@ const DosyaTakipForm = () => {
                                         </Typography>
                                         {firmaBelgeLoading && <CircularProgress size={16} />}
                                     </Box>
-                                    {!firmaBelgeLoading && firmaninBelgeleri.length === 0 && (
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mb: 0.5 }}>
+                                        İşlem yapacağınız teşvik belgesini seçin (kimlik bilgileri ve belge linki otomatik dolar).
+                                    </Typography>
+                                    {!firmaBelgeLoading && firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').length === 0 && (
                                         <Typography variant="body2" sx={{ color: '#64748b', fontStyle: 'italic' }}>
-                                            Bu firmaya ait kayıtlı belge bulunamadı.
+                                            Bu firmaya ait kayıtlı teşvik belgesi bulunamadı.
                                         </Typography>
                                     )}
-                                    {firmaninBelgeleri.length > 0 && (
+                                    {firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').length > 0 && (
                                         <List dense sx={{ p: 0 }}>
-                                            {firmaninBelgeleri.slice(0, 15).map((belge, idx) => (
-                                                <ListItem key={belge._id || idx} sx={{ px: 0, py: 0.5 }}>
+                                            {firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').slice(0, 15).map((belge, idx) => (
+                                                <ListItem key={belge._id || idx} onClick={() => handleBelgeSelect(belge)}
+                                                    selected={formData.belge === belge._id}
+                                                    sx={{ px: 1, py: 0.5, borderRadius: 1, cursor: 'pointer', '&:hover': { backgroundColor: '#eff6ff' }, '&.Mui-selected': { backgroundColor: '#dbeafe' } }}>
                                                     <ListItemIcon sx={{ minWidth: 32 }}>
                                                         <InfoIcon sx={{ fontSize: 16, color: belge._kaynakRenk || '#94a3b8' }} />
                                                     </ListItemIcon>
@@ -467,9 +487,9 @@ const DosyaTakipForm = () => {
                                                     />
                                                 </ListItem>
                                             ))}
-                                            {firmaninBelgeleri.length > 15 && (
+                                            {firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').length > 15 && (
                                                 <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block', mt: 0.5, fontStyle: 'italic' }}>
-                                                    ... ve {firmaninBelgeleri.length - 15} belge daha
+                                                    ... ve {firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').length - 15} belge daha
                                                 </Typography>
                                             )}
                                         </List>
@@ -499,6 +519,12 @@ const DosyaTakipForm = () => {
                                 </Grid>
                                 <Grid item xs={12} md={6}>
                                     <TextField fullWidth size="small" label="Belge ID" value={formData.belgeId} onChange={handleChange('belgeId')} />
+                                </Grid>
+                                <Grid item xs={12} md={6}>
+                                    <TextField fullWidth size="small" select label="Belge Durumu" value={formData.belgeDurumu} onChange={handleChange('belgeDurumu')}>
+                                        <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                                        {['TASLAK', 'AÇIK', 'KAPALI', 'İPTAL', 'KAPATMA TALEPLİ', 'SÜRESİ BİTMİŞ'].map((d) => <MenuItem key={d} value={d}>{d}</MenuItem>)}
+                                    </TextField>
                                 </Grid>
                             </Grid>
                         </Box>

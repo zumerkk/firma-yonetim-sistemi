@@ -429,6 +429,7 @@ exports.dosyaEkle = [
                 dosyaAdi: req.file.originalname,
                 dosyaYolu: req.file.path, // Cloudinary URL
                 dosyaTipi: req.file.mimetype,
+                kategori: (req.body.kategori && DosyaTakip.DOSYA_TURLERI.includes(req.body.kategori)) ? req.body.kategori : '', // müşteri: önce tür seç
                 dosyaBoyutu: req.file.size,
                 cloudinaryPublicId: req.file.filename, // Cloudinary public_id (silme için)
                 yukleyenKisi: req.user._id,
@@ -608,6 +609,8 @@ exports.getEnumDegerleri = async (req, res) => {
                 talepTurleri: DosyaTakip.TALEP_TURLERI,
                 durumKodlari: DosyaTakip.DURUM_KODLARI,
                 anaAsamalar: DosyaTakip.ANA_ASAMALAR,
+                dosyaTurleri: DosyaTakip.DOSYA_TURLERI,
+                belgeDurumlari: DosyaTakip.BELGE_DURUMLARI,
                 durumEtiketleri: DosyaTakip.DURUM_KODLARI.map(d => ({
                     kod: d,
                     etiket: getDurumEtiketi(d),
