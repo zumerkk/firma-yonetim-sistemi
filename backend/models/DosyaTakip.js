@@ -114,6 +114,23 @@ const ANA_ASAMALAR = [
   'TAMAMLANDI'
 ];
 
+// 📁 Dosya Türleri (yüklemeden önce seçilir — müşteri talebi)
+const DOSYA_TURLERI = [
+  'ETUYS Sistem Görüntüsü',
+  'Görüşme Sırası Talep Dosyaları',
+  'Eksik Bildirimleri'
+];
+
+// 📄 Belge Durumları (belgeden gelir/seçilir — müşteri talebi)
+const BELGE_DURUMLARI = [
+  'TASLAK',
+  'AÇIK',
+  'KAPALI',
+  'İPTAL',
+  'KAPATMA TALEPLİ',
+  'SÜRESİ BİTMİŞ'
+];
+
 // ============================================================================
 // 📌 TARIHLI NOT SCHEMA
 // ============================================================================
@@ -130,8 +147,10 @@ const tarihliNotSchema = new mongoose.Schema({
 const dosyaSchema = new mongoose.Schema({
   dosyaAdi: { type: String, required: true },
   dosyaYolu: { type: String, required: true },
-  dosyaTipi: { type: String },
+  dosyaTipi: { type: String },          // mimetype
+  kategori: { type: String, enum: [...DOSYA_TURLERI, ''], default: '' }, // müşteri: önce tür seç
   dosyaBoyutu: { type: Number },
+  cloudinaryPublicId: { type: String }, // silme için (controller zaten yazıyordu)
   yukleyenKisi: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   yukleyenAdi: { type: String },
   yuklemeTarihi: { type: Date, default: Date.now }
@@ -297,6 +316,7 @@ const dosyaTakipSchema = new mongoose.Schema({
   // GENEL ALANLAR
   // ============================================================================
   genelNotlar: [tarihliNotSchema],
+  sozlesmeNotlari: [tarihliNotSchema], // müşteri: notlarda sözleşme notları tipli olsun
   dosyalar: [dosyaSchema],
 
   // Durum Geçmişi
@@ -408,6 +428,8 @@ dosyaTakipSchema.virtual('anaAsamaEtiketi').get(function() {
 dosyaTakipSchema.statics.TALEP_TURLERI = TALEP_TURLERI;
 dosyaTakipSchema.statics.DURUM_KODLARI = DURUM_KODLARI;
 dosyaTakipSchema.statics.ANA_ASAMALAR = ANA_ASAMALAR;
+dosyaTakipSchema.statics.DOSYA_TURLERI = DOSYA_TURLERI;
+dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 
 // Durum → Ana Aşama eşleştirmesi
 dosyaTakipSchema.statics.durumToAnaAsama = function(durum) {

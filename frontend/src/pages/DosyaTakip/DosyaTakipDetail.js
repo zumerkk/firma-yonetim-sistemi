@@ -54,6 +54,9 @@ const DURUM_RENKLERI = {
     mor: { bg: '#faf5ff', text: '#7c3aed', border: '#c4b5fd', gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)' }
 };
 
+// Dosya türleri (müşteri: yüklemeden önce seçilir)
+const DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
+
 // Durum etiketleri
 const DURUM_ETIKETLERI = {
     '2.1.1_GORUSULUYOR': 'Görüşülüyor',
@@ -134,6 +137,7 @@ const DosyaTakipDetail = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
     const [notAlan, setNotAlan] = useState('genelNotlar');
+    const [dosyaKategori, setDosyaKategori] = useState(''); // müşteri: yüklemeden önce dosya türü seç
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [expandedStep, setExpandedStep] = useState(null);
@@ -235,12 +239,17 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Dosya yükleme
+    // Dosya yükleme (müşteri: önce tür seçilmeli)
     const handleDosyaYukle = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        if (!dosyaKategori) {
+            setSnackbar({ open: true, message: 'Lütfen önce dosya türünü seçin.', severity: 'warning' });
+            e.target.value = '';
+            return;
+        }
         try {
-            await dosyaEkle(id, file, 'dosyalar');
+            await dosyaEkle(id, file, 'dosyalar', dosyaKategori);
             setSnackbar({ open: true, message: 'Dosya yüklendi!', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: 'Dosya yüklenemedi.', severity: 'error' });
@@ -396,11 +405,21 @@ const DosyaTakipDetail = () => {
                         </Grid>
                         <Grid item xs={12} md={6}>
                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Görüntüleme Linki</Typography>
-                            {seciliTalep.belgeGoruntulemeLinki ? (
-                                <Typography variant="body2"><MuiLink href={seciliTalep.belgeGoruntulemeLinki} target="_blank" rel="noopener">{seciliTalep.belgeGoruntulemeLinki}</MuiLink></Typography>
-                            ) : (
-                                <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>
-                            )}
+                            {(() => {
+                                // Müşteri: link bizim sistemdeki seçili belgeye gitsin (iç navigasyon)
+                                const belgeId = seciliTalep.belge?._id || seciliTalep.belge;
+                                const ic = belgeId ? `${seciliTalep.belgeSistemi === 'YeniTesvik' ? '/yeni-tesvik' : '/tesvik'}/${belgeId}` : '';
+                                const dis = seciliTalep.belgeGoruntulemeLinki;
+                                if (ic) return (
+                                    <Typography variant="body2">
+                                        <MuiLink component="button" type="button" onClick={() => navigate(ic)} sx={{ cursor: 'pointer' }}>Belgeyi Görüntüle →</MuiLink>
+                                    </Typography>
+                                );
+                                if (dis) return (
+                                    <Typography variant="body2"><MuiLink href={dis} target="_blank" rel="noopener">{dis}</MuiLink></Typography>
+                                );
+                                return <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>;
+                            })()}
                         </Grid>
                         <Grid item xs={12}>
                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
@@ -544,6 +563,7 @@ const DosyaTakipDetail = () => {
                                                 <MenuItem value="muraacatOncesi.eksikEvraklar">Eksik Evrak</MenuItem>
                                                 <MenuItem value="muraacatSonrasi.kurumDegerlendirme.gorusmeNotlari">Kurum Notu</MenuItem>
                                                 <MenuItem value="kurumSonuclanma.sonucNotlari">Sonuç Notu</MenuItem>
+                                                <MenuItem value="sozlesmeNotlari">Sözleşme Notu</MenuItem>
                                             </TextField>
                                             <Button
                                                 variant="contained"
@@ -568,17 +588,28 @@ const DosyaTakipDetail = () => {
                                 {/* TAB 1: DOSYALAR */}
                                 {activeTab === 1 && (
                                     <Box>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Yüklenen Dosyalar</Typography>
-                                            <Button
-                                                variant="outlined"
-                                                component="label"
-                                                startIcon={<CloudUploadIcon />}
-                                                sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
-                                            >
-                                                Dosya Yükle
-                                                <input hidden type="file" onChange={handleDosyaYukle} />
-                                            </Button>
+                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                                <TextField
+                                                    select size="small" label="Dosya Türü" value={dosyaKategori}
+                                                    onChange={(e) => setDosyaKategori(e.target.value)}
+                                                    sx={{ minWidth: 210 }}
+                                                >
+                                                    <MenuItem value=""><em>Önce tür seçin…</em></MenuItem>
+                                                    {DOSYA_TURLERI.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                                                </TextField>
+                                                <Button
+                                                    variant="outlined"
+                                                    component="label"
+                                                    startIcon={<CloudUploadIcon />}
+                                                    disabled={!dosyaKategori}
+                                                    sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
+                                                >
+                                                    Dosya Yükle
+                                                    <input hidden type="file" onChange={handleDosyaYukle} />
+                                                </Button>
+                                            </Box>
                                         </Box>
                                         {renderDosyalar(seciliTalep, askDeleteConfirm)}
                                     </Box>
@@ -832,6 +863,7 @@ function renderNotlar(talep, onNotSil) {
     (talep.muraacatOncesi?.eksikEvraklar || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Eksik Evrak', alan: 'muraacatOncesi.eksikEvraklar' }));
     (talep.muraacatSonrasi?.kurumDegerlendirme?.gorusmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Kurum Notu', alan: 'muraacatSonrasi.kurumDegerlendirme.gorusmeNotlari' }));
     (talep.kurumSonuclanma?.sonucNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Sonuç Notu', alan: 'kurumSonuclanma.sonucNotlari' }));
+    (talep.sozlesmeNotlari || []).forEach(n => tumNotlar.push({ ...n, kaynak: 'Sözleşme Notu', alan: 'sozlesmeNotlari' }));
 
     tumNotlar.sort((a, b) => new Date(b.tarih || b.createdAt) - new Date(a.tarih || a.createdAt));
 

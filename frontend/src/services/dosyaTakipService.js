@@ -55,10 +55,11 @@ const dosyaTakipService = {
     },
 
     // 📁 Dosya Ekle
-    dosyaEkle: async (id, file, alan = 'dosyalar') => {
+    dosyaEkle: async (id, file, alan = 'dosyalar', kategori = '') => {
         const formData = new FormData();
         formData.append('dosya', file);
         formData.append('alan', alan);
+        if (kategori) formData.append('kategori', kategori);
         const { data } = await axios.post(`${API_URL}/${id}/dosya`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
