@@ -667,14 +667,17 @@ exports.dosyaEkle = [
 ];
 
 // ============================================================================
-// 🔑 DOSYA İNDİRME/AÇMA URL'i (imzalı)
-// Cloudinary'de PDF/ZIP teslimatı hesap ayarıyla kısıtlı olabildiğinden, dosya
-// her açılışta taze bir imzalı (signed) URL ile sunulur — imzalı URL kısıtı aşar.
+// 📤 DOSYA GETİR (backend stream proxy)
+// Cloudinary'de PDF/ZIP teslimatı hesap ayarıyla kısıtlı olduğundan (imzalı
+// delivery URL'i bile 401 verebiliyor), dosyayı sunucu tarafında çekip kendi
+// domain'imizden stream ediyoruz. Birden çok kaynak denenir; ilki 200 döneni
+// kullanılır (authenticated download API delivery kısıtını aşar).
 // ============================================================================
-exports.dosyaUrl = async (req, res) => {
+exports.dosyaGetir = async (req, res) => {
     try {
         const { id, dosyaId } = req.params;
         const alan = req.query.alan || 'dosyalar';
+        const indir = req.query.dl === '1';
 
         const talep = await DosyaTakip.findById(id);
         if (!talep) {
@@ -694,23 +697,45 @@ exports.dosyaUrl = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
         }
 
-        // Eski/yerel dosyalar (Cloudinary public_id yok) → mevcut yolu döndür
-        if (!dosya.cloudinaryPublicId) {
-            return res.json({ success: true, url: dosya.dosyaYolu });
+        const isImage = /^image\//.test(dosya.dosyaTipi || '');
+        const rt = isImage ? 'image' : 'raw';
+        const pid = dosya.cloudinaryPublicId;
+
+        // Denenecek kaynak URL'leri (sırayla; ilk 200 dönen kullanılır)
+        const adaylar = [];
+        if (pid) {
+            // 1) Authenticated download API — delivery (PDF/ZIP) kısıtını aşar
+            try {
+                adaylar.push(cloudinary.utils.private_download_url(pid, '', { resource_type: rt, type: 'upload' }));
+            } catch (_) { /* yoksay */ }
+            // 2) İmzalı delivery URL
+            try {
+                adaylar.push(cloudinary.url(pid, { resource_type: rt, type: 'upload', secure: true, sign_url: true }));
+            } catch (_) { /* yoksay */ }
+        }
+        // 3) Kayıtlı yol (eski/yerel veya imzasız)
+        if (dosya.dosyaYolu) adaylar.push(dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : null);
+
+        let upstream = null;
+        for (const u of adaylar.filter(Boolean)) {
+            try {
+                const r = await fetch(u);
+                if (r.ok) { upstream = r; break; }
+            } catch (_) { /* sonraki adaya geç */ }
+        }
+        if (!upstream) {
+            return res.status(502).json({ success: false, message: 'Dosya kaynaktan alınamadı (Cloudinary teslimat kısıtı olabilir)' });
         }
 
-        const rt = /^image\//.test(dosya.dosyaTipi || '') ? 'image' : 'raw';
-        const url = cloudinary.url(dosya.cloudinaryPublicId, {
-            resource_type: rt,
-            type: 'upload',
-            secure: true,
-            sign_url: true // PDF/ZIP teslimat kısıtını aşar
-        });
-
-        res.json({ success: true, url });
+        const buf = Buffer.from(await upstream.arrayBuffer());
+        res.setHeader('Content-Type', dosya.dosyaTipi || upstream.headers.get('content-type') || 'application/octet-stream');
+        res.setHeader('Content-Length', buf.length);
+        const ad = encodeURIComponent(dosya.dosyaAdi || 'dosya');
+        res.setHeader('Content-Disposition', `${indir ? 'attachment' : 'inline'}; filename*=UTF-8''${ad}`);
+        res.send(buf);
     } catch (error) {
-        console.error('Dosya URL hatası:', error);
-        res.status(500).json({ success: false, message: 'Dosya bağlantısı oluşturulamadı', error: error.message });
+        console.error('Dosya getirme hatası:', error);
+        res.status(500).json({ success: false, message: 'Dosya getirilemedi', error: error.message });
     }
 };
 
