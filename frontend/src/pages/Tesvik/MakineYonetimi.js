@@ -3702,8 +3702,10 @@ const MakineYonetimi = () => {
           flexDirection: 'column',
           background: 'linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%)'
         }}>
+          {/* 🚀 PERF: fonksiyon çağrısı {YerliGrid()} — <YerliGrid/> DEĞİL.
+              <YerliGrid/> her render'da grid'i remount edip scroll'u başa atıyor + kasıyordu. */}
           <Box sx={{ flex: 1, minHeight: 350, width: '100%' }}>
-            {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+            {tab === 'yerli' ? YerliGrid() : IthalGrid()}
           </Box>
         </Box>
         

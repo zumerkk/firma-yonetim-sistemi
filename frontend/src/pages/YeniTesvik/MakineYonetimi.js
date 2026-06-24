@@ -4138,8 +4138,11 @@ const MakineYonetimi = () => {
         }}>
           <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Grid - Standart mod */}
+            {/* 🚀 PERF: YerliGrid/IthalGrid fonksiyon olarak çağrılır ({YerliGrid()}),
+                <YerliGrid/> DEĞİL — aksi halde her render'da yeni component tipi sayılıp
+                grid komple remount olur (scroll başa döner + kasma). */}
             <Box sx={{ flex: 1, minHeight: 0 }}>
-              {tab === 'yerli' ? <YerliGrid/> : <IthalGrid/>}
+              {tab === 'yerli' ? YerliGrid() : IthalGrid()}
             </Box>
           </Box>
           
