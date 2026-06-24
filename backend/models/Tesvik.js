@@ -538,13 +538,13 @@ const tesvikSchema = new mongoose.Schema({
     genelDurum: {
       type: String,
       enum: ['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'],
-      default: 'taslak',
+      default: 'onaylandi', // müşteri: yeni belgeler varsayılan 'Onaylandı' açılır
       index: true
     },
     durumRengi: {
       type: String,
       enum: ['yesil', 'sari', 'kirmizi', 'mavi', 'turuncu', 'gri'],
-      default: 'gri'
+      default: 'yesil' // 'onaylandi' rengi
     },
     sonDurumGuncelleme: { type: Date, default: Date.now },
     durumAciklamasi: {

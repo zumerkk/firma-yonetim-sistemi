@@ -43,13 +43,15 @@ import {
   Add as AddIcon,
 
   TableView as TableViewIcon,
-  History as HistoryIcon
+  History as HistoryIcon,
+  DoneAll as DoneAllIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
+import { belgeDurumLabel } from '../../utils/belgeDurum';
 
 const TesvikList = () => {
   const navigate = useNavigate();
@@ -259,6 +261,24 @@ const TesvikList = () => {
     loadTesvikler(newPage);
   };
 
+  // ✅ Tüm belgeleri toplu 'Onaylandı' yap (müşteri: 'hepsini onaylandı yapabilir miyiz')
+  const handleTumunuOnayla = async () => {
+    if (!window.confirm('Tüm belgelerin durumu "Onaylandı" olarak güncellenecek. Devam edilsin mi?')) return;
+    try {
+      setLoading(true);
+      const res = await axios.patch('/tesvik/bulk-durum', { tumu: true, yeniDurum: 'onaylandi', aciklama: 'Toplu onay' });
+      if (res?.data?.success) {
+        await loadTesvikler(1);
+        alert(res.data.message || 'Belgeler onaylandı.');
+      }
+    } catch (error) {
+      console.error('Toplu onay hatası:', error);
+      alert('Toplu onay başarısız: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // 🔧 YENİ EKLENDİ - Toplu Excel Export Handler
   const handleBulkExcelExport = async () => {
     try {
@@ -362,6 +382,20 @@ const TesvikList = () => {
             </Box>
             
             <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="outlined"
+                startIcon={<DoneAllIcon />}
+                onClick={handleTumunuOnayla}
+                disabled={loading}
+                sx={{
+                  color: '#15803d',
+                  borderColor: '#16a34a',
+                  fontWeight: 600,
+                  '&:hover': { backgroundColor: '#f0fdf4', borderColor: '#15803d' }
+                }}
+              >
+                Tümünü Onaylandı Yap
+              </Button>
               <Button
                 variant="outlined"
                 startIcon={<TableViewIcon />}
@@ -520,7 +554,7 @@ const TesvikList = () => {
                         
                         <TableCell>
                           <Chip
-                            label={tesvik.durumBilgileri?.genelDurum?.replace('_', ' ') || 'Bilinmeyen'}
+                            label={belgeDurumLabel(tesvik.durumBilgileri?.genelDurum)}
                             size="small"
                             sx={{
                               backgroundColor: getDurumColor(tesvik.durumBilgileri?.genelDurum),
