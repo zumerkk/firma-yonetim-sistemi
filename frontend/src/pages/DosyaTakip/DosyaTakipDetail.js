@@ -133,7 +133,7 @@ const getBackendUrl = () => {
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
-    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, personelMailDusur, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
@@ -322,17 +322,6 @@ const DosyaTakipDetail = () => {
         } catch (err) {
             setSnackbar({ open: true, message: 'Belge yüklenemedi.', severity: 'error' });
         } finally { if (e.target) e.target.value = ''; }
-    };
-
-    // ✉️ 2.3 Sonuçlanma → sorumlu personele bilgilendirme maili düşür
-    const handleMailDusur = async () => {
-        if (!window.confirm('Sorumlu personele sonuçlanma bilgilendirme maili gönderilecek. Onaylıyor musunuz?')) return;
-        try {
-            const r = await personelMailDusur(id);
-            setSnackbar({ open: true, message: r?.message || 'Bilgilendirme maili gönderildi.', severity: 'success' });
-        } catch (err) {
-            setSnackbar({ open: true, message: err?.response?.data?.message || 'Mail gönderilemedi.', severity: 'error' });
-        }
     };
 
     // Not ekleme
@@ -685,17 +674,6 @@ const DosyaTakipDetail = () => {
                     );
                 })()}
 
-                {/* Kurum Sonuçlanma (2.3) → sorumlu personele bilgilendirme maili */}
-                {String(seciliTalep.durum || '').startsWith('2.3') && (
-                    <Alert severity={seciliTalep.kurumSonuclanma?.mailDusuruldu ? 'success' : 'info'} sx={{ mb: 2, borderRadius: 2 }}
-                        action={<Button color="inherit" size="small" variant="outlined" onClick={handleMailDusur}>
-                            {seciliTalep.kurumSonuclanma?.mailDusuruldu ? 'Tekrar Gönder' : 'Personele Mail Gönder'}
-                        </Button>}>
-                        {seciliTalep.kurumSonuclanma?.mailDusuruldu
-                            ? '✓ Sorumlu personele bilgilendirme maili gönderildi.'
-                            : 'Kurum Sonuçlanma aşaması. Sorumlu personele (Sonuçlama Personeli) otomatik bilgilendirme maili gönderebilirsiniz.'}
-                    </Alert>
-                )}
 
                 {/* Ana İçerik: Sol Timeline + Sağ Panel */}
                 <Grid container spacing={3}>
@@ -1214,79 +1192,100 @@ function renderDosyalar(talep, onDosyaSil) {
         );
     }
 
-    return (
-        <List sx={{ p: 0 }}>
-            {tumDosyalar.map((dosya, index) => (
-                <ListItem key={dosya._id || index} sx={{
-                    px: 2, py: 1.5, mb: 1,
-                    borderRadius: 2,
-                    border: '1px solid #e2e8f0',
-                    '&:hover': { background: '#f8fafc' }
-                }}>
-                    <ListItemIcon sx={{ minWidth: 40 }}>
-                        <AttachFileIcon sx={{ color: '#f59e0b' }} />
-                    </ListItemIcon>
-                    <ListItemText
-                        primary={
-                            <Typography variant="body2" sx={{ fontWeight: 500 }}>{dosya.dosyaAdi}</Typography>
-                        }
-                        secondary={
-                            <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {dosya.kaynak} • {dosya.yukleyenAdi || '-'} • {dosya.yuklemeTarihi ? new Date(dosya.yuklemeTarihi).toLocaleDateString('tr-TR') : '-'}
-                                {dosya.dosyaBoyutu && ` • ${(dosya.dosyaBoyutu / 1024).toFixed(1)} KB`}
-                            </Typography>
-                        }
-                    />
-                    {dosya.dosyaYolu && (
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            {/* Görüntüleme (yeni sekmede aç) */}
-                            {dosya.dosyaYolu.startsWith('http') && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(dosya.dosyaAdi) && (
-                                <Tooltip title="Görüntüle">
-                                    <IconButton size="small" component="a"
-                                        href={dosya.dosyaYolu}
-                                        target="_blank" rel="noopener noreferrer">
-                                        <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
-                                    </IconButton>
-                                </Tooltip>
-                            )}
-                            {/* İndirme - Cloudinary için programatik blob download */}
-                            <Tooltip title="İndir">
-                                <IconButton size="small" onClick={async () => {
-                                    try {
-                                        const url = dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`;
-                                        const response = await fetch(url);
-                                        if (!response.ok) throw new Error('Dosya indirilemedi');
-                                        const blob = await response.blob();
-                                        const blobUrl = URL.createObjectURL(blob);
-                                        const a = document.createElement('a');
-                                        a.href = blobUrl;
-                                        a.download = dosya.dosyaAdi || 'dosya';
-                                        document.body.appendChild(a);
-                                        a.click();
-                                        document.body.removeChild(a);
-                                        URL.revokeObjectURL(blobUrl);
-                                    } catch (err) {
-                                        console.error('İndirme hatası:', err);
-                                        // Fallback: yeni sekmede aç
-                                        window.open(dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`, '_blank');
-                                    }
-                                }}>
-                                    <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
-                                </IconButton>
-                            </Tooltip>
-                        </Box>
-                    )}
-                    {dosya._id && onDosyaSil && (
-                        <Tooltip title="Dosyayı Sil">
-                            <IconButton size="small" onClick={() => onDosyaSil('dosya', dosya._id, dosya.alan, dosya.dosyaAdi)}
-                                sx={{ color: '#ef4444', ml: 0.5, '&:hover': { background: '#fef2f2' } }}>
-                                <DeleteIcon sx={{ fontSize: 18 }} />
+    // 📂 Dosyaları türüne (kategori) göre grupla — müşteri: "türü seçince o türde yüklenenler görünsün"
+    const gruplar = {};
+    tumDosyalar.forEach(d => {
+        const anahtar = d.kategori || d.kaynak || 'Diğer';
+        (gruplar[anahtar] = gruplar[anahtar] || []).push(d);
+    });
+
+    const renderDosyaSatiri = (dosya, index) => (
+        <ListItem key={dosya._id || index} sx={{
+            px: 2, py: 1.5, mb: 1,
+            borderRadius: 2,
+            border: '1px solid #e2e8f0',
+            '&:hover': { background: '#f8fafc' }
+        }}>
+            <ListItemIcon sx={{ minWidth: 40 }}>
+                <AttachFileIcon sx={{ color: '#f59e0b' }} />
+            </ListItemIcon>
+            <ListItemText
+                primary={
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>{dosya.dosyaAdi}</Typography>
+                }
+                secondary={
+                    <Typography variant="caption" sx={{ color: '#64748b' }}>
+                        {dosya.kategori ? `${dosya.kategori} • ` : ''}{dosya.kaynak} • {dosya.yukleyenAdi || '-'} • {dosya.yuklemeTarihi ? new Date(dosya.yuklemeTarihi).toLocaleDateString('tr-TR') : '-'}
+                        {dosya.dosyaBoyutu && ` • ${(dosya.dosyaBoyutu / 1024).toFixed(1)} KB`}
+                    </Typography>
+                }
+            />
+            {dosya.dosyaYolu && (
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    {/* Görüntüleme (yeni sekmede aç) */}
+                    {dosya.dosyaYolu.startsWith('http') && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(dosya.dosyaAdi) && (
+                        <Tooltip title="Görüntüle">
+                            <IconButton size="small" component="a"
+                                href={dosya.dosyaYolu}
+                                target="_blank" rel="noopener noreferrer">
+                                <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
                             </IconButton>
                         </Tooltip>
                     )}
-                </ListItem>
+                    {/* İndirme - Cloudinary için programatik blob download */}
+                    <Tooltip title="İndir">
+                        <IconButton size="small" onClick={async () => {
+                            try {
+                                const url = dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`;
+                                const response = await fetch(url);
+                                if (!response.ok) throw new Error('Dosya indirilemedi');
+                                const blob = await response.blob();
+                                const blobUrl = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = blobUrl;
+                                a.download = dosya.dosyaAdi || 'dosya';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                                URL.revokeObjectURL(blobUrl);
+                            } catch (err) {
+                                console.error('İndirme hatası:', err);
+                                // Fallback: yeni sekmede aç
+                                window.open(dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`, '_blank');
+                            }
+                        }}>
+                            <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+            )}
+            {dosya._id && onDosyaSil && (
+                <Tooltip title="Dosyayı Sil">
+                    <IconButton size="small" onClick={() => onDosyaSil('dosya', dosya._id, dosya.alan, dosya.dosyaAdi)}
+                        sx={{ color: '#ef4444', ml: 0.5, '&:hover': { background: '#fef2f2' } }}>
+                        <DeleteIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                </Tooltip>
+            )}
+        </ListItem>
+    );
+
+    return (
+        <Box>
+            {Object.keys(gruplar).map((grup) => (
+                <Box key={grup} sx={{ mb: 2.5 }}>
+                    {/* Tür başlığı */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                        <FolderIcon sx={{ fontSize: 18, color: '#f59e0b' }} />
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b' }}>{grup}</Typography>
+                        <Chip label={gruplar[grup].length} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#f1f5f9', color: '#475569' }} />
+                    </Box>
+                    <List sx={{ p: 0 }}>
+                        {gruplar[grup].map((dosya, index) => renderDosyaSatiri(dosya, index))}
+                    </List>
+                </Box>
             ))}
-        </List>
+        </Box>
     );
 }
 

@@ -14,19 +14,52 @@ cloudinary.config({
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
+// Dosya adından güvenli public_id tabanı üret (Türkçe/özel karakter → ASCII)
+const guvenliTaban = (ad) =>
+    (path.parse(ad || '').name || 'dosya')
+        .normalize('NFKD')
+        .replace(/[^A-Za-z0-9._-]+/g, '_')
+        .slice(0, 80) || 'dosya';
+
 const cloudinaryStorage = new CloudinaryStorage({
     cloudinary: cloudinary,
-    params: {
-        folder: 'dosya-takip',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip', 'rar'],
-        resource_type: 'auto'
+    params: (req, file) => {
+        const isImage = /^image\//.test(file.mimetype || '');
+        const ext = (path.extname(file.originalname || '') || '').toLowerCase();
+        const taban = `${Date.now()}-${guvenliTaban(file.originalname)}`;
+        return {
+            folder: 'dosya-takip',
+            // PDF/Office/zip vb. 'raw' olarak saklanır → indirme/önizleme sorunsuz.
+            // ('auto', PDF'i image gibi saklayıp teslimatı 401 ile engelliyordu.)
+            resource_type: isImage ? 'image' : 'raw',
+            // raw dosyalarda uzantı public_id'de korunur (doğru içerik tipi + indirme adı)
+            public_id: isImage ? taban : `${taban}${ext}`
+        };
     }
 });
 
+// İzin verilen uzantılar (Cloudinary allowed_formats yerine güvenli sunucu kontrolü)
+const IZINLI_UZANTILAR = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt', '.zip', '.rar', '.ppt', '.pptx'];
+
 const upload = multer({
     storage: cloudinaryStorage,
-    limits: { fileSize: 50 * 1024 * 1024 } // 50MB
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    fileFilter: (req, file, cb) => {
+        const ext = (path.extname(file.originalname || '') || '').toLowerCase();
+        if (IZINLI_UZANTILAR.includes(ext)) return cb(null, true);
+        cb(new Error(`Bu dosya türü desteklenmiyor (${ext || 'bilinmiyor'}). İzin verilenler: PDF, Word, Excel, resim, txt, zip.`));
+    }
 });
+
+// multer/cloudinary hatalarını temiz JSON olarak döndüren sarmalayıcı
+const tekDosyaYukle = (req, res, next) => {
+    upload.single('dosya')(req, res, (err) => {
+        if (err) {
+            return res.status(400).json({ success: false, message: err.message || 'Dosya yüklenemedi' });
+        }
+        next();
+    });
+};
 
 // ============================================================================
 // 🔗 ORTAK POPULATE YAPISI
@@ -577,7 +610,7 @@ exports.notEkle = async (req, res) => {
 // 📁 DOSYA EKLE
 // ============================================================================
 exports.dosyaEkle = [
-    upload.single('dosya'),
+    tekDosyaYukle,
     async (req, res) => {
         try {
             const talep = await DosyaTakip.findById(req.params.id);
@@ -591,8 +624,12 @@ exports.dosyaEkle = [
 
             const alan = req.body.alan || 'dosyalar';
 
+            // multer dosya adını latin1 olarak çözüyor → Türkçe karakterler için utf8'e çevir
+            let orijinalAd = req.file.originalname || 'dosya';
+            try { orijinalAd = Buffer.from(orijinalAd, 'latin1').toString('utf8'); } catch (_) { /* yoksay */ }
+
             const dosyaBilgi = {
-                dosyaAdi: req.file.originalname,
+                dosyaAdi: orijinalAd,
                 dosyaYolu: req.file.path, // Cloudinary URL
                 dosyaTipi: req.file.mimetype,
                 kategori: (req.body.kategori && DosyaTakip.DOSYA_TURLERI.includes(req.body.kategori)) ? req.body.kategori : '', // müşteri: önce tür seç
@@ -706,10 +743,12 @@ exports.dosyaSil = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
         }
 
-        // Cloudinary'den sil (varsa public_id)
+        // Cloudinary'den sil (varsa public_id). resource_type, dosya tipinden çıkarılır
+        // (destroy 'auto' desteklemez; resim → image, diğerleri → raw)
         if (silinecek.cloudinaryPublicId) {
+            const rt = /^image\//.test(silinecek.dosyaTipi || '') ? 'image' : 'raw';
             try {
-                await cloudinary.uploader.destroy(silinecek.cloudinaryPublicId, { resource_type: 'auto' });
+                await cloudinary.uploader.destroy(silinecek.cloudinaryPublicId, { resource_type: rt });
             } catch (cloudErr) {
                 console.error('Cloudinary silme hatası (devam ediliyor):', cloudErr.message);
             }
