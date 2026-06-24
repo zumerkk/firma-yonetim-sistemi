@@ -156,10 +156,19 @@ const dosyaAc = async (talepId, dosya) => {
     }
     const win = window.open('', '_blank'); // gesture anında boş sekme
     try {
-        const blob = await dosyaBlobAl(talepId, dosya, false);
+        const raw = await dosyaBlobAl(talepId, dosya, false);
+        // MIME tipini açıkça ver: aksi halde tarayıcı dosyayı tanımaz → boş sayfa
+        const blob = new Blob([raw], { type: dosya.dosyaTipi || raw.type || 'application/octet-stream' });
         const blobUrl = URL.createObjectURL(blob);
-        if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank', 'noopener');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        if (win) {
+            // blob'u iframe içinde göster — tarayıcının blob: üst-gezinme kısıtlarına takılmaz
+            win.document.title = dosya.dosyaAdi || 'Dosya';
+            win.document.body.style.margin = '0';
+            win.document.body.innerHTML = `<iframe src="${blobUrl}" style="border:0;width:100vw;height:100vh"></iframe>`;
+        } else {
+            window.open(blobUrl, '_blank', 'noopener');
+        }
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
     } catch (err) {
         if (win) win.close();
         const url = dogrudanUrl(dosya);
