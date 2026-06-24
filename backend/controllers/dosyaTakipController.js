@@ -667,6 +667,54 @@ exports.dosyaEkle = [
 ];
 
 // ============================================================================
+// 🔑 DOSYA İNDİRME/AÇMA URL'i (imzalı)
+// Cloudinary'de PDF/ZIP teslimatı hesap ayarıyla kısıtlı olabildiğinden, dosya
+// her açılışta taze bir imzalı (signed) URL ile sunulur — imzalı URL kısıtı aşar.
+// ============================================================================
+exports.dosyaUrl = async (req, res) => {
+    try {
+        const { id, dosyaId } = req.params;
+        const alan = req.query.alan || 'dosyalar';
+
+        const talep = await DosyaTakip.findById(id);
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+
+        // Nested alana eriş ve dosyayı bul
+        const alanParts = alan.split('.');
+        let target = talep;
+        for (let i = 0; i < alanParts.length - 1; i++) {
+            target = target?.[alanParts[i]];
+            if (!target) return res.status(404).json({ success: false, message: 'Alan bulunamadı' });
+        }
+        const arr = target?.[alanParts[alanParts.length - 1]];
+        const dosya = Array.isArray(arr) ? arr.find(d => d._id?.toString() === dosyaId) : null;
+        if (!dosya || !dosya.dosyaYolu) {
+            return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
+        }
+
+        // Eski/yerel dosyalar (Cloudinary public_id yok) → mevcut yolu döndür
+        if (!dosya.cloudinaryPublicId) {
+            return res.json({ success: true, url: dosya.dosyaYolu });
+        }
+
+        const rt = /^image\//.test(dosya.dosyaTipi || '') ? 'image' : 'raw';
+        const url = cloudinary.url(dosya.cloudinaryPublicId, {
+            resource_type: rt,
+            type: 'upload',
+            secure: true,
+            sign_url: true // PDF/ZIP teslimat kısıtını aşar
+        });
+
+        res.json({ success: true, url });
+    } catch (error) {
+        console.error('Dosya URL hatası:', error);
+        res.status(500).json({ success: false, message: 'Dosya bağlantısı oluşturulamadı', error: error.message });
+    }
+};
+
+// ============================================================================
 // 🗑️ NOT SİL
 // ============================================================================
 exports.notSil = async (req, res) => {
