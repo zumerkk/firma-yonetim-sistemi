@@ -2800,19 +2800,28 @@ const getTesvikByFirma = async (req, res) => {
 // TOPLU DURUM GÜNCELLEME
 const bulkUpdateDurum = async (req, res) => {
   try {
-    const { tesvikIds, yeniDurum, aciklama } = req.body;
+    const { tesvikIds, yeniDurum, aciklama, tumu } = req.body;
 
-    if (!tesvikIds || !Array.isArray(tesvikIds) || tesvikIds.length === 0) {
+    if (!yeniDurum) {
+      return res.status(400).json({ success: false, message: 'Yeni durum gerekli' });
+    }
+
+    // tumu:true → tüm aktif belgeler; aksi halde verilen ID listesi
+    if (tumu !== true && (!tesvikIds || !Array.isArray(tesvikIds) || tesvikIds.length === 0)) {
       return res.status(400).json({
         success: false,
         message: 'Teşvik ID listesi gerekli'
       });
     }
 
+    const filter = tumu === true ? { aktif: true } : { _id: { $in: tesvikIds }, aktif: true };
+    const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri' };
+
     const updateResult = await YeniTesvik.updateMany(
-      { _id: { $in: tesvikIds }, aktif: true },
+      filter,
       {
         'durumBilgileri.genelDurum': yeniDurum,
+        'durumBilgileri.durumRengi': renkMap[yeniDurum] || 'gri',
         'durumBilgileri.durumAciklamasi': aciklama || '',
         'durumBilgileri.sonDurumGuncelleme': new Date(),
         sonGuncelleyen: req.user._id

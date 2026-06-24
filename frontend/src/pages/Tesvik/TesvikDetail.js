@@ -22,6 +22,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 
 // API Utils
 import api from '../../utils/axios';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 
 const TesvikDetail = () => {
   const { id } = useParams();
@@ -34,6 +35,7 @@ const TesvikDetail = () => {
   const [error, setError] = useState(null);
   const [excelLoading, setExcelLoading] = useState(false);
   const [exportingRevizyon, setExportingRevizyon] = useState(false);
+  const [durumSaving, setDurumSaving] = useState(false); // belge durumu değiştirme
 
   // Modal states
   const [activityModalOpen, setActivityModalOpen] = useState(false);
@@ -333,6 +335,23 @@ const TesvikDetail = () => {
       alert(`Revizyon eklenemedi: ${error.response?.data?.message || error.message}`);
     } finally {
       setSavingRevision(false);
+    }
+  };
+
+  // 🎯 Belge durumu değiştir (müşteri: 'belge durumunu değiştirme yeri')
+  const handleDurumChange = async (yeniDurum) => {
+    if (!yeniDurum || yeniDurum === tesvik?.durumBilgileri?.genelDurum) return;
+    try {
+      setDurumSaving(true);
+      const res = await api.patch(`/tesvik/${tesvik._id}/durum`, { yeniDurum });
+      if (res?.data?.success) {
+        await loadData();
+      }
+    } catch (error) {
+      console.error('Durum güncelleme hatası:', error);
+      alert(`Durum güncellenemedi: ${error.response?.data?.message || error.message}`);
+    } finally {
+      setDurumSaving(false);
     }
   };
 
@@ -644,7 +663,7 @@ const TesvikDetail = () => {
                 {/* Kompakt Status Badge */}
                 <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mt: 0.5, flexWrap: 'wrap' }}>
                   <Chip
-                    label={tesvik.durumBilgileri?.genelDurum?.replace('_', ' ')}
+                    label={belgeDurumLabel(tesvik.durumBilgileri?.genelDurum)}
                     size="small"
                     sx={{
                       background: getDurumColor(tesvik.durumBilgileri?.genelDurum),
@@ -826,14 +845,27 @@ const TesvikDetail = () => {
                       Belge İzleme Sistemi
                     </Typography>
                   </Box>
-                  <Typography variant="body1" sx={{
-                    fontWeight: 700,
-                    color: getDurumColor(tesvik.durumBilgileri?.genelDurum),
-                    fontSize: '0.85rem',
-                    mb: 0.5
-                  }}>
-                    {tesvik.durumBilgileri?.genelDurum?.replace('_', ' ') || 'Bilinmiyor'}
-                  </Typography>
+                  <Select
+                    value={tesvik.durumBilgileri?.genelDurum || ''}
+                    onChange={(e) => handleDurumChange(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    disabled={durumSaving}
+                    variant="standard"
+                    disableUnderline
+                    title="Belge durumunu değiştir"
+                    sx={{
+                      fontWeight: 700,
+                      color: getDurumColor(tesvik.durumBilgileri?.genelDurum),
+                      fontSize: '0.85rem',
+                      mb: 0.5,
+                      '& .MuiSelect-select': { p: 0, pr: '20px !important', textAlign: 'center', minHeight: 'unset' },
+                      '& .MuiSvgIcon-root': { color: getDurumColor(tesvik.durumBilgileri?.genelDurum) }
+                    }}
+                  >
+                    {BELGE_DURUM_SECENEKLERI.map((o) => (
+                      <MenuItem key={o.value} value={o.value} sx={{ fontSize: '0.8rem' }}>{o.label}</MenuItem>
+                    ))}
+                  </Select>
                   <Chip
                     label={`%${getDurumProgress(tesvik.durumBilgileri?.genelDurum)}`}
                     size="small"
