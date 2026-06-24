@@ -663,9 +663,9 @@ const TesvikForm = () => {
       }
     },
 
-    // 📅 Durum Bilgileri
+    // 📅 Durum Bilgileri (müşteri: yeni belgeler 'Onaylandı' açılsın)
     durumBilgileri: {
-      genelDurum: 'taslak',
+      genelDurum: 'onaylandi',
       durumAciklamasi: '',
       sonDurumGuncelleme: new Date()
     }
