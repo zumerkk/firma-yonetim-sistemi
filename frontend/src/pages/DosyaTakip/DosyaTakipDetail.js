@@ -130,33 +130,52 @@ const getBackendUrl = () => {
     return apiUrl.replace(/\/api$/, '');
 };
 
-// 🔑 Dosya için açılabilir URL çöz: Cloudinary dosyaları backend'den imzalı URL ile gelir
-// (PDF/ZIP teslimat kısıtını aşar). Eski/yerel dosyalarda mevcut yol kullanılır.
-const dosyaUrlCoz = async (talepId, dosya) => {
-    if (dosya?.cloudinaryPublicId && dosya?._id && talepId) {
-        try {
-            const { data } = await axios.get(`/dosya-takip/${talepId}/dosya-url/${dosya._id}`, { params: { alan: dosya.alan || 'dosyalar' } });
-            if (data?.url) return data.url;
-        } catch (e) { /* yola düş */ }
-    }
+// Cloudinary mi? (backend stream proxy gerektirir)
+const cloudinaryDosyasiMi = (dosya, talepId) => !!(dosya?.cloudinaryPublicId && dosya?._id && talepId);
+
+// Dosyayı backend stream proxy'den blob olarak çek (PDF/ZIP teslimat kısıtını aşar; JWT axios ile taşınır)
+const dosyaBlobAl = async (talepId, dosya, indir) => {
+    const { data } = await axios.get(`/dosya-takip/${talepId}/dosya-getir/${dosya._id}`, {
+        params: { alan: dosya.alan || 'dosyalar', dl: indir ? 1 : 0 },
+        responseType: 'blob'
+    });
+    return data; // Blob
+};
+
+const dogrudanUrl = (dosya) => {
     const yol = dosya?.dosyaYolu || '';
-    return yol.startsWith('http') ? yol : `${getBackendUrl()}${yol}`;
+    return yol.startsWith('http') ? yol : (yol ? `${getBackendUrl()}${yol}` : '');
 };
 
-// Yeni sekmede aç
+// Yeni sekmede aç — sekme tıklama anında (senkron) açılır, popup engeline takılmaz
 const dosyaAc = async (talepId, dosya) => {
-    const url = await dosyaUrlCoz(talepId, dosya);
-    if (url) window.open(url, '_blank', 'noopener');
+    if (!cloudinaryDosyasiMi(dosya, talepId)) {
+        const url = dogrudanUrl(dosya);
+        if (url) window.open(url, '_blank', 'noopener');
+        return;
+    }
+    const win = window.open('', '_blank'); // gesture anında boş sekme
+    try {
+        const blob = await dosyaBlobAl(talepId, dosya, false);
+        const blobUrl = URL.createObjectURL(blob);
+        if (win) win.location.href = blobUrl; else window.open(blobUrl, '_blank', 'noopener');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+    } catch (err) {
+        if (win) win.close();
+        const url = dogrudanUrl(dosya);
+        if (url) window.open(url, '_blank', 'noopener');
+    }
 };
 
-// Programatik indir (başarısızsa yeni sekmede aç)
+// Programatik indir
 const dosyaIndir = async (talepId, dosya) => {
-    const url = await dosyaUrlCoz(talepId, dosya);
-    if (!url) return;
+    if (!cloudinaryDosyasiMi(dosya, talepId)) {
+        const url = dogrudanUrl(dosya);
+        if (url) window.open(url, '_blank', 'noopener');
+        return;
+    }
     try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('indirilemedi');
-        const blob = await response.blob();
+        const blob = await dosyaBlobAl(talepId, dosya, true);
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
@@ -164,9 +183,10 @@ const dosyaIndir = async (talepId, dosya) => {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
     } catch (err) {
-        window.open(url, '_blank', 'noopener');
+        const url = dogrudanUrl(dosya);
+        if (url) window.open(url, '_blank', 'noopener');
     }
 };
 
