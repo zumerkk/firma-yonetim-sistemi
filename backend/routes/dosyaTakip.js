@@ -86,6 +86,9 @@ router.post('/:id/not', dosyaTakipController.notEkle);
 // 📁 Dosya Ekle
 router.post('/:id/dosya', dosyaTakipController.dosyaEkle);
 
+// 🔑 Dosya açma/indirme için imzalı URL (PDF/ZIP teslimat kısıtını aşar)
+router.get('/:id/dosya-url/:dosyaId', dosyaTakipController.dosyaUrl);
+
 // 🗑️ Not Sil
 router.delete('/:id/not', dosyaTakipController.notSil);
 

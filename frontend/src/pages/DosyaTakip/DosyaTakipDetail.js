@@ -130,6 +130,46 @@ const getBackendUrl = () => {
     return apiUrl.replace(/\/api$/, '');
 };
 
+// 🔑 Dosya için açılabilir URL çöz: Cloudinary dosyaları backend'den imzalı URL ile gelir
+// (PDF/ZIP teslimat kısıtını aşar). Eski/yerel dosyalarda mevcut yol kullanılır.
+const dosyaUrlCoz = async (talepId, dosya) => {
+    if (dosya?.cloudinaryPublicId && dosya?._id && talepId) {
+        try {
+            const { data } = await axios.get(`/dosya-takip/${talepId}/dosya-url/${dosya._id}`, { params: { alan: dosya.alan || 'dosyalar' } });
+            if (data?.url) return data.url;
+        } catch (e) { /* yola düş */ }
+    }
+    const yol = dosya?.dosyaYolu || '';
+    return yol.startsWith('http') ? yol : `${getBackendUrl()}${yol}`;
+};
+
+// Yeni sekmede aç
+const dosyaAc = async (talepId, dosya) => {
+    const url = await dosyaUrlCoz(talepId, dosya);
+    if (url) window.open(url, '_blank', 'noopener');
+};
+
+// Programatik indir (başarısızsa yeni sekmede aç)
+const dosyaIndir = async (talepId, dosya) => {
+    const url = await dosyaUrlCoz(talepId, dosya);
+    if (!url) return;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('indirilemedi');
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = dosya.dosyaAdi || 'dosya';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+        window.open(url, '_blank', 'noopener');
+    }
+};
+
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const { id } = useParams();
@@ -544,7 +584,6 @@ const DosyaTakipDetail = () => {
                         ...((f.yetkiliKisiler || []).map(y => y?.adSoyad).filter(Boolean)),
                         ...(irtibat ? [irtibat] : [])
                     ]));
-                    const backendUrl = getBackendUrl();
                     return (
                         <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #fecaca', background: '#fef2f2' }}>
                             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
@@ -648,7 +687,7 @@ const DosyaTakipDetail = () => {
                                                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                                                     <Tooltip title="Aç / İndir">
                                                         <IconButton size="small"
-                                                            onClick={() => window.open(d.dosyaYolu?.startsWith('http') ? d.dosyaYolu : `${backendUrl}${d.dosyaYolu}`, '_blank')}>
+                                                            onClick={() => dosyaAc(seciliTalep._id, { ...d, alan: `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler` })}>
                                                             <DownloadIcon sx={{ fontSize: 16, color: '#3b82f6' }} />
                                                         </IconButton>
                                                     </Tooltip>
@@ -1177,7 +1216,6 @@ function renderNotlar(talep, onNotSil) {
 
 function renderDosyalar(talep, onDosyaSil) {
     const tumDosyalar = [];
-    const backendUrl = getBackendUrl();
 
     (talep.dosyalar || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Genel', alan: 'dosyalar' }));
     (talep.muraacatOncesi?.gorusmeEvraklari || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Görüşme Evrakı', alan: 'muraacatOncesi.gorusmeEvraklari' }));
@@ -1222,38 +1260,15 @@ function renderDosyalar(talep, onDosyaSil) {
             />
             {dosya.dosyaYolu && (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    {/* Görüntüleme (yeni sekmede aç) */}
-                    {dosya.dosyaYolu.startsWith('http') && /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(dosya.dosyaAdi) && (
-                        <Tooltip title="Görüntüle">
-                            <IconButton size="small" component="a"
-                                href={dosya.dosyaYolu}
-                                target="_blank" rel="noopener noreferrer">
-                                <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
-                            </IconButton>
-                        </Tooltip>
-                    )}
-                    {/* İndirme - Cloudinary için programatik blob download */}
+                    {/* Görüntüleme (imzalı URL ile yeni sekmede aç) */}
+                    <Tooltip title="Aç / Görüntüle">
+                        <IconButton size="small" onClick={() => dosyaAc(talep._id, dosya)}>
+                            <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
+                        </IconButton>
+                    </Tooltip>
+                    {/* İndirme (imzalı URL → blob download) */}
                     <Tooltip title="İndir">
-                        <IconButton size="small" onClick={async () => {
-                            try {
-                                const url = dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`;
-                                const response = await fetch(url);
-                                if (!response.ok) throw new Error('Dosya indirilemedi');
-                                const blob = await response.blob();
-                                const blobUrl = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = blobUrl;
-                                a.download = dosya.dosyaAdi || 'dosya';
-                                document.body.appendChild(a);
-                                a.click();
-                                document.body.removeChild(a);
-                                URL.revokeObjectURL(blobUrl);
-                            } catch (err) {
-                                console.error('İndirme hatası:', err);
-                                // Fallback: yeni sekmede aç
-                                window.open(dosya.dosyaYolu.startsWith('http') ? dosya.dosyaYolu : `${backendUrl}${dosya.dosyaYolu}`, '_blank');
-                            }
-                        }}>
+                        <IconButton size="small" onClick={() => dosyaIndir(talep._id, dosya)}>
                             <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
                         </IconButton>
                     </Tooltip>
