@@ -263,7 +263,7 @@ const DosyaTakipDetail = () => {
     // 🔀 İş akışını stepper'dan direkt seç/değiştir (müşteri: 'buradan direkt seçip değiştirebilelim')
     const handleQuickDurum = async (key, label) => {
         if (!key || key === seciliTalep.durum) return;
-        if (!window.confirm(`İş akışı durumu "${label}" olarak değiştirilsin mi?`)) return;
+        // müşteri: stepper'dan seçimde ekstra onay istenmesin, direkt uygulansın
         try {
             await durumDegistir(id, key, '');
             setSnackbar({ open: true, message: `Durum güncellendi: ${label}`, severity: 'success' });
@@ -716,7 +716,7 @@ const DosyaTakipDetail = () => {
                                         const isExpanded = expandedStep === index || isActive;
 
                                         return (
-                                            <Step key={step.key} completed={isCompleted}>
+                                            <Step key={step.key} completed={isCompleted} expanded={isExpanded}>
                                                 <StepLabel
                                                     onClick={() => setExpandedStep(expandedStep === index ? null : index)}
                                                     StepIconComponent={() => (
