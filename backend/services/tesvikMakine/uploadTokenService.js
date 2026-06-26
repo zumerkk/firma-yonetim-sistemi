@@ -27,8 +27,12 @@ function isExpired(expiresAt) {
 // Public link (frontend route).
 // Öncelik: UPLOAD_PUBLIC_BASE_URL (müşteriye gösterilecek özel/şık alan adı, ör. https://gmplanlama.com)
 //          → yoksa FRONTEND_URL → yoksa göreli path.
+// NOT: FRONTEND_URL CORS için virgülle birden çok origin içerebilir
+// ("https://a.com,https://b.com"); link tabanı olarak yalnızca İLK adresi alırız,
+// aksi halde link "https://a.com,https://b.com/upload/..." gibi bozuk çıkar.
 function buildUploadLink(token) {
-  const base = (process.env.UPLOAD_PUBLIC_BASE_URL || process.env.FRONTEND_URL || '').replace(/\/$/, '');
+  const raw = process.env.UPLOAD_PUBLIC_BASE_URL || process.env.FRONTEND_URL || '';
+  const base = String(raw).split(',')[0].trim().replace(/\/$/, '');
   const path = `/upload/tesvik/${token}`;
   return base ? `${base}${path}` : path;
 }
