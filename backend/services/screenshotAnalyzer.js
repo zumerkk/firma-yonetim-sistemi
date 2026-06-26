@@ -609,7 +609,7 @@ async function callOpenRouter(imageBuffer, prompt, mimeType) {
         temperature: 0.1, max_tokens: 2048,
       }, { 
         Authorization: `Bearer ${apiKey}`,
-        'HTTP-Referer': 'https://cahit-firma-frontend.onrender.com',
+        'HTTP-Referer': (String(process.env.FRONTEND_URL || '').split(',')[0].trim()) || 'https://gmplansis.com',
         'X-Title': 'GM Planlama Tesvik Sistemi'
       });
       
