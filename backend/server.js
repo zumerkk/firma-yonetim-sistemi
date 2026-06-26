@@ -55,9 +55,12 @@ const allowedOrigins = [
   'http://localhost:3000', // Development
   'http://localhost:3001', // Development alternate
   'http://localhost:3002', // Development alternate 2
-  'https://cahit-firma-frontend.onrender.com', // Production frontend
-  process.env.FRONTEND_URL // Environment'tan gelen URL
-].filter(Boolean); // undefined değerleri filtrele
+  'https://cahit-firma-frontend.onrender.com', // Eski Render frontend (geçiş döneminde çalışsın)
+  'https://gmplansis.com', // Production custom domain (kök)
+  'https://www.gmplansis.com', // Production custom domain (www)
+  // FRONTEND_URL virgülle birden çok origin destekler (örn. "https://a.com,https://b.com")
+  ...String(process.env.FRONTEND_URL || '').split(',').map(s => s.trim())
+].filter(Boolean); // undefined/boş değerleri filtrele
 
 app.use(cors({
   origin: function (origin, callback) {
