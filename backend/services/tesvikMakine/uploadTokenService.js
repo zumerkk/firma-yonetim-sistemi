@@ -3,9 +3,24 @@
 
 const crypto = require('crypto');
 
-function generateToken() {
-  // 32 byte → 43 karakter base64url (tahmin edilemez)
-  return crypto.randomBytes(32).toString('base64url');
+// URL-dostu kısa kod (base62) — tahmin edilemez güvenlik parçası
+// 10 karakter ≈ 62^10 ≈ 8.4×10^17 olasılık (public link için fazlasıyla yeterli)
+function shortCode(len = 10) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const bytes = crypto.randomBytes(len);
+  let out = '';
+  for (let i = 0; i < len; i++) out += alphabet[bytes[i] % 62];
+  return out;
+}
+
+// Public yükleme tokenı.
+// Belge no verilirse okunaklı önek olarak eklenir: "568825-K7m2Pq9aB3".
+// Arkadaki kısa kod tahmin edilemezliği sağlar (link herkese açık olduğundan şart).
+// Belge no yoksa yalnızca kısa kod döner.
+function generateToken(belgeNo) {
+  const code = shortCode(10);
+  const prefix = belgeNo ? String(belgeNo).trim().replace(/[^A-Za-z0-9]/g, '') : '';
+  return prefix ? `${prefix}-${code}` : code;
 }
 
 // days verilmezse env'e, o da yoksa null'a (süresiz) düşer

@@ -108,12 +108,19 @@ describe('storageService - folder path normalize', () => {
 });
 
 describe('uploadTokenService - güvenlik', () => {
-  test('token uzun ve benzersiz (tahmin edilemez)', () => {
+  test('token benzersiz ve URL-dostu kısa kod (tahmin edilemez)', () => {
     const a = tokenSvc.generateToken();
     const b = tokenSvc.generateToken();
-    expect(a.length).toBeGreaterThanOrEqual(40);
     expect(a).not.toBe(b);
-    expect(a).toMatch(/^[A-Za-z0-9_-]+$/); // base64url
+    expect(a.length).toBeGreaterThanOrEqual(8);
+    expect(a).toMatch(/^[A-Za-z0-9]+$/); // önek yoksa sadece base62 kod
+  });
+
+  test('belge no verilince okunaklı önek eklenir (568825-XXXX)', () => {
+    const t = tokenSvc.generateToken('568825');
+    expect(t).toMatch(/^568825-[A-Za-z0-9]{10}$/);
+    // önek URL-dostu olmalı (özel karakterler temizlenir)
+    expect(tokenSvc.generateToken('TES 2026/19')).toMatch(/^TES202619-[A-Za-z0-9]{10}$/);
   });
 
   test('computeExpiry: 0/boş → süresiz (null), pozitif → ileri tarih', () => {
