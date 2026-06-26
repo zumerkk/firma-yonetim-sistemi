@@ -488,9 +488,7 @@ async function ensureFolders(proc, { user } = {}) {
 
 async function ensureUploadLink(proc, { days, user } = {}) {
   await ensureFolders(proc, { user });
-  if (proc.uploadToken && !tokenService.isExpired(proc.uploadTokenExpiresAt)) {
-    return tokenService.buildUploadLink(proc.uploadToken);
-  }
+
   // Belge no'yu okunaklı önek olarak ekle (varsa): "568825-K7m2Pq9aB3"
   let belgeNo = '';
   try {
@@ -500,6 +498,14 @@ async function ensureUploadLink(proc, { days, user } = {}) {
     const doc = await TesvikModel.findById(proc.tesvikId).select('belgeYonetimi.belgeNo').lean();
     belgeNo = doc?.belgeYonetimi?.belgeNo || '';
   } catch (_) { /* belge no alınamazsa sadece kısa kod kullanılır */ }
+
+  // Geçerli + zaten istenen biçimdeyse aynen kullan; değilse (eski uzun token ya da
+  // belge no öneki eksikse) okunaklı yeni biçime YÜKSELT.
+  const gecerli = proc.uploadToken && !tokenService.isExpired(proc.uploadTokenExpiresAt);
+  if (gecerli && tokenService.isPreferredToken(proc.uploadToken, belgeNo)) {
+    return tokenService.buildUploadLink(proc.uploadToken);
+  }
+
   proc.uploadToken = tokenService.generateToken(belgeNo);
   proc.uploadTokenExpiresAt = tokenService.computeExpiry(days);
   await proc.save();
