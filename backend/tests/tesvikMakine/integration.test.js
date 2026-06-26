@@ -225,20 +225,24 @@ describe('barkod temizleme (updateFields)', () => {
   });
 });
 
-describe('mail şablonu seed reconcile (invoice_draft_approved v2)', () => {
+describe('mail şablonu seed reconcile (invoice_draft_approved v3)', () => {
   const MailTemplate = require('../../models/MailTemplate');
   const { seedMailTemplates } = require('../../services/tesvikMakine/mailTemplateProvider');
   const CODE = 'invoice_draft_approved';
 
   beforeEach(async () => { await MailTemplate.deleteMany({}); });
 
-  test('boş DB → v2 + uploadLink placeholder; KDV cümlesi yok', async () => {
+  test('boş DB → v3 + uploadLink; firma ismi yok (işbu firma)', async () => {
     await seedMailTemplates();
     const t = await MailTemplate.findOne({ code: CODE }).lean();
-    expect(t.version).toBe(2);
+    expect(t.version).toBe(3);
     expect(t.bodyTemplate).toContain('{uploadLink}');
     expect(t.bodyTemplate).toContain('XML ve PDF');
     expect(t.bodyTemplate).not.toContain('KDV istisna açıklamasının');
+    // müşteri talebi: firma ismi kaldırıldı
+    expect(t.subjectTemplate).not.toContain('{firmaAdi}');
+    expect(t.bodyTemplate).not.toContain('{firmaAdi}');
+    expect(t.bodyTemplate).toContain('İşbu firmanın');
   });
 
   test('elle düzenlenmemiş eski sürüm → otomatik güncellenir', async () => {
@@ -246,7 +250,7 @@ describe('mail şablonu seed reconcile (invoice_draft_approved v2)', () => {
     const res = await seedMailTemplates();
     expect(res.updated).toBeGreaterThanOrEqual(1);
     const t = await MailTemplate.findOne({ code: CODE }).lean();
-    expect(t.version).toBe(2);
+    expect(t.version).toBe(3);
     expect(t.bodyTemplate).toContain('{uploadLink}');
   });
 

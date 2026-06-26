@@ -12,7 +12,7 @@ const UploadedDocument = require('../../models/UploadedDocument');
 const status = require('../../constants/tesvikMakineStatus');
 const {
   MAIL_TEMPLATE_CODE, MAIL_STATUS, PROCESS_ACTION, REMINDER_TYPE,
-  DEFAULT_SIGNATURE, getDocumentTypeFolder
+  DEFAULT_SIGNATURE, getDocumentTypeFolder, DOCUMENT_TYPES
 } = require('../../constants/tesvikMakineMail');
 
 const resolver = require('./certificateResolver');
@@ -513,6 +513,34 @@ async function ensureUploadLink(proc, { days, user } = {}) {
   return tokenService.buildUploadLink(proc.uploadToken);
 }
 
+// 🔔 Firma/tedarikçi public link üzerinden evrak yükleyince ekibe bilgilendirme maili.
+// Alıcı: UPLOAD_NOTIFY_EMAIL → yoksa SMTP_FROM_EMAIL → yoksa SMTP_USER (kendi gelen kutunuz).
+// Best-effort: hata yüklemeyi etkilemez (controller'da .catch ile çağrılır).
+async function notifyUploadReceived(proc, { count = 1, documentType = '', uploaderType = '', uploaderName = '', note = '' } = {}) {
+  if (!mailService.isConfigured()) return false;
+  const to = process.env.UPLOAD_NOTIFY_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+  if (!to) return false;
+
+  const turLabel = (DOCUMENT_TYPES.find((d) => d.key === documentType) || {}).label || documentType || 'Diğer';
+  const kim = uploaderType === 'supplier' ? 'Tedarikçi' : 'Firma';
+  const subject = `Yeni evrak yüklendi - ${proc.firmaName || 'Firma'}${proc.machineName ? ` - ${proc.machineName}` : ''}`;
+  const lines = [
+    'Public yükleme bağlantısı üzerinden yeni evrak yüklendi:',
+    '',
+    `Firma: ${proc.firmaName || '-'}`,
+    `Belge No: ${proc.documentNo || '-'}`,
+    `Makine: ${proc.machineName || '-'}${proc.siraNo ? ` (${proc.siraNo}. sıra)` : ''}`,
+    `Evrak Türü: ${turLabel}`,
+    `Dosya Adedi: ${count}`,
+    `Yükleyen: ${kim}${uploaderName ? ` - ${uploaderName}` : ''}`
+  ];
+  if (note) lines.push(`Not: ${note}`);
+  lines.push('', 'Detay için Teşvik Makine Yönetimi ekranından ilgili süreci kontrol edebilirsiniz.');
+
+  await mailService.sendMail({ to, subject, text: lines.join('\n') });
+  return true;
+}
+
 // Yüklenen evrakı kaydet (admin veya public). storageService.saveBuffer çıktısı (saved) + boyut/mime ile çağrılır.
 async function recordUploadedDocument({ proc, documentType = 'diger', saved, fileSize = 0, mimeType = '', uploadedBy = null, uploadedByType = 'admin', uploaderName = '', note = '', originalName = '' }) {
   const folder = proc.folderId ? await DocumentFolder.findById(proc.folderId) : await ensureFolders(proc);
@@ -576,5 +604,5 @@ module.exports = {
   composeMail, previewMail, createDraftMail, sendProcessMail, resendMail,
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
-  ensureFolders, ensureUploadLink, recordUploadedDocument, getTimeline
+  ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline
 };

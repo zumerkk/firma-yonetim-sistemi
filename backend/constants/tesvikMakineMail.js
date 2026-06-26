@@ -25,9 +25,10 @@ const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,
     name: 'Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi',
-    // v2 (müşteri talebi): ({tedarikciMail}) parantezi kaldırıldı + mail sonuna taslak yükleme linki eklendi
-    version: 2,
-    subjectTemplate: '{firmaAdi} - {makineAdi} - YTB {belgeNo} Kapsamında Fatura Kesimi Hk.',
+    // v2: ({tedarikciMail}) parantezi kaldırıldı + mail sonuna taslak yükleme linki eklendi
+    // v3 (müşteri talebi): firma ismi kaldırıldı → "işbu firma" (konudan ve gövdeden)
+    version: 3,
+    subjectTemplate: '{makineAdi} - YTB {belgeNo} Kapsamında Fatura Kesimi Hk.',
     bodyTemplate: [
       'Merhabalar,',
       '',
@@ -36,7 +37,7 @@ const DEFAULT_TEMPLATES = [
       'Faturaya yazılması gereken açıklama aşağıdaki gibidir:',
       '',
       'AÇIKLAMA:',
-      '3065 sayılı KDV Kanunu’nun 13/d maddesi gereğince, işbu fatura {firmaAdi} firmasının {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında, {makineId} makine ID numaralı {siraNo}. kalemin teslimatı olduğundan ilgili kanun gereğince KDV hesaplanmamıştır.',
+      '3065 sayılı KDV Kanunu’nun 13/d maddesi gereğince, işbu fatura, işbu firmanın {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında, {makineId} makine ID numaralı {siraNo}. kalemin teslimatı olduğundan ilgili kanun gereğince KDV hesaplanmamıştır.',
       '',
       'Faturanın taslak halini kontrol amacıyla aşağıdaki bağlantı üzerinden yüklemenizi rica ederiz:',
       '',
@@ -50,11 +51,13 @@ const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.REMINDER_NO_RESPONSE,
     name: '7 Gün Cevap Gelmeyenlere Hatırlatma Maili',
-    subjectTemplate: 'Hatırlatma - {firmaAdi} - {makineAdi} Teşvik Süreci Hk.',
+    // v2 (müşteri talebi): firma ismi kaldırıldı → "işbu firma"
+    version: 2,
+    subjectTemplate: 'Hatırlatma - {makineAdi} Teşvik Süreci Hk.',
     bodyTemplate: [
       'Merhabalar,',
       '',
-      '{mailTarihi} tarihinde {firmaAdi} firmasının {belgeNo} no’lu yatırım teşvik belgesi kapsamında {makineAdi} için tarafınıza bilgi/evrak talebi iletilmişti.',
+      '{mailTarihi} tarihinde işbu firmanın {belgeNo} no’lu yatırım teşvik belgesi kapsamında {makineAdi} için tarafınıza bilgi/evrak talebi iletilmişti.',
       '',
       'Sürecin aksamaması adına gerekli dönüşün ve varsa ilgili belgelerin tarafımıza iletilmesini rica ederiz.',
       '',
@@ -69,15 +72,16 @@ const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED,
     name: 'Fatura Taslağı Kontrol Sonrası Onay Maili',
-    // v2 (müşteri talebi): KDV istisna cümlesi yerine fatura kesimi sonrası XML+PDF yükleme bağlantısı
-    version: 2,
-    subjectTemplate: '{firmaAdi} - {makineAdi} - Fatura Taslağı Onayı',
+    // v2: KDV istisna cümlesi yerine fatura kesimi sonrası XML+PDF yükleme bağlantısı
+    // v3 (müşteri talebi): firma ismi kaldırıldı → "işbu firma"
+    version: 3,
+    subjectTemplate: '{makineAdi} - Fatura Taslağı Onayı',
     bodyTemplate: [
       'Merhabalar,',
       '',
       'İletmiş olduğunuz fatura taslağı kontrol edilmiştir.',
       '',
-      '{firmaAdi} firmasının {belgeNo} no’lu yatırım teşvik belgesi kapsamında {siraNo}. sırada yer alan {makineAdi} için fatura kesim işlemine geçebilirsiniz.',
+      'İşbu firmanın {belgeNo} no’lu yatırım teşvik belgesi kapsamında {siraNo}. sırada yer alan {makineAdi} için fatura kesim işlemine geçebilirsiniz.',
       '',
       'Fatura kesildikten sonra XML ve PDF formatında aşağıdaki bağlantıya yüklemenizi rica ederiz:',
       '',

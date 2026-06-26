@@ -75,6 +75,11 @@ exports.upload = async (req, res) => {
       });
     }
 
+    // 🔔 Ekibe bilgilendirme maili (best-effort — yüklemeyi bloklamaz/etkilemez)
+    mps.notifyUploadReceived(proc, {
+      count: files.length, documentType, uploaderType: uploadedByType, uploaderName, note
+    }).catch((e) => console.error('🚨 [tesvikEvrak] upload bildirimi:', e && e.message));
+
     const msg = files.length > 1
       ? `${files.length} dosyanız başarıyla yüklendi. Teşekkür ederiz.`
       : 'Dosyanız başarıyla yüklendi. Teşekkür ederiz.';
