@@ -123,6 +123,14 @@ describe('uploadTokenService - güvenlik', () => {
     expect(tokenSvc.generateToken('TES 2026/19')).toMatch(/^TES202619-[A-Za-z0-9]{10}$/);
   });
 
+  test('isPreferredToken: eski uzun token / önek eksik → yenilenmeli, yeni biçim → korunur', () => {
+    const eski = 'MsDYUfnn12bUdJxJDo_BmwpDqgi89E47JOknlUOJRQ0';
+    expect(tokenSvc.isPreferredToken(eski, '568825')).toBe(false); // eski → yenile
+    expect(tokenSvc.isPreferredToken('568825-L7tl3LF1cx', '568825')).toBe(true); // doğru biçim → koru
+    expect(tokenSvc.isPreferredToken('zqzhVWyaGu', '568825')).toBe(false); // önek eksik → yenile
+    expect(tokenSvc.isPreferredToken('zqzhVWyaGu', '')).toBe(true); // belge no yok → kod-only koru
+  });
+
   test('computeExpiry: 0/boş → süresiz (null), pozitif → ileri tarih', () => {
     const prev = process.env.UPLOAD_TOKEN_DAYS; delete process.env.UPLOAD_TOKEN_DAYS;
     expect(tokenSvc.computeExpiry()).toBeNull();

@@ -13,14 +13,28 @@ function shortCode(len = 10) {
   return out;
 }
 
+// Belge no'yu URL-dostu önek tabanına çevir (özel karakterleri at)
+function sanitizeBelgeNo(belgeNo) {
+  return belgeNo ? String(belgeNo).trim().replace(/[^A-Za-z0-9]/g, '') : '';
+}
+
 // Public yükleme tokenı.
 // Belge no verilirse okunaklı önek olarak eklenir: "568825-K7m2Pq9aB3".
 // Arkadaki kısa kod tahmin edilemezliği sağlar (link herkese açık olduğundan şart).
 // Belge no yoksa yalnızca kısa kod döner.
 function generateToken(belgeNo) {
   const code = shortCode(10);
-  const prefix = belgeNo ? String(belgeNo).trim().replace(/[^A-Za-z0-9]/g, '') : '';
+  const prefix = sanitizeBelgeNo(belgeNo);
   return prefix ? `${prefix}-${code}` : code;
+}
+
+// Token zaten istenen yeni/okunaklı biçimde mi?
+// Değilse (eski 43 karakterli token ya da güncel belge no öneki eksik) yenilenmeli.
+function isPreferredToken(token, belgeNo) {
+  if (!token) return false;
+  const prefix = sanitizeBelgeNo(belgeNo);
+  if (prefix) return new RegExp('^' + prefix + '-[A-Za-z0-9]{10}$').test(token);
+  return /^[A-Za-z0-9]{10}$/.test(token);
 }
 
 // days verilmezse env'e, o da yoksa null'a (süresiz) düşer
@@ -52,4 +66,4 @@ function buildUploadLink(token) {
   return base ? `${base}${path}` : path;
 }
 
-module.exports = { generateToken, computeExpiry, isExpired, buildUploadLink };
+module.exports = { generateToken, isPreferredToken, sanitizeBelgeNo, computeExpiry, isExpired, buildUploadLink };
