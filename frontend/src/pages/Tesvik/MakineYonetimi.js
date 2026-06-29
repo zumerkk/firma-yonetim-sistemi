@@ -3179,11 +3179,12 @@ const MakineYonetimi = () => {
             >
               <HomeIcon sx={{ fontSize: 18 }} />
             </IconButton>
-            <IconButton 
-              size="small" 
-              onClick={() => navigate('/tesvik')} 
-              sx={{ 
-                color: theme.text.muted, 
+            <IconButton
+              size="small"
+              onClick={() => navigate(selectedTesvik?._id ? `/tesvik/${selectedTesvik._id}` : '/tesvik')}
+              title={selectedTesvik?._id ? 'Belgeye Dön' : 'Teşvik Listesine Dön'}
+              sx={{
+                color: theme.text.muted,
                 '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
                 transition: 'all 0.2s'
               }}
@@ -3304,7 +3305,7 @@ const MakineYonetimi = () => {
                 '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' }
               }
             }}
-            getOptionLabel={(o)=> o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
+            getOptionLabel={(o)=> o?.belgeYonetimi?.belgeNo || o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
             isOptionEqualToValue={(o, v)=> (o?._id || o?.id) === (v?._id || v?.id)}
             filterOptions={(x)=>x}
             openOnFocus
@@ -3316,7 +3317,7 @@ const MakineYonetimi = () => {
             renderOption={(props, option)=> (
               <li {...props} key={option._id} style={{ fontSize: '0.75rem', padding: '6px 12px', borderBottom: '1px solid #eef2ff' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip label={option.tesvikId || option.gmId} size="small" sx={{ fontSize: '0.65rem', height: 20, bgcolor: theme.accentGlow, color: theme.accent, fontWeight: 600 }} />
+                  <Chip label={option.belgeYonetimi?.belgeNo || option.tesvikId || option.gmId} size="small" sx={{ fontSize: '0.65rem', height: 20, bgcolor: theme.accentGlow, color: theme.accent, fontWeight: 600 }} />
                   <span style={{ color: '#6366f1' }}>{option.yatirimciUnvan || ''}</span>
                 </Box>
               </li>

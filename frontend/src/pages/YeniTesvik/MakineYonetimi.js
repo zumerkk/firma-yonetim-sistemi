@@ -3492,11 +3492,12 @@ const MakineYonetimi = () => {
             >
               <HomeIcon sx={{ fontSize: 18 }} />
             </IconButton>
-            <IconButton 
-              size="small" 
-              onClick={() => navigate('/yeni-tesvik')} 
-              sx={{ 
-                color: theme.text.muted, 
+            <IconButton
+              size="small"
+              onClick={() => navigate(selectedTesvik?._id ? `/yeni-tesvik/${selectedTesvik._id}` : '/yeni-tesvik')}
+              title={selectedTesvik?._id ? 'Belgeye Dön' : 'Teşvik Listesine Dön'}
+              sx={{
+                color: theme.text.muted,
                 '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
                 transition: 'all 0.2s'
               }}
@@ -3617,7 +3618,7 @@ const MakineYonetimi = () => {
                 '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)' }
               }
             }}
-            getOptionLabel={(o)=> o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
+            getOptionLabel={(o)=> o?.belgeYonetimi?.belgeNo || o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
             isOptionEqualToValue={(o, v)=> (o?._id || o?.id) === (v?._id || v?.id)}
             filterOptions={(x)=>x}
             openOnFocus
@@ -3629,7 +3630,7 @@ const MakineYonetimi = () => {
             renderOption={(props, option)=> (
               <li {...props} key={option._id} style={{ fontSize: '0.75rem', padding: '6px 12px', borderBottom: '1px solid #f1f5f9' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip label={option.tesvikId || option.gmId} size="small" sx={{ fontSize: '0.65rem', height: 20, bgcolor: theme.accentGlow, color: theme.accent, fontWeight: 600 }} />
+                  <Chip label={option.belgeYonetimi?.belgeNo || option.tesvikId || option.gmId} size="small" sx={{ fontSize: '0.65rem', height: 20, bgcolor: theme.accentGlow, color: theme.accent, fontWeight: 600 }} />
                   <span style={{ color: '#64748b' }}>{option.yatirimciUnvan || ''}</span>
                 </Box>
               </li>

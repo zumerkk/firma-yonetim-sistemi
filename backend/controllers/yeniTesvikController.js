@@ -1929,7 +1929,7 @@ const searchTesvikler = async (req, res) => {
 
     const tesvikler = await YeniTesvik.searchTesvikler(q)
       .populate('firma', 'tamUnvan firmaId')
-      .select('tesvikId gmId yatirimciUnvan durumBilgileri createdAt')
+      .select('tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi.belgeNo createdAt')
       .limit(50);
 
     res.json({
