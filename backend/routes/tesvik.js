@@ -13,6 +13,7 @@ const {
   updateTesvik,
   deleteTesvik,
   searchTesvikler,
+  birlesikFirmaArama,
   getTesvikStats,
   getTesvikByFirma,
   updateTesvikDurum,
@@ -62,6 +63,9 @@ const { validateCreateTesvik, validateUpdateTesvik, validateDurumUpdate } = requ
 // 🔍 GET /api/tesvik/search - Gelişmiş Teşvik Arama
 // Query params: q, durum, il, firma, tarihBaslangic, tarihBitis, destekSinifi
 router.get('/search', authenticate, searchTesvikler);
+
+// 🔎 GET /api/tesvik/birlesik-arama - Firma araması: eski + yeni belgeler birlikte
+router.get('/birlesik-arama', authenticate, birlesikFirmaArama);
 
 // 🆔 GET /api/tesvik/next-id - Sonraki Teşvik ID'yi al (TES2024001 format)
 router.get('/next-id', authenticate, getNextTesvikId);
