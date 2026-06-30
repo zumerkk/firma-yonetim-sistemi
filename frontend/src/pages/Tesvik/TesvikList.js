@@ -177,15 +177,21 @@ const TesvikList = () => {
   const loadTesvikler = async (page = 1) => {
     try {
       setLoading(true);
-      
-      const params = new URLSearchParams({
-        sayfa: page,
-        limit: 20,
-        ...filters
-      });
 
-      const response = await axios.get(`/tesvik?${params}`);
-      
+      const aramaTerimi = (filters.search || '').trim();
+      let response;
+      if (aramaTerimi.length >= 2) {
+        // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
+        response = await axios.get('/tesvik/birlesik-arama', { params: { q: aramaTerimi } });
+      } else {
+        const params = new URLSearchParams({
+          sayfa: page,
+          limit: 20,
+          ...filters
+        });
+        response = await axios.get(`/tesvik?${params}`);
+      }
+
       if (response.data.success) {
         setTesvikler(response.data.data.tesvikler);
         setPagination(response.data.data.pagination);
@@ -547,9 +553,24 @@ const TesvikList = () => {
                         </TableCell>
 
                         <TableCell>
-                          <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                            {tesvik.yatirimciUnvan}
-                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
+                              {tesvik.yatirimciUnvan}
+                            </Typography>
+                            {tesvik.sistem && (
+                              <Chip
+                                label={tesvik.sistem}
+                                size="small"
+                                sx={{
+                                  height: 18,
+                                  fontSize: '0.6rem',
+                                  fontWeight: 600,
+                                  bgcolor: tesvik.sistem === 'Yeni' ? '#dbeafe' : '#f1f5f9',
+                                  color: tesvik.sistem === 'Yeni' ? '#1e40af' : '#475569'
+                                }}
+                              />
+                            )}
+                          </Box>
                         </TableCell>
                         
                         <TableCell>
@@ -597,30 +618,30 @@ const TesvikList = () => {
                         <TableCell>
                           <Box sx={{ display: 'flex', gap: 0.5 }}>
                             <Tooltip title="Görüntüle">
-                              <IconButton 
+                              <IconButton
                                 size="small"
-                                onClick={() => navigate(`/tesvik/${tesvik._id}`)}
+                                onClick={() => navigate(tesvik.sistem === 'Yeni' ? `/yeni-tesvik/${tesvik._id}` : `/tesvik/${tesvik._id}`)}
                               >
                                 <VisibilityIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            
+
                             {(user?.yetkiler?.belgeEkle || user?.yetkiler?.belgeDuzenle) && (
-                              <Tooltip title="Revizyon Ekle / Düzenle">
-                                <IconButton 
+                              <Tooltip title={tesvik.sistem === 'Yeni' ? 'Düzenle' : 'Revizyon Ekle / Düzenle'}>
+                                <IconButton
                                   size="small"
-                                  onClick={() => handleRevizyonClick(tesvik)}
+                                  onClick={() => tesvik.sistem === 'Yeni' ? navigate(`/yeni-tesvik/${tesvik._id}/duzenle`) : handleRevizyonClick(tesvik)}
                                   sx={{ color: '#059669' }}
                                 >
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                             )}
-                            
-                            {/* 🔧 Admin ve belgeSil yetkisi olan kullanıcılar görebilir */}
-                            {(user?.rol === 'admin' || user?.yetkiler?.belgeSil) && (
+
+                            {/* 🔧 Admin ve belgeSil yetkisi olan kullanıcılar görebilir (yeni sistem belgeleri kendi listesinden silinir) */}
+                            {tesvik.sistem !== 'Yeni' && (user?.rol === 'admin' || user?.yetkiler?.belgeSil) && (
                               <Tooltip title="Sil">
-                                <IconButton 
+                                <IconButton
                                   size="small"
                                   onClick={() => handleDeleteClick(tesvik)}
                                   sx={{ color: '#dc2626' }}

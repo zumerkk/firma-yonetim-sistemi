@@ -1897,6 +1897,39 @@ const searchTesvikler = async (req, res) => {
     });
   }
 };
+// 🔎 BİRLEŞİK FİRMA ARAMASI - Eski (Tesvik) + Yeni (YeniTesvik) belgeleri birlikte
+// Müşteri: teşvik listesinde firma arayınca firmanın hem eski hem yeni belgeleri görünsün.
+const birlesikFirmaArama = async (req, res) => {
+  try {
+    const q = (req.query.q || req.query.search || '').toString().trim();
+    if (!q || q.length < 2) {
+      return res.json({ success: true, data: { tesvikler: [], pagination: { totalCount: 0, currentPage: 1, totalPages: 1, limit: 0 } } });
+    }
+
+    const YeniTesvik = require('../models/YeniTesvik');
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const select = 'tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi yatirimBilgileri.yerinIl olusturanKullanici createdAt';
+
+    const [eski, yeni] = await Promise.all([
+      Tesvik.searchTesvikler(q).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean(),
+      YeniTesvik.searchTesvikler(q).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean()
+    ]);
+
+    const merged = [
+      ...eski.map((t) => ({ ...t, sistem: 'Eski' })),
+      ...yeni.map((t) => ({ ...t, sistem: 'Yeni' }))
+    ].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    res.json({
+      success: true,
+      data: { tesvikler: merged, pagination: { totalCount: merged.length, currentPage: 1, totalPages: 1, limit: merged.length } }
+    });
+  } catch (error) {
+    console.error('🚨 Birleşik arama hatası:', error);
+    res.status(500).json({ success: false, message: 'Birleşik arama yapılırken hata oluştu', error: error.message });
+  }
+};
+
 // 🗑️ TEŞVİK SİLME (Soft Delete)
 const deleteTesvik = async (req, res) => {
   try {
@@ -5016,6 +5049,7 @@ module.exports = {
   updateTesvik,
   deleteTesvik,
   searchTesvikler,
+  birlesikFirmaArama,
   getTesvikStats,
   getTesvikByFirma,
   updateTesvikDurum,
