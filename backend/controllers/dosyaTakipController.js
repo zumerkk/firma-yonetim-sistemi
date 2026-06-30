@@ -191,6 +191,8 @@ exports.getTumTalepler = async (req, res) => {
                 .limit(parseInt(limit))
                 .populate('firma', 'tamUnvan firmaId')
                 .populate('olusturanKullanici', 'adSoyad')
+                .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
+                .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
                 .lean(),
             DosyaTakip.countDocuments(filter)
         ]);

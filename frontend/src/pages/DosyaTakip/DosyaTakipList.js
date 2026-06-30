@@ -184,6 +184,38 @@ const DosyaTakipList = () => {
             }
         },
         {
+            field: 'muraacatHazirlayan',
+            headerName: 'Müracaat Hazırlayan',
+            flex: 0.7,
+            minWidth: 150,
+            sortable: false,
+            renderCell: (params) => {
+                const ad = params.row.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad
+                    || params.row.muraacatOncesi?.muraacatHazirlayanAdi;
+                return (
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem', color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ad || '-'}
+                    </Typography>
+                );
+            }
+        },
+        {
+            field: 'takibiYapan',
+            headerName: 'Takibi Yapan',
+            flex: 0.7,
+            minWidth: 150,
+            sortable: false,
+            renderCell: (params) => {
+                const ad = params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad
+                    || params.row.muraacatSonrasi?.takibiYapanAdi;
+                return (
+                    <Typography variant="body2" sx={{ fontSize: '0.8rem', color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ad || '-'}
+                    </Typography>
+                );
+            }
+        },
+        {
             field: 'createdAt',
             headerName: 'Oluşturma Tarihi',
             width: 130,
