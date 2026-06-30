@@ -208,6 +208,7 @@ const DosyaTakipDetail = () => {
     const [notText, setNotText] = useState('');
     const [notAlan, setNotAlan] = useState('genelNotlar');
     const [dosyaKategori, setDosyaKategori] = useState(''); // müşteri: yüklemeden önce dosya türü seç
+    const [dosyaDragOver, setDosyaDragOver] = useState(false); // sürükle-bırak görsel geri bildirim
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [expandedStep, setExpandedStep] = useState(null);
@@ -405,22 +406,41 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Dosya yükleme (müşteri: önce tür seçilmeli)
-    const handleDosyaYukle = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    // Çoklu dosya yükleme (müşteri: önce tür seçilmeli) — input + sürükle-bırak ortak kullanır
+    const uploadFiles = async (fileList) => {
+        const files = Array.from(fileList || []);
+        if (!files.length) return;
         if (!dosyaKategori) {
             setSnackbar({ open: true, message: 'Lütfen önce dosya türünü seçin.', severity: 'warning' });
-            e.target.value = '';
             return;
         }
-        try {
-            await dosyaEkle(id, file, 'dosyalar', dosyaKategori);
-            setSnackbar({ open: true, message: 'Dosya yüklendi!', severity: 'success' });
-        } catch (err) {
-            setSnackbar({ open: true, message: 'Dosya yüklenemedi.', severity: 'error' });
+        let basarili = 0, hatali = 0;
+        for (const file of files) {
+            try {
+                await dosyaEkle(id, file, 'dosyalar', dosyaKategori);
+                basarili++;
+            } catch (err) {
+                hatali++;
+            }
         }
-        e.target.value = '';
+        setSnackbar({
+            open: true,
+            message: hatali === 0
+                ? `${basarili} dosya yüklendi!`
+                : `${basarili} dosya yüklendi, ${hatali} başarısız.`,
+            severity: hatali === 0 ? 'success' : (basarili ? 'warning' : 'error')
+        });
+    };
+
+    const handleDosyaYukle = async (e) => {
+        await uploadFiles(e.target.files);
+        if (e.target) e.target.value = '';
+    };
+
+    const handleDosyaDrop = async (e) => {
+        e.preventDefault();
+        setDosyaDragOver(false);
+        await uploadFiles(e.dataTransfer?.files);
     };
 
     if (!seciliTalep && loading) {
@@ -927,10 +947,37 @@ const DosyaTakipDetail = () => {
                                                     sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
                                                 >
                                                     Dosya Yükle
-                                                    <input hidden type="file" onChange={handleDosyaYukle} />
+                                                    <input hidden multiple type="file" onChange={handleDosyaYukle} />
                                                 </Button>
                                             </Box>
                                         </Box>
+
+                                        {/* 🖱️ Sürükle-bırak / çoklu yükleme bölgesi */}
+                                        <Box
+                                            component="label"
+                                            onDragOver={(e) => { e.preventDefault(); if (dosyaKategori) setDosyaDragOver(true); }}
+                                            onDragLeave={() => setDosyaDragOver(false)}
+                                            onDrop={handleDosyaDrop}
+                                            sx={{
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                                gap: 0.5, py: 2.5, mb: 2, borderRadius: 2,
+                                                cursor: dosyaKategori ? 'pointer' : 'not-allowed',
+                                                border: '2px dashed',
+                                                borderColor: dosyaDragOver ? '#f59e0b' : '#e2e8f0',
+                                                background: dosyaDragOver ? '#fffbeb' : '#fafafa',
+                                                transition: 'all 0.2s', opacity: dosyaKategori ? 1 : 0.65
+                                            }}
+                                        >
+                                            <CloudUploadIcon sx={{ fontSize: 28, color: dosyaDragOver ? '#f59e0b' : '#94a3b8' }} />
+                                            <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>
+                                                Dosyaları buraya sürükleyip bırakın veya tıklayıp seçin
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                                                Birden fazla dosya seçilebilir{dosyaKategori ? '' : ' • önce yukarıdan dosya türü seçin'}
+                                            </Typography>
+                                            <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!dosyaKategori} />
+                                        </Box>
+
                                         {renderDosyalar(seciliTalep, askDeleteConfirm)}
                                     </Box>
                                 )}
