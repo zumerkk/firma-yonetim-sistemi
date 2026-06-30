@@ -467,7 +467,7 @@ const FirmaList = () => {
     {
       field: 'firmaId',
       headerName: 'Firma ID',
-      width: 110,
+      flex: 0.6, minWidth: 95,
       renderCell: (params) => (
         <Chip
           label={params.value}
@@ -481,7 +481,7 @@ const FirmaList = () => {
     {
       field: 'vergiNoTC',
       headerName: 'Vergi No/TC',
-      width: 130,
+      flex: 0.9, minWidth: 120,
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
           {params.value}
@@ -491,7 +491,7 @@ const FirmaList = () => {
     {
       field: 'tamUnvan',
       headerName: 'Tam Ünvan',
-      width: 280,
+      flex: 2, minWidth: 200,
       renderCell: (params) => (
         <Tooltip title={params.value}>
           <Typography
@@ -512,7 +512,7 @@ const FirmaList = () => {
     {
       field: 'firmaIl',
       headerName: 'İl',
-      width: 90,
+      flex: 0.5, minWidth: 80,
       renderCell: (params) => (
         <Chip
           icon={<LocationOnIcon sx={{ fontSize: 14 }} />}
@@ -527,7 +527,7 @@ const FirmaList = () => {
     {
       field: 'firmaIlce',
       headerName: 'İlçe',
-      width: 110,
+      flex: 0.7, minWidth: 90,
       renderCell: (params) => (
         <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
           {params.value || '-'}
@@ -537,7 +537,7 @@ const FirmaList = () => {
     {
       field: 'ilkIrtibatKisi',
       headerName: 'İrtibat Kişisi',
-      width: 140,
+      flex: 1, minWidth: 120,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
@@ -666,7 +666,7 @@ const FirmaList = () => {
     {
       field: 'aktif',
       headerName: 'Durum',
-      width: 120,
+      flex: 0.7, minWidth: 100,
       renderCell: (params) => {
         const isAktif = params.value !== false;
         const now = new Date();
@@ -1114,7 +1114,17 @@ const FirmaList = () => {
                 }
               }}
               initialState={{
-                pagination: { paginationModel: { pageSize: 25 } }
+                pagination: { paginationModel: { pageSize: 25 } },
+                // Sürekli sağa kaydırmayı önlemek için ikincil kolonlar varsayılan gizli
+                // (üstteki "Columns" düğmesinden istenince tekrar açılır)
+                columns: {
+                  columnVisibilityModel: {
+                    yetkiliKisiler: false,
+                    etuysYetkiBitisTarihi: false,
+                    dysYetkiBitisTarihi: false,
+                    olusturanKullanici: false
+                  }
+                }
               }}
               pageSizeOptions={[25, 50, 100]}
             />
