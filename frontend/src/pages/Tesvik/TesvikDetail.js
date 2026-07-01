@@ -1019,8 +1019,8 @@ const TesvikDetail = () => {
           {/* ========================================================= */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             
-            {/* 1. GMdigi BİLGİLERİ */}
-            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            {/* 1. GMdigi BİLGİLERİ — müşteri talebi: gizlendi */}
+            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>GMdigi BİLGİLERİ</Typography>
               </AccordionSummary>
@@ -1044,8 +1044,8 @@ const TesvikDetail = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* 2. Yatırımcı İle İlgili Bilgiler */}
-            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            {/* 2. Yatırımcı İle İlgili Bilgiler — müşteri talebi: gizlendi (isim zaten üstte) */}
+            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Yatırımcı İle İlgili Bilgiler</Typography>
               </AccordionSummary>
@@ -1365,8 +1365,7 @@ const TesvikDetail = () => {
                     <tr>
                       <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '25%' }}>Destek Unsuru</th>
                       <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '35%' }}>Şartı</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '30%' }}>Açıklama</th>
-                      <th style={{ padding: '8px', textAlign: 'center', border: '1px solid #e2e8f0', width: '10%' }}>Durum</th>
+                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Açıklama</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1376,23 +1375,18 @@ const TesvikDetail = () => {
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#7c3aed' }}>{destek.destekUnsuru || '-'}</td>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.sarti || destek.sart || '-'}</td>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.aciklama || '-'}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
-                            <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600, backgroundColor: destek.durum === 'onaylandi' ? '#dcfce7' : destek.durum === 'reddedildi' ? '#fee2e2' : '#fef3c7', color: destek.durum === 'onaylandi' ? '#166534' : destek.durum === 'reddedildi' ? '#991b1b' : '#92400e' }}>
-                              {destek.durum || 'beklemede'}
-                            </span>
-                          </td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan="4" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
+                      <tr><td colSpan="3" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
                     )}
                   </tbody>
                 </table>
               </AccordionDetails>
             </Accordion>
 
-            {/* 9. Proje Tanıtım */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            {/* 9. Proje Tanıtım — müşteri talebi: gizlendi */}
+            <Accordion sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Proje Tanıtım</Typography>
               </AccordionSummary>
@@ -1401,8 +1395,8 @@ const TesvikDetail = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* 10. Evrak Listesi */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            {/* 10. Evrak Listesi — müşteri talebi: gizlendi */}
+            <Accordion sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Evrak Listesi</Typography>
               </AccordionSummary>
