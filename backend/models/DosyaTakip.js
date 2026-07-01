@@ -189,6 +189,7 @@ const dosyaTakipSchema = new mongoose.Schema({
   },
   belgeId: { type: String, trim: true },
   ytbNo: { type: String, trim: true },
+  belgeTarihi: { type: Date }, // müşteri: belgenin tarihi (Ek Bilgiler'de gösterilir)
   ytbBaslamaTarihi: { type: Date },
   ytbBitisTarihi: { type: Date },
   belgeTuru: { type: String, trim: true },

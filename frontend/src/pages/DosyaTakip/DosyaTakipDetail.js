@@ -607,9 +607,11 @@ const DosyaTakipDetail = () => {
                                 return <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>;
                             })()}
                         </Grid>
-                        <Grid item xs={12}>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>{seciliTalep.durumAciklamasi || '-'}</Typography>
+                        <Grid item xs={12} md={3}>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Tarihi</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
+                                {(() => { const t = seciliTalep.belgeTarihi || seciliTalep.ytbBaslamaTarihi; return t ? new Date(t).toLocaleDateString('tr-TR') : '-'; })()}
+                            </Typography>
                         </Grid>
                     </Grid>
                 </Paper>
