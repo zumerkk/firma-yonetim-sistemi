@@ -518,14 +518,13 @@ const validateCreateTesvik = [
     .withMessage('Yatırım yeri ili zorunludur')
     .trim(),
     
+  // müşteri: ilk belge oluşturmada belge no/tarih zorunlu değil (taslak olarak açılabilsin)
   body('belgeYonetimi.belgeNo')
-    .notEmpty()
-    .withMessage('Belge numarası zorunludur')
+    .optional({ checkFalsy: true })
     .trim(),
-    
+
   body('belgeYonetimi.belgeTarihi')
-    .notEmpty()
-    .withMessage('Belge tarihi zorunludur')
+    .optional({ checkFalsy: true })
     .isISO8601()
     .withMessage('Geçerli bir tarih giriniz'),
     
