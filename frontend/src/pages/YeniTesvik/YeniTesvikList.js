@@ -773,16 +773,10 @@ const YeniTesvikList = () => {
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 {[
-                  'Red geldi - Ek belge istendi',
-                  'Red geldi - Revizyon talep edildi', 
-                  'Onay geldi',
-                  'Belge tamamlandı',
-                  'İptal edildi',
                   'Talep Revize',
                   'Sonuç Revize',
                   'Resen Revize',
-                  'Müşavir Revize',
-                  'Diğer'
+                  'Müşavir Revize'
                 ].map((sebep) => (
                   <Box 
                     key={sebep}

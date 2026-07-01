@@ -47,7 +47,6 @@ const DosyaTakipForm = () => {
         belge: null,            // seçilen teşvik belgesinin ObjectId'si (iç link için)
         belgeSistemi: 'Tesvik',
         belgeId: '',
-        belgeTarihi: '',
         ytbNo: '',
         ytbBaslamaTarihi: '',
         ytbBitisTarihi: '',
@@ -83,7 +82,6 @@ const DosyaTakipForm = () => {
                     firmaUnvan: data.firmaUnvan || '',
                     belgeSistemi: data.belgeSistemi || 'Tesvik',
                     belgeId: data.belgeId || '',
-                    belgeTarihi: data.belgeTarihi ? data.belgeTarihi.split('T')[0] : '',
                     ytbNo: data.ytbNo || '',
                     ytbBaslamaTarihi: data.ytbBaslamaTarihi ? data.ytbBaslamaTarihi.split('T')[0] : '',
                     ytbBitisTarihi: data.ytbBitisTarihi ? data.ytbBitisTarihi.split('T')[0] : '',
@@ -190,7 +188,6 @@ const DosyaTakipForm = () => {
                         // Oto-doldurma alanları
                         firmaUnvan: t.yatirimciUnvan || '',
                         ytbNo: t.belgeYonetimi?.belgeNo || '',
-                        belgeTarihi: t.belgeYonetimi?.belgeTarihi || '',
                         ytbBaslamaTarihi: t.belgeYonetimi?.belgeBaslamaTarihi || '',
                         ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
                         belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
@@ -220,7 +217,6 @@ const DosyaTakipForm = () => {
                         // Oto-doldurma alanları
                         firmaUnvan: t.yatirimciUnvan || '',
                         ytbNo: t.belgeYonetimi?.belgeNo || '',
-                        belgeTarihi: t.belgeYonetimi?.belgeTarihi || '',
                         ytbBaslamaTarihi: t.belgeYonetimi?.belgeBaslamaTarihi || '',
                         ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
                         belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
@@ -301,7 +297,6 @@ const DosyaTakipForm = () => {
             gmId: belge.gmId || prev.gmId,
             firmaUnvan: prev.firmaUnvan || belge.firmaUnvan || '',
             ytbNo: belge.ytbNo || prev.ytbNo,
-            belgeTarihi: toDateInput(belge.belgeTarihi) || prev.belgeTarihi,
             ytbBaslamaTarihi: toDateInput(belge.ytbBaslamaTarihi) || prev.ytbBaslamaTarihi,
             ytbBitisTarihi: toDateInput(belge.ytbBitisTarihi) || prev.ytbBitisTarihi,
             belgeTuru: belge.belgeTuru || prev.belgeTuru,

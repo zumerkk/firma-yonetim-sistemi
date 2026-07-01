@@ -607,11 +607,16 @@ const DosyaTakipDetail = () => {
                                 return <Typography variant="body2" sx={{ fontWeight: 500 }}>-</Typography>;
                             })()}
                         </Grid>
-                        <Grid item xs={12} md={3}>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge Tarihi</Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>
-                                {(() => { const t = seciliTalep.belgeTarihi || seciliTalep.ytbBaslamaTarihi; return t ? new Date(t).toLocaleDateString('tr-TR') : '-'; })()}
-                            </Typography>
+                        <Grid item xs={12}>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                                <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Açıklama / Not</Typography>
+                                {seciliTalep.durumAciklamasiTarihi && (
+                                    <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: '0.65rem' }}>
+                                        ({new Date(seciliTalep.durumAciklamasiTarihi).toLocaleDateString('tr-TR')} tarihinde yazıldı)
+                                    </Typography>
+                                )}
+                            </Box>
+                            <Typography variant="body2" sx={{ fontWeight: 500, mt: 0.5 }}>{seciliTalep.durumAciklamasi || '-'}</Typography>
                         </Grid>
                     </Grid>
                 </Paper>

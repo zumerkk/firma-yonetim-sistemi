@@ -189,7 +189,6 @@ const dosyaTakipSchema = new mongoose.Schema({
   },
   belgeId: { type: String, trim: true },
   ytbNo: { type: String, trim: true },
-  belgeTarihi: { type: Date }, // müşteri: belgenin tarihi (Ek Bilgiler'de gösterilir)
   ytbBaslamaTarihi: { type: Date },
   ytbBitisTarihi: { type: Date },
   belgeTuru: { type: String, trim: true },
@@ -216,6 +215,7 @@ const dosyaTakipSchema = new mongoose.Schema({
     default: '2.1.1_GORUSULUYOR'
   },
   durumAciklamasi: { type: String, trim: true },
+  durumAciklamasiTarihi: { type: Date }, // müşteri: notun yanında ne zaman yazıldığı görünsün
   durumRengi: {
     type: String,
     enum: ['mavi', 'sari', 'turuncu', 'kirmizi', 'yesil', 'gri', 'mor'],

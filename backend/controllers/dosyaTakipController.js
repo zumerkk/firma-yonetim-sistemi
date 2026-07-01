@@ -368,6 +368,7 @@ exports.durumDegistir = async (req, res) => {
         talep.anaAsama = yeniAnaAsama;
         talep.durumRengi = yeniRenk;
         talep.durumAciklamasi = aciklama || '';
+        talep.durumAciklamasiTarihi = aciklama ? new Date() : talep.durumAciklamasiTarihi;
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;
 
