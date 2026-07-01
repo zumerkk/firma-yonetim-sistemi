@@ -189,7 +189,7 @@ exports.getTumTalepler = async (req, res) => {
                 .sort(sort)
                 .skip(skip)
                 .limit(parseInt(limit))
-                .populate('firma', 'tamUnvan firmaId')
+                .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
                 .populate('olusturanKullanici', 'adSoyad')
                 .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
                 .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
