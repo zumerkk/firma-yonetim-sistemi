@@ -5599,14 +5599,17 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="İthal"
-                type="number"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal).toLocaleString('tr-TR')}
                 name="makineTlIthal"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.ithal"
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', raw ? parseInt(raw, 10) : 0);
+                }}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', val))}
+                inputProps={{ inputMode: 'numeric' }}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5614,14 +5617,17 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yerli"
-                type="number"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli).toLocaleString('tr-TR')}
                 name="makineTlYerli"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.yerli"
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', raw ? parseInt(raw, 10) : 0);
+                }}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', val))}
+                inputProps={{ inputMode: 'numeric' }}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5647,9 +5653,12 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yeni Makine"
-                type="number"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine}
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', parseFloat(e.target.value) || 0)}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine).toLocaleString('tr-TR')}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', raw ? parseInt(raw, 10) : 0);
+                }}
+                inputProps={{ inputMode: 'numeric' }}
                 InputProps={{ endAdornment: '$' }}
               />
             </Grid>
@@ -5657,9 +5666,12 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Kullanılmış Makine"
-                type="number"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine}
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', parseFloat(e.target.value) || 0)}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine).toLocaleString('tr-TR')}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9]/g, '');
+                  handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', raw ? parseInt(raw, 10) : 0);
+                }}
+                inputProps={{ inputMode: 'numeric' }}
                 InputProps={{ endAdornment: '$' }}
               />
             </Grid>
@@ -5667,7 +5679,7 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="TOPLAM İTHAL MAKİNE ($)"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('en-US')}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('tr-TR')}
                 InputProps={{
                   readOnly: true,
                   style: { fontWeight: 'bold', color: '#7c3aed' }
