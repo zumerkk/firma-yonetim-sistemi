@@ -4829,17 +4829,25 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>İthal:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal}
-                    onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseFloat(e.target.value) || 0)}
+                  <TextField size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal).toLocaleString('tr-TR')}
+                    onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', raw ? parseInt(raw, 10) : 0);
+                    }}
+                    inputProps={{ inputMode: 'numeric' }}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yerli:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli}
-                    onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseFloat(e.target.value) || 0)}
+                  <TextField size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli).toLocaleString('tr-TR')}
+                    onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', raw ? parseInt(raw, 10) : 0);
+                    }}
+                    inputProps={{ inputMode: 'numeric' }}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4861,24 +4869,32 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yeni Makine:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine}
-                    onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', parseFloat(e.target.value) || 0)}
+                  <TextField size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine).toLocaleString('tr-TR')}
+                    onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', raw ? parseInt(raw, 10) : 0);
+                    }}
+                    inputProps={{ inputMode: 'numeric' }}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Kullanılmış Makine:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine}
-                    onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', parseFloat(e.target.value) || 0)}
+                  <TextField size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine).toLocaleString('tr-TR')}
+                    onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '');
+                        handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', raw ? parseInt(raw, 10) : 0);
+                    }}
+                    inputProps={{ inputMode: 'numeric' }}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam İthal Makine($):</Typography>
                   <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('en-US')}
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('tr-TR')}
                     InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#ccfbf1' } }}
                   />
                 </Box>
