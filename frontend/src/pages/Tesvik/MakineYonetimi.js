@@ -3983,8 +3983,13 @@ const MakineYonetimi = () => {
             if (!selectedTesvik?._id || !selectedRevizeId) return;
             const res = await tesvikService.revertMakineRevizyon(selectedTesvik._id, selectedRevizeId, 'Kullanıcı geri dönüşü');
             if (res?.makineListeleri) {
-              setYerliRows((res.makineListeleri.yerli||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, toplamTl:r.toplamTutariTl })));
-              setIthalRows((res.makineListeleri.ithal||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, doviz:r.gumrukDovizKodu, toplamUsd:r.toplamTutarFobUsd, toplamTl:r.toplamTutarFobTl, kurManuel:r.kurManuel||false, kurManuelDeger:r.kurManuelDeger||0 })));
+              const yerliRows = (res.makineListeleri.yerli||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, toplamTl:r.toplamTutariTl }));
+              const ithalRows = (res.makineListeleri.ithal||[]).map(r=>({ id:r.rowId||Math.random().toString(36).slice(2), ...r, gtipAciklama:r.gtipAciklamasi, adi:r.adiVeOzelligi, doviz:r.gumrukDovizKodu, toplamUsd:r.toplamTutarFobUsd, toplamTl:r.toplamTutarFobTl, kurManuel:r.kurManuel||false, kurManuelDeger:r.kurManuelDeger||0 }));
+              setYerliRows(yerliRows);
+              setIthalRows(ithalRows);
+              // 🐛 fix: revert sonrası localStorage güncellenmiyordu → sayfa yenilenince eski (revert edilmemiş) veri geri geliyordu
+              saveLS(`mk_${selectedTesvik._id}_yerli`, yerliRows);
+              saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows);
             }
             setRevertOpen(false);
             const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
