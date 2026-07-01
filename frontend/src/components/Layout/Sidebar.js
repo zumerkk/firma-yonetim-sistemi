@@ -1039,6 +1039,11 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
         </Box>
         </>)}
 
+        {/* ⚙️ Ayarlar - "Sistem & Analiz" gizlendi ama Ayarlar erişilebilir kalsın (müşteri: A) */}
+        <List sx={{ px: 0, py: 0, mb: 1.5 }}>
+          {bottomMenuItems.filter((m) => m.path === '/ayarlar').map(renderMenuItem)}
+        </List>
+
         {/* 👤 Corporate User Info - OPTIMIZED SPACING */}
         <Box sx={{ mt: 'auto', p: 2 }}>
           <Box sx={{
