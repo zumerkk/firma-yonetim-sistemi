@@ -193,7 +193,7 @@ const DosyaTakipList = () => {
             headerName: 'Müracaat Hazırlayan',
             flex: 0.7,
             minWidth: 150,
-            sortable: false,
+            valueGetter: (params) => params.row.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad || params.row.muraacatOncesi?.muraacatHazirlayanAdi || '',
             renderCell: (params) => {
                 const ad = params.row.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad
                     || params.row.muraacatOncesi?.muraacatHazirlayanAdi;
@@ -209,7 +209,7 @@ const DosyaTakipList = () => {
             headerName: 'Takibi Yapan',
             flex: 0.7,
             minWidth: 150,
-            sortable: false,
+            valueGetter: (params) => params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || params.row.muraacatSonrasi?.takibiYapanAdi || '',
             renderCell: (params) => {
                 const ad = params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad
                     || params.row.muraacatSonrasi?.takibiYapanAdi;
