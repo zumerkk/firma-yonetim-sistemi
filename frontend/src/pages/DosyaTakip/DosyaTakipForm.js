@@ -192,6 +192,8 @@ const DosyaTakipForm = () => {
                         ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
                         belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
                         sektorKonu: t.yatirimBilgileri?.yatirimKonusu || '',
+                        il: t.yatirimBilgileri?.yerinIl || '',
+                        ilce: t.yatirimBilgileri?.yerinIlce || '',
                         belgeDurumuRaw: t.belgeYonetimi?.belgeDurumu || ''
                     });
                 });
@@ -219,6 +221,8 @@ const DosyaTakipForm = () => {
                         ytbBitisTarihi: t.belgeYonetimi?.belgeBitisTarihi || '',
                         belgeTuru: t.yatirimBilgileri?.yatirimCinsi || t.belgeYonetimi?.belgeMuracaatTalepTipi || '',
                         sektorKonu: t.yatirimBilgileri?.yatirimKonusu || '',
+                        il: t.yatirimBilgileri?.yerinIl || '',
+                        ilce: t.yatirimBilgileri?.yerinIlce || '',
                         belgeDurumuRaw: t.belgeYonetimi?.belgeDurumu || ''
                     });
                 });
@@ -501,6 +505,7 @@ const DosyaTakipForm = () => {
                                                         secondary={
                                                             <Typography variant="caption" sx={{ color: '#64748b' }}>
                                                                 {belge.durumEtiketi || belge.durum || '-'} • {belge.createdAt ? new Date(belge.createdAt).toLocaleDateString('tr-TR') : '-'}
+                                                                {(belge.il || belge.ilce) && ` • ${[belge.il, belge.ilce].filter(Boolean).join(' / ')}`}
                                                                 {belge.gmId && ` • GM ID: ${belge.gmId}`}
                                                                 {belge.belgeId && ` • Belge: ${belge.belgeId}`}
                                                             </Typography>

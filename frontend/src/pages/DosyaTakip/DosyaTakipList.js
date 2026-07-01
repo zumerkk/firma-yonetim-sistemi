@@ -94,16 +94,7 @@ const DosyaTakipList = () => {
     };
 
     const columns = [
-        {
-            field: 'takipId',
-            headerName: 'Takip ID',
-            width: 130,
-            renderCell: (params) => (
-                <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e40af', cursor: 'pointer' }}>
-                    {params.value}
-                </Typography>
-            )
-        },
+        // müşteri: Takip ID kolonu kaldırıldı
         {
             field: 'firmaUnvan',
             headerName: 'Firma',
@@ -135,6 +126,20 @@ const DosyaTakipList = () => {
                     {params.value || '-'}
                 </Typography>
             )
+        },
+        {
+            field: 'ilIlce',
+            headerName: 'İl / İlçe',
+            width: 150,
+            sortable: false,
+            renderCell: (params) => {
+                const il = params.row.firma?.firmaIl || '';
+                const ilce = params.row.firma?.firmaIlce || '';
+                const metin = [il, ilce].filter(Boolean).join(' / ');
+                return (
+                    <Typography variant="body2" sx={{ color: metin ? '#475569' : '#94a3b8' }}>{metin || '-'}</Typography>
+                );
+            }
         },
         {
             field: 'anaAsama',
