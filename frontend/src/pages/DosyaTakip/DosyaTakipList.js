@@ -328,7 +328,6 @@ const DosyaTakipList = () => {
                                 <MenuItem value="MURACAAT_ONCESI">2.1 Müracaat Öncesi</MenuItem>
                                 <MenuItem value="MURACAAT_SONRASI">2.2 Müracaat Sonrası</MenuItem>
                                 <MenuItem value="KURUM_SONUCLANMA">2.3 Kurum Sonuçlanma</MenuItem>
-                                <MenuItem value="TAMAMLANDI">Tamamlandı</MenuItem>
                             </TextField>
                         </Grid>
                         <Grid item xs={12} md={3}>

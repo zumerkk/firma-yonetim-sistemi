@@ -115,23 +115,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
       description: 'Süreç, mail, evrak ve hatırlatma takibi (eski + yeni)',
       isNew: true
-    },
-    {
-      text: 'Makine Raporları',
-      icon: <ListIcon />,
-      path: '/tesvikler/raporlar',
-      color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Firma/tedarikçi/KDV/fatura raporları'
-    },
-    {
-      text: 'Bakanlık Mail Ayrıştırma',
-      icon: <ImportExportIcon />,
-      path: '/tesvikler/bakanlik-mail',
-      color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
-      description: 'Gelen makine talebi mailini ayrıştır/bağla'
     }
+    // Müşteri talebi: "Makine Raporları" ve "Bakanlık Mail Ayrıştırma" menüleri kaldırıldı
   ];
 
   // 🆕 Yeni Teşvik Sistemi Menu Items
@@ -911,7 +896,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           height: 1
         }} />
 
-        {/* 🧪 TEST (Geliştiriliyor) - DEVELOPMENT FEATURES */}
+        {/* Müşteri talebi: "TEST (Geliştiriliyor)" ve "Sistem & Analiz" bölümleri gizlendi */}
+        {false && (<>
         <Box sx={{ mb: 1.5 }}>
           <Typography
             variant="overline"
@@ -1051,6 +1037,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
             {bottomMenuItems.map(renderMenuItem)}
           </List>
         </Box>
+        </>)}
 
         {/* 👤 Corporate User Info - OPTIMIZED SPACING */}
         <Box sx={{ mt: 'auto', p: 2 }}>
