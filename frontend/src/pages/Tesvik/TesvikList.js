@@ -181,9 +181,16 @@ const TesvikList = () => {
 
       const aramaTerimi = (filters.search || '').trim();
       let response;
+      let varsayilanSistem = 'Eski';
       if (aramaTerimi.length >= 2) {
         // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
         response = await axios.get('/tesvik/birlesik-arama', { params: { q: aramaTerimi } });
+        varsayilanSistem = '';
+      } else if (sistemFiltre === 'Yeni') {
+        // müşteri: "Yeni" filtresi arama yokken de çalışsın (eskiden boş dönüyordu)
+        const params = new URLSearchParams({ sayfa: page, limit: 20, ...filters });
+        response = await axios.get(`/yeni-tesvik?${params}`);
+        varsayilanSistem = 'Yeni';
       } else {
         const params = new URLSearchParams({
           sayfa: page,
@@ -194,7 +201,8 @@ const TesvikList = () => {
       }
 
       if (response.data.success) {
-        setTesvikler(response.data.data.tesvikler);
+        const gelen = response.data.data.tesvikler || [];
+        setTesvikler(varsayilanSistem ? gelen.map(t => ({ ...t, sistem: t.sistem || varsayilanSistem })) : gelen);
         setPagination(response.data.data.pagination);
       } else {
         setError('Teşvikler yüklenemedi');
@@ -209,7 +217,7 @@ const TesvikList = () => {
 
   useEffect(() => {
     loadTesvikler();
-  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters, sistemFiltre]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🗑️ SİLME FONKSİYONLARI
   const handleDeleteClick = (tesvik) => {
@@ -421,6 +429,7 @@ const TesvikList = () => {
                 📊 Excel Export
               </Button>
               
+              {/* müşteri: hem Eski hem Yeni sistem belgesi oluşturulabilsin */}
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -430,7 +439,19 @@ const TesvikList = () => {
                   fontWeight: 600
                 }}
               >
-                Yeni Teşvik
+                Eski Teşvik Ekle
+              </Button>
+
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/yeni-tesvik/yeni')}
+                sx={{
+                  background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
+                  fontWeight: 600
+                }}
+              >
+                Yeni Teşvik Ekle
               </Button>
             </Box>
           </Box>

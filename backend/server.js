@@ -427,26 +427,25 @@ const startServer = async () => {
     // (elle script çalıştırma gereksin istemiyoruz — idempotent, yalnızca <=3 kayıtta tetiklenir)
     try {
       const OecdKategori = require('./models/OecdKategori');
-      const adet = await OecdKategori.countDocuments({});
-      if (adet <= 3) {
-        const fs = require('fs');
-        const path = require('path');
-        const csvPath = path.join(__dirname, '..', 'csv', 'OECD Orta Yüksek-Tablo 1.csv');
-        if (fs.existsSync(csvPath)) {
-          const lines = fs.readFileSync(csvPath, 'utf8')
-            .split(/\r?\n/)
-            .map((l) => l.replace(/;+/g, '').trim())
-            .filter(Boolean)
-            .filter((l) => !/^OECD\s*\(Orta-?Yüksek\)/i.test(l));
-          if (lines.length) {
-            await OecdKategori.deleteMany({});
-            await OecdKategori.insertMany(lines.map((aciklama, i) => ({
-              kod: `OECD_${String(i + 1).padStart(3, '0')}`,
-              aciklama,
-              kategori: 'OECD (Orta-Yüksek)'
-            })));
-            console.log(`✅ OECD kategorileri CSV'den yeniden yüklendi (${lines.length} kayıt)`);
-          }
+      const fs = require('fs');
+      const path = require('path');
+      const csvPath = path.join(__dirname, '..', 'csv', 'OECD Orta Yüksek-Tablo 1.csv');
+      if (fs.existsSync(csvPath)) {
+        const lines = fs.readFileSync(csvPath, 'utf8')
+          .split(/\r?\n/)
+          .map((l) => l.replace(/;+/g, '').trim())
+          .filter(Boolean)
+          .filter((l) => !/^OECD\s*\(Orta-?Yüksek\)/i.test(l));
+        const adet = await OecdKategori.countDocuments({});
+        // CSV ile kayıt sayısı uyuşmuyorsa (liste güncellendi / yanlış fallback yüklü) yeniden yükle
+        if (lines.length && adet !== lines.length) {
+          await OecdKategori.deleteMany({});
+          await OecdKategori.insertMany(lines.map((aciklama, i) => ({
+            kod: `OECD_${String(i + 1).padStart(3, '0')}`,
+            aciklama,
+            kategori: 'OECD (Orta-Yüksek)'
+          })));
+          console.log(`✅ OECD kategorileri CSV'den yeniden yüklendi (${lines.length} kayıt)`);
         }
       }
     } catch (err) {
