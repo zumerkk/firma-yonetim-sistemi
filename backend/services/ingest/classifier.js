@@ -10,6 +10,21 @@ function classify({ headers }) {
   const hs = (headers || []).map(normalizeHeader);
   const set = new Set(hs);
 
+  // Phase-3: Makine/Teçhizat Listesi (ETUYS ham/düzenlenmiş + sistem export'u)
+  // Ortak imza: "Adı ve Özelliği" + "Miktarı" + bir tutar alanı (Toplam Tutarı / Toplam Tutar (TL) / Toplam Tutar (FOB$) vb.)
+  const makineNeedlesCore = normalizeNeedles(normalizeHeader, ['adı ve özelliği', 'miktarı']);
+  const makineCoreScore = scoreByPresence(set, makineNeedlesCore);
+  const hasTutarSinyali = hs.some(
+    (h) => h.includes('toplam tutar') || h.includes('birim fiyat')
+  );
+  if (makineCoreScore >= 2 && hasTutarSinyali) {
+    return {
+      module: IngestModule.MAKINE_LIST,
+      confidence: 0.9,
+      reasons: ['makine-liste-signature', `makineCoreScore=${makineCoreScore}`],
+    };
+  }
+
   // Phase-2: Teşvik / Yeni Teşvik
   // Not: normalizeHeader camelCase'i bölmez. Örn: gmId -> gmid
   const hasBonusSignal = hs.some(

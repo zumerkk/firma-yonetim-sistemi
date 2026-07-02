@@ -11,6 +11,11 @@ const {
   upsertTesvik,
   upsertYeniTesvik,
 } = require('../services/ingest/ingestors/TesvikIngestor');
+const {
+  normalizeMakineKalemi,
+  validateMakineKalemi,
+  mergeMakineListesi,
+} = require('../services/ingest/ingestors/MakineListeIngestor');
 
 exports.preview = async (req, res) => {
   try {
@@ -31,7 +36,7 @@ exports.preview = async (req, res) => {
 
 exports.commit = async (req, res) => {
   try {
-    const { ingestSessionId, mappingOverrides = {}, mode = 'upsert' } = req.body || {};
+    const { ingestSessionId, mappingOverrides = {}, mode = 'upsert', belgeId, belgeModel } = req.body || {};
     if (!ingestSessionId) return res.status(400).json({ success: false, message: 'ingestSessionId required' });
 
     const session = await IngestSession.findById(ingestSessionId).lean();
@@ -40,6 +45,50 @@ exports.commit = async (req, res) => {
     // Basit sahiplik kontrolü
     if (String(session.createdBy) !== String(req.user._id) && req.user.rol !== 'admin') {
       return res.status(403).json({ success: false, message: 'forbidden' });
+    }
+
+    // 🔧 Makine Listesi: satırlar bir koleksiyona değil, VAR OLAN bir belgenin
+    // makineListeleri.yerli/ithal alt-listesine gider — genel satır-satır
+    // upsert akışından ayrı, tek seferde merge edilir.
+    if (session.module === IngestModule.MAKINE_LIST) {
+      if (!belgeId || !belgeModel || !['Tesvik', 'YeniTesvik'].includes(belgeModel)) {
+        return res.status(400).json({ success: false, message: 'Lütfen makinelerin ekleneceği belgeyi seçin' });
+      }
+      const Model = belgeModel === 'YeniTesvik' ? require('../models/YeniTesvik') : require('../models/Tesvik');
+      const tesvik = await Model.findById(belgeId);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Seçilen belge bulunamadı' });
+
+      const rows = session.payloadRows || [];
+      const errors = [];
+      const yerliYeni = [];
+      const ithalYeni = [];
+      rows.forEach((row, i) => {
+        const liste = row._liste === 'ithal' ? 'ithal' : 'yerli';
+        const n = normalizeMakineKalemi(row, liste);
+        const issues = validateMakineKalemi(n);
+        if (issues.length) { errors.push({ row: i + 1, issues, raw: row }); return; }
+        (liste === 'ithal' ? ithalYeni : yerliYeni).push(n);
+      });
+
+      const yerliResult = mergeMakineListesi(tesvik.makineListeleri?.yerli, yerliYeni);
+      const ithalResult = mergeMakineListesi(tesvik.makineListeleri?.ithal, ithalYeni);
+      tesvik.makineListeleri = { yerli: yerliResult.list, ithal: ithalResult.list };
+      tesvik.markModified('makineListeleri');
+      tesvik.sonGuncelleyen = req.user._id;
+      await tesvik.save();
+
+      return res.json({
+        success: true,
+        data: {
+          module: session.module,
+          created: yerliResult.created + ithalResult.created,
+          updated: yerliResult.updated + ithalResult.updated,
+          skipped: 0,
+          errorsCount: errors.length,
+          errors,
+          mode,
+        },
+      });
     }
 
     const mapping = { ...(session.mapping || {}), ...(mappingOverrides || {}) };

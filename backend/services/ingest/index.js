@@ -2,7 +2,7 @@ const path = require('path');
 const { classify } = require('./classifier');
 const { autoMap } = require('./mapping/autoMapper');
 const { IngestModule } = require('./types');
-const { parseXlsx } = require('./parsers/xlsxParser');
+const { parseXlsx, parseMakineListesiXlsx, detectMakineListesiSheets } = require('./parsers/xlsxParser');
 const { parseCsv } = require('./parsers/csvParser');
 const { suggestGeminiMapping } = require('./mapping/geminiMapper');
 const { TARGET_FIELDS } = require('./mapping/targets');
@@ -21,7 +21,11 @@ async function previewIngest({ userId, filename, buffer, opts = {} }) {
   const fileType = detectFileType(filename);
   let parsed;
 
-  if (fileType === 'XLSX') parsed = parseXlsx(buffer, opts);
+  if (fileType === 'XLSX') {
+    // Makine listesi dosyaları (ETUYS ham/düzenlenmiş + sistem export'u) Yerli/İthal
+    // adlı ayrı sayfalara bölünür — tek-sayfa parseXlsx bunları yakalayamaz.
+    parsed = detectMakineListesiSheets(buffer) ? parseMakineListesiXlsx(buffer) : parseXlsx(buffer, opts);
+  }
   else if (fileType === 'CSV') parsed = await parseCsv(buffer, opts);
   else {
     return {
@@ -39,10 +43,11 @@ async function previewIngest({ userId, filename, buffer, opts = {} }) {
   const payloadRows = parsed.rows.slice(0, 2000);
 
   // Opsiyonel: Gemini ile sadece "öneri" mapping (fallback).
+  // MAKINE_LIST kendi sabit normalize mantığını kullanır (MakineListeIngestor) — mapping/Gemini önerisine ihtiyaç duymaz.
   let geminiSuggestion = null;
   try {
     const coverage = parsed.headers.length ? Object.keys(mapping).length / parsed.headers.length : 0;
-    const shouldTryGemini = coverage < 0.4 || classification.confidence < 0.75;
+    const shouldTryGemini = classification.module !== IngestModule.MAKINE_LIST && (coverage < 0.4 || classification.confidence < 0.75);
     if (shouldTryGemini) {
       geminiSuggestion = await suggestGeminiMapping({
         module: classification.module,

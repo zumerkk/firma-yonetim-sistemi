@@ -25,6 +25,8 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Autocomplete,
+  TextField,
 } from '@mui/material';
 import {
   CloudUpload as UploadIcon,
@@ -45,6 +47,7 @@ import {
   InsertDriveFile as FileIcon,
 } from '@mui/icons-material';
 import ingestService from '../../services/ingestService';
+import axios from '../../utils/axios';
 
 // Modül konfigürasyonları
 const MODULE_CONFIG = {
@@ -119,6 +122,11 @@ const SmartUpload = () => {
   const [error, setError] = useState(null);
   const [showPreviewTable, setShowPreviewTable] = useState(true);
   const [commitMode, setCommitMode] = useState('upsert');
+  // 🔧 Makine Listesi: hangi belgeye ekleneceği (satırlar bir koleksiyona değil, var olan bir belgenin içine gider)
+  const [belgeArama, setBelgeArama] = useState('');
+  const [belgeSecenekleri, setBelgeSecenekleri] = useState([]);
+  const [belgeAramaLoading, setBelgeAramaLoading] = useState(false);
+  const [seciliBelge, setSeciliBelge] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
 
   // Drag & Drop handlers
@@ -181,10 +189,36 @@ const SmartUpload = () => {
         data?.previewId ||
         null
       );
+
+      // 🔧 Makine Listesi: dosyadan (ETUYS ham formatı) belge no/firma adı çıkarılabildiyse
+      // otomatik arama yapıp öneri sun — bulunamazsa kullanıcı elle arayıp seçer.
+      setSeciliBelge(null);
+      setBelgeSecenekleri([]);
+      if (data?.classification?.module === 'MAKINE_LIST') {
+        const oneri = data?.meta?.belge?.belgeNumarasi || data?.meta?.belge?.firmaAdi || '';
+        if (oneri) {
+          setBelgeArama(oneri);
+          aramaYap(oneri);
+        }
+      }
     } catch (err) {
       setError(err.message || 'Beklenmeyen hata');
     }
     setPreviewLoading(false);
+  };
+
+  // 🔎 Makine Listesi belge araması (eski + yeni sistem birlikte)
+  const aramaYap = async (q) => {
+    const term = (q || '').trim();
+    if (term.length < 2) { setBelgeSecenekleri([]); return; }
+    setBelgeAramaLoading(true);
+    try {
+      const { data } = await axios.get('/tesvik/birlesik-arama', { params: { q: term } });
+      setBelgeSecenekleri(data?.data?.tesvikler || []);
+    } catch (e) {
+      setBelgeSecenekleri([]);
+    }
+    setBelgeAramaLoading(false);
   };
 
   const handleFileInputChange = (e) => {
@@ -197,6 +231,11 @@ const SmartUpload = () => {
   // Commit
   const handleCommit = async () => {
     if (!ingestSessionId) return;
+    const isMakineListesi = previewData?.classification?.module === 'MAKINE_LIST';
+    if (isMakineListesi && !seciliBelge) {
+      setError('Lütfen makinelerin ekleneceği belgeyi seçin');
+      return;
+    }
     setError(null);
     setCommitLoading(true);
 
@@ -204,6 +243,9 @@ const SmartUpload = () => {
       const result = await ingestService.commitIngest({
         ingestSessionId,
         mode: commitMode,
+        payload: isMakineListesi
+          ? { ingestSessionId, mode: commitMode, belgeId: seciliBelge._id, belgeModel: seciliBelge.sistem === 'Yeni' ? 'YeniTesvik' : 'Tesvik' }
+          : undefined,
       });
 
       if (!result?.success) {
@@ -228,6 +270,9 @@ const SmartUpload = () => {
     setIngestSessionId(null);
     setPreviewLoading(false);
     setCommitLoading(false);
+    setBelgeArama('');
+    setBelgeSecenekleri([]);
+    setSeciliBelge(null);
   };
 
   // Get module config
@@ -652,6 +697,36 @@ const SmartUpload = () => {
                   </Box>
                 )}
 
+                {/* 🔧 Makine Listesi: hangi belgeye eklenecek? (satırlar var olan bir belgenin içine gider) */}
+                {previewData?.classification?.module === 'MAKINE_LIST' && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 0.5 }}>
+                      Makineler hangi belgeye eklensin?
+                    </Typography>
+                    <Autocomplete
+                      size="small"
+                      options={belgeSecenekleri}
+                      loading={belgeAramaLoading}
+                      value={seciliBelge}
+                      onChange={(e, val) => setSeciliBelge(val)}
+                      inputValue={belgeArama}
+                      onInputChange={(e, val) => { setBelgeArama(val); aramaYap(val); }}
+                      getOptionLabel={(o) => o ? `${o.belgeYonetimi?.belgeNo || o.tesvikId || o.gmId || ''} — ${o.yatirimciUnvan || ''}` : ''}
+                      isOptionEqualToValue={(o, v) => o._id === v._id}
+                      renderOption={(props, option) => (
+                        <li {...props} key={option._id}>
+                          <Chip label={option.sistem} size="small" sx={{ mr: 1, height: 18, fontSize: '0.65rem' }} />
+                          {option.belgeYonetimi?.belgeNo || option.tesvikId || option.gmId} — {option.yatirimciUnvan}
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField {...params} placeholder="Belge no veya firma adıyla arayın…" />
+                      )}
+                      noOptionsText={belgeArama.length < 2 ? 'En az 2 karakter yazın' : 'Sonuç bulunamadı'}
+                    />
+                  </Box>
+                )}
+
                 {/* Action Buttons */}
                 <Box
                   sx={{
@@ -665,7 +740,7 @@ const SmartUpload = () => {
                     variant="contained"
                     startIcon={<SaveIcon />}
                     onClick={handleCommit}
-                    disabled={commitLoading || !ingestSessionId}
+                    disabled={commitLoading || !ingestSessionId || (previewData?.classification?.module === 'MAKINE_LIST' && !seciliBelge)}
                     sx={{
                       textTransform: 'none',
                       fontWeight: 800,
