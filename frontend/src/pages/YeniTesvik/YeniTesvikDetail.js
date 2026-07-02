@@ -1780,12 +1780,6 @@ const YeniTesvikDetail = () => {
                   <MenuItem value="Sonuç Revize">✅ Sonuç Revize</MenuItem>
                   <MenuItem value="Resen Revize">⚖️ Resen Revize</MenuItem>
                   <MenuItem value="Müşavir Revize">👨‍💼 Müşavir Revize</MenuItem>
-                  <MenuItem value="Red geldi - Ek belge istendi">Red geldi - Ek belge istendi</MenuItem>
-                  <MenuItem value="Red geldi - Revizyon talep edildi">Red geldi - Revizyon talep edildi</MenuItem>
-                  <MenuItem value="Onay geldi">Onay geldi</MenuItem>
-                  <MenuItem value="Belge tamamlandı">Belge tamamlandı</MenuItem>
-                  <MenuItem value="İptal edildi">İptal edildi</MenuItem>
-                  <MenuItem value="Diğer">Diğer</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

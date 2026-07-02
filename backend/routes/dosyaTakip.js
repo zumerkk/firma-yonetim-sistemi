@@ -21,6 +21,9 @@ router.get('/enums', dosyaTakipController.getEnumDegerleri);
 // 💡 Daire/Uzman öneri listesi (mevcut kayıtlardan)
 router.get('/oneriler', dosyaTakipController.getOneriler);
 
+// 🗑️ Daire/Uzman önerisini kaldır (tüm kayıtlardan temizler) — /:id'den ÖNCE tanımlı olmalı
+router.delete('/oneriler', dosyaTakipController.oneriSil);
+
 // 📋 Tüm Talepleri Listele (sayfalı + filtreleme)
 router.get('/', dosyaTakipController.getTumTalepler);
 
