@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
-import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox, LinearProgress, ToggleButton, ToggleButtonGroup } from '@mui/material';
+import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox, LinearProgress, ToggleButton, ToggleButtonGroup, Collapse } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
@@ -272,6 +272,7 @@ const MakineYonetimi = () => {
   const [revList, setRevList] = useState([]);
   // 📝 NOTLAR - Makine yönetimi için notlar alanı
   const [makineNotlari, setMakineNotlari] = useState('');
+  const [notlarAcik, setNotlarAcik] = useState(false); // müşteri: notlar tablette yer kaplamasın — varsayılan kapalı
 
   // Sıra numarası güncelleme fonksiyonu
   const updateRowSiraNo = (type, rowId, newSiraNo) => {
@@ -1747,10 +1748,47 @@ const MakineYonetimi = () => {
     }
   };
 
+  // 📥 İçe aktarma birleştirme (müşteri: "excel ile içe aktarınca güncellenen-yeni
+  // eklenen makineler eklenecek, diğerlerine dokunulmayacak").
+  // Eşleştirme: Makine ID (ikisinde de doluysa) → yoksa Adı ve Özelliği (normalize).
+  // Eşleşen satır: içerik dosyadan güncellenir; id/rowId/talep/karar/etuysSecili/
+  // dosyalar/silinmeTarihi KORUNUR. Dosyada olmayan mevcut satırlara dokunulmaz.
+  const mergeImportedRows = (existingRows, importedRows) => {
+    const norm = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ').trim();
+    const list = existingRows.map(r => ({ ...r }));
+    const byMakineId = new Map(list.filter(r => r.makineId).map(r => [String(r.makineId).trim(), r]));
+    const byName = new Map(list.map(r => [norm(r.adi), r]));
+    let added = 0, updatedCount = 0;
+    let maxSira = list.reduce((m, r) => Math.max(m, Number(r.siraNo) || 0), 0);
+    for (const imp of importedRows) {
+      const mevcut = (imp.makineId && byMakineId.get(String(imp.makineId).trim())) || byName.get(norm(imp.adi));
+      if (mevcut) {
+        Object.assign(mevcut, imp, {
+          id: mevcut.id,
+          rowId: mevcut.rowId,
+          siraNo: mevcut.siraNo || imp.siraNo,
+          talep: mevcut.talep,
+          karar: mevcut.karar,
+          etuysSecili: mevcut.etuysSecili,
+          dosyalar: mevcut.dosyalar || [],
+          silinmeTarihi: mevcut.silinmeTarihi || null
+        });
+        updatedCount++;
+      } else {
+        maxSira += 1;
+        list.push({ ...imp, siraNo: maxSira });
+        if (imp.makineId) byMakineId.set(String(imp.makineId).trim(), list[list.length - 1]);
+        byName.set(norm(imp.adi), list[list.length - 1]);
+        added++;
+      }
+    }
+    return { list, added, updated: updatedCount };
+  };
+
   const importExcel = async (file) => {
     try {
       const isCsv = file.name.toLowerCase().endsWith('.csv');
-      
+
       const lookupGtipDescription = (gtipKodu) => {
         if (!gtipKodu) return '';
         const cleanKodu = gtipKodu.toString().replace(/\D/g, '');
@@ -1800,8 +1838,12 @@ const MakineYonetimi = () => {
           if (errs.length) obj._errors = errs;
           return calcYerli(obj);
         });
-        setYerliRows(yerliMapped);
-        if (yerliMapped.length > 0) openToast('success', `${yerliMapped.length} adet yerli makine içe aktarıldı.`);
+        // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
+        setYerliRows(prev => {
+          const { list, added, updated } = mergeImportedRows(prev, yerliMapped);
+          if (yerliMapped.length > 0) openToast('success', `Yerli: ${added} yeni eklendi, ${updated} güncellendi, ${prev.length - updated} satıra dokunulmadı.`);
+          return list;
+        });
       };
 
       const processIthalData = (ithalData) => {
@@ -1845,8 +1887,12 @@ const MakineYonetimi = () => {
           if (errs.length) obj._errors = errs;
           return calcIthal(obj);
         });
-        setIthalRows(ithalMapped);
-        if (ithalMapped.length > 0) openToast('success', `${ithalMapped.length} adet ithal makine içe aktarıldı.`);
+        // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
+        setIthalRows(prev => {
+          const { list, added, updated } = mergeImportedRows(prev, ithalMapped);
+          if (ithalMapped.length > 0) openToast('success', `İthal: ${added} yeni eklendi, ${updated} güncellendi, ${prev.length - updated} satıra dokunulmadı.`);
+          return list;
+        });
       };
 
       if (isCsv) {
@@ -3676,6 +3722,30 @@ const MakineYonetimi = () => {
         </Stack>
       </Paper>
 
+      {/* 🪪 Belge Kimlik Şeridi — müşteri: hangi belgede olduğumuz net görünsün
+          (belge no + firma + il/ilçe + yatırım konusu + US97) */}
+      {selectedTesvik && (
+        <Paper elevation={0} sx={{ px: 1.5, py: 0.75, mb: 1, borderRadius: 2, border: `1px solid ${theme.border}`, bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip size="small" label={selectedTesvik.belgeYonetimi?.belgeNo || selectedTesvik.tesvikId || selectedTesvik.gmId} sx={{ fontWeight: 700, bgcolor: theme.accentGlow, color: theme.accent }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }} noWrap>
+            {selectedTesvik.yatirimciUnvan || ''}
+          </Typography>
+          {(selectedTesvik.yatirimBilgileri?.yerinIl || selectedTesvik.yatirimBilgileri?.yerinIlce) && (
+            <Chip size="small" variant="outlined" label={[selectedTesvik.yatirimBilgileri?.yerinIl, selectedTesvik.yatirimBilgileri?.yerinIlce].filter(Boolean).join(' / ')} sx={{ height: 20, fontSize: '0.68rem' }} />
+          )}
+          {selectedTesvik.yatirimBilgileri?.yatirimKonusu && (
+            <Typography variant="caption" sx={{ color: '#64748b' }} noWrap>
+              Konu: {String(selectedTesvik.yatirimBilgileri.yatirimKonusu).slice(0, 60)}
+            </Typography>
+          )}
+          {Array.isArray(selectedTesvik.urunler) && selectedTesvik.urunler.some(u => u?.u97Kodu) && (
+            <Typography variant="caption" sx={{ color: '#64748b' }} noWrap>
+              US97: {selectedTesvik.urunler.map(u => u?.u97Kodu).filter(Boolean).slice(0, 3).join(', ')}
+            </Typography>
+          )}
+        </Paper>
+      )}
+
       {/* 🔧 ANA ÇALIŞMA ALANI - Premium Workspace */}
       <Paper 
         elevation={0} 
@@ -4085,6 +4155,16 @@ const MakineYonetimi = () => {
                 <AddIcon sx={{ fontSize: 17 }}/>
               </IconButton>
             </span></Tooltip>
+            {/* müşteri: birden fazla makine seçip toplu silme (checkbox ile seç → tek tık) */}
+            {selectionModel.length > 0 && (
+              <Tooltip title={`Seçilen ${selectionModel.length} satırı sil`} arrow>
+                <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon sx={{ fontSize: 15 }} />}
+                  onClick={() => { selectionModel.forEach(id => delRow(id)); setSelectionModel([]); }}
+                  sx={{ textTransform: 'none', py: 0, px: 1, minWidth: 0, fontSize: '0.72rem' }}>
+                  Sil ({selectionModel.length})
+                </Button>
+              </Tooltip>
+            )}
             <Tooltip title="Kur Hesapla" arrow><span>
               <IconButton size="small" onClick={recalcIthalTotals} disabled={tab!=='ithal'} sx={{ color: theme.info }}>
                 <RecalcIcon sx={{ fontSize: 17 }}/>
@@ -4182,15 +4262,19 @@ const MakineYonetimi = () => {
         )}
       </Paper>
 
-      {/* 📝 NOTLAR - Makine Yönetimi Notları */}
+      {/* 📝 NOTLAR - Makine Yönetimi Notları (müşteri: tablette yer kaplamasın — tıklayınca açılır) */}
       <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+        <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
           <Box sx={{ fontSize: 20 }}>📝</Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
           {selectedTesvik && (
             <Chip size="small" label={selectedTesvik.belgeNo || selectedTesvik._id} sx={{ ml: 1 }} />
           )}
+          {makineNotlari && !notlarAcik && <Chip size="small" color="warning" label="not var" sx={{ height: 18, fontSize: '0.62rem' }} />}
+          <Box sx={{ flex: 1 }} />
+          <IconButton size="small">{notlarAcik ? <FullscreenExitIcon sx={{ fontSize: 16 }} /> : <FullscreenIcon sx={{ fontSize: 16 }} />}</IconButton>
         </Stack>
+        <Collapse in={notlarAcik} unmountOnExit>
         <TextField
           fullWidth
           multiline
@@ -4236,6 +4320,7 @@ const MakineYonetimi = () => {
             Notları Kaydet
           </Button>
         </Box>
+        </Collapse>
       </Paper>
 
       {/* Bulk Menu - Premium */}
