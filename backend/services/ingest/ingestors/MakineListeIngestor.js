@@ -121,6 +121,7 @@ function validateMakineKalemi(n) {
 // Dosyada olmayan mevcut kalemlere DOKUNULMAZ.
 function mergeMakineListesi(existingList, yeniKalemler) {
   const existing = (existingList || []).map((e) => (e.toObject ? e.toObject() : { ...e }));
+  const bosListe = existing.length === 0; // boş listeye import: dosyanın Sıra No'su korunur
   const keyOf = (adi) => normalizeKey(adi);
   const byName = new Map(existing.map((e) => [keyOf(e.adiVeOzelligi), e]));
 
@@ -151,7 +152,7 @@ function mergeMakineListesi(existingList, yeniKalemler) {
       // de bağımsız 1'den başlar) — kullanmak çakışmaya yol açar. Her zaman kendi
       // ardışık sıramızı üretiyoruz.
       maxSiraNo += 1;
-      existing.push({ ...yeni, siraNo: maxSiraNo });
+      existing.push({ ...yeni, siraNo: (bosListe && Number(yeni.siraNo) > 0) ? Number(yeni.siraNo) : maxSiraNo });
       created += 1;
     }
   }

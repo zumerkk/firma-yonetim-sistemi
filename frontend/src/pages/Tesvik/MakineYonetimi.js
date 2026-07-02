@@ -1477,7 +1477,8 @@ const MakineYonetimi = () => {
         updatedCount++;
       } else {
         maxSira += 1;
-        list.push({ ...imp, siraNo: maxSira });
+        // müşteri: boş listeye import'ta Excel'deki Sıra No korunur (1-2-3 diye ezilmesin)
+        list.push({ ...imp, siraNo: (existingRows.length === 0 && Number(imp.siraNo) > 0) ? Number(imp.siraNo) : maxSira });
         added++;
       }
     }
