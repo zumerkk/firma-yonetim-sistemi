@@ -69,21 +69,28 @@ const DosyaTakipDashboard = () => {
             shadowColor: 'rgba(245, 158, 11, 0.3)'
         },
         {
-            title: 'Müracaat Öncesi',
+            title: '1. Müracaat Öncesi',
             value: dashboardStats?.ozet?.muraacatOncesi || 0,
             icon: <HourglassEmptyIcon />,
             gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
             shadowColor: 'rgba(124, 58, 237, 0.3)'
         },
         {
-            title: 'Müracaat Sonrası',
-            value: dashboardStats?.ozet?.muraacatSonrasi || 0,
+            title: '2. Kurum Değerlendirme',
+            value: dashboardStats?.ozet?.kurumDegerlendirme ?? dashboardStats?.ozet?.muraacatSonrasi ?? 0,
             icon: <AccountBalanceIcon />,
+            gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
+            shadowColor: 'rgba(124, 58, 237, 0.3)'
+        },
+        {
+            title: '3. Kurum Eksik',
+            value: dashboardStats?.ozet?.kurumEksik || 0,
+            icon: <HourglassEmptyIcon />,
             gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
             shadowColor: 'rgba(220, 38, 38, 0.3)'
         },
         {
-            title: 'Kurum Sonuçlanma',
+            title: '4. Sonuçlanma',
             value: dashboardStats?.ozet?.kurumSonuclanma || 0,
             icon: <ScheduleIcon />,
             gradient: 'linear-gradient(135deg, #064e3b, #059669)',

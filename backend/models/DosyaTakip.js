@@ -84,12 +84,14 @@ const TALEP_TURLERI = [
 // 📌 DURUM KODLARİ (İş Akışı State Machine)
 // ============================================================================
 const DURUM_KODLARI = [
-  // 2.1 MÜRACAAT ÖNCESİ
+  // 1- MÜRACAAT ÖNCESİ
   '2.1.1_GORUSULUYOR',
   '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT',
   '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE',
   '2.1.4_MURACAAT_HAZIRLANIYOR',
-  // 2.2 MÜRACAAT SONRASI
+  // 2- KURUM DEĞERLENDİRME (müşteri: yeni iş akışı — Başvuru Yapıldı eklendi;
+  // irtibat alt-durumları ve GM iptal eski kayıtlar bozulmasın diye enumda tutulur, UI'da gösterilmez)
+  '2.2.0_BASVURU_YAPILDI',
   '2.2.1_KURUM_DEGERLENDIRME',
   '2.2.1.1_KURUM_BEKLENIYOR',
   '2.2.1.1.1_KURUM_IRTIBAT_SAGLANDI',
@@ -106,9 +108,12 @@ const DURUM_KODLARI = [
   '2.3.4_TALEP_GM_IPTAL'
 ];
 
-// Ana Aşamalar
+// Ana Aşamalar (müşteri: 4 ana aşama — Kurum Eksik ana aşama oldu;
+// MURACAAT_SONRASI eski kayıtlar için enumda tutulur)
 const ANA_ASAMALAR = [
   'MURACAAT_ONCESI',
+  'KURUM_DEGERLENDIRME',
+  'KURUM_EKSIK',
   'MURACAAT_SONRASI',
   'KURUM_SONUCLANMA',
   'TAMAMLANDI'
@@ -396,6 +401,7 @@ dosyaTakipSchema.virtual('durumEtiketi').get(function() {
     '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT': 'Bekle - Evrak Tamam, Fiyat Bekleniyor',
     '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE': 'Fiyat Tamam - Evrak Bekleniyor',
     '2.1.4_MURACAAT_HAZIRLANIYOR': 'Müracaat Hazırlanıyor',
+    '2.2.0_BASVURU_YAPILDI': 'Başvuru Yapıldı',
     '2.2.1_KURUM_DEGERLENDIRME': 'Kurum Değerlendirme',
     '2.2.1.1_KURUM_BEKLENIYOR': 'Kurum Bekleniyor',
     '2.2.1.1.1_KURUM_IRTIBAT_SAGLANDI': 'Kurum İrtibat Sağlandı',
@@ -415,9 +421,11 @@ dosyaTakipSchema.virtual('durumEtiketi').get(function() {
 
 dosyaTakipSchema.virtual('anaAsamaEtiketi').get(function() {
   const etiketler = {
-    'MURACAAT_ONCESI': '2.1 Müracaat Öncesi',
-    'MURACAAT_SONRASI': '2.2 Müracaat Sonrası',
-    'KURUM_SONUCLANMA': '2.3 Kurum Sonuçlanma',
+    'MURACAAT_ONCESI': '1. Müracaat Öncesi',
+    'KURUM_DEGERLENDIRME': '2. Kurum Değerlendirme',
+    'KURUM_EKSIK': '3. Kurum Eksik',
+    'MURACAAT_SONRASI': '2. Kurum Değerlendirme', // eski kayıtlar (migration öncesi)
+    'KURUM_SONUCLANMA': '4. Sonuçlanma',
     'TAMAMLANDI': 'Tamamlandı'
   };
   return etiketler[this.anaAsama] || this.anaAsama;
@@ -432,10 +440,11 @@ dosyaTakipSchema.statics.ANA_ASAMALAR = ANA_ASAMALAR;
 dosyaTakipSchema.statics.DOSYA_TURLERI = DOSYA_TURLERI;
 dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 
-// Durum → Ana Aşama eşleştirmesi
+// Durum → Ana Aşama eşleştirmesi (müşteri: 4 ana aşama — Kurum Eksik ayrı aşama)
 dosyaTakipSchema.statics.durumToAnaAsama = function(durum) {
   if (durum.startsWith('2.1')) return 'MURACAAT_ONCESI';
-  if (durum.startsWith('2.2')) return 'MURACAAT_SONRASI';
+  if (durum.startsWith('2.2.3')) return 'KURUM_EKSIK';
+  if (durum.startsWith('2.2')) return 'KURUM_DEGERLENDIRME';
   if (durum.startsWith('2.3')) return 'KURUM_SONUCLANMA';
   return 'TAMAMLANDI';
 };
@@ -445,7 +454,7 @@ dosyaTakipSchema.statics.durumRengiBelirle = function(durum) {
   if (durum.startsWith('2.1.1')) return 'mavi';
   if (durum.startsWith('2.1.2') || durum.startsWith('2.1.3')) return 'sari';
   if (durum.startsWith('2.1.4')) return 'turuncu';
-  if (durum.startsWith('2.2.1')) return 'mor';
+  if (durum.startsWith('2.2.0') || durum.startsWith('2.2.1')) return 'mor';
   if (durum.startsWith('2.2.3')) return 'kirmizi';
   if (durum === '2.3.1_SONUC_FIRMAYA_ILETILDI') return 'yesil';
   if (durum === '2.3.2_SONUC_BEKLETILECEK') return 'sari';

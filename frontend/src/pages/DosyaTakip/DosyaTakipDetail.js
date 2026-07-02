@@ -58,32 +58,51 @@ const DURUM_RENKLERI = {
 // Dosya türleri (müşteri: yüklemeden önce seçilir)
 const DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
 
-// Durum etiketleri
+// Durum etiketleri (eski kodların etiketi eski kayıtlar için korunur)
 const DURUM_ETIKETLERI = {
     '2.1.1_GORUSULUYOR': 'Görüşülüyor',
     '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT': 'Bekle - Evrak Tamam, Fiyat Bekleniyor',
     '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE': 'Fiyat Tamam - Evrak Bekleniyor',
     '2.1.4_MURACAAT_HAZIRLANIYOR': 'Müracaat Hazırlanıyor',
+    '2.2.0_BASVURU_YAPILDI': 'Başvuru Yapıldı',
     '2.2.1_KURUM_DEGERLENDIRME': 'Kurum Değerlendirme',
     '2.2.1.1_KURUM_BEKLENIYOR': 'Kurum Bekleniyor',
     '2.2.1.1.1_KURUM_IRTIBAT_SAGLANDI': 'Kurum İrtibat Sağlandı',
     '2.2.1.1.2_KURUM_IRTIBAT_SAGLANAMADI': 'Kurum İrtibat Sağlanamadı',
-    '2.2.1.1.3_KURUM_KENDI_HALINDE': 'Kurum Kendi Halinde Kalacak',
+    '2.2.1.1.3_KURUM_KENDI_HALINDE': 'Kendi Halinde Kalacak',
     '2.2.3_KURUM_EKSIK': 'Kurum Eksik',
-    '2.2.3.1_EKSIK_FIRMADAN_BEKLENIYOR': 'Eksik Firmadan Bekleniyor',
-    '2.2.3.2_EKSIK_BIZDEN_BEKLENIYOR': 'Eksik Bizden Bekleniyor',
-    '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN': 'Eksik Hem Firma Hem Bizden',
-    '2.3.1_SONUC_FIRMAYA_ILETILDI': 'Sonuç Firmaya İletildi',
-    '2.3.2_SONUC_BEKLETILECEK': 'Sonuç Bekletilecek',
-    '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
+    '2.2.3.1_EKSIK_FIRMADAN_BEKLENIYOR': 'Eksik Firmadan',
+    '2.2.3.2_EKSIK_BIZDEN_BEKLENIYOR': 'Eksik Bizden',
+    '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN': 'Eksik Hem Firmadan Hem Bizden',
+    '2.3.1_SONUC_FIRMAYA_ILETILDI': 'Firmaya İletildi',
+    '2.3.2_SONUC_BEKLETILECEK': 'Bekletilecek',
+    '2.3.3_TALEP_FIRMA_IPTAL': 'Firma İptal',
     '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal'
 };
 
-// Workflow aşamaları yapılandırması
+// müşteri: yeni iş akışında SEÇİLEBİLİR durumlar (eski/gizli kodlar durum
+// değiştirme menüsünde görünmez ama mevcut kayıtlarda etiketi görünür kalır)
+const SECILEBILIR_DURUMLAR = [
+    '2.1.1_GORUSULUYOR',
+    '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT',
+    '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE',
+    '2.1.4_MURACAAT_HAZIRLANIYOR',
+    '2.2.0_BASVURU_YAPILDI',
+    '2.2.1.1_KURUM_BEKLENIYOR',
+    '2.2.1.1.3_KURUM_KENDI_HALINDE',
+    '2.2.3.1_EKSIK_FIRMADAN_BEKLENIYOR',
+    '2.2.3.2_EKSIK_BIZDEN_BEKLENIYOR',
+    '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN',
+    '2.3.1_SONUC_FIRMAYA_ILETILDI',
+    '2.3.2_SONUC_BEKLETILECEK',
+    '2.3.3_TALEP_FIRMA_IPTAL'
+];
+
+// Workflow aşamaları yapılandırması (müşteri: yeni 4 ana aşamalı iş akışı)
 const WORKFLOW_STEPS = [
     {
         key: 'MURACAAT_ONCESI',
-        label: '2.1 Müracaat Öncesi',
+        label: '1. Müracaat Öncesi',
         icon: <DescriptionIcon />,
         color: '#7c3aed',
         subSteps: [
@@ -94,35 +113,51 @@ const WORKFLOW_STEPS = [
         ]
     },
     {
-        key: 'MURACAAT_SONRASI',
-        label: '2.2 Müracaat Sonrası',
+        key: 'KURUM_DEGERLENDIRME',
+        label: '2. Kurum Değerlendirme',
         icon: <AccountBalanceIcon />,
+        color: '#7c3aed',
+        subSteps: [
+            { key: '2.2.0_BASVURU_YAPILDI', label: 'Başvuru Yapıldı' },
+            { key: '2.2.1.1_KURUM_BEKLENIYOR', label: 'Kurum Bekleniyor' },
+            { key: '2.2.1.1.3_KURUM_KENDI_HALINDE', label: 'Kendi Halinde Kalacak' }
+        ]
+    },
+    {
+        key: 'KURUM_EKSIK',
+        label: '3. Kurum Eksik',
+        icon: <WarningIcon />,
         color: '#dc2626',
         subSteps: [
-            { key: '2.2.1_KURUM_DEGERLENDIRME', label: 'Kurum Değerlendirme' },
-            { key: '2.2.1.1_KURUM_BEKLENIYOR', label: 'Kurum Bekleniyor' },
-            { key: '2.2.1.1.1_KURUM_IRTIBAT_SAGLANDI', label: 'İrtibat Sağlandı' },
-            { key: '2.2.1.1.2_KURUM_IRTIBAT_SAGLANAMADI', label: 'İrtibat Sağlanamadı' },
-            { key: '2.2.1.1.3_KURUM_KENDI_HALINDE', label: 'Kendi Halinde Kalacak' },
-            { key: '2.2.3_KURUM_EKSIK', label: 'Kurum Eksik' },
             { key: '2.2.3.1_EKSIK_FIRMADAN_BEKLENIYOR', label: 'Eksik Firmadan' },
             { key: '2.2.3.2_EKSIK_BIZDEN_BEKLENIYOR', label: 'Eksik Bizden' },
-            { key: '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN', label: 'Eksik Her İkisinden' }
+            { key: '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN', label: 'Eksik Hem Firmadan Hem Bizden' }
         ]
     },
     {
         key: 'KURUM_SONUCLANMA',
-        label: '2.3 Kurum Sonuçlanma',
+        label: '4. Sonuçlanma',
         icon: <CheckCircleIcon />,
         color: '#059669',
         subSteps: [
             { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' },
             { key: '2.3.2_SONUC_BEKLETILECEK', label: 'Bekletilecek' },
-            { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' },
-            { key: '2.3.4_TALEP_GM_IPTAL', label: 'GM İptal' }
+            { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' }
         ]
     }
 ];
+
+// Eski kayıtlar (migration öncesi anaAsama='MURACAAT_SONRASI') için aşama indeksi durumdan türetilir
+const asamaIndexBul = (talep) => {
+    const asama = talep?.anaAsama;
+    const idx = WORKFLOW_STEPS.findIndex(s => s.key === asama);
+    if (idx !== -1) return idx;
+    const durum = String(talep?.durum || '');
+    if (durum.startsWith('2.2.3')) return 2; // Kurum Eksik
+    if (durum.startsWith('2.2')) return 1;   // Kurum Değerlendirme
+    if (durum.startsWith('2.3')) return 3;   // Sonuçlanma
+    return 0;
+};
 
 // Backend API base URL (uploads are served from backend)
 const getBackendUrl = () => {
@@ -301,11 +336,10 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Aktif ana aşama index'i
+    // Aktif ana aşama index'i (eski MURACAAT_SONRASI kayıtları durumdan türetilir)
     const getActiveStepIndex = () => {
         if (!seciliTalep) return 0;
-        const asama = seciliTalep.anaAsama;
-        return WORKFLOW_STEPS.findIndex(s => s.key === asama);
+        return asamaIndexBul(seciliTalep);
     };
 
     // Durum değişikliği
@@ -1144,9 +1178,9 @@ const DosyaTakipDetail = () => {
                             onChange={(e) => setDurumDialog(prev => ({ ...prev, yeniDurum: e.target.value }))}
                             sx={{ mb: 2 }}
                         >
-                            {Object.entries(DURUM_ETIKETLERI).map(([key, label]) => (
+                            {SECILEBILIR_DURUMLAR.map((key) => (
                                 <MenuItem key={key} value={key} disabled={key === seciliTalep?.durum}>
-                                    {label}
+                                    {DURUM_ETIKETLERI[key] || key}
                                 </MenuItem>
                             ))}
                         </TextField>
