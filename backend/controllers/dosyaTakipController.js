@@ -304,8 +304,16 @@ exports.talepGuncelle = async (req, res) => {
 
         for (const [key, value] of Object.entries(body)) {
             if (key.includes('.')) {
-                // Dot-notation key → use Mongoose set for nested path
-                talep.set(key, value === '' ? undefined : value);
+                // Dot-notation key → use Mongoose set for nested path.
+                // Boş string: String alanlarda TEMİZLEME anlamına gelir (müşteri: kurum
+                // dairesi/daire uzmanı silinebilsin); ObjectId gibi alanlarda cast
+                // hatasını önlemek için undefined'a çevrilir.
+                if (value === '') {
+                    const p = talep.schema.path(key);
+                    talep.set(key, p && p.instance === 'String' ? '' : undefined);
+                } else {
+                    talep.set(key, value);
+                }
             } else {
                 talep[key] = value;
             }

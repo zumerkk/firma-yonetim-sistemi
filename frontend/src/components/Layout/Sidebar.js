@@ -188,6 +188,51 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   ];
 
   // 🏢 Corporate Firma Menu Items
+  // 🏢 FİRMA (konsolide grup) — müşteri krokisi: tek ana başlık altında
+  // Yatırımcı Bilgileri / Teşvik Listesi / Makine Listesi / Ekipman Takip / Belge Takip
+  const firmaKonsolideMenuItems = [
+    {
+      text: 'Yatırımcı Bilgileri',
+      icon: <BusinessIcon />,
+      path: '/firmalar',
+      color: '#059669',
+      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      description: 'Firma listesi'
+    },
+    {
+      text: 'Teşvik Listesi',
+      icon: <EmojiEventsIcon />,
+      path: '/tesvik/liste',
+      color: '#dc2626',
+      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      description: 'Eski + yeni belgeler (firma araması birleşik)'
+    },
+    {
+      text: 'Makine Listesi',
+      icon: <EmojiEventsIcon />,
+      path: '/yeni-tesvik/makine-yonetimi',
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      description: 'Makine teçhizat yönetimi'
+    },
+    {
+      text: 'Ekipman Takip',
+      icon: <EmojiEventsIcon />,
+      path: '/tesvikler',
+      color: '#7c3aed',
+      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      description: 'Süreç, mail, evrak takibi'
+    },
+    {
+      text: 'Belge Takip',
+      icon: <ListIcon />,
+      path: '/dosya-takip/liste',
+      color: '#d97706',
+      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      description: 'Dosya iş akış talepleri'
+    }
+  ];
+
   const firmaMenuItems = [
     {
       text: 'Firma Listesi',
@@ -464,6 +509,27 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           </Typography>
           <List sx={{ px: 0, py: 0 }}>
             {menuItems.map(renderMenuItem)}
+          </List>
+        </Box>
+
+        {/* 🏢 FİRMA — müşteri krokisi: tek ana başlık, 5 alt başlık */}
+        <Box sx={{ mb: 1.5 }}>
+          <Typography
+            variant="overline"
+            sx={{
+              px: 3,
+              mb: 1,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: '0.08em',
+              display: 'block'
+            }}
+          >
+            Firma
+          </Typography>
+          <List sx={{ px: 0, py: 0 }}>
+            {firmaKonsolideMenuItems.map(renderMenuItem)}
           </List>
         </Box>
 
