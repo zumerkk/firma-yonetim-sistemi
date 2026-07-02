@@ -90,6 +90,25 @@ describe('Makine Listesi ingestor - merge (ekle/güncelle/dokunma)', () => {
     const yeniEklenen = list.find((x) => x.adiVeOzelligi === 'Yeni Makine');
     expect(yeniEklenen.siraNo).toBe(3); // mevcut sıralarla çakışmadan devam etti
   });
+
+  test('dosyada aynı isimli birden çok makine varsa hiçbiri yutulmaz (regresyon)', () => {
+    // Gerçek vaka: "İthal: 24 yeni, 4 güncellendi, -4 dokunulmadı" — aynı isimli
+    // satırlar birbirinin güncellemesi sanılıp kayboluyordu.
+    const yeni = [
+      normalizeMakineKalemi({ 'Adı ve Özelliği': 'PRES MAKİNASI', Miktarı: '1', 'Toplam Tutarı': '100' }, 'yerli'),
+      normalizeMakineKalemi({ 'Adı ve Özelliği': 'PRES MAKİNASI', Miktarı: '2', 'Toplam Tutarı': '200' }, 'yerli'),
+      normalizeMakineKalemi({ 'Adı ve Özelliği': 'PRES MAKİNASI', Miktarı: '3', 'Toplam Tutarı': '300' }, 'yerli'),
+    ];
+    const bos = mergeMakineListesi([], yeni);
+    expect(bos.created).toBe(3); // boş listeye 3'ü de eklenir
+    expect(bos.list).toHaveLength(3);
+
+    // Mevcutta 1 tane varsa: ilki onu günceller, kalan 2'si yeni eklenir
+    const mevcutlu = mergeMakineListesi([{ rowId: 'r1', siraNo: 1, adiVeOzelligi: 'Pres Makinası', miktar: 9 }], yeni);
+    expect(mevcutlu.updated).toBe(1);
+    expect(mevcutlu.created).toBe(2);
+    expect(mevcutlu.list).toHaveLength(3);
+  });
 });
 
 describe('Makine Listesi classifier', () => {

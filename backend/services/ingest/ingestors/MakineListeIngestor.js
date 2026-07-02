@@ -128,10 +128,16 @@ function mergeMakineListesi(existingList, yeniKalemler) {
   let updated = 0;
   let maxSiraNo = existing.reduce((m, e) => Math.max(m, e.siraNo || 0), 0);
 
+  // Dosyada AYNI İSİMLİ birden çok makine olabilir — her mevcut kalem en fazla BİR
+  // import satırıyla eşleşir; sonraki aynı isimliler yeni kalem olarak eklenir
+  // (aksi halde "güncelleme" sanılıp yutulur → makine kaybı).
+  const consumed = new Set();
   for (const yeni of yeniKalemler) {
     const key = keyOf(yeni.adiVeOzelligi);
-    const mevcut = byName.get(key);
+    const aday = byName.get(key);
+    const mevcut = aday && !consumed.has(aday) ? aday : null;
     if (mevcut) {
+      consumed.add(mevcut);
       Object.assign(mevcut, yeni, {
         rowId: mevcut.rowId,
         talep: mevcut.talep,
@@ -146,7 +152,6 @@ function mergeMakineListesi(existingList, yeniKalemler) {
       // ardışık sıramızı üretiyoruz.
       maxSiraNo += 1;
       existing.push({ ...yeni, siraNo: maxSiraNo });
-      byName.set(key, existing[existing.length - 1]);
       created += 1;
     }
   }

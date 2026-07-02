@@ -65,6 +65,7 @@ const TesvikList = () => {
   
   // 📋 Data States
   const [tesvikler, setTesvikler] = useState([]);
+  const [sistemFiltre, setSistemFiltre] = useState(''); // müşteri: Yeni/Eski filtre
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -464,6 +465,16 @@ const TesvikList = () => {
                     placeholder="Belge No, Belge ID veya ünvan ara..."
                   />
                 </Grid>
+
+                {/* müşteri: belgeleri Yeni/Eski olarak filtrele (birleşik arama sonuçları için) */}
+                <Grid item xs={12} md={2}>
+                  <TextField select fullWidth label="Sistem" value={sistemFiltre}
+                    onChange={(e) => setSistemFiltre(e.target.value)}>
+                    <MenuItem value="">Tümü</MenuItem>
+                    <MenuItem value="Yeni">Yeni</MenuItem>
+                    <MenuItem value="Eski">Eski</MenuItem>
+                  </TextField>
+                </Grid>
                 
                 <Grid item xs={12} md={4}>
                   <TextField
@@ -523,8 +534,8 @@ const TesvikList = () => {
                         ))}
                       </TableRow>
                     ))
-                  ) : tesvikler.length > 0 ? (
-                    tesvikler.map((tesvik) => (
+                  ) : tesvikler.filter(t => !sistemFiltre || (t.sistem || 'Eski') === sistemFiltre).length > 0 ? (
+                    tesvikler.filter(t => !sistemFiltre || (t.sistem || 'Eski') === sistemFiltre).map((tesvik) => (
                       <TableRow 
                         key={tesvik._id} 
                         hover 
