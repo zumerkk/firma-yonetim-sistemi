@@ -90,7 +90,8 @@ exports.getDashboardIstatistikleri = async (req, res) => {
             toplamTalep,
             aktifTalep,
             muraacatOncesi,
-            muraacatSonrasi,
+            kurumDegerlendirme,
+            kurumEksik,
             kurumSonuclanma,
             tamamlanan,
             sonTalepler,
@@ -100,7 +101,9 @@ exports.getDashboardIstatistikleri = async (req, res) => {
             DosyaTakip.countDocuments({ aktif: true }),
             DosyaTakip.countDocuments({ aktif: true, anaAsama: { $ne: 'TAMAMLANDI' } }),
             DosyaTakip.countDocuments({ aktif: true, anaAsama: 'MURACAAT_ONCESI' }),
-            DosyaTakip.countDocuments({ aktif: true, anaAsama: 'MURACAAT_SONRASI' }),
+            // MURACAAT_SONRASI: migration öncesi eski kayıtlar da değerlendirmeye sayılır
+            DosyaTakip.countDocuments({ aktif: true, anaAsama: { $in: ['KURUM_DEGERLENDIRME', 'MURACAAT_SONRASI'] } }),
+            DosyaTakip.countDocuments({ aktif: true, anaAsama: 'KURUM_EKSIK' }),
             DosyaTakip.countDocuments({ aktif: true, anaAsama: 'KURUM_SONUCLANMA' }),
             DosyaTakip.countDocuments({ aktif: true, anaAsama: 'TAMAMLANDI' }),
             DosyaTakip.find({ aktif: true })
@@ -128,7 +131,10 @@ exports.getDashboardIstatistikleri = async (req, res) => {
                     toplamTalep,
                     aktifTalep,
                     muraacatOncesi,
-                    muraacatSonrasi,
+                    kurumDegerlendirme,
+                    kurumEksik,
+                    // geriye dönük uyumluluk: eski frontend build'leri muraacatSonrasi bekleyebilir
+                    muraacatSonrasi: kurumDegerlendirme,
                     kurumSonuclanma,
                     tamamlanan
                 },
@@ -455,8 +461,9 @@ exports.eksikTamamla = async (req, res) => {
 
         const oncekiDurum = talep.durum;
         const oncekiAnaAsama = talep.anaAsama;
-        talep.durum = '2.2.1_KURUM_DEGERLENDIRME';
-        talep.anaAsama = 'MURACAAT_SONRASI';
+        // yeni iş akışı: eksik tamamlanınca "2. Kurum Değerlendirme > Kurum Bekleniyor"a döner
+        talep.durum = '2.2.1.1_KURUM_BEKLENIYOR';
+        talep.anaAsama = DosyaTakip.durumToAnaAsama(talep.durum);
         talep.durumRengi = DosyaTakip.durumRengiBelirle(talep.durum);
         talep.durumGecmisi.push({
             oncekiDurum,
@@ -937,6 +944,7 @@ function getDurumEtiketi(durum) {
         '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT': 'Bekle - Evrak Tamam, Fiyat Bekleniyor',
         '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE': 'Fiyat Tamam - Evrak Bekleniyor',
         '2.1.4_MURACAAT_HAZIRLANIYOR': 'Müracaat Hazırlanıyor',
+        '2.2.0_BASVURU_YAPILDI': 'Başvuru Yapıldı',
         '2.2.1_KURUM_DEGERLENDIRME': 'Kurum Değerlendirme',
         '2.2.1.1_KURUM_BEKLENIYOR': 'Kurum Bekleniyor',
         '2.2.1.1.1_KURUM_IRTIBAT_SAGLANDI': 'Kurum İrtibat Sağlandı',
@@ -956,9 +964,11 @@ function getDurumEtiketi(durum) {
 
 function getAnaAsamaEtiketi(asama) {
     const etiketler = {
-        'MURACAAT_ONCESI': '2.1 Müracaat Öncesi',
-        'MURACAAT_SONRASI': '2.2 Müracaat Sonrası',
-        'KURUM_SONUCLANMA': '2.3 Kurum Sonuçlanma',
+        'MURACAAT_ONCESI': '1. Müracaat Öncesi',
+        'KURUM_DEGERLENDIRME': '2. Kurum Değerlendirme',
+        'KURUM_EKSIK': '3. Kurum Eksik',
+        'MURACAAT_SONRASI': '2. Kurum Değerlendirme', // eski kayıtlar (migration öncesi)
+        'KURUM_SONUCLANMA': '4. Sonuçlanma',
         'TAMAMLANDI': 'Tamamlandı'
     };
     return etiketler[asama] || asama;

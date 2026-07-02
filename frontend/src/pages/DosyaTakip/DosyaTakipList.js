@@ -35,9 +35,11 @@ const DURUM_RENKLERI = {
 };
 
 const ANA_ASAMA_ETIKETLERI = {
-    'MURACAAT_ONCESI': { label: '2.1 Müracaat Öncesi', color: '#7c3aed' },
-    'MURACAAT_SONRASI': { label: '2.2 Müracaat Sonrası', color: '#dc2626' },
-    'KURUM_SONUCLANMA': { label: '2.3 Kurum Sonuçlanma', color: '#059669' },
+    'MURACAAT_ONCESI': { label: '1. Müracaat Öncesi', color: '#7c3aed' },
+    'KURUM_DEGERLENDIRME': { label: '2. Kurum Değerlendirme', color: '#7c3aed' },
+    'KURUM_EKSIK': { label: '3. Kurum Eksik', color: '#dc2626' },
+    'MURACAAT_SONRASI': { label: '2. Kurum Değerlendirme', color: '#7c3aed' }, // eski kayıtlar (migration öncesi)
+    'KURUM_SONUCLANMA': { label: '4. Sonuçlanma', color: '#059669' },
     'TAMAMLANDI': { label: 'Tamamlandı', color: '#22c55e' }
 };
 
@@ -330,9 +332,10 @@ const DosyaTakipList = () => {
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
-                                <MenuItem value="MURACAAT_ONCESI">2.1 Müracaat Öncesi</MenuItem>
-                                <MenuItem value="MURACAAT_SONRASI">2.2 Müracaat Sonrası</MenuItem>
-                                <MenuItem value="KURUM_SONUCLANMA">2.3 Kurum Sonuçlanma</MenuItem>
+                                <MenuItem value="MURACAAT_ONCESI">1. Müracaat Öncesi</MenuItem>
+                                <MenuItem value="KURUM_DEGERLENDIRME">2. Kurum Değerlendirme</MenuItem>
+                                <MenuItem value="KURUM_EKSIK">3. Kurum Eksik</MenuItem>
+                                <MenuItem value="KURUM_SONUCLANMA">4. Sonuçlanma</MenuItem>
                             </TextField>
                         </Grid>
                         <Grid item xs={12} md={3}>
