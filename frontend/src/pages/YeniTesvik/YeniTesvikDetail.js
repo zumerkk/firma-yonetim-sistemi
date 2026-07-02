@@ -16,7 +16,8 @@ import {
   Business as BusinessIcon,
   Assignment as AssignmentIcon,
   ExpandMore as ExpandMoreIcon,
-  Build as BuildIcon
+  Build as BuildIcon,
+  History as HistoryIcon
 } from '@mui/icons-material';
 import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 
@@ -41,6 +42,7 @@ const YeniTesvikDetail = () => {
   const [activityModalOpen, setActivityModalOpen] = useState(false);
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
   const [revizyonModalOpen, setRevizyonModalOpen] = useState(false);
+  const [revGecmisiOpen, setRevGecmisiOpen] = useState(false); // müşteri: Revizyon Geçmişi tuşu
   const [afterRevisionAction, setAfterRevisionAction] = useState(null); // 'goEdit' | null
   const [savingRevision, setSavingRevision] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
@@ -679,6 +681,15 @@ const YeniTesvikDetail = () => {
 
             {/* Kompakt Action Buttons */}
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<HistoryIcon />}
+                onClick={() => setRevGecmisiOpen(true)}
+                sx={{ background: 'rgba(255,255,255,0.15)', color: 'white', borderColor: 'rgba(255,255,255,0.4)', fontSize: '0.72rem', px: 1.2, py: 0.4, '&:hover': { borderColor: 'white', background: 'rgba(255,255,255,0.25)' } }}
+              >
+                Revizyon Geçmişi ({tesvik?.revizyonlar?.length || 0})
+              </Button>
               <Button
                 variant="contained"
                 size="small"
@@ -1530,6 +1541,54 @@ const YeniTesvikDetail = () => {
       {/* 📱 MODALS - Detaylı Bilgi Görüntüleme */}
 
       {/* Activity Detail Modal */}
+
+      {/* 📜 Revizyon Geçmişi Dialog — müşteri: ne revize edilmiş, ne zaman, kim */}
+      <Dialog open={revGecmisiOpen} onClose={() => setRevGecmisiOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <HistoryIcon color="primary" />
+            <Typography variant="h6">Revizyon Geçmişi ({tesvik?.revizyonlar?.length || 0})</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          {(!tesvik?.revizyonlar || tesvik.revizyonlar.length === 0) && (
+            <Typography variant="body2" color="text.secondary">Henüz revizyon yapılmamış.</Typography>
+          )}
+          <Stack spacing={1.5}>
+            {[...(tesvik?.revizyonlar || [])].reverse().map((r, i) => (
+              <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                  <Chip size="small" label={`Revizyon ${r.revizyonNo}`} color="primary" sx={{ fontWeight: 700 }} />
+                  <Chip size="small" variant="outlined" label={r.revizyonSebebi || '-'} />
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {r.revizyonTarihi ? new Date(r.revizyonTarihi).toLocaleString('tr-TR') : '-'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {r.yapanKullanici?.adSoyad || '—'}
+                  </Typography>
+                </Stack>
+                {(r.durumOncesi || r.durumSonrasi) && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Durum: {r.durumOncesi || '-'} → {r.durumSonrasi || '-'}
+                  </Typography>
+                )}
+                {r.kullaniciNotu && (
+                  <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Not: {r.kullaniciNotu}</Typography>
+                )}
+                {Array.isArray(r.degisikenAlanlar) && r.degisikenAlanlar.length > 0 && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Değişen alanlar: {r.degisikenAlanlar.map((d) => d.alan).filter(Boolean).join(', ') || r.degisikenAlanlar.length + ' alan'}
+                  </Typography>
+                )}
+              </Paper>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRevGecmisiOpen(false)}>Kapat</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={activityModalOpen}
         onClose={handleCloseActivityModal}

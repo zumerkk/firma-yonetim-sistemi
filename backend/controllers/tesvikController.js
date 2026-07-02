@@ -362,6 +362,7 @@ const getTesvik = async (req, res) => {
 
     // Populate işlemleri
     await tesvik.populate('firma', 'tamUnvan firmaId vergiNoTC firmaIl firmaIlce adres kepAdresi');
+    await tesvik.populate('revizyonlar.yapanKullanici', 'adSoyad'); // Revizyon Geçmişi: kim yaptı
     await tesvik.populate('olusturanKullanici', 'adSoyad email rol');
     await tesvik.populate('sonGuncelleyen', 'adSoyad email');
     await tesvik.populate('revizyonlar.yapanKullanici', 'adSoyad email');

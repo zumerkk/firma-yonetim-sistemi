@@ -565,9 +565,13 @@ const MakineYonetimi = () => {
   }, []);
 
   // 🎯 Auto-select: Detay sayfasından "Makine Listesine Git" ile gelindiyse belgeyi otomatik seç
+  // 🐛 fix: yalnızca BİR kez uygulanır — eskiden tesvikOptions her değişince (her aramada)
+  // yeniden tetiklenip ilk belgeye geri atıyordu ("firma değiştiremiyoruz" şikayeti).
+  const autoSelectUygulandi = useRef(false);
   useEffect(() => {
     const autoId = location?.state?.autoSelectBelgeId;
-    if (!autoId || tesvikOptions.length === 0) return;
+    if (!autoId || tesvikOptions.length === 0 || autoSelectUygulandi.current) return;
+    autoSelectUygulandi.current = true;
     const found = tesvikOptions.find(t => t._id === autoId);
     if (found) {
       setSelectedTesvik(found);
@@ -1751,6 +1755,13 @@ const MakineYonetimi = () => {
       setLoadingTesvik(false);
     }
   };
+  // ⏱️ Arama debounce (300ms) — her tuş vuruşunda 2 koleksiyonu taramamak için
+  const searchDebounceRef = useRef(null);
+  const searchTesvikDebounced = (q) => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => searchTesvik(q), 300);
+  };
+
 
   // 📥 İçe aktarma birleştirme (müşteri: "excel ile içe aktarınca güncellenen-yeni
   // eklenen makineler eklenecek, diğerlerine dokunulmayacak").
@@ -1764,9 +1775,17 @@ const MakineYonetimi = () => {
     const byName = new Map(list.map(r => [norm(r.adi), r]));
     let added = 0, updatedCount = 0;
     let maxSira = list.reduce((m, r) => Math.max(m, Number(r.siraNo) || 0), 0);
+    // 🐛 fix: dosyada AYNI İSİMLİ birden çok makine olabilir — her mevcut satır en fazla
+    // BİR import satırıyla eşleşir (consumed); sonraki aynı isimliler yeni satır olarak
+    // eklenir. (Önceki davranış onları "güncelleme" sanıp yutuyordu → makine kaybı.)
+    const consumed = new Set();
     for (const imp of importedRows) {
-      const mevcut = (imp.makineId && byMakineId.get(String(imp.makineId).trim())) || byName.get(norm(imp.adi));
+      const idMatch = imp.makineId ? byMakineId.get(String(imp.makineId).trim()) : null;
+      const nameMatch = byName.get(norm(imp.adi));
+      const mevcut = (idMatch && !consumed.has(idMatch)) ? idMatch
+        : (nameMatch && !consumed.has(nameMatch)) ? nameMatch : null;
       if (mevcut) {
+        consumed.add(mevcut);
         Object.assign(mevcut, imp, {
           id: mevcut.id,
           rowId: mevcut.rowId,
@@ -1781,12 +1800,10 @@ const MakineYonetimi = () => {
       } else {
         maxSira += 1;
         list.push({ ...imp, siraNo: maxSira });
-        if (imp.makineId) byMakineId.set(String(imp.makineId).trim(), list[list.length - 1]);
-        byName.set(norm(imp.adi), list[list.length - 1]);
         added++;
       }
     }
-    return { list, added, updated: updatedCount };
+    return { list, added, updated: updatedCount, untouched: Math.max(0, existingRows.length - updatedCount) };
   };
 
   const importExcel = async (file) => {
@@ -1844,8 +1861,8 @@ const MakineYonetimi = () => {
         });
         // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
         setYerliRows(prev => {
-          const { list, added, updated } = mergeImportedRows(prev, yerliMapped);
-          if (yerliMapped.length > 0) openToast('success', `Yerli: ${added} yeni eklendi, ${updated} güncellendi, ${prev.length - updated} satıra dokunulmadı.`);
+          const { list, added, updated, untouched } = mergeImportedRows(prev, yerliMapped);
+          if (yerliMapped.length > 0) openToast('success', `Yerli: ${added} yeni eklendi, ${updated} güncellendi, ${untouched} satıra dokunulmadı.`);
           return list;
         });
       };
@@ -1893,8 +1910,8 @@ const MakineYonetimi = () => {
         });
         // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
         setIthalRows(prev => {
-          const { list, added, updated } = mergeImportedRows(prev, ithalMapped);
-          if (ithalMapped.length > 0) openToast('success', `İthal: ${added} yeni eklendi, ${updated} güncellendi, ${prev.length - updated} satıra dokunulmadı.`);
+          const { list, added, updated, untouched } = mergeImportedRows(prev, ithalMapped);
+          if (ithalMapped.length > 0) openToast('success', `İthal: ${added} yeni eklendi, ${updated} güncellendi, ${untouched} satıra dokunulmadı.`);
           return list;
         });
       };
@@ -3672,7 +3689,7 @@ const MakineYonetimi = () => {
             isOptionEqualToValue={(o, v)=> (o?._id || o?.id) === (v?._id || v?.id)}
             filterOptions={(x)=>x}
             openOnFocus
-            onInputChange={(e, val)=> searchTesvik(val)}
+            onInputChange={(e, val)=> searchTesvikDebounced(val)}
             value={selectedTesvik}
             onChange={(e, val)=> {
               // Eski sistem belgesi seçilirse ilgili makine yönetimine geç (müşteri: hem eski hem yeni görünsün)

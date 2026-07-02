@@ -964,6 +964,8 @@ tesvikSchema.statics.searchTesvikler = function(searchTerm) {
       { tesvikId: turkishRegex },
       { gmId: turkishRegex },
       { yatirimciUnvan: turkishRegex },
+      { 'belgeYonetimi.belgeNo': turkishRegex }, // müşteri: Belge No ile arama
+      { 'belgeYonetimi.belgeId': turkishRegex },
       { 'yatirimBilgileri.yatirimKonusu': turkishRegex }
     ],
     aktif: true
