@@ -540,6 +540,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           height: 1
         }} />
 
+        {/* müşteri: eski ayrık gruplar (Firma Yönetimi / Belge Teşvik / Yeni Teşvik / Dosya Takip)
+            gizlendi — üstteki konsolide "Firma" grubu kullanılıyor */}
+        {false && (<>
         {/* 🏢 Corporate Firma Management - OPTIMIZED */}
         <Box sx={{ mb: 1.5 }}>
           <Typography
@@ -961,6 +964,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           background: 'rgba(226, 232, 240, 0.5)',
           height: 1
         }} />
+        </>)}
 
         {/* Müşteri talebi: "TEST (Geliştiriliyor)" ve "Sistem & Analiz" bölümleri gizlendi */}
         {false && (<>

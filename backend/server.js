@@ -423,6 +423,53 @@ const startServer = async () => {
       console.error('⚠️ Mail şablonu seed hatası (kritik değil):', err.message);
     }
 
+    // 🌍 OECD kategorileri: yanlış/eksik fallback verisi varsa CSV'den yeniden yükle
+    // (elle script çalıştırma gereksin istemiyoruz — idempotent, yalnızca <=3 kayıtta tetiklenir)
+    try {
+      const OecdKategori = require('./models/OecdKategori');
+      const adet = await OecdKategori.countDocuments({});
+      if (adet <= 3) {
+        const fs = require('fs');
+        const path = require('path');
+        const csvPath = path.join(__dirname, '..', 'csv', 'OECD Orta Yüksek-Tablo 1.csv');
+        if (fs.existsSync(csvPath)) {
+          const lines = fs.readFileSync(csvPath, 'utf8')
+            .split(/\r?\n/)
+            .map((l) => l.replace(/;+/g, '').trim())
+            .filter(Boolean)
+            .filter((l) => !/^OECD\s*\(Orta-?Yüksek\)/i.test(l));
+          if (lines.length) {
+            await OecdKategori.deleteMany({});
+            await OecdKategori.insertMany(lines.map((aciklama, i) => ({
+              kod: `OECD_${String(i + 1).padStart(3, '0')}`,
+              aciklama,
+              kategori: 'OECD (Orta-Yüksek)'
+            })));
+            console.log(`✅ OECD kategorileri CSV'den yeniden yüklendi (${lines.length} kayıt)`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('⚠️ OECD seed hatası (kritik değil):', err.message);
+    }
+
+    // 🔄 Dosya Takip ana aşama migrasyonu (yeni 4 aşamalı iş akışı) — idempotent
+    try {
+      const DosyaTakip = require('./models/DosyaTakip');
+      const eksik = await DosyaTakip.updateMany(
+        { durum: { $regex: '^2\\.2\\.3' }, anaAsama: { $ne: 'KURUM_EKSIK' } },
+        { $set: { anaAsama: 'KURUM_EKSIK' } }
+      );
+      const degerlendirme = await DosyaTakip.updateMany(
+        { durum: { $regex: '^2\\.2(?!\\.3)' }, anaAsama: { $ne: 'KURUM_DEGERLENDIRME' } },
+        { $set: { anaAsama: 'KURUM_DEGERLENDIRME' } }
+      );
+      const toplam = (eksik.modifiedCount || 0) + (degerlendirme.modifiedCount || 0);
+      if (toplam > 0) console.log(`✅ Dosya Takip aşama migrasyonu: ${toplam} kayıt güncellendi`);
+    } catch (err) {
+      console.error('⚠️ Dosya Takip aşama migrasyonu hatası (kritik değil):', err.message);
+    }
+
     // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
     try {
       const { fixDestekSiniflari } = require('./fixDestekSiniflari');

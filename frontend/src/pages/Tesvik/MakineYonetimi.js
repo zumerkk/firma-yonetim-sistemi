@@ -374,6 +374,9 @@ const MakineYonetimi = () => {
   };
 
   const [revertOpen, setRevertOpen] = useState(false);
+  // 📜 Revizyon Geçmişi (müşteri: kim hangi makineyi ekledi/sildi, ne zaman)
+  const [revGecmisOpen, setRevGecmisOpen] = useState(false);
+  const [revGecmisList, setRevGecmisList] = useState([]);
   const [selectedRevizeId, setSelectedRevizeId] = useState('');
   // 🗑️ Silinen satırları gösterme (UI içinde takip)
   const [deletedRows, setDeletedRows] = useState([]); // { type:'yerli'|'ithal', row, date }
@@ -1417,8 +1420,9 @@ const MakineYonetimi = () => {
         setTesvikOptions(res.data?.data?.tesvikler || []);
         return;
       }
-      const res = await api.get('/tesvik/search', { params: { q: text } });
-      setTesvikOptions(res.data?.data || []);
+      // müşteri: makine listesinde eski + yeni belgeler birlikte aransın (birleşik arama)
+      const res = await api.get('/tesvik/birlesik-arama', { params: { q: text } });
+      setTesvikOptions(res.data?.data?.tesvikler || []);
     } catch (e) {
       setTesvikOptions([]);
     } finally {
@@ -3357,7 +3361,11 @@ const MakineYonetimi = () => {
             openOnFocus
             onInputChange={(e, val)=> searchTesvik(val)}
             value={selectedTesvik}
-            onChange={(e, val)=> { setSelectedTesvik(val); loadTesvikMakineListeleri(val?._id); }}
+            onChange={(e, val)=> {
+              // Yeni sistem belgesi seçilirse ilgili makine yönetimine geç (müşteri: hem eski hem yeni görünsün)
+              if (val?.sistem === 'Yeni') { navigate('/yeni-tesvik/makine-yonetimi', { state: { autoSelectBelgeId: val._id } }); return; }
+              setSelectedTesvik(val); loadTesvikMakineListeleri(val?._id);
+            }}
             renderInput={(params)=> <TextField {...params} placeholder="Teşvik ara..." size="small" sx={{ '& .MuiInputBase-root': { fontSize: '0.75rem', py: 0 } }} />}
             loading={loadingTesvik}
             renderOption={(props, option)=> (
@@ -3731,12 +3739,15 @@ const MakineYonetimi = () => {
             </span></Tooltip>
             {/* müşteri: birden fazla makine seçip toplu silme (checkbox ile seç → tek tık) */}
             {selectionModel.length > 0 && (
-              <Tooltip title={`Seçilen ${selectionModel.length} satırı sil`} arrow>
+              <Tooltip title={isReviseStarted ? `Seçilen ${selectionModel.length} satırı sil` : 'Silmek için önce Revize Başlat'} arrow>
+                <span>
                 <Button size="small" color="error" variant="outlined" startIcon={<DeleteIcon sx={{ fontSize: 15 }} />}
-                  onClick={() => { selectionModel.forEach(id => delRow(id)); setSelectionModel([]); }}
+                  disabled={!isReviseStarted}
+                  onClick={() => { selectionModel.forEach(id => delRow(id)); setSelectionModel([]); openToast('success', `${selectionModel.length} satır silindi`); }}
                   sx={{ textTransform: 'none', py: 0, px: 1, minWidth: 0, fontSize: '0.72rem' }}>
                   Sil ({selectionModel.length})
                 </Button>
+                </span>
               </Tooltip>
             )}
             <Tooltip title="Kur Hesapla" arrow><span>
@@ -3769,6 +3780,14 @@ const MakineYonetimi = () => {
               </IconButton>
             </Tooltip>
             <Tooltip title="Eski Revize"><span><IconButton size="small" disabled={!selectedTesvik} onClick={()=> setRevertOpen(true)}><RestoreIcon sx={{ fontSize: 16 }}/></IconButton></span></Tooltip>
+            <Tooltip title="Revizyon Geçmişi (kim, ne zaman, eklenen/silinen makineler)"><span>
+              <IconButton size="small" disabled={!selectedTesvik} onClick={async ()=> {
+                try { const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevGecmisList(Array.isArray(list) ? list : []); } catch { setRevGecmisList([]); }
+                setRevGecmisOpen(true);
+              }} sx={{ color: '#0ea5e9' }}>
+                <HistoryIcon sx={{ fontSize: 16 }}/>
+              </IconButton>
+            </span></Tooltip>
             <Tooltip title="Toplu İşlem"><IconButton size="small" onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon sx={{ fontSize: 16 }}/></IconButton></Tooltip>
           </Stack>
         </Box>
@@ -3802,8 +3821,8 @@ const MakineYonetimi = () => {
         <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('red'); }} sx={{ fontSize: '0.75rem', py: 0.5, color: theme.error }}>Reddet</MenuItem>
       </Menu>
 
-      {/* 🗑️ Silinen Satırlar & İşlem Özeti */}
-      <Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+      {/* müşteri: Silinen Satırlar & İşlem Özeti panelleri kaldırıldı (Revizyon Geçmişi kapsıyor) */}
+      {false && (<Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb:1 }}>
           <DeleteOutlineIcon sx={{ color:'#ef4444' }} />
           <Typography variant="subtitle2" sx={{ fontWeight:700 }}>Silinen Satırlar</Typography>
@@ -3837,10 +3856,10 @@ const MakineYonetimi = () => {
           ))}
           {activityLog.length===0 && <Box sx={{ color:'text.secondary', fontSize: '0.75rem' }}>İşlem yok</Box>}
         </Stack>
-      </Paper>
+      </Paper>)}
 
-      {/* 📝 NOTLAR - Makine Yönetimi Notları (müşteri: tablette yer kaplamasın — tıklayınca açılır) */}
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+      {/* 📝 NOTLAR — müşteri: komple kaldırıldı */}
+      <Paper sx={{ display: 'none', p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
         <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
           <Box sx={{ fontSize: 20 }}>📝</Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
@@ -4080,6 +4099,63 @@ const MakineYonetimi = () => {
             const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
             setIsReviseMode(true);
           }}>Geri Dön</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 📜 Revizyon Geçmişi Dialog — müşteri: kim hangi makineyi ekledi/sildi, hangi tarihte */}
+      <Dialog open={revGecmisOpen} onClose={()=> setRevGecmisOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <HistoryIcon sx={{ color: '#0ea5e9' }} />
+            <Typography variant="h6">Revizyon Geçmişi</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent dividers>
+          {revGecmisList.length === 0 && <Typography variant="body2" color="text.secondary">Henüz revizyon kaydı yok.</Typography>}
+          <Stack spacing={1.5}>
+            {revGecmisList.map((r, i) => {
+              const prev = revGecmisList[i - 1];
+              const adMap = (list) => new Map((list || []).map(x => [String(x.adiVeOzelligi || '').toLowerCase().trim(), x]));
+              const changes = [];
+              if (prev) {
+                for (const [listeAd, curArr, prevArr] of [['YERLİ', r.yerli, prev.yerli], ['İTHAL', r.ithal, prev.ithal]]) {
+                  const cur = adMap(curArr); const prv = adMap(prevArr);
+                  [...cur.keys()].filter(k => k && !prv.has(k)).forEach(k => changes.push({ liste: listeAd, tip: 'EKLENDİ', ad: cur.get(k).adiVeOzelligi }));
+                  [...prv.keys()].filter(k => k && !cur.has(k)).forEach(k => changes.push({ liste: listeAd, tip: 'SİLİNDİ', ad: prv.get(k).adiVeOzelligi }));
+                }
+              }
+              return (
+                <Paper key={r.revizeId || i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                    <Chip size="small" label={(r.revizeTuru || 'revize').toUpperCase()} color={r.revizeTuru === 'revert' ? 'warning' : r.revizeTuru === 'final' ? 'success' : 'default'} sx={{ fontWeight: 700 }} />
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.revizeTarihi ? new Date(r.revizeTarihi).toLocaleString('tr-TR') : '-'}</Typography>
+                    <Typography variant="caption" color="text.secondary">{r.yapanKullanici?.adSoyad || '-'}</Typography>
+                    {r.aciklama && <Typography variant="caption" color="text.secondary">• {r.aciklama}</Typography>}
+                  </Stack>
+                  <Box sx={{ mt: 0.75 }}>
+                    {!prev && (
+                      <Typography variant="caption" color="text.secondary">
+                        Başlangıç anı: {(r.yerli || []).length} yerli, {(r.ithal || []).length} ithal makine
+                      </Typography>
+                    )}
+                    {prev && changes.length === 0 && (
+                      <Typography variant="caption" color="text.secondary">Makine ekleme/silme yok (alan güncellemeleri yapılmış olabilir)</Typography>
+                    )}
+                    {changes.map((c, ci) => (
+                      <Stack key={ci} direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.4 }}>
+                        <Chip size="small" label={c.tip} color={c.tip === 'EKLENDİ' ? 'success' : 'error'} sx={{ height: 18, fontSize: '0.62rem', fontWeight: 700 }} />
+                        <Chip size="small" variant="outlined" label={c.liste} sx={{ height: 18, fontSize: '0.62rem' }} />
+                        <Typography variant="caption" noWrap>{c.ad}</Typography>
+                      </Stack>
+                    ))}
+                  </Box>
+                </Paper>
+              );
+            })}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=> setRevGecmisOpen(false)}>Kapat</Button>
         </DialogActions>
       </Dialog>
 

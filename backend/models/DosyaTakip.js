@@ -105,7 +105,8 @@ const DURUM_KODLARI = [
   '2.3.1_SONUC_FIRMAYA_ILETILDI',
   '2.3.2_SONUC_BEKLETILECEK',
   '2.3.3_TALEP_FIRMA_IPTAL',
-  '2.3.4_TALEP_GM_IPTAL'
+  '2.3.4_TALEP_GM_IPTAL',
+  '2.3.5_SONUCLANDI' // müşteri: 4d- Sonuçlandı
 ];
 
 // Ana Aşamalar (müşteri: 4 ana aşama — Kurum Eksik ana aşama oldu;
@@ -414,7 +415,8 @@ dosyaTakipSchema.virtual('durumEtiketi').get(function() {
     '2.3.1_SONUC_FIRMAYA_ILETILDI': 'Sonuç Firmaya İletildi',
     '2.3.2_SONUC_BEKLETILECEK': 'Sonuç Bekletilecek',
     '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
-    '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal'
+    '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
+    '2.3.5_SONUCLANDI': 'Sonuçlandı'
   };
   return etiketler[this.durum] || this.durum;
 });
@@ -456,7 +458,7 @@ dosyaTakipSchema.statics.durumRengiBelirle = function(durum) {
   if (durum.startsWith('2.1.4')) return 'turuncu';
   if (durum.startsWith('2.2.0') || durum.startsWith('2.2.1')) return 'mor';
   if (durum.startsWith('2.2.3')) return 'kirmizi';
-  if (durum === '2.3.1_SONUC_FIRMAYA_ILETILDI') return 'yesil';
+  if (durum === '2.3.1_SONUC_FIRMAYA_ILETILDI' || durum === '2.3.5_SONUCLANDI') return 'yesil';
   if (durum === '2.3.2_SONUC_BEKLETILECEK') return 'sari';
   if (durum.startsWith('2.3.3') || durum.startsWith('2.3.4')) return 'gri';
   return 'mavi';

@@ -77,7 +77,8 @@ const DURUM_ETIKETLERI = {
     '2.3.1_SONUC_FIRMAYA_ILETILDI': 'Firmaya İletildi',
     '2.3.2_SONUC_BEKLETILECEK': 'Bekletilecek',
     '2.3.3_TALEP_FIRMA_IPTAL': 'Firma İptal',
-    '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal'
+    '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
+    '2.3.5_SONUCLANDI': 'Sonuçlandı'
 };
 
 // müşteri: yeni iş akışında SEÇİLEBİLİR durumlar (eski/gizli kodlar durum
@@ -95,7 +96,8 @@ const SECILEBILIR_DURUMLAR = [
     '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN',
     '2.3.1_SONUC_FIRMAYA_ILETILDI',
     '2.3.2_SONUC_BEKLETILECEK',
-    '2.3.3_TALEP_FIRMA_IPTAL'
+    '2.3.3_TALEP_FIRMA_IPTAL',
+    '2.3.5_SONUCLANDI'
 ];
 
 // Workflow aşamaları yapılandırması (müşteri: yeni 4 ana aşamalı iş akışı)
@@ -142,7 +144,8 @@ const WORKFLOW_STEPS = [
         subSteps: [
             { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' },
             { key: '2.3.2_SONUC_BEKLETILECEK', label: 'Bekletilecek' },
-            { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' }
+            { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' },
+            { key: '2.3.5_SONUCLANDI', label: 'Sonuçlandı' }
         ]
     }
 ];
@@ -277,6 +280,19 @@ const DosyaTakipDetail = () => {
             });
         }
     }, [seciliTalep]);
+
+    // 🗑️ Daire/uzman önerisini kaldır (müşteri: "test1" gibi yanlış girilenler silinebilsin)
+    const oneriKaldir = async (alan, deger) => {
+        if (!window.confirm(`"${deger}" önerisi kaldırılacak ve bu değeri taşıyan tüm taleplerden temizlenecek. Onaylıyor musunuz?`)) return;
+        try {
+            const { data } = await axios.delete('/dosya-takip/oneriler', { data: { alan, deger } });
+            setSnackbar({ open: true, message: data?.message || 'Öneri kaldırıldı.', severity: 'success' });
+            const r = await axios.get('/dosya-takip/oneriler');
+            setOneriler(r.data?.data || { daireler: [], uzmanlar: [] });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Öneri kaldırılamadı.', severity: 'error' });
+        }
+    };
 
     const loadUsers = async () => {
         try {
@@ -1134,6 +1150,15 @@ const DosyaTakipDetail = () => {
                                                         <Autocomplete freeSolo size="small" options={oneriler.daireler}
                                                             value={atamaData['muraacatSonrasi.kurumDegerlendirme.kurumDaire'] || ''}
                                                             onInputChange={(e, v) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.kurumDaire': v || '' }))}
+                                                            renderOption={(props, option) => (
+                                                                <li {...props} key={option} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                    <span style={{ flex: 1 }}>{option}</span>
+                                                                    <IconButton size="small" edge="end" title="Öneriyi kaldır"
+                                                                        onClick={(e) => { e.stopPropagation(); oneriKaldir('kurumDaire', option); }}>
+                                                                        <DeleteIcon sx={{ fontSize: 15, color: '#ef4444' }} />
+                                                                    </IconButton>
+                                                                </li>
+                                                            )}
                                                             renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Daire seçin veya yazın" />} />
                                                     ) : (
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.kurumDaire || 'Belirtilmedi'}</Typography>
@@ -1147,6 +1172,15 @@ const DosyaTakipDetail = () => {
                                                         <Autocomplete freeSolo size="small" options={oneriler.uzmanlar}
                                                             value={atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || ''}
                                                             onInputChange={(e, v) => setAtamaData(prev => ({ ...prev, 'muraacatSonrasi.kurumDegerlendirme.daireUzman': v || '' }))}
+                                                            renderOption={(props, option) => (
+                                                                <li {...props} key={option} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                    <span style={{ flex: 1 }}>{option}</span>
+                                                                    <IconButton size="small" edge="end" title="Öneriyi kaldır"
+                                                                        onClick={(e) => { e.stopPropagation(); oneriKaldir('daireUzman', option); }}>
+                                                                        <DeleteIcon sx={{ fontSize: 15, color: '#ef4444' }} />
+                                                                    </IconButton>
+                                                                </li>
+                                                            )}
                                                             renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Uzman seçin veya yazın" />} />
                                                     ) : (
                                                         <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || 'Belirtilmedi'}</Typography>

@@ -319,6 +319,11 @@ exports.talepGuncelle = async (req, res) => {
             }
         }
 
+        // müşteri: açıklama/not değiştiyse yazılma tarihi de güncellensin
+        if (Object.prototype.hasOwnProperty.call(body, 'durumAciklamasi') && talep.isModified('durumAciklamasi')) {
+            talep.durumAciklamasiTarihi = new Date();
+        }
+
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;
 
@@ -920,6 +925,27 @@ exports.getOneriler = async (req, res) => {
     }
 };
 
+// 🗑️ Daire/uzman önerisini kaldır (müşteri: "eklenen kısımları silebilelim").
+// Öneriler mevcut kayıtlardaki değerlerden türediği için, o değeri taşıyan
+// TÜM taleplerde alan temizlenir — öneri listesinden de düşer.
+exports.oneriSil = async (req, res) => {
+    try {
+        const { alan, deger } = req.body || {};
+        const alanMap = {
+            kurumDaire: 'muraacatSonrasi.kurumDegerlendirme.kurumDaire',
+            daireUzman: 'muraacatSonrasi.kurumDegerlendirme.daireUzman'
+        };
+        const path = alanMap[alan];
+        if (!path || !deger) {
+            return res.status(400).json({ success: false, message: 'alan (kurumDaire|daireUzman) ve deger gerekli' });
+        }
+        const r = await DosyaTakip.updateMany({ [path]: deger }, { $set: { [path]: '' } });
+        res.json({ success: true, message: `"${deger}" kaldırıldı (${r.modifiedCount} kayıttan temizlendi)` });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Öneri kaldırılamadı', error: error.message });
+    }
+};
+
 exports.getEnumDegerleri = async (req, res) => {
     try {
         res.json({
@@ -965,7 +991,8 @@ function getDurumEtiketi(durum) {
         '2.3.1_SONUC_FIRMAYA_ILETILDI': 'Sonuç Firmaya İletildi',
         '2.3.2_SONUC_BEKLETILECEK': 'Sonuç Bekletilecek',
         '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
-        '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal'
+        '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
+        '2.3.5_SONUCLANDI': 'Sonuçlandı'
     };
     return etiketler[durum] || durum;
 }
