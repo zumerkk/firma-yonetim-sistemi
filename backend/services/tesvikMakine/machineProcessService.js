@@ -265,8 +265,18 @@ async function changeStatus(proc, newStatus, { note = '', user = null, actionTyp
 async function composeMail(proc, templateCode, { uploadLink = '', toOverride, ccOverride } = {}) {
   const tpl = await resolveTemplate(templateCode);
   const { identity } = await buildContext(proc);
+  // {mailTarihi} = bu makine için SON GÖNDERİLEN mailin tarihi (müşteri isteği: hatırlatmada
+  // bugünün değil, önceki talebin tarihi yazmalı). Hiç gönderilmiş mail yoksa bugüne düşer.
+  let mailDate = new Date();
+  if (`${tpl.subjectTemplate || ''} ${tpl.bodyTemplate || ''}`.includes('{mailTarihi}')) {
+    const sonGonderilen = await MailLog.findOne({ machineProcessId: proc._id, status: MAIL_STATUS.SENT })
+      .sort({ sentAt: -1, createdAt: -1 })
+      .select('sentAt createdAt')
+      .lean();
+    if (sonGonderilen) mailDate = sonGonderilen.sentAt || sonGonderilen.createdAt || mailDate;
+  }
   const data = resolver.buildPlaceholderData({
-    process: proc, identity, signature: getSignature(), uploadLink, mailDate: new Date()
+    process: proc, identity, signature: getSignature(), uploadLink, mailDate
   });
   const rendered = engine.renderTemplate(tpl, data);
   const audience = audienceForTemplate(templateCode);
