@@ -27,14 +27,18 @@ const DEFAULT_TEMPLATES = [
     name: 'Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi',
     // v2: ({tedarikciMail}) parantezi kaldırıldı + mail sonuna taslak yükleme linki eklendi
     // v3 (müşteri talebi): firma ismi kaldırıldı → "işbu firma" (konudan ve gövdeden)
-    version: 3,
+    // v4 (müşteri talebi): "Öncelikle suret fatura hazırlanıp onay için tarafımıza gönderilmesi
+    //    gerekmektedir." paragrafı eklendi + "Faturaya" → "Faturanın taslak haline" ifadesi
+    version: 4,
     subjectTemplate: '{makineAdi} - YTB {belgeNo} Kapsamında Fatura Kesimi Hk.',
     bodyTemplate: [
       'Merhabalar,',
       '',
       'Bakanlıktan doğrulama maili tarafınıza iletilmiştir. Doğrulama işleminin tamamlanmasının ardından fatura kesim işlemine başlanabilir.',
       '',
-      'Faturaya yazılması gereken açıklama aşağıdaki gibidir:',
+      'Öncelikle suret fatura hazırlanıp onay için tarafımıza gönderilmesi gerekmektedir.',
+      '',
+      'Faturanın taslak haline yazılması gereken açıklama aşağıdaki gibidir:',
       '',
       'AÇIKLAMA:',
       '3065 sayılı KDV Kanunu’nun 13/d maddesi gereğince, işbu fatura, işbu firmanın {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında, {makineId} makine ID numaralı {siraNo}. kalemin teslimatı olduğundan ilgili kanun gereğince KDV hesaplanmamıştır.',
