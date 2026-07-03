@@ -700,7 +700,9 @@ const tesvikSchema = new mongoose.Schema({
       yeniDeger: mongoose.Schema.Types.Mixed
     }],
     durumOncesi: String,
-    durumSonrasi: String
+    durumSonrasi: String,
+    // Revizyon sırasında yazılan not — şemada olmadığı için bugüne dek kaydedilmiyordu (müşteri isteği)
+    kullaniciNotu: { type: String, trim: true, maxlength: 1000 }
   }],
   
   // 📊 Süreç Takibi

@@ -631,7 +631,7 @@ const updateTesvik = async (req, res) => {
         degisikenAlanlar: degisikenAlanlar,
         yapanKullanici: req.user._id,
         yeniDurum: tesvik.durumBilgileri?.genelDurum,
-        kullaniciNotu: updateData.guncellemeNotu || 'Sistem güncellemesi',
+        kullaniciNotu: updateData.guncellemeNotu || '', // kullanıcı not yazmadıysa boş kalsın ("Sistem güncellemesi" gürültüsü olmasın)
         // 🎯 Revizyon için snapshot'lar
         veriSnapshot: {
           oncesi: eskiVeri,
@@ -762,6 +762,11 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'belgeYonetimi.belgeBaslamaTarihi': 'Belge Başlama Tarihi',
     'belgeYonetimi.belgeBitisTarihi': 'Belge Bitiş Tarihi',
     'belgeYonetimi.dayandigiKanun': 'Dayandığı Kanun',
+    'belgeYonetimi.uzatimTarihi': 'Süre Uzatım Tarihi',
+    'belgeYonetimi.mucbirUzumaTarihi': 'Mücbir Uzatma Tarihi',
+    'belgeYonetimi.mucbirUzatma': 'Mücbir Uzatma (Evet/Hayır)',
+    'belgeYonetimi.belgeMuracaatNo': 'Belge Müracaat No',
+    'belgeYonetimi.belgeDurumu': 'Belge Durumu',
     'belgeYonetimi.oncelikliYatirim': 'Öncelikli Yatırım',
 
     // 👥 İstihdam - GENİŞLETİLDİ
@@ -912,16 +917,50 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
         return;
       }
 
+      // Boş ↔ boş (null/undefined/'') farkı gürültüdür — kaydetme (ör. '' → undefined "— → —" üretiyordu)
+      const bosMu = (v) => v === null || v === undefined || v === '';
+      if (bosMu(oldValue) && bosMu(newValue)) {
+        return;
+      }
+
+      // Populated obje ↔ ObjectId string aynı kaydı gösteriyorsa değişiklik yoktur
+      // (ör. eski veri firma objesi, yeni veri firma id'si — "detay değişti → 69ccf0..." gürültüsü)
+      const kimlik = (v) => {
+        if (v && typeof v === 'object' && !Array.isArray(v) && (v._id || v.id)) return String(v._id || v.id);
+        return (typeof v === 'string' && v) ? v : null;
+      };
+      if ((typeof oldValue === 'object' || typeof newValue === 'object') && !Array.isArray(oldValue) && !Array.isArray(newValue)) {
+        const eskiKimlik = kimlik(oldValue);
+        const yeniKimlik = kimlik(newValue);
+        if (eskiKimlik && yeniKimlik && eskiKimlik === yeniKimlik) {
+          return;
+        }
+      }
+
       // Nested object kontrolü
       if (typeof newValue === 'object' && newValue !== null &&
         typeof oldValue === 'object' && oldValue !== null &&
         !Array.isArray(newValue) && !Array.isArray(oldValue)) {
         compareObjects(oldValue, newValue, fullKey);
       }
-      // Array kontrolü
+      // Array kontrolü — _id/__v/tarih damgaları ve boş değerler ayıklanıp karşılaştırılır;
+      // yoksa içerik aynı kalsa da subdocument _id yenilenmesi sahte "4 kayıt → 4 kayıt" üretir
       else if (Array.isArray(newValue) || Array.isArray(oldValue)) {
-        const oldStr = JSON.stringify(oldValue || []);
-        const newStr = JSON.stringify(newValue || []);
+        const ucucuSil = (v) => {
+          if (Array.isArray(v)) return v.map(ucucuSil);
+          if (v && typeof v === 'object') {
+            const temiz = {};
+            for (const [k, val] of Object.entries(v)) {
+              if (['_id', 'id', '__v', 'createdAt', 'updatedAt'].includes(k)) continue;
+              if (val === null || val === undefined || val === '') continue;
+              temiz[k] = ucucuSil(val);
+            }
+            return temiz;
+          }
+          return v;
+        };
+        const oldStr = JSON.stringify(ucucuSil(oldValue || []));
+        const newStr = JSON.stringify(ucucuSil(newValue || []));
         if (oldStr !== newStr && fieldLabels[fullKey]) {
           degisikenAlanlar.push({
             alan: fullKey,
