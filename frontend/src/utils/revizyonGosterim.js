@@ -40,6 +40,43 @@ export const revDegerYaz = (v) => {
     return v.length > 80 ? v.slice(0, 77) + '…' : v;
   }
   if (Array.isArray(v)) return `${v.length} kayıt`;
-  if (typeof v === 'object') return 'detay değişti';
+  if (typeof v === 'object') return v.tamUnvan || v.adSoyad || v.name || v.label || 'detay değişti';
   return String(v);
+};
+
+// Uçucu alanları (_id, __v, tarih damgaları) ve boş değerleri ayıklayarak derin karşılaştırma için normalize eder
+const ucucuSil = (v) => {
+  if (Array.isArray(v)) return v.map(ucucuSil);
+  if (v && typeof v === 'object') {
+    const temiz = {};
+    for (const [k, val] of Object.entries(v)) {
+      if (['_id', 'id', '__v', 'createdAt', 'updatedAt'].includes(k)) continue;
+      if (val === null || val === undefined || val === '') continue;
+      temiz[k] = ucucuSil(val);
+    }
+    return temiz;
+  }
+  return v;
+};
+
+// Kayıtlı diff gerçek bir değişiklik mi? Geçmişte kaydedilmiş gürültülü satırları ekranda ayıklar:
+// boş → boş, firma objesi ↔ aynı firma id'si, sadece _id yenilenmiş listeler ("4 kayıt → 4 kayıt")
+export const revGercekDegisiklikMi = (d) => {
+  const e = d?.eskiDeger;
+  const y = d?.yeniDeger;
+  const bos = (v) => v === null || v === undefined || v === '';
+  if (bos(e) && bos(y)) return false;
+  const idOf = (v) => {
+    if (v && typeof v === 'object' && !Array.isArray(v) && (v._id || v.id)) return String(v._id || v.id);
+    return (typeof v === 'string' && v) ? v : null;
+  };
+  if ((typeof e === 'object' || typeof y === 'object') && !Array.isArray(e) && !Array.isArray(y)) {
+    const eskiKimlik = idOf(e);
+    const yeniKimlik = idOf(y);
+    if (eskiKimlik && yeniKimlik && eskiKimlik === yeniKimlik) return false;
+  }
+  try {
+    if (JSON.stringify(ucucuSil(e)) === JSON.stringify(ucucuSil(y))) return false;
+  } catch (hata) { /* serileştirilemeyen değer — değişiklik olarak bırak */ }
+  return true;
 };

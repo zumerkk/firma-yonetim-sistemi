@@ -24,7 +24,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 // API Utils
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
-import { revAlanEtiketi, revDegerYaz } from '../../utils/revizyonGosterim';
+import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 
 const YeniTesvikDetail = () => {
   const { id } = useParams();
@@ -1609,20 +1609,25 @@ const YeniTesvikDetail = () => {
                 {r.kullaniciNotu && (
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Not: {r.kullaniciNotu}</Typography>
                 )}
-                {Array.isArray(r.degisikenAlanlar) && r.degisikenAlanlar.length > 0 && (
-                  <Box sx={{ mt: 0.75, borderTop: '1px dashed #e2e8f0', pt: 0.75 }}>
-                    {r.degisikenAlanlar.slice(0, 25).map((d, di) => (
-                      <Typography key={di} variant="caption" sx={{ display: 'block', color: '#475569' }}>
-                        • {revAlanEtiketi(d)}: <Box component="span" sx={{ color: '#dc2626' }}>{revDegerYaz(d.eskiDeger)}</Box>
-                        {' → '}
-                        <Box component="span" sx={{ color: '#16a34a', fontWeight: 700 }}>{revDegerYaz(d.yeniDeger)}</Box>
-                      </Typography>
-                    ))}
-                    {r.degisikenAlanlar.length > 25 && (
-                      <Typography variant="caption" color="text.secondary">… ve {r.degisikenAlanlar.length - 25} alan daha</Typography>
-                    )}
-                  </Box>
-                )}
+                {(() => {
+                  // Gürültü satırlarını ayıkla (boş→boş, aynı firma, sadece _id yenilenen listeler)
+                  const degisenler = (Array.isArray(r.degisikenAlanlar) ? r.degisikenAlanlar : []).filter(revGercekDegisiklikMi);
+                  if (degisenler.length === 0) return null;
+                  return (
+                    <Box sx={{ mt: 0.75, borderTop: '1px dashed #e2e8f0', pt: 0.75 }}>
+                      {degisenler.slice(0, 25).map((d, di) => (
+                        <Typography key={di} variant="caption" sx={{ display: 'block', color: '#475569' }}>
+                          • {revAlanEtiketi(d)}: <Box component="span" sx={{ color: '#dc2626' }}>{revDegerYaz(d.eskiDeger)}</Box>
+                          {' → '}
+                          <Box component="span" sx={{ color: '#16a34a', fontWeight: 700 }}>{revDegerYaz(d.yeniDeger)}</Box>
+                        </Typography>
+                      ))}
+                      {degisenler.length > 25 && (
+                        <Typography variant="caption" color="text.secondary">… ve {degisenler.length - 25} alan daha</Typography>
+                      )}
+                    </Box>
+                  );
+                })()}
               </Paper>
             ))}
           </Stack>
