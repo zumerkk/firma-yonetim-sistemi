@@ -571,6 +571,7 @@ const tesvikSchema = new mongoose.Schema({
     },
     degisikenAlanlar: [{
       alan: String,
+      label: String, // İnsan-okur alan adı (ör. "Bina İnşaat Gideri") — revizyon geçmişi detayında gösterilir
       eskiDeger: mongoose.Schema.Types.Mixed,
       yeniDeger: mongoose.Schema.Types.Mixed
     }],

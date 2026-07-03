@@ -303,9 +303,9 @@ const MakineYonetimi = () => {
       // 2) Backend'de veri varsa onu kullan
       if (backendYerli.length > 0 || backendIthal.length > 0) {
         // Backend verisini UI formatına çevir
-        const yerli = backendYerli.map(r => ({
+        const yerli = backendYerli.map((r, idx) => ({
           id: r.rowId || Math.random().toString(36).slice(2),
-          siraNo: r.siraNo || 0,
+          siraNo: r.siraNo || (idx + 1), // Sıra No boş kayıtlarda görünür kalsın (müşteri: standart modda # görünmüyor)
           makineId: r.makineId || '',
           rowId: r.rowId || '',
           gtipKodu: r.gtipKodu || '',
@@ -331,9 +331,9 @@ const MakineYonetimi = () => {
           karar: r.karar,
           dosyalar: r.dosyalar || []
         }));
-        const ithal = backendIthal.map(r => ({
+        const ithal = backendIthal.map((r, idx) => ({
           id: r.rowId || Math.random().toString(36).slice(2),
-          siraNo: r.siraNo || 0,
+          siraNo: r.siraNo || (idx + 1), // Sıra No boş kayıtlarda görünür kalsın (müşteri: standart modda # görünmüyor)
           makineId: r.makineId || '',
           rowId: r.rowId || '',
           gtipKodu: r.gtipKodu || '',

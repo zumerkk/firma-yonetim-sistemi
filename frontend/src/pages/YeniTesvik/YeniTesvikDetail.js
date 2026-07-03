@@ -24,6 +24,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 // API Utils
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { revAlanEtiketi, revDegerYaz } from '../../utils/revizyonGosterim';
 
 const YeniTesvikDetail = () => {
   const { id } = useParams();
@@ -43,6 +44,21 @@ const YeniTesvikDetail = () => {
   const [allActivitiesModalOpen, setAllActivitiesModalOpen] = useState(false);
   const [revizyonModalOpen, setRevizyonModalOpen] = useState(false);
   const [revGecmisiOpen, setRevGecmisiOpen] = useState(false); // müşteri: Revizyon Geçmişi tuşu
+  const [naceKodMap, setNaceKodMap] = useState({}); // NACE kodu → tanım (Yatırımın Konusu açıklaması)
+
+  useEffect(() => {
+    // Yatırımın Konusu kodunun yanında açıklamasını gösterebilmek için kod listesini çek
+    let iptal = false;
+    api.get('/lookup/oecd-4-haneli')
+      .then((res) => {
+        if (iptal || !res.data?.success) return;
+        const map = {};
+        (res.data.data || []).forEach((k) => { if (k?.kod) map[String(k.kod)] = k.tanim || ''; });
+        setNaceKodMap(map);
+      })
+      .catch(() => {});
+    return () => { iptal = true; };
+  }, []);
   const [afterRevisionAction, setAfterRevisionAction] = useState(null); // 'goEdit' | null
   const [savingRevision, setSavingRevision] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
@@ -1065,16 +1081,21 @@ const YeniTesvikDetail = () => {
               <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Destekleme Sınıfı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.destekSinifi || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Sermaye Türü</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</Typography></Grid>
 
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(US97)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimKonusu || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(NACE6)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
+                    const kod = String(tesvik.yatirimBilgileri?.yatirimKonusu || '').trim();
+                    if (!kod) return '-';
+                    const tanim = naceKodMap[kod];
+                    return tanim ? `${kod} — ${tanim}` : kod;
+                  })()}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.dayandigiKanun || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.dayandigiKanun || tesvik.kunyeBilgileri?.dayandigiKanun || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>
@@ -1135,7 +1156,12 @@ const YeniTesvikDetail = () => {
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeMuracaatNo || tesvik.kunyeBilgileri?.dosyaNo || '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Talep Tipi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
+                    // Formdaki "Belge Müracaat Talep Tipi" kunyeBilgileri.talepSonuc alanına kaydediliyor
+                    const t = tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || tesvik.kunyeBilgileri?.talepSonuc;
+                    const MAP = { 'Sonuç': 'Yatırım Teşvik Belgesi', 'Talep': 'Talep', 'Taslak': 'Taslak' };
+                    return MAP[t] || t || 'Yatırım Teşvik Belgesi';
+                  })()}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.basvuruTarihi ? new Date(tesvik.kunyeBilgileri.basvuruTarihi).toLocaleDateString('tr-TR') : '-')}</Typography></Grid>
@@ -1149,8 +1175,14 @@ const YeniTesvikDetail = () => {
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Süre Uzatım Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
 
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mücbir Uzama Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.mucbirUzumaTarihi ? new Date(tesvik.belgeYonetimi.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mücbir Uzatma</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
+                    const b = tesvik.belgeYonetimi || {};
+                    const tarih = b.mucbirUzumaTarihi ? new Date(b.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '';
+                    const evet = b.mucbirUzatma === 'evet' || (!b.mucbirUzatma && !!tarih);
+                    if (!evet) return 'Hayır';
+                    return tarih ? `Evet — ${tarih}` : 'Evet';
+                  })()}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Öncelikli Yatırım</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</Typography></Grid>
@@ -1253,7 +1285,7 @@ const YeniTesvikDetail = () => {
                     <Grid container spacing={2}>
                       <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Arazi-Arsa Gideri</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Arazi-Arsa Bedeli Açıklama:</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{mali.maliyetlenen?.aciklama || '-'}</Typography></Grid>
+                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{mali.maliyetlenen?.aciklama || mali.araziArsaBedeli?.aciklama || '-'}</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Metrekaresi</Typography></Grid>
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{Number(mali.maliyetlenen?.sl || 0).toLocaleString('tr-TR')}</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Birim Fiyatı</Typography></Grid>
@@ -1366,9 +1398,9 @@ const YeniTesvikDetail = () => {
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '25%' }}>Destek Unsuru</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '35%' }}>Şartı</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Açıklama</th>
+                      {/* Müşteri isteği: Destek Unsurunda Açıklama kolonu kaldırıldı */}
+                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Destek Unsuru</th>
+                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '60%' }}>Şartı</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1377,11 +1409,10 @@ const YeniTesvikDetail = () => {
                         <tr key={i}>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#7c3aed' }}>{destek.destekUnsuru || '-'}</td>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.sarti || destek.sart || '-'}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.aciklama || '-'}</td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan="3" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
+                      <tr><td colSpan="2" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1559,7 +1590,10 @@ const YeniTesvikDetail = () => {
               <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Chip size="small" label={`Revizyon ${r.revizyonNo}`} color="primary" sx={{ fontWeight: 700 }} />
-                  <Chip size="small" variant="outlined" label={r.revizyonSebebi || '-'} />
+                  {/* Müşteri isteği: "Otomatik Güncelleme" etiketi gizlendi — detaylı alan değişiklikleri aşağıda */}
+                  {r.revizyonSebebi && r.revizyonSebebi !== 'Otomatik Güncelleme' && (
+                    <Chip size="small" variant="outlined" label={r.revizyonSebebi} />
+                  )}
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {r.revizyonTarihi ? new Date(r.revizyonTarihi).toLocaleString('tr-TR') : '-'}
                   </Typography>
@@ -1576,9 +1610,18 @@ const YeniTesvikDetail = () => {
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Not: {r.kullaniciNotu}</Typography>
                 )}
                 {Array.isArray(r.degisikenAlanlar) && r.degisikenAlanlar.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    Değişen alanlar: {r.degisikenAlanlar.map((d) => d.alan).filter(Boolean).join(', ') || r.degisikenAlanlar.length + ' alan'}
-                  </Typography>
+                  <Box sx={{ mt: 0.75, borderTop: '1px dashed #e2e8f0', pt: 0.75 }}>
+                    {r.degisikenAlanlar.slice(0, 25).map((d, di) => (
+                      <Typography key={di} variant="caption" sx={{ display: 'block', color: '#475569' }}>
+                        • {revAlanEtiketi(d)}: <Box component="span" sx={{ color: '#dc2626' }}>{revDegerYaz(d.eskiDeger)}</Box>
+                        {' → '}
+                        <Box component="span" sx={{ color: '#16a34a', fontWeight: 700 }}>{revDegerYaz(d.yeniDeger)}</Box>
+                      </Typography>
+                    ))}
+                    {r.degisikenAlanlar.length > 25 && (
+                      <Typography variant="caption" color="text.secondary">… ve {r.degisikenAlanlar.length - 25} alan daha</Typography>
+                    )}
+                  </Box>
                 )}
               </Paper>
             ))}

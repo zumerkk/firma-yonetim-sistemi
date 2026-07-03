@@ -789,6 +789,8 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'maliHesaplamalar.maliyetlenen.sl': 'Arazi Metrekaresi',
     'maliHesaplamalar.maliyetlenen.sm': 'Arazi Birim Fiyatı (TL)',
     'maliHesaplamalar.maliyetlenen.sn': 'Arazi Arsa Bedeli (Hesaplanan)',
+    'maliHesaplamalar.maliyetlenen.aciklama': 'Arazi-Arsa Bedeli Açıklaması',
+    'maliHesaplamalar.binaInsaatGideri.aciklama': 'Bina-İnşaat Giderleri Açıklaması',
     'maliHesaplamalar.aracAracaGideri.sx': 'Arazi Metrekaresi (Alternatif)',
     'maliHesaplamalar.aracAracaGideri.sayisi': 'Arazi Birim Fiyatı (Alternatif)',
     'maliHesaplamalar.aracAracaGideri.toplam': 'Arazi Arsa Bedeli (Alternatif)',
@@ -3643,7 +3645,10 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     const gmId = snapshot.tesvikId || snapshot.gmId || '';
     // TALEP/SONUÇ: Revizyona özel seçilen durum öncelikli
     // "TALEP/SONUÇ": Öncelik sırası → Revizyonun seçilen işlemi (revizyonSebebi) > revizyonun yeni durumu > snapshot durumu
-    const talepSonuc = (revizyon?.revizyonSebebi)
+    // Müşteri isteği: sistemin otomatik ürettiği "Otomatik Güncelleme" etiketi Excel çıktısında görünmesin
+    const seciliIslem = (revizyon?.revizyonSebebi && revizyon.revizyonSebebi !== 'Otomatik Güncelleme')
+      ? revizyon.revizyonSebebi : null;
+    const talepSonuc = seciliIslem
       || (revizyon?.yeniDurum)
       || (revizyon?.durumSonrasi)
       || (snapshot.kunyeBilgileri?.talepSonuc)
