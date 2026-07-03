@@ -24,6 +24,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 // API Utils
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { revAlanEtiketi, revDegerYaz } from '../../utils/revizyonGosterim';
 
 const TesvikDetail = () => {
   const { id } = useParams();
@@ -1374,9 +1375,9 @@ const TesvikDetail = () => {
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '25%' }}>Destek Unsuru</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '35%' }}>Şartı</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Açıklama</th>
+                      {/* Müşteri isteği: Destek Unsurunda Açıklama kolonu kaldırıldı */}
+                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Destek Unsuru</th>
+                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '60%' }}>Şartı</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1385,11 +1386,10 @@ const TesvikDetail = () => {
                         <tr key={i}>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#7c3aed' }}>{destek.destekUnsuru || '-'}</td>
                           <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.sarti || destek.sart || '-'}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.aciklama || '-'}</td>
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan="3" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
+                      <tr><td colSpan="2" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -1567,7 +1567,10 @@ const TesvikDetail = () => {
               <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Chip size="small" label={`Revizyon ${r.revizyonNo}`} color="primary" sx={{ fontWeight: 700 }} />
-                  <Chip size="small" variant="outlined" label={r.revizyonSebebi || '-'} />
+                  {/* Müşteri isteği: "Otomatik Güncelleme" etiketi gizlendi — detaylı alan değişiklikleri aşağıda */}
+                  {r.revizyonSebebi && r.revizyonSebebi !== 'Otomatik Güncelleme' && (
+                    <Chip size="small" variant="outlined" label={r.revizyonSebebi} />
+                  )}
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {r.revizyonTarihi ? new Date(r.revizyonTarihi).toLocaleString('tr-TR') : '-'}
                   </Typography>
@@ -1584,9 +1587,18 @@ const TesvikDetail = () => {
                   <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>Not: {r.kullaniciNotu}</Typography>
                 )}
                 {Array.isArray(r.degisikenAlanlar) && r.degisikenAlanlar.length > 0 && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                    Değişen alanlar: {r.degisikenAlanlar.map((d) => d.alan).filter(Boolean).join(', ') || r.degisikenAlanlar.length + ' alan'}
-                  </Typography>
+                  <Box sx={{ mt: 0.75, borderTop: '1px dashed #e2e8f0', pt: 0.75 }}>
+                    {r.degisikenAlanlar.slice(0, 25).map((d, di) => (
+                      <Typography key={di} variant="caption" sx={{ display: 'block', color: '#475569' }}>
+                        • {revAlanEtiketi(d)}: <Box component="span" sx={{ color: '#dc2626' }}>{revDegerYaz(d.eskiDeger)}</Box>
+                        {' → '}
+                        <Box component="span" sx={{ color: '#16a34a', fontWeight: 700 }}>{revDegerYaz(d.yeniDeger)}</Box>
+                      </Typography>
+                    ))}
+                    {r.degisikenAlanlar.length > 25 && (
+                      <Typography variant="caption" color="text.secondary">… ve {r.degisikenAlanlar.length - 25} alan daha</Typography>
+                    )}
+                  </Box>
                 )}
               </Paper>
             ))}

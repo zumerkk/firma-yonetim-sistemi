@@ -394,6 +394,7 @@ const belgeYonetimiSchema = new mongoose.Schema({
   belgeBitisTarihi: { type: Date }, // 🔧 FIX: belgebitisTarihi → belgeBitisTarihi (camelCase)
   uzatimTarihi: { type: Date },
   mucbirUzumaTarihi: { type: Date }, // 🔧 FIX: mudebbirUzatimTarihi → mucbirUzumaTarihi (frontend ile uyumlu)
+  mucbirUzatma: { type: String, enum: ['evet', 'hayir', ''], default: '' }, // Mücbir uzatma var mı? (Evet ise tarih girilir)
   // 🏆 Öncelikli Yatırım Alanları
   oncelikliYatirim: {
     type: String,
@@ -694,6 +695,7 @@ const tesvikSchema = new mongoose.Schema({
     },
     degisikenAlanlar: [{
       alan: String,
+      label: String, // İnsan-okur alan adı (ör. "Bina İnşaat Gideri") — revizyon geçmişi detayında gösterilir
       eskiDeger: mongoose.Schema.Types.Mixed,
       yeniDeger: mongoose.Schema.Types.Mixed
     }],

@@ -499,6 +499,7 @@ const YeniTesvikForm = () => {
       belgeBitisTarihi: '',
       uzatimTarihi: '',
       mucbirUzumaTarihi: '',
+      mucbirUzatma: '', // Mücbir uzatma var mı? (evet/hayir) — evet ise tarih girilir
       oncelikliYatirim: '', // 🏆 Öncelikli Yatırım (Evet/Hayır)
       oncelikliYatirimTuru: '' // 🏆 Öncelikli Yatırım Türü (dropdown)
     },
@@ -1019,6 +1020,7 @@ const YeniTesvikForm = () => {
             uzatimTarihi: formatDateForInput(backendData.belgeYonetimi?.uzatimTarihi) || '',
             // 🔧 Geriye uyumluluk: Eski field ismi (mudebbirUzatimTarihi) ve yeni (mucbirUzumaTarihi)
             mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi || backendData.belgeYonetimi?.mudebbirUzatimTarihi) || '',
+            mucbirUzatma: backendData.belgeYonetimi?.mucbirUzatma || ((backendData.belgeYonetimi?.mucbirUzumaTarihi || backendData.belgeYonetimi?.mudebbirUzatimTarihi) ? 'evet' : ''),
             oncelikliYatirim: backendData.belgeYonetimi?.oncelikliYatirim || '', // 🏆 Öncelikli Yatırım
             oncelikliYatirimTuru: backendData.belgeYonetimi?.oncelikliYatirimTuru || '' // 🏆 Öncelikli Yatırım Türü
           },
@@ -2980,6 +2982,49 @@ const YeniTesvikForm = () => {
                 </Box>
               </Grid>
 
+              {/* Mücbir Uzatma — müşteri isteği: Süre Uzatım Tarihi'nin altında Evet/Hayır, Evet ise tarih girme yeri */}
+              <Grid item xs={12} sm={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                    Mücbir Uzatma mı?:
+                  </Typography>
+                  <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
+                    <Select
+                      value={formData.belgeYonetimi.mucbirUzatma || ''}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        handleFieldChange('belgeYonetimi.mucbirUzatma', v);
+                        if (v !== 'evet') handleFieldChange('belgeYonetimi.mucbirUzumaTarihi', '');
+                      }}
+                      sx={{ backgroundColor: '#fff' }}
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
+                      <MenuItem value="evet">EVET</MenuItem>
+                      <MenuItem value="hayir">HAYIR</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              </Grid>
+
+              {formData.belgeYonetimi.mucbirUzatma === 'evet' && (
+                <Grid item xs={12} sm={6}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 130, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      Mücbir Uzatma Tarihi:
+                    </Typography>
+                    <TextField
+                      size="small"
+                      type="date"
+                      value={formData.belgeYonetimi.mucbirUzumaTarihi || ''}
+                      onChange={(e) => handleFieldChange('belgeYonetimi.mucbirUzumaTarihi', e.target.value)}
+                      onPaste={(e) => handleDatePaste(e, 'belgeYonetimi.mucbirUzumaTarihi')}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{ backgroundColor: '#fff', flex: 1, minWidth: 140, '& input': { fontSize: { xs: '0.8rem', sm: '0.875rem' } } }}
+                    />
+                  </Box>
+                </Grid>
+              )}
+
               {/* OECD (Orta-Yüksek) */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -3016,7 +3061,7 @@ const YeniTesvikForm = () => {
                     >
                       {templateData.destekSiniflari?.map((sinif) => (
                         <MenuItem key={sinif.value} value={sinif.value}>
-                          {sinif.label}
+                          {String(sinif.label || sinif.value || '').replace(/_/g, ' ')}
                         </MenuItem>
                       ))}
                     </Select>

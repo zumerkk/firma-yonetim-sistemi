@@ -530,7 +530,8 @@ function buildFinansalData(finansal) {
       sn: finansal.araziArsaBedeli?.toplam || 0,
     },
     binaInsaatGideri: {
-      aciklama: '',
+      // 🔧 FIX: AI çıktısındaki bina-inşaat açıklaması kayboluyordu (hep '' yazılıyordu)
+      aciklama: finansal.binaInsaatGiderleri?.aciklama || '',
       so: 0,
       anaBinaGideri: finansal.binaInsaatGiderleri?.anaBina || 0,
       yardimciBinaGideri: finansal.binaInsaatGiderleri?.yardimciBina || 0,
