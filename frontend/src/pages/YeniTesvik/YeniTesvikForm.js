@@ -406,6 +406,7 @@ const YeniTesvikForm = () => {
     );
   };
 
+  // eslint-disable-next-line no-unused-vars -- adım kaldırıldı (müşteri isteği); makine işleri Makine Yönetimi ekranında
   const renderMakineListesi = () => (
     <Box>
       <Typography variant="h6" gutterBottom>Makine-Teçhizat Listesi</Typography>
@@ -690,7 +691,6 @@ const YeniTesvikForm = () => {
   const stepLabels = [
     '📋 KÜNYE VE YATIRIM BİLGİLERİ',
     '📦 ÜRÜN BİLGİLERİ',
-    '🛠️ MAKİNE LİSTESİ',
     '💰 FİNANSAL BİLGİLER',
     '⚖️ ÖZEL ŞARTLAR',
     '🎯 DESTEK UNSURLARI',
@@ -5025,11 +5025,11 @@ const YeniTesvikForm = () => {
     switch (activeStep) {
       case 0: return renderKunyeBilgileri(); // Künye + Yatırım + Belge Bilgileri birleşik tek sayfa
       case 1: return renderUrunBilgileri();
-      case 2: return renderMakineListesi();
-      case 3: return renderFinansalBilgiler();
-      case 4: return renderOzelSartlar();
-      case 5: return renderDestekUnsurlari();
-      case 6: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
+      // Makine Listesi adımı kaldırıldı (müşteri: kullanılmıyor — Makine Yönetimi ekranı kullanılıyor)
+      case 2: return renderFinansalBilgiler();
+      case 3: return renderOzelSartlar();
+      case 4: return renderDestekUnsurlari();
+      case 5: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
       default: return renderKunyeBilgileri();
     }
   };
@@ -5132,13 +5132,16 @@ const YeniTesvikForm = () => {
             <CardContent sx={{ p: 4 }}>
               {/* Stepper */}
               <Stepper activeStep={activeStep} alternativeLabel>
+                {/* Müşteri isteği: sekmeye tıklanınca doğrudan o adıma geçilir (sürekli Devam'a gerek yok) */}
                 {stepLabels.map((label, index) => (
-                  <Step key={index}>
+                  <Step key={index} onClick={() => setActiveStep(index)} sx={{ cursor: 'pointer' }}>
                     <StepLabel
                       sx={{
+                        cursor: 'pointer',
                         '& .MuiStepLabel-label': {
                           fontSize: '0.9rem',
-                          fontWeight: activeStep === index ? 600 : 400
+                          fontWeight: activeStep === index ? 600 : 400,
+                          '&:hover': { color: '#2563eb' }
                         }
                       }}
                     >
