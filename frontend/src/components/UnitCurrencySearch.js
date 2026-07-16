@@ -11,7 +11,9 @@ const debounce = (fn, wait = 250) => {
 };
 
 // type: 'unit' | 'currency' | 'used' | 'machineType'
-const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder, display = 'input' }) => {
+// labelMode: 'code' (varsayılan, "KOD - Açıklama") | 'name' (isim öncelikli — müşteri isteği:
+//            hücrede "142" veya "3" gibi kod değil, "ADET(UNIT)" gibi isim görünsün; kod tooltip'te kalır)
+const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder, display = 'input', labelMode = 'code' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
@@ -71,10 +73,10 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
           >
             <SearchIcon sx={{ color:'#3b82f6', fontSize:'1.05rem' }} />
             {selected ? (
-              <>
-                <Chip label={selected.kod} size="small" color="primary" />
-                <Typography variant="body2" noWrap sx={{ color:'text.secondary', flex:1, minWidth:0, fontSize:'0.9rem' }}>{selected.aciklama || ''}</Typography>
-              </>
+              // İsim öncelikli gösterim: açıklama (isim) varsa onu bas, yoksa kodu.
+              // Eski kayıtlarda isim zaten kod alanında ("ADET(UNIT)") olduğundan görünüm değişmez;
+              // yeni seçimlerde "142" yerine ismi gösterir. Kod, üstteki Tooltip'te görünmeye devam eder.
+              <Chip label={selected.aciklama || selected.kod} size="small" color="primary" sx={{ maxWidth: '100%' }} />
             ) : (
               <Typography variant="body2" sx={{ color:'text.disabled' }}>{ph}</Typography>
             )}
@@ -85,7 +87,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
     return (
       <TextField
         inputRef={inputRef}
-        value={selected ? (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : '')) : ''}
+        value={selected ? (labelMode === 'name' ? (selected.aciklama || selected.kod) : (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : ''))) : ''}
         onClick={() => setIsOpen(true)}
         placeholder={ph}
         size={size}
