@@ -2861,7 +2861,7 @@ const MakineYonetimi = () => {
         }
       },
       { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
-        <UnitCurrencySearch type="used" value={p.row.kullanilmisKod} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
+        <UnitCurrencySearch type="used" labelMode="name" value={{ kod: p.row.kullanilmisKod, aciklama: p.row.kullanilmisAciklama }} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
       ) },
       { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, renderCell: (p)=> (
         <Select size="small" value={p.row.ckdSkd || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { ckdSkd: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
