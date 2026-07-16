@@ -121,7 +121,7 @@ const DosyaTakipList = () => {
         },
         {
             field: 'ytbNo',
-            headerName: 'YTB No',
+            headerName: 'Belge No',
             width: 120,
             renderCell: (params) => (
                 <Typography variant="body2" sx={{ color: '#64748b' }}>
@@ -304,7 +304,7 @@ const DosyaTakipList = () => {
                             <TextField
                                 fullWidth
                                 size="small"
-                                placeholder="Firma, Takip ID, YTB No ara..."
+                                placeholder="Firma, Takip ID, Belge No ara..."
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 onKeyDown={handleSearch}

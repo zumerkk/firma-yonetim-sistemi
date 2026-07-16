@@ -507,7 +507,7 @@ const DosyaTakipForm = () => {
                                                                 {belge.durumEtiketi || belge.durum || '-'} • {belge.createdAt ? new Date(belge.createdAt).toLocaleDateString('tr-TR') : '-'}
                                                                 {(belge.il || belge.ilce) && ` • ${[belge.il, belge.ilce].filter(Boolean).join(' / ')}`}
                                                                 {belge.gmId && ` • GM ID: ${belge.gmId}`}
-                                                                {belge.belgeId && ` • Belge: ${belge.belgeId}`}
+                                                                {belge.ytbNo && ` • Belge No: ${belge.ytbNo}`}
                                                             </Typography>
                                                         }
                                                     />
@@ -557,7 +557,7 @@ const DosyaTakipForm = () => {
 
                             <Grid container spacing={2}>
                                 <Grid item xs={12} md={4}>
-                                    <TextField fullWidth size="small" label="YTB No" value={formData.ytbNo} onChange={handleChange('ytbNo')} />
+                                    <TextField fullWidth size="small" label="Belge No" value={formData.ytbNo} onChange={handleChange('ytbNo')} />
                                 </Grid>
                                 <Grid item xs={12} md={4}>
                                     <TextField fullWidth size="small" type="date" label="YTB Başlama Tarihi" value={formData.ytbBaslamaTarihi}
@@ -637,7 +637,7 @@ const DosyaTakipForm = () => {
                                 <Typography variant="body2" sx={{ color: '#78350f' }}>
                                     <strong>Firma:</strong> {formData.firmaUnvan || '-'}<br />
                                     <strong>Talep Türü:</strong> {formData.talepTuru || '-'}<br />
-                                    <strong>YTB No:</strong> {formData.ytbNo || '-'}<br />
+                                    <strong>Belge No:</strong> {formData.ytbNo || '-'}<br />
                                     <strong>Başlangıç Durumu:</strong> 2.1.1 Görüşülüyor
                                 </Typography>
                             </Paper>

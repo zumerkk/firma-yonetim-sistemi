@@ -587,7 +587,7 @@ const DosyaTakipDetail = () => {
                             <Typography variant="caption" sx={{ color: '#64748b' }}>{seciliTalep.firmaId}</Typography>
                         </Grid>
                         <Grid item xs={12} md={2}>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>YTB No</Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Belge No</Typography>
                             <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>{seciliTalep.ytbNo || '-'}</Typography>
                         </Grid>
                         <Grid item xs={12} md={2}>
