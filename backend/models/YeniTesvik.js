@@ -661,7 +661,7 @@ const tesvikSchema = new mongoose.Schema({
   durumBilgileri: {
     genelDurum: {
       type: String,
-      enum: ['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'],
+      enum: ['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi', 'kapandi'],
       default: 'onaylandi', // müşteri: yeni belgeler varsayılan 'Onaylandı' açılır
       index: true
     },
@@ -1258,7 +1258,8 @@ tesvikSchema.methods.updateDurumRengi = function() {
     'onay_bekliyor': 'turuncu',
     'onaylandi': 'yesil',
     'reddedildi': 'kirmizi',
-    'iptal_edildi': 'gri'
+    'iptal_edildi': 'gri',
+    'kapandi': 'gri'
   };
   
   this.durumBilgileri.durumRengi = durumRenkMappingi[this.durumBilgileri.genelDurum] || 'gri';

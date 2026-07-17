@@ -550,7 +550,7 @@ const validateUpdateTesvik = [
     
   body('durumBilgileri.genelDurum')
     .optional()
-    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'])
+    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi', 'kapandi'])
     .withMessage('Geçersiz durum'),
 ];
 
@@ -558,7 +558,7 @@ const validateDurumUpdate = [
   body('yeniDurum')
     .notEmpty()
     .withMessage('Yeni durum zorunludur')
-    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi'])
+    .isIn(['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi', 'kapandi'])
     .withMessage('Geçersiz durum'),
     
   body('aciklama')

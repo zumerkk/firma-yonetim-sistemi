@@ -11,7 +11,8 @@ export const BELGE_DURUM_SECENEKLERI = [
   { value: 'onay_bekliyor', label: 'Onay Bekliyor' },
   { value: 'onaylandi', label: 'Onaylandı' },
   { value: 'reddedildi', label: 'Reddedildi' },
-  { value: 'iptal_edildi', label: 'İptal Edildi' }
+  { value: 'iptal_edildi', label: 'İptal Edildi' },
+  { value: 'kapandi', label: 'Kapandı' }
 ];
 
 // Durum değerini okunabilir Türkçe etikete çevir
