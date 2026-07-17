@@ -8,7 +8,8 @@ const MAIL_TEMPLATE_CODE = Object.freeze({
   CUSTOMER_DOCUMENT_REQUEST: 'customer_document_request',
   SUPPLIER_INFO_REQUEST: 'supplier_info_request',
   REMINDER_NO_RESPONSE: 'reminder_no_response',
-  INVOICE_DRAFT_APPROVED: 'invoice_draft_approved'
+  INVOICE_DRAFT_APPROVED: 'invoice_draft_approved',
+  ARA_KONTROL_FATURA_TALEBI: 'ara_kontrol_fatura_talebi' // Belge geneli firma maili (makine listesi + fatura talebi)
 });
 
 // ✒️ Varsayılan mail imzası (Admin panelden override edilebilir → app ayarı)
@@ -21,6 +22,7 @@ const DEFAULT_SIGNATURE = [
 // Placeholder formatı: {anahtar}. Mevcut placeholder'lar:
 //   {firmaAdi} {makineAdi} {belgeNo} {belgeId} {belgeTarihi} {makineId}
 //   {siraNo} {tedarikciMail} {tedarikciVergiNo} {uploadLink} {mailTarihi} {imza}
+//   {listeBilgisi} (ara kontrol: "ekte yer almaktadır" / "ayrıca iletilecektir" — ek durumuna göre otomatik)
 const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,
@@ -92,6 +94,27 @@ const DEFAULT_TEMPLATES = [
       '{uploadLink}',
       '',
       'İyi çalışmalar.',
+      '',
+      '{imza}'
+    ].join('\n')
+  },
+  {
+    code: MAIL_TEMPLATE_CODE.ARA_KONTROL_FATURA_TALEBI,
+    name: 'Ara Kontrol — Makine Listesi ve Fatura Talebi (Firmaya)',
+    // v1 (müşteri taslağı): belge geneli firma maili — onaylı makine listesi ek/link bilgisi +
+    // faturaların XML ve PDF olarak public bağlantıdan yüklenmesi talebi
+    version: 1,
+    subjectTemplate: "{belgeNo} no'lu Yatırım Teşvik Belgesi - Makine Listesi ve Fatura Talebi",
+    bodyTemplate: [
+      'Sayın {firmaAdi} Yetkilisi,',
+      '',
+      'Yatırım Teşvik Belgesi kapsamında alımını yaptığınız veya yapacağınız makine ve teçhizatlara ait onaylı Makine Listesi {listeBilgisi}.',
+      '',
+      'Süreçlerin aksamaması ve teşvik bildirimlerinin yapılabilmesi için, listede yer alan makinelere ait faturaların hem XML hem de PDF formatlarını aşağıdaki bağlantı üzerinden tarafımıza iletmenizi rica ederiz:',
+      '',
+      '{uploadLink}',
+      '',
+      'İyi çalışmalar dileriz.',
       '',
       '{imza}'
     ].join('\n')

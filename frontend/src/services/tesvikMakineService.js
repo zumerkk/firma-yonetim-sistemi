@@ -57,6 +57,10 @@ const tesvikMakineService = {
   linkParserQueue: (id, body) => api.post(`${base}/parser/queue/${id}/link`, body).then(d),
   deleteParserQueue: (id) => api.delete(`${base}/parser/queue/${id}`).then((r) => r.data),
 
+  // 📮 Ara Kontrol (belge geneli firma maili: makine listesi + fatura talebi)
+  araKontrolCompose: (m, id, params = {}) => api.get(`${base}/ara-kontrol/${m}/${id}/compose`, { params }).then(d),
+  araKontrolSend: (m, id, formData) => api.post(`${base}/ara-kontrol/${m}/${id}/send`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
+
   // Public (token tabanlı — auth gerektirmez)
   publicInfo: (token) => api.get(`/tesvik-evrak/${token}`).then(d),
   publicUpload: (token, formData) => api.post(`/tesvik-evrak/${token}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data)

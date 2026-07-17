@@ -112,7 +112,8 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const doSend = async () => {
     setBusy('send');
     try {
-      await svc.sendMail(proc._id, { templateCode });
+      // Önizlemede düzenlenen konu/içerik aynen gönderilir (müşteri isteği: anlık değişiklikler)
+      await svc.sendMail(proc._id, { templateCode, subject: preview?.subject, body: preview?.body });
       notify('Mail SMTP ile gönderildi'); setPreviewOpen(false); reloadTimeline(proc._id); onChanged && onChanged();
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
@@ -302,8 +303,12 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
               {preview.missing?.length > 0 && <Alert severity="warning" sx={{ mb: 1 }}>Eksik bilgi: {preview.missing.join(', ')}</Alert>}
               {!preview.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
               <Typography variant="caption" color="text.secondary">Kime: {(preview.to || []).join(', ') || '-'}{preview.cc?.length ? ' · CC: ' + preview.cc.join(', ') : ''}</Typography>
-              <TextField fullWidth size="small" label="Konu" value={preview.subject} InputProps={{ readOnly: true }} sx={{ my: 1 }} />
-              <TextField fullWidth multiline minRows={10} label="İçerik" value={preview.body} InputProps={{ readOnly: true }} />
+              {/* Müşteri isteği: gönderim öncesi konu/içerik serbestçe düzenlenebilir — düzenlenen hali gönderilir */}
+              <TextField fullWidth size="small" label="Konu" value={preview.subject}
+                onChange={(e) => setPreview((p) => ({ ...p, subject: e.target.value }))} sx={{ my: 1 }} />
+              <TextField fullWidth multiline minRows={10} label="İçerik" value={preview.body}
+                onChange={(e) => setPreview((p) => ({ ...p, body: e.target.value }))}
+                helperText="Metni istediğiniz gibi düzenleyebilirsiniz — mail bu haliyle gönderilir." />
             </Box>
           )}
         </DialogContent>
