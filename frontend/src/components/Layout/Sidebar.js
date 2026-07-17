@@ -32,7 +32,8 @@ import {
   Folder as FolderIcon, // 📁 File Manager ikonu
   BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
   Assignment as AssignmentIcon, // 📋 İş Akış Takip ikonu
-  ImportExport as ImportExportIcon // 📥 Import/Export ikonu
+  ImportExport as ImportExportIcon, // 📥 Import/Export ikonu
+  Email as EmailIcon // 📮 Ara Kontrol maili ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -222,6 +223,14 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#7c3aed',
       gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
       description: 'Süreç, mail, evrak takibi'
+    },
+    {
+      text: 'Ara Kontrol Maili',
+      icon: <EmailIcon />,
+      path: '/tesvikler/ara-kontrol',
+      color: '#0ea5e9',
+      gradient: 'linear-gradient(135deg, #0c4a6e, #0ea5e9)',
+      description: 'Firmaya makine listesi + fatura talebi'
     },
     {
       text: 'Belge Takip',

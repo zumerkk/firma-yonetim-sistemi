@@ -26,6 +26,7 @@ const { resolveTemplate } = require('../services/tesvikMakine/mailTemplateProvid
 const { extractPlaceholders } = require('../services/tesvikMakine/mailTemplateEngine');
 const ministryParser = require('../services/tesvikMakine/ministryMailParser');
 const ParsedMinistryMail = require('../models/ParsedMinistryMail');
+const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 
 const { CLOSED_STATUSES, DOCUMENT_WAITING_STATUSES, MACHINE_STATUS } = status;
 
@@ -315,8 +316,42 @@ exports.previewMail = wrap(async (req, res) => {
 
 exports.sendMail = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  const { templateCode, toOverride, ccOverride } = req.body || {};
-  const result = await mps.sendProcessMail(proc, templateCode, { user: req.user, toOverride, ccOverride });
+  // subject/body: önizlemede elle düzenlenmiş metin (müşteri isteği — "anlık değişimler için")
+  const { templateCode, toOverride, ccOverride, subject, body } = req.body || {};
+  const result = await mps.sendProcessMail(proc, templateCode, {
+    user: req.user, toOverride, ccOverride, subjectOverride: subject, bodyOverride: body
+  });
+  res.json({ success: true, data: result });
+});
+
+// ───────── 📮 ARA KONTROL — belge geneli firma maili (makine listesi + fatura talebi) ─────────
+
+exports.araKontrolCompose = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const ekVar = req.query.ekVar === '1';
+  const data = await araKontrolService.composeAraKontrol({ tesvikModel, tesvikId, ekVar });
+  res.json({ success: true, data });
+});
+
+exports.araKontrolSend = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const { to, cc, subject, body, sistemListesi } = req.body || {};
+  const parseList = (v) => String(v || '').split(/[;,\s]+/).map((s) => s.trim()).filter((s) => s.includes('@'));
+
+  // Ekler: elle yüklenen dosyalar + istenirse sistemden üretilen makine listesi Excel'i
+  const attachments = (req.uploadedFiles || []).map((f) => ({ filename: f.originalname, content: f.buffer }));
+  if (sistemListesi === '1') {
+    const xlsx = await araKontrolService.buildMakineListesiXlsx(tesvikModel, tesvikId);
+    attachments.push({ filename: xlsx.fileName, content: xlsx.buffer });
+  }
+
+  const result = await araKontrolService.sendAraKontrol({
+    tesvikModel, tesvikId,
+    to: parseList(to), cc: parseList(cc),
+    subject, body, attachments, user: req.user
+  });
   res.json({ success: true, data: result });
 });
 

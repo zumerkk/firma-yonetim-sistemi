@@ -64,6 +64,7 @@ import TesvikMakineList from '../pages/TesvikMakine/TesvikMakineList';
 import TesvikMakineDetail from '../pages/TesvikMakine/TesvikMakineDetail';
 import TesvikRaporlar from '../pages/TesvikMakine/TesvikRaporlar';
 import BakanlikMailParser from '../pages/TesvikMakine/BakanlikMailParser';
+import AraKontrol from '../pages/TesvikMakine/AraKontrol';
 import PublicUpload from '../pages/TesvikMakine/PublicUpload';
 
 const AppRouter = () => {
@@ -92,6 +93,11 @@ const AppRouter = () => {
       <Route path="/tesvikler/bakanlik-mail" element={
         <ProtectedRoute>
           <BakanlikMailParser />
+        </ProtectedRoute>
+      } />
+      <Route path="/tesvikler/ara-kontrol" element={
+        <ProtectedRoute>
+          <AraKontrol />
         </ProtectedRoute>
       } />
       <Route path="/tesvikler/:tesvikModel/:tesvikId" element={

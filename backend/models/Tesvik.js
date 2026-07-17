@@ -554,6 +554,12 @@ const tesvikSchema = new mongoose.Schema({
     }
   },
   
+  // 📮 Ara Kontrol — belge geneli public yükleme linki (firma fatura/evrak yükler)
+  araKontrol: {
+    uploadToken: { type: String, trim: true, index: true, sparse: true },
+    uploadTokenExpiresAt: { type: Date }
+  },
+
   // 📝 Revizyon Takibi
   revizyonlar: [{
     revizyonNo: { type: Number, required: true },

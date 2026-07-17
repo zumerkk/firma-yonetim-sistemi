@@ -73,4 +73,8 @@ router.post('/process/:id/upload', editor, uploadMultiple('files'), ctrl.adminUp
 router.post('/process/:id/reminders/stop', editor, ctrl.stopReminders);
 router.post('/process/:id/reminders/resume', editor, ctrl.resumeReminders);
 
+// 📮 Ara Kontrol (belge geneli firma maili): şablon doldur + düzenlenmiş haliyle gönder
+router.get('/ara-kontrol/:tesvikModel/:tesvikId/compose', ctrl.araKontrolCompose);
+router.post('/ara-kontrol/:tesvikModel/:tesvikId/send', editor, uploadMultiple('ekler'), ctrl.araKontrolSend);
+
 module.exports = router;

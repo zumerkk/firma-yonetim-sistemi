@@ -262,7 +262,8 @@ async function changeStatus(proc, newStatus, { note = '', user = null, actionTyp
 // ───────────────────────── Mail oluşturma / önizleme / gönderme ─────────────────────────
 
 // Şablonu render et (DB yazmaz). uploadLink dışarıdan verilir.
-async function composeMail(proc, templateCode, { uploadLink = '', toOverride, ccOverride } = {}) {
+// subjectOverride/bodyOverride: önizlemede elle düzenlenmiş konu/içerik — doluysa şablon yerine bunlar gönderilir
+async function composeMail(proc, templateCode, { uploadLink = '', toOverride, ccOverride, subjectOverride, bodyOverride } = {}) {
   const tpl = await resolveTemplate(templateCode);
   const { identity } = await buildContext(proc);
   // {mailTarihi} = bu makine için SON GÖNDERİLEN mailin tarihi (müşteri isteği: hatırlatmada
@@ -283,7 +284,10 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
   const def = recipientsFor(proc, audience);
   const to = toOverride !== undefined ? parseEmails(toOverride) : def.to;
   const cc = ccOverride !== undefined ? parseEmails(ccOverride) : def.cc;
-  return { template: tpl, audience, subject: rendered.subject, body: rendered.body, to, cc, missing: rendered.missing, ok: rendered.ok && to.length > 0, needsUploadLink: templateNeedsUploadLink(tpl) };
+  // Müşteri isteği ("maili istediğimiz gibi düzenleyebilelim"): önizlemede düzenlenen metin şablonun önüne geçer
+  const subject = (typeof subjectOverride === 'string' && subjectOverride.trim()) ? subjectOverride : rendered.subject;
+  const body = (typeof bodyOverride === 'string' && bodyOverride.trim()) ? bodyOverride : rendered.body;
+  return { template: tpl, audience, subject, body, to, cc, missing: rendered.missing, ok: rendered.ok && to.length > 0, needsUploadLink: templateNeedsUploadLink(tpl) };
 }
 
 // Önizleme: gerekirse upload link üretir (idempotent), MailLog YAZMAZ
@@ -320,16 +324,17 @@ async function createDraftMail(proc, templateCode, { user, uploadLink } = {}) {
 }
 
 // Asıl gönderim. Doğrulama başarısızsa fırlatır (eksik placeholder/alıcı).
-async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, isReminder = false, reminderMailLogId = null } = {}) {
+async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null } = {}) {
   const tpl = await resolveTemplate(templateCode);
   let uploadLink = '';
   if (templateNeedsUploadLink(tpl)) uploadLink = await ensureUploadLink(proc, { user });
 
-  const composed = await composeMail(proc, templateCode, { uploadLink, toOverride, ccOverride });
+  const composed = await composeMail(proc, templateCode, { uploadLink, toOverride, ccOverride, subjectOverride, bodyOverride });
   if (composed.to.length === 0) {
     const e = new Error('Gönderim için alıcı (to) e-posta adresi yok.'); e.code = 'NO_RECIPIENT'; throw e;
   }
-  if (composed.missing.length) {
+  // İçerik elle düzenlendiyse eksik placeholder kontrolü anlamsızlaşır (kullanıcı boşlukları kendisi doldurmuştur)
+  if (composed.missing.length && !(typeof bodyOverride === 'string' && bodyOverride.trim())) {
     const e = new Error(`Şablonda eksik bilgi var: ${composed.missing.join(', ')}`);
     e.code = 'TEMPLATE_INCOMPLETE'; e.missing = composed.missing; throw e;
   }
