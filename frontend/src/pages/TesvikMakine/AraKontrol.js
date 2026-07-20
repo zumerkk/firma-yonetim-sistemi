@@ -11,6 +11,7 @@ import {
 import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import DownloadIcon from '@mui/icons-material/Download';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
@@ -19,9 +20,13 @@ import svc from '../../services/tesvikMakineService';
 import { formatDate } from './helpers';
 
 const ARA_KONTROL_KODU = 'ara_kontrol_fatura_talebi';
-// {listeBilgisi} cümlesinin iki hali — ek durumu değişince metinde birbirine çevrilir
-const LISTE_EKTE = 'ekte yer almaktadır';
-const LISTE_AYRICA = 'tarafımızca hazırlanmakta olup ayrıca iletilecektir';
+// {listeBilgisi} cümlesinin iki hali — ek durumu değişince metinde birbirine çevrilir (v2 şablonuyla uyumlu)
+const LISTE_EKTE = 'yerli makine listesi ektedir';
+const LISTE_AYRICA = 'yerli makine listesi tarafımızca ayrıca iletilecektir';
+const EVRAK_TUR_ETIKET = {
+  kdv_muafiyet: 'KDV Muafiyet', proforma_teklif: 'Proforma/Teklif', fatura_taslak: 'Fatura Taslağı',
+  fatura_onayli: 'Onaylı Fatura', sevk_teslimat: 'Sevk/Teslimat', diger: 'Diğer'
+};
 
 const AraKontrol = () => {
   const [belgeler, setBelgeler] = useState([]);
@@ -39,6 +44,7 @@ const AraKontrol = () => {
 
   const [busy, setBusy] = useState('');
   const [gecmis, setGecmis] = useState([]);
+  const [yuklemeler, setYuklemeler] = useState([]); // firmadan gelen belge-geneli yüklemeler
   const [snack, setSnack] = useState(null);
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
@@ -65,8 +71,27 @@ const AraKontrol = () => {
     } catch { setGecmis([]); }
   };
 
+  // Ara Kontrol linkiyle firmanın yüklediği dosyalar = makine sürecine bağlı OLMAYAN evrak kayıtları
+  const yuklemeleriYukle = async (b) => {
+    try {
+      const docs = await svc.getCertDocuments(b.tesvikModel, idOf(b));
+      setYuklemeler((docs || []).filter((d) => !d.machineProcessId));
+    } catch { setYuklemeler([]); }
+  };
+
+  const indir = async (d) => {
+    try {
+      const res = await svc.downloadDocument(d._id);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url; a.download = d.originalName || d.fileName || 'evrak';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) { notify(errMsg(e), 'error'); }
+  };
+
   const belgeSecildi = async (b) => {
-    setSecili(b); setCompose(null); setGecmis([]); setEkler([]); setSistemListesi(false);
+    setSecili(b); setCompose(null); setGecmis([]); setYuklemeler([]); setEkler([]); setSistemListesi(false);
     if (!b) return;
     setBusy('compose');
     try {
@@ -77,6 +102,7 @@ const AraKontrol = () => {
       setTo((c.to || []).join(', '));
       setCc('');
       await gecmisiYukle(b);
+      await yuklemeleriYukle(b);
       if (!(c.to || []).length) notify('Firma kayıtlarında e-posta bulunamadı — alıcıyı elle girin.', 'warning');
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
@@ -181,8 +207,8 @@ const AraKontrol = () => {
                 control={<Checkbox checked={sistemListesi} onChange={(e) => setSistemListesi(e.target.checked)} />}
                 label={
                   <Box>
-                    <Typography variant="body2">Makine listesini sistemden ekle (Excel)</Typography>
-                    <Typography variant="caption" color="text.secondary">Belgedeki yerli + ithal listeden otomatik üretilir</Typography>
+                    <Typography variant="body2">Yerli makine listesini sistemden ekle (Excel)</Typography>
+                    <Typography variant="caption" color="text.secondary">Belgedeki yerli listeden otomatik üretilir (ithal dahil edilmez)</Typography>
                   </Box>
                 }
               />
@@ -195,7 +221,7 @@ const AraKontrol = () => {
                   <Chip key={`${f.name}-${i}`} size="small" label={f.name}
                     onDelete={() => setEkler((prev) => prev.filter((_, j) => j !== i))} deleteIcon={<CloseIcon />} />
                 ))}
-                {sistemListesi && <Chip size="small" color="success" label="Makine_Listesi.xlsx (sistemden)" />}
+                {sistemListesi && <Chip size="small" color="success" label="Yerli_Makine_Listesi.xlsx (sistemden)" />}
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Henüz makineleri sisteme girilmemiş firmalar için hazır listeyi elle dosya olarak ekleyebilirsiniz.
@@ -242,6 +268,34 @@ const AraKontrol = () => {
                       {(m.toEmails || []).join(', ')}
                     </Typography>
                     <Typography variant="caption" noWrap sx={{ maxWidth: 320 }}>{m.subject}</Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Paper>
+
+            {/* 5) Firmadan gelen yüklemeler — müşteri: "karşı taraf belge yüklediğinde nereye geliyor?" */}
+            <Paper sx={{ p: 2, mt: 2 }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Firmadan Gelen Yüklemeler ({yuklemeler.length})</Typography>
+                <Tooltip title="Listeyi yenile">
+                  <IconButton size="small" onClick={() => yuklemeleriYukle(secili)}><RefreshIcon fontSize="small" /></IconButton>
+                </Tooltip>
+              </Stack>
+              {yuklemeler.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  Henüz yükleme yok. Firma maildeki bağlantıdan dosya yükleyince burada listelenir; ayrıca üstteki zil bildirimine düşer ve size bilgilendirme maili gelir.
+                </Typography>
+              )}
+              <Stack spacing={1}>
+                {yuklemeler.map((d) => (
+                  <Box key={d._id} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', pb: 0.75 }}>
+                    <Chip size="small" variant="outlined" label={EVRAK_TUR_ETIKET[d.documentType] || 'Diğer'} />
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>{formatDate(d.createdAt, true)}</Typography>
+                    <Typography variant="body2" noWrap sx={{ flex: 1, minWidth: 160 }}>{d.originalName || d.fileName}</Typography>
+                    {d.uploaderName && <Typography variant="caption" color="text.secondary">{d.uploaderName}</Typography>}
+                    <Tooltip title="İndir">
+                      <IconButton size="small" color="primary" onClick={() => indir(d)}><DownloadIcon fontSize="small" /></IconButton>
+                    </Tooltip>
                   </Box>
                 ))}
               </Stack>
