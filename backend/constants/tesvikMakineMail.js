@@ -103,14 +103,15 @@ const DEFAULT_TEMPLATES = [
     name: 'Ara Kontrol — Makine Listesi ve Fatura Talebi (Firmaya)',
     // v1 (müşteri taslağı): belge geneli firma maili — onaylı makine listesi ek/link bilgisi +
     // faturaların XML ve PDF olarak public bağlantıdan yüklenmesi talebi
-    version: 1,
+    // v2 (müşteri talebi): metin YERLİ listeye özel hale getirildi ("alımı gerçekleştirilen makineler")
+    version: 2,
     subjectTemplate: "{belgeNo} no'lu Yatırım Teşvik Belgesi - Makine Listesi ve Fatura Talebi",
     bodyTemplate: [
       'Sayın {firmaAdi} Yetkilisi,',
       '',
-      'Yatırım Teşvik Belgesi kapsamında alımını yaptığınız veya yapacağınız makine ve teçhizatlara ait onaylı Makine Listesi {listeBilgisi}.',
+      'Yatırım Teşvik Belgenize ait yerli makine listesi {listeBilgisi}.',
       '',
-      'Süreçlerin aksamaması ve teşvik bildirimlerinin yapılabilmesi için, listede yer alan makinelere ait faturaların hem XML hem de PDF formatlarını aşağıdaki bağlantı üzerinden tarafımıza iletmenizi rica ederiz:',
+      'Süreçlerin aksamaması ve teşvik bildirimlerinin yapılabilmesi için, Yatırım Teşvik Belgesi Yerli listenizde yer alan ve alımı gerçekleştirilen makinelere ait faturaların hem XML hem de PDF formatlarını aşağıdaki bağlantı üzerinden tarafımıza iletmenizi rica ederiz:',
       '',
       '{uploadLink}',
       '',

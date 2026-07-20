@@ -80,9 +80,9 @@ async function composeAraKontrol({ tesvikModel, tesvikId, ekVar = false }) {
   const data = {
     firmaAdi: identity.firmaName || '',
     belgeNo: identity.documentNo || '',
-    // {listeBilgisi}: ek seçildiyse "ekte", seçilmediyse ayrıca iletileceği bilgisi —
+    // {listeBilgisi}: ek seçildiyse "ektedir", seçilmediyse ayrıca iletileceği bilgisi —
     // müşteri isteği: "henüz bütün firmaların makinelerini sisteme giremedim"
-    listeBilgisi: ekVar ? 'ekte yer almaktadır' : 'tarafımızca hazırlanmakta olup ayrıca iletilecektir',
+    listeBilgisi: ekVar ? 'ektedir' : 'tarafımızca ayrıca iletilecektir',
     uploadLink,
     imza: getSignature()
   };
@@ -105,40 +105,36 @@ async function composeAraKontrol({ tesvikModel, tesvikId, ekVar = false }) {
   };
 }
 
-// 📊 Belgenin makine listesini Excel eki olarak üret (Yerli + İthal sayfaları)
+// 📊 Belgenin YERLİ makine listesini Excel eki olarak üret
+// (müşteri talebi tur-2: "ithal makine listesini çekmesin, sadece yerli listeyi çeksin")
 async function buildMakineListesiXlsx(tesvikModel, tesvikId) {
   const cert = await loadCert(tesvikModel, tesvikId);
   const identity = resolver.extractCertIdentity(cert);
   const yerli = resolver.listFor(cert, 'local').map((r) => resolver.extractMachineFields(r, 'local'));
-  const ithal = resolver.listFor(cert, 'import').map((r) => resolver.extractMachineFields(r, 'import'));
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'GM Planlama';
-  const addSheet = (ad, satirlar, tlMi) => {
-    const ws = wb.addWorksheet(ad);
-    ws.columns = [
-      { header: 'Sıra No', key: 'siraNo', width: 8 },
-      { header: 'GTIP No', key: 'gtipNo', width: 16 },
-      { header: 'Adı ve Özelliği', key: 'machineName', width: 55 },
-      { header: 'Miktar', key: 'quantity', width: 9 },
-      { header: 'Birim', key: 'unit', width: 14 },
-      { header: 'Birim Fiyat', key: 'unitPrice', width: 14 },
-      { header: tlMi ? 'Toplam (TL)' : 'Toplam ($)', key: 'totalPrice', width: 16 }
-    ];
-    ws.getRow(1).font = { bold: true };
-    satirlar.forEach((m) => ws.addRow({
-      siraNo: m.siraNo || '', gtipNo: m.gtipNo || '', machineName: m.machineName || '',
-      quantity: m.quantity || 0, unit: m.unit || '', unitPrice: m.unitPrice || 0, totalPrice: m.totalPrice || 0
-    }));
-    ws.getColumn('unitPrice').numFmt = '#,##0.00';
-    ws.getColumn('totalPrice').numFmt = '#,##0.00';
-  };
-  addSheet('Yerli', yerli, true);
-  addSheet('İthal', ithal, false);
+  const ws = wb.addWorksheet('Yerli Makine Listesi');
+  ws.columns = [
+    { header: 'Sıra No', key: 'siraNo', width: 8 },
+    { header: 'GTIP No', key: 'gtipNo', width: 16 },
+    { header: 'Adı ve Özelliği', key: 'machineName', width: 55 },
+    { header: 'Miktar', key: 'quantity', width: 9 },
+    { header: 'Birim', key: 'unit', width: 14 },
+    { header: 'Birim Fiyat', key: 'unitPrice', width: 14 },
+    { header: 'Toplam (TL)', key: 'totalPrice', width: 16 }
+  ];
+  ws.getRow(1).font = { bold: true };
+  yerli.forEach((m) => ws.addRow({
+    siraNo: m.siraNo || '', gtipNo: m.gtipNo || '', machineName: m.machineName || '',
+    quantity: m.quantity || 0, unit: m.unit || '', unitPrice: m.unitPrice || 0, totalPrice: m.totalPrice || 0
+  }));
+  ws.getColumn('unitPrice').numFmt = '#,##0.00';
+  ws.getColumn('totalPrice').numFmt = '#,##0.00';
 
   const raw = await wb.xlsx.writeBuffer();
   const stem = String(identity.documentNo || cert.tesvikId || 'belge').replace(/[^\w.-]+/g, '_');
-  return { buffer: Buffer.from(raw), fileName: `Makine_Listesi_${stem}.xlsx` };
+  return { buffer: Buffer.from(raw), fileName: `Yerli_Makine_Listesi_${stem}.xlsx` };
 }
 
 // 📤 Gönderim — düzenlenmiş konu/içerik + ekler ile; MailLog belge bağıyla yazılır
