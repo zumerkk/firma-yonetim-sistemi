@@ -341,7 +341,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     };
     
     // Ana başlık
-    worksheet.mergeCells('A1:H1');
+    worksheet.mergeCells('A1:J1');
     worksheet.getCell('A1').value = 'YENİ TEŞVİK LİSTESİ ÖZET RAPORU';
     worksheet.getCell('A1').style = headerStyle;
     
@@ -357,7 +357,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     worksheet.getCell('E3').style = dataStyle;
     
     // Tablo başlıkları
-    const headers = ['GM ID', 'Teşvik ID', 'Firma', 'Durum', 'İl', 'Proje Bedeli', 'Teşvik Miktarı', 'Oluşturma Tarihi'];
+    const headers = ['GM ID', 'Teşvik ID', 'Firma', 'Durum', 'İl', 'Belge Bitiş Tarihi', 'Süre Uzatım Tarihi', 'Proje Bedeli', 'Teşvik Miktarı', 'Oluşturma Tarihi'];
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
@@ -369,12 +369,16 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       const rowIndex = index + 6;
       const durum = tesvik.durumBilgileri?.durum || 'taslak';
       
+      const bitisT = tesvik.belgeYonetimi?.belgeBitisTarihi;
+      const uzatimT = tesvik.belgeYonetimi?.uzatimTarihi;
       const rowData = [
         tesvik.gmId || '',
         tesvik.tesvikId || '',
         tesvik.firma?.unvan || tesvik.yatirimciUnvan || '',
         durum,
         tesvik.firma?.il || tesvik.yatirimBilgileri?.yatirim2?.il || tesvik.yatirimBilgileri?.yerinIl || '',
+        bitisT ? new Date(bitisT).toLocaleDateString('tr-TR') : '',
+        uzatimT ? new Date(uzatimT).toLocaleDateString('tr-TR') : '',
         tesvik.kunyeBilgileri?.projeBedeli || 0,
         tesvik.kunyeBilgileri?.tesvikMiktari || 0,
         tesvik.olusturmaTarihi ? new Date(tesvik.olusturmaTarihi).toLocaleDateString('tr-TR') : ''
@@ -412,6 +416,8 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       { width: 40 }, // Firma
       { width: 15 }, // Durum
       { width: 12 }, // İl
+      { width: 18 }, // Belge Bitiş Tarihi
+      { width: 18 }, // Süre Uzatım Tarihi
       { width: 15 }, // Proje Bedeli
       { width: 15 }, // Teşvik Miktarı
       { width: 15 }  // Oluşturma Tarihi

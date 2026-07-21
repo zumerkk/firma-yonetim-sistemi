@@ -1920,7 +1920,7 @@ const searchTesvikler = async (req, res) => {
 
     const tesvikler = await Tesvik.searchTesvikler(q)
       .populate('firma', 'tamUnvan firmaId')
-      .select('tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi.belgeNo yatirimBilgileri.yerinIl yatirimBilgileri.yerinIlce yatirimBilgileri.yatirimKonusu urunler.u97Kodu createdAt')
+      .select('tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi.belgeNo belgeYonetimi.belgeId belgeYonetimi.belgeBitisTarihi belgeYonetimi.uzatimTarihi yatirimBilgileri.yerinIl yatirimBilgileri.yerinIlce yatirimBilgileri.yatirimKonusu urunler.u97Kodu createdAt')
       .limit(50);
 
     res.json({
