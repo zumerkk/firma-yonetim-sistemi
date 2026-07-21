@@ -539,6 +539,8 @@ const TesvikList = () => {
                     <TableCell sx={{ fontWeight: 600 }}>Yatırımcı Ünvanı</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>İl</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Belge Bitiş Tarihi</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Süre Uzatım Tarihi</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Oluşturan</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Oluşturma Tarihi</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>İşlemler</TableCell>
@@ -548,7 +550,7 @@ const TesvikList = () => {
                   {loading ? (
                     Array.from({ length: 10 }).map((_, index) => (
                       <TableRow key={index}>
-                        {Array.from({ length: 8 }).map((_, cellIndex) => (
+                        {Array.from({ length: 10 }).map((_, cellIndex) => (
                           <TableCell key={cellIndex}>
                             <Skeleton />
                           </TableCell>
@@ -623,7 +625,21 @@ const TesvikList = () => {
                             {tesvik.yatirimBilgileri?.yerinIl || '-'}
                           </Typography>
                         </TableCell>
-                        
+
+                        {/* 📅 Belge Bitiş Tarihi (müşteri: listede + Excel'de görünsün) */}
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(tesvik.belgeYonetimi?.belgeBitisTarihi)}
+                          </Typography>
+                        </TableCell>
+
+                        {/* 📅 Süre Uzatım Tarihi */}
+                        <TableCell>
+                          <Typography variant="body2">
+                            {formatDate(tesvik.belgeYonetimi?.uzatimTarihi)}
+                          </Typography>
+                        </TableCell>
+
                         {/* 👤 Oluşturan Kullanıcı */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -688,7 +704,7 @@ const TesvikList = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={10}>
                         <Alert severity="info">
                           Henüz teşvik kaydı bulunmuyor
                         </Alert>

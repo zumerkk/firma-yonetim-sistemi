@@ -12,6 +12,7 @@ import SendIcon from '@mui/icons-material/Send';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
@@ -88,6 +89,16 @@ const AraKontrol = () => {
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (e) { notify(errMsg(e), 'error'); }
+  };
+
+  const sil = async (d) => {
+    if (!window.confirm(`"${d.originalName || d.fileName}" dosyasını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+    setBusy(`del-${d._id}`);
+    try {
+      await svc.deleteDocument(d._id);
+      setYuklemeler((prev) => prev.filter((x) => x._id !== d._id));
+      notify('Dosya silindi');
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
   const belgeSecildi = async (b) => {
@@ -295,6 +306,13 @@ const AraKontrol = () => {
                     {d.uploaderName && <Typography variant="caption" color="text.secondary">{d.uploaderName}</Typography>}
                     <Tooltip title="İndir">
                       <IconButton size="small" color="primary" onClick={() => indir(d)}><DownloadIcon fontSize="small" /></IconButton>
+                    </Tooltip>
+                    <Tooltip title="Sil">
+                      <span>
+                        <IconButton size="small" color="error" onClick={() => sil(d)} disabled={busy === `del-${d._id}`}>
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   </Box>
                 ))}
