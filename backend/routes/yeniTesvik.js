@@ -261,7 +261,9 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     // Filtreleme kriterlerini oluştur
     let filter = { aktif: true };
     
-    if (durum) filter['durumBilgileri.durum'] = durum;
+    // 🔧 FIX: durum alanı modelde durumBilgileri.genelDurum (durum diye alan yok —
+    // bu yüzden Excel'de her şey "taslak" görünüyordu)
+    if (durum) filter['durumBilgileri.genelDurum'] = durum;
     if (il) filter['firma.il'] = il;
     if (firma) filter.firma = firma;
     if (search) {
@@ -275,13 +277,13 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       if (tarihBaslangic) filter.olusturmaTarihi.$gte = new Date(tarihBaslangic);
       if (tarihBitis) filter.olusturmaTarihi.$lte = new Date(tarihBitis);
     }
-    
+
     const YeniTesvikModel = require('../models/YeniTesvik');
     const ExcelJS = require('exceljs');
-    
-    // Filtrelenmiş yeni teşvikleri getir
+
+    // Filtrelenmiş yeni teşvikleri getir (Firma modelindeki gerçek alan adları: tamUnvan/firmaIl)
     const tesvikler = await YeniTesvikModel.find(filter)
-      .populate('firma', 'unvan vergiNo il')
+      .populate('firma', 'tamUnvan vergiNoTC firmaIl')
       .lean()
       .limit(1000); // Performans için limit
     
@@ -329,19 +331,31 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       }
     };
     
-    // Durum renk kodlaması
+    // Durum renk kodlaması (genelDurum enum değerleri)
     const durumRenkleri = {
-      'taslak': 'FFFFD700',        // Altın
-      'hazirlaniyor': 'FFFF8C00',  // Turuncu
-      'inceleniyor': 'FF4169E1',   // Mavi
-      'onaylandi': 'FF32CD32',     // Yeşil
-      'reddedildi': 'FFDC143C',    // Kırmızı
-      'beklemede': 'FF9370DB',     // Mor
-      'tamamlandi': 'FF228B22'     // Koyu yeşil
+      'taslak': 'FFFFD700',              // Altın
+      'hazirlaniyor': 'FFFF8C00',        // Turuncu
+      'başvuru_yapildi': 'FF9370DB',     // Mor
+      'inceleniyor': 'FF4169E1',         // Mavi
+      'ek_belge_istendi': 'FFFF8C00',    // Turuncu
+      'beklemede': 'FF9370DB',           // Mor
+      'onay_bekliyor': 'FF9370DB',       // Mor
+      'onaylandi': 'FF32CD32',           // Yeşil
+      'reddedildi': 'FFDC143C',          // Kırmızı
+      'revize_talep_edildi': 'FFFF8C00', // Turuncu
+      'iptal_edildi': 'FF808080',        // Gri
+      'tamamlandi': 'FF228B22'           // Koyu yeşil
     };
-    
+    // Excel hücresinde ham enum yerine Türkçe etiket yazılsın
+    const durumEtiketleri = {
+      'taslak': 'Taslak', 'hazirlaniyor': 'Hazırlanıyor', 'başvuru_yapildi': 'Başvuru Yapıldı',
+      'inceleniyor': 'İnceleniyor', 'ek_belge_istendi': 'Ek Belge İstendi', 'beklemede': 'Beklemede',
+      'onay_bekliyor': 'Onay Bekliyor', 'onaylandi': 'Onaylandı', 'reddedildi': 'Reddedildi',
+      'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı'
+    };
+
     // Ana başlık
-    worksheet.mergeCells('A1:J1');
+    worksheet.mergeCells('A1:H1');
     worksheet.getCell('A1').value = 'YENİ TEŞVİK LİSTESİ ÖZET RAPORU';
     worksheet.getCell('A1').style = headerStyle;
     
@@ -357,47 +371,48 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     worksheet.getCell('E3').style = dataStyle;
     
     // Tablo başlıkları
-    const headers = ['GM ID', 'Teşvik ID', 'Firma', 'Durum', 'İl', 'Belge Bitiş Tarihi', 'Süre Uzatım Tarihi', 'Proje Bedeli', 'Teşvik Miktarı', 'Oluşturma Tarihi'];
+    // Tablo başlıkları (müşteri tur-4: GM/Teşvik ID yerine Belge No; İlçe + Yatırım Konusu
+    // eklendi; Proje Bedeli / Teşvik Miktarı / Oluşturma Tarihi kaldırıldı)
+    const headers = ['Belge No', 'Firma', 'Durum', 'İl', 'İlçe', 'Yatırım Konusu', 'Belge Bitiş Tarihi', 'Süre Uzatım Tarihi'];
     headers.forEach((header, index) => {
       const cell = worksheet.getCell(5, index + 1);
       cell.value = header;
       cell.style = subHeaderStyle;
     });
-    
+
     // Veri satırları
     tesvikler.forEach((tesvik, index) => {
       const rowIndex = index + 6;
-      const durum = tesvik.durumBilgileri?.durum || 'taslak';
-      
+      // 🔧 FIX: doğru alan genelDurum ("hepsi taslak görünüyor" bug'ı)
+      const durum = tesvik.durumBilgileri?.genelDurum || 'taslak';
+
       const bitisT = tesvik.belgeYonetimi?.belgeBitisTarihi;
       const uzatimT = tesvik.belgeYonetimi?.uzatimTarihi;
       const rowData = [
-        tesvik.gmId || '',
-        tesvik.tesvikId || '',
-        tesvik.firma?.unvan || tesvik.yatirimciUnvan || '',
-        durum,
-        tesvik.firma?.il || tesvik.yatirimBilgileri?.yatirim2?.il || tesvik.yatirimBilgileri?.yerinIl || '',
+        tesvik.belgeYonetimi?.belgeNo || tesvik.belgeYonetimi?.belgeId || '',
+        tesvik.firma?.tamUnvan || tesvik.yatirimciUnvan || '',
+        durumEtiketleri[durum] || durum,
+        tesvik.yatirimBilgileri?.yerinIl || tesvik.yatirimBilgileri?.yatirim2?.il || tesvik.firma?.firmaIl || '',
+        tesvik.yatirimBilgileri?.yerinIlce || tesvik.yatirimBilgileri?.yatirim2?.ilce || '',
+        tesvik.yatirimBilgileri?.yatirimKonusu || '',
         bitisT ? new Date(bitisT).toLocaleDateString('tr-TR') : '',
-        uzatimT ? new Date(uzatimT).toLocaleDateString('tr-TR') : '',
-        tesvik.kunyeBilgileri?.projeBedeli || 0,
-        tesvik.kunyeBilgileri?.tesvikMiktari || 0,
-        tesvik.olusturmaTarihi ? new Date(tesvik.olusturmaTarihi).toLocaleDateString('tr-TR') : ''
+        uzatimT ? new Date(uzatimT).toLocaleDateString('tr-TR') : ''
       ];
-      
+
       rowData.forEach((value, colIndex) => {
         const cell = worksheet.getCell(rowIndex, colIndex + 1);
         cell.value = value;
-        
+
         // Durum sütunu için renk kodlaması
-        if (colIndex === 3) { // Durum sütunu
+        if (colIndex === 2) { // Durum sütunu
           cell.style = {
             ...dataStyle,
-            fill: { 
-              type: 'pattern', 
-              pattern: 'solid', 
-              fgColor: { argb: durumRenkleri[durum] || 'FFFFFFFF' } 
+            fill: {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: durumRenkleri[durum] || 'FFFFFFFF' }
             },
-            font: { 
+            font: {
               ...dataStyle.font,
               bold: true,
               color: { argb: durum === 'onaylandi' || durum === 'tamamlandi' ? 'FFFFFFFF' : 'FF000000' }
@@ -408,19 +423,17 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
         }
       });
     });
-    
+
     // Sütun genişlikleri
     worksheet.columns = [
-      { width: 15 }, // GM ID
-      { width: 15 }, // Teşvik ID
+      { width: 16 }, // Belge No
       { width: 40 }, // Firma
-      { width: 15 }, // Durum
+      { width: 18 }, // Durum
       { width: 12 }, // İl
+      { width: 14 }, // İlçe
+      { width: 40 }, // Yatırım Konusu
       { width: 18 }, // Belge Bitiş Tarihi
-      { width: 18 }, // Süre Uzatım Tarihi
-      { width: 15 }, // Proje Bedeli
-      { width: 15 }, // Teşvik Miktarı
-      { width: 15 }  // Oluşturma Tarihi
+      { width: 18 }  // Süre Uzatım Tarihi
     ];
     
     // Excel dosyasını buffer olarak oluştur
