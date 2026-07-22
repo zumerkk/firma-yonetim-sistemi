@@ -300,7 +300,10 @@ const TesvikList = () => {
       setLoading(true);
       console.log('📊 Toplu Excel export başlatılıyor...');
       
-      const response = await axios.get('/tesvik/bulk-excel-export', {
+      // "Yeni" filtresi seçiliyken yeni sistem belgelerinin export'u alınır
+      // (aksi halde Yeni belgeler Excel'e hiç girmiyordu)
+      const exportUrl = sistemFiltre === 'Yeni' ? '/yeni-tesvik/bulk-excel-export' : '/tesvik/bulk-excel-export';
+      const response = await axios.get(exportUrl, {
         responseType: 'blob',
         params: {
           durum: filters.durum,
@@ -308,16 +311,16 @@ const TesvikList = () => {
           search: filters.search
         }
       });
-      
+
       // Dosya indirme
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
-      
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `tesvikler_toplu_${new Date().toISOString().split('T')[0]}.xlsx`;
+      link.download = `tesvikler_toplu_${sistemFiltre === 'Yeni' ? 'yeni_' : ''}${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
