@@ -45,9 +45,11 @@ import {
   Person as PersonIcon,
   Security as SecurityIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../contexts/NotificationContext';
 
 const NotificationDropdown = ({ sx = {} }) => {
+  const navigate = useNavigate();
   const {
     recentNotifications,
     unreadCount,
@@ -108,6 +110,37 @@ const NotificationDropdown = ({ sx = {} }) => {
     setShowFilters(false);
     setSearchQuery('');
     setTypeFilter('all');
+  };
+
+  // 🔗 Bildirime tıklanınca ilgili kayda git (müşteri: "tıklayınca direkt o talebi açsın")
+  // Hedef: actionButton.url → yoksa relatedEntity'den türetilir.
+  const bildirimHedefi = (n) => {
+    const url = n?.actionButton?.url;
+    if (url && url.startsWith('/')) return url;
+    const tip = n?.relatedEntity?.entityType;
+    const eid = n?.relatedEntity?.entityId;
+    if (tip && eid) {
+      if (tip === 'firma') return `/firmalar/${eid}`;
+      if (tip === 'tesvik') return `/tesvik/${eid}`;
+    }
+    return null;
+  };
+
+  const handleNotificationClick = async (notification) => {
+    const hedef = bildirimHedefi(notification);
+    // Okunmamışsa okundu işaretle (hedef olmasa da işaretlenir)
+    if (!notification.isRead) {
+      try {
+        await markAsRead(notification.id);
+        await refreshUnreadCount();
+      } catch (error) {
+        console.error('Bildirim okundu işaretlenemedi:', error);
+      }
+    }
+    if (hedef) {
+      handleClose();
+      navigate(hedef);
+    }
   };
 
   // 📊 Get notification icon
@@ -208,6 +241,8 @@ const NotificationDropdown = ({ sx = {} }) => {
         {notifications.map((notification, index) => (
           <ListItem
             key={notification.id}
+            onClick={() => handleNotificationClick(notification)}
+            title={bildirimHedefi(notification) ? 'Açmak için tıklayın' : undefined}
             sx={{
               cursor: 'pointer',
               borderRadius: 2,

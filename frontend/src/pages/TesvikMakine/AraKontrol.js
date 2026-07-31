@@ -51,6 +51,8 @@ const AraKontrol = () => {
   // 📑 Kullanıcı mail şablonları (müşteri: "farklı mailleri göndermek için şablon kaydetme yeri")
   const [sablonlar, setSablonlar] = useState([]);
   const [sablonAdi, setSablonAdi] = useState('');
+  const [seciliSablon, setSeciliSablon] = useState(null);   // gönderimde şablon eklerini iliştirmek için
+  const [sablonEkleri, setSablonEkleri] = useState([]);      // şablondan gelen sabit ekler
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
@@ -106,7 +108,9 @@ const AraKontrol = () => {
   };
 
   const belgeSecildi = async (b) => {
+    // Belge değişince şablon seçimi ve ekleri de sıfırlanır (yanlış belgeye ek gitmesin)
     setSecili(b); setCompose(null); setGecmis([]); setYuklemeler([]); setEkler([]); setSistemListesi(false);
+    setSeciliSablon(null); setSablonEkleri([]);
     if (!b) return;
     setBusy('compose');
     try {
@@ -145,6 +149,12 @@ const AraKontrol = () => {
       fd.append('subject', subject);
       fd.append('body', body);
       fd.append('sistemListesi', sistemListesi ? '1' : '0');
+      // Şablon uygulanmışsa sabit ekleri backend şablondan çeker.
+      // Ekranda silinenler gitmesin diye kalan ek adları da bildirilir.
+      if (seciliSablon?.code && sablonEkleri.length) {
+        fd.append('sablonKodu', seciliSablon.code);
+        fd.append('sablonEkAdlari', JSON.stringify(sablonEkleri.map((e) => e.dosyaAdi)));
+      }
       await svc.araKontrolSend(secili.tesvikModel, idOf(secili), fd);
       notify('Ara kontrol maili gönderildi ✅');
       await gecmisiYukle(secili);
@@ -164,10 +174,19 @@ const AraKontrol = () => {
     if (!subject.trim() || !body.trim()) return notify('Konu ve içerik boş olamaz', 'warning');
     setBusy('sablon');
     try {
-      await svc.araKontrolSablonKaydet({ ad, subject, body });
+      // Ekler de şablonla birlikte kaydedilir (müşteri talebi): elle eklenen dosyalar +
+      // şablondan gelen mevcut ekler + "sistemden yerli liste" tercihi
+      const fd = new FormData();
+      fd.append('ad', ad);
+      fd.append('subject', subject);
+      fd.append('body', body);
+      fd.append('sistemListesi', sistemListesi ? '1' : '0');
+      fd.append('mevcutEkler', JSON.stringify(sablonEkleri));
+      ekler.forEach((f) => fd.append('ekler', f));
+      await svc.araKontrolSablonKaydet(fd);
       setSablonAdi('');
       await sablonlariYukle();
-      notify('Şablon kaydedildi ✅');
+      notify('Şablon kaydedildi ✅ (ekler dahil)');
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
@@ -175,7 +194,11 @@ const AraKontrol = () => {
     if (!s) return;
     setSubject(s.subjectTemplate || '');
     setBody(s.bodyTemplate || '');
-    notify(`"${s.name}" şablonu uygulandı`);
+    setSeciliSablon(s);
+    setSablonEkleri(s.ekler || []);
+    setSistemListesi(!!s.sistemListesi);
+    const ekBilgi = (s.ekler || []).length ? ` · ${s.ekler.length} ek yüklendi` : '';
+    notify(`"${s.name}" şablonu uygulandı${ekBilgi}`);
   };
 
   const sablonSil = async (s) => {
@@ -273,6 +296,18 @@ const AraKontrol = () => {
                     onDelete={() => setEkler((prev) => prev.filter((_, j) => j !== i))} deleteIcon={<CloseIcon />} />
                 ))}
                 {sistemListesi && <Chip size="small" color="success" label="Yerli_Makine_Listesi.xlsx (sistemden)" />}
+                {/* 📎 Şablonla birlikte gelen sabit ekler */}
+                {sablonEkleri.map((e, i) => (
+                  <Chip
+                    key={`sablon-ek-${i}`}
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                    label={`${e.dosyaAdi} (şablon)`}
+                    onDelete={() => setSablonEkleri((prev) => prev.filter((_, j) => j !== i))}
+                    deleteIcon={<CloseIcon />}
+                  />
+                ))}
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Henüz makineleri sisteme girilmemiş firmalar için hazır listeyi elle dosya olarak ekleyebilirsiniz.
