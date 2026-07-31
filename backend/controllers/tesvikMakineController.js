@@ -341,8 +341,19 @@ exports.araKontrolSablonList = wrap(async (req, res) => {
 });
 
 exports.araKontrolSablonSave = wrap(async (req, res) => {
-  const { ad, subject, body, code } = req.body || {};
-  const data = await araKontrolService.saveOzelSablon({ ad, subject, body, code, user: req.user });
+  const { ad, subject, body, code, sistemListesi, mevcutEkler } = req.body || {};
+  // multipart ile gelen dosyalar şablona sabit ek olarak kaydedilir (müşteri talebi)
+  let korunanEkler = [];
+  try {
+    korunanEkler = typeof mevcutEkler === 'string' ? JSON.parse(mevcutEkler) : (mevcutEkler || []);
+  } catch (_) { korunanEkler = []; }
+
+  const data = await araKontrolService.saveOzelSablon({
+    ad, subject, body, code, user: req.user,
+    files: req.uploadedFiles || [],
+    sistemListesi: sistemListesi === '1' || sistemListesi === true,
+    mevcutEkler: korunanEkler
+  });
   res.json({ success: true, data, message: 'Şablon kaydedildi' });
 });
 
@@ -354,7 +365,7 @@ exports.araKontrolSablonDelete = wrap(async (req, res) => {
 exports.araKontrolSend = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   getModel(tesvikModel);
-  const { to, cc, subject, body, sistemListesi } = req.body || {};
+  const { to, cc, subject, body, sistemListesi, sablonKodu, sablonEkAdlari } = req.body || {};
   const parseList = (v) => String(v || '').split(/[;,\s]+/).map((s) => s.trim()).filter((s) => s.includes('@'));
 
   // Ekler: elle yüklenen dosyalar + istenirse sistemden üretilen makine listesi Excel'i
@@ -362,6 +373,22 @@ exports.araKontrolSend = wrap(async (req, res) => {
   if (sistemListesi === '1') {
     const xlsx = await araKontrolService.buildMakineListesiXlsx(tesvikModel, tesvikId);
     attachments.push({ filename: xlsx.fileName, content: xlsx.buffer });
+  }
+  // Şablona kayıtlı sabit ekler (müşteri: "şablonu kaydedince yüklenen ekini de kaydetme").
+  // Dosya yolları DAİMA şablon kaydından okunur; istemciden yalnızca "hangi ekler kalsın"
+  // bilgisi (ad listesi) kabul edilir — böylece rastgele dosya yolu iliştirilemez.
+  if (sablonKodu) {
+    const sablon = await araKontrolService.getOzelSablon(sablonKodu);
+    let secilenEkler = sablon?.ekler || [];
+    if (sablonEkAdlari) {
+      try {
+        const adlar = typeof sablonEkAdlari === 'string' ? JSON.parse(sablonEkAdlari) : sablonEkAdlari;
+        if (Array.isArray(adlar)) secilenEkler = secilenEkler.filter((e) => adlar.includes(e.dosyaAdi));
+      } catch (_) { /* bozuk liste → şablonun tüm ekleri gider */ }
+    }
+    if (secilenEkler.length) {
+      attachments.push(...araKontrolService.sablonEkleriniAttachmentaCevir(secilenEkler));
+    }
   }
 
   const result = await araKontrolService.sendAraKontrol({

@@ -421,7 +421,10 @@ router.get('/recent', [
       isRead: n.isRead,
       createdAt: n.createdAt,
       icon: n.icon,
-      color: n.color
+      color: n.color,
+      // 🔗 Bildirime tıklayınca ilgili kayda gidebilmek için (müşteri talebi)
+      actionButton: n.actionButton || null,
+      relatedEntity: n.relatedEntity || null
     }));
 
     res.status(200).json({

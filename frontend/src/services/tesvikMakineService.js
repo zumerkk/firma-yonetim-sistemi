@@ -61,7 +61,8 @@ const tesvikMakineService = {
   araKontrolCompose: (m, id, params = {}) => api.get(`${base}/ara-kontrol/${m}/${id}/compose`, { params }).then(d),
   // Kullanıcının kaydettiği ara kontrol mail şablonları
   araKontrolSablonlar: () => api.get(`${base}/ara-kontrol/sablonlar`).then(d),
-  araKontrolSablonKaydet: (body) => api.post(`${base}/ara-kontrol/sablonlar`, body).then(d),
+  // formData: ad, subject, body, sistemListesi, mevcutEkler(JSON), ekler[] (dosyalar)
+  araKontrolSablonKaydet: (formData) => api.post(`${base}/ara-kontrol/sablonlar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
   araKontrolSablonSil: (code) => api.delete(`${base}/ara-kontrol/sablonlar/${code}`).then((r) => r.data),
   araKontrolSend: (m, id, formData) => api.post(`${base}/ara-kontrol/${m}/${id}/send`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
 

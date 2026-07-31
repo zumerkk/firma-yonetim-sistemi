@@ -224,18 +224,41 @@ function sablonKodUret(ad) {
 async function listOzelSablonlar() {
   const MailTemplate = require('../../models/MailTemplate');
   return MailTemplate.find({ code: new RegExp(`^${OZEL_SABLON_ONEKI}`), isActive: true })
-    .select('code name subjectTemplate bodyTemplate updatedAt')
+    .select('code name subjectTemplate bodyTemplate ekler sistemListesi updatedAt')
     .sort({ updatedAt: -1 })
     .lean();
 }
 
-async function saveOzelSablon({ ad, subject, body, code, user }) {
+// Şablona iliştirilen sabit ekler kalıcı bir klasörde saklanır (belge klasörlerinden ayrı)
+const SABLON_EK_KLASORU = 'Mail_Sablonlari/Ara_Kontrol';
+
+async function saveOzelSablon({ ad, subject, body, code, user, files = [], sistemListesi = false, mevcutEkler = [] }) {
   const MailTemplate = require('../../models/MailTemplate');
+  const storageService = require('./storageService');
   const isim = String(ad || '').trim();
   if (!isim) { const e = new Error('Şablon adı boş olamaz.'); e.code = 'BAD_NAME'; throw e; }
   if (!String(subject || '').trim() || !String(body || '').trim()) {
     const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
   }
+
+  // Yeni yüklenen dosyaları kalıcı depoya al; korunacak eski ekler aynen taşınır
+  const yeniEkler = [];
+  for (const f of files) {
+    const saved = await storageService.saveBuffer({
+      folderRel: SABLON_EK_KLASORU,
+      documentTypeFolder: 'Ekler',
+      originalName: f.originalname,
+      buffer: f.buffer
+    });
+    yeniEkler.push({
+      dosyaAdi: f.originalname || saved.fileName,
+      fileUrl: saved.fileUrl || '',
+      filePath: saved.relPath || '',
+      mimeType: f.mimetype || '',
+      fileSize: f.size || 0
+    });
+  }
+  const ekler = [...(Array.isArray(mevcutEkler) ? mevcutEkler : []), ...yeniEkler];
 
   // code verilmişse üzerine yaz (mevcut şablonu güncelle), yoksa yeni kod üret
   const hedefKod = (code && String(code).startsWith(OZEL_SABLON_ONEKI)) ? code : sablonKodUret(isim);
@@ -249,12 +272,36 @@ async function saveOzelSablon({ ad, subject, body, code, user }) {
         bodyTemplate: body,
         description: 'Ara Kontrol — kullanıcı şablonu',
         isActive: true,
+        ekler,
+        sistemListesi: !!sistemListesi,
         updatedByUserId: user ? user._id : undefined
       }
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   ).lean();
   return doc;
+}
+
+// 📎 Şablona kayıtlı ekleri nodemailer attachment biçimine çevir.
+// Cloudinary'de URL, local'de disk yolu kullanılır (nodemailer ikisini de `path` ile çeker).
+function sablonEkleriniAttachmentaCevir(ekler = []) {
+  const path = require('path');
+  const storageService = require('./storageService');
+  return (ekler || []).map((e) => {
+    const kaynak = storageService.isCloudinaryUrl(e.fileUrl)
+      ? e.fileUrl
+      : (e.filePath
+        ? (path.isAbsolute(e.filePath) ? e.filePath : path.join(storageService.BASE_DIR, e.filePath))
+        : e.fileUrl);
+    if (!kaynak) return null;
+    return { filename: e.dosyaAdi || 'ek', path: kaynak };
+  }).filter(Boolean);
+}
+
+async function getOzelSablon(code) {
+  const MailTemplate = require('../../models/MailTemplate');
+  if (!code || !String(code).startsWith(OZEL_SABLON_ONEKI)) return null;
+  return MailTemplate.findOne({ code }).lean();
 }
 
 async function deleteOzelSablon(code) {
@@ -271,6 +318,8 @@ module.exports = {
   listOzelSablonlar,
   saveOzelSablon,
   deleteOzelSablon,
+  getOzelSablon,
+  sablonEkleriniAttachmentaCevir,
   ensureBelgeUploadLink,
   resolveBelgeByToken,
   composeAraKontrol,
