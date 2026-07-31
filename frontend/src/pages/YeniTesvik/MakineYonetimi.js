@@ -270,9 +270,53 @@ const MakineYonetimi = () => {
   const [isReviseMode, setIsReviseMode] = useState(false);
   const [isReviseStarted, setIsReviseStarted] = useState(false);
   const [revList, setRevList] = useState([]);
-  // 📝 NOTLAR - Makine yönetimi için notlar alanı
-  const [makineNotlari, setMakineNotlari] = useState('');
-  const [notlarAcik, setNotlarAcik] = useState(false); // müşteri: notlar tablette yer kaplamasın — varsayılan kapalı
+  // 🗒️ NOTLAR — müşteri: "Taleplerde yaptığımız gibi not kısmı" (tarihli + kim yazdı)
+  const [notListesi, setNotListesi] = useState([]);
+  const [yeniNot, setYeniNot] = useState('');
+  const [notKaydediliyor, setNotKaydediliyor] = useState(false);
+  const [notlarAcik, setNotlarAcik] = useState(false); // tabloda yer kaplamasın — varsayılan kapalı
+
+  // Belgenin makine notlarını yükle
+  const notlariYukle = useCallback(async (tesvikId) => {
+    if (!tesvikId) { setNotListesi([]); return; }
+    try {
+      const res = await api.get(`/yeni-tesvik/${tesvikId}/makine-not`);
+      setNotListesi(res.data?.data || []);
+    } catch (e) {
+      console.error('Makine notları yüklenemedi:', e);
+      setNotListesi([]);
+    }
+  }, []);
+
+  const notEkle = async () => {
+    const metin = yeniNot.trim();
+    if (!metin || !selectedTesvik?._id) return;
+    setNotKaydediliyor(true);
+    try {
+      const res = await api.post(`/yeni-tesvik/${selectedTesvik._id}/makine-not`, { metin });
+      setNotListesi(res.data?.data || []);
+      setYeniNot('');
+      openToast('success', 'Not eklendi');
+    } catch (e) {
+      console.error('Not ekleme hatası:', e);
+      openToast('error', e?.response?.data?.message || 'Not eklenemedi');
+    } finally {
+      setNotKaydediliyor(false);
+    }
+  };
+
+  const notSil = async (notId) => {
+    if (!selectedTesvik?._id) return;
+    if (!window.confirm('Bu notu silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await api.delete(`/yeni-tesvik/${selectedTesvik._id}/makine-not/${notId}`);
+      setNotListesi(res.data?.data || []);
+      openToast('success', 'Not silindi');
+    } catch (e) {
+      console.error('Not silme hatası:', e);
+      openToast('error', e?.response?.data?.message || 'Not silinemedi');
+    }
+  };
 
   // Sıra numarası güncelleme fonksiyonu
   const updateRowSiraNo = (type, rowId, newSiraNo) => {
@@ -290,13 +334,9 @@ const MakineYonetimi = () => {
       // 1) Önce backend'den veri çek
       const data = await yeniTesvikService.get(tesvikId);
       
-      // Notları da yükle
-      if (data?.notlar?.dahiliNotlar) {
-        setMakineNotlari(data.notlar.dahiliNotlar);
-      } else {
-        setMakineNotlari('');
-      }
-      
+      // Tarihli makine notlarını yükle
+      notlariYukle(tesvikId);
+
       const backendYerli = data?.makineListeleri?.yerli || [];
       const backendIthal = data?.makineListeleri?.ithal || [];
       
@@ -4299,66 +4339,78 @@ const MakineYonetimi = () => {
         )}
       </Paper>
 
-      {/* 📝 NOTLAR — müşteri: komple kaldırıldı */}
-      <Paper sx={{ display: 'none', p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
-        <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
-          <Box sx={{ fontSize: 20 }}>📝</Box>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
-          {selectedTesvik && (
+      {/* 🗒️ NOTLAR — müşteri: "Taleplerde yaptığımız gibi not kısmı" (tarihli, kim yazdı belli) */}
+      {selectedTesvik && (
+        <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+          <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
+            <Box sx={{ fontSize: 20 }}>🗒️</Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
             <Chip size="small" label={selectedTesvik.belgeNo || selectedTesvik._id} sx={{ ml: 1 }} />
-          )}
-          {makineNotlari && !notlarAcik && <Chip size="small" color="warning" label="not var" sx={{ height: 18, fontSize: '0.62rem' }} />}
-          <Box sx={{ flex: 1 }} />
-          <IconButton size="small">{notlarAcik ? <FullscreenExitIcon sx={{ fontSize: 16 }} /> : <FullscreenIcon sx={{ fontSize: 16 }} />}</IconButton>
-        </Stack>
-        <Collapse in={notlarAcik} unmountOnExit>
-        <TextField
-          fullWidth
-          multiline
-          rows={4}
-          placeholder="Bu belge için notlarınızı buraya yazabilirsiniz..."
-          value={makineNotlari}
-          onChange={(e) => setMakineNotlari(e.target.value)}
-          disabled={!selectedTesvik}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              backgroundColor: '#fff',
-              fontSize: '0.875rem',
-              '&:hover': { backgroundColor: '#f8fafc' },
-              '&.Mui-focused': { backgroundColor: '#fff' }
-            }
-          }}
-        />
-        <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Button
-            size="small"
-            variant="contained"
-            disabled={!selectedTesvik || !isReviseStarted}
-            onClick={async () => {
-              if (!selectedTesvik?._id) return;
-              try {
-                await api.put(`/yeni-tesvik/${selectedTesvik._id}`, { 
-                  notlar: { dahiliNotlar: makineNotlari }
-                });
-                openToast('success', 'Notlar kaydedildi');
-              } catch (e) {
-                console.error('Notlar kaydetme hatası:', e);
-                openToast('error', 'Notlar kaydedilemedi');
-              }
-            }}
-            sx={{ 
-              fontSize: '0.75rem', 
-              py: 0.5, 
-              px: 2,
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }
-            }}
-          >
-            Notları Kaydet
-          </Button>
-        </Box>
-        </Collapse>
-      </Paper>
+            {notListesi.length > 0 && (
+              <Chip size="small" color="warning" label={`${notListesi.length} not`} sx={{ height: 18, fontSize: '0.62rem' }} />
+            )}
+            <Box sx={{ flex: 1 }} />
+            <IconButton size="small">{notlarAcik ? <FullscreenExitIcon sx={{ fontSize: 16 }} /> : <FullscreenIcon sx={{ fontSize: 16 }} />}</IconButton>
+          </Stack>
+          <Collapse in={notlarAcik} unmountOnExit>
+            {/* Yeni not ekleme (revize modu gerekmez — not her zaman yazılabilir) */}
+            <Stack direction="row" spacing={1} alignItems="flex-start">
+              <TextField
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+                placeholder="Bu belgenin makine listesi için not yazın..."
+                value={yeniNot}
+                onChange={(e) => setYeniNot(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) notEkle(); }}
+                sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff', fontSize: '0.875rem' } }}
+              />
+              <Button
+                size="small"
+                variant="contained"
+                disabled={!yeniNot.trim() || notKaydediliyor}
+                onClick={notEkle}
+                sx={{
+                  fontSize: '0.75rem', py: 0.75, px: 2, whiteSpace: 'nowrap',
+                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                  '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }
+                }}
+              >
+                Not Ekle
+              </Button>
+            </Stack>
+
+            {/* Not geçmişi — en yeni üstte */}
+            <Box sx={{ mt: 2 }}>
+              {notListesi.length === 0 && (
+                <Typography variant="caption" sx={{ color: '#94a3b8' }}>Henüz not eklenmemiş.</Typography>
+              )}
+              <Stack spacing={1}>
+                {notListesi.map((n) => (
+                  <Box key={n._id} sx={{ p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155' }}>
+                        {n.yazanAdi || 'Bilinmiyor'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                        {n.tarih ? new Date(n.tarih).toLocaleString('tr-TR') : ''}
+                      </Typography>
+                      <Box sx={{ flex: 1 }} />
+                      <Tooltip title="Notu sil">
+                        <IconButton size="small" color="error" onClick={() => notSil(n._id)} sx={{ p: 0.25 }}>
+                          <DeleteIcon sx={{ fontSize: 15 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: '#1e293b' }}>{n.metin}</Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          </Collapse>
+        </Paper>
+      )}
 
       {/* Bulk Menu - Premium */}
       <Menu 

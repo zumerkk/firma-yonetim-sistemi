@@ -5347,6 +5347,64 @@ module.exports = {
     }
   },
 
+  // 🗒️ Makine Listesi Notları — listele / ekle / sil (müşteri: "Taleplerdeki gibi not kısmı")
+  listMakineNotlari: async (req, res) => {
+    try {
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(req.params.id).select('makineNotlari').lean();
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const notlar = Array.isArray(tesvik.makineNotlari) ? tesvik.makineNotlari : [];
+      // En yeni üstte
+      res.json({ success: true, data: [...notlar].sort((a, b) => new Date(b.tarih) - new Date(a.tarih)) });
+    } catch (error) {
+      console.error('listMakineNotlari error:', error);
+      res.status(500).json({ success: false, message: 'Notlar alınamadı' });
+    }
+  },
+
+  addMakineNotu: async (req, res) => {
+    try {
+      const metin = (req.body?.metin || '').toString().trim();
+      if (!metin) return res.status(400).json({ success: false, message: 'Not metni boş olamaz' });
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(req.params.id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      if (!Array.isArray(tesvik.makineNotlari)) tesvik.makineNotlari = [];
+      tesvik.makineNotlari.push({
+        metin: metin.slice(0, 2000),
+        tarih: new Date(),
+        yazan: req.user._id,
+        yazanAdi: req.user.adSoyad
+      });
+      await tesvik.save();
+      const notlar = [...tesvik.makineNotlari].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+      res.json({ success: true, message: 'Not eklendi', data: notlar });
+    } catch (error) {
+      console.error('addMakineNotu error:', error);
+      res.status(500).json({ success: false, message: 'Not eklenemedi', error: error.message });
+    }
+  },
+
+  deleteMakineNotu: async (req, res) => {
+    try {
+      const { id, notId } = req.params;
+      const Tesvik = require('../models/Tesvik');
+      const tesvik = await Tesvik.findById(id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const oncekiSayi = (tesvik.makineNotlari || []).length;
+      tesvik.makineNotlari = (tesvik.makineNotlari || []).filter((n) => String(n._id) !== String(notId));
+      if (tesvik.makineNotlari.length === oncekiSayi) {
+        return res.status(404).json({ success: false, message: 'Not bulunamadı' });
+      }
+      await tesvik.save();
+      const notlar = [...tesvik.makineNotlari].sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+      res.json({ success: true, message: 'Not silindi', data: notlar });
+    } catch (error) {
+      console.error('deleteMakineNotu error:', error);
+      res.status(500).json({ success: false, message: 'Not silinemedi', error: error.message });
+    }
+  },
+
   // 🆕 Makine Revizyon Listesi
   listMakineRevizyonlari: async (req, res) => {
     try {

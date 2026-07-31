@@ -39,6 +39,10 @@ const {
   startMakineRevizyon,
   finalizeMakineRevizyon,
   listMakineRevizyonlari,
+  // 🗒️ Makine listesi notları
+  listMakineNotlari,
+  addMakineNotu,
+  deleteMakineNotu,
   revertMakineRevizyon,
   exportMakineRevizyonExcel,
   exportMakineRevizyonHistoryExcel,
@@ -533,6 +537,12 @@ router.post('/:id/makine-revizyon/start', authenticate, checkPermission('belgeDu
 router.post('/:id/makine-revizyon/finalize', authenticate, checkPermission('belgeDuzenle'), finalizeMakineRevizyon);
 // Revizyon geçmişi: listele
 router.get('/:id/makine-revizyon/list', authenticate, checkPermission('raporGoruntule'), listMakineRevizyonlari);
+
+// 🗒️ Makine Listesi Notları (Taleplerdeki not deseninin makine listesi karşılığı)
+router.get('/:id/makine-not', authenticate, checkPermission('raporGoruntule'), listMakineNotlari);
+router.post('/:id/makine-not', authenticate, checkPermission('belgeDuzenle'), addMakineNotu);
+router.delete('/:id/makine-not/:notId', authenticate, checkPermission('belgeDuzenle'), deleteMakineNotu);
+
 // Revizyon geri al: seçilen revizeId snapshot'ına dön ve yeni revert snapshot oluştur
 router.post('/:id/makine-revizyon/revert', authenticate, checkPermission('belgeDuzenle'), revertMakineRevizyon);
 // Revizyon Excel export: hücre değişiklikleri kırmızı
