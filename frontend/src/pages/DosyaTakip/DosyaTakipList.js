@@ -17,7 +17,8 @@ import {
     Visibility as VisibilityIcon,
     Delete as DeleteIcon,
     ArrowBack as ArrowBackIcon,
-    Clear as ClearIcon
+    Clear as ClearIcon,
+    Inventory2 as ArchiveIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
@@ -52,6 +53,8 @@ const DosyaTakipList = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, takipId: '' });
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
+    // 🗄️ Arşiv modu — müşteri: "sonuçlananlar arşiv gibi bir yere çekilsin, ana ekranda kalabalık yapmasın"
+    const [arsivModu, setArsivModu] = useState(false);
 
     // Talepler verisi - her zaman array olmalı
     const talepler = Array.isArray(rawTalepler) ? rawTalepler : [];
@@ -66,10 +69,12 @@ const DosyaTakipList = () => {
             limit: paginationModel.pageSize,
             search,
             anaAsama: filterAnaAsama,
-            talepTuru: filterTalepTuru
+            talepTuru: filterTalepTuru,
+            // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
+            arsiv: arsivModu ? '1' : ''
         };
         fetchTalepler(params);
-    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru]);
+    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, arsivModu]);
 
     useEffect(() => {
         loadData();
@@ -273,26 +278,48 @@ const DosyaTakipList = () => {
                         </IconButton>
                         <Box>
                             <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                                Talep Listesi
+                                {arsivModu ? 'Arşiv — Sonuçlanan Talepler' : 'Talep Listesi'}
                             </Typography>
                             <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                Toplam {pagination?.toplam || 0} talep
+                                {arsivModu
+                                    ? `Toplam ${pagination?.toplam || 0} sonuçlanmış talep`
+                                    : `Toplam ${pagination?.toplam || 0} aktif talep`}
                             </Typography>
                         </Box>
                     </Box>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => navigate('/dosya-takip/yeni')}
-                        sx={{
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)'
-                        }}
-                    >
-                        Yeni Talep
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                        {/* 🗄️ Arşiv geçişi — sonuçlananlar ana listeyi kalabalıklaştırmasın */}
+                        <Button
+                            variant={arsivModu ? 'contained' : 'outlined'}
+                            startIcon={<ArchiveIcon />}
+                            onClick={() => {
+                                setArsivModu(v => !v);
+                                setPaginationModel(p => ({ ...p, page: 0 }));
+                            }}
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                ...(arsivModu
+                                    ? { background: 'linear-gradient(135deg, #047857, #059669)', boxShadow: '0 4px 14px rgba(5, 150, 105, 0.3)' }
+                                    : { borderColor: '#cbd5e1', color: '#475569' })
+                            }}
+                        >
+                            {arsivModu ? 'Aktif Talepler' : 'Arşiv'}
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => navigate('/dosya-takip/yeni')}
+                            sx={{
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)'
+                            }}
+                        >
+                            Yeni Talep
+                        </Button>
+                    </Box>
                 </Box>
 
                 {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}

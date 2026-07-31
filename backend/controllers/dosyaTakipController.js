@@ -164,10 +164,18 @@ exports.getTumTalepler = async (req, res) => {
             talepTuru = '',
             firma = '',
             baslangicTarihi = '',
-            bitisTarihi = ''
+            bitisTarihi = '',
+            arsiv = ''
         } = req.query;
 
         const filter = { aktif: true };
+
+        // 🗄️ ARŞİV AYRIMI (müşteri: "sonuçlananlar arşiv gibi bir yere çekilsin,
+        // ana ekrandan çıksın, kalabalık yapmasın iş takibi açısından")
+        // arsiv=1 → yalnızca sonuçlanmış/tamamlanmış talepler
+        // aksi halde → bunlar ana listeden gizlenir
+        const ARSIV_ASAMALARI = ['KURUM_SONUCLANMA', 'TAMAMLANDI'];
+        const arsivModu = String(arsiv) === '1' || String(arsiv) === 'true';
 
         // Filtreler
         if (search) {
@@ -179,7 +187,14 @@ exports.getTumTalepler = async (req, res) => {
             ];
         }
         if (durum) filter.durum = durum;
-        if (anaAsama) filter.anaAsama = anaAsama;
+        // Aşama filtresi seçiliyse o kazanır; değilse arşiv moduna göre dahil/hariç tutulur
+        if (anaAsama) {
+            filter.anaAsama = anaAsama;
+        } else if (arsivModu) {
+            filter.anaAsama = { $in: ARSIV_ASAMALARI };
+        } else {
+            filter.anaAsama = { $nin: ARSIV_ASAMALARI };
+        }
         if (talepTuru) filter.talepTuru = talepTuru;
         if (firma) filter.firma = firma;
         if (baslangicTarihi || bitisTarihi) {

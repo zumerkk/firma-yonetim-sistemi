@@ -474,7 +474,16 @@ const tesvikSchema = new mongoose.Schema({
   
   // 📝 Makine Revizyonları (snapshot listesi)
   makineRevizyonlari: [makineRevizyonSchema],
-  
+
+  // 🗒️ Makine Listesi Notları — müşteri: "Taleplerde yaptığımız gibi not kısmı"
+  // (tarihli + kim yazdı bilgili; DosyaTakip.genelNotlar ile aynı desen)
+  makineNotlari: [{
+    metin: { type: String, required: true, trim: true, maxlength: 2000 },
+    tarih: { type: Date, default: Date.now },
+    yazan: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    yazanAdi: { type: String, trim: true }
+  }],
+
   // 📝 Künye Bilgileri - Excel Şablonuna Uygun
   kunyeBilgileri: {
     talepSonuc: { type: String, trim: true },
