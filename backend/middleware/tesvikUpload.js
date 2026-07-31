@@ -1,5 +1,5 @@
 // 📎 TEŞVİK EVRAK UPLOAD MIDDLEWARE - multer (memory) + tür/boyut kontrolü
-// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, DOCX. Maks boyut: MAX_UPLOAD_MB (varsayılan 20).
+// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, DOCX. Maks boyut: MAX_UPLOAD_MB (varsayılan 100).
 
 const multer = require('multer');
 const path = require('path');
@@ -16,7 +16,7 @@ const ALLOWED_MIME = new Set([
 ]);
 
 function maxBytes() {
-  const mb = Number(process.env.MAX_UPLOAD_MB) || 20;
+  const mb = Number(process.env.MAX_UPLOAD_MB) || 100;
   return mb * 1024 * 1024;
 }
 
@@ -46,7 +46,7 @@ const uploadMemoryMulti = multer({
 });
 
 function handleMulterError(err, res) {
-  const mb = Number(process.env.MAX_UPLOAD_MB) || 20;
+  const mb = Number(process.env.MAX_UPLOAD_MB) || 100;
   if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ success: false, message: `Dosya çok büyük. En fazla ${mb} MB yükleyebilirsiniz.` });
   if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') return res.status(413).json({ success: false, message: `En fazla ${MAX_FILES} dosya yükleyebilirsiniz.` });
   if (err.code === 'UNSUPPORTED_FILE_TYPE') return res.status(415).json({ success: false, message: err.message });

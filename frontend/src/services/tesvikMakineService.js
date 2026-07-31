@@ -59,6 +59,10 @@ const tesvikMakineService = {
 
   // 📮 Ara Kontrol (belge geneli firma maili: makine listesi + fatura talebi)
   araKontrolCompose: (m, id, params = {}) => api.get(`${base}/ara-kontrol/${m}/${id}/compose`, { params }).then(d),
+  // Kullanıcının kaydettiği ara kontrol mail şablonları
+  araKontrolSablonlar: () => api.get(`${base}/ara-kontrol/sablonlar`).then(d),
+  araKontrolSablonKaydet: (body) => api.post(`${base}/ara-kontrol/sablonlar`, body).then(d),
+  araKontrolSablonSil: (code) => api.delete(`${base}/ara-kontrol/sablonlar/${code}`).then((r) => r.data),
   araKontrolSend: (m, id, formData) => api.post(`${base}/ara-kontrol/${m}/${id}/send`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
 
   // Public (token tabanlı — auth gerektirmez)

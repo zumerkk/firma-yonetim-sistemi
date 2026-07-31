@@ -74,6 +74,10 @@ router.post('/process/:id/reminders/stop', editor, ctrl.stopReminders);
 router.post('/process/:id/reminders/resume', editor, ctrl.resumeReminders);
 
 // 📮 Ara Kontrol (belge geneli firma maili): şablon doldur + düzenlenmiş haliyle gönder
+// NOT: /sablonlar rotaları /:tesvikModel'den ÖNCE tanımlanmalı (aksi halde parametre olarak yakalanır)
+router.get('/ara-kontrol/sablonlar', ctrl.araKontrolSablonList);
+router.post('/ara-kontrol/sablonlar', editor, ctrl.araKontrolSablonSave);
+router.delete('/ara-kontrol/sablonlar/:code', editor, ctrl.araKontrolSablonDelete);
 router.get('/ara-kontrol/:tesvikModel/:tesvikId/compose', ctrl.araKontrolCompose);
 router.post('/ara-kontrol/:tesvikModel/:tesvikId/send', editor, uploadMultiple('ekler'), ctrl.araKontrolSend);
 

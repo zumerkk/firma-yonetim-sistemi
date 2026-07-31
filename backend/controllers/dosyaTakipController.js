@@ -1,5 +1,6 @@
 const DosyaTakip = require('../models/DosyaTakip');
 const Activity = require('../models/Activity');
+const Notification = require('../models/Notification');
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
@@ -43,7 +44,8 @@ const IZINLI_UZANTILAR = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.pd
 
 const upload = multer({
     storage: cloudinaryStorage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    // müşteri: yükleme limiti en az 100MB olsun (env ile artırılabilir)
+    limits: { fileSize: (Number(process.env.MAX_UPLOAD_MB) || 100) * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const ext = (path.extname(file.originalname || '') || '').toLowerCase();
         if (IZINLI_UZANTILAR.includes(ext)) return cb(null, true);
@@ -381,6 +383,20 @@ exports.durumDegistir = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Geçersiz durum kodu' });
         }
 
+        // 🔒 "Sonuçlandı"ya geçiş için ETUYS Sonuç Görüntüsü zorunlu (müşteri talebi):
+        // ilgili türde en az bir dosya yüklenmemişse geçişe izin verilmez.
+        if (yeniDurum === '2.3.5_SONUCLANDI') {
+            const zorunluTur = DosyaTakip.SONUC_ZORUNLU_DOSYA_TURU;
+            const varMi = (talep.dosyalar || []).some((d) => d && d.kategori === zorunluTur);
+            if (!varMi) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Talebi "Sonuçlandı" durumuna almak için önce "${zorunluTur}" türünde dosya yüklemelisiniz.`,
+                    code: 'SONUC_GORUNTUSU_EKSIK'
+                });
+            }
+        }
+
         const oncekiDurum = talep.durum;
         const oncekiAnaAsama = talep.anaAsama;
         const yeniAnaAsama = DosyaTakip.durumToAnaAsama(yeniDurum);
@@ -596,7 +612,8 @@ exports.personelMailDusur = async (req, res) => {
 // ============================================================================
 exports.notEkle = async (req, res) => {
     try {
-        const { metin, alan = 'genelNotlar' } = req.body;
+        // bildirimKullanicilar: notu bildirim olarak alacak personel id listesi (müşteri talebi)
+        const { metin, alan = 'genelNotlar', bildirimKullanicilar = [] } = req.body;
         const talep = await DosyaTakip.findById(req.params.id);
 
         if (!talep) {
@@ -637,7 +654,41 @@ exports.notEkle = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: await populateTalep(talep._id), message: 'Not başarıyla eklendi' });
+        // 🔔 Seçilen personellere bildirim düş (müşteri: "Firma adı - Tarih - Gönderen - Not")
+        // Best-effort: bildirim hatası not eklemeyi bozmaz.
+        let bildirimSayisi = 0;
+        try {
+            const hedefler = (Array.isArray(bildirimKullanicilar) ? bildirimKullanicilar : [])
+                .map((x) => String(x))
+                .filter((x, i, arr) => x && arr.indexOf(x) === i && x !== String(req.user._id)); // kendine bildirim yok
+
+            if (hedefler.length) {
+                const firmaAdi = talep.firmaUnvan || 'Firma';
+                const tarihStr = new Date().toLocaleString('tr-TR');
+                const kisaNot = String(metin).length > 260 ? `${String(metin).slice(0, 257)}...` : String(metin);
+                await Promise.all(hedefler.map((uid) => Notification.createNotification({
+                    title: `Talep Notu — ${firmaAdi}`.slice(0, 100),
+                    message: `${firmaAdi} · ${tarihStr} · ${req.user.adSoyad}\n${kisaNot}`.slice(0, 500),
+                    type: 'info',
+                    category: 'general',
+                    priority: 'medium',
+                    userId: uid,
+                    actionButton: { text: 'Talebi Aç', url: `/dosya-takip/${talep._id}`, action: 'navigate' },
+                    organizationData: { createdBy: req.user._id }
+                })));
+                bildirimSayisi = hedefler.length;
+            }
+        } catch (bildirimHatasi) {
+            console.error('⚠️ Not bildirimi gönderilemedi:', bildirimHatasi.message);
+        }
+
+        res.json({
+            success: true,
+            data: await populateTalep(talep._id),
+            message: bildirimSayisi
+                ? `Not eklendi · ${bildirimSayisi} kişiye bildirim gönderildi`
+                : 'Not başarıyla eklendi'
+        });
     } catch (error) {
         console.error('Not ekleme hatası:', error);
         res.status(500).json({ success: false, message: 'Not eklenirken hata oluştu', error: error.message });

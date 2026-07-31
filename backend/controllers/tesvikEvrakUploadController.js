@@ -36,7 +36,7 @@ exports.getInfo = async (req, res) => {
     const ortak = {
       documentTypes: DOCUMENT_TYPES,
       allowedExtensions: ALLOWED_EXT,
-      maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 20
+      maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
     };
     if (belgeCtx) {
       // Belge geneli (Ara Kontrol) linki: makine yerine belge kimliği gösterilir

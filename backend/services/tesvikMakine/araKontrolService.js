@@ -203,7 +203,74 @@ async function notifyBelgeUploadReceived({ identity, count = 1, documentType = '
   return true;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// 📑 ARA KONTROL ÖZEL ŞABLONLARI (müşteri: "mailleri şablon olarak kaydetme yeri")
+// Kullanıcının kaydettiği şablonlar MailTemplate'te `ara_kontrol_ozel_` önekiyle
+// yaşar — sistem şablonlarıyla (seed edilenler) karışmaz, seed onları ezmez.
+// ═══════════════════════════════════════════════════════════════════════
+const OZEL_SABLON_ONEKI = 'ara_kontrol_ozel_';
+
+function sablonKodUret(ad) {
+  const slug = String(ad || '')
+    .toLowerCase()
+    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40) || 'sablon';
+  return `${OZEL_SABLON_ONEKI}${slug}_${Date.now().toString(36)}`;
+}
+
+async function listOzelSablonlar() {
+  const MailTemplate = require('../../models/MailTemplate');
+  return MailTemplate.find({ code: new RegExp(`^${OZEL_SABLON_ONEKI}`), isActive: true })
+    .select('code name subjectTemplate bodyTemplate updatedAt')
+    .sort({ updatedAt: -1 })
+    .lean();
+}
+
+async function saveOzelSablon({ ad, subject, body, code, user }) {
+  const MailTemplate = require('../../models/MailTemplate');
+  const isim = String(ad || '').trim();
+  if (!isim) { const e = new Error('Şablon adı boş olamaz.'); e.code = 'BAD_NAME'; throw e; }
+  if (!String(subject || '').trim() || !String(body || '').trim()) {
+    const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
+  }
+
+  // code verilmişse üzerine yaz (mevcut şablonu güncelle), yoksa yeni kod üret
+  const hedefKod = (code && String(code).startsWith(OZEL_SABLON_ONEKI)) ? code : sablonKodUret(isim);
+  const doc = await MailTemplate.findOneAndUpdate(
+    { code: hedefKod },
+    {
+      $set: {
+        code: hedefKod,
+        name: isim,
+        subjectTemplate: subject,
+        bodyTemplate: body,
+        description: 'Ara Kontrol — kullanıcı şablonu',
+        isActive: true,
+        updatedByUserId: user ? user._id : undefined
+      }
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  ).lean();
+  return doc;
+}
+
+async function deleteOzelSablon(code) {
+  const MailTemplate = require('../../models/MailTemplate');
+  if (!code || !String(code).startsWith(OZEL_SABLON_ONEKI)) {
+    const e = new Error('Yalnızca kendi kaydettiğiniz şablonlar silinebilir.'); e.code = 'BAD_CODE'; throw e;
+  }
+  const res = await MailTemplate.deleteOne({ code });
+  if (!res.deletedCount) { const e = new Error('Şablon bulunamadı.'); e.code = 'NOT_FOUND'; throw e; }
+  return true;
+}
+
 module.exports = {
+  listOzelSablonlar,
+  saveOzelSablon,
+  deleteOzelSablon,
   ensureBelgeUploadLink,
   resolveBelgeByToken,
   composeAraKontrol,
