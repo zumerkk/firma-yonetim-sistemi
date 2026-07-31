@@ -150,9 +150,9 @@ export const DosyaTakipProvider = ({ children }) => {
     }, []);
 
     // 📝 Not Ekle
-    const notEkle = useCallback(async (id, metin, alan) => {
+    const notEkle = useCallback(async (id, metin, alan, bildirimKullanicilar = []) => {
         try {
-            const result = await dosyaTakipService.notEkle(id, metin, alan);
+            const result = await dosyaTakipService.notEkle(id, metin, alan, bildirimKullanicilar);
             if (result.success) setSeciliTalep(result.data);
             return result;
         } catch (err) {

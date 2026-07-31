@@ -61,8 +61,9 @@ const dosyaTakipService = {
     },
 
     // 📝 Not Ekle
-    notEkle: async (id, metin, alan = 'genelNotlar') => {
-        const { data } = await axios.post(`${API_URL}/${id}/not`, { metin, alan });
+    // bildirimKullanicilar: notu bildirim olarak alacak personel id'leri (müşteri talebi)
+    notEkle: async (id, metin, alan = 'genelNotlar', bildirimKullanicilar = []) => {
+        const { data } = await axios.post(`${API_URL}/${id}/not`, { metin, alan, bildirimKullanicilar });
         return data;
     },
 

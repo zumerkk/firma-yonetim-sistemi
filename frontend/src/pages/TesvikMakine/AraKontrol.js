@@ -13,6 +13,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
@@ -47,6 +48,9 @@ const AraKontrol = () => {
   const [gecmis, setGecmis] = useState([]);
   const [yuklemeler, setYuklemeler] = useState([]); // firmadan gelen belge-geneli yüklemeler
   const [snack, setSnack] = useState(null);
+  // 📑 Kullanıcı mail şablonları (müşteri: "farklı mailleri göndermek için şablon kaydetme yeri")
+  const [sablonlar, setSablonlar] = useState([]);
+  const [sablonAdi, setSablonAdi] = useState('');
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
@@ -145,6 +149,42 @@ const AraKontrol = () => {
       notify('Ara kontrol maili gönderildi ✅');
       await gecmisiYukle(secili);
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+
+  // 📑 Şablon işlemleri
+  const sablonlariYukle = async () => {
+    try { setSablonlar(await svc.araKontrolSablonlar() || []); } catch { setSablonlar([]); }
+  };
+
+  useEffect(() => { sablonlariYukle(); }, []);
+
+  const sablonKaydet = async () => {
+    const ad = sablonAdi.trim();
+    if (!ad) return notify('Şablona bir ad verin', 'warning');
+    if (!subject.trim() || !body.trim()) return notify('Konu ve içerik boş olamaz', 'warning');
+    setBusy('sablon');
+    try {
+      await svc.araKontrolSablonKaydet({ ad, subject, body });
+      setSablonAdi('');
+      await sablonlariYukle();
+      notify('Şablon kaydedildi ✅');
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+
+  const sablonUygula = (s) => {
+    if (!s) return;
+    setSubject(s.subjectTemplate || '');
+    setBody(s.bodyTemplate || '');
+    notify(`"${s.name}" şablonu uygulandı`);
+  };
+
+  const sablonSil = async (s) => {
+    if (!window.confirm(`"${s.name}" şablonunu silmek istediğinize emin misiniz?`)) return;
+    try {
+      await svc.araKontrolSablonSil(s.code);
+      await sablonlariYukle();
+      notify('Şablon silindi');
+    } catch (e) { notify(errMsg(e), 'error'); }
   };
 
   const linkKopyala = () => {
@@ -248,6 +288,44 @@ const AraKontrol = () => {
                 </Tooltip>
               </Stack>
               {!compose.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
+
+              {/* 📑 Kayıtlı şablonlar — uygula / yeni kaydet */}
+              <Box sx={{ mb: 1.5, p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>Şablonlar:</Typography>
+                  {sablonlar.length === 0 && (
+                    <Typography variant="caption" color="text.secondary">Henüz kayıtlı şablon yok — aşağıda düzenleyip sağdan kaydedebilirsiniz.</Typography>
+                  )}
+                  {sablonlar.map((s) => (
+                    <Chip
+                      key={s.code}
+                      size="small"
+                      label={s.name}
+                      onClick={() => sablonUygula(s)}
+                      onDelete={() => sablonSil(s)}
+                      sx={{ cursor: 'pointer' }}
+                    />
+                  ))}
+                  <Box sx={{ flex: 1 }} />
+                  <TextField
+                    size="small"
+                    placeholder="Şablon adı"
+                    value={sablonAdi}
+                    onChange={(e) => setSablonAdi(e.target.value)}
+                    sx={{ width: 170 }}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<BookmarkAddIcon />}
+                    onClick={sablonKaydet}
+                    disabled={busy === 'sablon' || !sablonAdi.trim()}
+                    sx={{ whiteSpace: 'nowrap' }}
+                  >
+                    Şablon Kaydet
+                  </Button>
+                </Stack>
+              </Box>
               <Stack spacing={1.5}>
                 <TextField label="Kime" size="small" fullWidth value={to} onChange={(e) => setTo(e.target.value)}
                   placeholder="firma@ornek.com (virgülle birden fazla)" />

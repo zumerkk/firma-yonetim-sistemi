@@ -334,6 +334,23 @@ exports.araKontrolCompose = wrap(async (req, res) => {
   res.json({ success: true, data });
 });
 
+// 📑 Ara Kontrol özel mail şablonları — listele / kaydet / sil
+exports.araKontrolSablonList = wrap(async (req, res) => {
+  const data = await araKontrolService.listOzelSablonlar();
+  res.json({ success: true, data });
+});
+
+exports.araKontrolSablonSave = wrap(async (req, res) => {
+  const { ad, subject, body, code } = req.body || {};
+  const data = await araKontrolService.saveOzelSablon({ ad, subject, body, code, user: req.user });
+  res.json({ success: true, data, message: 'Şablon kaydedildi' });
+});
+
+exports.araKontrolSablonDelete = wrap(async (req, res) => {
+  await araKontrolService.deleteOzelSablon(req.params.code);
+  res.json({ success: true, message: 'Şablon silindi' });
+});
+
 exports.araKontrolSend = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   getModel(tesvikModel);

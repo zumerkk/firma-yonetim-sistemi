@@ -123,9 +123,13 @@ const ANA_ASAMALAR = [
 // 📁 Dosya Türleri (yüklemeden önce seçilir — müşteri talebi)
 const DOSYA_TURLERI = [
   'ETUYS Sistem Görüntüsü',
+  'ETUYS Sonuç Görüntüsü', // müşteri: bu yüklenmeden talep "Sonuçlandı"ya alınamaz
   'Görüşme Sırası Talep Dosyaları',
   'Eksik Bildirimleri'
 ];
+
+// Talebin "Sonuçlandı" durumuna geçebilmesi için zorunlu dosya türü
+const SONUC_ZORUNLU_DOSYA_TURU = 'ETUYS Sonuç Görüntüsü';
 
 // 📄 Belge Durumları (belgeden gelir/seçilir — müşteri talebi)
 const BELGE_DURUMLARI = [
@@ -440,6 +444,7 @@ dosyaTakipSchema.statics.TALEP_TURLERI = TALEP_TURLERI;
 dosyaTakipSchema.statics.DURUM_KODLARI = DURUM_KODLARI;
 dosyaTakipSchema.statics.ANA_ASAMALAR = ANA_ASAMALAR;
 dosyaTakipSchema.statics.DOSYA_TURLERI = DOSYA_TURLERI;
+dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
 dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 
 // Durum → Ana Aşama eşleştirmesi (müşteri: 4 ana aşama — Kurum Eksik ayrı aşama)

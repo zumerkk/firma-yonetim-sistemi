@@ -56,7 +56,9 @@ const DURUM_RENKLERI = {
 };
 
 // Dosya türleri (müşteri: yüklemeden önce seçilir)
-const DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
+// Backend DosyaTakip.DOSYA_TURLERI ile aynı sırada tutulmalı
+// 'ETUYS Sonuç Görüntüsü' → talebi "Sonuçlandı"ya almak için zorunlu (müşteri talebi)
+const DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'ETUYS Sonuç Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
 
 // Durum etiketleri (eski kodların etiketi eski kayıtlar için korunur)
 const DURUM_ETIKETLERI = {
@@ -245,6 +247,8 @@ const DosyaTakipDetail = () => {
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
     const [notAlan, setNotAlan] = useState('genelNotlar');
+    // 🔔 Not eklenirken bildirim gönderilecek personeller (müşteri talebi)
+    const [notBildirimKisiler, setNotBildirimKisiler] = useState([]);
     const [dosyaKategori, setDosyaKategori] = useState(''); // müşteri: yüklemeden önce dosya türü seç
     const [dosyaDragOver, setDosyaDragOver] = useState(false); // sürükle-bırak görsel geri bildirim
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
@@ -448,9 +452,14 @@ const DosyaTakipDetail = () => {
     const handleNotEkle = async () => {
         if (!notText.trim()) return;
         try {
-            await notEkle(id, notText, notAlan);
+            const sonuc = await notEkle(id, notText, notAlan, notBildirimKisiler);
             setNotText('');
-            setSnackbar({ open: true, message: 'Not eklendi!', severity: 'success' });
+            setNotBildirimKisiler([]);
+            setSnackbar({
+                open: true,
+                message: sonuc?.message || 'Not eklendi!',
+                severity: 'success'
+            });
         } catch (err) {
             setSnackbar({ open: true, message: 'Not eklenemedi.', severity: 'error' });
         }
@@ -961,6 +970,30 @@ const DosyaTakipDetail = () => {
                                                 <MenuItem value="muraacatSonrasi.kurumDegerlendirme.gorusmeNotlari">Kurum Notu</MenuItem>
                                                 <MenuItem value="kurumSonuclanma.sonucNotlari">Sonuç Notu</MenuItem>
                                                 <MenuItem value="sozlesmeNotlari">Sözleşme Notu</MenuItem>
+                                            </TextField>
+                                            {/* 🔔 Bildirim gönderilecek personeller (müşteri: notu seçtiğimiz personele bildirim düşsün) */}
+                                            <TextField
+                                                select
+                                                size="small"
+                                                label="Bildirim"
+                                                value={notBildirimKisiler}
+                                                onChange={(e) => setNotBildirimKisiler(
+                                                    typeof e.target.value === 'string' ? e.target.value.split(',') : e.target.value
+                                                )}
+                                                SelectProps={{
+                                                    multiple: true,
+                                                    renderValue: (secili) => secili.length === 0
+                                                        ? 'Kimseye'
+                                                        : `${secili.length} kişi`
+                                                }}
+                                                sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                            >
+                                                {(Array.isArray(users) ? users : []).map(u => (
+                                                    <MenuItem key={u._id || u.id} value={u._id || u.id}>
+                                                        <Checkbox size="small" checked={notBildirimKisiler.indexOf(u._id || u.id) > -1} />
+                                                        {u.adSoyad}
+                                                    </MenuItem>
+                                                ))}
                                             </TextField>
                                             <Button
                                                 variant="contained"
