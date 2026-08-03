@@ -58,7 +58,7 @@ const DURUM_RENKLERI = {
 // Dosya türleri (müşteri: yüklemeden önce seçilir)
 // Backend DosyaTakip.DOSYA_TURLERI ile aynı sırada tutulmalı
 // 'ETUYS Sonuç Görüntüsü' → talebi "Sonuçlandı"ya almak için zorunlu (müşteri talebi)
-const DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'ETUYS Sonuç Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
+const DOSYA_TURLERI = ['ETUYS Talep Görüntüsü', 'ETUYS Sonuç Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
 
 // Durum etiketleri (eski kodların etiketi eski kayıtlar için korunur)
 const DURUM_ETIKETLERI = {
@@ -80,7 +80,8 @@ const DURUM_ETIKETLERI = {
     '2.3.2_SONUC_BEKLETILECEK': 'Bekletilecek',
     '2.3.3_TALEP_FIRMA_IPTAL': 'Firma İptal',
     '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
-    '2.3.5_SONUCLANDI': 'Sonuçlandı'
+    '2.3.5_SONUCLANDI': 'Sonuçlandı',
+    '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
 };
 
 // müşteri: yeni iş akışında SEÇİLEBİLİR durumlar (eski/gizli kodlar durum
@@ -99,7 +100,8 @@ const SECILEBILIR_DURUMLAR = [
     '2.3.1_SONUC_FIRMAYA_ILETILDI',
     '2.3.2_SONUC_BEKLETILECEK',
     '2.3.3_TALEP_FIRMA_IPTAL',
-    '2.3.5_SONUCLANDI'
+    '2.3.5_SONUCLANDI',
+    '2.3.6_BELGEYE_YANSITILDI'
 ];
 
 // Workflow aşamaları yapılandırması (müşteri: yeni 4 ana aşamalı iş akışı)
@@ -147,7 +149,8 @@ const WORKFLOW_STEPS = [
             { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' },
             { key: '2.3.2_SONUC_BEKLETILECEK', label: 'Bekletilecek' },
             { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' },
-            { key: '2.3.5_SONUCLANDI', label: 'Sonuçlandı' }
+            { key: '2.3.5_SONUCLANDI', label: 'Sonuçlandı' },
+            { key: '2.3.6_BELGEYE_YANSITILDI', label: 'Belgeye Yansıtıldı' }
         ]
     }
 ];
