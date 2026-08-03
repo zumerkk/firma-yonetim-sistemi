@@ -383,10 +383,9 @@ exports.durumDegistir = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Geçersiz durum kodu' });
         }
 
-        // 🔒 "Sonuçlandı"ya geçiş için ETUYS Sonuç Görüntüsü zorunlu (müşteri talebi):
-        // ilgili türde en az bir dosya yüklenmemişse geçişe izin verilmez.
-        // "Belgeye Yansıtıldı" da sonuç sonrası bir adım olduğundan aynı kural geçerli
-        if (yeniDurum === '2.3.5_SONUCLANDI' || yeniDurum === '2.3.6_BELGEYE_YANSITILDI') {
+        // 🔒 "Sonuçlandı"ya geçiş için ETUYS Sonuç Görüntüsü zorunlu (müşteri talebi).
+        // NOT: "Belgeye Yansıtıldı" bu kuralın dışında tutuldu (müşteri: o seçenek için kaldıralım).
+        if (yeniDurum === '2.3.5_SONUCLANDI') {
             const zorunluTur = DosyaTakip.SONUC_ZORUNLU_DOSYA_TURU;
             const varMi = (talep.dosyalar || []).some((d) => d && d.kategori === zorunluTur);
             if (!varMi) {
@@ -417,6 +416,10 @@ exports.durumDegistir = async (req, res) => {
 
         talep.durum = yeniDurum;
         talep.anaAsama = yeniAnaAsama;
+        // müşteri: sonuçlananlarda sonuçlanma tarihi görünsün (4. aşamaya ilk geçişte damgalanır)
+        if (yeniDurum === '2.3.5_SONUCLANDI' || yeniDurum === '2.3.6_BELGEYE_YANSITILDI') {
+            if (!talep.sonuclanmaTarihi) talep.sonuclanmaTarihi = new Date();
+        }
         talep.durumRengi = yeniRenk;
         talep.durumAciklamasi = aciklama || '';
         talep.durumAciklamasiTarihi = aciklama ? new Date() : talep.durumAciklamasiTarihi;
@@ -678,6 +681,39 @@ exports.notEkle = async (req, res) => {
                     organizationData: { createdBy: req.user._id }
                 })));
                 bildirimSayisi = hedefler.length;
+
+                // 📧 Aynı bildirimi personelin e-postasına da gönder (müşteri talebi)
+                // Best-effort: SMTP yoksa veya hata olursa sistem bildirimi yine de düşer.
+                try {
+                    const mailService = require('../services/tesvikMakine/mailService');
+                    if (mailService.isConfigured()) {
+                        const User = require('../models/User');
+                        const kisiler = await User.find({ _id: { $in: hedefler } }).select('email adSoyad').lean();
+                        const adresler = kisiler.map((k) => k.email).filter(Boolean);
+                        if (adresler.length) {
+                            const govde = [
+                                'Gmplansis Belge Takip sisteminde adınıza bir not paylaşıldı:',
+                                '',
+                                `Firma      : ${firmaAdi}`,
+                                `Tarih      : ${tarihStr}`,
+                                `Gönderen   : ${req.user.adSoyad}`,
+                                `Takip No   : ${talep.takipId || '-'}`,
+                                '',
+                                'Not:',
+                                String(metin),
+                                '',
+                                `Talebi görüntülemek için: ${(process.env.UPLOAD_PUBLIC_BASE_URL || 'https://gmplansis.com').replace(/\/$/, '')}/dosya-takip/${talep._id}`
+                            ].join('\n');
+                            await mailService.sendMail({
+                                to: adresler,
+                                subject: `Gmplansis Belge Takip Bildirimi — ${firmaAdi}`,
+                                text: govde
+                            });
+                        }
+                    }
+                } catch (mailHatasi) {
+                    console.error('⚠️ Not bildirim maili gönderilemedi:', mailHatasi.message);
+                }
             }
         } catch (bildirimHatasi) {
             console.error('⚠️ Not bildirimi gönderilemedi:', bildirimHatasi.message);

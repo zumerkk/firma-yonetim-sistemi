@@ -386,6 +386,9 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       belgeBaslamaTarihi: parseDate(merged.belgeBaslamaTarihi),
       belgeBitisTarihi: parseDate(merged.belgeBitisTarihi),
       uzatimTarihi: parseDate(merged.sureUzatimTarihi),
+      // 🔧 FIX (müşteri: "Kararname Tarih/Sayı boş görünüyor"): AI çıktısındaki
+      // kararname bilgisi kayda hiç yazılmıyordu.
+      dayandigiKanun: merged.kararnameNo || '',
     },
 
     // Künye bilgileri
@@ -408,6 +411,9 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       ilceBazliBolge: merged.ilceBazliBolge || '',
       ada: merged.ada || '',
       parsel: merged.parsel || '',
+      // 🔧 FIX (müşteri: "OECD (Orta-Yüksek) görünmüyor, ekran görüntüsü de almıyor"):
+      // AI çıktısında oecdKategori vardı ama kayda yazılmıyordu.
+      oecdKategori: merged.oecdKategori || '',
       cazibeMerkeziMi: normalizeEvetHayir(merged.cazibeMerkezliMi),
       savunmaSanayiProjesi: normalizeEvetHayir(merged.savunmaSanayiProjesi),
       hamleMi: normalizeEvetHayir(merged.hamleMi),

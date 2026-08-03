@@ -97,11 +97,12 @@ const SECILEBILIR_DURUMLAR = [
     '2.2.3.1_EKSIK_FIRMADAN_BEKLENIYOR',
     '2.2.3.2_EKSIK_BIZDEN_BEKLENIYOR',
     '2.2.3.3_EKSIK_HEM_FIRMA_HEM_BIZDEN',
-    '2.3.1_SONUC_FIRMAYA_ILETILDI',
+    // 4. aşama sıralaması müşteri isteğine göre
     '2.3.2_SONUC_BEKLETILECEK',
     '2.3.3_TALEP_FIRMA_IPTAL',
     '2.3.5_SONUCLANDI',
-    '2.3.6_BELGEYE_YANSITILDI'
+    '2.3.6_BELGEYE_YANSITILDI',
+    '2.3.1_SONUC_FIRMAYA_ILETILDI'
 ];
 
 // Workflow aşamaları yapılandırması (müşteri: yeni 4 ana aşamalı iş akışı)
@@ -145,12 +146,13 @@ const WORKFLOW_STEPS = [
         label: '4. Sonuçlanma',
         icon: <CheckCircleIcon />,
         color: '#059669',
+        // müşteri sıralaması: Bekletilecek → Firma İptal → Sonuçlandı → Belgeye Yansıtıldı → Firmaya İletildi
         subSteps: [
-            { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' },
             { key: '2.3.2_SONUC_BEKLETILECEK', label: 'Bekletilecek' },
             { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' },
             { key: '2.3.5_SONUCLANDI', label: 'Sonuçlandı' },
-            { key: '2.3.6_BELGEYE_YANSITILDI', label: 'Belgeye Yansıtıldı' }
+            { key: '2.3.6_BELGEYE_YANSITILDI', label: 'Belgeye Yansıtıldı' },
+            { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' }
         ]
     }
 ];

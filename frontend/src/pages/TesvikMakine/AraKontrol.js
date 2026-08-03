@@ -13,7 +13,6 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import BookmarkAddIcon from '@mui/icons-material/BookmarkAdd';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
@@ -48,11 +47,6 @@ const AraKontrol = () => {
   const [gecmis, setGecmis] = useState([]);
   const [yuklemeler, setYuklemeler] = useState([]); // firmadan gelen belge-geneli yüklemeler
   const [snack, setSnack] = useState(null);
-  // 📑 Kullanıcı mail şablonları (müşteri: "farklı mailleri göndermek için şablon kaydetme yeri")
-  const [sablonlar, setSablonlar] = useState([]);
-  const [sablonAdi, setSablonAdi] = useState('');
-  const [seciliSablon, setSeciliSablon] = useState(null);   // gönderimde şablon eklerini iliştirmek için
-  const [sablonEkleri, setSablonEkleri] = useState([]);      // şablondan gelen sabit ekler
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
@@ -108,9 +102,7 @@ const AraKontrol = () => {
   };
 
   const belgeSecildi = async (b) => {
-    // Belge değişince şablon seçimi ve ekleri de sıfırlanır (yanlış belgeye ek gitmesin)
     setSecili(b); setCompose(null); setGecmis([]); setYuklemeler([]); setEkler([]); setSistemListesi(false);
-    setSeciliSablon(null); setSablonEkleri([]);
     if (!b) return;
     setBusy('compose');
     try {
@@ -149,65 +141,10 @@ const AraKontrol = () => {
       fd.append('subject', subject);
       fd.append('body', body);
       fd.append('sistemListesi', sistemListesi ? '1' : '0');
-      // Şablon uygulanmışsa sabit ekleri backend şablondan çeker.
-      // Ekranda silinenler gitmesin diye kalan ek adları da bildirilir.
-      if (seciliSablon?.code && sablonEkleri.length) {
-        fd.append('sablonKodu', seciliSablon.code);
-        fd.append('sablonEkAdlari', JSON.stringify(sablonEkleri.map((e) => e.dosyaAdi)));
-      }
       await svc.araKontrolSend(secili.tesvikModel, idOf(secili), fd);
       notify('Ara kontrol maili gönderildi ✅');
       await gecmisiYukle(secili);
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
-  };
-
-  // 📑 Şablon işlemleri
-  const sablonlariYukle = async () => {
-    try { setSablonlar(await svc.araKontrolSablonlar() || []); } catch { setSablonlar([]); }
-  };
-
-  useEffect(() => { sablonlariYukle(); }, []);
-
-  const sablonKaydet = async () => {
-    const ad = sablonAdi.trim();
-    if (!ad) return notify('Şablona bir ad verin', 'warning');
-    if (!subject.trim() || !body.trim()) return notify('Konu ve içerik boş olamaz', 'warning');
-    setBusy('sablon');
-    try {
-      // Ekler de şablonla birlikte kaydedilir (müşteri talebi): elle eklenen dosyalar +
-      // şablondan gelen mevcut ekler + "sistemden yerli liste" tercihi
-      const fd = new FormData();
-      fd.append('ad', ad);
-      fd.append('subject', subject);
-      fd.append('body', body);
-      fd.append('sistemListesi', sistemListesi ? '1' : '0');
-      fd.append('mevcutEkler', JSON.stringify(sablonEkleri));
-      ekler.forEach((f) => fd.append('ekler', f));
-      await svc.araKontrolSablonKaydet(fd);
-      setSablonAdi('');
-      await sablonlariYukle();
-      notify('Şablon kaydedildi ✅ (ekler dahil)');
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
-  };
-
-  const sablonUygula = (s) => {
-    if (!s) return;
-    setSubject(s.subjectTemplate || '');
-    setBody(s.bodyTemplate || '');
-    setSeciliSablon(s);
-    setSablonEkleri(s.ekler || []);
-    setSistemListesi(!!s.sistemListesi);
-    const ekBilgi = (s.ekler || []).length ? ` · ${s.ekler.length} ek yüklendi` : '';
-    notify(`"${s.name}" şablonu uygulandı${ekBilgi}`);
-  };
-
-  const sablonSil = async (s) => {
-    if (!window.confirm(`"${s.name}" şablonunu silmek istediğinize emin misiniz?`)) return;
-    try {
-      await svc.araKontrolSablonSil(s.code);
-      await sablonlariYukle();
-      notify('Şablon silindi');
-    } catch (e) { notify(errMsg(e), 'error'); }
   };
 
   const linkKopyala = () => {
@@ -296,18 +233,6 @@ const AraKontrol = () => {
                     onDelete={() => setEkler((prev) => prev.filter((_, j) => j !== i))} deleteIcon={<CloseIcon />} />
                 ))}
                 {sistemListesi && <Chip size="small" color="success" label="Yerli_Makine_Listesi.xlsx (sistemden)" />}
-                {/* 📎 Şablonla birlikte gelen sabit ekler */}
-                {sablonEkleri.map((e, i) => (
-                  <Chip
-                    key={`sablon-ek-${i}`}
-                    size="small"
-                    color="info"
-                    variant="outlined"
-                    label={`${e.dosyaAdi} (şablon)`}
-                    onDelete={() => setSablonEkleri((prev) => prev.filter((_, j) => j !== i))}
-                    deleteIcon={<CloseIcon />}
-                  />
-                ))}
               </Stack>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 Henüz makineleri sisteme girilmemiş firmalar için hazır listeyi elle dosya olarak ekleyebilirsiniz.
@@ -324,43 +249,6 @@ const AraKontrol = () => {
               </Stack>
               {!compose.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
 
-              {/* 📑 Kayıtlı şablonlar — uygula / yeni kaydet */}
-              <Box sx={{ mb: 1.5, p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
-                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>Şablonlar:</Typography>
-                  {sablonlar.length === 0 && (
-                    <Typography variant="caption" color="text.secondary">Henüz kayıtlı şablon yok — aşağıda düzenleyip sağdan kaydedebilirsiniz.</Typography>
-                  )}
-                  {sablonlar.map((s) => (
-                    <Chip
-                      key={s.code}
-                      size="small"
-                      label={s.name}
-                      onClick={() => sablonUygula(s)}
-                      onDelete={() => sablonSil(s)}
-                      sx={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                  <Box sx={{ flex: 1 }} />
-                  <TextField
-                    size="small"
-                    placeholder="Şablon adı"
-                    value={sablonAdi}
-                    onChange={(e) => setSablonAdi(e.target.value)}
-                    sx={{ width: 170 }}
-                  />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    startIcon={<BookmarkAddIcon />}
-                    onClick={sablonKaydet}
-                    disabled={busy === 'sablon' || !sablonAdi.trim()}
-                    sx={{ whiteSpace: 'nowrap' }}
-                  >
-                    Şablon Kaydet
-                  </Button>
-                </Stack>
-              </Box>
               <Stack spacing={1.5}>
                 <TextField label="Kime" size="small" fullWidth value={to} onChange={(e) => setTo(e.target.value)}
                   placeholder="firma@ornek.com (virgülle birden fazla)" />

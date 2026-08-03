@@ -151,14 +151,36 @@ describe('dedupeCertificateRows - mükerrer belge ayıklama', () => {
   const { dedupeCertificateRows } = require('../../services/tesvikMakine/certificateResolver');
   const row = (o) => ({ _id: o.id, tesvikModel: 'Tesvik', belgeNo: '604372', belgeId: '1106317', localCount: 0, importCount: 0, createdAt: new Date('2026-01-01'), ...o });
 
-  test('aynı belgeNo+belgeId → YeniTesvik tercih edilir (BAŞARI PLASTİK senaryosu)', () => {
+  // Müşteri geri bildirimi (03.08): "bazı firmaların makineleri kayıtlı olsa bile görünmüyor"
+  // → Makine varlığı model tercihinden ÖNCE gelir; makinesiz bir YeniTesvik kaydı,
+  // makineleri olan Tesvik kaydını artık gizleyemez.
+  test('aynı belgeNo+belgeId → makinesi olan kayıt kazanır (makine görünürlüğü)', () => {
     const rows = [
       row({ id: 'eski1', tesvikModel: 'Tesvik', localCount: 5 }),
       row({ id: 'eski2', tesvikModel: 'Tesvik' }),
-      row({ id: 'yeni1', tesvikModel: 'YeniTesvik' }) // TES20260019 — makinesi olmasa bile kanonik
+      row({ id: 'yeni1', tesvikModel: 'YeniTesvik' }) // makinesiz → artık kanonik değil
     ];
     const out = dedupeCertificateRows(rows);
     expect(out.length).toBe(1);
+    expect(out[0]._id).toBe('eski1');
+  });
+
+  test('makine durumu eşitse YeniTesvik tercih edilir (eski kural korunur)', () => {
+    const rows = [
+      row({ id: 'eski1', tesvikModel: 'Tesvik' }),
+      row({ id: 'yeni1', tesvikModel: 'YeniTesvik' })
+    ];
+    const out = dedupeCertificateRows(rows);
+    expect(out.length).toBe(1);
+    expect(out[0]._id).toBe('yeni1');
+  });
+
+  test('ikisinde de makine varsa YeniTesvik kazanır', () => {
+    const rows = [
+      row({ id: 'eski1', tesvikModel: 'Tesvik', localCount: 5 }),
+      row({ id: 'yeni1', tesvikModel: 'YeniTesvik', localCount: 3 })
+    ];
+    const out = dedupeCertificateRows(rows);
     expect(out[0]._id).toBe('yeni1');
   });
 
