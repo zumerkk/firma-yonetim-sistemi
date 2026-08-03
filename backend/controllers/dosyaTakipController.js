@@ -385,7 +385,8 @@ exports.durumDegistir = async (req, res) => {
 
         // 🔒 "Sonuçlandı"ya geçiş için ETUYS Sonuç Görüntüsü zorunlu (müşteri talebi):
         // ilgili türde en az bir dosya yüklenmemişse geçişe izin verilmez.
-        if (yeniDurum === '2.3.5_SONUCLANDI') {
+        // "Belgeye Yansıtıldı" da sonuç sonrası bir adım olduğundan aynı kural geçerli
+        if (yeniDurum === '2.3.5_SONUCLANDI' || yeniDurum === '2.3.6_BELGEYE_YANSITILDI') {
             const zorunluTur = DosyaTakip.SONUC_ZORUNLU_DOSYA_TURU;
             const varMi = (talep.dosyalar || []).some((d) => d && d.kategori === zorunluTur);
             if (!varMi) {
@@ -1058,7 +1059,8 @@ function getDurumEtiketi(durum) {
         '2.3.2_SONUC_BEKLETILECEK': 'Sonuç Bekletilecek',
         '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
         '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
-        '2.3.5_SONUCLANDI': 'Sonuçlandı'
+        '2.3.5_SONUCLANDI': 'Sonuçlandı',
+        '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
     };
     return etiketler[durum] || durum;
 }

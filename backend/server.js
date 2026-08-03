@@ -469,6 +469,26 @@ const startServer = async () => {
       console.error('⚠️ Dosya Takip aşama migrasyonu hatası (kritik değil):', err.message);
     }
 
+    // 🔄 Dosya türü yeniden adlandırma: "ETUYS Sistem Görüntüsü" → "ETUYS Talep Görüntüsü"
+    // (müşteri talebi) — idempotent, eski kayıtlardaki dosya kategorileri yeni ada taşınır.
+    try {
+      const DosyaTakip = require('./models/DosyaTakip');
+      const eslesme = DosyaTakip.DOSYA_TURU_ESLESTIRME || {};
+      let tasinan = 0;
+      for (const [eskiAd, yeniAd] of Object.entries(eslesme)) {
+        // Gömülü dosya dizisindeki kategorileri güncelle (arrayFilters ile yalnız eşleşen öğeler)
+        const sonuc = await DosyaTakip.updateMany(
+          { 'dosyalar.kategori': eskiAd },
+          { $set: { 'dosyalar.$[el].kategori': yeniAd } },
+          { arrayFilters: [{ 'el.kategori': eskiAd }] }
+        );
+        tasinan += sonuc.modifiedCount || 0;
+      }
+      if (tasinan > 0) console.log(`✅ Dosya türü migrasyonu: ${tasinan} talepte kategori güncellendi`);
+    } catch (err) {
+      console.error('⚠️ Dosya türü migrasyonu hatası (kritik değil):', err.message);
+    }
+
     // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
     try {
       const { fixDestekSiniflari } = require('./fixDestekSiniflari');

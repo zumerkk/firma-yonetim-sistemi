@@ -106,7 +106,8 @@ const DURUM_KODLARI = [
   '2.3.2_SONUC_BEKLETILECEK',
   '2.3.3_TALEP_FIRMA_IPTAL',
   '2.3.4_TALEP_GM_IPTAL',
-  '2.3.5_SONUCLANDI' // müşteri: 4d- Sonuçlandı
+  '2.3.5_SONUCLANDI', // müşteri: 4d- Sonuçlandı
+  '2.3.6_BELGEYE_YANSITILDI' // müşteri: Sonuçlandı'nın altına "Belgeye Yansıtıldı"
 ];
 
 // Ana Aşamalar (müşteri: 4 ana aşama — Kurum Eksik ana aşama oldu;
@@ -122,11 +123,16 @@ const ANA_ASAMALAR = [
 
 // 📁 Dosya Türleri (yüklemeden önce seçilir — müşteri talebi)
 const DOSYA_TURLERI = [
-  'ETUYS Sistem Görüntüsü',
+  'ETUYS Talep Görüntüsü', // müşteri: eski adı "ETUYS Sistem Görüntüsü" idi
   'ETUYS Sonuç Görüntüsü', // müşteri: bu yüklenmeden talep "Sonuçlandı"ya alınamaz
   'Görüşme Sırası Talep Dosyaları',
   'Eksik Bildirimleri'
 ];
+
+// Kullanımdan kalkan tür adları — eski kayıtlar validasyondan geçsin diye enum'da tutulur,
+// arayüzde gösterilmez. Sunucu açılışında yeni ada taşınır (server.js migrasyonu).
+const ESKI_DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü'];
+const DOSYA_TURU_ESLESTIRME = { 'ETUYS Sistem Görüntüsü': 'ETUYS Talep Görüntüsü' };
 
 // Talebin "Sonuçlandı" durumuna geçebilmesi için zorunlu dosya türü
 const SONUC_ZORUNLU_DOSYA_TURU = 'ETUYS Sonuç Görüntüsü';
@@ -158,7 +164,8 @@ const dosyaSchema = new mongoose.Schema({
   dosyaAdi: { type: String, required: true },
   dosyaYolu: { type: String, required: true },
   dosyaTipi: { type: String },          // mimetype
-  kategori: { type: String, enum: [...DOSYA_TURLERI, ''], default: '' }, // müşteri: önce tür seç
+  // enum'a eski adlar da dahil: geçmiş kayıtlar migration öncesinde de kaydedilebilsin
+  kategori: { type: String, enum: [...DOSYA_TURLERI, ...ESKI_DOSYA_TURLERI, ''], default: '' },
   dosyaBoyutu: { type: Number },
   cloudinaryPublicId: { type: String }, // silme için (controller zaten yazıyordu)
   yukleyenKisi: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -420,7 +427,8 @@ dosyaTakipSchema.virtual('durumEtiketi').get(function() {
     '2.3.2_SONUC_BEKLETILECEK': 'Sonuç Bekletilecek',
     '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
     '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
-    '2.3.5_SONUCLANDI': 'Sonuçlandı'
+    '2.3.5_SONUCLANDI': 'Sonuçlandı',
+    '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
   };
   return etiketler[this.durum] || this.durum;
 });
@@ -444,6 +452,8 @@ dosyaTakipSchema.statics.TALEP_TURLERI = TALEP_TURLERI;
 dosyaTakipSchema.statics.DURUM_KODLARI = DURUM_KODLARI;
 dosyaTakipSchema.statics.ANA_ASAMALAR = ANA_ASAMALAR;
 dosyaTakipSchema.statics.DOSYA_TURLERI = DOSYA_TURLERI;
+dosyaTakipSchema.statics.ESKI_DOSYA_TURLERI = ESKI_DOSYA_TURLERI;
+dosyaTakipSchema.statics.DOSYA_TURU_ESLESTIRME = DOSYA_TURU_ESLESTIRME;
 dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
 dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 
@@ -463,7 +473,7 @@ dosyaTakipSchema.statics.durumRengiBelirle = function(durum) {
   if (durum.startsWith('2.1.4')) return 'turuncu';
   if (durum.startsWith('2.2.0') || durum.startsWith('2.2.1')) return 'mor';
   if (durum.startsWith('2.2.3')) return 'kirmizi';
-  if (durum === '2.3.1_SONUC_FIRMAYA_ILETILDI' || durum === '2.3.5_SONUCLANDI') return 'yesil';
+  if (durum === '2.3.1_SONUC_FIRMAYA_ILETILDI' || durum === '2.3.5_SONUCLANDI' || durum === '2.3.6_BELGEYE_YANSITILDI') return 'yesil';
   if (durum === '2.3.2_SONUC_BEKLETILECEK') return 'sari';
   if (durum.startsWith('2.3.3') || durum.startsWith('2.3.4')) return 'gri';
   return 'mavi';
