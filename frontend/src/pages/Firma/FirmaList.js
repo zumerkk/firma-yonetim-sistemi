@@ -535,17 +535,28 @@ const FirmaList = () => {
       )
     },
     {
-      field: 'ilkIrtibatKisi',
-      headerName: 'İrtibat Kişisi',
-      flex: 1, minWidth: 120,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <PersonIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
-          <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-            {params.value || '-'}
-          </Typography>
-        </Box>
-      )
+      // müşteri: İrtibat Kişisi yerine ETUYS Yetki Bitiş Tarihi görünsün
+      field: 'etuysYetkiBitisTarihi',
+      headerName: 'ETUYS Yetki Bitiş',
+      flex: 1, minWidth: 140,
+      renderCell: (params) => {
+        if (!params.value) {
+          return <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>;
+        }
+        const tarih = new Date(params.value);
+        const kalanGun = Math.ceil((tarih - new Date()) / (1000 * 60 * 60 * 24));
+        // Yaklaşan/geçmiş yetki bitişleri renkle öne çıkar
+        const renk = kalanGun < 0 ? '#dc2626' : (kalanGun <= 30 ? '#d97706' : '#059669');
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 600, color: renk }}>
+              {tarih.toLocaleDateString('tr-TR')}
+            </Typography>
+            {kalanGun < 0 && <Chip label="Doldu" size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#fee2e2', color: '#dc2626' }} />}
+            {kalanGun >= 0 && kalanGun <= 30 && <Chip label={`${kalanGun}g`} size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: '#fef3c7', color: '#d97706' }} />}
+          </Box>
+        );
+      }
     },
     {
       field: 'yetkiliKisiler',

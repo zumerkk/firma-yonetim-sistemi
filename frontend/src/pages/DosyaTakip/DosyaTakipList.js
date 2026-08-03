@@ -238,6 +238,29 @@ const DosyaTakipList = () => {
             )
         },
         {
+            // müşteri: sonuçlananlara sonuçlanma / son işlem tarihi eklensin
+            field: 'sonuclanmaTarihi',
+            headerName: 'Sonuçlanma',
+            width: 130,
+            renderCell: (params) => {
+                const sonuclanma = params.value;
+                if (sonuclanma) {
+                    return (
+                        <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>
+                            {new Date(sonuclanma).toLocaleDateString('tr-TR')}
+                        </Typography>
+                    );
+                }
+                // Henüz sonuçlanmadıysa son işlem tarihini göster (gri)
+                const sonIslem = params.row?.updatedAt;
+                return (
+                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                        {sonIslem ? `${new Date(sonIslem).toLocaleDateString('tr-TR')} (son işlem)` : '-'}
+                    </Typography>
+                );
+            }
+        },
+        {
             field: 'actions',
             headerName: 'İşlemler',
             width: 100,

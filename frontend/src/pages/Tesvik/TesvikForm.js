@@ -470,7 +470,7 @@ const TesvikForm = () => {
   // 🔢 Dinamik Alan Sayıları
   const [cinsSayisi, setCinsSayisi] = useState(1); // J-CNS alanları (max 4)
   const [adresSayisi, setAdresSayisi] = useState(1); // Yatırım Adresi alanları (max 3)
-  const [urunSayisi, setUrunSayisi] = useState(1); // Ürün bilgileri satır sayısı (max 10)
+  const [urunSayisi, setUrunSayisi] = useState(1); // Ürün bilgileri satır sayısı (max 15)
   const [destekSayisi, setDestekSayisi] = useState(1); // Destek unsurları satır sayısı (max 8)
   const [ozelSartSayisi, setOzelSartSayisi] = useState(1); // Özel şartlar satır sayısı (limit kaldırıldı)
 
@@ -1329,7 +1329,7 @@ const TesvikForm = () => {
 
   // 📦 Dinamik Ürün Yönetimi - 1 başlangıç, Max 10
   const addUrunField = () => {
-    if (urunSayisi < 10) {
+    if (urunSayisi < 15) {
       setUrunSayisi(prev => prev + 1);
       setFormData(prevData => ({
         ...prevData,
@@ -3966,7 +3966,7 @@ const TesvikForm = () => {
             {/* İstatistikler */}
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
               {[
-                { label: 'Kapasite Slotları', value: `${urunSayisi}/10` },
+                { label: 'Kapasite Slotları', value: `${urunSayisi}/15` },
                 { label: 'Kod Veritabanı', value: '2742 Öğe' },
                 { label: 'Tamamlanan', value: `${formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod && u.aciklama).length}` },
                 { label: 'Portföy Değeri', value: `${(formData.urunBilgileri.slice(0, urunSayisi).reduce((sum, u) => sum + (parseFloat(u.toplam) || 0), 0) / 1000000).toFixed(1)}M` }
@@ -4470,7 +4470,7 @@ const TesvikForm = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             {/* ➕ ADD PRODUCT SECTION */}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {urunSayisi < 10 ? (
+              {urunSayisi < 15 ? (
                 <Button
                   variant="contained"
                   onClick={addUrunField}

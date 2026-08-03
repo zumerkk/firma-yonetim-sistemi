@@ -323,6 +323,8 @@ const belgeYonetimiSchema = new mongoose.Schema({
   belgeBitisTarihi: { type: Date }, // 🔧 FIX: belgebitisTarihi → belgeBitisTarihi (camelCase)
   uzatimTarihi: { type: Date },
   mucbirUzumaTarihi: { type: Date }, // 🔧 FIX: mudebbirUzatimTarihi → mucbirUzumaTarihi (frontend ile uyumlu)
+  kapanmaTarihi: { type: Date }, // müşteri: belge kapandıktan sonra revize ile doldurulur
+  ekspertizTarihi: { type: Date },
   // 🏆 Öncelikli Yatırım Alanları
   oncelikliYatirim: {
     type: String,

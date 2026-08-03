@@ -165,9 +165,12 @@ function buildPlaceholderData({ process: proc, identity, signature, uploadLink, 
 // tercih sırası → YeniTesvik > Tesvik, sonra makinesi olan, sonra en yeni kayıt.
 // belgeNo VE belgeId ikisi de boşsa kayıt tekilleştirilmez (taslaklar birbirini gizlemesin).
 function dedupeCertificateRows(rows) {
+  // 🔧 FIX (müşteri: "bazı firmaların makineleri kayıtlı olsa bile görünmüyor"):
+  // Makine varlığı model tercihinden ÖNCE gelir. Aksi halde aynı belge no'lu bir
+  // YeniTesvik kaydı (makinesiz), makineleri olan Tesvik kaydını gizliyordu.
   const score = (r) =>
-    (r.tesvikModel === 'YeniTesvik' ? 100 : 0) +
-    (((r.localCount || 0) + (r.importCount || 0)) > 0 ? 10 : 0);
+    (((r.localCount || 0) + (r.importCount || 0)) > 0 ? 1000 : 0) +
+    (r.tesvikModel === 'YeniTesvik' ? 100 : 0);
   const newer = (a, b) => new Date(a.createdAt || 0) >= new Date(b.createdAt || 0);
   const keep = new Map();
   for (const r of rows) {

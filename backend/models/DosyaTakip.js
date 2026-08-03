@@ -233,6 +233,8 @@ const dosyaTakipSchema = new mongoose.Schema({
   },
   durumAciklamasi: { type: String, trim: true },
   durumAciklamasiTarihi: { type: Date }, // müşteri: notun yanında ne zaman yazıldığı görünsün
+  // müşteri: sonuçlananlarda sonuçlanma / son işlem tarihi listede görünsün
+  sonuclanmaTarihi: { type: Date },
   durumRengi: {
     type: String,
     enum: ['mavi', 'sari', 'turuncu', 'kirmizi', 'yesil', 'gri', 'mor'],

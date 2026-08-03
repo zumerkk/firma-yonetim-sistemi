@@ -1020,7 +1020,9 @@ const updateTesvikDurum = async (req, res) => {
     // Renk kodlamasını güncelle
     tesvik.updateDurumRengi();
 
-    await tesvik.save();
+    // 🔧 FIX: eski/eksik kayıtlarda zorunlu alan boş olsa bile durum değişebilsin
+    // (save() tüm dokümanı doğruladığı için ilgisiz alan durumu bloke ediyordu)
+    await tesvik.save({ validateBeforeSave: false });
 
     // Activity log
     await Activity.logActivity({
@@ -2856,7 +2858,11 @@ const bulkUpdateDurum = async (req, res) => {
       });
     }
 
-    const filter = tumu === true ? { aktif: true } : { _id: { $in: tesvikIds }, aktif: true };
+    // Toplu işlemde kapanmış/iptal edilmiş belgeler korunur (müşteri endişesi)
+    const KORUNAN_DURUMLAR = ['kapandi', 'iptal_edildi'];
+    const filter = tumu === true
+      ? { aktif: true, 'durumBilgileri.genelDurum': { $nin: KORUNAN_DURUMLAR } }
+      : { _id: { $in: tesvikIds }, aktif: true };
     const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri' };
 
     const updateResult = await YeniTesvik.updateMany(

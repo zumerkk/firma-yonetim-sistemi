@@ -1094,6 +1094,10 @@ const YeniTesvikDetail = () => {
                     return tanim ? `${kod} — ${tanim}` : kod;
                   })()}</Typography></Grid>
 
+                  {/* müşteri: OECD (Orta-Yüksek) belge bilgilerinde görünmüyordu */}
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.oecdKategori || '-'}</Typography></Grid>
+
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.dayandigiKanun || tesvik.kunyeBilgileri?.dayandigiKanun || '-'}</Typography></Grid>
 
@@ -1174,6 +1178,13 @@ const YeniTesvikDetail = () => {
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Süre Uzatım Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
+
+                  {/* müşteri: Kapanma + Ekspertiz tarihleri belge bilgilerinde görünsün */}
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kapanma Tarihi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.kapanmaTarihi ? new Date(tesvik.belgeYonetimi.kapanmaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Ekspertiz Tarihi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.ekspertizTarihi ? new Date(tesvik.belgeYonetimi.ekspertizTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mücbir Uzatma</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
