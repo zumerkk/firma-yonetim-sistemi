@@ -233,6 +233,14 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       description: 'Firmaya makine listesi + fatura talebi'
     },
     {
+      text: 'İşlem & Evrak',
+      icon: <AssignmentIcon />,
+      path: '/islem-evrak',
+      color: '#0891b2',
+      gradient: 'linear-gradient(135deg, #164e63, #0891b2)',
+      description: 'Firmadan işlem bazlı evrak talebi'
+    },
+    {
       text: 'Belge Takip',
       icon: <ListIcon />,
       path: '/dosya-takip/liste',
