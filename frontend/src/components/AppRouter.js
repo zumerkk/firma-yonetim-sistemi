@@ -65,6 +65,11 @@ import TesvikMakineDetail from '../pages/TesvikMakine/TesvikMakineDetail';
 import TesvikRaporlar from '../pages/TesvikMakine/TesvikRaporlar';
 import BakanlikMailParser from '../pages/TesvikMakine/BakanlikMailParser';
 import AraKontrol from '../pages/TesvikMakine/AraKontrol';
+
+// 🧩 İşlem ve Evrak Yönetimi
+import IslemEvrakList from '../pages/IslemEvrak/IslemEvrakList';
+import IslemEvrakDetail from '../pages/IslemEvrak/IslemEvrakDetail';
+import IslemEvrakPublicUpload from '../pages/IslemEvrak/IslemEvrakPublicUpload';
 import PublicUpload from '../pages/TesvikMakine/PublicUpload';
 
 const AppRouter = () => {
@@ -78,6 +83,8 @@ const AppRouter = () => {
 
       {/* 🌐 Public Evrak Yükleme (token tabanlı, AUTH YOK) */}
       <Route path="/upload/tesvik/:token" element={<PublicUpload />} />
+      {/* 🌐 İşlem Evrak Public Yükleme (token tabanlı, AUTH YOK) */}
+      <Route path="/evrak/:token" element={<IslemEvrakPublicUpload />} />
 
       {/* 🛠️ Teşvik Makine Teçhizat Yönetimi */}
       <Route path="/tesvikler" element={
@@ -98,6 +105,18 @@ const AppRouter = () => {
       <Route path="/tesvikler/ara-kontrol" element={
         <ProtectedRoute>
           <AraKontrol />
+        </ProtectedRoute>
+      } />
+
+      {/* 🧩 İşlem ve Evrak Yönetimi */}
+      <Route path="/islem-evrak" element={
+        <ProtectedRoute>
+          <IslemEvrakList />
+        </ProtectedRoute>
+      } />
+      <Route path="/islem-evrak/:id" element={
+        <ProtectedRoute>
+          <IslemEvrakDetail />
         </ProtectedRoute>
       } />
       <Route path="/tesvikler/:tesvikModel/:tesvikId" element={

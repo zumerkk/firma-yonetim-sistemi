@@ -43,6 +43,7 @@ const backupRoutes = require('./routes/backup'); // 💾 Sistem Yedekleme
 const ingestRoutes = require('./routes/ingest'); // 🧠 Akıllı veri yükleme (preview/commit)
 const screenshotImportRoutes = require('./routes/screenshotImport'); // 📸 Ekran görüntüsünden teşvik oluşturma
 const tesvikMakineRoutes = require('./routes/tesvikMakine'); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin)
+const islemEvrakRoutes = require('./routes/islemEvrak'); // 🧩 İşlem ve Evrak Yönetimi (firma bazlı evrak talebi)
 const tesvikEvrakUploadRoutes = require('./routes/tesvikEvrakUpload'); // 🌐 Teşvik Evrak Public Upload (token)
 const tesvikReminderService = require('./services/tesvikMakine/reminderService'); // ⏰ Makine hatırlatma cron servisi
 
@@ -324,6 +325,7 @@ app.use('/api/backup', backupRoutes); // 💾 Sistem Yedekleme API
 app.use('/api/ingest', ingestRoutes); // 🧠 Akıllı veri yükleme (preview/commit)
 app.use('/api/screenshot-import', screenshotImportRoutes); // 📸 Ekran görüntüsünden teşvik oluşturma
 app.use('/api/tesvik-makine', tesvikMakineRoutes); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin/consultant)
+app.use('/api/islem-evrak', islemEvrakRoutes); // 🧩 İşlem ve Evrak Yönetimi
 app.use('/api/tesvik-evrak', tesvikEvrakUploadRoutes); // 🌐 Teşvik Evrak Public Upload (token tabanlı)
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
@@ -487,6 +489,15 @@ const startServer = async () => {
       if (tasinan > 0) console.log(`✅ Dosya türü migrasyonu: ${tasinan} talepte kategori güncellendi`);
     } catch (err) {
       console.error('⚠️ Dosya türü migrasyonu hatası (kritik değil):', err.message);
+    }
+
+    // 🌱 İşlem türleri seed (yalnızca hiç kayıt yoksa — kullanıcı düzenlemeleri korunur)
+    try {
+      const { seedIslemTurleri } = require('./services/islemEvrak/seedIslemTurleri');
+      const sonuc = await seedIslemTurleri();
+      if (sonuc.eklenen > 0) console.log(`✅ İşlem türü seed: ${sonuc.eklenen} varsayılan tür eklendi`);
+    } catch (err) {
+      console.error('⚠️ İşlem türü seed hatası (kritik değil):', err.message);
     }
 
     // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
