@@ -116,3 +116,98 @@ describe('islemEvrakService.mailOlustur - evrak listesi metne dönüşür', () =
     expect(govde).not.toContain('{'); // doldurulmamış placeholder kalmamalı
   });
 });
+
+describe('Örnek taahhütname dosyaları - seed → yol çözümü → mail eki', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const storageService = require('../../services/tesvikMakine/storageService');
+  const { ORNEK_TAAHHUTNAME } = require('../../services/islemEvrak/seedIslemTurleri');
+
+  // mailGonder içindeki ek çözümlemesinin birebir aynısı
+  const ekYolu = (o) => (path.isAbsolute(o.filePath)
+    ? o.filePath
+    : path.join(storageService.BASE_DIR, o.filePath));
+
+  test.each([['sahis', 'Şahıs'], ['sirket', 'Şirket']])(
+    '%s varyantının taahhütname kalemi örnek dosyayla gelir', (kod, etiket) => {
+      const v = new IslemTuru(VARSAYILAN_TURLER[0]).varyantCoz(kod);
+      const evrak = v.istenenEvraklar.find((e) => /taahh[üu]tname/i.test(e.ad));
+      expect(evrak).toBeDefined();
+      expect(evrak.ad).toContain(etiket);
+      expect(evrak.ornekDosya.filePath).toBe(ORNEK_TAAHHUTNAME[kod].filePath);
+      expect(evrak.ornekDosya.dosyaAdi).toContain(etiket);
+    });
+
+  test('örnek dosya yolları ASCII (macOS/Linux ad kayması olmasın)', () => {
+    Object.values(ORNEK_TAAHHUTNAME).forEach((o) => {
+      // eslint-disable-next-line no-control-regex
+      expect(o.filePath).toMatch(/^[\x20-\x7E]+$/);
+      expect(o.filePath).not.toMatch(/\s/); // boşluk da yok
+    });
+  });
+
+  test('dosyalar repoda mevcut ve seed metadata boyutuyla uyumlu', () => {
+    Object.values(ORNEK_TAAHHUTNAME).forEach((o) => {
+      const yol = ekYolu(o);
+      expect(fs.existsSync(yol)).toBe(true);
+      expect(fs.statSync(yol).size).toBe(o.fileSize);
+    });
+  });
+
+  test('talepOlustur şablondaki örnek dosyayı talebe kopyalar', () => {
+    const v = new IslemTuru(VARSAYILAN_TURLER[0]).varyantCoz('sahis');
+    // talepOlustur'un evrak kopyalama davranışı
+    const talep = talepKur(v.istenenEvraklar.map((e) => ({
+      ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, ornekDosya: e.ornekDosya
+    })));
+    const kopya = talep.istenenEvraklar.find((e) => /taahh[üu]tname/i.test(e.ad));
+    expect(kopya.ornekDosya.filePath).toBe(ORNEK_TAAHHUTNAME.sahis.filePath);
+  });
+});
+
+describe('Mail ekleri - örnek dosyası olan evraklar varsayılan olarak eklenir', () => {
+  // talepMailGonder'deki ek seçme mantığının birebir aynısı
+  const ekleriSec = (istenenEvraklar, ekEvrakIdler) => {
+    const secilen = Array.isArray(ekEvrakIdler) ? ekEvrakIdler.map(String) : null;
+    return (istenenEvraklar || [])
+      .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
+      .filter((e) => !secilen || secilen.includes(String(e._id)))
+      .map((e) => e.ornekDosya);
+  };
+
+  const evrakla = () => talepKur([
+    { ad: 'Taahhütname', zorunlu: true, ornekDosya: { dosyaAdi: 'a.docx', filePath: 'x/a.docx' } },
+    { ad: 'Kimlik Fotokopisi', zorunlu: true } // örnek dosyası yok
+  ]);
+
+  test('id listesi verilmezse örnekli evrakların hepsi eklenir', () => {
+    expect(ekleriSec(evrakla().istenenEvraklar, undefined)).toHaveLength(1);
+  });
+
+  test('BOŞ dizi "hiçbirini ekleme" demektir — frontend bunu asla göndermemeli', () => {
+    // Eski hatanın kanıtı: frontend seçim listesini güncellemediği için boş dizi
+    // gönderiyor ve tek ek de sessizce düşüyordu.
+    expect(ekleriSec(evrakla().istenenEvraklar, [])).toHaveLength(0);
+  });
+
+  test('seçilen id gönderilirse yalnızca o ek gider', () => {
+    const t = evrakla();
+    const ekler = ekleriSec(t.istenenEvraklar, [String(t.istenenEvraklar[0]._id)]);
+    expect(ekler).toHaveLength(1);
+    expect(ekler[0].dosyaAdi).toBe('a.docx');
+  });
+
+  test('örnek dosyası olmayan evrak hiçbir koşulda ek üretmez', () => {
+    const t = evrakla();
+    expect(ekleriSec(t.istenenEvraklar, [String(t.istenenEvraklar[1]._id)])).toHaveLength(0);
+  });
+
+  test('frontend kuralı: kaldırılanlar dışındaki tüm örnekli evraklar gönderilir', () => {
+    const t = evrakla();
+    // IslemEvrakDetail'deki türetme: ekAdaylari - kaldirilanEkler
+    const adaylar = t.istenenEvraklar.filter((e) => e.ornekDosya?.dosyaAdi).map((e) => String(e._id));
+
+    expect(ekleriSec(t.istenenEvraklar, adaylar.filter((x) => ![].includes(x)))).toHaveLength(1);
+    expect(ekleriSec(t.istenenEvraklar, adaylar.filter((x) => !adaylar.includes(x)))).toHaveLength(0);
+  });
+});

@@ -182,7 +182,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     "Belge Tarihi",
     fmtDate(by.belgeTarihi || kunye.kararTarihi),
     "Dayandığı Kanun",
-    by.dayandigiKanun || kunye.dayandigiKanun
+    // kunye.dayandigiKanun şemada yok — künyedeki karar sayısı gerçek yedek alan
+    by.dayandigiKanun || kunye.kararSayisi
   );
   addDataRow(
     "Müracaat No",
@@ -205,6 +206,13 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     fmtDate(by.uzatimTarihi),
     "Mücbir Uzama Tarihi",
     fmtDate(by.mucbirUzumaTarihi)
+  );
+  // müşteri: belge kapandıktan sonra revize ile doldurulan alanlar — UI'daki accordion ile birebir kalsın
+  addDataRow(
+    "Kapanma Tarihi",
+    fmtDate(by.kapanmaTarihi),
+    "Ekspertiz Tarihi",
+    fmtDate(by.ekspertizTarihi)
   );
   addDataRow(
     "Öncelikli Yatırım",

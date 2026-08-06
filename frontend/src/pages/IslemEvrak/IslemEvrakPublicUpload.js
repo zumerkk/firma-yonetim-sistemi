@@ -6,11 +6,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, Alert, MenuItem,
-  CircularProgress, LinearProgress, Divider
+  CircularProgress, Divider
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/islemEvrakService';
 
 const IslemEvrakPublicUpload = () => {
@@ -22,6 +23,8 @@ const IslemEvrakPublicUpload = () => {
   const [sonuc, setSonuc] = useState('');
   const [seciliEvrak, setSeciliEvrak] = useState('');
   const [yukleyenAdi, setYukleyenAdi] = useState('');
+  // Firma tarafı en çok burada bekliyor: belirsiz bar yerine gerçek yüzde gösterilir
+  const [yukleme, setYukleme] = useState(null);
 
   const yukle = useCallback(async () => {
     setLoading(true);
@@ -39,19 +42,22 @@ const IslemEvrakPublicUpload = () => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
     setYukleniyor(true); setSonuc('');
+    const toplamBayt = files.reduce((s, f) => s + (f.size || 0), 0);
+    setYukleme({ fileName: files.length > 1 ? `${files.length} dosya` : files[0].name, pct: 0, loaded: 0, total: toplamBayt });
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append('dosyalar', f));
       if (seciliEvrak) fd.append('istenenEvrakId', seciliEvrak);
       if (yukleyenAdi.trim()) fd.append('yukleyenAdi', yukleyenAdi.trim());
-      const r = await svc.publicYukle(token, fd);
+      const r = await svc.publicYukle(token, fd, (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       setSonuc(r.message || 'Dosyanız yüklendi.');
       await yukle(); // durum işaretleri tazelensin
     } catch (err) {
       setSonuc('');
-      setHata(err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
+      setHata(err?.kullaniciMesaji || err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
     } finally {
       setYukleniyor(false);
+      setYukleme(null);
       if (e.target) e.target.value = '';
     }
   };
@@ -124,7 +130,7 @@ const IslemEvrakPublicUpload = () => {
             <input hidden type="file" multiple onChange={dosyaSec} />
           </Button>
 
-          {yukleniyor && <LinearProgress />}
+          <UploadProgress active={yukleniyor} {...(yukleme || {})} />
           {sonuc && <Alert severity="success">{sonuc}</Alert>}
           {hata && bilgi && <Alert severity="error" onClose={() => setHata('')}>{hata}</Alert>}
 

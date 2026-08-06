@@ -17,6 +17,7 @@ import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import PreviewIcon from '@mui/icons-material/Preview';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import UploadProgress from '../../components/common/UploadProgress';
 import FolderIcon from '@mui/icons-material/CreateNewFolder';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
@@ -42,6 +43,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const [preview, setPreview] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState('');
+  const [yukleme, setYukleme] = useState(null); // evrak yükleme göstergesi
   const [snack, setSnack] = useState(null);
   const fileRef = useRef(null);
   const [docType, setDocType] = useState('diger');
@@ -133,13 +135,14 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const doUpload = async (e) => {
     const files = Array.from(e.target.files || []); if (!files.length) return;
     setBusy('upload');
+    setYukleme({ fileName: files.length > 1 ? `${files.length} dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((s, f) => s + (f.size || 0), 0) });
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append('files', f)); // çoklu dosya (XML + PDF aynı anda)
       fd.append('documentType', docType);
-      const res = await svc.adminUpload(proc._id, fd);
+      const res = await svc.adminUpload(proc._id, fd, (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       notify(`${res?.length || files.length} evrak yüklendi`); reloadTimeline(proc._id); onChanged && onChanged();
-    } catch (err) { notify(errMsg(err), 'error'); } finally { setBusy(''); if (fileRef.current) fileRef.current.value = ''; }
+    } catch (err) { notify(err?.kullaniciMesaji || errMsg(err), 'error'); } finally { setBusy(''); setYukleme(null); if (fileRef.current) fileRef.current.value = ''; }
   };
 
   const toggleReminder = async () => {
@@ -240,13 +243,16 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
               <TextField select size="small" label="Evrak Türü" value={docType} onChange={(e) => setDocType(e.target.value)} sx={{ minWidth: 160 }}>
                 {docTypes.map((dt) => <MenuItem key={dt.key} value={dt.key}>{dt.label}</MenuItem>)}
               </TextField>
-              <Button variant="outlined" onClick={() => fileRef.current?.click()} disabled={busy === 'upload'} startIcon={<UploadFileIcon />}>Evrak Yükle</Button>
+              <Button variant="outlined" onClick={() => fileRef.current?.click()} disabled={busy === 'upload'} startIcon={<UploadFileIcon />}>
+                {busy === 'upload' ? 'Yükleniyor…' : 'Evrak Yükle'}
+              </Button>
               <input type="file" ref={fileRef} hidden multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml" onChange={doUpload} />
               <Button variant="outlined" color={proc.reminderStopped ? 'success' : 'warning'} onClick={toggleReminder} disabled={busy === 'rem'}
                 startIcon={proc.reminderStopped ? <NotificationsActiveIcon /> : <NotificationsOffIcon />}>
                 {proc.reminderStopped ? 'Hatırlatmayı Aç' : 'Hatırlatmayı Durdur'}
               </Button>
             </Stack>
+            <UploadProgress active={busy === 'upload'} {...(yukleme || {})} />
             {uploadLink && (
               <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <TextField fullWidth size="small" value={uploadLink} InputProps={{ readOnly: true }} />

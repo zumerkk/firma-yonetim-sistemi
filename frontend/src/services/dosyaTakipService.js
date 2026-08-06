@@ -1,7 +1,7 @@
 // 📋 Dosya İş Akış Takip Sistemi - API Service
 // Axios tabanlı API çağrıları
 
-import axios from '../utils/axios';
+import axios, { uploadPost } from '../utils/axios';
 
 const API_URL = '/dosya-takip';
 
@@ -67,15 +67,13 @@ const dosyaTakipService = {
         return data;
     },
 
-    // 📁 Dosya Ekle
-    dosyaEkle: async (id, file, alan = 'dosyalar', kategori = '') => {
+    // 📁 Dosya Ekle — onProgress ile gerçek yükleme yüzdesi (uploadPost uzun timeout da verir)
+    dosyaEkle: async (id, file, alan = 'dosyalar', kategori = '', onProgress) => {
         const formData = new FormData();
         formData.append('dosya', file);
         formData.append('alan', alan);
         if (kategori) formData.append('kategori', kategori);
-        const { data } = await axios.post(`${API_URL}/${id}/dosya`, formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const { data } = await uploadPost(`${API_URL}/${id}/dosya`, formData, { onProgress });
         return data;
     },
 

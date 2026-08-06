@@ -10,6 +10,7 @@ import {
   Snackbar, Alert, LinearProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
+import SettingsIcon from '@mui/icons-material/Settings';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -113,9 +114,15 @@ const IslemEvrakList = () => {
               Firmadan işlem bazlı evrak talebi: istenen belgeler, mail gönderimi ve gelen evrakların takibi
             </Typography>
           </Box>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogAcik(true)}>
-            Yeni Talep
-          </Button>
+          <Stack direction="row" spacing={1}>
+            {/* müşteri: "bu işlem türlerine kendimiz ekleme yapamıyoruz gibi" */}
+            <Button variant="outlined" startIcon={<SettingsIcon />} onClick={() => navigate('/islem-evrak/turler')}>
+              İşlem Türleri
+            </Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogAcik(true)}>
+              Yeni Talep
+            </Button>
+          </Stack>
         </Paper>
 
         <Paper sx={{ p: 2, mb: 2 }}>

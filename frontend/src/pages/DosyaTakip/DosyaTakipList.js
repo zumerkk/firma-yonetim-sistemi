@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import axios from '../../utils/axios';
 
 // Durum renkleri
 const DURUM_RENKLERI = {
@@ -50,6 +51,10 @@ const DosyaTakipList = () => {
     const [search, setSearch] = useState('');
     const [filterAnaAsama, setFilterAnaAsama] = useState('');
     const [filterTalepTuru, setFilterTalepTuru] = useState('');
+    // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
+    const [filterHazirlayan, setFilterHazirlayan] = useState('');
+    const [filterTakipEden, setFilterTakipEden] = useState('');
+    const [personeller, setPersoneller] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, takipId: '' });
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
@@ -63,6 +68,15 @@ const DosyaTakipList = () => {
         fetchEnums();
     }, [fetchEnums]);
 
+    // Personel filtresi dropdown'ını doldur (Detail ekranındaki loadUsers ile aynı uç)
+    useEffect(() => {
+        let iptal = false;
+        axios.get('/dosya-takip/personel-listesi')
+            .then((res) => { if (!iptal) setPersoneller(res.data?.data || []); })
+            .catch((err) => console.error('Personel listesi alınamadı:', err));
+        return () => { iptal = true; };
+    }, []);
+
     const loadData = useCallback(() => {
         const params = {
             page: paginationModel.page + 1,
@@ -70,11 +84,19 @@ const DosyaTakipList = () => {
             search,
             anaAsama: filterAnaAsama,
             talepTuru: filterTalepTuru,
+            hazirlayan: filterHazirlayan,
+            takipEden: filterTakipEden,
             // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
             arsiv: arsivModu ? '1' : ''
         };
         fetchTalepler(params);
-    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, arsivModu]);
+    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu]);
+
+    // Filtre değişince ilk sayfaya dön (3. sayfadayken filtreleyip boş liste görmeyi önler)
+    const filtreDegistir = (setter) => (deger) => {
+        setter(deger);
+        setPaginationModel((p) => (p.page === 0 ? p : { ...p, page: 0 }));
+    };
 
     useEffect(() => {
         loadData();
@@ -98,6 +120,9 @@ const DosyaTakipList = () => {
         setSearch('');
         setFilterAnaAsama('');
         setFilterTalepTuru('');
+        setFilterHazirlayan('');
+        setFilterTakipEden('');
+        setPaginationModel((p) => (p.page === 0 ? p : { ...p, page: 0 }));
     };
 
     const columns = [
@@ -238,6 +263,25 @@ const DosyaTakipList = () => {
             )
         },
         {
+            // müşteri: "Resmi Müracaat Eksik Son Gün" talep listesinde oluşturma tarihinin yanında görünsün
+            field: 'resmiMuracaatEksikSonGun',
+            headerName: 'Resmi Müracaat Eksik Son Gün',
+            width: 190,
+            sortable: false, // nested alan; sunucu tarafı sıralama bu yolu desteklemiyor
+            valueGetter: (params) => params.row?.zamanlama?.resmiMuracaatEksikSonGun || null,
+            renderCell: (params) => {
+                if (!params.value) return <Typography variant="caption" sx={{ color: '#94a3b8' }}>-</Typography>;
+                const tarih = new Date(params.value);
+                // Son gün geçtiyse dikkat çeksin
+                const gecti = tarih.setHours(23, 59, 59, 999) < Date.now();
+                return (
+                    <Typography variant="caption" sx={{ color: gecti ? '#dc2626' : '#64748b', fontWeight: gecti ? 700 : 400 }}>
+                        {new Date(params.value).toLocaleDateString('tr-TR')}
+                    </Typography>
+                );
+            }
+        },
+        {
             // müşteri: sonuçlananlara sonuçlanma / son işlem tarihi eklensin
             field: 'sonuclanmaTarihi',
             headerName: 'Sonuçlanma',
@@ -371,14 +415,14 @@ const DosyaTakipList = () => {
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             />
                         </Grid>
-                        <Grid item xs={12} md={3}>
+                        <Grid item xs={12} md={2.5}>
                             <TextField
                                 fullWidth
                                 size="small"
                                 select
                                 label="Ana Aşama"
                                 value={filterAnaAsama}
-                                onChange={(e) => setFilterAnaAsama(e.target.value)}
+                                onChange={(e) => filtreDegistir(setFilterAnaAsama)(e.target.value)}
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
@@ -388,14 +432,14 @@ const DosyaTakipList = () => {
                                 <MenuItem value="KURUM_SONUCLANMA">4. Sonuçlanma</MenuItem>
                             </TextField>
                         </Grid>
-                        <Grid item xs={12} md={3}>
+                        <Grid item xs={12} md={2.5}>
                             <TextField
                                 fullWidth
                                 size="small"
                                 select
                                 label="Talep Türü"
                                 value={filterTalepTuru}
-                                onChange={(e) => setFilterTalepTuru(e.target.value)}
+                                onChange={(e) => filtreDegistir(setFilterTalepTuru)(e.target.value)}
                                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
@@ -404,13 +448,48 @@ const DosyaTakipList = () => {
                                 ))}
                             </TextField>
                         </Grid>
-                        <Grid item xs={12} md={2}>
+                        {/* 👤 müşteri: müracaat hazırlayan / takibi yapan isim isim filtrelenebilsin */}
+                        <Grid item xs={12} sm={6} md={4}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                select
+                                label="Müracaat Hazırlayan"
+                                value={filterHazirlayan}
+                                onChange={(e) => filtreDegistir(setFilterHazirlayan)(e.target.value)}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            >
+                                <MenuItem value="">Tümü</MenuItem>
+                                <MenuItem value="YOK">— Atanmamış —</MenuItem>
+                                {personeller.map((p) => (
+                                    <MenuItem key={p._id} value={p._id}>{p.adSoyad}</MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={4}>
+                            <TextField
+                                fullWidth
+                                size="small"
+                                select
+                                label="Takibi Yapan"
+                                value={filterTakipEden}
+                                onChange={(e) => filtreDegistir(setFilterTakipEden)(e.target.value)}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                            >
+                                <MenuItem value="">Tümü</MenuItem>
+                                <MenuItem value="YOK">— Atanmamış —</MenuItem>
+                                {personeller.map((p) => (
+                                    <MenuItem key={p._id} value={p._id}>{p.adSoyad}</MenuItem>
+                                ))}
+                            </TextField>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button fullWidth variant="outlined" size="small" onClick={loadData} startIcon={<RefreshIcon />}
                                     sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}>
                                     Yenile
                                 </Button>
-                                {(search || filterAnaAsama || filterTalepTuru) && (
+                                {(search || filterAnaAsama || filterTalepTuru || filterHazirlayan || filterTakipEden) && (
                                     <Button size="small" onClick={clearFilters} sx={{ minWidth: 'auto', color: '#ef4444' }}>
                                         Temizle
                                     </Button>

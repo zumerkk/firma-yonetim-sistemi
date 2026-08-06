@@ -49,7 +49,8 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import FileUpload from '../../components/Files/FileUpload';
 // import { useAuth } from '../../contexts/AuthContext'; // Future use
-import api from '../../utils/axios';
+import api, { uploadPost } from '../../utils/axios';
+import UploadProgress from '../../components/common/UploadProgress';
 
 const FileManager = () => {
   // const { user } = useAuth(); // Future use
@@ -65,6 +66,7 @@ const FileManager = () => {
   
   // 📋 DIALOGS STATE
   const [uploadDialog, setUploadDialog] = useState(false);
+  const [yukleme, setYukleme] = useState(null); // dosya yükleme göstergesi
   const setFileDialog = () => {}; // Placeholder  
   const setShareDialog = () => {}; // Placeholder
   
@@ -189,14 +191,12 @@ const FileManager = () => {
       });
       formData.append('path', currentPath.join('/'));
       
-      const response = await api.post('/files/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        },
-        onUploadProgress: (progressEvent) => {
-          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-          console.log('Upload progress:', percentCompleted);
-        }
+      // Yüzde artık konsola değil ekrana yazılır (müşteri: yükleme göstergesi olsun)
+      const response = await uploadPost('/files/upload', formData, {
+        onProgress: ({ pct, loaded, total }) => setYukleme({
+          fileName: files.length > 1 ? `${files.length} dosya` : files[0]?.name,
+          pct, loaded, total
+        })
       });
       
       if (response.data.success) {
@@ -205,9 +205,10 @@ const FileManager = () => {
         loadFileSystem();
       }
     } catch (error) {
-      showSnackbar('Dosya yüklenirken hata oluştu', 'error');
+      showSnackbar(error?.kullaniciMesaji || 'Dosya yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
+      setYukleme(null);
     }
   };
 
@@ -641,7 +642,8 @@ const FileManager = () => {
               </Card>
 
               {/* Content */}
-              {loading && <LinearProgress sx={{ mb: 2 }} />}
+              <UploadProgress active={!!yukleme} {...(yukleme || {})} />
+              {loading && !yukleme && <LinearProgress sx={{ mb: 2 }} />}
               
               {renderFolders()}
               {renderFiles()}

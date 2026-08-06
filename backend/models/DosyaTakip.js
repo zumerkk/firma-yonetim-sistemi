@@ -220,6 +220,15 @@ const dosyaTakipSchema = new mongoose.Schema({
     required: [true, 'Talep türü seçimi zorunludur']
   },
 
+  // --- ZAMANLAMA (müşteri: belge takipte "Zamanlama" sekmesi — sadece tarih tutulur) ---
+  // NOT: "Sonuçlanma Tarihi" ayrı alan olarak burada tekrarlanmaz; aşağıdaki kök
+  // `sonuclanmaTarihi` alanı kullanılır (liste/arşiv ekranları zaten onu okuyor).
+  zamanlama: {
+    resmiMuracaatEksikSonGun: { type: Date }, // talep listesinde de kolon olarak gösterilir
+    eksikBildirimTarihi: { type: Date },
+    dosyaHazirlamaSonGun: { type: Date }
+  },
+
   // --- DURUM YÖNETİMİ (State Machine) ---
   anaAsama: {
     type: String,
@@ -379,6 +388,9 @@ dosyaTakipSchema.index({ talepTuru: 1 });
 dosyaTakipSchema.index({ anaAsama: 1 });
 dosyaTakipSchema.index({ createdAt: -1 });
 dosyaTakipSchema.index({ ytbNo: 1 });
+// Talep listesindeki personel filtreleri (müşteri: isim isim filtreleme)
+dosyaTakipSchema.index({ 'muraacatOncesi.muraacatHazirlayanPersonel': 1 });
+dosyaTakipSchema.index({ 'muraacatSonrasi.takibiYapanPersonel': 1 });
 dosyaTakipSchema.index({ firmaUnvan: 'text', takipId: 'text', ytbNo: 'text' });
 
 // ============================================================================

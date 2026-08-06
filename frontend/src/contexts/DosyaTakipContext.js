@@ -162,9 +162,9 @@ export const DosyaTakipProvider = ({ children }) => {
     }, []);
 
     // 📁 Dosya Ekle
-    const dosyaEkle = useCallback(async (id, file, alan, kategori) => {
+    const dosyaEkle = useCallback(async (id, file, alan, kategori, onProgress) => {
         try {
-            const result = await dosyaTakipService.dosyaEkle(id, file, alan, kategori);
+            const result = await dosyaTakipService.dosyaEkle(id, file, alan, kategori, onProgress);
             if (result.success) setSeciliTalep(result.data);
             return result;
         } catch (err) {

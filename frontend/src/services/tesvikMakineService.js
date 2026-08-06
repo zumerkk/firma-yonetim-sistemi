@@ -1,5 +1,5 @@
 // 🛠️ Teşvik Makine Teçhizat Yönetimi - Frontend API servisi
-import api from '../utils/axios';
+import api, { uploadPost } from '../utils/axios';
 
 const base = '/tesvik-makine';
 const d = (r) => r.data?.data;
@@ -31,7 +31,8 @@ const tesvikMakineService = {
   resendMail: (mailLogId) => api.post(`${base}/mail/${mailLogId}/resend`).then(d),
   ensureFolders: (id) => api.post(`${base}/process/${id}/folders`).then(d),
   createUploadLink: (id, body = {}) => api.post(`${base}/process/${id}/upload-link`, body).then(d),
-  adminUpload: (id, formData) => api.post(`${base}/process/${id}/upload`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
+  // Yüklemeler uploadPost üzerinden: gerçek yüzde + uzun timeout (global 15 sn 100 MB'a yetmiyor)
+  adminUpload: (id, formData, onProgress) => uploadPost(`${base}/process/${id}/upload`, formData, { onProgress }).then(d),
   stopReminders: (id) => api.post(`${base}/process/${id}/reminders/stop`).then(d),
   resumeReminders: (id) => api.post(`${base}/process/${id}/reminders/resume`).then(d),
 
@@ -62,13 +63,13 @@ const tesvikMakineService = {
   // Kullanıcının kaydettiği ara kontrol mail şablonları
   araKontrolSablonlar: () => api.get(`${base}/ara-kontrol/sablonlar`).then(d),
   // formData: ad, subject, body, sistemListesi, mevcutEkler(JSON), ekler[] (dosyalar)
-  araKontrolSablonKaydet: (formData) => api.post(`${base}/ara-kontrol/sablonlar`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
+  araKontrolSablonKaydet: (formData, onProgress) => uploadPost(`${base}/ara-kontrol/sablonlar`, formData, { onProgress }).then(d),
   araKontrolSablonSil: (code) => api.delete(`${base}/ara-kontrol/sablonlar/${code}`).then((r) => r.data),
-  araKontrolSend: (m, id, formData) => api.post(`${base}/ara-kontrol/${m}/${id}/send`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then(d),
+  araKontrolSend: (m, id, formData, onProgress) => uploadPost(`${base}/ara-kontrol/${m}/${id}/send`, formData, { onProgress }).then(d),
 
   // Public (token tabanlı — auth gerektirmez)
   publicInfo: (token) => api.get(`/tesvik-evrak/${token}`).then(d),
-  publicUpload: (token, formData) => api.post(`/tesvik-evrak/${token}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }).then((r) => r.data)
+  publicUpload: (token, formData, onProgress) => uploadPost(`/tesvik-evrak/${token}`, formData, { onProgress }).then((r) => r.data)
 };
 
 export default tesvikMakineService;

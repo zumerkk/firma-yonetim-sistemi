@@ -21,6 +21,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/islemEvrakService';
 
 const IslemEvrakDetail = () => {
@@ -31,13 +32,27 @@ const IslemEvrakDetail = () => {
   const [tur, setTur] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const [yukleme, setYukleme] = useState(null); // örnek dosya yükleme göstergesi
   const [snack, setSnack] = useState(null);
 
   // İstenen evrak listesi (yerel düzenleme — Kaydet ile gönderilir)
   const [evraklar, setEvraklar] = useState([]);
   // Mail alanları
   const [mail, setMail] = useState({ to: '', cc: '', subject: '', body: '', uploadLink: '', smtpConfigured: true });
-  const [secilenEkler, setSecilenEkler] = useState([]);
+  // 📎 Ek seçimi: örnek dosyası olan her evrak VARSAYILAN OLARAK eklenir; burada yalnızca
+  // kullanıcının elle KALDIRDIKLARI tutulur. Böylece yeni yüklenen bir örnek dosya ayrıca
+  // seçilmeye gerek kalmadan maile girer.
+  // Önceki tasarım "seçilenler" listesiydi ve örnek dosya yüklendiğinde bu liste
+  // güncellenmediği için boş kalıyordu; backend boş diziyi "hiçbirini ekleme" olarak
+  // yorumladığından ek hiç gitmiyordu (müşteri: "Örnek dosya yüklememe rağmen ekte görünmüyor").
+  const [kaldirilanEkler, setKaldirilanEkler] = useState([]);
+
+  // Maile gidecek ekler: örnek dosyası olan evraklar eksi kullanıcının kaldırdıkları.
+  // `mailGonder` bu değeri kullandığı için erken (talep null iken de) türetilir.
+  const ekAdaylari = (talep?.istenenEvraklar || []).filter((e) => e.ornekDosya?.dosyaAdi);
+  const gidecekEkIdler = ekAdaylari
+    .map((e) => String(e._id))
+    .filter((x) => !kaldirilanEkler.includes(x));
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
@@ -59,8 +74,7 @@ const IslemEvrakDetail = () => {
         uploadLink: m.uploadLink || '',
         smtpConfigured: m.smtpConfigured
       });
-      // Varsayılan: örnek dosyası olan tüm evraklar maile eklenir
-      setSecilenEkler((m.ornekDosyalar || []).map((o) => String(o.evrakId)));
+      // Varsayılan zaten "hepsi ekli" (kaldirilanEkler boş) — ayrıca seçim gerekmez
     } catch (e) { notify(errMsg(e), 'error'); } finally { setLoading(false); }
   }, [id]);
 
@@ -72,12 +86,24 @@ const IslemEvrakDetail = () => {
   const evrakDegistir = (i, alan, deger) =>
     setEvraklar((p) => p.map((e, j) => (j === i ? { ...e, [alan]: deger } : e)));
 
+  // Evrak listesi değişince mail gövdesindeki {evrakListesi} bayatlar.
+  // Kaydedilmiş taslak YOKSA metni şablondan tazeleriz; VARSA kullanıcının yazdığına
+  // dokunmayız — bunun yerine ekranda "taslak güncel değil" uyarısı gösterilir.
+  const mailMetniniTazele = async (guncelTalep) => {
+    if (guncelTalep?.mailGovdesi) return; // kullanıcı taslağı var, ezme
+    try {
+      const m = await svc.mailOnizle(id);
+      setMail((p) => ({ ...p, subject: m.subject || '', body: m.body || '' }));
+    } catch (e) { /* önizleme tazelenemezse mevcut metin kalsın */ }
+  };
+
   const evraklariKaydet = async () => {
     const temiz = evraklar.filter((e) => String(e.ad || '').trim());
     setBusy('evrak');
     try {
       const g = await svc.talepGuncelle(id, { istenenEvraklar: temiz });
       setTalep(g); setEvraklar(g.istenenEvraklar || []);
+      await mailMetniniTazele(g);
       notify('İstenen evrak listesi kaydedildi');
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
@@ -97,12 +123,44 @@ const IslemEvrakDetail = () => {
   const ornekYukle = async (evrakId, file) => {
     if (!file) return;
     setBusy(`ornek-${evrakId}`);
+    setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size });
     try {
       const fd = new FormData();
       fd.append('dosyalar', file);
-      const g = await svc.ornekDosyaYukle(id, evrakId, fd);
+      const g = await svc.ornekDosyaYukle(id, evrakId, fd,
+        (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       setTalep(g); setEvraklar(g.istenenEvraklar || []);
-      notify('Örnek dosya eklendi — maile ek olarak gidebilir');
+      await mailMetniniTazele(g);
+      notify('Örnek dosya eklendi — maile ek olarak eklenecek');
+    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setYukleme(null); }
+  };
+
+  // ── Mail taslağı (gm modüller: "Maili istediğimiz gibi düzenleyip/kaydedip/silebilelim")
+  const virgullu = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
+
+  const mailTaslakKaydet = async () => {
+    setBusy('mail-kaydet');
+    try {
+      const g = await svc.talepGuncelle(id, {
+        mailKonusu: mail.subject,
+        mailGovdesi: mail.body,
+        mailAlicilar: virgullu(mail.to),
+        mailCc: virgullu(mail.cc)
+      });
+      setTalep(g);
+      notify('Mail taslağı kaydedildi');
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+
+  // Taslağı sil → konu/gövde boşaltılır, önizleme tekrar şablondan üretilir
+  const mailTaslakSil = async () => {
+    if (!window.confirm('Kaydedilmiş mail taslağı silinecek ve metin şablondan yeniden üretilecek. Devam edilsin mi?')) return;
+    setBusy('mail-kaydet');
+    try {
+      await svc.talepGuncelle(id, { mailKonusu: '', mailGovdesi: '' });
+      const m = await svc.mailOnizle(id);
+      setMail((p) => ({ ...p, subject: m.subject || '', body: m.body || '' }));
+      notify('Taslak silindi — şablon metni yüklendi');
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
@@ -111,7 +169,7 @@ const IslemEvrakDetail = () => {
     setBusy('mail');
     try {
       const sonuc = await svc.mailGonder(id, {
-        to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: secilenEkler
+        to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: gidecekEkIdler
       });
       setTalep(sonuc.talep);
       notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
@@ -149,7 +207,7 @@ const IslemEvrakDetail = () => {
     );
   }
 
-  const ornekliEvraklar = (talep.istenenEvraklar || []).filter((e) => e.ornekDosya?.dosyaAdi);
+  const ornekliEvraklar = ekAdaylari;
 
   return (
     <LayoutWrapper>
@@ -188,6 +246,9 @@ const IslemEvrakDetail = () => {
                 onClick={evraklariKaydet} disabled={busy === 'evrak'}>Kaydet</Button>
             </Stack>
           </Stack>
+
+          {/* 📤 Örnek/şablon dosya yükleme göstergesi */}
+          <UploadProgress active={!!yukleme} {...(yukleme || {})} />
 
           <Stack spacing={1}>
             {evraklar.map((e, i) => (
@@ -243,6 +304,18 @@ const IslemEvrakDetail = () => {
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>2. Mail Gönderimi</Typography>
           {!mail.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
+          {/* Taslak durumu görünür olsun: kullanıcı "kaydetmiyor" sanmasın */}
+          {talep.mailGovdesi ? (
+            <Alert severity="success" sx={{ mb: 1 }}>
+              Kaydedilmiş taslak kullanılıyor — sayfayı yenilesen de bu metin kalır.
+              Evrak listesini değiştirdiysen metni elle güncelle ya da <strong>Taslağı Sil</strong> ile şablondan yeniden üret.
+            </Alert>
+          ) : (
+            <Alert severity="info" sx={{ mb: 1 }}>
+              Metin şablondan üretiliyor. Düzenlemelerinin kalıcı olması için <strong>Taslağı Kaydet</strong>'e bas —
+              aksi halde sayfa yenilendiğinde şablon metni geri gelir.
+            </Alert>
+          )}
 
           {ornekliEvraklar.length > 0 && (
             <Box sx={{ mb: 1.5, p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
@@ -251,15 +324,15 @@ const IslemEvrakDetail = () => {
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                 {ornekliEvraklar.map((e) => {
-                  const secili = secilenEkler.includes(String(e._id));
+                  const secili = !kaldirilanEkler.includes(String(e._id));
                   return (
                     <Chip
                       key={e._id} size="small"
                       label={e.ornekDosya.dosyaAdi}
                       color={secili ? 'primary' : 'default'}
                       variant={secili ? 'filled' : 'outlined'}
-                      onClick={() => setSecilenEkler((p) =>
-                        secili ? p.filter((x) => x !== String(e._id)) : [...p, String(e._id)])}
+                      onClick={() => setKaldirilanEkler((p) =>
+                        secili ? [...p, String(e._id)] : p.filter((x) => x !== String(e._id)))}
                     />
                   );
                 })}
@@ -286,10 +359,19 @@ const IslemEvrakDetail = () => {
                 ? `${talep.mailGonderimSayisi} kez gönderildi · Son: ${new Date(talep.sonMailTarihi).toLocaleString('tr-TR')}`
                 : 'Henüz gönderilmedi'}
             </Typography>
-            <Button variant="contained" startIcon={busy === 'mail' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-              onClick={mailGonder} disabled={busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@')}>
-              SMTP ile Gönder
-            </Button>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={busy === 'mail-kaydet'}>
+                Taslağı Kaydet
+              </Button>
+              <Button size="small" color="error" startIcon={<DeleteOutlineIcon />} onClick={mailTaslakSil}
+                disabled={busy === 'mail-kaydet' || !talep.mailGovdesi}>
+                Taslağı Sil
+              </Button>
+              <Button variant="contained" startIcon={busy === 'mail' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
+                onClick={mailGonder} disabled={busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@')}>
+                SMTP ile Gönder
+              </Button>
+            </Stack>
           </Stack>
         </Paper>
 

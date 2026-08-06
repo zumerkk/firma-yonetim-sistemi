@@ -196,16 +196,15 @@ const EskiTesvikImport = () => {
     setError(null);
     setUploadProgress(0);
 
-    // Simulate progress
-    const progressInterval = setInterval(() => {
-      setUploadProgress(prev => Math.min(prev + 8, 85));
-    }, 200);
-
+    // Gerçek yükleme yüzdesi kullanılır (eskiden setInterval ile sahte bar çiziliyordu
+    // ve %85'te donup "takıldı" izlenimi veriyordu — müşteri şikayetinin kaynağı).
+    // %100'e ulaşınca sunucu tarafı Excel işleme fazı başlar; bar belirsiz moda geçer.
     try {
       const formData = new FormData();
       formData.append('file', selectedFile);
-      const result = await tesvikService.importUpload(formData);
-      clearInterval(progressInterval);
+      const result = await tesvikService.importUpload(formData, ({ pct }) => {
+        if (typeof pct === 'number') setUploadProgress(pct);
+      });
       setUploadProgress(100);
 
       if (result.success) {
@@ -221,8 +220,7 @@ const EskiTesvikImport = () => {
         setError(result.message || 'Dosya işlenirken hata oluştu');
       }
     } catch (err) {
-      clearInterval(progressInterval);
-      setError(err.response?.data?.message || err.message || 'Dosya yüklenirken hata oluştu');
+      setError(err?.kullaniciMesaji || err.response?.data?.message || err.message || 'Dosya yüklenirken hata oluştu');
     } finally {
       setUploading(false);
       setTimeout(() => setUploadProgress(0), 500);

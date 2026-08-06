@@ -276,9 +276,10 @@ const TesvikList = () => {
     loadTesvikler(newPage);
   };
 
-  // ✅ Tüm belgeleri toplu 'Onaylandı' yap (müşteri: 'hepsini onaylandı yapabilir miyiz')
+  // ✅ Taslak belgeleri toplu 'Onaylandı' yap
+  // (müşteri: "'Tümünü onaylandı yap' sadece taslakları onaylandı yapsın" — kapandı/süreçteki belgelere dokunulmaz)
   const handleTumunuOnayla = async () => {
-    if (!window.confirm('Tüm belgelerin durumu "Onaylandı" olarak güncellenecek. Devam edilsin mi?')) return;
+    if (!window.confirm('Sadece "Taslak" durumundaki belgeler "Onaylandı" yapılacak.\nKapanmış, iptal edilmiş ve süreçte olan belgelere dokunulmayacak.\n\nDevam edilsin mi?')) return;
     try {
       setLoading(true);
       const res = await axios.patch('/tesvik/bulk-durum', { tumu: true, yeniDurum: 'onaylandi', aciklama: 'Toplu onay' });
@@ -412,7 +413,7 @@ const TesvikList = () => {
                   '&:hover': { backgroundColor: '#f0fdf4', borderColor: '#15803d' }
                 }}
               >
-                Tümünü Onaylandı Yap
+                Taslakları Onaylandı Yap
               </Button>
               <Button
                 variant="outlined"

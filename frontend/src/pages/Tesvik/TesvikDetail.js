@@ -25,6 +25,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
+import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 
 const TesvikDetail = () => {
   const { id } = useParams();
@@ -38,6 +39,7 @@ const TesvikDetail = () => {
   const [excelLoading, setExcelLoading] = useState(false);
   const [exportingRevizyon, setExportingRevizyon] = useState(false);
   const [durumSaving, setDurumSaving] = useState(false); // belge durumu değiştirme
+  const oecdGoster = useOecdEtiket(); // OECD kodu ('OECD_001') → açıklama; açıklama ise olduğu gibi
 
   // Modal states
   const [activityModalOpen, setActivityModalOpen] = useState(false);
@@ -1088,8 +1090,14 @@ const TesvikDetail = () => {
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(US97)</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimKonusu || '-'}</Typography></Grid>
 
+                  {/* müşteri: "Belge ile bilgilerde OECD (Orta-Yüksek) görünmüyor" — eski belge detayında satır hiç yoktu */}
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</Typography></Grid>
+
+                  {/* müşteri: "Kararname Tarih/Sayı kısmı da boş görünüyor" — okunan yol (kunyeBilgileri.dayandigiKanun)
+                      şemada yok, değer belgeYonetimi.dayandigiKanun'a yazılıyor */}
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.kunyeBilgileri?.dayandigiKanun || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{kararnameGoster(tesvik)}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>
@@ -1166,6 +1174,13 @@ const TesvikDetail = () => {
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mücbir Uzama Tarihi</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.mucbirUzumaTarihi ? new Date(tesvik.belgeYonetimi.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
+
+                  {/* müşteri: belge kapandıktan sonra revize ile doldurulacak (fotoğrafa/screenshot'a dahil değil) */}
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kapanma Tarihi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.kapanmaTarihi ? new Date(tesvik.belgeYonetimi.kapanmaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Ekspertiz Tarihi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.ekspertizTarihi ? new Date(tesvik.belgeYonetimi.ekspertizTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Öncelikli Yatırım</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</Typography></Grid>

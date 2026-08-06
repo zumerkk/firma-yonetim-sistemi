@@ -4,6 +4,33 @@
 
 const IslemTuru = require('../../models/IslemTuru');
 
+// 📎 Örnek/şablon dosyaların kökü — storageService.BASE_DIR'e GÖRELİ verilir
+// (islemEvrakService.mailGonder göreli yolu BASE_DIR ile birleştirip nodemailer'a path olarak geçer).
+// Dosyalar repoda tutulur: her deploy'da yeniden oluşur, Render'ın geçici diskinden etkilenmez.
+// ASCII ad şart — macOS (NFD, harf duyarsız) ile Render Linux (NFC, harf duyarlı) arasında ad kaymasın.
+const ORNEK_DIR = 'Islem_Evrak/_Ornekler';
+const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+const ORNEK_TAAHHUTNAME = {
+  sahis: {
+    dosyaAdi: 'E-TUYS Taahhütnamesi (Şahıs).docx', // firmaya giden mailde görünen ad
+    fileUrl: '',
+    filePath: `${ORNEK_DIR}/ETUYS_Taahhutnamesi_Sahis.docx`,
+    mimeType: DOCX_MIME,
+    fileSize: 733831
+  },
+  sirket: {
+    dosyaAdi: 'E-TUYS Taahhütnamesi (Şirket).docx',
+    fileUrl: '',
+    filePath: `${ORNEK_DIR}/ETUYS_Taahhutnamesi_Sirket.docx`,
+    mimeType: DOCX_MIME,
+    fileSize: 733754
+  }
+};
+
+// Taahhütname kaleminin adı varyanta göre değişiyor ("(Şahıs)" / "(Şirket)")
+const TAAHHUTNAME_KALIBI = /taahh[üu]tname/i;
+
 const ETUYS_GOVDE = [
   'Sayın {firmaAdi} Yetkilisi,',
   '',
@@ -36,7 +63,7 @@ const VARSAYILAN_TURLER = [
         mailKonusu: 'E-TUYS Yetkilendirme (Şahıs) — Evrak Talebi ({firmaAdi})',
         mailGovdesi: ETUYS_GOVDE,
         istenenEvraklar: [
-          { ad: 'E-TUYS Taahhütnamesi (Şahıs)', aciklama: 'Ekteki örneğe göre doldurulup noter onaylı olarak iletilmelidir', zorunlu: true },
+          { ad: 'E-TUYS Taahhütnamesi (Şahıs)', aciklama: 'Ekteki örneğe göre doldurulup noter onaylı olarak iletilmelidir', zorunlu: true, ornekDosya: ORNEK_TAAHHUTNAME.sahis },
           { ad: 'Kimlik Fotokopisi', aciklama: 'Yetkilendirilecek kişinin T.C. kimlik kartı önlü arkalı', zorunlu: true },
           { ad: 'İmza Beyannamesi', aciklama: 'Noter onaylı', zorunlu: true },
           { ad: 'Vergi Levhası', aciklama: 'Güncel tarihli', zorunlu: true }
@@ -48,7 +75,7 @@ const VARSAYILAN_TURLER = [
         mailKonusu: 'E-TUYS Yetkilendirme (Şirket) — Evrak Talebi ({firmaAdi})',
         mailGovdesi: ETUYS_GOVDE,
         istenenEvraklar: [
-          { ad: 'E-TUYS Taahhütnamesi (Şirket)', aciklama: 'Ekteki örneğe göre doldurulup noter onaylı olarak iletilmelidir', zorunlu: true },
+          { ad: 'E-TUYS Taahhütnamesi (Şirket)', aciklama: 'Ekteki örneğe göre doldurulup noter onaylı olarak iletilmelidir', zorunlu: true, ornekDosya: ORNEK_TAAHHUTNAME.sirket },
           { ad: 'İmza Sirküleri', aciklama: 'Temsil ve ilzama yetkili kişileri gösterir, noter onaylı', zorunlu: true },
           { ad: 'Kimlik Fotokopisi', aciklama: 'Yetkilendirilecek kişinin T.C. kimlik kartı önlü arkalı', zorunlu: true },
           { ad: 'Ticaret Sicil Gazetesi', aciklama: 'Şirket kuruluş ve son değişiklikleri içeren', zorunlu: true },
@@ -69,4 +96,38 @@ async function seedIslemTurleri() {
   return { eklenen: VARSAYILAN_TURLER.length, mevcut: 0 };
 }
 
-module.exports = { seedIslemTurleri, VARSAYILAN_TURLER };
+// 🔁 Örnek taahhütname dosyalarını mevcut kayıtlara bağla (idempotent backfill).
+// seedIslemTurleri() yalnızca koleksiyon boşken çalıştığı için, modül daha önce
+// seed'lenmiş kurulumlarda taahhütname kalemleri örnek dosyasız kalıyordu.
+// Yalnızca ornekDosya'sı BOŞ olan kalemler doldurulur — kullanıcının arayüzden
+// yüklediği kendi örnek dosyası her açılışta ezilmez.
+async function ornekDosyalariBagla() {
+  const turler = await IslemTuru.find({ kod: 'etuys_yetkilendirme' });
+  let guncellenen = 0;
+
+  for (const tur of turler) {
+    let degisti = false;
+
+    for (const varyant of tur.varyantlar || []) {
+      const ornek = ORNEK_TAAHHUTNAME[varyant.kod];
+      if (!ornek) continue;
+
+      for (const evrak of varyant.istenenEvraklar || []) {
+        if (!TAAHHUTNAME_KALIBI.test(evrak.ad || '')) continue;
+        if (evrak.ornekDosya && (evrak.ornekDosya.filePath || evrak.ornekDosya.fileUrl)) continue;
+        evrak.ornekDosya = { ...ornek };
+        degisti = true;
+      }
+    }
+
+    if (degisti) {
+      tur.markModified('varyantlar');
+      await tur.save();
+      guncellenen += 1;
+    }
+  }
+
+  return { guncellenen };
+}
+
+module.exports = { seedIslemTurleri, ornekDosyalariBagla, VARSAYILAN_TURLER, ORNEK_DIR, ORNEK_TAAHHUTNAME };

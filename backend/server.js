@@ -493,9 +493,14 @@ const startServer = async () => {
 
     // 🌱 İşlem türleri seed (yalnızca hiç kayıt yoksa — kullanıcı düzenlemeleri korunur)
     try {
-      const { seedIslemTurleri } = require('./services/islemEvrak/seedIslemTurleri');
+      const { seedIslemTurleri, ornekDosyalariBagla } = require('./services/islemEvrak/seedIslemTurleri');
       const sonuc = await seedIslemTurleri();
       if (sonuc.eklenen > 0) console.log(`✅ İşlem türü seed: ${sonuc.eklenen} varsayılan tür eklendi`);
+
+      // Daha önce seed'lenmiş kurulumlarda taahhütname kalemleri örnek dosyasız kalmıştı;
+      // yalnızca boş olanlar doldurulur (kullanıcının kendi yüklediği örnek ezilmez).
+      const bagli = await ornekDosyalariBagla();
+      if (bagli.guncellenen > 0) console.log(`✅ İşlem türü: ${bagli.guncellenen} kayda örnek taahhütname bağlandı`);
     } catch (err) {
       console.error('⚠️ İşlem türü seed hatası (kritik değil):', err.message);
     }
