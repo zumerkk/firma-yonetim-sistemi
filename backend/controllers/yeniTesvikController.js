@@ -498,6 +498,18 @@ const updateTesvik = async (req, res) => {
     // 📊 PROFESSIONAL CHANGE DETECTION SYSTEM
     console.log('🔍 Change tracking başlıyor...');
 
+    // 🔧 FIX (müşteri: "her revizede finansal bilgileri değişmiş gibi gösteriyor
+    // hiç düzenleme yapmamama rağmen"): toplamFinansman / toplam makine / toplam kişi gibi
+    // alanlar her kayıtta updateMaliHesaplamalar() ile YENİDEN TÜRETİLİYOR. Eski veri ham
+    // haliyle fotoğraflanırsa, veritabanındaki bayat toplam ile yeni türetilen toplam
+    // arasındaki fark kullanıcı hiçbir şeye dokunmasa bile "değişiklik" olarak kaydediliyordu.
+    // Bu yüzden eski veri de aynı türetmeden geçirilerek fotoğraflanır.
+    try {
+      tesvik.updateMaliHesaplamalar();
+    } catch (e) {
+      console.log('⚠️ Eski veri normalizasyonu pas geçildi:', e.message);
+    }
+
     // Eski veriyi tam olarak kaydet - deep copy
     const eskiVeri = JSON.parse(JSON.stringify(tesvik.toSafeJSON()));
     console.log('📚 Eski veri kaydedildi:', Object.keys(eskiVeri).length, 'alan');
@@ -640,19 +652,36 @@ const updateTesvik = async (req, res) => {
         }
       };
 
-      // Revizyon ekle - manual olarak (pre-save hook'u bypass et)
-      tesvik.revizyonlar.push({
-        revizyonNo: tesvik.revizyonlar.length + 1,
-        revizyonTarihi: new Date(),
-        ...revizyonData,
-        durumOncesi: eskiVeri.durumBilgileri?.genelDurum,
-        durumSonrasi: tesvik.durumBilgileri?.genelDurum
-      });
+      // 🔧 FIX (müşteri: "Revizyon başlatırken olan notu ayrı revize olarak gösteriyor"):
+      // "Revizyon Başlat" akışı önce değişen alanı olmayan bir yer tutucu kayıt açıyor
+      // (sebep + not), asıl düzenleme sonra ikinci bir kayıt üretiyordu. Son kayıt boş bir
+      // başlatma kaydıysa yeni satır açmak yerine onun içi doldurulur; sebep ve not korunur.
+      const sonRevizyon = tesvik.revizyonlar[tesvik.revizyonlar.length - 1];
+      const baslatmaKaydi = sonRevizyon &&
+        (!Array.isArray(sonRevizyon.degisikenAlanlar) || sonRevizyon.degisikenAlanlar.length === 0);
+
+      if (baslatmaKaydi) {
+        sonRevizyon.degisikenAlanlar = degisikenAlanlar;
+        sonRevizyon.revizyonTarihi = new Date();
+        sonRevizyon.yapanKullanici = req.user._id;
+        sonRevizyon.durumSonrasi = tesvik.durumBilgileri?.genelDurum;
+        if (updateData.guncellemeNotu) sonRevizyon.kullaniciNotu = updateData.guncellemeNotu;
+        tesvik.markModified('revizyonlar');
+      } else {
+        // Revizyon ekle - manual olarak (pre-save hook'u bypass et)
+        tesvik.revizyonlar.push({
+          revizyonNo: tesvik.revizyonlar.length + 1,
+          revizyonTarihi: new Date(),
+          ...revizyonData,
+          durumOncesi: eskiVeri.durumBilgileri?.genelDurum,
+          durumSonrasi: tesvik.durumBilgileri?.genelDurum
+        });
+      }
 
       // Tekrar kaydet
       await tesvik.save();
 
-      console.log('✅ Otomatik revizyon eklendi - Revizyon No:', tesvik.revizyonlar.length);
+      console.log(`✅ Revizyon ${baslatmaKaydi ? 'güncellendi (başlatma kaydına işlendi)' : 'eklendi'} - Revizyon No:`, tesvik.revizyonlar.length);
     }
 
     // 📊 Activity log - detaylı (fields boş kalmasın diye alan-özeti ekliyoruz)
@@ -765,6 +794,10 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'belgeYonetimi.uzatimTarihi': 'Süre Uzatım Tarihi',
     'belgeYonetimi.mucbirUzumaTarihi': 'Mücbir Uzatma Tarihi',
     'belgeYonetimi.mucbirUzatma': 'Mücbir Uzatma (Evet/Hayır)',
+    // müşteri: "belge kapandıktan sonra revize ile buraları dolduracağız" — etiket olmadan
+    // detectDetailedChanges bu alanları atlıyor ve revizyon kaydı hiç oluşmuyordu
+    'belgeYonetimi.kapanmaTarihi': 'Kapanma Tarihi',
+    'belgeYonetimi.ekspertizTarihi': 'Ekspertiz Tarihi',
     'belgeYonetimi.belgeMuracaatNo': 'Belge Müracaat No',
     'belgeYonetimi.belgeDurumu': 'Belge Durumu',
     'belgeYonetimi.oncelikliYatirim': 'Öncelikli Yatırım',
@@ -776,6 +809,7 @@ const detectDetailedChanges = async (eskiVeri, yeniVeri) => {
     'istihdam.yeniKisi': 'Yeni Kişi Sayısı',
 
     // 🏭 Yatırım bilgileri - DOĞRU FIELD PATHS
+    'yatirimBilgileri.oecdKategori': 'OECD (Orta-Yüksek)',
     'yatirimBilgileri.yatirim1.yatirimKonusu': 'Yatırım Konusu',
     'yatirimBilgileri.yatirim1.destekSinifi': 'Destek Sınıfı',
     'yatirimBilgileri.yatirim1.cins1': 'Yatırım Cinsi 1',
@@ -2859,9 +2893,15 @@ const bulkUpdateDurum = async (req, res) => {
     }
 
     // Toplu işlemde kapanmış/iptal edilmiş belgeler korunur (müşteri endişesi)
+    // müşteri isteği: "'Tümünü onaylandı yap' sadece taslakları onaylandı yapsın."
+    // → tumu:true ile toplu onayda YALNIZCA taslak belgeler değişir; kapanmış, iptal edilmiş
+    //   veya süreçte olan (inceleniyor/onay_bekliyor/reddedildi...) belgelere dokunulmaz.
     const KORUNAN_DURUMLAR = ['kapandi', 'iptal_edildi'];
+    const tumuFiltresi = yeniDurum === 'onaylandi'
+      ? { aktif: true, 'durumBilgileri.genelDurum': 'taslak' }
+      : { aktif: true, 'durumBilgileri.genelDurum': { $nin: KORUNAN_DURUMLAR } };
     const filter = tumu === true
-      ? { aktif: true, 'durumBilgileri.genelDurum': { $nin: KORUNAN_DURUMLAR } }
+      ? tumuFiltresi
       : { _id: { $in: tesvikIds }, aktif: true };
     const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri' };
 

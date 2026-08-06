@@ -1,13 +1,15 @@
 // 🌐 PUBLIC EVRAK YÜKLEME - /upload/tesvik/:token  (AUTH YOK)
 // Müşteri/tedarikçi için sade yükleme ekranı. LayoutWrapper KULLANMAZ.
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, MenuItem, Button, Alert, CircularProgress, Stack, Divider, Chip
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/tesvikMakineService';
+import islemEvrakSvc from '../../services/islemEvrakService';
 import { listTypeLabel } from './helpers';
 
 // Component DIŞINDA tanımlı olmalı: içeride tanımlanırsa her render'da yeni component
@@ -22,6 +24,7 @@ function Wrapper({ children }) {
 
 export default function PublicUpload() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,21 +34,43 @@ export default function PublicUpload() {
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+  // Firma tarafı burada bekliyor: belirsiz spinner yerine gerçek yüzde
+  const [yukleme, setYukleme] = useState(null);
   const [submitError, setSubmitError] = useState('');
   const fileRef = useRef(null);
 
   useEffect(() => {
+    let iptal = false;
     svc.publicInfo(token)
-      .then((d) => { setInfo(d); setDocType(d.documentTypes?.[0]?.key || 'diger'); })
-      .catch((e) => setError(e?.response?.data?.message || 'Bağlantı geçersiz veya süresi dolmuş.'))
-      .finally(() => setLoading(false));
-  }, [token]);
+      .then((d) => {
+        if (iptal) return;
+        setInfo(d); setDocType(d.documentTypes?.[0]?.key || 'diger');
+        setLoading(false);
+      })
+      .catch(async (e) => {
+        if (iptal) return;
+        // 🔁 Geriye dönük kurtarma: İşlem & Evrak modülü bir dönem linkleri bu yola üretti
+        // (doğrusu /evrak/:token). Firmanın elindeki eski mailler bozulmasın diye, token
+        // bu modülde geçersizse İşlem & Evrak tarafında deneyip oraya yönlendiriyoruz.
+        try {
+          await islemEvrakSvc.publicBilgi(token);
+          if (!iptal) navigate(`/evrak/${token}`, { replace: true });
+          return;
+        } catch (digerHata) { /* orada da yok → asıl hatayı göster */ }
+        if (!iptal) {
+          setError(e?.response?.data?.message || 'Bağlantı geçersiz veya süresi dolmuş.');
+          setLoading(false);
+        }
+      });
+    return () => { iptal = true; };
+  }, [token, navigate]);
 
   const submit = async (e) => {
     e.preventDefault();
     setSubmitError('');
     if (!files.length) { setSubmitError('Lütfen en az bir dosya seçin.'); return; }
     setSubmitting(true);
+    setYukleme({ fileName: files.length > 1 ? `${files.length} dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((t, f) => t + (f.size || 0), 0) });
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append('files', f)); // çoklu (XML + PDF aynı anda)
@@ -53,11 +78,11 @@ export default function PublicUpload() {
       fd.append('note', note);
       fd.append('uploaderName', uploaderName);
       fd.append('uploaderType', 'customer');
-      await svc.publicUpload(token, fd);
+      await svc.publicUpload(token, fd, (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       setDone(true);
     } catch (err) {
-      setSubmitError(err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
-    } finally { setSubmitting(false); }
+      setSubmitError(err?.kullaniciMesaji || err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
+    } finally { setSubmitting(false); setYukleme(null); }
   };
 
   if (loading) return <Wrapper><Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress /></Box></Wrapper>;
@@ -101,6 +126,7 @@ export default function PublicUpload() {
           </Typography>
           <TextField fullWidth label="Adınız (opsiyonel)" value={uploaderName} onChange={(e) => setUploaderName(e.target.value)} />
           <TextField fullWidth label="Not (opsiyonel)" value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} />
+          <UploadProgress active={submitting} {...(yukleme || {})} />
           {submitError && <Alert severity="error">{submitError}</Alert>}
           <Button type="submit" variant="contained" size="large" disabled={submitting} startIcon={submitting ? <CircularProgress size={18} /> : <CloudUploadIcon />}>
             {submitting ? 'Yükleniyor...' : 'Gönder'}

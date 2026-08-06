@@ -25,6 +25,7 @@ import { exportTesvikToExcel } from '../../utils/docxExcelExport';
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
+import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 
 const YeniTesvikDetail = () => {
   const { id } = useParams();
@@ -38,6 +39,7 @@ const YeniTesvikDetail = () => {
   const [excelLoading, setExcelLoading] = useState(false);
   const [exportingRevizyon, setExportingRevizyon] = useState(false);
   const [durumSaving, setDurumSaving] = useState(false); // belge durumu değiştirme
+  const oecdGoster = useOecdEtiket(); // OECD kodu ('OECD_001') → açıklama; açıklama ise olduğu gibi
 
   // Modal states
   const [activityModalOpen, setActivityModalOpen] = useState(false);
@@ -1096,10 +1098,10 @@ const YeniTesvikDetail = () => {
 
                   {/* müşteri: OECD (Orta-Yüksek) belge bilgilerinde görünmüyordu */}
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.oecdKategori || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.dayandigiKanun || tesvik.kunyeBilgileri?.dayandigiKanun || '-'}</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{kararnameGoster(tesvik)}</Typography></Grid>
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>

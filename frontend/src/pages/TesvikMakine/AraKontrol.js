@@ -16,6 +16,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import EmailIcon from '@mui/icons-material/Email';
 import CloseIcon from '@mui/icons-material/Close';
+import UploadProgress from '../../components/common/UploadProgress';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import { formatDate } from './helpers';
@@ -44,6 +45,7 @@ const AraKontrol = () => {
   const [ekler, setEkler] = useState([]);
 
   const [busy, setBusy] = useState('');
+  const [yukleme, setYukleme] = useState(null); // mail ekleri yükleme göstergesi
   const [gecmis, setGecmis] = useState([]);
   const [yuklemeler, setYuklemeler] = useState([]); // firmadan gelen belge-geneli yüklemeler
   const [snack, setSnack] = useState(null);
@@ -141,10 +143,13 @@ const AraKontrol = () => {
       fd.append('subject', subject);
       fd.append('body', body);
       fd.append('sistemListesi', sistemListesi ? '1' : '0');
-      await svc.araKontrolSend(secili.tesvikModel, idOf(secili), fd);
+      if (ekler.length) {
+        setYukleme({ fileName: ekler.length > 1 ? `${ekler.length} ek` : ekler[0].name, pct: 0, loaded: 0, total: ekler.reduce((t, f) => t + (f.size || 0), 0) });
+      }
+      await svc.araKontrolSend(secili.tesvikModel, idOf(secili), fd, (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       notify('Ara kontrol maili gönderildi ✅');
       await gecmisiYukle(secili);
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setYukleme(null); }
   };
 
   const linkKopyala = () => {
@@ -258,6 +263,7 @@ const AraKontrol = () => {
                 <TextField label="İçerik" fullWidth multiline minRows={12} value={body} onChange={(e) => setBody(e.target.value)}
                   helperText="Metni istediğiniz gibi düzenleyebilirsiniz — mail bu haliyle gönderilir." />
               </Stack>
+              <UploadProgress active={busy === 'send' && !!yukleme} {...(yukleme || {})} />
               <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
                 <Button variant="contained" startIcon={busy === 'send' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
                   onClick={gonder} disabled={!gonderilebilir || !compose.smtpConfigured}>

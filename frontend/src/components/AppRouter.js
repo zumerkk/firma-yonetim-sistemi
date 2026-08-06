@@ -70,6 +70,7 @@ import AraKontrol from '../pages/TesvikMakine/AraKontrol';
 import IslemEvrakList from '../pages/IslemEvrak/IslemEvrakList';
 import IslemEvrakDetail from '../pages/IslemEvrak/IslemEvrakDetail';
 import IslemEvrakPublicUpload from '../pages/IslemEvrak/IslemEvrakPublicUpload';
+import IslemTuruYonetimi from '../pages/IslemEvrak/IslemTuruYonetimi';
 import PublicUpload from '../pages/TesvikMakine/PublicUpload';
 
 const AppRouter = () => {
@@ -112,6 +113,12 @@ const AppRouter = () => {
       <Route path="/islem-evrak" element={
         <ProtectedRoute>
           <IslemEvrakList />
+        </ProtectedRoute>
+      } />
+      {/* Statik yol dinamik :id'den ÖNCE tanımlanmalı — aksi halde "turler" talep id'si sanılır */}
+      <Route path="/islem-evrak/turler" element={
+        <ProtectedRoute>
+          <IslemTuruYonetimi />
         </ProtectedRoute>
       } />
       <Route path="/islem-evrak/:id" element={

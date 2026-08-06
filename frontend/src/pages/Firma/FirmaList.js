@@ -578,54 +578,9 @@ const FirmaList = () => {
         );
       }
     },
-    {
-      field: 'etuysYetkiBitisTarihi',
-      headerName: 'ETUYS Bitiş',
-      width: 120,
-      renderCell: (params) => {
-        if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
-
-        const date = new Date(params.value);
-        const today = new Date();
-        const diffTime = date - today;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        let color = 'default';
-        let bgColor = 'transparent';
-        let textColor = 'inherit';
-
-        if (diffDays < 0) {
-          color = 'error';
-          bgColor = '#ffebee';
-          textColor = '#c62828';
-        } else if (diffDays <= 30) {
-          color = 'warning';
-          bgColor = '#fff8e1';
-          textColor = '#f57c00';
-        } else {
-          color = 'success';
-          bgColor = '#e8f5e8';
-          textColor = '#2e7d32';
-        }
-
-        return (
-          <Chip
-            label={date.toLocaleDateString('tr-TR')}
-            size="small"
-            color={color}
-            sx={{
-              fontSize: '0.7rem',
-              backgroundColor: bgColor,
-              color: textColor,
-              fontWeight: 600,
-              '& .MuiChip-label': {
-                px: 1
-              }
-            }}
-          />
-        );
-      }
-    },
+    // NOT: burada ikinci bir 'etuysYetkiBitisTarihi' kolonu vardı; MUI DataGrid field'ı benzersiz
+    // kabul ettiği için yukarıdaki "ETUYS Yetki Bitiş" tanımını eziyordu (başlık/genişlik bozuluyordu).
+    // Tek tanım yukarıda (İl/İlçe'den sonra) bırakıldı.
     {
       field: 'dysYetkiBitisTarihi',
       headerName: 'DYS Bitiş',
@@ -1131,7 +1086,9 @@ const FirmaList = () => {
                 columns: {
                   columnVisibilityModel: {
                     yetkiliKisiler: false,
-                    etuysYetkiBitisTarihi: false,
+                    // etuysYetkiBitisTarihi burada GİZLENMEZ — müşteri: "İrtibat kişisi yerine
+                    // ETUYS Yetki bitiş tarihi görünsün". Görünürlük field id'sine bağlı olduğu için
+                    // eski gizleme kaydı yeni kolonu da gizliyordu.
                     dysYetkiBitisTarihi: false,
                     olusturanKullanici: false
                   }

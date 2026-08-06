@@ -1,9 +1,8 @@
 // 🧩 İşlem ve Evrak Yönetimi - Frontend API servisi
-import api from '../utils/axios';
+import api, { uploadPost } from '../utils/axios';
 
 const base = '/islem-evrak';
 const d = (r) => r.data?.data;
-const form = { headers: { 'Content-Type': 'multipart/form-data' } };
 
 const islemEvrakService = {
   // İşlem türleri (şablonlar)
@@ -23,13 +22,15 @@ const islemEvrakService = {
   mailOnizle: (id) => api.get(`${base}/talepler/${id}/mail-onizle`).then(d),
   mailGonder: (id, body) => api.post(`${base}/talepler/${id}/mail-gonder`, body).then(d),
   linkUret: (id, gun) => api.post(`${base}/talepler/${id}/link`, { gun }).then(d),
-  ornekDosyaYukle: (id, evrakId, formData) =>
-    api.post(`${base}/talepler/${id}/evrak/${evrakId}/ornek`, formData, form).then(d),
+  // Yüklemeler uploadPost üzerinden: gerçek yüzde + uzun timeout (global 15 sn büyük dosyaya yetmiyor)
+  ornekDosyaYukle: (id, evrakId, formData, onProgress) =>
+    uploadPost(`${base}/talepler/${id}/evrak/${evrakId}/ornek`, formData, { onProgress }).then(d),
   yuklenenSil: (id, dosyaId) => api.delete(`${base}/talepler/${id}/yuklenen/${dosyaId}`).then(d),
 
   // Public (token — auth gerektirmez)
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
-  publicYukle: (token, formData) => api.post(`${base}/public/${token}`, formData, form).then((r) => r.data)
+  publicYukle: (token, formData, onProgress) =>
+    uploadPost(`${base}/public/${token}`, formData, { onProgress }).then((r) => r.data)
 };
 
 export default islemEvrakService;

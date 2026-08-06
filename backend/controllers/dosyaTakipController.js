@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const DosyaTakip = require('../models/DosyaTakip');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
@@ -167,7 +168,10 @@ exports.getTumTalepler = async (req, res) => {
             firma = '',
             baslangicTarihi = '',
             bitisTarihi = '',
-            arsiv = ''
+            arsiv = '',
+            // müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim"
+            hazirlayan = '',
+            takipEden = ''
         } = req.query;
 
         const filter = { aktif: true };
@@ -199,6 +203,21 @@ exports.getTumTalepler = async (req, res) => {
         }
         if (talepTuru) filter.talepTuru = talepTuru;
         if (firma) filter.firma = firma;
+
+        // 👤 Personel filtreleri. 'YOK' → hiç atanmamış talepler.
+        // Geçersiz bir id URL'den elle verilirse CastError ile 500 dönmesin diye yok sayılır.
+        const personelFiltresi = (deger, alan) => {
+            if (!deger) return;
+            if (deger === 'YOK') {
+                // talepGuncelle boş değerde alanı undefined bıraktığı için null ve "hiç yok" birlikte aranır
+                filter[alan] = { $in: [null] };
+            } else if (mongoose.Types.ObjectId.isValid(deger)) {
+                filter[alan] = deger;
+            }
+        };
+        personelFiltresi(hazirlayan, 'muraacatOncesi.muraacatHazirlayanPersonel');
+        personelFiltresi(takipEden, 'muraacatSonrasi.takibiYapanPersonel');
+
         if (baslangicTarihi || bitisTarihi) {
             filter.createdAt = {};
             if (baslangicTarihi) filter.createdAt.$gte = new Date(baslangicTarihi);
@@ -383,6 +402,20 @@ exports.durumDegistir = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Geçersiz durum kodu' });
         }
 
+        // 🔒 "Kurum Bekleniyor"a geçiş için daire uzmanı zorunlu
+        // (müşteri: "atamalarda 'kurum bekleniyor' seçildikten sonra uzman kaydetmek zorunlu olsun").
+        // Talep kuruma düştüğü anda kimin masasında olduğu kayda geçsin diye geçiş engellenir.
+        if (yeniDurum === '2.2.1.1_KURUM_BEKLENIYOR') {
+            const uzman = String(talep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || '').trim();
+            if (!uzman) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Talebi "Kurum Bekleniyor" durumuna almak için önce Atamalar sekmesinden "Daire Uzmanı" bilgisini kaydetmelisiniz.',
+                    code: 'DAIRE_UZMANI_EKSIK'
+                });
+            }
+        }
+
         // 🔒 "Sonuçlandı"ya geçiş için ETUYS Sonuç Görüntüsü zorunlu (müşteri talebi).
         // NOT: "Belgeye Yansıtıldı" bu kuralın dışında tutuldu (müşteri: o seçenek için kaldıralım).
         if (yeniDurum === '2.3.5_SONUCLANDI') {
@@ -471,6 +504,16 @@ exports.eksikTamamla = async (req, res) => {
         }
         if (!String(talep.durum || '').startsWith('2.2.3')) {
             return res.status(400).json({ success: false, message: "Bu işlem yalnızca 'Kurum Eksik' (2.2.3) aşamasındaki taleplerde yapılabilir." });
+        }
+
+        // 🔒 Bu akış da talebi "Kurum Bekleniyor"a taşıdığı için aynı uzman zorunluluğu geçerli
+        // (durumDegistir'deki kural buradan atlanmasın diye tekrarlanır).
+        if (!String(talep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || '').trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Eksik tamamlama talebi "Kurum Bekleniyor" durumuna taşır; önce Atamalar sekmesinden "Daire Uzmanı" bilgisini kaydetmelisiniz.',
+                code: 'DAIRE_UZMANI_EKSIK'
+            });
         }
 
         const ke = (talep.muraacatSonrasi && talep.muraacatSonrasi.kurumEksik) || {};

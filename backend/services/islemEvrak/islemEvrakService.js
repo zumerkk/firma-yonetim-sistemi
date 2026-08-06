@@ -3,6 +3,7 @@
 // Buradaki fark: kapsam BELGE değil, FİRMA + İŞLEM TÜRÜ (ör. ETUYS yetkilendirme).
 
 const path = require('path');
+const fs = require('fs');
 const IslemTalebi = require('../../models/IslemTalebi');
 const IslemTuru = require('../../models/IslemTuru');
 const Firma = require('../../models/Firma');
@@ -28,16 +29,20 @@ function talepKlasoru(talep) {
 }
 
 // 🔗 Public yükleme linki — makine/ara-kontrol ile aynı biçim ("<önek>-<kısa kod>")
+// Bu modülün firma sayfası /evrak/:token (AppRouter). Teşvik-makine'nin /upload/tesvik
+// yolu kullanılırsa firma yanlış sayfaya düşer ve "Bağlantı geçersiz" hatası alır.
+const PUBLIC_ROUTE = '/evrak';
+
 async function ensureUploadLink(talep, { days } = {}) {
   const onek = storageService.normalizeSegment(talep.islemTuruAdi || 'islem').slice(0, 12);
   const gecerli = talep.uploadToken && !tokenService.isExpired(talep.uploadTokenExpiresAt);
   if (gecerli && tokenService.isPreferredToken(talep.uploadToken, onek)) {
-    return tokenService.buildUploadLink(talep.uploadToken);
+    return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
   }
   talep.uploadToken = tokenService.generateToken(onek);
   talep.uploadTokenExpiresAt = tokenService.computeExpiry(days);
   await talep.save();
-  return tokenService.buildUploadLink(talep.uploadToken);
+  return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
 }
 
 // 🔎 Public yükleme: token → talep
@@ -98,12 +103,20 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
 
   // Ekler: istenen evrakların örnek dosyaları (nodemailer path ile çeker)
   const attachments = ekler.map((e) => {
-    const kaynak = storageService.isCloudinaryUrl(e.fileUrl)
-      ? e.fileUrl
-      : (e.filePath
-        ? (path.isAbsolute(e.filePath) ? e.filePath : path.join(storageService.BASE_DIR, e.filePath))
-        : e.fileUrl);
-    return kaynak ? { filename: e.dosyaAdi || 'ek', path: kaynak } : null;
+    if (storageService.isCloudinaryUrl(e.fileUrl)) {
+      return { filename: e.dosyaAdi || 'ek', path: e.fileUrl };
+    }
+    if (e.filePath) {
+      const yerel = path.isAbsolute(e.filePath) ? e.filePath : path.join(storageService.BASE_DIR, e.filePath);
+      // Dosya diskte yoksa (ör. geçici disk temizlenmiş) nodemailer ENOENT fırlatıp
+      // TÜM gönderimi düşürüyordu. Eksik eki atla, gönderim devam etsin.
+      if (!fs.existsSync(yerel)) {
+        console.warn(`⚠️ Örnek dosya bulunamadı, ek atlandı: ${yerel}`);
+        return null;
+      }
+      return { filename: e.dosyaAdi || 'ek', path: yerel };
+    }
+    return e.fileUrl ? { filename: e.dosyaAdi || 'ek', path: e.fileUrl } : null;
   }).filter(Boolean);
 
   await mailService.sendMail({ to, cc, subject, text: body, attachments });

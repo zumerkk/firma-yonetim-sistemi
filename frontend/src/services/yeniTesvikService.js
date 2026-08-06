@@ -1,4 +1,4 @@
-import api from '../utils/axios';
+import api, { uploadPost } from '../utils/axios';
 
 const yeniTesvikService = {
   async search(q = '', params = {}) {
@@ -61,13 +61,11 @@ const yeniTesvikService = {
   },
 
   // 📊 Excel/CSV Teşvik Import Servisleri
-  async uploadPreview(file) {
+  async uploadPreview(file, onProgress) {
     const formData = new FormData();
     formData.append('file', file);
-    const res = await api.post('/tesvik-import/upload-preview', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000 // 60s timeout (büyük dosyalar için)
-    });
+    // uploadPost: gerçek yükleme yüzdesi + uzun timeout (60s bazı büyük Excel'lere yetmiyordu)
+    const res = await uploadPost('/tesvik-import/upload-preview', formData, { onProgress });
     return res.data;
   },
   async confirmImport(importSessionId, selectedRows = null) {

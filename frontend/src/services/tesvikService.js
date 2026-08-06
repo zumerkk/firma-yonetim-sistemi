@@ -1,4 +1,4 @@
-import api from '../utils/axios';
+import api, { uploadPost } from '../utils/axios';
 
 const tesvikService = {
   async search(q = '', params = {}) {
@@ -61,10 +61,9 @@ const tesvikService = {
   },
 
   // 📊 Excel Import (Eski Teşvik Sistemi)
-  async importUpload(formData) {
-    const res = await api.post('/eski-tesvik-import/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+  async importUpload(formData, onProgress) {
+    // uploadPost: gerçek yükleme yüzdesi + uzun timeout (global 15 sn 50 MB Excel'e yetmiyor)
+    const res = await uploadPost('/eski-tesvik-import/upload', formData, { onProgress });
     return res.data;
   },
   async importConfirm(importSessionId, selectedRows) {

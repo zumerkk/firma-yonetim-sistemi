@@ -5,7 +5,7 @@ import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 import FileUpload from '../../components/Files/FileUpload';
 import yeniTesvikService from '../../services/yeniTesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
-import api from '../../utils/axios';
+import api, { uploadPost } from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
@@ -478,6 +478,9 @@ const MakineYonetimi = () => {
   const [activityLog, setActivityLog] = useState([]); // { type:'talep'|'karar'|'sil', list:'yerli'|'ithal', row, payload, date }
   // 🛎️ Bildirimler
   const [toast, setToast] = useState({ open:false, severity:'info', message:'' });
+  // Hücre içi sürükle-bırak yükleme göstergesi (hangi satır yükleniyor + yüzde)
+  const [hucreYukleme, setHucreYukleme] = useState(null);
+  const [hucreYuklemePct, setHucreYuklemePct] = useState(0);
   const openToast = (severity, message) => setToast({ open:true, severity, message });
   const closeToast = () => setToast(t => ({ ...t, open:false }));
   
@@ -2271,8 +2274,9 @@ const MakineYonetimi = () => {
       { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', width: 70, editable: isReviseMode, type: 'number' },
       { field: 'toplamTl', headerName: 'Toplam', width: 90, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: '📎', width: 70, sortable: false, renderCell: (p)=> (
-        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
-          <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 40, py: 0.25, px: 0.5 }} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+'}</Button>
+        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
+          <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 40, py: 0.25, px: 0.5 }} disabled={hucreYukleme === p.row.id} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{hucreYukleme === p.row.id ? `%${hucreYuklemePct}` : (Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+')}</Button>
+          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />)}
         </Box>
       )},
       { field: 'etuysSecili', headerName: '✓', width: 35, sortable:false, renderCell:(p)=> (
@@ -2715,8 +2719,9 @@ const MakineYonetimi = () => {
       { field: 'iadeDevirSatisAdet', headerName: 'DVR#', width: 50, editable: isReviseMode, type: 'number' },
       { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', width: 60, editable: isReviseMode, type: 'number' },
       { field: 'dosya', headerName: '📎', width: 55, sortable: false, renderCell: (p)=> (
-        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); await api.post('/files/upload', form, { headers:{'Content-Type':'multipart/form-data'} }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); }}>
-          <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 36, py: 0.25, px: 0.5 }} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+'}</Button>
+        <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
+          <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 36, py: 0.25, px: 0.5 }} disabled={hucreYukleme === p.row.id} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{hucreYukleme === p.row.id ? `%${hucreYuklemePct}` : (Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+')}</Button>
+          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />)}
         </Box>
       )},
       { field: 'etuysSecili', headerName: '✓', width: 32, sortable:false, renderCell:(p)=> (

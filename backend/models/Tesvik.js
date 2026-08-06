@@ -715,6 +715,19 @@ tesvikSchema.pre('save', async function(next) {
 
 // 💰 Mali Hesaplama Otomasyonu
 tesvikSchema.methods.updateMaliHesaplamalar = function() {
+  // 🛡️ Eski/eksik kayıtlarda maliHesaplamalar (veya alt blokları) hiç bulunmayabiliyor.
+  // Bu metod pre('save') hook'undan da çağrıldığı için korumasız erişim, durum değişikliği
+  // gibi ilgisiz işlemleri 500 ile düşürüyordu (müşteri: "bazı belgelerin durumunu
+  // taslaktan onay'a çekemiyorum").
+  if (!this.maliHesaplamalar) this.maliHesaplamalar = {};
+  const mh = this.maliHesaplamalar;
+  if (!mh.maliyetlenen) mh.maliyetlenen = {};
+  if (!mh.yatirimHesaplamalari) mh.yatirimHesaplamalari = {};
+  if (!mh.makinaTechizat) mh.makinaTechizat = {};
+  if (!mh.finansman) mh.finansman = {};
+  if (!this.istihdam) this.istihdam = {};
+  if (!Array.isArray(this.urunler)) this.urunler = [];
+
   // SN = SL * SM hesaplama
   if (this.maliHesaplamalar.maliyetlenen.sl && this.maliHesaplamalar.maliyetlenen.sm) {
     this.maliHesaplamalar.maliyetlenen.sn = 

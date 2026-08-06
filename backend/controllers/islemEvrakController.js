@@ -125,7 +125,8 @@ exports.talepOlustur = wrap(async (req, res) => {
 // İstenen evrak listesi + notlar + varyant güncelleme (serbest düzenleme)
 exports.talepGuncelle = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
-  const { istenenEvraklar, notlar, mailAlicilar, mailCc, varyantKod, varyantAd } = req.body || {};
+  const { istenenEvraklar, notlar, mailAlicilar, mailCc, varyantKod, varyantAd,
+    mailKonusu, mailGovdesi } = req.body || {};
 
   if (Array.isArray(istenenEvraklar)) {
     // Yeni eklenen satırlara "kim istedi" damgası vur
@@ -139,6 +140,11 @@ exports.talepGuncelle = wrap(async (req, res) => {
   if (typeof notlar === 'string') talep.notlar = notlar;
   if (Array.isArray(mailAlicilar)) talep.mailAlicilar = mailAlicilar;
   if (Array.isArray(mailCc)) talep.mailCc = mailCc;
+  // Müşteri (gm modüller): "Maili istediğimiz gibi düzenleyip/kaydedip/silebilelim"
+  // Boş string = taslağı sil → mail önizlemesi tekrar şablondan üretilir (talepMailOnizle
+  // `talep.mailKonusu || konu` mantığıyla çalışır).
+  if (typeof mailKonusu === 'string') talep.mailKonusu = mailKonusu;
+  if (typeof mailGovdesi === 'string') talep.mailGovdesi = mailGovdesi;
   if (typeof varyantKod === 'string') talep.varyantKod = varyantKod;
   if (typeof varyantAd === 'string') talep.varyantAd = varyantAd;
 

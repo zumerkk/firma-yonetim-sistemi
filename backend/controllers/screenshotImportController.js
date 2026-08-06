@@ -421,7 +421,7 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       cazibeMerkezi2018: normalizeEvetHayir(merged.cazibeMerkezi2018),
       cazibeMerkeziDeprem: normalizeEvetHayir(merged.cazibeMerkeziDeprem),
       enerjiUretimKaynagi: merged.enerjiUretimKaynagi || '',
-      oecdKategori: merged.oecdKategori || '',
+      // (oecdKategori yukarıda 416. satırda yazılıyor — buradaki mükerrer anahtar kaldırıldı)
       // Yatırım cinsleri (4 slot)
       sCinsi1: cinsleri[0] || '',
       tCinsi2: cinsleri[1] || '',

@@ -513,6 +513,9 @@ const TesvikForm = () => {
       belgeBitisTarihi: '',
       uzatimTarihi: '',
       mucbirUzumaTarihi: '',
+      // müşteri: belge kapandıktan sonra revize ile doldurulacak alanlar
+      kapanmaTarihi: '',
+      ekspertizTarihi: '',
       oncelikliYatirim: '', // 🏆 Öncelikli Yatırım (Evet/Hayır)
       oncelikliYatirimTuru: '' // 🏆 Öncelikli Yatırım Türü (dropdown)
     },
@@ -902,6 +905,9 @@ const TesvikForm = () => {
             uzatimTarihi: formatDateForInput(backendData.belgeYonetimi?.uzatimTarihi) || '',
             // 🔧 Geriye uyumluluk: Eski field ismi (mudebbirUzatimTarihi) ve yeni (mucbirUzumaTarihi)
             mucbirUzumaTarihi: formatDateForInput(backendData.belgeYonetimi?.mucbirUzumaTarihi || backendData.belgeYonetimi?.mudebbirUzatimTarihi) || '',
+            // Bu iki alan formda taşınmazsa kaydetme sırasında belgeYonetimi toptan değiştiği için silinir
+            kapanmaTarihi: formatDateForInput(backendData.belgeYonetimi?.kapanmaTarihi) || '',
+            ekspertizTarihi: formatDateForInput(backendData.belgeYonetimi?.ekspertizTarihi) || '',
             oncelikliYatirim: backendData.belgeYonetimi?.oncelikliYatirim || '', // 🏆 Öncelikli Yatırım
             oncelikliYatirimTuru: backendData.belgeYonetimi?.oncelikliYatirimTuru || '' // 🏆 Öncelikli Yatırım Türü
           },
@@ -2869,6 +2875,31 @@ const TesvikForm = () => {
                   <ContentPasteIcon fontSize="small" />
                 </IconButton>
               </Box>
+            </Grid>
+
+            {/* 📅 KAPANMA / EKSPERTİZ TARİHİ
+                müşteri: "belge kapandıktan sonra revize ile buraları dolduracağız" */}
+            <Grid item xs={12} sm={6} md={6}>
+              <TextField
+                fullWidth
+                label="KAPANMA TARİHİ 🔒"
+                type="date"
+                value={formData.belgeYonetimi.kapanmaTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.kapanmaTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#ffffff' } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={6}>
+              <TextField
+                fullWidth
+                label="EKSPERTİZ TARİHİ 🔍"
+                type="date"
+                value={formData.belgeYonetimi.ekspertizTarihi}
+                onChange={(e) => handleFieldChange('belgeYonetimi.ekspertizTarihi', e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#ffffff' } }}
+              />
             </Grid>
 
             {/* 🏆 ÖNCELİKLİ YATIRIM ALANLARI */}

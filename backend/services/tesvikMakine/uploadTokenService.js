@@ -59,11 +59,22 @@ function isExpired(expiresAt) {
 // NOT: FRONTEND_URL CORS için virgülle birden çok origin içerebilir
 // ("https://a.com,https://b.com"); link tabanı olarak yalnızca İLK adresi alırız,
 // aksi halde link "https://a.com,https://b.com/upload/..." gibi bozuk çıkar.
-function buildUploadLink(token) {
+//
+// routePrefix: token'ı çözecek FRONTEND sayfasının yolu. Varsayılan teşvik-makine
+// evrak yükleme sayfasıdır. İşlem & Evrak modülü kendi sayfasını (/evrak) geçirir —
+// aksi halde firma yanlış sayfaya düşüp "Bağlantı geçersiz" hatası alır
+// (müşteri: "maildeki yükleme linkine Bağlantı bulunamadı veya geçersiz diyor").
+const VARSAYILAN_ROUTE = '/upload/tesvik';
+
+function buildUploadLink(token, routePrefix = VARSAYILAN_ROUTE) {
   const raw = process.env.UPLOAD_PUBLIC_BASE_URL || process.env.FRONTEND_URL || '';
   const base = String(raw).split(',')[0].trim().replace(/\/$/, '');
-  const path = `/upload/tesvik/${token}`;
+  const onek = String(routePrefix || VARSAYILAN_ROUTE).replace(/\/$/, '');
+  const path = `${onek}/${token}`;
   return base ? `${base}${path}` : path;
 }
 
-module.exports = { generateToken, isPreferredToken, sanitizeBelgeNo, computeExpiry, isExpired, buildUploadLink };
+module.exports = {
+  generateToken, isPreferredToken, sanitizeBelgeNo, computeExpiry, isExpired,
+  buildUploadLink, VARSAYILAN_ROUTE
+};

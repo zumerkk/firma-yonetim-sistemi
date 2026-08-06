@@ -42,6 +42,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import UploadProgress from '../../components/common/UploadProgress';
 import axios from '../../utils/axios';
 
 // Renk eşleştirmeleri
@@ -262,6 +263,11 @@ const DosyaTakipDetail = () => {
     const [users, setUsers] = useState([]);
     const [atamaEditing, setAtamaEditing] = useState(false);
     const [atamaData, setAtamaData] = useState({});
+    // 📅 Zamanlama sekmesi (müşteri: 4 tarih — sadece tarih yazılacak)
+    const [zamanlamaEditing, setZamanlamaEditing] = useState(false);
+    const [zamanlamaData, setZamanlamaData] = useState({});
+    // 📤 Dosya yükleme göstergesi (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
+    const [yukleme, setYukleme] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
     const [oneriler, setOneriler] = useState({ daireler: [], uzmanlar: [] }); // daire/uzman öneri listesi
     const [eksikData, setEksikData] = useState({ firmaYetkilisi: '', personel: '', personelBitti: false, firmaBitti: false }); // 2.2.3 alt-form
@@ -350,8 +356,43 @@ const DosyaTakipDetail = () => {
         setConfirmDialog({ open: true, type, id: itemId, alan, label });
     };
 
+    // 📅 Zamanlama sekmesi — 4 tarih (müşteri: "Sadece Tarih yazalım")
+    // "Sonuçlanma Tarihi" için YENİ alan açılmaz; kök `sonuclanmaTarihi` alanı düzenlenir
+    // (liste/arşiv ekranları zaten onu okuyor — iki ayrı alan olsa veri ikiye bölünürdü).
+    const ZAMANLAMA_ALANLARI = [
+        { key: 'zamanlama.resmiMuracaatEksikSonGun', label: 'Resmi Müracaat Eksik Son Gün', oku: (t) => t?.zamanlama?.resmiMuracaatEksikSonGun },
+        { key: 'zamanlama.eksikBildirimTarihi', label: 'Eksik Bildirim Tarihi', oku: (t) => t?.zamanlama?.eksikBildirimTarihi },
+        { key: 'sonuclanmaTarihi', label: 'Sonuçlanma Tarihi', oku: (t) => t?.sonuclanmaTarihi },
+        { key: 'zamanlama.dosyaHazirlamaSonGun', label: 'Dosya Hazırlama Son Gün', oku: (t) => t?.zamanlama?.dosyaHazirlamaSonGun }
+    ];
+
+    // ISO tarihi <input type="date"> biçimine indirger (saat dilimi kaymasın diye new Date() kullanılmaz)
+    const tarihInputDegeri = (v) => (v ? String(v).split('T')[0] : '');
+
+    const handleZamanlamaDuzenle = () => {
+        const d = {};
+        ZAMANLAMA_ALANLARI.forEach((a) => { d[a.key] = tarihInputDegeri(a.oku(seciliTalep)); });
+        setZamanlamaData(d);
+        setZamanlamaEditing(true);
+    };
+
+    const handleZamanlamaKaydet = async () => {
+        try {
+            await talepGuncelle(id, zamanlamaData);
+            setZamanlamaEditing(false);
+            setSnackbar({ open: true, message: 'Zamanlama kaydedildi!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Zamanlama kaydedilemedi.', severity: 'error' });
+        }
+    };
+
     // Atama kaydet
     const handleAtamaKaydet = async () => {
+        // Kurum Değerlendirme aşamasında daire uzmanı boş bırakılamaz (müşteri talebi)
+        if (uzmanZorunlu && !String(atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || '').trim()) {
+            setSnackbar({ open: true, message: 'Bu aşamada "Daire Uzmanı" alanı zorunludur.', severity: 'warning' });
+            return;
+        }
         try {
             await talepGuncelle(id, atamaData);
             setAtamaEditing(false);
@@ -374,7 +415,8 @@ const DosyaTakipDetail = () => {
             setDurumDialog({ open: false, yeniDurum: '', aciklama: '' });
             setSnackbar({ open: true, message: 'Durum başarıyla güncellendi!', severity: 'success' });
         } catch (err) {
-            setSnackbar({ open: true, message: 'Durum değiştirilemedi.', severity: 'error' });
+            // Backend'in gerekçesi gösterilsin (ör. "önce Daire Uzmanı'nı kaydetmelisiniz")
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Durum değiştirilemedi.', severity: 'error' });
         }
     };
 
@@ -400,6 +442,12 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Durum değiştirilemedi.', severity: 'error' });
         }
     };
+
+    // 🔒 Daire Uzmanı zorunluluğu (müşteri: "'kurum bekleniyor' seçildikten sonra uzman kaydetmek zorunlu olsun")
+    // Kurum Değerlendirme / Kurum Eksik (2.2.x) aşamasındaki taleplerde alan zorunlu işaretlenir;
+    // backend de "Kurum Bekleniyor"a geçişi uzman boşken reddeder.
+    const uzmanZorunlu = String(seciliTalep?.durum || '').startsWith('2.2');
+    const uzmanDolu = !!String(seciliTalep?.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || '').trim();
 
     // 🧩 2.2.3 alt durum → model alt-anahtarı
     const eksikSubKey = (() => {
@@ -445,12 +493,17 @@ const DosyaTakipDetail = () => {
     const handleEksikDosyaYukle = async (e) => {
         const file = e.target.files?.[0];
         if (!eksikSubKey || !file) { if (e.target) e.target.value = ''; return; }
+        setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: 1, count: 1 });
         try {
-            await dosyaEkle(id, file, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, 'Eksik Bildirimleri');
+            await dosyaEkle(id, file, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, 'Eksik Bildirimleri',
+                (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
             setSnackbar({ open: true, message: 'Belge yüklendi.', severity: 'success' });
         } catch (err) {
-            setSnackbar({ open: true, message: 'Belge yüklenemedi.', severity: 'error' });
-        } finally { if (e.target) e.target.value = ''; }
+            setSnackbar({ open: true, message: err?.kullaniciMesaji || err?.response?.data?.message || 'Belge yüklenemedi.', severity: 'error' });
+        } finally {
+            setYukleme(null);
+            if (e.target) e.target.value = '';
+        }
     };
 
     // Not ekleme
@@ -479,14 +532,20 @@ const DosyaTakipDetail = () => {
             return;
         }
         let basarili = 0, hatali = 0;
-        for (const file of files) {
+        // Sıralı yükleme korunur: backend aynı dokümana ardışık yazıyor, paralel gönderim
+        // race condition üretir. Kullanıcıya "3/7" bilgisi verilerek bekleyiş anlaşılır kılınır.
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: i + 1, count: files.length });
             try {
-                await dosyaEkle(id, file, 'dosyalar', dosyaKategori);
+                await dosyaEkle(id, file, 'dosyalar', dosyaKategori,
+                    (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
                 basarili++;
             } catch (err) {
                 hatali++;
             }
         }
+        setYukleme(null);
         setSnackbar({
             open: true,
             message: hatali === 0
@@ -943,6 +1002,9 @@ const DosyaTakipDetail = () => {
                                 <Tab icon={<FolderIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Dosyalar" />
                                 <Tab icon={<HistoryIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Durum Geçmişi" />
                                 <Tab icon={<PersonIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Atamalar" />
+                                {/* müşteri: belge takibe "Zamanlama" sekmesi — sadece tarih.
+                                    DİKKAT: sona eklenmeli, aksi halde setActiveTab(3) derin bağlantısı kayar. */}
+                                <Tab icon={<ScheduleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Zamanlama" />
                             </Tabs>
 
                             <Box sx={{ p: 3 }}>
@@ -1038,14 +1100,17 @@ const DosyaTakipDetail = () => {
                                                     variant="outlined"
                                                     component="label"
                                                     startIcon={<CloudUploadIcon />}
-                                                    disabled={!dosyaKategori}
+                                                    disabled={!dosyaKategori || !!yukleme}
                                                     sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
                                                 >
-                                                    Dosya Yükle
-                                                    <input hidden multiple type="file" onChange={handleDosyaYukle} />
+                                                    {yukleme ? 'Yükleniyor…' : 'Dosya Yükle'}
+                                                    <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!!yukleme} />
                                                 </Button>
                                             </Box>
                                         </Box>
+
+                                        {/* 📤 Yükleme göstergesi — müşteri: yükleniyor mu, bağlantı mı koptu belli olsun */}
+                                        <UploadProgress active={!!yukleme} {...(yukleme || {})} />
 
                                         {/* 🖱️ Sürükle-bırak / çoklu yükleme bölgesi */}
                                         <Box
@@ -1056,11 +1121,12 @@ const DosyaTakipDetail = () => {
                                             sx={{
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
                                                 gap: 0.5, py: 2.5, mb: 2, borderRadius: 2,
-                                                cursor: dosyaKategori ? 'pointer' : 'not-allowed',
+                                                cursor: (dosyaKategori && !yukleme) ? 'pointer' : 'not-allowed',
                                                 border: '2px dashed',
                                                 borderColor: dosyaDragOver ? '#f59e0b' : '#e2e8f0',
                                                 background: dosyaDragOver ? '#fffbeb' : '#fafafa',
-                                                transition: 'all 0.2s', opacity: dosyaKategori ? 1 : 0.65
+                                                transition: 'all 0.2s', opacity: (dosyaKategori && !yukleme) ? 1 : 0.65,
+                                                pointerEvents: yukleme ? 'none' : 'auto'
                                             }}
                                         >
                                             <CloudUploadIcon sx={{ fontSize: 28, color: dosyaDragOver ? '#f59e0b' : '#94a3b8' }} />
@@ -1205,7 +1271,10 @@ const DosyaTakipDetail = () => {
                                             </Grid>
                                             <Grid item xs={12} md={6}>
                                                 <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Daire Uzmanı</Typography>
+                                                    {/* müşteri: "kurum bekleniyor" seçildikten sonra uzman kaydetmek zorunlu */}
+                                                    <Typography variant="caption" sx={{ color: uzmanZorunlu && !uzmanDolu ? '#dc2626' : '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
+                                                        Daire Uzmanı{uzmanZorunlu ? ' *' : ''}
+                                                    </Typography>
                                                     {atamaEditing ? (
                                                         <Autocomplete freeSolo size="small" options={oneriler.uzmanlar}
                                                             value={atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || ''}
@@ -1219,12 +1288,63 @@ const DosyaTakipDetail = () => {
                                                                     </IconButton>
                                                                 </li>
                                                             )}
-                                                            renderInput={(params) => <TextField {...params} fullWidth size="small" placeholder="Uzman seçin veya yazın" />} />
+                                                            renderInput={(params) => (
+                                                                <TextField {...params} fullWidth size="small" placeholder="Uzman seçin veya yazın"
+                                                                    error={uzmanZorunlu && !String(atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || '').trim()}
+                                                                    helperText={uzmanZorunlu && !String(atamaData['muraacatSonrasi.kurumDegerlendirme.daireUzman'] || '').trim()
+                                                                        ? '"Kurum Bekleniyor" aşamasında bu alan zorunludur'
+                                                                        : ''} />
+                                                            )} />
                                                     ) : (
-                                                        <Typography variant="body2" sx={{ fontWeight: 500 }}>{seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || 'Belirtilmedi'}</Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: uzmanZorunlu && !uzmanDolu ? '#dc2626' : 'inherit' }}>
+                                                            {seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || (uzmanZorunlu ? 'Zorunlu — lütfen doldurun' : 'Belirtilmedi')}
+                                                        </Typography>
                                                     )}
                                                 </Paper>
                                             </Grid>
+                                        </Grid>
+                                    </Box>
+                                )}
+
+                                {/* TAB 4: ZAMANLAMA — müşteri: 4 tarih, sadece tarih yazılacak */}
+                                {activeTab === 4 && (
+                                    <Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Zamanlama</Typography>
+                                            {!zamanlamaEditing ? (
+                                                <Button size="small" startIcon={<EditIcon />} onClick={handleZamanlamaDuzenle} sx={{ textTransform: 'none' }}>Düzenle</Button>
+                                            ) : (
+                                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                                    <Button size="small" onClick={() => setZamanlamaEditing(false)} sx={{ textTransform: 'none' }}>İptal</Button>
+                                                    <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleZamanlamaKaydet}
+                                                        sx={{ textTransform: 'none', background: 'linear-gradient(135deg, #059669, #10b981)', borderRadius: 2 }}>Kaydet</Button>
+                                                </Box>
+                                            )}
+                                        </Box>
+                                        <Grid container spacing={2}>
+                                            {ZAMANLAMA_ALANLARI.map((alan) => (
+                                                <Grid item xs={12} sm={6} key={alan.key}>
+                                                    <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
+                                                            {alan.label}
+                                                        </Typography>
+                                                        {zamanlamaEditing ? (
+                                                            <TextField
+                                                                fullWidth
+                                                                size="small"
+                                                                type="date"
+                                                                InputLabelProps={{ shrink: true }}
+                                                                value={zamanlamaData[alan.key] || ''}
+                                                                onChange={(e) => setZamanlamaData((prev) => ({ ...prev, [alan.key]: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {alan.oku(seciliTalep) ? new Date(alan.oku(seciliTalep)).toLocaleDateString('tr-TR') : 'Belirtilmedi'}
+                                                            </Typography>
+                                                        )}
+                                                    </Paper>
+                                                </Grid>
+                                            ))}
                                         </Grid>
                                     </Box>
                                 )}

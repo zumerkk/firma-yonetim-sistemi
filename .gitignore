@@ -67,6 +67,9 @@ debug_*.js
 *.docx
 *.pdf
 !PROJE_KAPSAMLI_ANALIZ_RAPORU.pdf
+# İşlem & Evrak modülünün firmaya mail ekinde gönderdiği şablonlar repoda tutulur
+# (Render'da kalıcı disk yok; deploy build'inde yeniden oluşsun diye)
+!/backend/uploads/tesvik-evrak/Islem_Evrak/_Ornekler/*.docx
 eski-belge-*
 yeni belge *
 zmk*belge*
