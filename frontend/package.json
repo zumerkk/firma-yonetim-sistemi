@@ -37,8 +37,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build && echo '/* /index.html 200' > build/_redirects && echo 'Build completed with _redirects file'",
-    "build:debug": "react-scripts build && echo '/* /index.html 200' > build/_redirects && ls -la build/ && cat build/_redirects",
+    "build": "CI=false react-scripts build && echo '/* /index.html 200' > build/_redirects && echo 'Build completed with _redirects file'",
+    "build:debug": "CI=false react-scripts build && echo '/* /index.html 200' > build/_redirects && ls -la build/ && cat build/_redirects",
     "build:force": "rm -rf build && npm run build",
     "serve": "node server.js",
     "test": "react-scripts test",

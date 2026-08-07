@@ -120,6 +120,37 @@ const IslemEvrakDetail = () => {
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
+  // Satırdan örnek dosya seçildi. Satır henüz kaydedilmemişse (_id yok) önce listeyi
+  // kaydedip sunucudan _id alırız; kullanıcı "önce Kaydet'e bas" diye uğraşmasın.
+  const ornekSecildi = async (index, file, ev) => {
+    if (ev?.target) ev.target.value = ''; // aynı dosya tekrar seçilebilsin
+    if (!file) return;
+
+    const satir = evraklar[index];
+    if (satir?._id) return ornekYukle(satir._id, file);
+
+    if (!String(satir?.ad || '').trim()) {
+      notify('Örnek eklemeden önce evrak adını yazın.', 'warning');
+      return;
+    }
+
+    setBusy(`ornek-yeni-${index}`);
+    try {
+      // Kaydetmede adı boş satırlar elenir; hedef satırın kaydedilmiş listedeki
+      // konumunu referans eşitliğiyle buluruz (indeks kayması olmasın).
+      const temiz = evraklar.filter((x) => String(x.ad || '').trim());
+      const hedefIndex = temiz.indexOf(satir);
+      const g = await svc.talepGuncelle(id, { istenenEvraklar: temiz });
+      setTalep(g); setEvraklar(g.istenenEvraklar || []);
+
+      const yeniId = g.istenenEvraklar?.[hedefIndex]?._id;
+      if (!yeniId) { notify('Satır kaydedildi ama kimliği alınamadı, tekrar deneyin.', 'error'); return; }
+      await ornekYukle(yeniId, file);
+    } catch (e) {
+      notify(errMsg(e), 'error');
+    } finally { setBusy(''); }
+  };
+
   const ornekYukle = async (evrakId, file) => {
     if (!file) return;
     setBusy(`ornek-${evrakId}`);
@@ -181,6 +212,28 @@ const IslemEvrakDetail = () => {
       navigator.clipboard?.writeText(mail.uploadLink);
       notify('Yükleme linki kopyalandı');
     }
+  };
+
+  // 📥 Dosyayı blob olarak indir. Göreli fileUrl'i href vermek frontend origin'ine
+  // çözülüp SPA'nın index.html'ini indiriyordu (müşteri: "belgeler açılmıyor/indirilmiyor").
+  const dosyaIndir = async (dosyaId, ad) => {
+    setBusy(`indir-${dosyaId}`);
+    try {
+      const res = await svc.dosyaIndir(id, dosyaId);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = ad || 'dosya';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      // Blob hata gövdesi JSON'dur; okunabilir mesajı çıkar
+      let mesaj = 'Dosya indirilemedi.';
+      try { mesaj = JSON.parse(await e?.response?.data?.text())?.message || mesaj; } catch (x) { /* düz metin */ }
+      notify(mesaj, 'error');
+    } finally { setBusy(''); }
   };
 
   const yuklenenSil = async (dosyaId) => {
@@ -273,13 +326,18 @@ const IslemEvrakDetail = () => {
                     onChange={(ev) => evrakDegistir(i, 'zorunlu', ev.target.checked)} />}
                   label={<Typography variant="caption">Zorunlu</Typography>}
                 />
-                {e._id && (
-                  <Tooltip title={e.ornekDosya?.dosyaAdi ? `Örnek: ${e.ornekDosya.dosyaAdi}` : 'Örnek/şablon dosya ekle'}>
+                {/* Buton kaydedilmemiş satırlarda da görünür: eskiden `e._id &&` ile gizleniyordu,
+                    "Satır Ekle" ile eklenen satırda hiç çıkmıyordu (müşteri: "sonradan satır
+                    ekleyince örnek yükleyemiyoruz"). Artık satır önce otomatik kaydedilir. */}
+                {(
+                  <Tooltip title={e.ornekDosya?.dosyaAdi
+                    ? `Örnek: ${e.ornekDosya.dosyaAdi}`
+                    : (e._id ? 'Örnek/şablon dosya ekle' : 'Örnek ekle — satır önce otomatik kaydedilir')}>
                     <Button component="label" size="small" variant={e.ornekDosya?.dosyaAdi ? 'contained' : 'outlined'}
                       color={e.ornekDosya?.dosyaAdi ? 'success' : 'primary'}
-                      startIcon={<AttachFileIcon />} disabled={busy === `ornek-${e._id}`}>
+                      startIcon={<AttachFileIcon />} disabled={busy.startsWith('ornek-')}>
                       {e.ornekDosya?.dosyaAdi ? 'Örnek ✓' : 'Örnek'}
-                      <input hidden type="file" onChange={(ev) => ornekYukle(e._id, ev.target.files?.[0])} />
+                      <input hidden type="file" onChange={(ev) => ornekSecildi(i, ev.target.files?.[0], ev)} />
                     </Button>
                   </Tooltip>
                 )}
@@ -394,9 +452,10 @@ const IslemEvrakDetail = () => {
                 </Typography>
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }} noWrap>{y.orijinalAd || y.dosyaAdi}</Typography>
                 {y.yukleyenAdi && <Typography variant="caption" color="text.secondary">{y.yukleyenAdi}</Typography>}
-                {y.fileUrl && (
-                  <Button size="small" href={y.fileUrl} target="_blank" rel="noopener noreferrer">Aç</Button>
-                )}
+                <Button size="small" onClick={() => dosyaIndir(y._id, y.orijinalAd || y.dosyaAdi)}
+                  disabled={busy === `indir-${y._id}`}>
+                  {busy === `indir-${y._id}` ? 'İndiriliyor…' : 'Aç'}
+                </Button>
                 <Tooltip title="Sil">
                   <IconButton size="small" color="error" onClick={() => yuklenenSil(y._id)}>
                     <DeleteOutlineIcon fontSize="small" />

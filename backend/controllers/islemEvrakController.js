@@ -235,6 +235,40 @@ exports.talepOrnekDosyaYukle = wrap(async (req, res) => {
 });
 
 // Firma yüklemesini sil (yanlış/mükerrer dosya)
+// 📥 Yüklenen dosyayı indir
+// Müşteri: "Yüklediğimiz belgeler açılmıyor/indirilmiyor".
+// Kök neden: kayıttaki fileUrl GÖRELİ bir yol ("/uploads/tesvik-evrak/...") ve arayüz onu
+// doğrudan <a href> olarak veriyordu. Tarayıcı göreli yolu FRONTEND origin'ine göre çözüyor,
+// backend'e değil; SPA catch-all index.html döndürünce dosya yerine HTML iniyordu.
+// Çözüm, kardeş modüldeki (tesvikMakine) desenin aynısı: auth'lu indirme ucu + blob.
+exports.talepDosyaIndir = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const { dosyaId } = req.params;
+
+  // Aynı uç hem firmanın yüklediği evrakları hem de örnek/şablon dosyaları verir
+  const yuklenen = talep.yuklenenEvraklar.id(dosyaId);
+  if (yuklenen) {
+    return storageService.serveFile({
+      fileUrl: yuklenen.fileUrl,
+      filePath: yuklenen.filePath,
+      originalName: yuklenen.orijinalAd || yuklenen.dosyaAdi,
+      fileName: yuklenen.dosyaAdi
+    }, res);
+  }
+
+  const istenen = talep.istenenEvraklar.id(dosyaId);
+  if (istenen && istenen.ornekDosya && (istenen.ornekDosya.fileUrl || istenen.ornekDosya.filePath)) {
+    return storageService.serveFile({
+      fileUrl: istenen.ornekDosya.fileUrl,
+      filePath: istenen.ornekDosya.filePath,
+      originalName: istenen.ornekDosya.dosyaAdi,
+      fileName: istenen.ornekDosya.dosyaAdi
+    }, res);
+  }
+
+  const e = new Error('Dosya bulunamadı.'); e.code = 'BAD_INPUT'; throw e;
+});
+
 exports.talepYuklenenSil = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const dosya = talep.yuklenenEvraklar.id(req.params.dosyaId);
