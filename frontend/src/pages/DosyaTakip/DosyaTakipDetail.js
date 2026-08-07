@@ -39,7 +39,7 @@ import {
     Link as LinkIcon,
     Info as InfoIcon
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
@@ -247,8 +247,12 @@ const dosyaIndir = async (talepId, dosya) => {
 
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const { id } = useParams();
-    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
+    // girildiyse state boştur ve normal listeye dönülür.
+    const listeyeDon = () => navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
+    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTab] = useState(0);
     const [notText, setNotText] = useState('');
@@ -338,6 +342,17 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: 'Dosya silindi!', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: 'Dosya silinemedi.', severity: 'error' });
+        }
+    };
+
+    // Dosya açıklaması kaydet (satır içi metin kutusu, odak kaybında tetiklenir)
+    const handleAciklamaKaydet = async (dosya, aciklama) => {
+        try {
+            await dosyaAciklamaKaydet(id, dosya._id, dosya.alan || 'dosyalar', aciklama);
+            setSnackbar({ open: true, message: 'Açıklama kaydedildi.', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: 'Açıklama kaydedilemedi.', severity: 'error' });
+            throw err; // kutu eski değerine dönsün
         }
     };
 
@@ -583,7 +598,7 @@ const DosyaTakipDetail = () => {
                 <Box sx={{ p: 3, textAlign: 'center', mt: 8 }}>
                     <WarningIcon sx={{ fontSize: 64, color: '#d1d5db', mb: 2 }} />
                     <Typography variant="h6" sx={{ color: '#64748b', mb: 2 }}>Talep bulunamadı</Typography>
-                    <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={() => navigate('/dosya-takip/liste')} sx={{ textTransform: 'none' }}>
+                    <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={listeyeDon} sx={{ textTransform: 'none' }}>
                         Listeye Dön
                     </Button>
                 </Box>
@@ -602,7 +617,7 @@ const DosyaTakipDetail = () => {
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <IconButton onClick={() => navigate('/dosya-takip/liste')} sx={{ border: '1px solid #e2e8f0' }}>
+                        <IconButton onClick={listeyeDon} sx={{ border: '1px solid #e2e8f0' }}>
                             <ArrowBackIcon />
                         </IconButton>
                         <Box>
@@ -1139,7 +1154,7 @@ const DosyaTakipDetail = () => {
                                             <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!dosyaKategori} />
                                         </Box>
 
-                                        {renderDosyalar(seciliTalep, askDeleteConfirm)}
+                                        {renderDosyalar(seciliTalep, askDeleteConfirm, handleAciklamaKaydet)}
                                     </Box>
                                 )}
 
@@ -1523,7 +1538,48 @@ function renderNotlar(talep, onNotSil) {
     );
 }
 
-function renderDosyalar(talep, onDosyaSil) {
+// 📝 Dosya satırındaki serbest açıklama kutusu
+// (müşteri: "dosyanın ne olduğunun anlaşılması için açıklama yazmak")
+// Bileşen MODÜL seviyesinde tanımlı olmalı: renderDosyalar içinde tanımlansaydı her
+// render'da yeni bir bileşen kimliği doğar, alt ağaç remount olur ve input her tuşta
+// odağını kaybederdi (aynı tuzak PublicUpload'da da not düşülmüş).
+const DosyaAciklamaKutusu = ({ dosya, onKaydet }) => {
+    const kayitli = dosya.aciklama || '';
+    const [deger, setDeger] = useState(kayitli);
+    const [kaydediyor, setKaydediyor] = useState(false);
+
+    // Kayıt sonrası talep yeniden yüklenince (veya başka biri değiştirince) senkron kal
+    useEffect(() => { setDeger(kayitli); }, [kayitli]);
+
+    const kaydet = async () => {
+        const yeni = deger.trim();
+        if (yeni === kayitli || !dosya._id) return;
+        setKaydediyor(true);
+        try { await onKaydet(dosya, yeni); }
+        catch { setDeger(kayitli); } // başarısızsa kullanıcıyı yanıltmayalım
+        finally { setKaydediyor(false); }
+    };
+
+    return (
+        <TextField
+            size="small"
+            placeholder="Açıklama ekle…"
+            value={deger}
+            disabled={!dosya._id || kaydediyor}
+            onChange={(e) => setDeger(e.target.value.slice(0, 300))}
+            onBlur={kaydet}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+            inputProps={{ maxLength: 300 }}
+            sx={{
+                width: { xs: '100%', sm: 260 },
+                mr: 1,
+                '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: '0.8rem', background: '#fff' }
+            }}
+        />
+    );
+};
+
+function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
     const tumDosyalar = [];
 
     (talep.dosyalar || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Genel', alan: 'dosyalar' }));
@@ -1567,6 +1623,7 @@ function renderDosyalar(talep, onDosyaSil) {
                     </Typography>
                 }
             />
+            {onAciklamaKaydet && <DosyaAciklamaKutusu dosya={dosya} onKaydet={onAciklamaKaydet} />}
             {dosya.dosyaYolu && (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     {/* Görüntüleme (imzalı URL ile yeni sekmede aç) */}

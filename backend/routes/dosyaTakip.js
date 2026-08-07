@@ -92,6 +92,9 @@ router.post('/:id/dosya', dosyaTakipController.dosyaEkle);
 // 📤 Dosya açma/indirme: backend stream proxy (PDF/ZIP teslimat kısıtını aşar)
 router.get('/:id/dosya-getir/:dosyaId', dosyaTakipController.dosyaGetir);
 
+// 📝 Dosya açıklaması (dosya listesindeki serbest metin kutusu)
+router.patch('/:id/dosya-aciklama', dosyaTakipController.dosyaAciklamaGuncelle);
+
 // 🗑️ Not Sil
 router.delete('/:id/not', dosyaTakipController.notSil);
 

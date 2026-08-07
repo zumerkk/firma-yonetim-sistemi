@@ -89,6 +89,12 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 📝 Dosya açıklaması (dosya listesindeki serbest metin kutusu)
+    dosyaAciklamaKaydet: async (id, dosyaId, alan = 'dosyalar', aciklama = '') => {
+        const { data } = await axios.patch(`${API_URL}/${id}/dosya-aciklama`, { dosyaId, alan, aciklama });
+        return data;
+    },
+
     // 🗑️ Sil
     talepSil: async (id) => {
         const { data } = await axios.delete(`${API_URL}/${id}`);

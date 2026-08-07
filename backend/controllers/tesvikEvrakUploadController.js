@@ -7,7 +7,7 @@ const storageService = require('../services/tesvikMakine/storageService');
 const mps = require('../services/tesvikMakine/machineProcessService');
 const araKontrol = require('../services/tesvikMakine/araKontrolService');
 const resolver = require('../services/tesvikMakine/certificateResolver');
-const { DOCUMENT_TYPES, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
+const { PUBLIC_DOCUMENT_TYPES, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
 const { ALLOWED_EXT } = require('../middleware/tesvikUpload');
 
 function fail(res, code, message) {
@@ -34,7 +34,9 @@ exports.getInfo = async (req, res) => {
     const { proc, belgeCtx, error } = await resolveByToken(req.params.token);
     if (error) return fail(res, error[0], error[1]);
     const ortak = {
-      documentTypes: DOCUMENT_TYPES,
+      // Firmaya yalnızca fatura türleri gösterilir; yükleme doğrulaması (DOCUMENT_TYPE_KEYS)
+      // tüm türleri kabul etmeye devam eder, böylece eski linkler/kayıtlar bozulmaz.
+      documentTypes: PUBLIC_DOCUMENT_TYPES,
       allowedExtensions: ALLOWED_EXT,
       maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
     };

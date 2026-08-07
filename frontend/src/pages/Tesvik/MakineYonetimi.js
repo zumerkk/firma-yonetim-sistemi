@@ -13,6 +13,7 @@ import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
+import { kullanilmisMi } from '../../utils/makineFormat';
 
   const numberOrZero = (v) => {
   const n = parseFloat((v ?? '').toString().replace(/[^\d.-]/g, ''));
@@ -647,7 +648,7 @@ const MakineYonetimi = () => {
   const groupSummary = useMemo(()=>{
     const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
     const map = new Map();
-    const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (r.kullanilmisKod ? 'KULLANILMIŞ' : 'YENİ') : null;
+    const keyFn = groupBy==='gtip' ? (r)=> r.gtipKodu || '-' : groupBy==='birim' ? (r)=> r.birim || '-' : groupBy==='kullanilmis' ? (r)=> (kullanilmisMi(r.kullanilmisKod) ? 'KULLANILMIŞ' : 'YENİ') : null;
     if (!keyFn) return [];
     for (const r of list) {
       const k = keyFn(r);

@@ -686,9 +686,11 @@ const tesvikSchema = new mongoose.Schema({
       type: String,
       trim: true,
       maxlength: 500
-    }
+    },
+    // 🔒 Kullanıcı durumu elle seçtiyse true olur (bkz. Tesvik modelindeki aynı alan).
+    durumManuelSecildi: { type: Boolean, default: false }
   },
-  
+
   // 📮 Ara Kontrol — belge geneli public yükleme linki (firma fatura/evrak yükler)
   araKontrol: {
     uploadToken: { type: String, trim: true, index: true, sparse: true },
@@ -863,36 +865,14 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
   yatirim.ez = (yatirim.et || 0) + (yatirim.eu || 0) + (yatirim.ev || 0) + 
                (yatirim.ew || 0) + (yatirim.ex || 0) + (yatirim.ey || 0);
   
-  // Makine toplam hesaplamaları (kalemlerden otomatik topla)
+  // Makine toplam hesaplamaları
   const makina = this.maliHesaplamalar.makinaTechizat;
 
-  // Yerli kalemlerden TL toplamını hesapla
-  const yerliKalemler = Array.isArray(this.makineListeleri?.yerli) ? this.makineListeleri.yerli : [];
-  const yerliToplamTl = yerliKalemler.reduce((sum, r) => {
-    const tl = Number(r.toplamTutariTl || r.toplamTl || 0);
-    return sum + (isNaN(tl) ? 0 : tl);
-  }, 0);
+  // NOT: Bu alanlar belgenin MANUEL (ETUYS/Excel kaynaklı) değerleridir; makineListeleri'nden
+  // türetilmez — yalnızca toplamları alınır. Kullanılmayan eski türetme bloğu, içindeki
+  // hatalı "kullanilmisMakine dolu ⇒ kullanılmış" varsayımıyla birlikte kaldırıldı
+  // (bkz. Tesvik modelindeki aynı not; doğru ayrım: constants/makineKodlari → kullanilmisMi).
 
-  // İthal kalemlerden TL toplamını hesapla (FOB TL öncelikli; yoksa toplamTl)
-  const ithalKalemler = Array.isArray(this.makineListeleri?.ithal) ? this.makineListeleri.ithal : [];
-  const ithalToplamTl = ithalKalemler.reduce((sum, r) => {
-    const tl = Number(r.toplamTutarFobTl || r.toplamTl || 0);
-    return sum + (isNaN(tl) ? 0 : tl);
-  }, 0);
-
-  // 🔧 FIX: İthal Makine ($) alanları USD cinsinden olmalı - toplamTutarFobUsd kullan (toplamTutarFobTl değil!)
-  // Yeni/Kullanılmış ayrımı (kullanilmisMakine alanı dolu ise kullanılmış kabul edilir)
-  const yeniToplam = (
-    ithalKalemler.filter(r => !r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobUsd || 0) || 0), 0)
-  );
-  const kullanilmisToplam = (
-    ithalKalemler.filter(r => !!r.kullanilmisMakine).reduce((s, r) => s + (Number(r.toplamTutarFobUsd || 0) || 0), 0)
-  );
-
-  // 🔧 FIX: Sadece makineListeleri dolu ise hesaplanan değerleri kullan
-  // Boşsa kullanıcının manuel girdiği değerleri koru
-  const hasMakineListesi = yerliKalemler.length > 0 || ithalKalemler.length > 0;
-  
   // 🔧 FIX: Kullanıcının manuel girdiği değerleri KORU
   // Sadece toplamları hesapla, bireysel alanları değiştirme
   makina.toplamMakina = (makina.yerliMakina || 0) + (makina.ithalMakina || 0);

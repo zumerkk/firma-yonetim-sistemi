@@ -117,11 +117,15 @@ exports.getDashboard = wrap(async (req, res) => {
 });
 
 // ───────── SERTİFİKA (TEŞVİK) LİSTESİ ─────────
+// Tesvik/YeniTesvik modellerindeki durumBilgileri.genelDurum enum'undaki kapalı değeri
+const KAPALI_BELGE_DURUMU = 'kapandi';
+
 function certAggPipeline(match) {
   return [
     { $match: match },
     { $project: {
       tesvikId: 1, yatirimciUnvan: 1, createdAt: 1,
+      belgeDurum: '$durumBilgileri.genelDurum',
       belgeNo: '$belgeYonetimi.belgeNo', belgeId: '$belgeYonetimi.belgeId', belgeTarihi: '$belgeYonetimi.belgeTarihi',
       yatirimKonusu: '$yatirimBilgileri.yatirimKonusu',
       localCount: { $size: { $ifNull: ['$makineListeleri.yerli', []] } },
@@ -140,6 +144,14 @@ function buildCertMatch(q) {
   }
   if (q.belgeNo) m['belgeYonetimi.belgeNo'] = q.belgeNo;
   if (q.belgeId) m['belgeYonetimi.belgeId'] = q.belgeId;
+  // 🗄️ Kapanan belgeler (müşteri: "ekipman takipte kapanan belgeleri gizleyelim ya da
+  // filtreleyebilelim"). Varsayılan: kapananlar listede görünmez.
+  //   belgeDurum boş  → kapananlar hariç
+  //   belgeDurum=all  → hepsi
+  //   belgeDurum=<x>  → yalnızca o durum
+  const belgeDurum = (q.belgeDurum || '').trim();
+  if (!belgeDurum) m['durumBilgileri.genelDurum'] = { $ne: KAPALI_BELGE_DURUMU };
+  else if (belgeDurum !== 'all') m['durumBilgileri.genelDurum'] = belgeDurum;
   return m;
 }
 
@@ -189,6 +201,7 @@ exports.listCertificates = wrap(async (req, res) => {
       tesvikModel: r.tesvikModel, tesvikId: r._id, tesvikKodu: r.tesvikId,
       firmaAdi: r.yatirimciUnvan || '', belgeNo: r.belgeNo || '', belgeId: r.belgeId || '',
       belgeTarihi: r.belgeTarihi || null, yatirimKonusu: r.yatirimKonusu || '',
+      belgeDurum: r.belgeDurum || '',
       localCount: r.localCount, importCount: r.importCount,
       localTotal: r.localTotal || 0, importTotalUsd: r.importTotalUsd || 0,
       openProcesses: open, documentWaiting: s.docWaiting, lastMailAt: s.lastMailAt || null,

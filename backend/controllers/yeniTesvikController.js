@@ -614,8 +614,10 @@ const updateTesvik = async (req, res) => {
     // Mali hesaplamaları otomatik güncelle
     tesvik.updateMaliHesaplamalar();
 
-    // Durum değişmişse rengi güncelle
+    // Durum değişmişse rengi güncelle + elle seçim olarak işaretle
+    // (aksi halde kayıt sonrası auto-sync bu seçimi revizyon geçmişinden ezer)
     if (updateData.durumBilgileri?.genelDurum) {
+      tesvik.durumBilgileri.durumManuelSecildi = true;
       tesvik.updateDurumRengi();
     }
 
@@ -1048,6 +1050,8 @@ const updateTesvikDurum = async (req, res) => {
     // Durum güncelle
     tesvik.durumBilgileri.genelDurum = yeniDurum;
     tesvik.durumBilgileri.durumAciklamasi = aciklama || '';
+    // Elle seçim: bundan sonra revizyon geçmişinden türetilen durum bunu ezmesin
+    tesvik.durumBilgileri.durumManuelSecildi = true;
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = kullaniciNotu || `Durum güncellendi: ${eskiDurum} → ${yeniDurum}`;
 
@@ -1953,7 +1957,8 @@ const getDurumRenkleri = async (req, res) => {
       'onay_bekliyor': { renk: 'turuncu', hex: '#F97316', aciklama: 'Onay Bekliyor - Final aşaması' },
       'onaylandi': { renk: 'yesil', hex: '#10B981', aciklama: 'Onaylandı - Başarıyla tamamlandı' },
       'reddedildi': { renk: 'kirmizi', hex: '#EF4444', aciklama: 'Reddedildi - Başvuru kabul edilmedi' },
-      'iptal_edildi': { renk: 'gri', hex: '#6B7280', aciklama: 'İptal Edildi - İşlem durduruldu' }
+      'iptal_edildi': { renk: 'gri', hex: '#6B7280', aciklama: 'İptal Edildi - İşlem durduruldu' },
+      'kapandi': { renk: 'gri', hex: '#6B7280', aciklama: 'Kapandı - Belge kapatıldı' }
     };
 
     res.json({
@@ -2407,7 +2412,8 @@ const getDurumOptions = () => [
   { value: 'onay_bekliyor', label: 'Onay Bekliyor', color: '#F97316' },
   { value: 'onaylandi', label: 'Onaylandı', color: '#10B981' },
   { value: 'reddedildi', label: 'Reddedildi', color: '#EF4444' },
-  { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' }
+  { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' },
+  { value: 'kapandi', label: 'Kapandı', color: '#6B7280' } // müşteri: listede 'kapandı' seçeneği yoktu
 ];
 
 const getDestekSiniflariOptions = async () => {
@@ -2903,7 +2909,7 @@ const bulkUpdateDurum = async (req, res) => {
     const filter = tumu === true
       ? tumuFiltresi
       : { _id: { $in: tesvikIds }, aktif: true };
-    const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri' };
+    const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri', kapandi: 'gri' };
 
     const updateResult = await YeniTesvik.updateMany(
       filter,
@@ -2912,6 +2918,8 @@ const bulkUpdateDurum = async (req, res) => {
         'durumBilgileri.durumRengi': renkMap[yeniDurum] || 'gri',
         'durumBilgileri.durumAciklamasi': aciklama || '',
         'durumBilgileri.sonDurumGuncelleme': new Date(),
+        // Toplu değişiklik de elle seçimdir; auto-sync geri almasın
+        'durumBilgileri.durumManuelSecildi': true,
         sonGuncelleyen: req.user._id
       }
     );
@@ -3307,10 +3315,17 @@ const deriveDurumFromRevision = (rev) => {
   return null;
 };
 
+// Otomatik türetmenin ASLA ezmemesi gereken durumlar (bkz. tesvikController'daki eşi)
+const OTO_SENKRON_DISI_DURUMLAR = ['kapandi', 'iptal_edildi'];
+
 // 🔄 Revizyon geçmişine göre durumu otomatik senkronize et
+// ⚠️ Yalnızca durumu hiç elle seçilmemiş kayıtlar için — aksi halde elle yapılan durum
+// seçimi her okumada revizyon geçmişinden türetilen durumla eziliyordu.
 const autoSyncDurumFromRevisions = async (tesvikDoc) => {
   try {
     if (!tesvikDoc || !Array.isArray(tesvikDoc.revizyonlar)) return false;
+    if (tesvikDoc.durumBilgileri?.durumManuelSecildi) return false;
+    if (OTO_SENKRON_DISI_DURUMLAR.includes(tesvikDoc.durumBilgileri?.genelDurum)) return false;
     // Tarihe göre sırala (eski → yeni)
     const revs = [...tesvikDoc.revizyonlar].sort((a, b) => new Date(a.revizyonTarihi || a.createdAt) - new Date(b.revizyonTarihi || b.createdAt));
     let derived = null;

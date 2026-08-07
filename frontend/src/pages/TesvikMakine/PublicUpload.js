@@ -28,7 +28,8 @@ export default function PublicUpload() {
   const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
-  const [docType, setDocType] = useState('kdv_muafiyet');
+  // Sunucudan gelen ilk tür ile değiştirilir; public linkte artık yalnızca fatura türleri var
+  const [docType, setDocType] = useState('fatura_taslak');
   const [note, setNote] = useState('');
   const [uploaderName, setUploaderName] = useState('');
   const [files, setFiles] = useState([]);

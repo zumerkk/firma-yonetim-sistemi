@@ -953,6 +953,70 @@ exports.notSil = async (req, res) => {
 };
 
 // ============================================================================
+// 📝 DOSYA AÇIKLAMASI GÜNCELLE
+// müşteri: "yüklenen dosyaların yanına küçük bir metin kutusu — dosyanın ne olduğu anlaşılsın"
+// ============================================================================
+
+// Dosya dizisi barındıran alanlar (model: [dosyaSchema]). İstemciden gelen `alan`
+// serbest bir yol olduğu için beyaz liste ile sınırlanır.
+const DOSYA_DIZI_ALANLARI = [
+    'dosyalar',
+    'muraacatOncesi.gorusmeEvraklari',
+    'muraacatOncesi.muraacatKlasor',
+    'muraacatSonrasi.kurumEksik.firmadanBeklenen.gelenBelgeler',
+    'muraacatSonrasi.kurumEksik.bizdenBeklenen.gelenBelgeler',
+    'muraacatSonrasi.kurumEksik.herIkisindenBeklenen.gelenBelgeler'
+];
+
+exports.dosyaAciklamaGuncelle = async (req, res) => {
+    try {
+        const { alan = 'dosyalar', dosyaId, aciklama = '' } = req.body;
+
+        if (!dosyaId) {
+            return res.status(400).json({ success: false, message: 'dosyaId gerekli' });
+        }
+        if (!DOSYA_DIZI_ALANLARI.includes(alan)) {
+            return res.status(400).json({ success: false, message: 'Geçersiz alan' });
+        }
+
+        const talep = await DosyaTakip.findById(req.params.id);
+        if (!talep) {
+            return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        }
+
+        // Nested yolu gez (ör. "muraacatOncesi.gorusmeEvraklari")
+        const parcalar = alan.split('.');
+        let hedef = talep;
+        for (let i = 0; i < parcalar.length - 1; i++) {
+            hedef = hedef[parcalar[i]];
+            if (!hedef) return res.status(404).json({ success: false, message: 'Alan bulunamadı' });
+        }
+        const sonParca = parcalar[parcalar.length - 1];
+        const dizi = hedef[sonParca];
+        if (!Array.isArray(dizi)) {
+            return res.status(400).json({ success: false, message: 'Geçersiz alan' });
+        }
+
+        const dosya = dizi.find(d => d._id?.toString() === dosyaId);
+        if (!dosya) {
+            return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
+        }
+
+        // maxlength 300 — şemadaki sınırla aynı; fazlası kırpılır ki kayıt hata vermesin
+        dosya.aciklama = String(aciklama).trim().slice(0, 300);
+
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Açıklama kaydedildi' });
+    } catch (error) {
+        console.error('Dosya açıklaması güncelleme hatası:', error);
+        res.status(500).json({ success: false, message: 'Açıklama kaydedilirken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
 // 🗑️ DOSYA SİL
 // ============================================================================
 exports.dosyaSil = async (req, res) => {
