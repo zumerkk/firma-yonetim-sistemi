@@ -34,6 +34,8 @@ router.get('/talepler/:id/mail-onizle', ctrl.talepMailOnizle);
 router.post('/talepler/:id/mail-gonder', editor, ctrl.talepMailGonder);
 router.post('/talepler/:id/link', editor, ctrl.talepLinkUret);
 router.post('/talepler/:id/evrak/:evrakId/ornek', editor, uploadMultiple('dosyalar'), ctrl.talepOrnekDosyaYukle);
+// İndirme: hem firmanın yüklediği evrak hem örnek/şablon dosya (görüntüleme yetkisi yeterli)
+router.get('/talepler/:id/dosya/:dosyaId/indir', ctrl.talepDosyaIndir);
 router.delete('/talepler/:id/yuklenen/:dosyaId', editor, ctrl.talepYuklenenSil);
 
 module.exports = router;

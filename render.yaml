@@ -46,6 +46,9 @@ services:
     env: node
     plan: free
     rootDir: frontend
+    # NOT: Render build ortamında CI=true tanımlıdır; CRA bu durumda UYARILARI HATA sayar
+    # ve depodaki ~150 eski no-unused-vars uyarısı yüzünden derleme düşer. package.json'daki
+    # build script'i CI=false ile başlar; buradaki komut da onu çağırır.
     buildCommand: npm install && npm run build && echo '/* /index.html 200' > build/_redirects && ls -la build/
     startCommand: npm run serve
     envVars:

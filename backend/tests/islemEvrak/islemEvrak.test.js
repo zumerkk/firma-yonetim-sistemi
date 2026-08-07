@@ -211,3 +211,96 @@ describe('Mail ekleri - örnek dosyası olan evraklar varsayılan olarak eklenir
     expect(ekleriSec(t.istenenEvraklar, adaylar.filter((x) => !adaylar.includes(x)))).toHaveLength(0);
   });
 });
+
+describe('Dosya indirme - talepDosyaIndir çözümlemesi', () => {
+  // Müşteri: "Yüklediğimiz belgeler açılmıyor/indirilmiyor"
+  // Kök neden: kayıttaki fileUrl göreli ("/uploads/tesvik-evrak/..."); arayüz onu <a href>
+  // olarak veriyordu ve tarayıcı FRONTEND origin'ine göre çözüp SPA'nın index.html'ini
+  // indiriyordu. Çözüm auth'lu indirme ucu — controller'ın kaynak çözümlemesi buradaki gibi.
+  const cozumle = (talep, dosyaId) => {
+    const yuklenen = talep.yuklenenEvraklar.id(dosyaId);
+    if (yuklenen) {
+      return { kaynak: 'yuklenen', fileUrl: yuklenen.fileUrl, filePath: yuklenen.filePath };
+    }
+    const istenen = talep.istenenEvraklar.id(dosyaId);
+    if (istenen && istenen.ornekDosya && (istenen.ornekDosya.fileUrl || istenen.ornekDosya.filePath)) {
+      return { kaynak: 'ornek', fileUrl: istenen.ornekDosya.fileUrl, filePath: istenen.ornekDosya.filePath };
+    }
+    return null;
+  };
+
+  const talepKurDosyali = () => {
+    const t = talepKur([
+      { ad: 'Taahhütname', zorunlu: true, ornekDosya: { dosyaAdi: 'ornek.docx', filePath: 'Islem_Evrak/_Ornekler/o.docx' } },
+      { ad: 'Kimlik', zorunlu: true }
+    ]);
+    t.yuklenenEvraklar.push({ dosyaAdi: 'gelen.pdf', orijinalAd: 'hb.pdf', filePath: 'Islem_Evrak/T1/Gelen/gelen.pdf', fileUrl: '/uploads/tesvik-evrak/Islem_Evrak/T1/Gelen/gelen.pdf' });
+    return t;
+  };
+
+  test('firmanın yüklediği evrak id ile bulunur', () => {
+    const t = talepKurDosyali();
+    const r = cozumle(t, String(t.yuklenenEvraklar[0]._id));
+    expect(r.kaynak).toBe('yuklenen');
+    expect(r.filePath).toContain('gelen.pdf');
+  });
+
+  test('istenen evrakın örnek dosyası da aynı uçtan indirilir', () => {
+    const t = talepKurDosyali();
+    const r = cozumle(t, String(t.istenenEvraklar[0]._id));
+    expect(r.kaynak).toBe('ornek');
+    expect(r.filePath).toContain('_Ornekler');
+  });
+
+  test('örnek dosyası olmayan istenen evrak indirilemez', () => {
+    const t = talepKurDosyali();
+    expect(cozumle(t, String(t.istenenEvraklar[1]._id))).toBeNull();
+  });
+
+  test('bilinmeyen id null döner (404 üretilir)', () => {
+    const t = talepKurDosyali();
+    expect(cozumle(t, '000000000000000000000009')).toBeNull();
+  });
+
+  test('kayıttaki fileUrl göreli — bu yüzden doğrudan href verilemez', () => {
+    const t = talepKurDosyali();
+    const url = t.yuklenenEvraklar[0].fileUrl;
+    expect(url.startsWith('/')).toBe(true);
+    expect(url.startsWith('http')).toBe(false);
+  });
+});
+
+describe('Örnek dosya - kaydedilmemiş satırın indeks eşlemesi', () => {
+  // Müşteri: "buraya sonradan satır ekleyince örnek yükleyemiyoruz"
+  // Yeni satırın _id'si yok; önce liste kaydedilir. Kaydetmede adı boş satırlar
+  // elendiği için hedef satırın TEMİZLENMİŞ listedeki konumu bulunmalı.
+  const hedefKonum = (evraklar, index) => {
+    const satir = evraklar[index];
+    const temiz = evraklar.filter((x) => String(x.ad || '').trim());
+    return { temiz, hedefIndex: temiz.indexOf(satir) };
+  };
+
+  test('araya boş satır varsa indeks kayması olmaz', () => {
+    const evraklar = [
+      { ad: 'A', _id: '1' },
+      { ad: '' },            // kaydetmede elenecek
+      { ad: 'C' }            // yeni satır — hedef bu
+    ];
+    const { temiz, hedefIndex } = hedefKonum(evraklar, 2);
+    expect(temiz).toHaveLength(2);
+    expect(hedefIndex).toBe(1);          // ham indeks 2 değil, temizde 1
+    expect(temiz[hedefIndex].ad).toBe('C');
+  });
+
+  test('boş satır yoksa indeks aynı kalır', () => {
+    const evraklar = [{ ad: 'A', _id: '1' }, { ad: 'B' }];
+    const { hedefIndex, temiz } = hedefKonum(evraklar, 1);
+    expect(hedefIndex).toBe(1);
+    expect(temiz[hedefIndex].ad).toBe('B');
+  });
+
+  test('adı boş satır kaydedilemez — indeks -1 döner ve uyarı gerekir', () => {
+    const evraklar = [{ ad: 'A', _id: '1' }, { ad: '   ' }];
+    expect(hedefKonum(evraklar, 1).hedefIndex).toBe(-1);
+  });
+});

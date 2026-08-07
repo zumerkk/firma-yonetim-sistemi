@@ -26,6 +26,10 @@ const islemEvrakService = {
   ornekDosyaYukle: (id, evrakId, formData, onProgress) =>
     uploadPost(`${base}/talepler/${id}/evrak/${evrakId}/ornek`, formData, { onProgress }).then(d),
   yuklenenSil: (id, dosyaId) => api.delete(`${base}/talepler/${id}/yuklenen/${dosyaId}`).then(d),
+  // Dosya indirme: blob olarak çekilir. Göreli fileUrl'i doğrudan href vermek işe yaramıyor —
+  // tarayıcı onu frontend origin'ine göre çözüp SPA'nın index.html'ini indiriyordu.
+  dosyaIndir: (id, dosyaId) =>
+    api.get(`${base}/talepler/${id}/dosya/${dosyaId}/indir`, { responseType: 'blob' }),
 
   // Public (token — auth gerektirmez)
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
