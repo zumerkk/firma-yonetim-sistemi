@@ -197,6 +197,18 @@ export const DosyaTakipProvider = ({ children }) => {
         }
     }, []);
 
+    // 📝 Dosya açıklaması kaydet
+    const dosyaAciklamaKaydet = useCallback(async (id, dosyaId, alan, aciklama) => {
+        try {
+            const result = await dosyaTakipService.dosyaAciklamaKaydet(id, dosyaId, alan, aciklama);
+            if (result.success) setSeciliTalep(result.data);
+            return result;
+        } catch (err) {
+            setError(err.response?.data?.message || 'Açıklama kaydedilemedi');
+            throw err;
+        }
+    }, []);
+
     // 🗑️ Sil
     const talepSil = useCallback(async (id) => {
         try {
@@ -231,6 +243,7 @@ export const DosyaTakipProvider = ({ children }) => {
         notSil,
         dosyaEkle,
         dosyaSil,
+        dosyaAciklamaKaydet,
         talepSil,
         clearError,
         setSeciliTalep

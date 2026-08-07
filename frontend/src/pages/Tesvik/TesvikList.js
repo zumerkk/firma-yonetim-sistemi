@@ -51,7 +51,7 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
-import { belgeDurumLabel } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 
 const TesvikList = () => {
   const navigate = useNavigate();
@@ -110,7 +110,8 @@ const TesvikList = () => {
       'onay_bekliyor': '#F97316',
       'onaylandi': '#10B981',
       'reddedildi': '#EF4444',
-      'iptal_edildi': '#6B7280'
+      'iptal_edildi': '#6B7280',
+      'kapandi': '#6B7280'
     };
     return colorMap[durum] || '#6B7280';
   };
@@ -509,13 +510,12 @@ const TesvikList = () => {
                     value={filters.durum}
                     onChange={(e) => handleFilterChange('durum', e.target.value)}
                   >
+                    {/* Seçenekler tek kaynaktan gelir: elle yazılan liste eksik kalıyordu
+                        (müşteri: "durum filtresinde kapandı seçeneği yok") */}
                     <MenuItem key="empty-all" value="">Tümü</MenuItem>
-                    <MenuItem value="taslak">Taslak</MenuItem>
-                    <MenuItem value="hazirlaniyor">Hazırlanıyor</MenuItem>
-                    <MenuItem value="başvuru_yapildi">Başvuru Yapıldı</MenuItem>
-                    <MenuItem value="inceleniyor">İnceleniyor</MenuItem>
-                    <MenuItem value="onaylandi">Onaylandı</MenuItem>
-                    <MenuItem value="reddedildi">Reddedildi</MenuItem>
+                    {BELGE_DURUM_SECENEKLERI.map((o) => (
+                      <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                    ))}
                   </TextField>
                 </Grid>
                 

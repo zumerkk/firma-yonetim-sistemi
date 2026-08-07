@@ -166,6 +166,9 @@ const dosyaSchema = new mongoose.Schema({
   dosyaTipi: { type: String },          // mimetype
   // enum'a eski adlar da dahil: geçmiş kayıtlar migration öncesinde de kaydedilebilsin
   kategori: { type: String, enum: [...DOSYA_TURLERI, ...ESKI_DOSYA_TURLERI, ''], default: '' },
+  // 📝 Serbest açıklama — müşteri: "dosyanın ne olduğunun anlaşılması için açıklama yazmak"
+  // (yüklenen dosya adları çoğu zaman anlamsız geliyor: tarama çıktısı, WhatsApp adı vb.)
+  aciklama: { type: String, trim: true, maxlength: 300, default: '' },
   dosyaBoyutu: { type: Number },
   cloudinaryPublicId: { type: String }, // silme için (controller zaten yazıyordu)
   yukleyenKisi: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

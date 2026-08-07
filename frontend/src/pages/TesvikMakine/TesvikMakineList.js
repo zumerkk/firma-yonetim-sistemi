@@ -13,6 +13,7 @@ import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import { formatDate, formatMoney } from './helpers';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 
 const CARD_DEFS = [
   { key: 'totalCertificates', label: 'Toplam Teşvik Belgesi', color: '#1e40af' },
@@ -42,18 +43,20 @@ export default function TesvikMakineList() {
     setSearchParams(sp, { replace: true });
   };
   const [snack, setSnack] = useState(null);
+  // 🗄️ Belge durumu filtresi: '' → kapananlar hariç (varsayılan), 'all' → hepsi, diğer → o durum
+  const [belgeDurum, setBelgeDurum] = useState('');
 
   const loadDash = useCallback(() => { svc.dashboard().then(setDash).catch(() => {}); }, []);
 
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await svc.listCertificates({ q, tesvikModel: model || undefined, page: paginationModel.page + 1, limit: paginationModel.pageSize });
+      const res = await svc.listCertificates({ q, tesvikModel: model || undefined, belgeDurum: belgeDurum || undefined, page: paginationModel.page + 1, limit: paginationModel.pageSize });
       setRows((res.data || []).map((r) => ({ id: `${r.tesvikModel}:${r.tesvikId}`, ...r })));
       setRowCount(res.pagination?.total || 0);
     } catch (e) { setSnack({ message: e?.response?.data?.message || 'Liste yüklenemedi', severity: 'error' }); }
     finally { setLoading(false); }
-  }, [q, model, paginationModel]);
+  }, [q, model, belgeDurum, paginationModel]);
 
   useEffect(() => { loadDash(); }, [loadDash]);
   useEffect(() => { const t = setTimeout(loadList, 300); return () => clearTimeout(t); }, [loadList]);
@@ -71,6 +74,8 @@ export default function TesvikMakineList() {
     { field: 'documentWaiting', headerName: 'Bekleyen Evrak', width: 120, type: 'number' },
     { field: 'lastMailAt', headerName: 'Son Mail', width: 110, valueGetter: (p) => formatDate(p.row.lastMailAt) },
     { field: 'genelDurum', headerName: 'Genel Durum', width: 150, renderCell: (p) => <Chip size="small" label={p.row.genelDurumBadge?.label || p.value} sx={{ bgcolor: p.row.genelDurumBadge?.hex, color: '#fff' }} /> },
+    // Belgenin kendi durumu (süreç durumundan ayrı) — "kapandı" filtresinin karşılığı
+    { field: 'belgeDurum', headerName: 'Belge Durumu', width: 130, valueGetter: (p) => (p.row.belgeDurum ? belgeDurumLabel(p.row.belgeDurum) : '-') },
     { field: 'model', headerName: 'Tür', width: 90, valueGetter: (p) => p.row.tesvikModel === 'YeniTesvik' ? 'Yeni' : 'Eski' }
   ];
 
@@ -106,6 +111,15 @@ export default function TesvikMakineList() {
               <MenuItem value="">Tümü</MenuItem>
               <MenuItem value="Tesvik">Eski Belge</MenuItem>
               <MenuItem value="YeniTesvik">Yeni Belge</MenuItem>
+            </TextField>
+            {/* 🗄️ Kapanan belgeler varsayılan olarak gizli; buradan geri getirilebilir
+                (müşteri: "kapanan belgeleri gizleyelim ya da filtreleyebilelim") */}
+            <TextField select size="small" label="Belge Durumu" value={belgeDurum} onChange={(e) => setBelgeDurum(e.target.value)} sx={{ minWidth: 200 }}>
+              <MenuItem value="">Kapananlar Hariç</MenuItem>
+              <MenuItem value="all">Tümü (kapananlar dahil)</MenuItem>
+              {BELGE_DURUM_SECENEKLERI.map((o) => (
+                <MenuItem key={o.value} value={o.value}>Sadece: {o.label}</MenuItem>
+              ))}
             </TextField>
           </Stack>
         </Paper>

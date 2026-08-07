@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { birimEtiketi, kullanilmisEtiketi } from "./makineFormat";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
 const tl = (val) => {
@@ -48,13 +49,12 @@ const evetHayir = (val) => {
 };
 
 // İthal makine yeni mi kullanılmış mı
-const kullanilmisDurum = (m) => {
-  const v = m.kullanilmisMakine;
-  if (v && String(v).trim() && String(v).trim() !== "0") {
-    return m.kullanilmisMakineAciklama ? String(m.kullanilmisMakineAciklama) : "Kullanılmış Makine";
-  }
-  return "Yeni Makine";
-};
+// (müşteri: "kullanılmamış makineleri kullanılmış olarak gösteriyor") — bakanlık kodunda
+// "HAYIR" da dolu bir değer olduğu için "alan dolu ⇒ kullanılmış" varsayımı yanlıştı.
+const kullanilmisDurum = (m) => kullanilmisEtiketi(m.kullanilmisMakine, m.kullanilmisMakineAciklama);
+
+// Birim: kayıtta kod tutulur ("142"), müşteriye "ADET" gitmeli
+const birimDegeri = (m) => birimEtiketi(m.birim, m.birimAciklamasi) || "-";
 
 export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const workbook = new ExcelJS.Workbook();
@@ -443,7 +443,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         m.gtipKodu || "-",
         m.adiVeOzelligi || "-",
         num(m.miktar),
-        m.birim || "-",
+        birimDegeri(m),
         tl(m.birimFiyatiTl),
         tl(m.toplamTutariTl || m.toplamTl),
         m.kdvIstisnasi || "-"
@@ -484,7 +484,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         m.gtipKodu || "-",
         m.adiVeOzelligi || "-",
         num(m.miktar),
-        m.birim || "-",
+        birimDegeri(m),
         num(m.birimFiyatiFob),
         m.gumrukDovizKodu || "-",
         usd(m.toplamTutarFobUsd || m.toplamUsd),

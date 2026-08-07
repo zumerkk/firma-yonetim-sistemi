@@ -20,7 +20,7 @@ import {
     Clear as ClearIcon,
     Inventory2 as ArchiveIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
@@ -59,7 +59,16 @@ const DosyaTakipList = () => {
     const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, takipId: '' });
     const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
     // 🗄️ Arşiv modu — müşteri: "sonuçlananlar arşiv gibi bir yere çekilsin, ana ekranda kalabalık yapmasın"
-    const [arsivModu, setArsivModu] = useState(false);
+    // Bileşen state'i yerine URL'de tutulur: detaydan geri dönüldüğünde bileşen yeniden
+    // kurulduğu için state sıfırlanıyor ve kullanıcı arşiv yerine ana listeye düşüyordu
+    // (müşteri: "arşivden geri gelince ana listeye atıyor, arşive geri atsın").
+    const [searchParams, setSearchParams] = useSearchParams();
+    const arsivModu = searchParams.get('arsiv') === '1';
+    const setArsivModu = (acik) => {
+        const sp = new URLSearchParams(searchParams);
+        if (acik) sp.set('arsiv', '1'); else sp.delete('arsiv');
+        setSearchParams(sp, { replace: true });
+    };
 
     // Talepler verisi - her zaman array olmalı
     const talepler = Array.isArray(rawTalepler) ? rawTalepler : [];
@@ -91,6 +100,11 @@ const DosyaTakipList = () => {
         };
         fetchTalepler(params);
     }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu]);
+
+    // Detaya giderken hangi listeden gelindiği taşınır; detaydaki "Geri" aynı listeye döner
+    const detayaGit = (talepId) => navigate(`/dosya-takip/${talepId}`, {
+        state: { listeQuery: arsivModu ? '?arsiv=1' : '' }
+    });
 
     // Filtre değişince ilk sayfaya dön (3. sayfadayken filtreleyip boş liste görmeyi önler)
     const filtreDegistir = (setter) => (deger) => {
@@ -313,7 +327,7 @@ const DosyaTakipList = () => {
             renderCell: (params) => (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                     <Tooltip title="Detay">
-                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); navigate(`/dosya-takip/${params.row._id}`); }} sx={{ color: '#3b82f6' }}>
+                        <IconButton size="small" onClick={(e) => { e.stopPropagation(); detayaGit(params.row._id); }} sx={{ color: '#3b82f6' }}>
                             <VisibilityIcon sx={{ fontSize: 18 }} />
                         </IconButton>
                     </Tooltip>
@@ -360,7 +374,7 @@ const DosyaTakipList = () => {
                             variant={arsivModu ? 'contained' : 'outlined'}
                             startIcon={<ArchiveIcon />}
                             onClick={() => {
-                                setArsivModu(v => !v);
+                                setArsivModu(!arsivModu);
                                 setPaginationModel(p => ({ ...p, page: 0 }));
                             }}
                             sx={{
@@ -519,7 +533,7 @@ const DosyaTakipList = () => {
                             onPaginationModelChange={setPaginationModel}
                             pageSizeOptions={[25, 50, 100]}
                             disableRowSelectionOnClick
-                            onRowClick={(params) => navigate(`/dosya-takip/${params.row._id}`)}
+                            onRowClick={(params) => detayaGit(params.row._id)}
                             localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
                             autoHeight
                             sx={{

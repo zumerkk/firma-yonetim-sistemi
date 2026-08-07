@@ -135,6 +135,14 @@ const DOCUMENT_TYPES = Object.freeze([
 
 const DOCUMENT_TYPE_KEYS = Object.freeze(DOCUMENT_TYPES.map((d) => d.key));
 
+// 🌐 Firmanın public yükleme linkinde GÖRDÜĞÜ türler (müşteri: "upload linkinde sadece
+// fatura taslağı ve onaylı fatura kalabilir mi"). Tam liste yönetim tarafında ve eski
+// kayıtların doğrulamasında geçerli kalır — yalnızca firmaya sunulan seçim daraltılır.
+const PUBLIC_DOCUMENT_TYPE_KEYS = Object.freeze(['fatura_taslak', 'fatura_onayli']);
+const PUBLIC_DOCUMENT_TYPES = Object.freeze(
+  DOCUMENT_TYPES.filter((d) => PUBLIC_DOCUMENT_TYPE_KEYS.includes(d.key))
+);
+
 function getDocumentTypeFolder(key) {
   const found = DOCUMENT_TYPES.find((d) => d.key === key);
   return (found && found.folder) || 'Diger';
@@ -191,6 +199,8 @@ module.exports = {
   DEPRECATED_TEMPLATE_CODES,
   DOCUMENT_TYPES,
   DOCUMENT_TYPE_KEYS,
+  PUBLIC_DOCUMENT_TYPES,
+  PUBLIC_DOCUMENT_TYPE_KEYS,
   getDocumentTypeFolder,
   UPLOADER_TYPE,
   PROCESS_ACTION,
