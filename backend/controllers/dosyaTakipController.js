@@ -169,6 +169,12 @@ exports.getTumTalepler = async (req, res) => {
             baslangicTarihi = '',
             bitisTarihi = '',
             arsiv = '',
+            // 📊 Dashboard kartlarından gelen kapsam (müşteri: "kartlara tıklayınca
+            // müracaatları önümüze getirsin"). Kart sayıları arşivdekileri de kapsadığı
+            // için varsayılan arşiv gizlemesi bu iki kartta devre dışı bırakılır:
+            //   'tumu'  → hiçbir aşama kısıtı yok      (Toplam Talep kartı)
+            //   'aktif' → yalnız TAMAMLANDI hariç      (Aktif Talep kartı)
+            kapsam = '',
             // müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim"
             hazirlayan = '',
             takipEden = ''
@@ -193,9 +199,18 @@ exports.getTumTalepler = async (req, res) => {
             ];
         }
         if (durum) filter.durum = durum;
-        // Aşama filtresi seçiliyse o kazanır; değilse arşiv moduna göre dahil/hariç tutulur
+        // Aşama filtresi seçiliyse o kazanır; sonra kapsam; en son arşiv modu.
         if (anaAsama) {
-            filter.anaAsama = anaAsama;
+            // Dashboard'daki "2. Kurum Değerlendirme" sayacı migrasyon öncesi
+            // MURACAAT_SONRASI kayıtlarını da kapsıyor (bkz. getDashboardIstatistikleri);
+            // karttan gelen liste aynı kümeyi göstersin diye burada da eşleniyor.
+            filter.anaAsama = anaAsama === 'KURUM_DEGERLENDIRME'
+                ? { $in: ['KURUM_DEGERLENDIRME', 'MURACAAT_SONRASI'] }
+                : anaAsama;
+        } else if (kapsam === 'tumu') {
+            // Aşama kısıtı yok — "Toplam Talep" kartı arşivdekileri de sayıyor
+        } else if (kapsam === 'aktif') {
+            filter.anaAsama = { $ne: 'TAMAMLANDI' };
         } else if (arsivModu) {
             filter.anaAsama = { $in: ARSIV_ASAMALARI };
         } else {
@@ -530,7 +545,7 @@ exports.eksikTamamla = async (req, res) => {
                     dosyaAdi: d.dosyaAdi,
                     dosyaYolu: d.dosyaYolu,
                     dosyaTipi: d.dosyaTipi,
-                    kategori: 'Eksik Bildirimleri',
+                    kategori: 'Eksik Tamamlama Evrakları',
                     dosyaBoyutu: d.dosyaBoyutu,
                     cloudinaryPublicId: d.cloudinaryPublicId,
                     yukleyenKisi: d.yukleyenKisi,

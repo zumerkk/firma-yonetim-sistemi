@@ -13,7 +13,7 @@ import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
-import { kullanilmisMi } from '../../utils/makineFormat';
+import { kullanilmisMi, birimEtiketi } from '../../utils/makineFormat';
 
   const numberOrZero = (v) => {
   const n = parseFloat((v ?? '').toString().replace(/[^\d.-]/g, ''));
@@ -878,34 +878,6 @@ const MakineYonetimi = () => {
     wb.creator = 'Firma Yönetim Sistemi';
     wb.created = new Date();
 
-    // 🔧 Yaygın birim kodları için açıklama mapping'i
-    const birimKodlari = {
-      '142': 'ADET',
-      '166': 'KİLOGRAM',
-      '112': 'LİTRE',
-      '138': 'METRE',
-      '111': 'MİLİMETRE',
-      '144': 'ÇİFT',
-      '143': 'DÜZÜNE',
-      '145': 'YÜZ',
-      '146': 'BİN',
-      '139': 'METREKARE',
-      '140': 'METREKÜp',
-      '151': 'TON',
-      '999': 'DİĞER'
-    };
-    
-    // 🔧 FIX: Birim açıklamasını al - Önce kod mapping'i kontrol et, sonra temiz açıklama
-    const getBirimAciklama = (kod, aciklama) => {
-      // Önce kod mapping'inden bak (daha temiz sonuç için)
-      if (kod && birimKodlari[kod]) return birimKodlari[kod];
-      // Açıklama varsa parantez içindeki kısmı temizle (ADET(UNIT) -> ADET)
-      if (aciklama && aciklama.trim()) {
-        return aciklama.replace(/\s*\([^)]*\)\s*/g, '').trim() || aciklama;
-      }
-      return kod || '';
-    };
-
     // Yardımcı: kolon index → harf
     const colLetter = (n) => {
       let s = ''; let x = n;
@@ -1071,7 +1043,7 @@ const MakineYonetimi = () => {
       const kararAdi = getKararAdi(r.karar);
       
       // 🔧 FIX: Birim açıklamasını doğru şekilde göster
-      const birimGosterim = getBirimAciklama(r.birim, r.birimAciklamasi);
+      const birimGosterim = birimEtiketi(r.birim, r.birimAciklamasi);
       
       // Toplam TL'yi Excel içinde formülle üretelim
       const row = wsYerli.addRow({ 
@@ -1188,7 +1160,7 @@ const MakineYonetimi = () => {
       const kararAdi = getKararAdi(r.karar);
       
       // 🔧 FIX: Birim açıklamasını doğru şekilde göster
-      const birimGosterim = getBirimAciklama(r.birim, r.birimAciklamasi);
+      const birimGosterim = birimEtiketi(r.birim, r.birimAciklamasi);
       
       // Satırı ekle
       const rowData = { 

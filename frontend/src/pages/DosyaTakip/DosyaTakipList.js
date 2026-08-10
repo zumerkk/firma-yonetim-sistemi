@@ -25,6 +25,26 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
 
+// müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
+// Tek kaynak burasıdır — hücre renderer'larında ayrı fontSize yazmayın, bu sabiti kullanın.
+// Not: <Typography variant="body2"> kendi font-size'ını bastığı için DataGrid seviyesinde
+// tek bir CSS kuralı yetmiyor; her hücrede bu sabit geçiliyor.
+const TABLO_FONT = '0.75rem';
+
+// Filtre alanları da tabloyla aynı yazı boyutunu kullansın.
+// Yüzen etiketler (InputLabel) bilerek dışarıda: MUI onları shrink halinde
+// scale(0.75) ile küçültüyor, ayrıca çentik (legend) genişliğini etiket
+// boyutundan hesapladığı için küçültmek kenarlıkta boşluk bırakıyor.
+const FILTRE_SX = {
+    '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: TABLO_FONT }
+};
+
+// Açılır menü seçenekleri portal içinde render edildiği için üstteki sx onlara
+// ulaşmıyor; MenuProps ile ayrıca verilmesi gerekiyor.
+const FILTRE_MENU_PROPS = {
+    MenuProps: { PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: TABLO_FONT } } } }
+};
+
 // Durum renkleri
 const DURUM_RENKLERI = {
     mavi: { bg: '#eff6ff', text: '#1e40af', border: '#93c5fd' },
@@ -49,7 +69,6 @@ const DosyaTakipList = () => {
     const navigate = useNavigate();
     const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil } = useDosyaTakip();
     const [search, setSearch] = useState('');
-    const [filterAnaAsama, setFilterAnaAsama] = useState('');
     const [filterTalepTuru, setFilterTalepTuru] = useState('');
     // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
     const [filterHazirlayan, setFilterHazirlayan] = useState('');
@@ -67,6 +86,23 @@ const DosyaTakipList = () => {
     const setArsivModu = (acik) => {
         const sp = new URLSearchParams(searchParams);
         if (acik) sp.set('arsiv', '1'); else sp.delete('arsiv');
+        // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
+        // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
+        sp.delete('kapsam');
+        setSearchParams(sp, { replace: true });
+    };
+
+    // 📊 Aşama filtresi ve kapsam da URL'de tutulur: dashboard kartları buraya
+    // ?anaAsama=... / ?kapsam=... ile yönlendiriyor (müşteri: "kartlara tıklayınca
+    // müracaatları önümüze getirsin"). Arşiv modunda olduğu gibi, detaydan geri
+    // dönüldüğünde filtrenin sıfırlanmaması için de bileşen state'i yerine URL kullanılır.
+    const filterAnaAsama = searchParams.get('anaAsama') || '';
+    const kapsam = searchParams.get('kapsam') || '';
+    const setFilterAnaAsama = (deger) => {
+        const sp = new URLSearchParams(searchParams);
+        if (deger) sp.set('anaAsama', deger); else sp.delete('anaAsama');
+        // Elle aşama seçmek kart kapsamını geçersiz kılar
+        sp.delete('kapsam');
         setSearchParams(sp, { replace: true });
     };
 
@@ -96,14 +132,17 @@ const DosyaTakipList = () => {
             hazirlayan: filterHazirlayan,
             takipEden: filterTakipEden,
             // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
-            arsiv: arsivModu ? '1' : ''
+            arsiv: arsivModu ? '1' : '',
+            // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
+            kapsam
         };
         fetchTalepler(params);
-    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu]);
+    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapsam]);
 
     // Detaya giderken hangi listeden gelindiği taşınır; detaydaki "Geri" aynı listeye döner
     const detayaGit = (talepId) => navigate(`/dosya-takip/${talepId}`, {
-        state: { listeQuery: arsivModu ? '?arsiv=1' : '' }
+        // Tüm sorgu korunur: karttan gelinen filtreli listeye geri dönülsün
+        state: { listeQuery: searchParams.toString() ? `?${searchParams.toString()}` : '' }
     });
 
     // Filtre değişince ilk sayfaya dön (3. sayfadayken filtreleyip boş liste görmeyi önler)
@@ -141,13 +180,17 @@ const DosyaTakipList = () => {
 
     const columns = [
         // müşteri: Takip ID kolonu kaldırıldı
+        // müşteri: Aşama ve Durum, Belge No'nun soluna alındı
+        // Sıra: Firma → Talep Türü → Aşama → Durum → Belge No → İl/İlçe → ...
         {
             field: 'firmaUnvan',
             headerName: 'Firma',
             flex: 1,
+            // Genişliği daraltmayın: font küçüldüğü için aynı 200px'de artık
+            // daha fazla karakter sığıyor — daraltmak bu kazancı geri alır.
             minWidth: 200,
             renderCell: (params) => (
-                <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <Typography variant="body2" sx={{ fontSize: TABLO_FONT, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {params.value || params.row?.firma?.tamUnvan || '-'}
                 </Typography>
             )
@@ -155,42 +198,22 @@ const DosyaTakipList = () => {
         {
             field: 'talepTuru',
             headerName: 'Talep Türü',
-            flex: 1,
+            flex: 0.9,
+            // 200'ün altına inmeyin: "İthal Teçhizat Devir Revize Talebi" gibi uzun
+            // talep türleri 12px'de ~179px yer kaplıyor, dar sütunda kesiliyor.
             minWidth: 200,
             renderCell: (params) => (
-                <Typography variant="caption" sx={{ fontWeight: 500, fontSize: '0.75rem' }}>
+                <Typography variant="body2" sx={{ fontSize: TABLO_FONT, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {params.value}
                 </Typography>
             )
         },
         {
-            field: 'ytbNo',
-            headerName: 'Belge No',
-            width: 120,
-            renderCell: (params) => (
-                <Typography variant="body2" sx={{ color: '#64748b' }}>
-                    {params.value || '-'}
-                </Typography>
-            )
-        },
-        {
-            field: 'ilIlce',
-            headerName: 'İl / İlçe',
-            width: 150,
-            sortable: false,
-            renderCell: (params) => {
-                const il = params.row.firma?.firmaIl || '';
-                const ilce = params.row.firma?.firmaIlce || '';
-                const metin = [il, ilce].filter(Boolean).join(' / ');
-                return (
-                    <Typography variant="body2" sx={{ color: metin ? '#475569' : '#94a3b8' }}>{metin || '-'}</Typography>
-                );
-            }
-        },
-        {
             field: 'anaAsama',
             headerName: 'Aşama',
-            width: 170,
+            // "2. Kurum Değerlendirme" çipi 12px'de ~140px; çip dolgusu + hücre
+            // boşluğu ile birlikte 180 altına inince kesiliyor.
+            width: 180,
             renderCell: (params) => {
                 const info = ANA_ASAMA_ETIKETLERI[params.value] || { label: params.value, color: '#6b7280' };
                 return (
@@ -198,12 +221,14 @@ const DosyaTakipList = () => {
                         label={info.label}
                         size="small"
                         sx={{
-                            fontSize: '0.7rem',
+                            fontSize: TABLO_FONT,
                             fontWeight: 600,
                             color: info.color,
                             background: `${info.color}12`,
                             border: `1px solid ${info.color}30`,
-                            height: 24
+                            height: 22,
+                            maxWidth: '100%',
+                            '& .MuiChip-label': { px: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' }
                         }}
                     />
                 );
@@ -212,7 +237,8 @@ const DosyaTakipList = () => {
         {
             field: 'durum',
             headerName: 'Durum',
-            width: 180,
+            // "Fiyat Tamam - Evrak Bekle" 12px'de ~151px; alt sınır ~190.
+            width: 195,
             renderCell: (params) => {
                 const renk = DURUM_RENKLERI[params.row.durumRengi] || DURUM_RENKLERI.mavi;
                 const etiket = params.row.durumEtiketi || params.value;
@@ -225,12 +251,36 @@ const DosyaTakipList = () => {
                             color: renk.text,
                             border: `1px solid ${renk.border}`,
                             fontWeight: 600,
-                            fontSize: '0.65rem',
-                            height: 24,
-                            maxWidth: 170,
-                            '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' }
+                            fontSize: TABLO_FONT,
+                            height: 22,
+                            maxWidth: '100%',
+                            '& .MuiChip-label': { px: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' }
                         }}
                     />
+                );
+            }
+        },
+        {
+            field: 'ytbNo',
+            headerName: 'Belge No',
+            width: 100,
+            renderCell: (params) => (
+                <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#64748b' }}>
+                    {params.value || '-'}
+                </Typography>
+            )
+        },
+        {
+            field: 'ilIlce',
+            headerName: 'İl / İlçe',
+            width: 140,
+            sortable: false,
+            renderCell: (params) => {
+                const il = params.row.firma?.firmaIl || '';
+                const ilce = params.row.firma?.firmaIlce || '';
+                const metin = [il, ilce].filter(Boolean).join(' / ');
+                return (
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: metin ? '#475569' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{metin || '-'}</Typography>
                 );
             }
         },
@@ -238,13 +288,15 @@ const DosyaTakipList = () => {
             field: 'muraacatHazirlayan',
             headerName: 'Müracaat Hazırlayan',
             flex: 0.7,
+            // Başlık metni içerikten uzun: 12px kalın "Müracaat Hazırlayan" ~133px,
+            // 150'nin altında başlık kesiliyor.
             minWidth: 150,
             valueGetter: (params) => params.row.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad || params.row.muraacatOncesi?.muraacatHazirlayanAdi || '',
             renderCell: (params) => {
                 const ad = params.row.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad
                     || params.row.muraacatOncesi?.muraacatHazirlayanAdi;
                 return (
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem', color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ad || '-'}
                     </Typography>
                 );
@@ -254,13 +306,13 @@ const DosyaTakipList = () => {
             field: 'takibiYapan',
             headerName: 'Takibi Yapan',
             flex: 0.7,
-            minWidth: 150,
+            minWidth: 130,
             valueGetter: (params) => params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || params.row.muraacatSonrasi?.takibiYapanAdi || '',
             renderCell: (params) => {
                 const ad = params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad
                     || params.row.muraacatSonrasi?.takibiYapanAdi;
                 return (
-                    <Typography variant="body2" sx={{ fontSize: '0.8rem', color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ad || '-'}
                     </Typography>
                 );
@@ -269,9 +321,10 @@ const DosyaTakipList = () => {
         {
             field: 'createdAt',
             headerName: 'Oluşturma Tarihi',
+            // Tarih 10 karakter ama başlık uzun; 130 başlığın sığdığı alt sınır.
             width: 130,
             renderCell: (params) => (
-                <Typography variant="caption" sx={{ color: '#64748b' }}>
+                <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#64748b' }}>
                     {params.value ? new Date(params.value).toLocaleDateString('tr-TR') : '-'}
                 </Typography>
             )
@@ -280,16 +333,16 @@ const DosyaTakipList = () => {
             // müşteri: "Resmi Müracaat Eksik Son Gün" talep listesinde oluşturma tarihinin yanında görünsün
             field: 'resmiMuracaatEksikSonGun',
             headerName: 'Resmi Müracaat Eksik Son Gün',
-            width: 190,
+            width: 165,
             sortable: false, // nested alan; sunucu tarafı sıralama bu yolu desteklemiyor
             valueGetter: (params) => params.row?.zamanlama?.resmiMuracaatEksikSonGun || null,
             renderCell: (params) => {
-                if (!params.value) return <Typography variant="caption" sx={{ color: '#94a3b8' }}>-</Typography>;
+                if (!params.value) return <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8' }}>-</Typography>;
                 const tarih = new Date(params.value);
                 // Son gün geçtiyse dikkat çeksin
                 const gecti = tarih.setHours(23, 59, 59, 999) < Date.now();
                 return (
-                    <Typography variant="caption" sx={{ color: gecti ? '#dc2626' : '#64748b', fontWeight: gecti ? 700 : 400 }}>
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: gecti ? '#dc2626' : '#64748b', fontWeight: gecti ? 700 : 400 }}>
                         {new Date(params.value).toLocaleDateString('tr-TR')}
                     </Typography>
                 );
@@ -304,7 +357,7 @@ const DosyaTakipList = () => {
                 const sonuclanma = params.value;
                 if (sonuclanma) {
                     return (
-                        <Typography variant="caption" sx={{ color: '#059669', fontWeight: 600 }}>
+                        <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#059669', fontWeight: 600 }}>
                             {new Date(sonuclanma).toLocaleDateString('tr-TR')}
                         </Typography>
                     );
@@ -312,7 +365,7 @@ const DosyaTakipList = () => {
                 // Henüz sonuçlanmadıysa son işlem tarihini göster (gri)
                 const sonIslem = params.row?.updatedAt;
                 return (
-                    <Typography variant="caption" sx={{ color: '#94a3b8' }}>
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {sonIslem ? `${new Date(sonIslem).toLocaleDateString('tr-TR')} (son işlem)` : '-'}
                     </Typography>
                 );
@@ -426,7 +479,7 @@ const DosyaTakipList = () => {
                                         </InputAdornment>
                                     )
                                 }}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                sx={FILTRE_SX}
                             />
                         </Grid>
                         <Grid item xs={12} md={2.5}>
@@ -437,13 +490,15 @@ const DosyaTakipList = () => {
                                 label="Ana Aşama"
                                 value={filterAnaAsama}
                                 onChange={(e) => filtreDegistir(setFilterAnaAsama)(e.target.value)}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                sx={FILTRE_SX}
+                                SelectProps={FILTRE_MENU_PROPS}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
                                 <MenuItem value="MURACAAT_ONCESI">1. Müracaat Öncesi</MenuItem>
                                 <MenuItem value="KURUM_DEGERLENDIRME">2. Kurum Değerlendirme</MenuItem>
                                 <MenuItem value="KURUM_EKSIK">3. Kurum Eksik</MenuItem>
                                 <MenuItem value="KURUM_SONUCLANMA">4. Sonuçlanma</MenuItem>
+                                <MenuItem value="TAMAMLANDI">Tamamlandı</MenuItem>
                             </TextField>
                         </Grid>
                         <Grid item xs={12} md={2.5}>
@@ -454,7 +509,8 @@ const DosyaTakipList = () => {
                                 label="Talep Türü"
                                 value={filterTalepTuru}
                                 onChange={(e) => filtreDegistir(setFilterTalepTuru)(e.target.value)}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                sx={FILTRE_SX}
+                                SelectProps={FILTRE_MENU_PROPS}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
                                 {(enumDegerleri?.talepTurleri || []).map(t => (
@@ -471,7 +527,8 @@ const DosyaTakipList = () => {
                                 label="Müracaat Hazırlayan"
                                 value={filterHazirlayan}
                                 onChange={(e) => filtreDegistir(setFilterHazirlayan)(e.target.value)}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                sx={FILTRE_SX}
+                                SelectProps={FILTRE_MENU_PROPS}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
                                 <MenuItem value="YOK">— Atanmamış —</MenuItem>
@@ -488,7 +545,8 @@ const DosyaTakipList = () => {
                                 label="Takibi Yapan"
                                 value={filterTakipEden}
                                 onChange={(e) => filtreDegistir(setFilterTakipEden)(e.target.value)}
-                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                sx={FILTRE_SX}
+                                SelectProps={FILTRE_MENU_PROPS}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
                                 <MenuItem value="YOK">— Atanmamış —</MenuItem>
@@ -503,7 +561,7 @@ const DosyaTakipList = () => {
                                     sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}>
                                     Yenile
                                 </Button>
-                                {(search || filterAnaAsama || filterTalepTuru || filterHazirlayan || filterTakipEden) && (
+                                {(search || filterAnaAsama || kapsam || filterTalepTuru || filterHazirlayan || filterTakipEden) && (
                                     <Button size="small" onClick={clearFilters} sx={{ minWidth: 'auto', color: '#ef4444' }}>
                                         Temizle
                                     </Button>
@@ -536,6 +594,19 @@ const DosyaTakipList = () => {
                             onRowClick={(params) => detayaGit(params.row._id)}
                             localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
                             autoHeight
+                            // müşteri: tablo daha kompakt olsun (varsayılan 52 / 56)
+                            rowHeight={40}
+                            columnHeaderHeight={40}
+                            // "Sayfa başına satır" açılır listesi portal içinde açıldığı için
+                            // aşağıdaki sx ona ulaşmıyor; boyut buradan veriliyor.
+                            slotProps={{
+                                pagination: {
+                                    SelectProps: {
+                                        sx: { fontSize: TABLO_FONT },
+                                        MenuProps: { PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: TABLO_FONT } } } }
+                                    }
+                                }
+                            }}
                             sx={{
                                 border: 'none',
                                 width: '100%',
@@ -543,12 +614,35 @@ const DosyaTakipList = () => {
                                     background: '#f8fafc',
                                     borderBottom: '2px solid #e2e8f0'
                                 },
+                                // Başlıklar da hücrelerle aynı boyutta olsun
+                                '& .MuiDataGrid-columnHeaderTitle': {
+                                    fontSize: TABLO_FONT,
+                                    fontWeight: 600
+                                },
                                 '& .MuiDataGrid-row:hover': {
                                     background: '#fefce8',
                                     cursor: 'pointer'
                                 },
+                                // DataGrid varsayılanı 0 10px; 8px'e çekmek hem sıkıştırıyor
+                                // hem de her hücreye 4px fazladan metin alanı bırakıyor.
                                 '& .MuiDataGrid-cell': {
-                                    borderBottom: '1px solid #f1f5f9'
+                                    borderBottom: '1px solid #f1f5f9',
+                                    px: 1
+                                },
+                                '& .MuiDataGrid-columnHeader': {
+                                    px: 1
+                                },
+                                // Alt bilgi (sayfalama) da aynı boyutta kalsın
+                                '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                                    fontSize: TABLO_FONT
+                                },
+                                // "Kayıt yok" katmanı da aynı boyutta olsun
+                                '& .MuiDataGrid-overlay': {
+                                    fontSize: TABLO_FONT
+                                },
+                                // Satırlar 40px'e inince alt şerit 52px kalıyordu
+                                '& .MuiDataGrid-footerContainer': {
+                                    minHeight: 44
                                 }
                             }}
                         />

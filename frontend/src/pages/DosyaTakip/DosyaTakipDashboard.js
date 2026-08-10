@@ -53,10 +53,16 @@ const DosyaTakipDashboard = () => {
         setRefreshing(false);
     };
 
+    // müşteri: "bunlara da tıkladığımızda müracaatları önümüze getirsin"
+    // Her kartın `hedef`i, kartın saydığı kümeyle birebir aynı listeyi açar
+    // (sayaç tanımları: dosyaTakipController.getDashboardIstatistikleri).
+    // Not: liste normalde sonuçlanan/tamamlananı gizler; bu yüzden arşiv aşamalarına
+    // giden kartlar açık `anaAsama` gönderir — o filtre arşiv gizlemesini ezer.
     const statsCards = [
         {
             title: 'Toplam Talep',
             value: dashboardStats?.ozet?.toplamTalep || 0,
+            hedef: '/dosya-takip/liste?kapsam=tumu', // arşivdekiler dahil hepsi
             icon: <AssignmentIcon />,
             gradient: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
             shadowColor: 'rgba(30, 64, 175, 0.3)'
@@ -64,6 +70,7 @@ const DosyaTakipDashboard = () => {
         {
             title: 'Aktif Talep',
             value: dashboardStats?.ozet?.aktifTalep || 0,
+            hedef: '/dosya-takip/liste?kapsam=aktif', // yalnız "Tamamlandı" hariç
             icon: <PlaylistAddCheckIcon />,
             gradient: 'linear-gradient(135deg, #7c2d12, #f59e0b)',
             shadowColor: 'rgba(245, 158, 11, 0.3)'
@@ -71,6 +78,7 @@ const DosyaTakipDashboard = () => {
         {
             title: '1. Müracaat Öncesi',
             value: dashboardStats?.ozet?.muraacatOncesi || 0,
+            hedef: '/dosya-takip/liste?anaAsama=MURACAAT_ONCESI',
             icon: <HourglassEmptyIcon />,
             gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
             shadowColor: 'rgba(124, 58, 237, 0.3)'
@@ -78,6 +86,8 @@ const DosyaTakipDashboard = () => {
         {
             title: '2. Kurum Değerlendirme',
             value: dashboardStats?.ozet?.kurumDegerlendirme ?? dashboardStats?.ozet?.muraacatSonrasi ?? 0,
+            // Sunucu bu değeri eski MURACAAT_SONRASI kayıtlarıyla birlikte eşler
+            hedef: '/dosya-takip/liste?anaAsama=KURUM_DEGERLENDIRME',
             icon: <AccountBalanceIcon />,
             gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
             shadowColor: 'rgba(124, 58, 237, 0.3)'
@@ -85,6 +95,7 @@ const DosyaTakipDashboard = () => {
         {
             title: '3. Kurum Eksik',
             value: dashboardStats?.ozet?.kurumEksik || 0,
+            hedef: '/dosya-takip/liste?anaAsama=KURUM_EKSIK',
             icon: <HourglassEmptyIcon />,
             gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
             shadowColor: 'rgba(220, 38, 38, 0.3)'
@@ -92,6 +103,7 @@ const DosyaTakipDashboard = () => {
         {
             title: '4. Sonuçlanma',
             value: dashboardStats?.ozet?.kurumSonuclanma || 0,
+            hedef: '/dosya-takip/liste?anaAsama=KURUM_SONUCLANMA',
             icon: <ScheduleIcon />,
             gradient: 'linear-gradient(135deg, #064e3b, #059669)',
             shadowColor: 'rgba(5, 150, 105, 0.3)'
@@ -99,6 +111,7 @@ const DosyaTakipDashboard = () => {
         {
             title: 'Tamamlanan',
             value: dashboardStats?.ozet?.tamamlanan || 0,
+            hedef: '/dosya-takip/liste?anaAsama=TAMAMLANDI',
             icon: <CheckCircleIcon />,
             gradient: 'linear-gradient(135deg, #14532d, #22c55e)',
             shadowColor: 'rgba(34, 197, 94, 0.3)'
@@ -169,15 +182,28 @@ const DosyaTakipDashboard = () => {
                 <Grid container spacing={2.5} sx={{ mb: 4 }}>
                     {statsCards.map((card, index) => (
                         <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-                            <Card sx={{
+                            <Card
+                                onClick={() => navigate(card.hedef)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(card.hedef); }
+                                }}
+                                aria-label={`${card.title}: ${card.value} talep — listeyi aç`}
+                                sx={{
                                 borderRadius: 3,
                                 border: '1px solid rgba(226, 232, 240, 0.6)',
                                 boxShadow: `0 4px 20px ${card.shadowColor}`,
                                 transition: 'all 0.3s ease',
                                 overflow: 'visible',
+                                cursor: 'pointer',
                                 '&:hover': {
                                     transform: 'translateY(-4px)',
                                     boxShadow: `0 8px 30px ${card.shadowColor}`
+                                },
+                                '&:focus-visible': {
+                                    outline: '2px solid #3b82f6',
+                                    outlineOffset: 2
                                 }
                             }}>
                                 <CardContent sx={{ p: 2.5, pb: '16px !important' }}>
