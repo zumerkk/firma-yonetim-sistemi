@@ -59,7 +59,8 @@ const DURUM_RENKLERI = {
 // Dosya türleri (müşteri: yüklemeden önce seçilir)
 // Backend DosyaTakip.DOSYA_TURLERI ile aynı sırada tutulmalı
 // 'ETUYS Sonuç Görüntüsü' → talebi "Sonuçlandı"ya almak için zorunlu (müşteri talebi)
-const DOSYA_TURLERI = ['ETUYS Talep Görüntüsü', 'ETUYS Sonuç Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Bildirimleri'];
+// Backend'deki DOSYA_TURLERI ile aynı sırada tutun (models/DosyaTakip.js)
+const DOSYA_TURLERI = ['ETUYS Talep Görüntüsü', 'ETUYS Sonuç Görüntüsü', 'Görüşme Sırası Talep Dosyaları', 'Eksik Tamamlama Evrakları'];
 
 // Durum etiketleri (eski kodların etiketi eski kayıtlar için korunur)
 const DURUM_ETIKETLERI = {
@@ -510,7 +511,7 @@ const DosyaTakipDetail = () => {
         if (!eksikSubKey || !file) { if (e.target) e.target.value = ''; return; }
         setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: 1, count: 1 });
         try {
-            await dosyaEkle(id, file, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, 'Eksik Bildirimleri',
+            await dosyaEkle(id, file, `muraacatSonrasi.kurumEksik.${eksikSubKey}.gelenBelgeler`, 'Eksik Tamamlama Evrakları',
                 (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
             setSnackbar({ open: true, message: 'Belge yüklendi.', severity: 'success' });
         } catch (err) {

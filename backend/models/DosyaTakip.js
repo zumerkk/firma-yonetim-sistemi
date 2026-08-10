@@ -126,13 +126,16 @@ const DOSYA_TURLERI = [
   'ETUYS Talep Görüntüsü', // müşteri: eski adı "ETUYS Sistem Görüntüsü" idi
   'ETUYS Sonuç Görüntüsü', // müşteri: bu yüklenmeden talep "Sonuçlandı"ya alınamaz
   'Görüşme Sırası Talep Dosyaları',
-  'Eksik Bildirimleri'
+  'Eksik Tamamlama Evrakları' // müşteri: eski adı "Eksik Bildirimleri" idi
 ];
 
 // Kullanımdan kalkan tür adları — eski kayıtlar validasyondan geçsin diye enum'da tutulur,
 // arayüzde gösterilmez. Sunucu açılışında yeni ada taşınır (server.js migrasyonu).
-const ESKI_DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü'];
-const DOSYA_TURU_ESLESTIRME = { 'ETUYS Sistem Görüntüsü': 'ETUYS Talep Görüntüsü' };
+const ESKI_DOSYA_TURLERI = ['ETUYS Sistem Görüntüsü', 'Eksik Bildirimleri'];
+const DOSYA_TURU_ESLESTIRME = {
+  'ETUYS Sistem Görüntüsü': 'ETUYS Talep Görüntüsü',
+  'Eksik Bildirimleri': 'Eksik Tamamlama Evrakları'
+};
 
 // Talebin "Sonuçlandı" durumuna geçebilmesi için zorunlu dosya türü
 const SONUC_ZORUNLU_DOSYA_TURU = 'ETUYS Sonuç Görüntüsü';
