@@ -20,6 +20,7 @@ import {
   History as HistoryIcon
 } from '@mui/icons-material';
 import { exportTesvikToExcel } from '../../utils/docxExcelExport';
+import KdvMuafiyetYazisi from '../../components/Tesvik/KdvMuafiyetYazisi';
 
 // API Utils
 import api from '../../utils/axios';
@@ -1558,6 +1559,9 @@ const TesvikDetail = () => {
               </Grid>
             </Grid>
           </Paper>
+
+          {/* 🧾 KDV MUAFİYET YAZISI - müşteri talebi: belgenin en altında yükleme + geçerlilik tarihi */}
+          {tesvik?._id && <KdvMuafiyetYazisi tesvikModel="Tesvik" tesvikId={tesvik._id} />}
         </Box>
       </Container>
 

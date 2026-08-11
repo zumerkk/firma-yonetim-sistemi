@@ -7,6 +7,7 @@ const storageService = require('../services/tesvikMakine/storageService');
 const mps = require('../services/tesvikMakine/machineProcessService');
 const araKontrol = require('../services/tesvikMakine/araKontrolService');
 const resolver = require('../services/tesvikMakine/certificateResolver');
+const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
 const { PUBLIC_DOCUMENT_TYPES, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
 const { ALLOWED_EXT } = require('../middleware/tesvikUpload');
 
@@ -69,6 +70,57 @@ exports.getInfo = async (req, res) => {
   } catch (err) {
     console.error('🚨 [tesvikEvrak] getInfo:', err && err.message);
     return fail(res, 500, 'Bilgi alınamadı.');
+  }
+};
+
+// ───────── 🧾 KDV MUAFİYET YAZISI — public indirme (AUTH YOK, token tabanlı) ─────────
+// Tedarikçiye giden mailde ek yerine bu bağlantı yer alır: "bu linkten indirebilirsiniz".
+// Yalnızca yazının kendisi ve geçerlilik tarihleri paylaşılır; belge/firma detayı sızdırılmaz.
+
+// GET /api/tesvik-evrak/kdv-muafiyet/:token → indirme sayfası bilgisi
+exports.kdvMuafiyetInfo = async (req, res) => {
+  try {
+    const bulunan = await kdvMuafiyetService.resolveByToken(req.params.token);
+    if (!bulunan) return fail(res, 404, 'Bağlantı bulunamadı veya geçersiz.');
+    const identity = resolver.extractCertIdentity(bulunan.doc);
+    const ozet = kdvMuafiyetService.ozet(bulunan.kdv);
+    return res.json({
+      success: true,
+      data: {
+        firmaAdi: identity.firmaName || '',
+        belgeNo: identity.documentNo || '',
+        dosyaAdi: ozet.dosyaAdi,
+        boyut: ozet.boyut,
+        gecerlilikBaslangic: ozet.gecerlilikBaslangic,
+        gecerlilikBitis: ozet.gecerlilikBitis,
+        gecerliMi: ozet.gecerliMi,
+        henuzBaslamadi: ozet.henuzBaslamadi,
+        suresiDoldu: ozet.suresiDoldu
+      }
+    });
+  } catch (err) {
+    console.error('🚨 [tesvikEvrak] kdvMuafiyetInfo:', err && err.message);
+    return fail(res, 500, 'Bilgi alınamadı.');
+  }
+};
+
+// GET /api/tesvik-evrak/kdv-muafiyet/:token/download → dosyayı stream et
+// NOT: Cloudinary'de PDF teslimat kısıtı olabildiğinden doğrudan redirect DEĞİL,
+// imzalı/authenticated kaynaktan proxy edilir (kdvMuafiyetService.fetchBuffer).
+exports.kdvMuafiyetDownload = async (req, res) => {
+  try {
+    const bulunan = await kdvMuafiyetService.resolveByToken(req.params.token);
+    if (!bulunan) return fail(res, 404, 'Bağlantı bulunamadı veya geçersiz.');
+    const file = await kdvMuafiyetService.fetchBuffer(bulunan.kdv);
+    if (!file) return fail(res, 502, 'Dosya şu anda alınamıyor. Lütfen yetkiliyle iletişime geçin.');
+    const ad = encodeURIComponent(bulunan.kdv.orijinalAd || bulunan.kdv.dosyaAdi || 'kdv-muafiyet-yazisi');
+    res.setHeader('Content-Type', file.contentType);
+    res.setHeader('Content-Length', file.buffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${ad}`);
+    return res.send(file.buffer);
+  } catch (err) {
+    console.error('🚨 [tesvikEvrak] kdvMuafiyetDownload:', err && err.message);
+    return fail(res, 500, 'Dosya indirilemedi.');
   }
 };
 

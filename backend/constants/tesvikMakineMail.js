@@ -23,6 +23,10 @@ const DEFAULT_SIGNATURE = [
 //   {firmaAdi} {makineAdi} {belgeNo} {belgeId} {belgeTarihi} {makineId}
 //   {siraNo} {tedarikciMail} {tedarikciVergiNo} {uploadLink} {mailTarihi} {imza}
 //   {listeBilgisi} (ara kontrol: "ekte yer almaktadır" / "ayrıca iletilecektir" — ek durumuna göre otomatik)
+//   {kdvMuafiyetLinki} {kdvMuafiyetBaslangic} {kdvMuafiyetBitis}
+//     → belgeye yüklenmiş KDV muafiyet yazısının public indirme linki ve geçerlilik tarihleri.
+//       Şablonda {kdvMuafiyetLinki} KULLANILMAZSA link, yazı geçerliyse imzanın üstüne
+//       otomatik eklenir (machineProcessService.kdvLinkiEkle). Yazı yoksa hiçbir şey eklenmez.
 const DEFAULT_TEMPLATES = [
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,

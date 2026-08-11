@@ -20,6 +20,7 @@ const mailService = require('./mailService');
 const engine = require('./mailTemplateEngine');
 const storageService = require('./storageService');
 const tokenService = require('./uploadTokenService');
+const kdvMuafiyetService = require('./kdvMuafiyetService');
 const { resolveTemplate } = require('./mailTemplateProvider');
 
 const { MACHINE_STATUS } = status;
@@ -265,7 +266,8 @@ async function changeStatus(proc, newStatus, { note = '', user = null, actionTyp
 // subjectOverride/bodyOverride: önizlemede elle düzenlenmiş konu/içerik — doluysa şablon yerine bunlar gönderilir
 async function composeMail(proc, templateCode, { uploadLink = '', toOverride, ccOverride, subjectOverride, bodyOverride } = {}) {
   const tpl = await resolveTemplate(templateCode);
-  const { identity } = await buildContext(proc);
+  const { cert, identity } = await buildContext(proc);
+  const kdvMuafiyet = kdvMuafiyetService.ozet(cert.kdvMuafiyetYazisi);
   // {mailTarihi} = bu makine için SON GÖNDERİLEN mailin tarihi (müşteri isteği: hatırlatmada
   // bugünün değil, önceki talebin tarihi yazmalı). Hiç gönderilmiş mail yoksa bugüne düşer.
   let mailDate = new Date();
@@ -277,7 +279,7 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
     if (sonGonderilen) mailDate = sonGonderilen.sentAt || sonGonderilen.createdAt || mailDate;
   }
   const data = resolver.buildPlaceholderData({
-    process: proc, identity, signature: getSignature(), uploadLink, mailDate
+    process: proc, identity, signature: getSignature(), uploadLink, mailDate, kdvMuafiyet
   });
   const rendered = engine.renderTemplate(tpl, data);
   const audience = audienceForTemplate(templateCode);
@@ -286,8 +288,36 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
   const cc = ccOverride !== undefined ? parseEmails(ccOverride) : def.cc;
   // Müşteri isteği ("maili istediğimiz gibi düzenleyebilelim"): önizlemede düzenlenen metin şablonun önüne geçer
   const subject = (typeof subjectOverride === 'string' && subjectOverride.trim()) ? subjectOverride : rendered.subject;
-  const body = (typeof bodyOverride === 'string' && bodyOverride.trim()) ? bodyOverride : rendered.body;
-  return { template: tpl, audience, subject, body, to, cc, missing: rendered.missing, ok: rendered.ok && to.length > 0, needsUploadLink: templateNeedsUploadLink(tpl) };
+  // Müşteri isteği: KDV muafiyet yazısı EK olarak değil, indirme linki olarak iletilir.
+  // Şablonda {kdvMuafiyetLinki} yoksa link imzanın üstüne otomatik eklenir.
+  // Elle düzenlenmiş metne (bodyOverride) DOKUNULMAZ — kullanıcı önizlemede linki
+  // bilerek sildiyse gönderimde geri gelmemeli.
+  const body = (typeof bodyOverride === 'string' && bodyOverride.trim())
+    ? bodyOverride
+    : kdvLinkiEkle(rendered.body, kdvMuafiyet);
+  return {
+    template: tpl, audience, subject, body, to, cc,
+    missing: rendered.missing, ok: rendered.ok && to.length > 0,
+    needsUploadLink: templateNeedsUploadLink(tpl), kdvMuafiyet
+  };
+}
+
+// 🧾 KDV muafiyet yazısı indirme linkini mail gövdesine ekler.
+// Kural: yazı yüklenmiş VE bugün geçerlilik aralığındaysa eklenir — süresi dolmuş bir
+// yazının linki tedarikçiye gönderilmez. İmza bloğu varsa linki imzanın ÜSTÜNE koyar.
+function kdvLinkiEkle(body, kdvMuafiyet) {
+  const link = kdvMuafiyet && kdvMuafiyet.varMi && kdvMuafiyet.gecerliMi ? kdvMuafiyet.indirmeLinki : '';
+  if (!link) return body;
+  const metin = String(body || '');
+  if (metin.includes(link)) return metin; // şablonda {kdvMuafiyetLinki} vardı ya da elle eklenmiş
+
+  const blok = ['KDV muafiyet yazısını aşağıdaki bağlantıdan indirebilirsiniz:', '', link].join('\n');
+  const imza = getSignature();
+  const imzaIdx = imza ? metin.lastIndexOf(imza) : -1;
+  if (imzaIdx > 0) {
+    return `${metin.slice(0, imzaIdx).replace(/\s+$/, '')}\n\n${blok}\n\n${metin.slice(imzaIdx)}`;
+  }
+  return `${metin.replace(/\s+$/, '')}\n\n${blok}\n`;
 }
 
 // Önizleme: gerekirse upload link üretir (idempotent), MailLog YAZMAZ
@@ -306,7 +336,9 @@ async function previewMail(proc, templateCode, { user } = {}) {
     missing: composed.missing,
     missingRecipients,
     canSend: composed.ok && mailService.isConfigured(),
-    smtpConfigured: mailService.isConfigured()
+    smtpConfigured: mailService.isConfigured(),
+    // Önizleme ekranı bunu gösterir: link eklendi mi, süresi dolmuş mu, hiç yüklenmemiş mi
+    kdvMuafiyet: composed.kdvMuafiyet
   };
 }
 
@@ -616,7 +648,7 @@ module.exports = {
   reminderDays, getSignature, autoSendDefault, parseEmails, audienceForTemplate, buildContext, addLog,
   // core
   ensureProcess, listForCertificate, updateFields, changeStatus,
-  composeMail, previewMail, createDraftMail, sendProcessMail, resendMail,
+  composeMail, previewMail, createDraftMail, sendProcessMail, resendMail, kdvLinkiEkle,
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
   ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline

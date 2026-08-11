@@ -155,6 +155,16 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
 
   const copyLink = () => { navigator.clipboard?.writeText(uploadLink); notify('Link kopyalandı'); };
 
+  // 🧾 KDV muafiyet yazısı linki — belgeye yazı yüklendiyse önizleme metnine zaten
+  // otomatik eklenir (backend). Kullanıcı sildiyse buradan geri ekleyebilir.
+  const kdv = preview?.kdvMuafiyet;
+  const kdvLinkiMetinde = Boolean(kdv?.indirmeLinki && preview?.body?.includes(kdv.indirmeLinki));
+  const kdvLinkiEkle = () => {
+    if (!kdv?.indirmeLinki) return;
+    const blok = `KDV muafiyet yazısını aşağıdaki bağlantıdan indirebilirsiniz:\n\n${kdv.indirmeLinki}`;
+    setPreview((p) => ({ ...p, body: `${String(p.body || '').replace(/\s+$/, '')}\n\n${blok}\n` }));
+  };
+
   const m = target?.machine || {};
   const allStatuses = meta?.statuses || [];
   // Dropdown'da gizli durumları gösterme; ancak mevcut durum gizliyse onu da ekle (Select boş kalmasın)
@@ -309,6 +319,28 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
               {preview.missing?.length > 0 && <Alert severity="warning" sx={{ mb: 1 }}>Eksik bilgi: {preview.missing.join(', ')}</Alert>}
               {!preview.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
               <Typography variant="caption" color="text.secondary">Kime: {(preview.to || []).join(', ') || '-'}{preview.cc?.length ? ' · CC: ' + preview.cc.join(', ') : ''}</Typography>
+              {/* 🧾 KDV muafiyet yazısı: ek yerine indirme linki (müşteri talebi) */}
+              {kdv?.varMi && kdv.gecerliMi && (
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+                  <Chip
+                    size="small"
+                    label={kdvLinkiMetinde ? '🧾 KDV muafiyet linki eklendi' : '🧾 KDV muafiyet linki metinde yok'}
+                    color={kdvLinkiMetinde ? 'success' : 'default'}
+                    variant={kdvLinkiMetinde ? 'filled' : 'outlined'}
+                    sx={{ fontSize: '0.65rem', height: 20 }}
+                  />
+                  {!kdvLinkiMetinde && (
+                    <Button size="small" variant="outlined" onClick={kdvLinkiEkle} sx={{ fontSize: '0.65rem', py: 0 }}>
+                      Linki Ekle
+                    </Button>
+                  )}
+                </Stack>
+              )}
+              {kdv?.varMi && kdv.suresiDoldu && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  KDV muafiyet yazısının geçerlilik süresi dolmuş — link maile eklenmedi. Belge detayından güncelleyebilirsiniz.
+                </Alert>
+              )}
               {/* Müşteri isteği: gönderim öncesi konu/içerik serbestçe düzenlenebilir — düzenlenen hali gönderilir */}
               <TextField fullWidth size="small" label="Konu" value={preview.subject}
                 onChange={(e) => setPreview((p) => ({ ...p, subject: e.target.value }))} sx={{ my: 1 }} />

@@ -576,6 +576,25 @@ const tesvikSchema = new mongoose.Schema({
     uploadTokenExpiresAt: { type: Date }
   },
 
+  // 🧾 KDV Muafiyet Yazısı — belge geneli TEK dosya + geçerlilik aralığı.
+  // Müşteri talebi: tedarikçiye mail EKİ olarak değil, "bu linkten indirebilirsiniz"
+  // biçiminde public indirme bağlantısı (indirmeToken) olarak iletilir.
+  kdvMuafiyetYazisi: {
+    dosyaAdi: { type: String, trim: true },        // depoda normalize edilmiş ad
+    orijinalAd: { type: String, trim: true },      // kullanıcının yüklediği ad
+    dosyaYolu: { type: String, trim: true },       // local: dosya yolu · cloudinary: göreli yol
+    dosyaUrl: { type: String, trim: true },
+    providerFileId: { type: String, trim: true },  // cloudinary public_id (silme + imzalı indirme)
+    provider: { type: String, trim: true },
+    mimeType: { type: String, trim: true },
+    boyut: { type: Number },
+    gecerlilikBaslangic: { type: Date },
+    gecerlilikBitis: { type: Date },
+    indirmeToken: { type: String, trim: true, index: true, sparse: true },
+    yuklenmeTarihi: { type: Date },
+    yukleyenKullanici: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  },
+
   // 📝 Revizyon Takibi
   revizyonlar: [{
     revizyonNo: { type: Number, required: true },

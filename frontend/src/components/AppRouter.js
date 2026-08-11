@@ -72,6 +72,7 @@ import IslemEvrakDetail from '../pages/IslemEvrak/IslemEvrakDetail';
 import IslemEvrakPublicUpload from '../pages/IslemEvrak/IslemEvrakPublicUpload';
 import IslemTuruYonetimi from '../pages/IslemEvrak/IslemTuruYonetimi';
 import PublicUpload from '../pages/TesvikMakine/PublicUpload';
+import KdvMuafiyetIndir from '../pages/TesvikMakine/KdvMuafiyetIndir';
 
 const AppRouter = () => {
   // 🛡️ Page refresh handler - F5 basınca 404 engelleme
@@ -86,6 +87,8 @@ const AppRouter = () => {
       <Route path="/upload/tesvik/:token" element={<PublicUpload />} />
       {/* 🌐 İşlem Evrak Public Yükleme (token tabanlı, AUTH YOK) */}
       <Route path="/evrak/:token" element={<IslemEvrakPublicUpload />} />
+      {/* 🌐 KDV Muafiyet Yazısı Public İndirme (token tabanlı, AUTH YOK) */}
+      <Route path="/kdv-muafiyet/:token" element={<KdvMuafiyetIndir />} />
 
       {/* 🛠️ Teşvik Makine Teçhizat Yönetimi */}
       <Route path="/tesvikler" element={

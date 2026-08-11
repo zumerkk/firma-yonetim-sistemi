@@ -67,9 +67,24 @@ const tesvikMakineService = {
   araKontrolSablonSil: (code) => api.delete(`${base}/ara-kontrol/sablonlar/${code}`).then((r) => r.data),
   araKontrolSend: (m, id, formData, onProgress) => uploadPost(`${base}/ara-kontrol/${m}/${id}/send`, formData, { onProgress }).then(d),
 
+  // 🧾 KDV Muafiyet Yazısı (belge geneli tek dosya + geçerlilik aralığı)
+  kdvMuafiyetGetir: (m, id) => api.get(`${base}/certificates/${m}/${id}/kdv-muafiyet`).then(d),
+  // formData: file, gecerlilikBaslangic, gecerlilikBitis
+  kdvMuafiyetYukle: (m, id, formData, onProgress) =>
+    uploadPost(`${base}/certificates/${m}/${id}/kdv-muafiyet`, formData, { onProgress }).then(d),
+  kdvMuafiyetTarihGuncelle: (m, id, body) =>
+    api.patch(`${base}/certificates/${m}/${id}/kdv-muafiyet`, body).then(d),
+  kdvMuafiyetSil: (m, id) => api.delete(`${base}/certificates/${m}/${id}/kdv-muafiyet`).then(d),
+  kdvMuafiyetIndir: (m, id) =>
+    api.get(`${base}/certificates/${m}/${id}/kdv-muafiyet/download`, { responseType: 'blob' }),
+
   // Public (token tabanlı — auth gerektirmez)
   publicInfo: (token) => api.get(`/tesvik-evrak/${token}`).then(d),
-  publicUpload: (token, formData, onProgress) => uploadPost(`/tesvik-evrak/${token}`, formData, { onProgress }).then((r) => r.data)
+  publicUpload: (token, formData, onProgress) => uploadPost(`/tesvik-evrak/${token}`, formData, { onProgress }).then((r) => r.data),
+  // KDV muafiyet yazısı public indirme sayfası (/kdv-muafiyet/:token)
+  kdvMuafiyetPublicInfo: (token) => api.get(`/tesvik-evrak/kdv-muafiyet/${token}`).then(d),
+  kdvMuafiyetPublicIndir: (token) =>
+    api.get(`/tesvik-evrak/kdv-muafiyet/${token}/download`, { responseType: 'blob' })
 };
 
 export default tesvikMakineService;
