@@ -141,10 +141,16 @@ function buildSnapshot(identity, machineFields) {
 }
 
 // 🧩 Mail şablonu için placeholder verisi (snapshot + süreç + imza + upload link)
-function buildPlaceholderData({ process: proc, identity, signature, uploadLink, mailDate }) {
+// kdvMuafiyet: kdvMuafiyetService.ozet() çıktısı — belgeye yüklenmiş KDV muafiyet
+// yazısının public indirme linki ve geçerlilik tarihleri (yoksa placeholder'lar boş kalır).
+function buildPlaceholderData({ process: proc, identity, signature, uploadLink, mailDate, kdvMuafiyet }) {
   const id = identity || {};
   const p = proc || {};
+  const kdv = kdvMuafiyet || {};
   return {
+    kdvMuafiyetLinki: kdv.indirmeLinki || '',
+    kdvMuafiyetBaslangic: formatDateTR(kdv.gecerlilikBaslangic),
+    kdvMuafiyetBitis: formatDateTR(kdv.gecerlilikBitis),
     firmaAdi: p.firmaName || id.firmaName || '',
     makineAdi: p.machineName || '',
     belgeNo: p.documentNo || id.documentNo || '',

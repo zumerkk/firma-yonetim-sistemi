@@ -4,7 +4,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate, authorize, adminAuth } = require('../middleware/auth');
-const { uploadMultiple } = require('../middleware/tesvikUpload');
+const { uploadMultiple, uploadSingle } = require('../middleware/tesvikUpload');
 const ctrl = require('../controllers/tesvikMakineController');
 
 // Consultant = kullanici. readonly yazamaz.
@@ -58,6 +58,13 @@ router.get('/certificates/:tesvikModel/:tesvikId/mails', ctrl.getCertificateMail
 router.get('/certificates/:tesvikModel/:tesvikId/documents', ctrl.getCertificateDocuments);
 router.get('/certificates/:tesvikModel/:tesvikId/reminders', ctrl.getCertificateReminders);
 router.get('/certificates/:tesvikModel/:tesvikId/timeline', ctrl.getCertificateTimeline);
+
+// 🧾 KDV Muafiyet Yazısı (belge geneli tek dosya + geçerlilik aralığı)
+router.get('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', ctrl.getKdvMuafiyet);
+router.get('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet/download', ctrl.downloadKdvMuafiyet);
+router.post('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, uploadSingle('file'), ctrl.saveKdvMuafiyet);
+router.patch('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, ctrl.updateKdvMuafiyetTarihler);
+router.delete('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, ctrl.deleteKdvMuafiyet);
 
 // Süreç (makine) işlemleri
 router.post('/process', editor, ctrl.ensureProcess);

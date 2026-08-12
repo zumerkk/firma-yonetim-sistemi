@@ -6,6 +6,11 @@ const router = express.Router();
 const { uploadMultiple } = require('../middleware/tesvikUpload');
 const ctrl = require('../controllers/tesvikEvrakUploadController');
 
+// 🧾 KDV muafiyet yazısı public indirme — /:token'dan ÖNCE tanımlanmalı,
+// aksi halde "kdv-muafiyet" token sanılıp yükleme akışına düşer.
+router.get('/kdv-muafiyet/:token', ctrl.kdvMuafiyetInfo);
+router.get('/kdv-muafiyet/:token/download', ctrl.kdvMuafiyetDownload);
+
 // Yükleme ekranı bilgisi
 router.get('/:token', ctrl.getInfo);
 

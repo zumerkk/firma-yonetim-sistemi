@@ -27,6 +27,7 @@ const { extractPlaceholders } = require('../services/tesvikMakine/mailTemplateEn
 const ministryParser = require('../services/tesvikMakine/ministryMailParser');
 const ParsedMinistryMail = require('../models/ParsedMinistryMail');
 const araKontrolService = require('../services/tesvikMakine/araKontrolService');
+const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
 
 const { CLOSED_STATUSES, DOCUMENT_WAITING_STATUSES, MACHINE_STATUS } = status;
 
@@ -38,7 +39,7 @@ function fail(res, err) {
     CERT_NOT_FOUND: 404, ROW_NOT_FOUND: 404, PROC_NOT_FOUND: 404, MAILLOG_NOT_FOUND: 404,
     TEMPLATE_NOT_FOUND: 404, BAD_MODEL: 400, BAD_STATUS: 400, EMPTY_BARCODE: 400,
     NO_RECIPIENT: 400, TEMPLATE_INCOMPLETE: 422, SMTP_NOT_CONFIGURED: 503,
-    UNSUPPORTED_FILE_TYPE: 415
+    UNSUPPORTED_FILE_TYPE: 415, NO_FILE: 400, BAD_RANGE: 400
   };
   const httpStatus = codeMap[err && err.code] || 500;
   if (httpStatus >= 500) console.error('🚨 [tesvikMakine] hata:', err && (err.stack || err.message));
@@ -279,6 +280,59 @@ exports.getCertificateTimeline = wrap(async (req, res) => {
     oldStatusLabel: l.oldStatus ? status.getStatusLabel(l.oldStatus) : '',
     newStatusLabel: l.newStatus ? status.getStatusLabel(l.newStatus) : ''
   })) });
+});
+
+// ───────── 🧾 KDV MUAFİYET YAZISI (belge geneli tek dosya + geçerlilik aralığı) ─────────
+// Müşteri talebi: belgeye yazı yüklenir, başlangıç/bitiş tarihi girilir; tedarikçiye
+// mail EKİ yerine public indirme linki gider (bkz. kdvMuafiyetService).
+
+exports.getKdvMuafiyet = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const data = await kdvMuafiyetService.getOzet(tesvikModel, tesvikId);
+  res.json({ success: true, data });
+});
+
+exports.saveKdvMuafiyet = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const { gecerlilikBaslangic, gecerlilikBitis } = req.body || {};
+  const data = await kdvMuafiyetService.saveDosya({
+    tesvikModel, tesvikId, file: req.file, gecerlilikBaslangic, gecerlilikBitis, user: req.user
+  });
+  res.json({ success: true, data, message: 'KDV muafiyet yazısı kaydedildi' });
+});
+
+exports.updateKdvMuafiyetTarihler = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const { gecerlilikBaslangic, gecerlilikBitis } = req.body || {};
+  const data = await kdvMuafiyetService.updateTarihler({ tesvikModel, tesvikId, gecerlilikBaslangic, gecerlilikBitis });
+  res.json({ success: true, data, message: 'Geçerlilik tarihleri güncellendi' });
+});
+
+exports.deleteKdvMuafiyet = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  const data = await kdvMuafiyetService.removeDosya({ tesvikModel, tesvikId });
+  res.json({ success: true, data, message: 'KDV muafiyet yazısı kaldırıldı' });
+});
+
+// Panel içi indirme (auth'lu). Public indirme tesvikEvrakUploadController'da.
+exports.downloadKdvMuafiyet = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  const Model = getModel(tesvikModel);
+  const doc = await Model.findById(tesvikId).select('kdvMuafiyetYazisi').lean();
+  if (!doc) { const e = new Error('Teşvik belgesi bulunamadı.'); e.code = 'CERT_NOT_FOUND'; throw e; }
+  const kdv = doc.kdvMuafiyetYazisi;
+  if (!kdvMuafiyetService.dosyaVarMi(kdv)) { const e = new Error('KDV muafiyet yazısı yüklenmemiş.'); e.code = 'NO_FILE'; throw e; }
+  const file = await kdvMuafiyetService.fetchBuffer(kdv);
+  if (!file) return res.status(502).json({ success: false, message: 'Dosya kaynaktan alınamadı.' });
+  const ad = encodeURIComponent(kdv.orijinalAd || kdv.dosyaAdi || 'kdv-muafiyet-yazisi');
+  res.setHeader('Content-Type', file.contentType);
+  res.setHeader('Content-Length', file.buffer.length);
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${ad}`);
+  res.send(file.buffer);
 });
 
 // ───────── SÜREÇ ─────────
