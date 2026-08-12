@@ -83,7 +83,8 @@ const DURUM_ETIKETLERI = {
     '2.3.3_TALEP_FIRMA_IPTAL': 'Firma İptal',
     '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
     '2.3.5_SONUCLANDI': 'Sonuçlandı',
-    '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
+    '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı',
+    '2.3.7_BAKANLIK_ODEMESI_BEKLENIYOR': 'Bakanlık Ödemesi Bekleniyor'
 };
 
 // müşteri: yeni iş akışında SEÇİLEBİLİR durumlar (eski/gizli kodlar durum
@@ -104,7 +105,8 @@ const SECILEBILIR_DURUMLAR = [
     '2.3.3_TALEP_FIRMA_IPTAL',
     '2.3.5_SONUCLANDI',
     '2.3.6_BELGEYE_YANSITILDI',
-    '2.3.1_SONUC_FIRMAYA_ILETILDI'
+    '2.3.1_SONUC_FIRMAYA_ILETILDI',
+    '2.3.7_BAKANLIK_ODEMESI_BEKLENIYOR'
 ];
 
 // Workflow aşamaları yapılandırması (müşteri: yeni 4 ana aşamalı iş akışı)
@@ -154,7 +156,8 @@ const WORKFLOW_STEPS = [
             { key: '2.3.3_TALEP_FIRMA_IPTAL', label: 'Firma İptal' },
             { key: '2.3.5_SONUCLANDI', label: 'Sonuçlandı' },
             { key: '2.3.6_BELGEYE_YANSITILDI', label: 'Belgeye Yansıtıldı' },
-            { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' }
+            { key: '2.3.1_SONUC_FIRMAYA_ILETILDI', label: 'Firmaya İletildi' },
+            { key: '2.3.7_BAKANLIK_ODEMESI_BEKLENIYOR', label: 'Bakanlık Ödemesi Bekleniyor' }
         ]
     }
 ];
