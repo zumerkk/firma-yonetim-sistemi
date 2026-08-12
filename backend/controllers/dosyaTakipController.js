@@ -1218,7 +1218,8 @@ function getDurumEtiketi(durum) {
         '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
         '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
         '2.3.5_SONUCLANDI': 'Sonuçlandı',
-        '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
+        '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı',
+        '2.3.7_BAKANLIK_ODEMESI_BEKLENIYOR': 'Bakanlık Ödemesi Bekleniyor'
     };
     return etiketler[durum] || durum;
 }
