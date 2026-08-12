@@ -1203,6 +1203,7 @@ function getDurumEtiketi(durum) {
         '2.1.2_BEKLE_EVRAK_TAMAM_FIYAT': 'Bekle - Evrak Tamam, Fiyat Bekleniyor',
         '2.1.3_FIYAT_TAMAM_EVRAK_BEKLE': 'Fiyat Tamam - Evrak Bekleniyor',
         '2.1.4_MURACAAT_HAZIRLANIYOR': 'Müracaat Hazırlanıyor',
+        '2.1.5_BAKANLIK_ODEMESI_BEKLENIYOR': 'Bakanlık Ödemesi Bekleniyor',
         '2.2.0_BASVURU_YAPILDI': 'Başvuru Yapıldı',
         '2.2.1_KURUM_DEGERLENDIRME': 'Kurum Değerlendirme',
         '2.2.1.1_KURUM_BEKLENIYOR': 'Kurum Bekleniyor',
@@ -1218,8 +1219,7 @@ function getDurumEtiketi(durum) {
         '2.3.3_TALEP_FIRMA_IPTAL': 'Talep Firma Tarafından İptal',
         '2.3.4_TALEP_GM_IPTAL': 'Talep GM Tarafından İptal',
         '2.3.5_SONUCLANDI': 'Sonuçlandı',
-        '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı',
-        '2.3.7_BAKANLIK_ODEMESI_BEKLENIYOR': 'Bakanlık Ödemesi Bekleniyor'
+        '2.3.6_BELGEYE_YANSITILDI': 'Belgeye Yansıtıldı'
     };
     return etiketler[durum] || durum;
 }
