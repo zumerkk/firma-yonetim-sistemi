@@ -1171,12 +1171,38 @@ exports.oneriSil = async (req, res) => {
     }
 };
 
+// Talep türü filtresinde üstte gösterilecek "en sık kullanılanlar" sayısı
+const SIK_KULLANILAN_ADEDI = 8;
+
 exports.getEnumDegerleri = async (req, res) => {
     try {
+        // müşteri: "sıralamayı hem alfabetik hem de en sık kullandıklarımıza göre
+        // sıralama şansımız var mı" — sık kullanılanlar tahmin değil, gerçek veriden.
+        // Ölçüt dashboard'daki talepTuruDagilimi ile aynı (aktif: true).
+        let talepTurleriSik = [];
+        try {
+            const dagilim = await DosyaTakip.aggregate([
+                { $match: { aktif: true, talepTuru: { $nin: [null, ''] } } },
+                { $group: { _id: '$talepTuru', sayi: { $sum: 1 } } },
+                // _id ikincil anahtar: eşit sayıda kullanılanlarda sıra her istekte
+                // değişmesin (Mongo eşitlikte sıra garantisi vermez).
+                { $sort: { sayi: -1, _id: 1 } },
+                { $limit: SIK_KULLANILAN_ADEDI }
+            ]);
+            // Yalnızca tanımlı türler: veride kalmış eski/serbest metinler menüye sızmasın
+            talepTurleriSik = dagilim
+                .map((d) => d._id)
+                .filter((t) => DosyaTakip.TALEP_TURLERI.includes(t));
+        } catch (aggErr) {
+            // Sıklık hesabı başarısız olsa da menü alfabetik olarak çalışmaya devam etsin
+            console.error('⚠️ Talep türü sıklığı hesaplanamadı (kritik değil):', aggErr.message);
+        }
+
         res.json({
             success: true,
             data: {
                 talepTurleri: DosyaTakip.TALEP_TURLERI,
+                talepTurleriSik,
                 durumKodlari: DosyaTakip.DURUM_KODLARI,
                 anaAsamalar: DosyaTakip.ANA_ASAMALAR,
                 dosyaTurleri: DosyaTakip.DOSYA_TURLERI,
