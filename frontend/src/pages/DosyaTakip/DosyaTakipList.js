@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
-    Box, Typography, Button, Chip, TextField, MenuItem,
+    Box, Typography, Button, Chip, TextField, MenuItem, ListSubheader,
     Paper, IconButton, InputAdornment, Grid, Tooltip,
     LinearProgress, Alert, Avatar, Dialog, DialogTitle,
     DialogContent, DialogActions
@@ -43,6 +43,15 @@ const FILTRE_SX = {
 // ulaşmıyor; MenuProps ile ayrıca verilmesi gerekiyor.
 const FILTRE_MENU_PROPS = {
     MenuProps: { PaperProps: { sx: { '& .MuiMenuItem-root': { fontSize: TABLO_FONT } } } }
+};
+
+// Açılır menüdeki grup başlıkları ("En sık kullanılanlar" / "Tümü (A–Z)")
+const GRUP_BASLIK_SX = {
+    fontSize: TABLO_FONT,
+    fontWeight: 700,
+    lineHeight: '30px',
+    color: '#64748b',
+    background: '#f8fafc'
 };
 
 // Durum renkleri
@@ -145,6 +154,20 @@ const DosyaTakipList = () => {
 
     // Talepler verisi - her zaman array olmalı
     const talepler = Array.isArray(rawTalepler) ? rawTalepler : [];
+
+    // 🔤 Talep türü menüsü: üstte en sık kullanılanlar, altında tam liste A–Z
+    // (müşteri: "hem alfabetik hem de en sık kullandıklarımıza göre").
+    // Sıklık sunucudan gerçek veriyle geliyor; gelmezse menü yalnız alfabetik kalır.
+    const sikTalepTurleri = useMemo(
+        () => enumDegerleri?.talepTurleriSik || [],
+        [enumDegerleri]
+    );
+    // localeCompare('tr') şart: Türkçe alfabede Ç>C, Ğ>G, I<İ, Ö>O, Ş>S, Ü>U sırası
+    // varsayılan sıralamayla tutmuyor (ör. "Çelik" listenin sonuna düşer).
+    const alfabetikTalepTurleri = useMemo(
+        () => [...(enumDegerleri?.talepTurleri || [])].sort((a, b) => a.localeCompare(b, 'tr')),
+        [enumDegerleri]
+    );
 
     useEffect(() => {
         fetchEnums();
@@ -553,8 +576,17 @@ const DosyaTakipList = () => {
                                 SelectProps={FILTRE_MENU_PROPS}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
-                                {(enumDegerleri?.talepTurleri || []).map(t => (
-                                    <MenuItem key={t} value={t}>{t}</MenuItem>
+                                {sikTalepTurleri.length > 0 && (
+                                    <ListSubheader sx={GRUP_BASLIK_SX}>En sık kullanılanlar</ListSubheader>
+                                )}
+                                {sikTalepTurleri.map(t => (
+                                    <MenuItem key={`sik-${t}`} value={t}>{t}</MenuItem>
+                                ))}
+                                {sikTalepTurleri.length > 0 && (
+                                    <ListSubheader sx={GRUP_BASLIK_SX}>Tümü (A–Z)</ListSubheader>
+                                )}
+                                {alfabetikTalepTurleri.map(t => (
+                                    <MenuItem key={`az-${t}`} value={t}>{t}</MenuItem>
                                 ))}
                             </TextField>
                         </Grid>
