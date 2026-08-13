@@ -23,6 +23,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import UstKaydirmaCubugu from '../../components/DataGrid/UstKaydirmaCubugu';
 import axios from '../../utils/axios';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
@@ -651,7 +652,8 @@ const DosyaTakipList = () => {
                     width: '100%',
                     minWidth: 0
                 }}>
-                    <Box sx={{ width: '100%', minWidth: 0 }}>
+                    {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
+                    <UstKaydirmaCubugu>
                         <DataGrid
                             rows={talepler}
                             columns={columns}
@@ -718,7 +720,7 @@ const DosyaTakipList = () => {
                                 }
                             }}
                         />
-                    </Box>
+                    </UstKaydirmaCubugu>
                 </Paper>
 
                 {/* Silme Dialog */}
