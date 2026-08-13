@@ -1,7 +1,7 @@
 // 📋 Dosya İş Akış Takip - Talep Listesi
 // DataGrid tabanlı filtrelenebilir liste
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
     Box, Typography, Button, Chip, TextField, MenuItem,
     Paper, IconButton, InputAdornment, Grid, Tooltip,
@@ -68,42 +68,79 @@ const ANA_ASAMA_ETIKETLERI = {
 const DosyaTakipList = () => {
     const navigate = useNavigate();
     const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil } = useDosyaTakip();
-    const [search, setSearch] = useState('');
-    const [filterTalepTuru, setFilterTalepTuru] = useState('');
-    // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
-    const [filterHazirlayan, setFilterHazirlayan] = useState('');
-    const [filterTakipEden, setFilterTakipEden] = useState('');
     const [personeller, setPersoneller] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, takipId: '' });
-    const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 50 });
-    // 🗄️ Arşiv modu — müşteri: "sonuçlananlar arşiv gibi bir yere çekilsin, ana ekranda kalabalık yapmasın"
-    // Bileşen state'i yerine URL'de tutulur: detaydan geri dönüldüğünde bileşen yeniden
-    // kurulduğu için state sıfırlanıyor ve kullanıcı arşiv yerine ana listeye düşüyordu
-    // (müşteri: "arşivden geri gelince ana listeye atıyor, arşive geri atsın").
-    const [searchParams, setSearchParams] = useSearchParams();
-    const arsivModu = searchParams.get('arsiv') === '1';
-    const setArsivModu = (acik) => {
-        const sp = new URLSearchParams(searchParams);
-        if (acik) sp.set('arsiv', '1'); else sp.delete('arsiv');
-        // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
-        // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
-        sp.delete('kapsam');
-        setSearchParams(sp, { replace: true });
-    };
 
-    // 📊 Aşama filtresi ve kapsam da URL'de tutulur: dashboard kartları buraya
-    // ?anaAsama=... / ?kapsam=... ile yönlendiriyor (müşteri: "kartlara tıklayınca
-    // müracaatları önümüze getirsin"). Arşiv modunda olduğu gibi, detaydan geri
-    // dönüldüğünde filtrenin sıfırlanmaması için de bileşen state'i yerine URL kullanılır.
+    // 🔗 BÜTÜN filtreler + sayfa URL'de tutulur — tek kaynak burasıdır.
+    // Müşteri: "isim yazarak filtre yapıyorum, bir belgenin içine giriyorum, geri
+    // dediğimde filtre kalkıyor tekrar başa geliyorum; filtre hep kalsa".
+    // Sebep: detaydan dönüldüğünde bileşen yeniden kurulduğu için bileşen state'inde
+    // tutulan filtreler sıfırlanıyordu. URL'de tutulunca hem "Geri" düğmesinde hem
+    // tarayıcının geri tuşunda hem de sayfa yenilemede korunuyor.
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Boş değerli parametre URL'den silinir (adres temiz kalsın).
+    // Filtre değişince sayfa başa döner: 3. sayfadayken filtreleyip boş liste görmeyi önler.
+    const parametreYaz = useCallback((degisiklikler, { sayfayiSifirla = true } = {}) => {
+        const sp = new URLSearchParams(searchParams);
+        Object.entries(degisiklikler).forEach(([ad, deger]) => {
+            if (deger === '' || deger === null || deger === undefined) sp.delete(ad);
+            else sp.set(ad, String(deger));
+        });
+        if (sayfayiSifirla) sp.delete('sayfa');
+        setSearchParams(sp, { replace: true });
+    }, [searchParams, setSearchParams]);
+
+    const arsivModu = searchParams.get('arsiv') === '1';
     const filterAnaAsama = searchParams.get('anaAsama') || '';
     const kapsam = searchParams.get('kapsam') || '';
-    const setFilterAnaAsama = (deger) => {
-        const sp = new URLSearchParams(searchParams);
-        if (deger) sp.set('anaAsama', deger); else sp.delete('anaAsama');
-        // Elle aşama seçmek kart kapsamını geçersiz kılar
-        sp.delete('kapsam');
-        setSearchParams(sp, { replace: true });
+    const filterTalepTuru = searchParams.get('talepTuru') || '';
+    // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
+    const filterHazirlayan = searchParams.get('hazirlayan') || '';
+    const filterTakipEden = searchParams.get('takipEden') || '';
+    const aramaTerimi = searchParams.get('q') || '';
+    const sayfa = Math.max(0, (parseInt(searchParams.get('sayfa'), 10) || 1) - 1);
+    const sayfaBoyutu = parseInt(searchParams.get('limit'), 10) || 50;
+
+    // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
+    // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
+    const setArsivModu = (acik) => parametreYaz({ arsiv: acik ? '1' : '', kapsam: '' });
+    // Elle aşama seçmek kart kapsamını geçersiz kılar
+    const setFilterAnaAsama = (deger) => parametreYaz({ anaAsama: deger, kapsam: '' });
+
+    // 🔍 Arama kutusu yazarken anlık tepki versin diye yerel state'te; URL'e 400 ms
+    // sonra yazılır. Her tuşta yazmak hem replaceState'i tarayıcı sınırına dayıyor
+    // hem de her tuşta sunucuya istek gönderiyordu.
+    const [search, setSearch] = useState(aramaTerimi);
+    const sonYazilanArama = useRef(aramaTerimi);
+    useEffect(() => {
+        if (search === sonYazilanArama.current) return undefined;
+        const zamanlayici = setTimeout(() => {
+            sonYazilanArama.current = search;
+            parametreYaz({ q: search });
+        }, 400);
+        return () => clearTimeout(zamanlayici);
+    }, [search, parametreYaz]);
+    // URL dışarıdan değiştiyse (tarayıcı geri tuşu, Temizle) kutuyu senkronla.
+    // Kendi yazdığımız değer sonYazilanArama ile ayırt edilir; olmazsa iki efekt
+    // birbiriyle çekişip kullanıcı yazdıkça kutuyu sıfırlardı.
+    useEffect(() => {
+        if (aramaTerimi !== sonYazilanArama.current) {
+            sonYazilanArama.current = aramaTerimi;
+            setSearch(aramaTerimi);
+        }
+    }, [aramaTerimi]);
+
+    // DataGrid nesne bekliyor; loadData bağımlılıklarında ise ilkel değerler kullanılır
+    // (her render'da yeni nesne referansı sonsuz fetch döngüsü açardı).
+    const paginationModel = useMemo(() => ({ page: sayfa, pageSize: sayfaBoyutu }), [sayfa, sayfaBoyutu]);
+    const setPaginationModel = (model) => {
+        const m = typeof model === 'function' ? model({ page: sayfa, pageSize: sayfaBoyutu }) : model;
+        parametreYaz(
+            { sayfa: m.page > 0 ? m.page + 1 : '', limit: m.pageSize !== 50 ? m.pageSize : '' },
+            { sayfayiSifirla: false }
+        );
     };
 
     // Talepler verisi - her zaman array olmalı
@@ -124,9 +161,9 @@ const DosyaTakipList = () => {
 
     const loadData = useCallback(() => {
         const params = {
-            page: paginationModel.page + 1,
-            limit: paginationModel.pageSize,
-            search,
+            page: sayfa + 1,
+            limit: sayfaBoyutu,
+            search: aramaTerimi,
             anaAsama: filterAnaAsama,
             talepTuru: filterTalepTuru,
             hazirlayan: filterHazirlayan,
@@ -137,26 +174,28 @@ const DosyaTakipList = () => {
             kapsam
         };
         fetchTalepler(params);
-    }, [fetchTalepler, paginationModel, search, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapsam]);
+    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapsam]);
 
-    // Detaya giderken hangi listeden gelindiği taşınır; detaydaki "Geri" aynı listeye döner
-    const detayaGit = (talepId) => navigate(`/dosya-takip/${talepId}`, {
-        // Tüm sorgu korunur: karttan gelinen filtreli listeye geri dönülsün
-        state: { listeQuery: searchParams.toString() ? `?${searchParams.toString()}` : '' }
-    });
-
-    // Filtre değişince ilk sayfaya dön (3. sayfadayken filtreleyip boş liste görmeyi önler)
-    const filtreDegistir = (setter) => (deger) => {
-        setter(deger);
-        setPaginationModel((p) => (p.page === 0 ? p : { ...p, page: 0 }));
+    // Detaya giderken listenin tüm sorgusu taşınır; detaydaki "Geri" aynı filtreli
+    // listeye döner. Henüz URL'e yazılmamış (400 ms'lik gecikmede bekleyen) arama
+    // metni de eklenir: yazıp hemen satıra tıklandığında kaybolmasın.
+    const detayaGit = (talepId) => {
+        const sp = new URLSearchParams(searchParams);
+        if (search) sp.set('q', search); else sp.delete('q');
+        navigate(`/dosya-takip/${talepId}`, {
+            state: { listeQuery: sp.toString() ? `?${sp.toString()}` : '' }
+        });
     };
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
+    // Enter beklemeden 400 ms'lik gecikmeyi atlayıp aramayı hemen uygula
     const handleSearch = (e) => {
-        if (e.key === 'Enter') loadData();
+        if (e.key !== 'Enter') return;
+        sonYazilanArama.current = search;
+        parametreYaz({ q: search });
     };
 
     const handleDelete = async () => {
@@ -169,13 +208,14 @@ const DosyaTakipList = () => {
         }
     };
 
+    // Tek seferde yazılır: parametreYaz'ı arka arkaya çağırmak işe yaramaz, her çağrı
+    // aynı (eski) searchParams kapanışını okuduğu için yalnızca sonuncusu geçerli olurdu.
     const clearFilters = () => {
+        sonYazilanArama.current = '';
         setSearch('');
-        setFilterAnaAsama('');
-        setFilterTalepTuru('');
-        setFilterHazirlayan('');
-        setFilterTakipEden('');
-        setPaginationModel((p) => (p.page === 0 ? p : { ...p, page: 0 }));
+        const sp = new URLSearchParams();
+        if (arsivModu) sp.set('arsiv', '1'); // arşiv görünümü korunur, sadece filtreler temizlenir
+        setSearchParams(sp, { replace: true });
     };
 
     const columns = [
@@ -473,7 +513,7 @@ const DosyaTakipList = () => {
                                     startAdornment: <InputAdornment position="start"><SearchIcon sx={{ color: '#9ca3af' }} /></InputAdornment>,
                                     endAdornment: search && (
                                         <InputAdornment position="end">
-                                            <IconButton size="small" onClick={() => { setSearch(''); }}>
+                                            <IconButton size="small" onClick={() => { sonYazilanArama.current = ''; setSearch(''); parametreYaz({ q: '' }); }}>
                                                 <ClearIcon sx={{ fontSize: 16 }} />
                                             </IconButton>
                                         </InputAdornment>
@@ -489,7 +529,7 @@ const DosyaTakipList = () => {
                                 select
                                 label="Ana Aşama"
                                 value={filterAnaAsama}
-                                onChange={(e) => filtreDegistir(setFilterAnaAsama)(e.target.value)}
+                                onChange={(e) => setFilterAnaAsama(e.target.value)}
                                 sx={FILTRE_SX}
                                 SelectProps={FILTRE_MENU_PROPS}
                             >
@@ -508,7 +548,7 @@ const DosyaTakipList = () => {
                                 select
                                 label="Talep Türü"
                                 value={filterTalepTuru}
-                                onChange={(e) => filtreDegistir(setFilterTalepTuru)(e.target.value)}
+                                onChange={(e) => parametreYaz({ talepTuru: e.target.value })}
                                 sx={FILTRE_SX}
                                 SelectProps={FILTRE_MENU_PROPS}
                             >
@@ -526,7 +566,7 @@ const DosyaTakipList = () => {
                                 select
                                 label="Müracaat Hazırlayan"
                                 value={filterHazirlayan}
-                                onChange={(e) => filtreDegistir(setFilterHazirlayan)(e.target.value)}
+                                onChange={(e) => parametreYaz({ hazirlayan: e.target.value })}
                                 sx={FILTRE_SX}
                                 SelectProps={FILTRE_MENU_PROPS}
                             >
@@ -544,7 +584,7 @@ const DosyaTakipList = () => {
                                 select
                                 label="Takibi Yapan"
                                 value={filterTakipEden}
-                                onChange={(e) => filtreDegistir(setFilterTakipEden)(e.target.value)}
+                                onChange={(e) => parametreYaz({ takipEden: e.target.value })}
                                 sx={FILTRE_SX}
                                 SelectProps={FILTRE_MENU_PROPS}
                             >
