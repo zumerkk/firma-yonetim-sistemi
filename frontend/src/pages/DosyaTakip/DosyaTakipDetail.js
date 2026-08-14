@@ -194,11 +194,60 @@ const dogrudanUrl = (dosya) => {
     return yol.startsWith('http') ? yol : (yol ? `${getBackendUrl()}${yol}` : '');
 };
 
+// 📱 Mobil tarayıcı tespiti. iPadOS 13+ kendini "Macintosh" olarak tanıttığı için
+// dokunma noktası sayısıyla ayrıca kontrol edilir.
+const mobilCihaz = () => {
+    const ua = navigator.userAgent || '';
+    if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(ua)) return true;
+    return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+};
+
+// MIME → kabul edilen uzantılar (ilki varsayılan olarak eklenir)
+const MIME_UZANTI = {
+    'application/pdf': ['.pdf'],
+    'application/zip': ['.zip'],
+    'application/x-zip-compressed': ['.zip'],
+    'image/jpeg': ['.jpg', '.jpeg'],
+    'image/png': ['.png'],
+    'image/gif': ['.gif'],
+    'image/webp': ['.webp'],
+    'image/heic': ['.heic'],
+    'application/msword': ['.doc'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+    'application/vnd.ms-excel': ['.xls'],
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm']
+};
+
+// İndirilen dosyanın adı MUTLAKA uzantılı olmalı: uzantısız inen dosyayı Android
+// hangi uygulamayla açacağını bilemiyor ve "Aç" düğmesi tepkisiz kalıyor
+// (müşteri: "mobil cihazdan dosyayı açmaya çalıştığımda böyle görünüyor açmıyor").
+//
+// Uzantı isimden TAHMİN EDİLMEZ, MIME'dan gelir: bu alandaki dosya adları sık sık
+// tarih içeriyor ("Belge 15.03.2026") ve isme bakan bir kontrol ".2026"yı uzantı
+// sanıp hiçbir şey eklemez — dosya yine uzantısız inerdi.
+const dosyaAdiUzantili = (dosya) => {
+    const ad = (dosya?.dosyaAdi || '').trim() || 'dosya';
+    const kabul = MIME_UZANTI[(dosya?.dosyaTipi || '').trim().toLowerCase()];
+    if (!kabul) return ad; // MIME'ı tanımıyorsak elimizdeki adla devam
+    const kucuk = ad.toLowerCase();
+    if (kabul.some((u) => kucuk.endsWith(u))) return ad; // zaten uygun uzantılı
+    return `${ad}${kabul[0]}`;
+};
+
 // Yeni sekmede aç — sekme tıklama anında (senkron) açılır, popup engeline takılmaz
 const dosyaAc = async (talepId, dosya) => {
     if (!cloudinaryDosyasiMi(dosya, talepId)) {
         const url = dogrudanUrl(dosya);
         if (url) window.open(url, '_blank', 'noopener');
+        return;
+    }
+    // 📱 Mobilde blob'u iframe'de göstermek çalışmıyor: Android Chrome'un PDF için
+    // gömülü görüntüleyicisi yok, indirme ara ekranına düşüyor ve blob URL'in adı
+    // olmadığı için dosya uzantısız bir UUID olarak iniyor — "Aç" da tepkisiz kalıyor.
+    // Bu yüzden mobilde doğrudan, adı ve uzantısı doğru olan indirme yolu kullanılır;
+    // kullanıcı dosyayı kendi PDF uygulamasında açar. Boş sekme de açılmaz.
+    if (mobilCihaz()) {
+        await dosyaIndir(talepId, dosya);
         return;
     }
     const win = window.open('', '_blank'); // gesture anında boş sekme
@@ -231,11 +280,14 @@ const dosyaIndir = async (talepId, dosya) => {
         return;
     }
     try {
-        const blob = await dosyaBlobAl(talepId, dosya, true);
+        const raw = await dosyaBlobAl(talepId, dosya, true);
+        // MIME tipini açıkça ver: blob'un kendi type'ı boş kalırsa mobil tarafta
+        // dosya "bilinmeyen tür" olarak iniyor.
+        const blob = new Blob([raw], { type: dosya.dosyaTipi || raw.type || 'application/octet-stream' });
         const blobUrl = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = blobUrl;
-        a.download = dosya.dosyaAdi || 'dosya';
+        a.download = dosyaAdiUzantili(dosya);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
