@@ -90,15 +90,26 @@ const DosyaTakipList = () => {
     // tarayıcının geri tuşunda hem de sayfa yenilemede korunuyor.
     const [searchParams, setSearchParams] = useSearchParams();
 
+    // Aynı olay içinde art arda parametreYaz çağrılabilsin diye son yazılan sorgu
+    // burada tutulur. Gerekli, çünkü react-router'ın setSearchParams'ı — fonksiyonel
+    // biçimi dahil — o render'ın searchParams'ını okuyor (useCallback bağımlılığı
+    // [navigate, searchParams]). Ref olmadan ikinci çağrı birincinin yazdığını
+    // görmez ve üzerine yazar; "Arşiv" düğmesi tam olarak bu yüzden çalışmıyordu.
+    // searchParams değişince (yeni render) temel kendiliğinden tazeye döner.
+    const sonYazilanSorgu = useRef(null);
+
     // Boş değerli parametre URL'den silinir (adres temiz kalsın).
     // Filtre değişince sayfa başa döner: 3. sayfadayken filtreleyip boş liste görmeyi önler.
     const parametreYaz = useCallback((degisiklikler, { sayfayiSifirla = true } = {}) => {
-        const sp = new URLSearchParams(searchParams);
+        const onceki = sonYazilanSorgu.current;
+        const temel = (onceki && onceki.temel === searchParams) ? onceki.sonuc : searchParams;
+        const sp = new URLSearchParams(temel);
         Object.entries(degisiklikler).forEach(([ad, deger]) => {
             if (deger === '' || deger === null || deger === undefined) sp.delete(ad);
             else sp.set(ad, String(deger));
         });
         if (sayfayiSifirla) sp.delete('sayfa');
+        sonYazilanSorgu.current = { temel: searchParams, sonuc: sp };
         setSearchParams(sp, { replace: true });
     }, [searchParams, setSearchParams]);
 
@@ -490,10 +501,9 @@ const DosyaTakipList = () => {
                         <Button
                             variant={arsivModu ? 'contained' : 'outlined'}
                             startIcon={<ArchiveIcon />}
-                            onClick={() => {
-                                setArsivModu(!arsivModu);
-                                setPaginationModel(p => ({ ...p, page: 0 }));
-                            }}
+                            // setArsivModu zaten sayfayı başa alıyor (parametreYaz
+                            // varsayılan olarak 'sayfa'yı siler); ayrıca çağrı gereksiz.
+                            onClick={() => setArsivModu(!arsivModu)}
                             sx={{
                                 borderRadius: 2,
                                 textTransform: 'none',
