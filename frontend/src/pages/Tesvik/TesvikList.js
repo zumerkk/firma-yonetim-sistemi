@@ -52,6 +52,7 @@ import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 
 const TesvikList = () => {
   const navigate = useNavigate();
@@ -534,6 +535,8 @@ const TesvikList = () => {
 
           {/* Table */}
           <Card>
+            {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
+            <UstKaydirmaCubugu>
             <TableContainer component={Paper}>
               <Table>
                 <TableHead sx={{ backgroundColor: '#f8fafc' }}>
@@ -718,6 +721,7 @@ const TesvikList = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            </UstKaydirmaCubugu>
 
             {/* Pagination */}
             {pagination.totalPages > 1 && (
