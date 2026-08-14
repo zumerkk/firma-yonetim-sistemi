@@ -1,4 +1,4 @@
-// ↔️ Geniş DataGrid tablolarının ÜSTÜNE ikinci bir yatay kaydırma çubuğu koyar.
+// ↔️ Geniş tabloların ÜSTÜNE ikinci bir yatay kaydırma çubuğu koyar.
 // müşteri: "şu kaydırma kısmından listelerin en üst tarafına da ekleyebilir miyiz"
 // Tablo uzun olduğunda sağa kaydırmak için sayfanın en altına inmek gerekiyordu.
 //
@@ -51,10 +51,25 @@ const UstKaydirmaCubugu = ({ children }) => {
             cubuk.style.visibility = kaydirilabilir ? 'visible' : 'hidden';
         };
 
+        // Yatay kaydırılan öğeyi bul. Sistemde iki tablo tekniği var:
+        // DataGrid (sanal kaydırıcı) ve klasik <Table> (MUI TableContainer).
+        // Hiçbiri tutmazsa CSS'ten overflow-x'i taşan ilk öğeye düşülür.
+        const kaydiriciBul = () => sarmalayici.querySelector('.MuiDataGrid-virtualScroller')
+            || sarmalayici.querySelector('.MuiTableContainer-root')
+            || Array.from(sarmalayici.querySelectorAll('*')).find((el) => {
+                const tasma = window.getComputedStyle(el).overflowX;
+                return (tasma === 'auto' || tasma === 'scroll') && el.scrollWidth > el.clientWidth;
+            })
+            || null;
+
         const bagla = () => {
-            scroller = sarmalayici.querySelector('.MuiDataGrid-virtualScroller');
-            const icerikEl = sarmalayici.querySelector('.MuiDataGrid-virtualScrollerContent');
-            if (!scroller || !icerikEl) return false;
+            scroller = kaydiriciBul();
+            if (!scroller) return false;
+            // Genişliği izlenecek iç öğe: DataGrid'de sanal içerik, <Table>'da tablonun
+            // kendisi. Bulunamazsa yalnız kaydırıcı izlenir (scrollWidth yine doğru).
+            const icerikEl = scroller.querySelector('.MuiDataGrid-virtualScrollerContent')
+                || scroller.querySelector('table')
+                || scroller.firstElementChild;
 
             cubuk.addEventListener('scroll', cubuktanGride, { passive: true });
             scroller.addEventListener('scroll', gridtenCubuga, { passive: true });
@@ -64,7 +79,7 @@ const UstKaydirmaCubugu = ({ children }) => {
             // Sütun genişliği, satır sayısı veya pencere boyutu değişince toplam
             // genişlik de değişir; iki öğeyi de izliyoruz.
             gozlemci = new ResizeObserver(olcuyuGuncelle);
-            gozlemci.observe(icerikEl);
+            if (icerikEl) gozlemci.observe(icerikEl);
             gozlemci.observe(scroller);
             olcuyuGuncelle();
             return true;

@@ -23,7 +23,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
-import UstKaydirmaCubugu from '../../components/DataGrid/UstKaydirmaCubugu';
+import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import axios from '../../utils/axios';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.

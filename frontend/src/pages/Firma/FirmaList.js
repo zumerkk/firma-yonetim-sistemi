@@ -59,6 +59,7 @@ import { useFirma } from '../../contexts/FirmaContext';
 import { TURKEY_CITIES } from '../../data/turkeyData';
 import ExcelJS from 'exceljs';
 import { importExcel, downloadTemplate } from '../../services/firmaService'; // Import servislerini ekledim
+import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 
 const FirmaList = () => {
   const navigate = useNavigate();
@@ -1047,6 +1048,8 @@ const FirmaList = () => {
 
           {/* 📊 Compact DataGrid */}
           <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+            {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
+            <UstKaydirmaCubugu>
             <DataGrid
               rows={displayData}
               columns={columns}
@@ -1096,6 +1099,7 @@ const FirmaList = () => {
               }}
               pageSizeOptions={[25, 50, 100]}
             />
+            </UstKaydirmaCubugu>
           </Paper>
 
           {/* 🗑️ Delete Confirmation Dialog */}
