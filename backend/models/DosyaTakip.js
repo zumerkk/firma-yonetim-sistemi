@@ -125,6 +125,7 @@ const ANA_ASAMALAR = [
 // 📁 Dosya Türleri (yüklemeden önce seçilir — müşteri talebi)
 const DOSYA_TURLERI = [
   'ETUYS Talep Görüntüsü', // müşteri: eski adı "ETUYS Sistem Görüntüsü" idi
+  'ETUYS Eksik Görüntüsü', // müşteri: talep ve sonuç görüntüsünün arasında yer alsın
   'ETUYS Sonuç Görüntüsü', // müşteri: bu yüklenmeden talep "Sonuçlandı"ya alınamaz
   'Görüşme Sırası Talep Dosyaları',
   'Eksik Tamamlama Evrakları' // müşteri: eski adı "Eksik Bildirimleri" idi
