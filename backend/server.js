@@ -78,7 +78,9 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  exposedHeaders: ['Access-Control-Allow-Origin'],
+  // Content-Disposition açılmazsa tarayıcı bu başlığı JS'e vermiyor; yedek
+  // indirmesi tarih damgalı adı okuyamayıp hep "GM_Yedek.zip" olarak kaydediyordu.
+  exposedHeaders: ['Access-Control-Allow-Origin', 'Content-Disposition'],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));

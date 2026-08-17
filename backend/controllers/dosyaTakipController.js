@@ -6,6 +6,7 @@ const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const { turkceArama } = require('../utils/turkceArama');
 
 // ============================================================================
 // ☁️ CLOUDINARY AYARLARI
@@ -190,12 +191,17 @@ exports.getTumTalepler = async (req, res) => {
         const arsivModu = String(arsiv) === '1' || String(arsiv) === 'true';
 
         // Filtreler
+        // 🔍 Müşteri: "arama kısmında büyük küçük harf ayrımı var, sistem otomatik
+        // büyük harfe çevirsin". Mongo'nun $options:'i' bayrağı Türkçe harflerde
+        // çalışmadığı için (PLASTİK→18 kayıt, plastik→0) terim, her harfin Türkçe
+        // büyük/küçük varyantlarını kapsayan desene çevriliyor. bkz. utils/turkceArama
         if (search) {
+            const aramaFiltresi = turkceArama(search);
             filter.$or = [
-                { firmaUnvan: { $regex: search, $options: 'i' } },
-                { takipId: { $regex: search, $options: 'i' } },
-                { ytbNo: { $regex: search, $options: 'i' } },
-                { belgeId: { $regex: search, $options: 'i' } }
+                { firmaUnvan: aramaFiltresi },
+                { takipId: aramaFiltresi },
+                { ytbNo: aramaFiltresi },
+                { belgeId: aramaFiltresi }
             ];
         }
         if (durum) filter.durum = durum;

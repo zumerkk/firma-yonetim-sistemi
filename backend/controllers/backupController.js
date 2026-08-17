@@ -1,9 +1,31 @@
 // 💾 BACKUP CONTROLLER - Tam Sistem Yedeği
 // Tüm MongoDB collection'larını JSON olarak ZIP'e paketler ve stream eder
 // Admin-only erişim (route seviyesinde kontrol edilir)
+//
+// ⚠️ BELLEK NOTU (2026-08 arızasının sebebi):
+// Önceki sürüm her collection'ı find({}).lean() ile tümüyle belleğe alıp
+// JSON.stringify(data, null, 2) ile tek parça dev bir string üretiyordu.
+// Canlıda tesviks collection'ı 858 kayıt ama 48.5 MB JSON (kayıt başına ~38 KB
+// iç içe veri) — Render free plan 512 MB RAM ve taban RSS zaten ~147 MB olduğu
+// için süreç ikinci collection'da OOM ile ölüyordu. Sonuç: ZIP ilk dosyadan
+// sonra kesiliyor, merkezi dizin (End of Central Directory) hiç yazılmıyor,
+// WinRAR/7-Zip "bozuk arşiv" diyor, Drive'da içerik boş görünüyordu.
+//
+// Bu sürüm cursor ile kayıt kayıt akıtıyor: bellekte aynı anda yalnızca bir
+// batch (BATCH_BOYUTU kayıt) ve tek bir kaydın JSON metni duruyor.
 
 const archiver = require('archiver');
 const mongoose = require('mongoose');
+const { Readable } = require('stream');
+
+// Cursor'dan tek seferde çekilecek kayıt sayısı. Teşvik belgeleri ~38 KB
+// olduğundan 200 kayıt ≈ 7.6 MB; küçük lookup tablolarında maliyeti ihmal edilebilir.
+const BATCH_BOYUTU = 200;
+
+// Stream'e kayıt kayıt yazmak yerine bu eşiğe ulaşana dek tamponluyoruz;
+// deflate ve stream katmanının çağrı başına sabit maliyeti 28 bin kayda
+// dağıldığında yedekleme süresi belirgin şekilde kısalıyor.
+const TAMPON_ESIGI = 64 * 1024;
 
 // Tüm modelleri import et
 const Firma = require('../models/Firma');
@@ -13,7 +35,10 @@ const DosyaTakip = require('../models/DosyaTakip');
 const User = require('../models/User');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
-const DynamicOptions = require('../models/DynamicOptions');
+// DynamicOptions tek bir model değil, 4 modeli birden dışa aktarıyor.
+// Eskiden buraya modül nesnesi olarak konulduğu için model.find() patlıyor ve
+// dinamik_secenekler.json her yedekte boş dizi olarak yazılıyordu.
+const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const DestekSinifi = require('../models/DestekSinifi');
 const DestekSartEslesmesi = require('../models/DestekSartEslesmesi');
 const NaceCode = require('../models/NaceCode');
@@ -35,7 +60,10 @@ const BACKUP_COLLECTIONS = [
   { model: User, filename: 'kullanicilar.json', label: 'Kullanıcılar', excludeFields: ['sifre'] },
   { model: Activity, filename: 'aktiviteler.json', label: 'Aktivite Kayıtları', excludeFields: [] },
   { model: Notification, filename: 'bildirimler.json', label: 'Bildirimler', excludeFields: [] },
-  { model: DynamicOptions, filename: 'dinamik_secenekler.json', label: 'Dinamik Seçenekler', excludeFields: [] },
+  { model: DestekUnsuru, filename: 'destek_unsurlari.json', label: 'Destek Unsurları', excludeFields: [] },
+  { model: DestekSarti, filename: 'destek_sartlari.json', label: 'Destek Şartları', excludeFields: [] },
+  { model: OzelSart, filename: 'ozel_sartlar.json', label: 'Özel Şartlar', excludeFields: [] },
+  { model: OzelSartNotu, filename: 'ozel_sart_notlari.json', label: 'Özel Şart Notları', excludeFields: [] },
   { model: DestekSinifi, filename: 'destek_siniflari.json', label: 'Destek Sınıfları', excludeFields: [] },
   { model: DestekSartEslesmesi, filename: 'destek_sart_eslesmeleri.json', label: 'Destek-Şart Eşleşmeleri', excludeFields: [] },
   { model: NaceCode, filename: 'nace_kodlari.json', label: 'NACE Kodları', excludeFields: [] },
@@ -48,6 +76,104 @@ const BACKUP_COLLECTIONS = [
   { model: MachineTypeCode, filename: 'makine_tip_kodlari.json', label: 'Makine Tip Kodları', excludeFields: [] },
   { model: UsedMachineCode, filename: 'kullanilmis_makine_kodlari.json', label: 'Kullanılmış Makine Kodları', excludeFields: [] }
 ];
+
+/**
+ * 🚿 collectionStream - Bir collection'ı JSON dizisi olarak akıtan Readable
+ *
+ * Tüm kayıtları belleğe almak yerine cursor'dan batch batch okur ve her kaydı
+ * kendi satırında yazar. Çıktı geçerli bir JSON dizisidir:
+ *   [
+ *   {"_id":"...","ad":"..."},
+ *   {"_id":"...","ad":"..."}
+ *   ]
+ * (Eski sürümdeki 2 boşluklu girinti kaldırıldı: dosyayı ~%40 şişiriyordu,
+ * satır başına bir kayıt zaten yeterince okunabilir.)
+ *
+ * @param {import('mongoose').Model} model
+ * @param {string[]} excludeFields yedeğe girmeyecek alanlar (ör. 'sifre')
+ * @returns {Readable & { kayitSayisi: () => number, hataMesaji: () => string|null }}
+ */
+const collectionStream = (model, excludeFields = []) => {
+  const projection = {};
+  excludeFields.forEach((f) => { projection[f] = 0; });
+
+  const cursor = model.find({}, projection).lean().cursor({ batchSize: BATCH_BOYUTU });
+
+  let sayac = 0;
+  let ilk = true;
+  let bitti = false;
+  let okuyor = false;      // read() yeniden girişini engeller
+  let hata = null;
+
+  const stream = new Readable({
+    highWaterMark: 256 * 1024,
+    async read() {
+      if (okuyor || bitti) return;
+      okuyor = true;
+      let tampon = '';
+      try {
+        let devam = true;
+        while (devam) {
+          const doc = await cursor.next();
+          if (!doc) {
+            bitti = true;
+            stream.push(tampon + (ilk ? '[]\n' : '\n]\n'));
+            stream.push(null);
+            break;
+          }
+          sayac++;
+          tampon += (ilk ? '[\n' : ',\n') + JSON.stringify(doc);
+          ilk = false;
+          if (tampon.length >= TAMPON_ESIGI) {
+            // push() false dönerse tüketici (archiver→res) doymuş demektir; duruyoruz.
+            // Node drain olunca read()'i yeniden çağırıyor. Backpressure böylece
+            // MongoDB cursor'una kadar iletiliyor.
+            devam = stream.push(tampon);
+            tampon = '';
+          }
+        }
+      } catch (err) {
+        // Tek bir collection'ın patlaması yedeğin tamamını çöpe atmasın:
+        // JSON'ı geçerli biçimde kapatıp devam ediyoruz, hatayı metadata'ya yazıyoruz.
+        hata = err.message;
+        bitti = true;
+        stream.push(tampon + (ilk ? '[]\n' : '\n]\n'));
+        stream.push(null);
+      } finally {
+        okuyor = false;
+        if (bitti) cursor.close().catch(() => {});
+      }
+    },
+    destroy(err, cb) {
+      cursor.close().catch(() => {});
+      cb(err);
+    }
+  });
+
+  stream.kayitSayisi = () => sayac;
+  stream.hataMesaji = () => hata;
+  return stream;
+};
+
+/**
+ * 📎 arsiveEkleVeBekle - Stream'i arşive ekler ve tamamen yutulmasını bekler
+ *
+ * Sıralı beklemek şart: archiver append edilen stream'leri kuyruğa alır, biz de
+ * aynı anda yalnızca tek collection'ın bellekte olmasını istiyoruz.
+ */
+const arsiveEkleVeBekle = (archive, stream, name) => new Promise((resolve, reject) => {
+  const entryHandler = (entry) => {
+    if (entry.name !== name) return;
+    archive.removeListener('entry', entryHandler);
+    resolve();
+  };
+  archive.on('entry', entryHandler);
+  stream.once('error', (err) => {
+    archive.removeListener('entry', entryHandler);
+    reject(err);
+  });
+  archive.append(stream, { name });
+});
 
 /**
  * 💾 fullBackup - Tüm sistemi ZIP olarak yedekle
@@ -98,6 +224,14 @@ const fullBackup = async (req, res) => {
     // Archive'ı response'a pipe et (streaming)
     archive.pipe(res);
 
+    // 🔌 Kullanıcı indirmeyi iptal ederse cursor'lar ve arşiv boşta kalmasın
+    res.on('close', () => {
+      if (!res.writableEnded) {
+        console.warn('⚠️ Yedek indirmesi istemci tarafından yarıda kesildi.');
+        archive.abort();
+      }
+    });
+
     // 📊 Metadata bilgisi topla
     const metadata = {
       yedekTarihi: now.toISOString(),
@@ -111,39 +245,35 @@ const fullBackup = async (req, res) => {
       kayitSayilari: {}
     };
 
-    // 🔄 Her collection'ı sırayla yedekle
+    // 🔄 Her collection'ı SIRAYLA akıt. Sıralı olması kritik: aynı anda tek
+    // collection bellekte olsun diye her birinin arşive tamamen yazılmasını
+    // bekliyoruz (bkz. dosya başındaki BELLEK NOTU).
     for (const col of BACKUP_COLLECTIONS) {
       try {
         console.log(`  📦 ${col.label} yedekleniyor...`);
 
-        // Verileryi çek
-        let query = col.model.find({}).lean();
+        const stream = collectionStream(col.model, col.excludeFields);
+        await arsiveEkleVeBekle(archive, stream, col.filename);
 
-        // Şifre gibi hassas alanları hariç tut
-        if (col.excludeFields.length > 0) {
-          const excludeProjection = {};
-          col.excludeFields.forEach(f => { excludeProjection[f] = 0; });
-          query = col.model.find({}, excludeProjection).lean();
+        const count = stream.kayitSayisi();
+        const streamHatasi = stream.hataMesaji();
+
+        if (streamHatasi) {
+          // Kayıtların bir kısmı yazıldı ama okuma yarıda kaldı — bunu gizlemek
+          // yedeği sessizce eksik bırakır, o yüzden metadata'ya açıkça yazılıyor.
+          metadata.kayitSayilari[col.label] = `EKSİK: ${count} kayıt yazıldı, hata: ${streamHatasi}`;
+          console.error(`  ⚠️ ${col.label} yarıda kesildi (${count} kayıt):`, streamHatasi);
+        } else {
+          metadata.kayitSayilari[col.label] = count;
+          console.log(`  ✅ ${col.label}: ${count} kayıt`);
         }
 
-        const data = await query;
-        const count = data.length;
-
-        // Metadata'ya kayıt sayısını ekle
-        metadata.kayitSayilari[col.label] = count;
-
-        // JSON'ı ZIP'e ekle
-        const jsonStr = JSON.stringify(data, null, 2);
-        archive.append(jsonStr, { name: col.filename });
-
-        console.log(`  ✅ ${col.label}: ${count} kayıt`);
+        const heapMB = (process.memoryUsage().heapUsed / 1048576).toFixed(0);
+        console.log(`     ↳ heap: ${heapMB} MB`);
 
       } catch (colError) {
         console.error(`  ⚠️ ${col.label} yedeklenirken hata:`, colError.message);
-        // Hata olan collection'u kayıt sayısına "HATA" olarak ekle ama devam et
         metadata.kayitSayilari[col.label] = `HATA: ${colError.message}`;
-
-        // Boş JSON ekle hata durumunda
         archive.append(JSON.stringify([]), { name: col.filename });
       }
     }
