@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { acilistaDepoyuToparla } from './utils/yerelDepo';
+
+// Kotası dolmuş tarayıcılar kendiliğinden toparlansın (eski makine önbellekleri).
+acilistaDepoyuToparla();
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

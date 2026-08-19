@@ -15,6 +15,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 import { FixedSizeList as List } from 'react-window';
 import { kullanilmisMi, birimEtiketi } from '../../utils/makineFormat';
+import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
   const n = parseFloat((v ?? '').toString().replace(/[^\d.-]/g, ''));
@@ -51,7 +52,10 @@ const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, 
 const loadLS = (key, fallback) => {
   try { const v = JSON.parse(localStorage.getItem(key)); return Array.isArray(v) ? v : fallback; } catch { return fallback; }
 };
-const saveLS = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+// Kota dolduğunda sessizce yutmak yerine eski teşvik önbelleklerini atıp tekrar dener.
+// (Eskiden buradaki `catch {}` yüzünden depo dolduğu fark edilmiyor, hata alakasız
+//  ekranlarda "exceeded the quota" olarak patlıyordu.)
+const saveLS = (key, val) => { makineOnbellegiKaydet(key, val); };
 
 // 🔧 DebouncedTextField - Sadece blur'da günceller, scroll sıfırlanmasını önler
 const DebouncedTextField = React.memo(({ value, onCommit, disabled, type, placeholder, sx, inputProps }) => {
@@ -2019,7 +2023,7 @@ const MakineYonetimi = () => {
 
   // Favorites storage helpers
   const loadFav = (key) => { try { return JSON.parse(localStorage.getItem(key) || '[]'); } catch { return []; } };
-  const saveFav = (key, list) => { try { localStorage.setItem(key, JSON.stringify(list)); } catch {} };
+  const saveFav = (key, list) => { yerelYaz(key, JSON.stringify(list)); };
   const getFavKey = (type) => type==='gtip' ? 'fav_gtip' : type==='unit' ? 'fav_units' : 'fav_currencies';
   const addFavorite = (type, item) => { const key = getFavKey(type); const list = loadFav(key); const exists = list.find(x => x.kod === item.kod); if (!exists){ const next = [item, ...list].slice(0,50); saveFav(key,next);} };
   const removeFavorite = (type, code) => { const key = getFavKey(type); const list = loadFav(key).filter(x => x.kod !== code); saveFav(key,list); };
@@ -2032,9 +2036,9 @@ const MakineYonetimi = () => {
     const tpl = tab==='yerli' ? (({ gtipKodu, gtipAciklama, adi, miktar, birim, birimFiyatiTl, kdvIstisnasi })=>({ gtipKodu, gtipAciklama, adi, miktar, birim, birimFiyatiTl, kdvIstisnasi })) (contextRow)
                               : (({ gtipKodu, gtipAciklama, adi, miktar, birim, birimFiyatiFob, doviz, kullanilmisKod, kullanilmisAciklama, ckdSkd, aracMi })=>({ gtipKodu, gtipAciklama, adi, miktar, birim, birimFiyatiFob, doviz, kullanilmisKod, kullanilmisAciklama, ckdSkd, aracMi })) (contextRow);
     if (tab==='yerli') {
-      const next = [tpl, ...templatesYerli].slice(0,50); setTemplatesYerli(next); localStorage.setItem('mk_tpl_yerli', JSON.stringify(next));
+      const next = [tpl, ...templatesYerli].slice(0,50); setTemplatesYerli(next); yerelYaz('mk_tpl_yerli', JSON.stringify(next));
     } else {
-      const next = [tpl, ...templatesIthal].slice(0,50); setTemplatesIthal(next); localStorage.setItem('mk_tpl_ithal', JSON.stringify(next));
+      const next = [tpl, ...templatesIthal].slice(0,50); setTemplatesIthal(next); yerelYaz('mk_tpl_ithal', JSON.stringify(next));
     }
   };
   const insertTemplate = (tpl) => {

@@ -4,13 +4,15 @@
 
 import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import api from '../utils/axios'; // 🎯 Centralized axios instance kullan
+// Depo dolu olsa bile giriş bozulmasın: kota hatasında eski önbellekler atılıp tekrar denenir
+import { yerelYaz } from '../utils/yerelDepo';
 
 // 🔧 Token'ı localStorage ve axios headers'ına ekle
 const setAuthToken = (token) => {
   if (token) {
     // Centralized axios instance'a token ekle
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    localStorage.setItem('token', token);
+    yerelYaz('token', token);
   } else {
     delete api.defaults.headers.common['Authorization'];
     localStorage.removeItem('token');
@@ -191,7 +193,7 @@ export const AuthProvider = ({ children }) => {
       const user = response.data.data.user;
       
       // User data'yı localStorage'a da kaydet
-      localStorage.setItem('user', JSON.stringify(user));
+      yerelYaz('user', JSON.stringify(user));
       
       dispatch({ 
         type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
@@ -225,7 +227,7 @@ export const AuthProvider = ({ children }) => {
       
       // Token ve user data'yı set et
       setAuthToken(token);
-      localStorage.setItem('user', JSON.stringify(user)); // User data'yı da kaydet
+      yerelYaz('user', JSON.stringify(user)); // User data'yı da kaydet
       
       dispatch({ 
         type: AUTH_ACTIONS.LOGIN_SUCCESS, 
@@ -267,7 +269,7 @@ export const AuthProvider = ({ children }) => {
   const updateUser = useCallback((userData) => {
     try {
       // Local storage'ı da güncelle
-      localStorage.setItem('user', JSON.stringify(userData));
+      yerelYaz('user', JSON.stringify(userData));
       
       dispatch({ 
         type: AUTH_ACTIONS.UPDATE_PROFILE, 
