@@ -48,6 +48,7 @@ import {
   Category as UrunIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -133,6 +134,13 @@ const ScreenshotImport = () => {
     e.target.value = '';
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 📋 Panodan yapıştırma (müşteri: ekran görüntüsünü kopyalayıp direkt yapıştırma)
+  // Dashboard'da SmartUpload da yapıştırma dinliyor; `kabul` filtresi görselleri
+  // buraya, Excel/CSV'yi oraya yönlendirir.
+  usePanoDosyaYapistir((dosyalar) => addFiles(dosyalar), {
+    kabul: (f) => ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'].includes(f.type)
+  });
 
   const addFiles = (newFiles) => {
     const allowedNewFiles = newFiles.slice(0, 50);
@@ -557,7 +565,7 @@ const ScreenshotImport = () => {
                   ETUYS/DYS ekran görüntülerini sürükleyin
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#64748b', mt: 0.5, fontSize: '0.8rem' }}>
-                  veya tıklayarak seçin • PNG, JPEG, WebP • Maks 50 görsel (1. Parti)
+                  tıklayarak seçin veya Ctrl/⌘+V ile yapıştırın • PNG, JPEG, WebP • Maks 50 görsel (1. Parti)
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.8, justifyContent: 'center', mt: 2, flexWrap: 'wrap' }}>
                   {Object.entries(TAB_META)

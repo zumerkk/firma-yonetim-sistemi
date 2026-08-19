@@ -11,6 +11,7 @@ import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/tesvikMakineService';
 import islemEvrakSvc from '../../services/islemEvrakService';
 import { listTypeLabel } from './helpers';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 // Component DIŞINDA tanımlı olmalı: içeride tanımlanırsa her render'da yeni component
 // kimliği oluşur, alt ağaç remount olur ve input her tuşta focus kaybeder.
@@ -86,6 +87,11 @@ export default function PublicUpload() {
     } finally { setSubmitting(false); setYukleme(null); }
   };
 
+  // 📋 Panodan yapıştırma — kopyalanan görsel/dosya seçime eklenir (müşteri: WhatsApp gibi)
+  usePanoDosyaYapistir((dosyalar) => setFiles((onceki) => [...onceki, ...dosyalar]), {
+    aktif: !submitting && !done
+  });
+
   if (loading) return <Wrapper><Box sx={{ textAlign: 'center', py: 4 }}><CircularProgress /></Box></Wrapper>;
   if (error) return <Wrapper><Alert severity="error">{error}</Alert></Wrapper>;
 
@@ -123,7 +129,7 @@ export default function PublicUpload() {
             <input ref={fileRef} type="file" hidden multiple accept={(info.allowedExtensions || []).join(',')} onChange={(e) => setFiles(Array.from(e.target.files || []))} />
           </Button>
           <Typography variant="caption" color="text.secondary">
-            İzinli türler: {(info.allowedExtensions || []).join(', ')} · Maks {info.maxUploadMB} MB
+            İzinli türler: {(info.allowedExtensions || []).join(', ')} · Maks {info.maxUploadMB} MB · Kopyaladığınız görseli Ctrl/⌘+V ile yapıştırabilirsiniz
           </Typography>
           <TextField fullWidth label="Adınız (opsiyonel)" value={uploaderName} onChange={(e) => setUploaderName(e.target.value)} />
           <TextField fullWidth label="Not (opsiyonel)" value={note} onChange={(e) => setNote(e.target.value)} multiline minRows={2} />

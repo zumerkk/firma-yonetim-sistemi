@@ -48,6 +48,7 @@ import {
 } from '@mui/icons-material';
 import ingestService from '../../services/ingestService';
 import axios from '../../utils/axios';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 // Modül konfigürasyonları
 const MODULE_CONFIG = {
@@ -159,6 +160,12 @@ const SmartUpload = () => {
       handleFileSelected(droppedFile);
     }
   }, []);
+
+  // 📋 Panodan yapıştırma — sadece Excel/CSV; görseller ScreenshotImport'a kalır
+  usePanoDosyaYapistir((dosyalar) => handleFileSelected(dosyalar[0]), {
+    aktif: !file && !commitResult,
+    kabul: (f) => /\.(xlsx|xls|csv)$/i.test(f.name || '')
+  });
 
   // File selection & preview
   const handleFileSelected = async (selectedFile) => {
@@ -452,7 +459,7 @@ const SmartUpload = () => {
                 variant="subtitle1"
                 sx={{ fontWeight: 700, color: '#334155', mb: 0.5 }}
               >
-                Excel veya CSV dosyanızı sürükleyin
+                Excel veya CSV dosyanızı sürükleyin ya da yapıştırın
               </Typography>
               <Typography variant="body2" sx={{ color: '#64748b', fontSize: '0.8rem', mb: 1.5 }}>
                 Sistem dosyayı otomatik olarak tanıyacak: Firma, Teşvik, Dosya Takip, Makine...

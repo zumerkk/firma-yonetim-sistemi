@@ -42,6 +42,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import axios from '../../utils/axios';
 
 // Renk eşleştirmeleri
@@ -565,6 +566,15 @@ const DosyaTakipDetail = () => {
         await uploadFiles(e.dataTransfer?.files);
     };
 
+    // 📋 Panodan yapıştırarak yükleme — sadece Dosyalar sekmesi açıkken
+    usePanoDosyaYapistir((dosyalar) => {
+        if (yukleme) {
+            setSnackbar({ open: true, message: 'Yükleme sürüyor, bitmesini bekleyin.', severity: 'warning' });
+            return;
+        }
+        uploadFiles(dosyalar);
+    }, { aktif: activeTab === 1 });
+
     if (!seciliTalep && loading) {
         return (
             <LayoutWrapper>
@@ -989,10 +999,10 @@ const DosyaTakipDetail = () => {
                                         >
                                             <CloudUploadIcon sx={{ fontSize: 28, color: dosyaDragOver ? '#f59e0b' : '#94a3b8' }} />
                                             <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>
-                                                Dosyaları buraya sürükleyip bırakın veya tıklayıp seçin
+                                                Dosyaları sürükleyip bırakın, tıklayıp seçin veya Ctrl/⌘+V ile yapıştırın
                                             </Typography>
                                             <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-                                                Birden fazla dosya seçilebilir{dosyaKategori ? '' : ' • önce yukarıdan dosya türü seçin'}
+                                                Kopyaladığınız ekran görüntüsünü doğrudan yapıştırabilirsiniz{dosyaKategori ? '' : ' • önce yukarıdan dosya türü seçin'}
                                             </Typography>
                                             <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!dosyaKategori} />
                                         </Box>

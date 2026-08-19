@@ -45,6 +45,7 @@ import {
   Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import FileUpload from '../../components/Files/FileUpload';
@@ -266,6 +267,9 @@ const FileManager = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
+
+  // 📋 Panodan yapıştırma — yükleme dialogu açıkken orası devralır
+  usePanoDosyaYapistir(uploadFiles, { aktif: !uploadDialog && !yukleme });
 
   // 🎯 DROPZONE CONFIG
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -633,7 +637,7 @@ const FileManager = () => {
                 <Box sx={{ textAlign: 'center' }}>
                   <UploadIcon sx={{ fontSize: 48, color: '#9ca3af', mb: 1 }} />
                   <Typography variant="h6" color="text.secondary">
-                    {isDragActive ? 'Dosyaları buraya bırakın' : 'Dosya yüklemek için buraya tıklayın veya sürükleyip bırakın'}
+                    {isDragActive ? 'Dosyaları buraya bırakın' : 'Dosya yüklemek için tıklayın, sürükleyip bırakın veya Ctrl/⌘+V ile yapıştırın'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     PDF, DOC, XLS, PPT, resim dosyaları desteklenir (Max 10MB)

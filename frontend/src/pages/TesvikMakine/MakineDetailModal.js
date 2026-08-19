@@ -23,6 +23,7 @@ import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import svc from '../../services/tesvikMakineService';
 import { StatusChip, formatDate, formatMoney, listTypeLabel, actionLabel } from './helpers';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 const emptyForm = {
   barcode: '', supplierCompanyName: '', supplierTaxNumber: '', supplierEmails: '', supplierCcEmails: '',
@@ -132,8 +133,8 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
     catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
-  const doUpload = async (e) => {
-    const files = Array.from(e.target.files || []); if (!files.length) return;
+  const dosyalariYukle = async (files) => {
+    if (!files.length) return;
     setBusy('upload');
     setYukleme({ fileName: files.length > 1 ? `${files.length} dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((s, f) => s + (f.size || 0), 0) });
     try {
@@ -144,6 +145,11 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
       notify(`${res?.length || files.length} evrak yüklendi`); reloadTimeline(proc._id); onChanged && onChanged();
     } catch (err) { notify(err?.kullaniciMesaji || errMsg(err), 'error'); } finally { setBusy(''); setYukleme(null); if (fileRef.current) fileRef.current.value = ''; }
   };
+
+  const doUpload = async (e) => dosyalariYukle(Array.from(e.target.files || []));
+
+  // 📋 Panodan yapıştırma — seçili evrak türüyle yüklenir
+  usePanoDosyaYapistir(dosyalariYukle, { aktif: !!open && busy !== 'upload' });
 
   const toggleReminder = async () => {
     setBusy('rem');
