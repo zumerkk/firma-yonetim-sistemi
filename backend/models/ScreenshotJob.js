@@ -40,6 +40,13 @@ const screenshotJobSchema = new mongoose.Schema(
       type: String, // Genel bir hata (örn: API çökmesi) varsa
       default: null,
     },
+    // 💓 Canlılık sinyali: işi yürüten süreç 30 sn'de bir tazeler.
+    // Sunucu yeniden başlarsa (OOM/deploy) bu alan donar ve iş "yetim" sayılır.
+    // Olmasaydı iş sonsuza dek 'processing' kalıp arayüzü %0'da donduruyordu.
+    lastHeartbeat: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );
