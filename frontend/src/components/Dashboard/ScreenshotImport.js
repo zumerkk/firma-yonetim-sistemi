@@ -49,6 +49,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
+import { yerelYaz } from '../../utils/yerelDepo';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -293,7 +294,9 @@ const ScreenshotImport = () => {
       if (response.data.success && response.data.jobId) {
          // İşlem başladı, Job ID'yi state ve localStorage'a kaydet
          setCurrentJobId(response.data.jobId);
-         localStorage.setItem('currentScreenshotJobId', response.data.jobId);
+         // Depo doluysa yazılamayabilir; bu yalnızca "sayfayı yenileyince işe devam"
+         // özelliğini kaybettirir, belge oluşturmayı engellememeli.
+         yerelYaz('currentScreenshotJobId', response.data.jobId);
       } else {
          setError(response.data.message || 'Arka plan işlemi başlatılamadı.');
          setAnalyzing(false);
