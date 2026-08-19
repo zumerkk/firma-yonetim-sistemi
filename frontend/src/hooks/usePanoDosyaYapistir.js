@@ -44,6 +44,20 @@ export const panoDosyalariniAdlandir = (dosyalar) => {
     return dosyalar.map((f, i) => panoDosyasiniAdlandir(f, i, damga));
 };
 
+// Yapıştırmanın karışmaması gereken alanlar SADECE gerçek yazı alanlarıdır.
+// tagName'e bakmak yetmiyor: bırakma bölgeleri gizli <input type="file"> içeriyor ve
+// kullanıcı alana tıklayıp dosya penceresini kapatınca odak o input'ta kalabiliyor —
+// tag kontrolü bu durumda Ctrl+V'yi sessizce yutardı.
+const METIN_INPUT_TIPLERI = ['text', 'search', 'url', 'tel', 'email', 'password', 'number'];
+
+const metinGirisiMi = (el) => {
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    if (el.tagName === 'TEXTAREA') return true;
+    if (el.tagName !== 'INPUT') return false;
+    return METIN_INPUT_TIPLERI.includes((el.getAttribute('type') || 'text').toLowerCase());
+};
+
 /**
  * Panodan yapıştırılan dosyaları yakalar.
  *
@@ -69,8 +83,7 @@ const usePanoDosyaYapistir = (onDosyalar, { aktif = true, kabul } = {}) => {
             if (e.__panoDosyaIslendi) return; // aynı olayı başka bir bölge zaten aldı
 
             // Metin kutusundayken karışma: not/açıklama alanlarına normal yapıştırma sürsün
-            const hedef = e.target;
-            if (hedef && (hedef.isContentEditable || ['INPUT', 'TEXTAREA'].includes(hedef.tagName))) return;
+            if (metinGirisiMi(e.target)) return;
 
             let dosyalar = Array.from(e.clipboardData?.files || []);
             if (kabulRef.current) dosyalar = dosyalar.filter(kabulRef.current);
