@@ -419,6 +419,15 @@ const startServer = async () => {
   try {
     await connectDB();
 
+    // 🧹 Yarım kalan ekran görüntüsü analizleri: süreç belleğinde yürüdükleri için
+    // yeniden başlatmadan sonra devam edemezler; arayüz sonsuza dek beklemesin.
+    try {
+      const { yarimKalanIsleriKapat } = require('./controllers/screenshotImportController');
+      await yarimKalanIsleriKapat();
+    } catch (err) {
+      console.error('⚠️ Yarım kalan analiz temizliği hatası (kritik değil):', err.message);
+    }
+
     // ✉️ Teşvik Makine mail şablonlarını seed et (DB boşsa varsayılanları ekler)
     try {
       const { seedMailTemplates } = require('./services/tesvikMakine/mailTemplateProvider');

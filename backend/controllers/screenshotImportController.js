@@ -102,10 +102,20 @@ exports.analyzeAsync = async (req, res) => {
   }
 };
 
+// 💓 İş bir görselde uzun süre takılabilir (AI çağrısı 120 sn'ye kadar sürebiliyor).
+// İlerlemeden bağımsız, sabit aralıklı sinyal atarız; böylece "yavaş" ile "ölmüş" ayırt edilir.
+const HEARTBEAT_ARALIGI_MS = 30 * 1000;
+// Bu süre boyunca sinyal gelmezse işi yürüten süreç ölmüş sayılır (Render yeniden başlatması gibi)
+const YETIM_ESIGI_MS = 3 * 60 * 1000;
+
 // Background Processor (No req, res attached)
 async function processBackgroundJob(jobId, images) {
+  const kalpAtisi = setInterval(() => {
+    ScreenshotJob.findByIdAndUpdate(jobId, { lastHeartbeat: new Date() }).catch(() => {});
+  }, HEARTBEAT_ARALIGI_MS);
+
   try {
-    await ScreenshotJob.findByIdAndUpdate(jobId, { status: 'processing' });
+    await ScreenshotJob.findByIdAndUpdate(jobId, { status: 'processing', lastHeartbeat: new Date() });
     
     // Analyzer içine jobId gönderiyoruz ki progress güncelleyebilsin
     const result = await analyzeMultipleScreenshots(images, jobId);
@@ -124,8 +134,35 @@ async function processBackgroundJob(jobId, images) {
       status: 'error',
       errorMessage: error.message || 'Bilinmeyen arka plan hatası',
     });
+  } finally {
+    clearInterval(kalpAtisi);
   }
 }
+
+/**
+ * Sunucu açılışında yarım kalan işleri kapatır.
+ * İş, Node sürecinin belleğinde yürüdüğü için süreç yeniden başladığında (deploy veya
+ * bellek yetersizliği) devam edemez; DB'de 'processing' kalırsa arayüz sonsuza dek
+ * sorgulayıp %0'da donar. Açılışta bunları hataya çeviriyoruz.
+ */
+exports.yarimKalanIsleriKapat = async () => {
+  try {
+    const sonuc = await ScreenshotJob.updateMany(
+      { status: { $in: ['pending', 'processing'] } },
+      {
+        status: 'error',
+        errorMessage: 'Sunucu yeniden başladığı için analiz yarıda kaldı. Görselleri tekrar yükleyip deneyin.'
+      }
+    );
+    if (sonuc.modifiedCount) {
+      console.log(`🧹 ${sonuc.modifiedCount} yarım kalan ekran görüntüsü analizi kapatıldı.`);
+    }
+    return sonuc.modifiedCount || 0;
+  } catch (err) {
+    console.error('⚠️ Yarım kalan iş temizliği başarısız (kritik değil):', err.message);
+    return 0;
+  }
+};
 
 /**
  * GET /api/screenshot-import/job/:jobId
@@ -139,6 +176,17 @@ exports.getJobStatus = async (req, res) => {
     // Güvenlik: Sadece işlemi başlatan kullanıcı görebilir
     if (job.userId.toString() !== req.user.id) {
        return res.status(403).json({ success: false, message: 'Bu işleme erişim yetkiniz yok' });
+    }
+
+    // 💀 Yetim iş kontrolü: süreç ölmüşse kalp atışı durur. Arayüzü sonsuza dek
+    // bekletmek yerine burada hataya çevirip kullanıcıya durumu söylüyoruz.
+    if (job.status === 'pending' || job.status === 'processing') {
+      const sonSinyal = job.lastHeartbeat || job.updatedAt || job.createdAt;
+      if (Date.now() - new Date(sonSinyal).getTime() > YETIM_ESIGI_MS) {
+        job.status = 'error';
+        job.errorMessage = 'Analiz yanıt vermiyor (sunucu yeniden başlamış olabilir). Görselleri tekrar yükleyip deneyin.';
+        await job.save().catch(() => {});
+      }
     }
 
     res.json({
