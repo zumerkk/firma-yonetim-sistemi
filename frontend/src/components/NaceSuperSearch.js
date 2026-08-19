@@ -38,6 +38,7 @@ import {
   ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import axios from '../utils/axios';
+import { yerelYaz } from '../utils/yerelDepo';
 
 // 🔤 Türkçe karakter normalizasyonu ve tokenizasyon
 const normalize = (s = '') => s
@@ -177,14 +178,15 @@ const NaceSuperSearch = ({
     if (exists) next = favoriteCodes.filter(f => f.kod !== code.kod);
     else next = [{ kod: code.kod, aciklama: code.aciklama }, ...favoriteCodes];
     setFavoriteCodes(next);
-    localStorage.setItem('nace_favorites', JSON.stringify(next));
+    // Depo dolu olsa bile favori/son kullanılan akışı patlamasın
+    yerelYaz('nace_favorites', JSON.stringify(next));
   }, [favoriteCodes]);
 
   // 🕘 Recent yaz
   const pushRecent = useCallback((code) => {
     const updatedRecent = [code, ...recentCodes.filter(r => r.kod !== code.kod)].slice(0, 10);
     setRecentCodes(updatedRecent);
-    localStorage.setItem('nace_recent', JSON.stringify(updatedRecent));
+    yerelYaz('nace_recent', JSON.stringify(updatedRecent));
   }, [recentCodes]);
 
   // 🎯 Seçim
