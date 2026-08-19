@@ -20,6 +20,7 @@ import UploadProgress from '../../components/common/UploadProgress';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import { formatDate } from './helpers';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 const ARA_KONTROL_KODU = 'ara_kontrol_fatura_talebi';
 // {listeBilgisi} cümlesinin iki hali — ek durumu değişince metinde birbirine çevrilir (v2 şablonuyla uyumlu)
@@ -126,11 +127,17 @@ const AraKontrol = () => {
     setBody((prev) => (ekVar ? prev.replace(LISTE_AYRICA, LISTE_EKTE) : prev.replace(LISTE_EKTE, LISTE_AYRICA)));
   }, [sistemListesi, ekler.length]);
 
-  const dosyaSec = (e) => {
-    const yeni = Array.from(e.target.files || []);
+  const eklerEkle = (yeni) => {
     if (yeni.length) setEkler((prev) => [...prev, ...yeni]);
+  };
+
+  const dosyaSec = (e) => {
+    eklerEkle(Array.from(e.target.files || []));
     e.target.value = '';
   };
+
+  // 📋 Panodan yapıştırma — mail eki olarak eklenir (mail hazırlanırken)
+  usePanoDosyaYapistir(eklerEkle, { aktif: !!compose });
 
   const gonder = async () => {
     if (!secili) return;
@@ -230,7 +237,7 @@ const AraKontrol = () => {
               />
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
                 <Button component="label" variant="outlined" size="small" startIcon={<AttachFileIcon />}>
-                  Dosya Ekle (PDF/Excel/Görsel)
+                  Dosya Ekle (PDF/Excel/Görsel) — veya Ctrl/⌘+V
                   <input hidden type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml" onChange={dosyaSec} />
                 </Button>
                 {ekler.map((f, i) => (

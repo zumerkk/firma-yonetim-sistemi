@@ -28,6 +28,7 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import api from '../../utils/axios';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 const FileUpload = ({ open, onClose, onUploadComplete, currentPath = '' }) => {
   const [files, setFiles] = useState([]);
@@ -91,6 +92,9 @@ const FileUpload = ({ open, onClose, onUploadComplete, currentPath = '' }) => {
 
     setFiles(prev => [...prev, ...validatedFiles]);
   }, []);
+
+  // 📋 Panodan yapıştırma — dialog kapalıyken sayfanın yapıştırmasını çalmasın diye `aktif`
+  usePanoDosyaYapistir((dosyalar) => onDrop(dosyalar, []), { aktif: !!open && !uploading });
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -285,7 +289,7 @@ const FileUpload = ({ open, onClose, onUploadComplete, currentPath = '' }) => {
           <Typography variant="h6" color="text.secondary">
             {isDragActive
               ? 'Dosyaları buraya bırakın'
-              : 'Dosya yüklemek için buraya tıklayın veya sürükleyip bırakın'
+              : 'Dosya yüklemek için tıklayın, sürükleyip bırakın veya Ctrl/⌘+V ile yapıştırın'
             }
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>

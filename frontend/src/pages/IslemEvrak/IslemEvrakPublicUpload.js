@@ -12,6 +12,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import UploadProgress from '../../components/common/UploadProgress';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import svc from '../../services/islemEvrakService';
 
 const IslemEvrakPublicUpload = () => {
@@ -38,8 +39,8 @@ const IslemEvrakPublicUpload = () => {
 
   useEffect(() => { yukle(); }, [yukle]);
 
-  const dosyaSec = async (e) => {
-    const files = Array.from(e.target.files || []);
+  // Dosya seçimi ve panodan yapıştırma aynı yükleme yolunu kullanır
+  const dosyalariYukle = async (files) => {
     if (!files.length) return;
     setYukleniyor(true); setSonuc('');
     const toplamBayt = files.reduce((s, f) => s + (f.size || 0), 0);
@@ -58,9 +59,16 @@ const IslemEvrakPublicUpload = () => {
     } finally {
       setYukleniyor(false);
       setYukleme(null);
-      if (e.target) e.target.value = '';
     }
   };
+
+  const dosyaSec = async (e) => {
+    await dosyalariYukle(Array.from(e.target.files || []));
+    if (e.target) e.target.value = '';
+  };
+
+  // 📋 Panodan yapıştırma (müşteri: kopyalanan görseli direkt yapıştırma)
+  usePanoDosyaYapistir(dosyalariYukle, { aktif: !yukleniyor });
 
   if (loading) {
     return <Box sx={{ p: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
@@ -135,7 +143,7 @@ const IslemEvrakPublicUpload = () => {
           {hata && bilgi && <Alert severity="error" onClose={() => setHata('')}>{hata}</Alert>}
 
           <Typography variant="caption" color="text.secondary">
-            Birden fazla dosya seçebilirsiniz. Dosya başına en fazla {bilgi.maxUploadMB} MB.
+            Birden fazla dosya seçebilirsiniz — kopyaladığınız görseli Ctrl/⌘+V ile yapıştırabilirsiniz. Dosya başına en fazla {bilgi.maxUploadMB} MB.
           </Typography>
         </Stack>
       </Paper>

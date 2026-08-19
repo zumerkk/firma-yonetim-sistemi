@@ -29,6 +29,7 @@ import {
 
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import ingestService from '../../services/ingestService';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 const styles = {
   pageContainer: {
@@ -124,11 +125,17 @@ const ImportWizard = () => {
   const handlePickFile = () => fileInputRef.current?.click();
 
   const handleFileChange = (evt) => {
-    const picked = evt.target.files?.[0] || null;
-    setFile(picked);
+    dosyaSecildi(evt.target.files?.[0] || null);
+  };
+
+  const dosyaSecildi = (secilen) => {
+    setFile(secilen);
     resetFlow();
     setActiveStep(0);
   };
+
+  // 📋 Panodan yapıştırma — kopyalanan Excel/CSV dosyası doğrudan seçilir
+  usePanoDosyaYapistir((dosyalar) => dosyaSecildi(dosyalar[0]));
 
   const handleNext = () => setActiveStep((s) => Math.min(s + 1, steps.length - 1));
   const handleBack = () => setActiveStep((s) => Math.max(s - 1, 0));
@@ -242,7 +249,7 @@ const ImportWizard = () => {
                   <Box sx={styles.dropZone(Boolean(file))} onClick={handlePickFile}>
                     <UploadIcon sx={{ fontSize: 32, color: file ? '#10b981' : '#64748b', mb: 1 }} />
                     <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                      {file ? file.name : 'Dosya seçmek için tıklayın'}
+                      {file ? file.name : 'Dosya seçmek için tıklayın veya Ctrl/⌘+V ile yapıştırın'}
                     </Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                       CSV / Excel veya backend’in desteklediği formatlar

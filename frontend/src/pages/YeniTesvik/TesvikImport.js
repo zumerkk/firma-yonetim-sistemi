@@ -46,6 +46,7 @@ import {
 
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import yeniTesvikService from '../../services/yeniTesvikService';
+import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 // ═════════════════════════════════ STYLES ═════════════════════════════════
 const styles = {
@@ -181,6 +182,10 @@ const TesvikImport = () => {
     setSelectedFile(file);
   };
 
+
+  // 📋 Panodan yapıştırma (kopyalanan Excel/CSV dosyası doğrudan yapıştırılabilir)
+  usePanoDosyaYapistir((dosyalar) => validateAndSetFile(dosyalar[0]));
+
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setPreviewData(null);
@@ -282,8 +287,8 @@ const TesvikImport = () => {
                 Bakanlık Excel/CSV Dosyasını Yükleyin
               </Typography>
               <Typography color="text.secondary" sx={{ mb: 2, maxWidth: 500, mx: 'auto' }}>
-                Teşvik belgesi verilerini içeren Excel veya CSV dosyasını sürükleyip bırakın
-                ya da tıklayarak seçin. Bakanlık formatındaki standart belge yapısı otomatik tanınacaktır.
+                Teşvik belgesi verilerini içeren Excel veya CSV dosyasını sürükleyip bırakın,
+                tıklayarak seçin ya da Ctrl/⌘+V ile yapıştırın. Bakanlık formatındaki standart belge yapısı otomatik tanınacaktır.
               </Typography>
               <Stack direction="row" spacing={1} justifyContent="center">
                 <Chip label=".xlsx" size="small" variant="outlined" color="primary" />
