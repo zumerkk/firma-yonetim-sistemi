@@ -625,6 +625,7 @@ const DosyaTakipDetail = () => {
     const dosyalariYukle = async (secimler) => {
         setAciklamaDialog({ open: false, dosyalar: [] });
         let basarili = 0, hatali = 0;
+        let ilkHataMesaji = '';
         // Sıralı yükleme korunur: backend aynı dokümana ardışık yazıyor, paralel gönderim
         // race condition üretir. Kullanıcıya "3/7" bilgisi verilerek bekleyiş anlaşılır kılınır.
         for (let i = 0; i < secimler.length; i++) {
@@ -636,6 +637,9 @@ const DosyaTakipDetail = () => {
                 basarili++;
             } catch (err) {
                 hatali++;
+                // Gerekçeyi yutmayalım: "Dosya açıklaması zorunludur" gibi mesajlar
+                // kullanıcıya ne yapması gerektiğini söylüyor.
+                if (!ilkHataMesaji) ilkHataMesaji = err?.response?.data?.message || '';
             }
         }
         setYukleme(null);
@@ -643,7 +647,7 @@ const DosyaTakipDetail = () => {
             open: true,
             message: hatali === 0
                 ? `${basarili} dosya yüklendi!`
-                : `${basarili} dosya yüklendi, ${hatali} başarısız.`,
+                : `${basarili} dosya yüklendi, ${hatali} başarısız.${ilkHataMesaji ? ` (${ilkHataMesaji})` : ''}`,
             severity: hatali === 0 ? 'success' : (basarili ? 'warning' : 'error')
         });
     };
