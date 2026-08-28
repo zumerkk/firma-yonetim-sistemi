@@ -79,6 +79,10 @@ const ScreenshotImport = () => {
   const [cumulativeErrors, setCumulativeErrors] = useState([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analyzeProgress, setAnalyzeProgress] = useState(0);
+  // Analiz uzun sürüyor (görsel başına 2 AI çağrısı, sıralı). Kullanıcı "%0'da dondu mu,
+  // yoksa çalışıyor mu" ayrımını yapabilsin diye işlenen sayısı ve geçen süre gösterilir.
+  const [analyzeDurum, setAnalyzeDurum] = useState({ islenen: 0, toplam: 0, baslangic: null });
+  const [gecenSaniye, setGecenSaniye] = useState(0);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [editedData, setEditedData] = useState(null);
   const [committing, setCommitting] = useState(false);
@@ -188,6 +192,19 @@ const ScreenshotImport = () => {
     }
   }, [currentJobId]);
 
+  // Geçen süre sayacı (analiz sürerken)
+  useEffect(() => {
+    if (!analyzing) { setGecenSaniye(0); return undefined; }
+    const t = setInterval(() => {
+      setAnalyzeDurum((o) => {
+        if (!o.baslangic) return o;
+        setGecenSaniye(Math.floor((Date.now() - o.baslangic) / 1000));
+        return o;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [analyzing]);
+
   // Arka Plan İşlemini Sorgulama (Polling)
   useEffect(() => {
     let interval;
@@ -202,6 +219,7 @@ const ScreenshotImport = () => {
           if (res.data.success) {
             const job = res.data.data;
             setAnalyzeProgress(job.progress);
+            setAnalyzeDurum((o) => ({ ...o, islenen: job.processedImages || 0, toplam: job.totalImages || o.toplam }));
             
             if (job.status === 'completed') {
               clearInterval(interval);
@@ -273,6 +291,7 @@ const ScreenshotImport = () => {
 
     setAnalyzing(true);
     setAnalyzeProgress(0);
+    setAnalyzeDurum({ islenen: 0, toplam: files.length, baslangic: Date.now() });
     setError(null);
     setCommitResult(null);
 
@@ -706,9 +725,16 @@ const ScreenshotImport = () => {
                           },
                         }}
                       />
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
                         AI Vision API ile ekran görüntüleri analiz ediliyor...{' '}
-                        {Math.round(analyzeProgress)}%
+                        {analyzeDurum.toplam
+                          ? `${analyzeDurum.islenen}/${analyzeDurum.toplam} görsel`
+                          : `${Math.round(analyzeProgress)}%`}
+                        {gecenSaniye > 0 && ` • ${Math.floor(gecenSaniye / 60)} dk ${gecenSaniye % 60} sn`}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#94a3b8', display: 'block' }}>
+                        Her görsel iki AI çağrısıyla okunuyor; görsel başına ~20-30 sn sürebilir.
+                        Sekmeyi kapatsanız bile analiz sunucuda devam eder.
                       </Typography>
                     </Box>
                   )}

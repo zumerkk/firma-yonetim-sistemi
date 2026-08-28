@@ -769,13 +769,20 @@ async function analyzeMultipleScreenshots(images, jobId = null) {
       
       if (jobId) {
         const progress = Math.round(((i + 1) / images.length) * 100);
-        await ScreenshotJob.findByIdAndUpdate(jobId, { processedImages: i + 1, progress }).catch(() => {});
+        await ScreenshotJob.findByIdAndUpdate(jobId, { processedImages: i + 1, progress, lastHeartbeat: new Date() }).catch(() => {});
       }
       
-      if (i < images.length - 1) await new Promise(r => setTimeout(r, 3000));
+      // Görseller arası nefes payı. Sağlayıcı kotasını zaten rateLimiter koruyor;
+      // 3 sn sabit bekleme 40 görselde tek başına 2 dakika ekliyordu.
+      if (i < images.length - 1) await new Promise(r => setTimeout(r, 1000));
     } catch (err) {
       console.error(`  ❌ Hata: ${err.message}`);
       errors.push({ index: i, filename: originalName, error: err.message });
+    } finally {
+      // 🧠 Bellek: 50 görsel × 10 MB'a kadar buffer iş boyunca RAM'de tutuluyordu.
+      // Render free planı 512 MB — biten görselin buffer'ını bırakmazsak süreç
+      // bellek yetersizliğinden ölüyor ve iş yetim kalıyor.
+      images[i].buffer = null;
     }
   }
 
