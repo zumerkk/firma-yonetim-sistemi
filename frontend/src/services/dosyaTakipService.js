@@ -68,11 +68,13 @@ const dosyaTakipService = {
     },
 
     // 📁 Dosya Ekle — onProgress ile gerçek yükleme yüzdesi (uploadPost uzun timeout da verir)
-    dosyaEkle: async (id, file, alan = 'dosyalar', kategori = '', onProgress) => {
+    dosyaEkle: async (id, file, alan = 'dosyalar', kategori = '', onProgress, aciklama = '') => {
         const formData = new FormData();
         formData.append('dosya', file);
         formData.append('alan', alan);
         if (kategori) formData.append('kategori', kategori);
+        // müşteri: açıklama zorunlu — backend boş gelirse 400 döner
+        formData.append('aciklama', aciklama);
         const { data } = await uploadPost(`${API_URL}/${id}/dosya`, formData, { onProgress });
         return data;
     },

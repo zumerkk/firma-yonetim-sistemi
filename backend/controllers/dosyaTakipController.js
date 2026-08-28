@@ -812,6 +812,21 @@ exports.dosyaEkle = [
                 return res.status(400).json({ success: false, message: 'Dosya yüklenmedi' });
             }
 
+            // 📝 Açıklama zorunlu (müşteri: "açıklama yazılmadan kaydedilmesin").
+            // Multipart isteklerde req.body ancak multer çalıştıktan SONRA dolduğu için bu
+            // kontrol dosya Cloudinary'ye yüklendikten sonra yapılabiliyor; reddederken
+            // yüklenen dosyayı temizlemezsek Cloudinary'de yetim kalır.
+            const aciklama = String(req.body.aciklama || '').trim();
+            if (!aciklama) {
+                const rt = /^image\//.test(req.file.mimetype || '') ? 'image' : 'raw';
+                try {
+                    await cloudinary.uploader.destroy(req.file.filename, { resource_type: rt });
+                } catch (cloudErr) {
+                    console.error('Cloudinary temizleme hatası (devam ediliyor):', cloudErr.message);
+                }
+                return res.status(400).json({ success: false, message: 'Dosya açıklaması zorunludur' });
+            }
+
             const alan = req.body.alan || 'dosyalar';
 
             // multer dosya adını latin1 olarak çözüyor → Türkçe karakterler için utf8'e çevir
@@ -823,6 +838,7 @@ exports.dosyaEkle = [
                 dosyaYolu: req.file.path, // Cloudinary URL
                 dosyaTipi: req.file.mimetype,
                 kategori: (req.body.kategori && DosyaTakip.DOSYA_TURLERI.includes(req.body.kategori)) ? req.body.kategori : '', // müşteri: önce tür seç
+                aciklama: aciklama.slice(0, 300), // modeldeki maxlength ile aynı
                 dosyaBoyutu: req.file.size,
                 cloudinaryPublicId: req.file.filename, // Cloudinary public_id (silme için)
                 yukleyenKisi: req.user._id,
@@ -995,6 +1011,10 @@ exports.dosyaAciklamaGuncelle = async (req, res) => {
 
         if (!dosyaId) {
             return res.status(400).json({ success: false, message: 'dosyaId gerekli' });
+        }
+        // müşteri: açıklama zorunlu — yükleme sırasında isteniyor, sonradan da boşaltılamamalı
+        if (!String(aciklama).trim()) {
+            return res.status(400).json({ success: false, message: 'Açıklama boş bırakılamaz' });
         }
         if (!DOSYA_DIZI_ALANLARI.includes(alan)) {
             return res.status(400).json({ success: false, message: 'Geçersiz alan' });
