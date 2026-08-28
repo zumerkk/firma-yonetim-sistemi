@@ -301,6 +301,89 @@ const dosyaIndir = async (talepId, dosya) => {
     }
 };
 
+// 📝 Yükleme öncesi açıklama dialogu
+// Müşteri: "eklenen dosyaların yanına açıklama yazılmadan kaydedilmesin, açıklama zorunlu olsun".
+// Dosya artık doğrudan yüklenmiyor; önce seçilen her dosya için açıklama isteniyor.
+//
+// Bileşen MODÜL seviyesinde tanımlı olmalı — DosyaAciklamaKutusu'ndaki ile aynı gerekçe:
+// ana bileşenin içinde tanımlansaydı her render'da yeni bir bileşen kimliği doğar, alt ağaç
+// remount olur ve input her tuşta odağını kaybederdi. Açıklamaları burada tutmanın ikinci
+// faydası: tuş başına koca DosyaTakipDetail sayfası yeniden render edilmiyor.
+const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) => {
+    const [aciklamalar, setAciklamalar] = useState([]);
+
+    // Dialog her açıldığında (yeni dosya seçimi) kutuları sıfırla
+    useEffect(() => {
+        setAciklamalar(dosyalar.map(() => ''));
+    }, [dosyalar]);
+
+    const guncelle = (i, deger) => {
+        setAciklamalar((o) => {
+            const y = [...o];
+            y[i] = deger.slice(0, 300); // modeldeki maxlength ile aynı
+            return y;
+        });
+    };
+
+    const eksikSayisi = dosyalar.length - aciklamalar.filter((a) => (a || '').trim()).length;
+    const hepsiDolu = dosyalar.length > 0 && eksikSayisi === 0;
+
+    const onayla = () => {
+        if (!hepsiDolu) return;
+        onOnayla(dosyalar.map((file, i) => ({ file, aciklama: aciklamalar[i].trim() })));
+    };
+
+    return (
+        <Dialog open={open} onClose={onIptal} maxWidth="sm" fullWidth>
+            <DialogTitle sx={{ fontWeight: 600 }}>
+                Dosya Açıklaması
+                <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontWeight: 400 }}>
+                    {dosyalar.length} dosya • {kategori || 'Tür seçilmedi'}
+                </Typography>
+            </DialogTitle>
+            <DialogContent dividers>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                    Her dosya için açıklama zorunludur. Dosyanın ne olduğu sonradan anlaşılsın diye
+                    kısa bir not yazın (ör. &quot;SGK borcu yoktur yazısı&quot;).
+                </Alert>
+                {dosyalar.map((f, i) => (
+                    <Box key={`${f.name}-${i}`} sx={{ mb: 2 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, wordBreak: 'break-all' }}>
+                            {f.name}
+                            <Typography component="span" variant="caption" sx={{ color: '#94a3b8', ml: 1 }}>
+                                {(f.size / 1024).toFixed(1)} KB
+                            </Typography>
+                        </Typography>
+                        <TextField
+                            autoFocus={i === 0}
+                            fullWidth
+                            size="small"
+                            required
+                            placeholder="Bu dosya ne? (zorunlu)"
+                            value={aciklamalar[i] || ''}
+                            onChange={(e) => guncelle(i, e.target.value)}
+                            error={!(aciklamalar[i] || '').trim()}
+                            helperText={!(aciklamalar[i] || '').trim() ? 'Açıklama zorunludur' : `${(aciklamalar[i] || '').length}/300`}
+                            inputProps={{ maxLength: 300 }}
+                        />
+                    </Box>
+                ))}
+            </DialogContent>
+            <DialogActions>
+                <Button onClick={onIptal} sx={{ textTransform: 'none' }}>Vazgeç</Button>
+                <Button
+                    onClick={onayla}
+                    variant="contained"
+                    disabled={!hepsiDolu}
+                    sx={{ textTransform: 'none' }}
+                >
+                    {hepsiDolu ? `Yükle (${dosyalar.length})` : `${eksikSayisi} açıklama eksik`}
+                </Button>
+            </DialogActions>
+        </Dialog>
+    );
+};
+
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const location = useLocation();
@@ -329,6 +412,8 @@ const DosyaTakipDetail = () => {
     // 📤 Dosya yükleme göstergesi (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
     const [yukleme, setYukleme] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
+    // müşteri: dosya açıklaması zorunlu → yükleme öncesi açıklama dialogu
+    const [aciklamaDialog, setAciklamaDialog] = useState({ open: false, dosyalar: [] });
     const [oneriler, setOneriler] = useState({ daireler: [], uzmanlar: [] }); // daire/uzman öneri listesi
 
     useEffect(() => {
@@ -388,7 +473,7 @@ const DosyaTakipDetail = () => {
             await dosyaAciklamaKaydet(id, dosya._id, dosya.alan || 'dosyalar', aciklama);
             setSnackbar({ open: true, message: 'Açıklama kaydedildi.', severity: 'success' });
         } catch (err) {
-            setSnackbar({ open: true, message: 'Açıklama kaydedilemedi.', severity: 'error' });
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Açıklama kaydedilemedi.', severity: 'error' });
             throw err; // kutu eski değerine dönsün
         }
     };
@@ -523,7 +608,9 @@ const DosyaTakipDetail = () => {
         }
     };
 
-    // Çoklu dosya yükleme (müşteri: önce tür seçilmeli) — input + sürükle-bırak ortak kullanır
+    // Çoklu dosya seçimi (müşteri: önce tür seçilmeli) — input + sürükle-bırak + yapıştırma ortak kullanır.
+    // Müşteri: "açıklama yazılmadan kaydedilmesin" → dosya doğrudan yüklenmiyor,
+    // önce her dosya için açıklama isteyen dialog açılıyor. Asıl yükleme dosyalariYukle'de.
     const uploadFiles = async (fileList) => {
         const files = Array.from(fileList || []);
         if (!files.length) return;
@@ -531,15 +618,21 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: 'Lütfen önce dosya türünü seçin.', severity: 'warning' });
             return;
         }
+        setAciklamaDialog({ open: true, dosyalar: files });
+    };
+
+    // Dialog onaylanınca çalışır: [{ file, aciklama }] listesini sırayla yükler
+    const dosyalariYukle = async (secimler) => {
+        setAciklamaDialog({ open: false, dosyalar: [] });
         let basarili = 0, hatali = 0;
         // Sıralı yükleme korunur: backend aynı dokümana ardışık yazıyor, paralel gönderim
         // race condition üretir. Kullanıcıya "3/7" bilgisi verilerek bekleyiş anlaşılır kılınır.
-        for (let i = 0; i < files.length; i++) {
-            const file = files[i];
-            setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: i + 1, count: files.length });
+        for (let i = 0; i < secimler.length; i++) {
+            const { file, aciklama } = secimler[i];
+            setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: i + 1, count: secimler.length });
             try {
                 await dosyaEkle(id, file, 'dosyalar', dosyaKategori,
-                    (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
+                    (p) => setYukleme((o) => (o ? { ...o, ...p } : o)), aciklama);
                 basarili++;
             } catch (err) {
                 hatali++;
@@ -1316,6 +1409,15 @@ const DosyaTakipDetail = () => {
                         </Button>
                     </DialogActions>
                 </Dialog>
+
+                {/* 📝 Yükleme öncesi zorunlu açıklama (müşteri talebi) */}
+                <YuklemeAciklamaDialog
+                    open={aciklamaDialog.open}
+                    dosyalar={aciklamaDialog.dosyalar}
+                    kategori={dosyaKategori}
+                    onIptal={() => setAciklamaDialog({ open: false, dosyalar: [] })}
+                    onOnayla={dosyalariYukle}
+                />
             </Box>
         </LayoutWrapper>
     );
@@ -1416,7 +1518,10 @@ const DosyaAciklamaKutusu = ({ dosya, onKaydet }) => {
     return (
         <TextField
             size="small"
-            placeholder="Açıklama ekle…"
+            // müşteri: açıklama zorunlu → kuralın öncesinden kalan açıklamasız dosyalar
+            // görünür olsun ki tamamlanabilsinler
+            placeholder="Açıklama zorunlu…"
+            error={!deger.trim()}
             value={deger}
             disabled={!dosya._id || kaydediyor}
             onChange={(e) => setDeger(e.target.value.slice(0, 300))}
