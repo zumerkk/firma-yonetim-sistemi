@@ -363,11 +363,16 @@ export const FirmaProvider = ({ children }) => {
         });
         return { success: true, data: result.data.firma, message: result.message };
       } else {
-        throw new Error(result.message);
+        // Servis katmanı hatayı zaten yakalayıp { success:false, message, errors } döndürüyor.
+        // Burada throw edersek yeni Error nesnesinde .response olmadığı için
+        // express-validator'ın alan bazlı hataları kaybolur ve kullanıcı
+        // sadece "Girilen bilgilerde hatalar var" görür.
+        dispatch({ type: ACTION_TYPES.SET_ERROR, payload: result.message });
+        return { success: false, message: result.message, errors: result.errors || null };
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Firma oluşturulamadı';
-      const errors = error.response?.data?.errors || null;
+      const errors = error.response?.data?.errors || error.errors || null;
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
       return { success: false, message: errorMessage, errors };
     }
@@ -392,11 +397,13 @@ export const FirmaProvider = ({ children }) => {
         });
         return { success: true, data: result.data.firma, message: result.message };
       } else {
-        throw new Error(result.message);
+        // Bkz. createFirma: alan bazlı hataları korumak için throw etmiyoruz
+        dispatch({ type: ACTION_TYPES.SET_ERROR, payload: result.message });
+        return { success: false, message: result.message, errors: result.errors || null };
       }
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Firma güncellenemedi';
-      const errors = error.response?.data?.errors || null;
+      const errors = error.response?.data?.errors || error.errors || null;
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
       return { success: false, message: errorMessage, errors };
     }

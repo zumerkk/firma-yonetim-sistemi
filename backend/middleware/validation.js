@@ -133,8 +133,8 @@ const validateCreateFirma = [
     
   body('anaFaaliyetKonusu')
     .optional({ checkFalsy: true })  // Boş string'i de kabul et
-    .isLength({ max: 200 })
-    .withMessage('Ana faaliyet konusu 200 karakterden fazla olamaz')
+    .isLength({ max: 500 })
+    .withMessage('Ana faaliyet konusu 500 karakterden fazla olamaz')
     .trim(),
     
   // Yetki bitiş tarihleri
@@ -330,8 +330,8 @@ const validateUpdateFirma = [
     
   body('anaFaaliyetKonusu')
     .optional()
-    .isLength({ max: 200 })
-    .withMessage('Ana faaliyet konusu 200 karakterden fazla olamaz')
+    .isLength({ max: 500 })
+    .withMessage('Ana faaliyet konusu 500 karakterden fazla olamaz')
     .trim(),
     
   body('etuysYetkiBitisTarihi')

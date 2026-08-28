@@ -182,7 +182,8 @@ const firmaSchema = new mongoose.Schema({
     type: String,
     trim: true,
     default: '',
-    maxlength: [100, 'Ana faaliyet konusu 100 karakterden fazla olamaz']
+    // NACE kataloğundaki en uzun "kod - tanım" 423 karakter; 500 pay bırakıyor
+    maxlength: [500, 'Ana faaliyet konusu 500 karakterden fazla olamaz']
   },
   
   // 📅 Yetki Tarihleri
