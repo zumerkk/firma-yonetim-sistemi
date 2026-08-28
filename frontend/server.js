@@ -2,8 +2,21 @@
 // Bu server static files serve eder ve SPA routing için fallback sağlar
 
 const express = require('express');
+const fs = require('fs');
 const path = require('path');
 const compression = require('compression');
+
+// Sunulan ana JS paketinin adı (ör. main.c4fb5861.js). Her derlemede değiştiği için
+// istemcinin "elimdeki sürüm eskimiş mi" sorusunu etiket yönetmeden yanıtlar.
+const sunulanPaket = (() => {
+  try {
+    const html = fs.readFileSync(path.join(__dirname, 'build', 'index.html'), 'utf8');
+    const eslesme = html.match(/\/static\/js\/(main\.[a-z0-9]+\.js)/i);
+    return eslesme ? eslesme[1] : null;
+  } catch (_) {
+    return null;
+  }
+})();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +48,15 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
+// Health check endpoint
+// ⚠️ SPA fallback'inden ÖNCE tanımlı olmalı: app.get('*') bu yolu da yakalayıp
+// index.html döndürüyordu, yani bu uç fiilen çalışmıyordu (Render'ın sağlık kontrolü
+// 200 aldığı için fark edilmemişti). `bundle`, açık sekmelerin sürüm karşılaştırması için.
+app.get('/health', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.json({ status: 'OK', timestamp: new Date().toISOString(), bundle: sunulanPaket });
+});
+
 // 🎯 SPA ROUTING FALLBACK - Ana çözüm burada!
 // React Router için tüm rotaları index.html'e yönlendir
 app.get('*', (req, res) => {
@@ -45,11 +67,6 @@ app.get('*', (req, res) => {
   
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
-});
-
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // Start server

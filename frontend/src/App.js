@@ -15,6 +15,7 @@ import { FirmaProvider } from './contexts/FirmaContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { TesvikProvider } from './contexts/TesvikContext';
 import { DosyaTakipProvider } from './contexts/DosyaTakipContext';
+import SurumUyarisi from './components/common/SurumUyarisi';
 
 
 
@@ -92,6 +93,8 @@ function App() {
                   v7_relativeSplatPath: true
                 }}>
                   <AppRouter />
+                  {/* Eski arayüzle yeni backend kuralları çakışmasın diye yenileme önerir */}
+                  <SurumUyarisi />
                 </Router>
               </DosyaTakipProvider>
             </TesvikProvider>
