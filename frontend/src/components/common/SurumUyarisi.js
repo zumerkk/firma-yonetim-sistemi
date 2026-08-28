@@ -8,9 +8,14 @@
 // kullanıcı "açıklama olmadan yüklenemez" hatası aldı ama eski arayüzde açıklama yazacak
 // kutu yoktu — çıkmaz sokak.
 //
-// Çalışma şekli: frontend sunucusunun /health ucu, o an sunulan ana JS paketinin adını
-// döndürüyor. Sayfa, kendi yüklediği paketin adıyla karşılaştırıyor; fark varsa yenileme
-// öneriyor. Sürüm numarası/etiket yönetimi gerektirmiyor — paket adı her derlemede değişiyor.
+// Çalışma şekli: sayfa, sunucudaki index.html'i çekip içindeki ana JS paketinin adını
+// (main.<hash>.js) kendi yüklediğiyle karşılaştırıyor; fark varsa yenileme öneriyor.
+// Sürüm numarası/etiket yönetimi gerektirmiyor — paket adı her derlemede değişiyor.
+//
+// Neden /health değil: bu proje Render'ın STATİK barındırmasıyla yayınlanıyor; depodaki
+// frontend/server.js canlıda hiç çalışmıyor (yanıtlarda onun güvenlik başlıkları yok) ve
+// _redirects kuralı /health dahil her yolu index.html'e çeviriyor. index.html'e bakmak
+// barındırma biçiminden bağımsız çalışır.
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Snackbar, Alert, Button } from '@mui/material';
@@ -35,12 +40,13 @@ const SurumUyarisi = () => {
     const kendi = calisanPaketAdi();
     if (!kendi) return; // geliştirme sunucusunda hash'li paket yok
     try {
-      const yanit = await fetch('/health', { cache: 'no-store' });
+      const yanit = await fetch('/', { cache: 'no-store', headers: { Accept: 'text/html' } });
       if (!yanit.ok) return;
-      const veri = await yanit.json();
-      if (veri?.bundle && veri.bundle !== kendi) setYeniSurumVar(true);
+      const html = await yanit.text();
+      const eslesme = html.match(/\/static\/js\/(main\.[a-z0-9]+\.js)/i);
+      if (eslesme && eslesme[1] !== kendi) setYeniSurumVar(true);
     } catch (_) {
-      // Ağ hatası veya /health yok (geliştirme) → sessizce geç
+      // Ağ hatası → sessizce geç, bir sonraki kontrolde tekrar bakılır
     }
   }, []);
 
