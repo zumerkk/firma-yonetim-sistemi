@@ -105,6 +105,44 @@ const createInitialFormData = () => ({
   notlar: ''
 });
 
+// 🏷️ Backend validation hatalarını okunabilir Türkçe satırlara çevirir.
+// express-validator v7 alan adını `path` ile döndürür (v6'da `param` idi);
+// eski/yeni iki biçimi de destekliyoruz ki hangi alanın hatalı olduğu kaybolmasın.
+const BACKEND_FIELD_LABELS = {
+  vergiNoTC: 'Vergi No/TC',
+  tamUnvan: 'Tam Ünvan',
+  adres: 'Adres',
+  firmaIl: 'Firma İli',
+  firmaIlce: 'Firma İlçesi',
+  kepAdresi: 'KEP Adresi',
+  firmaTelefon: 'Firma Telefonu',
+  firmaEmail: 'Firma E-postası',
+  firmaWebsite: 'Firma Websitesi',
+  anaFaaliyetKonusu: 'Ana Faaliyet Konusu',
+  etuysYetkiBitisTarihi: 'ETUYS Yetki Bitiş Tarihi',
+  dysYetkiBitisTarihi: 'DYS Yetki Bitiş Tarihi',
+  ilkIrtibatKisi: 'İlk İrtibat Kişisi',
+  notlar: 'Notlar',
+  'yetkiliKisiler.0.adSoyad': '1. Yetkili Kişi - Ad Soyad',
+  'yetkiliKisiler.0.telefon1': '1. Yetkili Kişi - Telefon 1',
+  'yetkiliKisiler.0.eposta1': '1. Yetkili Kişi - E-posta 1',
+  'yetkiliKisiler.1.adSoyad': '2. Yetkili Kişi - Ad Soyad',
+  'yetkiliKisiler.1.telefon1': '2. Yetkili Kişi - Telefon 1',
+  'yetkiliKisiler.1.eposta1': '2. Yetkili Kişi - E-posta 1'
+};
+
+const mapBackendValidationErrors = (errors) =>
+  errors.map((err) => {
+    // express-validator: path (v7) / param (v6) — Mongoose ValidationError: field
+    const rawKey = err.path || err.param || err.field;
+    const message = err.msg || err.message || 'Bilinmeyen hata';
+    if (!rawKey) return message;
+    // express-validator dizileri "yetkiliKisiler[0].adSoyad",
+    // Mongoose ise "yetkiliKisiler.0.adSoyad" biçiminde verir → tek biçime indirge
+    const key = rawKey.replace(/\[(\d+)\]/g, '.$1');
+    return `${BACKEND_FIELD_LABELS[key] || rawKey}: ${message}`;
+  });
+
 // 🎯 Memoized Input Component - Prevents unnecessary re-renders
 const MemoizedTextField = memo(({ value, onChange, ...props }) => (
   <TextField
@@ -628,24 +666,7 @@ const FirmaForm = () => {
         // Backend'den gelen detaylı hataları işle
         if (result.errors && Array.isArray(result.errors)) {
           // express-validator hataları
-          const backendErrors = result.errors.map(error => {
-            if (error.param) {
-              const fieldNames = {
-                vergiNoTC: 'Vergi No/TC',
-                tamUnvan: 'Tam Ünvan',
-                adres: 'Adres',
-                firmaIl: 'Firma İli',
-                firmaIlce: 'Firma İlçesi',
-                ilkIrtibatKisi: 'İlk İrtibat Kişisi',
-                'yetkiliKisiler[0].adSoyad': '1. Yetkili Kişi - Ad Soyad',
-                'yetkiliKisiler[0].telefon1': '1. Yetkili Kişi - Telefon 1',
-                'yetkiliKisiler[0].eposta1': '1. Yetkili Kişi - E-posta 1'
-              };
-              const fieldName = fieldNames[error.param] || error.param;
-              return `${fieldName}: ${error.msg}`;
-            }
-            return error.msg || error.message || 'Bilinmeyen hata';
-          });
+          const backendErrors = mapBackendValidationErrors(result.errors);
 
           setValidationErrors(backendErrors);
           showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
@@ -670,25 +691,7 @@ const FirmaForm = () => {
 
         // Backend'den gelen validation errors (express-validator format)
         if (errorData.errors && Array.isArray(errorData.errors)) {
-          const backendErrors = errorData.errors.map(error => {
-            // express-validator error format: { param, msg, value, location }
-            if (error.param) {
-              const fieldNames = {
-                vergiNoTC: 'Vergi No/TC',
-                tamUnvan: 'Tam Ünvan',
-                adres: 'Adres',
-                firmaIl: 'Firma İli',
-                firmaIlce: 'Firma İlçesi',
-                ilkIrtibatKisi: 'İlk İrtibat Kişisi',
-                'yetkiliKisiler[0].adSoyad': '1. Yetkili Kişi - Ad Soyad',
-                'yetkiliKisiler[0].telefon1': '1. Yetkili Kişi - Telefon 1',
-                'yetkiliKisiler[0].eposta1': '1. Yetkili Kişi - E-posta 1'
-              };
-              const fieldName = fieldNames[error.param] || error.param;
-              return `${fieldName}: ${error.msg}`;
-            }
-            return error.msg || error.message || 'Bilinmeyen hata';
-          });
+          const backendErrors = mapBackendValidationErrors(errorData.errors);
 
           setValidationErrors(backendErrors);
           showSnackbar(`${backendErrors.length} alanda hata bulundu. Lütfen düzeltin.`, 'error');
