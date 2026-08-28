@@ -29,6 +29,7 @@ import {
   Category as CategoryIcon
 } from '@mui/icons-material';
 import axios from '../utils/axios';
+import { yerelYaz } from '../utils/yerelDepo';
 
 const US97SuperSearch = ({
   value,
@@ -138,7 +139,8 @@ const US97SuperSearch = ({
     ].slice(0, 10);
 
     setRecentCodes(updatedRecent);
-    localStorage.setItem('us97_recent', JSON.stringify(updatedRecent));
+    // Depo dolu olsa bile seçim akışı patlamasın (kota hatası fırlatırdı)
+    yerelYaz('us97_recent', JSON.stringify(updatedRecent));
 
     // 🎯 PARENT COMPONENT'E BİLDİR - HER İKİ DEĞERİ DE GÖNDER!
     if (onChange) {
