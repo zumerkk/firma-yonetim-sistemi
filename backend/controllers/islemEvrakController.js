@@ -310,7 +310,9 @@ exports.publicBilgi = async (req, res) => {
         firmaAdi: talep.firmaAdi,
         islemAdi: talep.islemTuruAdi,
         varyantAd: talep.varyantAd || '',
-        istenenEvraklar: (talep.istenenEvraklar || []).map((e) => ({
+        // Maile yazılmayan evrak firmaya da gösterilmez: aksi halde firma, mailde
+        // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
+        istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
           id: e._id, ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, geldiMi: e.geldiMi,
           ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
         })),
