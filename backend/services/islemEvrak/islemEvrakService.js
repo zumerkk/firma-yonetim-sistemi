@@ -56,9 +56,15 @@ async function resolveByToken(token) {
 
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
 function mailOlustur({ talep, sablon, uploadLink }) {
-  const evrakListesi = (talep.istenenEvraklar || [])
-    .map((e, i) => `${i + 1}. ${e.ad}${e.aciklama ? ` — ${e.aciklama}` : ''}${e.zorunlu ? '' : ' (opsiyonel)'}`)
-    .join('\n');
+  // Müşteri: "tikleri kaldırınca mailde otomatik silinsin, (opsiyonel) yazmak yerine."
+  // İşareti kaldırılan evrak firmadan İSTENMİYOR demektir; maile hiç yazılmaz.
+  const secililer = (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false);
+  const evrakListesi = secililer.length
+    ? secililer
+      .map((e, i) => `${i + 1}. ${e.ad}${e.aciklama ? ` — ${e.aciklama}` : ''}`)
+      .join('\n')
+    // Boş liste sessizce gitmesin: maili düzenleyen kişi durumu görsün
+    : '(İşaretli evrak yok — evrak listesinden istenecekleri işaretleyin.)';
 
   const data = {
     firmaAdi: talep.firmaAdi || '',
