@@ -1,0 +1,464 @@
+{
+  "sorular": [
+    {
+      "id": "s_gelistirme",
+      "metin": "Eğer Yatırım Komple Yeni Yatırım değilse, mevcut tesiste geliştirme (tevsi, modernizasyon, ürün geliştirme, taşınma-nakil) ise (EVET HAYIR)",
+      "siraNo": 0
+    },
+    {
+      "id": "s_insaat",
+      "metin": "Varsa İnşaat Harcaması, EVET HAYIR",
+      "siraNo": 1
+    }
+  ],
+  "istenenEvraklar": [
+    {
+      "ad": "SGK Borcu Yoktur Yazısı",
+      "aciklama": "SGK Borcu Yoktur Yazısı ( Sosyal Güvenlik Kurumunun elektronik bilgi iletişim ortamından alınacak barkodlu belge VEYA 31/5/2006 tarihli ve 5510 sayılı Sosyal Sigortalar ve Genel Sağlık Sigortası Kanunu uyarınca Türkiye genelinde Sosyal Güvenlik Kurumuna muaccel olmuş prim ve idari para cezası borçlarının bulunmadığına veya tecil ve/veya taksitlendirildiğine ya da yapılandırıldığına ve yapılandırmanın bozulmadığına dair Sosyal Güvenlik Kurumunun ilgili birimlerinden alınacak yazı.",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "Eğer ÇED Kapsamına giren bir yatırım ise",
+      "aciklama": "Eğer ÇED Kapsamına giren bir yatırım ise (konuları görmek için tıklayınız LİNK) - ÇED Görüş veya Kararı",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "İşyeri açma ve çalışma ruhsatı",
+      "aciklama": "İşyeri açma ve çalışma ruhsatı. (Mevcutta ilgili yatırımla ilgili üretim Tesisi varsa) Adresler uyumlu olmalıdır.",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "Yatırım tutarı 1 milyar TL ve üzerinde olan yatırımlar için 17/10/2016 tarihli ve 2016/9495 sayılı Bakanlar Kurulu Kararı ile yürü",
+      "aciklama": "Yatırım tutarı 1 milyar TL ve üzerinde olan yatırımlar için 17/10/2016 tarihli ve 2016/9495 sayılı Bakanlar Kurulu Kararı ile yürürlüğe konulan Yatırımlara Proje Bazlı Devlet Yardımı Verilmesine İlişkin Kararın EK-1’inde belirtilen formatta hazırlanmış fizibilite raporu.",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "İmza Sirkükeri Taraması",
+      "aciklama": "",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "Vergi Levhası Fotokopisi",
+      "aciklama": "",
+      "zorunlu": true,
+      "kosulSoruId": "",
+      "kosulDeger": ""
+    },
+    {
+      "ad": "Enerji ve Madencilik",
+      "aciklama": "1- Enerji ve Madencilik :",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "3213 sayılı Maden Kanununa tabii istihraç ve istihracı da ihtiva eden entegrasyon yatırımlarında",
+      "aciklama": "a) 3213 sayılı Maden Kanununa tabii istihraç ve istihracı da ihtiva eden entegrasyon yatırımlarında, Maden ve Petrol İşleri Genel Müdürlüğü tarafından bizzat yatırımcı adına düzenlenmiş İşletme Ruhsatı ve İşletme İzninin tasdikli suretleri,",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "3213 sayılı Maden Kanununda tanımlanan 1(a) grubu madenlerden İl Özel İdareleri tarafından ruhsatlandırılanlarda İşletme Ruhsatı t",
+      "aciklama": "b) 3213 sayılı Maden Kanununda tanımlanan 1(a) grubu madenlerden İl Özel İdareleri tarafından ruhsatlandırılanlarda İşletme Ruhsatı tasdikli sureti,",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Elektrik Piyasası Yönetmeliğine tabii elektrik enerjisi üretimi",
+      "aciklama": "c) Elektrik Piyasası Yönetmeliğine tabii elektrik enerjisi üretimi, iletimi ve dağıtımına yönelik yatırımlarda Enerji Piyasası Düzenleme Kurumu tarafından yatırımcı adına düzenlenen lisansın/ön lisansın tasdikli sureti. 2012/3305 sayılı Yatırımlarda Devlet Yardımları Hakkında Kararın 17 nci maddesinin birinci fıkrasının (i) bendi kapsamında gerçekleştirilen elektrik enerjisi üretimi yatırımlarında girdi olarak kullanılan kömür madenlerine ilişkin ilgili kurum onaylı işletme devir hakkı sözleş...",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Lisanssız elektrik üretimi yapacak tesislerle ilgili olarak",
+      "aciklama": "ç) Lisanssız elektrik üretimi yapacak tesislerle ilgili olarak, TEDAŞ Proje Onay Yazısı - Onaylı TEK-HAT Şeması, GES İse Panele İlişkin Proforma Fatura, Çağrı Mektubu, Bağlantı Anlaşması , Yatırımda Kullanılacak Çelik Konstrüksiyon Hesabı,",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Jeotermal sondaj ve üretim yatırımlarında İşletme Ruhsatı",
+      "aciklama": "d) Jeotermal sondaj ve üretim yatırımlarında İşletme Ruhsatı, petrol ve doğalgaz sondaj ve üretim yatırımlarında ise ilgili Kamu Kurum ve Kuruluşlarının mevzuatında yer alan nihai izin ve/veya ruhsatlar.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Rödovanslı madencilik yatırımlarında sözleşme/anlaşma yapılan kamu kurumu veya iştirakinden alınacak yazı",
+      "aciklama": "e) Rödovanslı madencilik yatırımlarında sözleşme/anlaşma yapılan kamu kurumu veya iştirakinden alınacak yazı.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Rafineri yatırımları",
+      "aciklama": "2. Rafineri yatırımları",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Enerji Piyasası Düzenleme Kurulundan alınacak lisansın tasdikli sureti",
+      "aciklama": "a)Enerji Piyasası Düzenleme Kurulundan alınacak lisansın tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Harp araç ve gereçleri ile silah",
+      "aciklama": "3. Harp araç ve gereçleri ile silah, mühimmat ve patlayıcı madde üretimi yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Tamamlama vizesine kadar ibraz edilmesi kaydıyla Millî Savunma Bakanlığından alınacak tesis kuruluş izni",
+      "aciklama": "a)Tamamlama vizesine kadar ibraz edilmesi kaydıyla Millî Savunma Bakanlığından alınacak tesis kuruluş izni.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Av malzemeleri, nişan tabancası, av bıçakları ve tekel dışı bırakılan patlayıcı maddeleri ve benzerlerinin imali yatırımlarında",
+      "aciklama": "4. Av malzemeleri, nişan tabancası, av bıçakları ve tekel dışı bırakılan patlayıcı maddeleri ve benzerlerinin imali yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İçişleri Bakanlığından alınacak kuruluş izni",
+      "aciklama": "a)İçişleri Bakanlığından alınacak kuruluş izni.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Ses ve gaz fişeği atabilen silahların üretimi yatırımlarında",
+      "aciklama": "5. Ses ve gaz fişeği atabilen silahların üretimi yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Sanayi ve Teknoloji Bakanlığından kuruluş ve ön izin belgesi tasdikli sureti",
+      "aciklama": "a)Sanayi ve Teknoloji Bakanlığından kuruluş ve ön izin belgesi tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Çevre İzin ve Lisans Yönetmeliği kapsamında Çevre Lisansına tabi yatırımlarda",
+      "aciklama": "6. Çevre İzin ve Lisans Yönetmeliği kapsamında Çevre Lisansına tabi yatırımlarda;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Çevre ve Şehircilik Bakanlığı tarafından düzenlenmiş “çevre lisansı” ya da “çevre izin ve lisansı” tasdikli sureti ya da Çevre ve",
+      "aciklama": "a)Çevre ve Şehircilik Bakanlığı tarafından düzenlenmiş “çevre lisansı” ya da “çevre izin ve lisansı” tasdikli sureti ya da Çevre ve Şehircilik Bakanlığının geçici faaliyet belgesi verildiğine dair yazısı (komple yeni yatırımlarda bu belge tamamlama vizesi aşamasında aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Alkollü içecekler yatırımlarında",
+      "aciklama": "7. Alkollü içecekler yatırımlarında,",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Tarım ve Orman Bakanlığından alınmış olan tesis kurma izin belgesi tasdikli sureti",
+      "aciklama": "a)Tarım ve Orman Bakanlığından alınmış olan tesis kurma izin belgesi tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Pancar veya kamış işleyerek şeker üretimi konularında yapılacak komple yeni veya tevsi yatırımları için",
+      "aciklama": "8. Pancar veya kamış işleyerek şeker üretimi konularında yapılacak komple yeni veya tevsi yatırımları için;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Tarım ve Orman Bakanlığından alınmış tesis kurma izin yazısının tasdikli sureti",
+      "aciklama": "a)Tarım ve Orman Bakanlığından alınmış tesis kurma izin yazısının tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Sağlık yatırımlarında",
+      "aciklama": "9. Sağlık yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Ön izin alınması zorunlu sağlık yatırımlarında Sağlık Bakanlığından alınan ön izin yazısının onaylı örneği; kamu-özel ortaklığı mo",
+      "aciklama": "a)Ön izin alınması zorunlu sağlık yatırımlarında Sağlık Bakanlığından alınan ön izin yazısının onaylı örneği; kamu-özel ortaklığı modeline göre yapılacak yatırımlarda uygulama sözleşmesi.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Turizm yatırımlarında",
+      "aciklama": "10. Turizm yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Kültür ve Turizm Bakanlığınca düzenlenecek Turizm Yatırımı",
+      "aciklama": "a)Kültür ve Turizm Bakanlığınca düzenlenecek Turizm Yatırımı, Turizm İşletmesi ve/veya Kısmi Turizm İşletmesi Belgesinin tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İskele, rıhtım, balıkçı barınağı ve liman yatırımlarında",
+      "aciklama": "11. İskele, rıhtım, balıkçı barınağı ve liman yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Ulaştırma ve Altyapı Bakanlığı Altyapı Yatırımları Genel Müdürlüğünün uygulama projesine ilişkin onay yazısı",
+      "aciklama": "a)Ulaştırma ve Altyapı Bakanlığı Altyapı Yatırımları Genel Müdürlüğünün uygulama projesine ilişkin onay yazısı (Yat limanı yatırımlarında ayrıca, Kültür ve Turizm Bakanlığınca düzenlenecek Turizm Yatırımı, Turizm İşletmesi ve/veya Kısmi Turizm İşletmesi Belgesinin tasdikli sureti aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Havalimanlarında yapılacak komple yeni yer hizmetleri yatırımında",
+      "aciklama": "12. Havalimanlarında yapılacak komple yeni yer hizmetleri yatırımında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Sivil Havacılık Genel Müdürlüğünden ön izin alındığına dair yazının tasdikli sureti",
+      "aciklama": "a)Sivil Havacılık Genel Müdürlüğünden ön izin alındığına dair yazının tasdikli sureti (diğer yatırım cinslerinde Devlet Hava Meydanları İşletmesi Genel Müdürlüğünce düzenlenmiş çalışma ruhsatı aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Demiryolu ulaştırması yatırımlarında",
+      "aciklama": "13. Demiryolu ulaştırması yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Ulaştırma ve Altyapı Bakanlığından alınacak yetki belgesi sureti",
+      "aciklama": "a)Ulaştırma ve Altyapı Bakanlığından alınacak yetki belgesi sureti (Komple yeni yatırımlarda bu belgeler tamamlama vizesi aşamasında aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Yap-İşlet veya Yap-İşlet-Devret modeli ile gerçekleştirilecek yatırımlarda",
+      "aciklama": "14. Yap-İşlet veya Yap-İşlet-Devret modeli ile gerçekleştirilecek yatırımlarda;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İlgili Bakanlık",
+      "aciklama": "a)İlgili Bakanlık, kurum veya kuruluş ile yapılan uygulama sözleşmesinin örneği.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Kamu kurum ve kuruluşları ile belediyeler tarafından yapılacak yatırımlarda",
+      "aciklama": "15. Kamu kurum ve kuruluşları ile belediyeler tarafından yapılacak yatırımlarda;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "KDV mükellefiyeti olunduğuna dair ilgili vergi dairesinden alınacak belge",
+      "aciklama": "a)KDV mükellefiyeti olunduğuna dair ilgili vergi dairesinden alınacak belge.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Kültür yatırımlarında",
+      "aciklama": "16. Kültür yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Kültür ve Turizm Bakanlığınca düzenlenecek Kültür Belgesinin tasdikli sureti",
+      "aciklama": "a)Kültür ve Turizm Bakanlığınca düzenlenecek Kültür Belgesinin tasdikli sureti (Komple yeni yatırımlarda Kültür Yatırım Belgesi aranacak olup, tamamlama vizesi aşamasında da Kültür Girişim Belgesi aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Entegre Lojistik hizmetleri yatırımlarında",
+      "aciklama": "17. Entegre Lojistik hizmetleri yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Entegre lojistik hizmeti yatırımlarında Ticaret Bakanlığından",
+      "aciklama": "a)Entegre lojistik hizmeti yatırımlarında Ticaret Bakanlığından (Gümrükler Genel Müdürlüğü) alınan antrepo açma ve işletme izni; karayolu ile yük taşımacılığını içeren lojistik yatırımlarında antrepo izni ve Ulaştırma ve Altyapı Bakanlığınca düzenlenmiş L2 yetki belgesi. (Komple yeni yatırımlarda bu belgeler tamamlama vizesi sırasında aranır.)",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Kablo ve uydu yayıncılığı yatırımlarında",
+      "aciklama": "18. Kablo ve uydu yayıncılığı yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Komple yeni yatırımlarda, Radyo ve Televizyon Üst Kurulundan",
+      "aciklama": "a)Komple yeni yatırımlarda, Radyo ve Televizyon Üst Kurulundan (RTÜK) alınacak lisans ve yayın izni işlemlerinin başlatıldığına dair yazı (Tamamlama vizesi aşamasında RTÜK’ten alınmış lisans ve yayın izni verildiğine dair yazı ayrıca aranacaktır), diğer yatırım cinslerinde ise RTÜK’ten alınacak lisans ve yayın izni olduğuna dair yazı.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Karasal yayıncılık yatırımlarında",
+      "aciklama": "19. Karasal yayıncılık yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Radyo ve Televizyon Üst Kurulundan alınacak yasal süresi zarfında lisans başvurusunda bulunulduğuna dair yazı ile aynı Kuruldan al",
+      "aciklama": "a)Radyo ve Televizyon Üst Kurulundan alınacak yasal süresi zarfında lisans başvurusunda bulunulduğuna dair yazı ile aynı Kuruldan alınacak 6112 sayılı Kanun kapsamında yayın yapılmasına dair izin yazısı.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İmalat sanayi yatırımlarında",
+      "aciklama": "20. İmalat sanayi yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Komple yeni yatırım dışındaki yatırım cinsleri için",
+      "aciklama": "a)Komple yeni yatırım dışındaki yatırım cinsleri için, oda veya noter onaylı geçerli kapasite raporu.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "4/12/2003 tarihli ve 5015 sayılı Petrol Piyasası Kanunu kapsamına giren depolama tesisi yatırımlarında",
+      "aciklama": "21. 4/12/2003 tarihli ve 5015 sayılı Petrol Piyasası Kanunu kapsamına giren depolama tesisi yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Enerji Piyasası Düzenleme Kurumundan alınacak lisansın onaylı sureti",
+      "aciklama": "a)Enerji Piyasası Düzenleme Kurumundan alınacak lisansın onaylı sureti (komple yeni yatırımlarda bu belge tamamlama vizesi aşamalında aranır),",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Lisanslı depoculuk yatırımlarında",
+      "aciklama": "22. Lisanslı depoculuk yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Ticaret Bakanlığınca düzenlenmiş lisansın tasdikli sureti",
+      "aciklama": "a)Ticaret Bakanlığınca düzenlenmiş lisansın tasdikli sureti (komple yeni yatırımlarda Ticaret Bakanlığınca kuruluş izni verildiğine dair yazı aranır. Lisans ise tamamlama vizesi aşamasında aranır).",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Hava taşıtları ve motorlarının bakım ve onarımı yatırımlarında",
+      "aciklama": "23. Hava taşıtları ve motorlarının bakım ve onarımı yatırımlarında;",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Sivil Havacılık Genel Müdürlüğü’nden alınan izin yazısının tasdikli sureti",
+      "aciklama": "a)Sivil Havacılık Genel Müdürlüğü’nden alınan izin yazısının tasdikli sureti.",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İşyeri Açma ve Çalıştırma Ruhsatı",
+      "aciklama": "İşyeri Açma ve Çalıştırma Ruhsatı ( firma unvanı, yatırım adresi ve konusu ile uyumlu.)",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Yatırım Yeri OSB de ise OSB Müdürlüğünden alınacak Adres ve Ada Parsel Gösterir Yazı",
+      "aciklama": "",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Alınacak Makine Ekipmanların Listesi Tıklayınız",
+      "aciklama": "",
+      "zorunlu": true,
+      "kosulSoruId": "s_gelistirme",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Varsa, inşaat alanına ilişkin Tapu veya Tahsis Belgesi veya izin / ön İzin",
+      "aciklama": "a) Varsa, inşaat alanına ilişkin Tapu veya Tahsis Belgesi veya izin / ön İzin",
+      "zorunlu": true,
+      "kosulSoruId": "s_insaat",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Varsa İnşaat Ruhsatı",
+      "aciklama": "b) Varsa İnşaat Ruhsatı",
+      "zorunlu": true,
+      "kosulSoruId": "s_insaat",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "Varsa İnşaata ilişkin Sözleşmeler",
+      "aciklama": "c) Varsa İnşaata ilişkin Sözleşmeler",
+      "zorunlu": true,
+      "kosulSoruId": "s_insaat",
+      "kosulDeger": "EVET"
+    },
+    {
+      "ad": "İnşaat Bilgi Formu - Tıklayınız",
+      "aciklama": "d) İnşaat Bilgi Formu - Tıklayınız",
+      "zorunlu": true,
+      "kosulSoruId": "s_insaat",
+      "kosulDeger": "EVET"
+    }
+  ]
+}

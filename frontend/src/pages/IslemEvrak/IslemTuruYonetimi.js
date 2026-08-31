@@ -31,7 +31,7 @@ const bosEvrak = () => ({ ad: '', aciklama: '', zorunlu: true });
 const bosVaryant = () => ({ kod: '', ad: '', mailKonusu: '', mailGovdesi: '', istenenEvraklar: [] });
 const bosTur = () => ({
   _id: null, ad: '', aciklama: '', mailKonusu: '', mailGovdesi: '',
-  istenenEvraklar: [], varyantlar: [], aktif: true, siraNo: 0
+  istenenEvraklar: [], sorular: [], varyantlar: [], aktif: true, siraNo: 0
 });
 
 // Türkçe karakterleri sadeleştirip kod üretir (backend de aynı kuralı uyguluyor)
@@ -41,7 +41,7 @@ const kodTuret = (metin) => String(metin || '').toLowerCase()
   .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40);
 
 // ── Evrak listesi editörü (hem tür hem varyant seviyesinde kullanılır)
-const EvrakListesiEditoru = ({ evraklar, onChange, baslik }) => (
+const EvrakListesiEditoru = ({ evraklar, onChange, baslik, sorular = [] }) => (
   <Box>
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
       <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
@@ -77,8 +77,29 @@ const EvrakListesiEditoru = ({ evraklar, onChange, baslik }) => (
                 onChange={(ev) => onChange(evraklar.map((x, j) => (j === i ? { ...x, zorunlu: ev.target.checked } : x)))}
               />
             }
-            label={<Typography variant="caption">Zorunlu</Typography>}
+            label={<Typography variant="caption">Mailde iste</Typography>}
           />
+          {/* 🔀 Koşul: soru tanımlıysa bu evrak yalnızca ilgili cevapta istenir.
+              Soru yoksa seçici hiç görünmez — mevcut şablonlar aynen çalışır. */}
+          {sorular.length > 0 && (
+            <TextField
+              select size="small" label="Koşul" sx={{ flex: '1 1 240px' }}
+              value={e.kosulSoruId && e.kosulDeger ? `${e.kosulSoruId}|${e.kosulDeger}` : ''}
+              onChange={(ev) => {
+                const [soruId, deger] = String(ev.target.value || '').split('|');
+                onChange(evraklar.map((x, j) => (j === i
+                  ? { ...x, kosulSoruId: soruId || '', kosulDeger: deger || '' }
+                  : x)));
+              }}
+            >
+              <MenuItem value=""><em>Her zaman istenir</em></MenuItem>
+              {sorular.flatMap((soru) => ['EVET', 'HAYIR'].map((d) => (
+                <MenuItem key={`${soru.id}|${d}`} value={`${soru.id}|${d}`}>
+                  {`${(soru.metin || '').slice(0, 45)}${(soru.metin || '').length > 45 ? '…' : ''} → ${d}`}
+                </MenuItem>
+              )))}
+            </TextField>
+          )}
           {/* Örnek dosya bilgisi salt okunur: dosya yükleme talep ekranından yapılır */}
           {e.ornekDosya?.dosyaAdi && (
             <Tooltip title={`Örnek dosya: ${e.ornekDosya.dosyaAdi}`}>
@@ -149,7 +170,7 @@ const IslemTuruYonetimi = () => {
       const govde = {
         ad: form.ad, aciklama: form.aciklama,
         mailKonusu: form.mailKonusu, mailGovdesi: form.mailGovdesi,
-        istenenEvraklar: form.istenenEvraklar, varyantlar: form.varyantlar,
+        istenenEvraklar: form.istenenEvraklar, sorular: form.sorular || [], varyantlar: form.varyantlar,
         aktif: form.aktif !== false, siraNo: Number(form.siraNo) || 0
       };
       const kayit = seciliId
@@ -263,6 +284,53 @@ const IslemTuruYonetimi = () => {
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
                 VARSAYILAN TANIM — varyant seçilmediğinde bu kullanılır
               </Typography>
+              {/* 🔀 EVET/HAYIR soruları — talep açılırken sorulur, evrak listesini daraltır.
+                  Liste BOŞSA sihirbaz hiç çıkmaz ve talep bugünkü gibi düz listeyle açılır;
+                  özelliği kapatmanın en hızlı yolu buradaki soruları silmektir. */}
+              <Box sx={{ border: '1px dashed #cbd5e1', borderRadius: 2, p: 1.5 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
+                    EVET/HAYIR Soruları ({(form.sorular || []).length})
+                  </Typography>
+                  <Button size="small" startIcon={<AddIcon />} onClick={() => alan('sorular', [
+                    ...(form.sorular || []),
+                    { id: `s${Date.now().toString(36)}`, metin: '', siraNo: (form.sorular || []).length }
+                  ])}>Soru Ekle</Button>
+                </Stack>
+                {(form.sorular || []).length === 0 ? (
+                  <Typography variant="caption" color="text.secondary">
+                    Soru yok — talep açılırken tüm evraklar doğrudan listelenir (mevcut davranış).
+                  </Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {(form.sorular || []).map((soru, i) => (
+                      <Box key={soru.id} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <TextField
+                          size="small" fullWidth label={`Soru ${i + 1}`} value={soru.metin || ''}
+                          placeholder="ör. Yatırım komple yeni değil, mevcut tesiste geliştirme mi?"
+                          onChange={(e) => alan('sorular', form.sorular.map((x, j) =>
+                            (j === i ? { ...x, metin: e.target.value } : x)))}
+                        />
+                        <Tooltip title="Soruyu sil — bu soruya bağlı evraklar tekrar 'her zaman istenir' olur">
+                          <IconButton size="small" color="error" onClick={() => {
+                            const kalkan = form.sorular[i].id;
+                            alan('sorular', form.sorular.filter((_, j) => j !== i));
+                            // Askıda koşul bırakmayalım: silinen soruya bağlı evrakların koşulu temizlenir
+                            const temizle = (liste) => (liste || []).map((e) => (e.kosulSoruId === kalkan
+                              ? { ...e, kosulSoruId: '', kosulDeger: '' } : e));
+                            setForm((p) => ({
+                              ...p,
+                              istenenEvraklar: temizle(p.istenenEvraklar),
+                              varyantlar: (p.varyantlar || []).map((v) => ({ ...v, istenenEvraklar: temizle(v.istenenEvraklar) }))
+                            }));
+                          }}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                      </Box>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
+
               <TextField size="small" label="Mail Konusu" value={form.mailKonusu}
                 onChange={(e) => alan('mailKonusu', e.target.value)} fullWidth />
               <TextField size="small" label="Mail Gövdesi" value={form.mailGovdesi}
@@ -271,6 +339,7 @@ const IslemTuruYonetimi = () => {
               <EvrakListesiEditoru
                 baslik="İstenen Evraklar (varsayılan)"
                 evraklar={form.istenenEvraklar || []}
+                sorular={form.sorular || []}
                 onChange={(v) => alan('istenenEvraklar', v)}
               />
 
@@ -331,6 +400,7 @@ const IslemTuruYonetimi = () => {
                       <EvrakListesiEditoru
                         baslik="İstenen Evraklar (bu varyant)"
                         evraklar={v.istenenEvraklar || []}
+                        sorular={form.sorular || []}
                         onChange={(list) => varyantDegistir(i, { istenenEvraklar: list })}
                       />
                     </Stack>

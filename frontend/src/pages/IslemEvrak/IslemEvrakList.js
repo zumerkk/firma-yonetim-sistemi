@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, MenuItem,
-  Snackbar, Alert, LinearProgress
+  Snackbar, Alert, LinearProgress, Radio, RadioGroup, FormControlLabel, FormLabel, FormControl
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -18,6 +18,17 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
 import api from '../../utils/axios';
+
+// 🔀 Koşul süzgeci — backend'deki islemEvrakService.kosullaSuz ile AYNI kural.
+// Burada yalnızca ÖNİZLEME için kullanılıyor; kaydı her zaman backend süzüyor.
+// İkisi ayrışırsa kullanıcı yanlış sayı görür, veri bozulmaz.
+const kosullaSuz = (evraklar, cevaplar) => (evraklar || []).filter((e) => {
+  const soruId = String(e.kosulSoruId || '').trim();
+  if (!soruId) return true;
+  const beklenen = String(e.kosulDeger || '').toUpperCase();
+  if (!beklenen) return true;
+  return String(cevaplar[soruId] || '').toUpperCase() === beklenen;
+});
 
 const DURUM_ETIKET = {
   taslak: { label: 'Taslak', color: '#64748b', bg: '#f1f5f9' },
@@ -78,6 +89,18 @@ const IslemEvrakList = () => {
   }, [firmaArama, dialogAcik]);
 
   const secilenTur = turler.find((t) => t._id === seciliTur);
+  // 🔀 Sihirbaz cevapları: { soruId: 'EVET' | 'HAYIR' }
+  const [cevaplar, setCevaplar] = useState({});
+  const sorular = secilenTur?.sorular || [];
+  const tumSorularCevaplandi = sorular.every((s) => cevaplar[s.id]);
+
+  // Seçilen varyantın (yoksa türün) evrak listesi — önizleme için
+  const adayEvraklar = (() => {
+    const v = (secilenTur?.varyantlar || []).find((x) => x.kod === seciliVaryant);
+    const liste = (v && v.istenenEvraklar?.length) ? v.istenenEvraklar : (secilenTur?.istenenEvraklar || []);
+    return liste;
+  })();
+  const secilecekEvraklar = kosullaSuz(adayEvraklar, cevaplar);
 
   const talepBaslat = async () => {
     if (!seciliFirma || !seciliTur) return notify('Firma ve işlem türü seçin', 'warning');
@@ -86,10 +109,11 @@ const IslemEvrakList = () => {
       const talep = await svc.talepOlustur({
         firmaId: seciliFirma._id,
         islemTuruId: seciliTur,
-        varyantKod: seciliVaryant || undefined
+        varyantKod: seciliVaryant || undefined,
+        cevaplar: sorular.map((s) => ({ soruId: s.id, deger: cevaplar[s.id] })).filter((c) => c.deger)
       });
       setDialogAcik(false);
-      setSeciliFirma(null); setSeciliTur(''); setSeciliVaryant('');
+      setSeciliFirma(null); setSeciliTur(''); setSeciliVaryant(''); setCevaplar({});
       navigate(`/islem-evrak/${talep._id}`);
     } catch (e) { notify(errMsg(e), 'error'); } finally { setKaydediyor(false); }
   };
@@ -216,7 +240,7 @@ const IslemEvrakList = () => {
             />
             <TextField
               select size="small" label="İşlem Türü" value={seciliTur}
-              onChange={(e) => { setSeciliTur(e.target.value); setSeciliVaryant(''); }}
+              onChange={(e) => { setSeciliTur(e.target.value); setSeciliVaryant(''); setCevaplar({}); }}
             >
               {turler.map((t) => <MenuItem key={t._id} value={t._id}>{t.ad}</MenuItem>)}
             </TextField>
@@ -229,12 +253,49 @@ const IslemEvrakList = () => {
                 {secilenTur.varyantlar.map((v) => <MenuItem key={v.kod} value={v.kod}>{v.ad}</MenuItem>)}
               </TextField>
             )}
+
+            {/* 🔀 Koşullu sorular — yalnızca şablonda soru tanımlıysa çıkar.
+                Soru yoksa bu bölüm hiç render edilmez ve akış bugünkü gibi kalır. */}
+            {sorular.length > 0 && (
+              <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.5, background: '#f8fafc' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 1 }}>
+                  Yatırım Bilgileri ({sorular.filter((q) => cevaplar[q.id]).length}/{sorular.length} cevaplandı)
+                </Typography>
+                <Stack spacing={1.5}>
+                  {sorular.map((soru) => (
+                    <FormControl key={soru.id}>
+                      <FormLabel sx={{ fontSize: '0.8rem', color: '#334155', '&.Mui-focused': { color: '#334155' } }}>
+                        {soru.metin}
+                      </FormLabel>
+                      <RadioGroup
+                        row
+                        value={cevaplar[soru.id] || ''}
+                        onChange={(e) => setCevaplar((o) => ({ ...o, [soru.id]: e.target.value }))}
+                      >
+                        <FormControlLabel value="EVET" control={<Radio size="small" />}
+                          label={<Typography variant="body2">Evet</Typography>} />
+                        <FormControlLabel value="HAYIR" control={<Radio size="small" />}
+                          label={<Typography variant="body2">Hayır</Typography>} />
+                      </RadioGroup>
+                    </FormControl>
+                  ))}
+                </Stack>
+                <Alert severity={tumSorularCevaplandi ? 'success' : 'info'} sx={{ mt: 1.5, py: 0.5 }}>
+                  {tumSorularCevaplandi
+                    ? `Bu cevaplara göre ${secilecekEvraklar.length} evrak istenecek (toplam ${adayEvraklar.length} tanımlı).`
+                    : 'Tüm soruları cevaplayın; istenecek evrak listesi cevaplara göre belirlenecek.'}
+                </Alert>
+              </Box>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogAcik(false)}>Vazgeç</Button>
-          <Button variant="contained" onClick={talepBaslat} disabled={kaydediyor || !seciliFirma || !seciliTur}>
-            Talebi Oluştur
+          <Button variant="contained" onClick={talepBaslat}
+            disabled={kaydediyor || !seciliFirma || !seciliTur || !tumSorularCevaplandi}>
+            {sorular.length > 0 && !tumSorularCevaplandi
+              ? `${sorular.length - sorular.filter((q) => cevaplar[q.id]).length} soru kaldı`
+              : 'Talebi Oluştur'}
           </Button>
         </DialogActions>
       </Dialog>
