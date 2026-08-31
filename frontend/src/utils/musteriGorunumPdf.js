@@ -118,47 +118,151 @@ export const exportTesvikToPdf = async (tesvik) => {
     y = doc.lastAutoTable.finalY + 18;
   };
 
-  // ── Kapak / künye ───────────────────────────────────────────────────────
+  // Boş bölümlerde tablo yerine tek satır not: "-" dolu tablolar çıktıyı kirletiyordu
+  const bosSatir = (metin) => {
+    doc.setFont('Roboto', 'normal'); doc.setFontSize(9); doc.setTextColor(120);
+    doc.text(metin, 40, y + 8);
+    doc.setTextColor(0);
+    y += 26;
+  };
+
+  // ── Kapak ───────────────────────────────────────────────────────────────
+  // ALAN YOLLARI docxExcelExport.js İLE BİREBİR AYNI OLMALI.
+  // İlk sürümde alan adları tahmin edilmişti (tesvik.belgeNo, u.ad, s.kisaltma…) ve
+  // çıktıda künye/ürün/şart sütunları "-" geliyordu; veri aslında iç nesnelerde
+  // duruyor (belgeYonetimi, yatirimBilgileri, maliHesaplamalar…).
   baslik('TEŞVİK BELGESİ — MÜŞTERİ GÖRÜNÜMÜ', 15);
   doc.setFont('Roboto', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
   doc.text(`Oluşturma: ${new Date().toLocaleString('tr-TR')}`, sayfaGenisligi / 2, y, { align: 'center' });
   doc.setTextColor(0); y += 22;
 
-  bolum('1. Belge Künyesi'); y += 6;
+  const fb = tesvik.firmaBilgileri || {};
+  const yb = tesvik.yatirimBilgileri || {};
+  const by = tesvik.belgeYonetimi || {};
+  const kunye = tesvik.kunyeBilgileri || {};
+  const mali = tesvik.maliHesaplamalar || {};
+
+  // ── 1. Yatırımcı ────────────────────────────────────────────────────────
+  bolum('1. Yatırımcı Bilgileri'); y += 6;
   bilgiTablosu([
-    ['Firma', str(tesvik.firma?.tamUnvan || tesvik.firmaAdi || tesvik.yatirimciUnvan)],
-    ['Belge No', str(tesvik.belgeNo)],
-    ['Belge Tarihi', tarih(tesvik.belgeTarihi)],
-    ['Belge Durumu', str(tesvik.belgeDurumu)],
-    ['Müracaat Tarihi', tarih(tesvik.muracaatTarihi)],
-    ['Yatırım Konusu', str(tesvik.yatirimKonusu || tesvik.yatirimBilgileri?.yatirimKonusu)],
-    ['Yatırım Adresi', str(tesvik.yatirimAdresi || tesvik.yatirimBilgileri?.adres)],
-    ['Destek Sınıfı', str(tesvik.destekSinifi)]
+    ['Yatırımcı Ünvanı', str(fb.unvan || tesvik.firma?.tamUnvan)],
+    ['Vergi Dairesi', str(fb.vergiDairesi || tesvik.firma?.vergiDairesi)],
+    ['Vergi No', str(fb.vergiNo || tesvik.firma?.vergiNo)],
+    ['SGK Sicil No', str(kunye.sgkSicilNo)]
   ]);
 
-  // ── Ürünler ─────────────────────────────────────────────────────────────
-  const urunler = tesvik.urunler || tesvik.urunBilgileri || [];
+  // ── 2. Yatırım ──────────────────────────────────────────────────────────
+  const adres = [yb.yatirimAdresi1, yb.yatirimAdresi2, yb.yatirimAdresi3].filter(Boolean).join(' ');
+  const yatirimCinsi = [yb.sCinsi1, yb.tCinsi2, yb.uCinsi3, yb.vCinsi4].filter(Boolean).join(', ') || yb.yatirimCinsi;
+  bolum('2. Yatırım Bilgileri'); y += 6;
+  bilgiTablosu([
+    ['Yatırımın Yeri', [yb.yerinIl, yb.yerinIlce].filter(Boolean).join(' / ') || '-'],
+    ['Yatırım Adresi', str(adres)],
+    ['OSB Adı', str(yb.osbIseMudurluk)],
+    ['Bölge (İl / İlçe bazlı)', [yb.ilBazliBolge, yb.ilceBazliBolge].filter(Boolean).join(' / ') || '-'],
+    ['Yatırım Cinsi', str(yatirimCinsi)],
+    ['Destek Sınıfı', str(yb.destekSinifi)],
+    ['İstihdam (Mevcut / İlave)', `${num(tesvik.istihdam?.mevcutKisi)} / ${num(tesvik.istihdam?.ilaveKisi)}`],
+    ['Ada / Parsel', [yb.ada, yb.parsel].filter(Boolean).join(' / ') || '-']
+  ]);
+
+  // ── 3. Belge ────────────────────────────────────────────────────────────
+  bolum('3. Belge Bilgileri'); y += 6;
+  bilgiTablosu([
+    ['Belge No', str(by.belgeNo || tesvik.belgeNo || tesvik.gmId)],
+    ['Belge Tarihi', tarih(by.belgeTarihi || kunye.kararTarihi)],
+    ['Dayandığı Kanun', str(by.dayandigiKanun || kunye.kararSayisi)],
+    ['Müracaat No', str(by.belgeMuracaatNo || kunye.dosyaNo)],
+    ['Müracaat Tarihi', tarih(by.belgeMuracaatTarihi || kunye.basvuruTarihi)],
+    ['Belge Başlama / Bitiş', `${tarih(by.belgeBaslamaTarihi || kunye.baslamaTarihi)} — ${tarih(by.belgeBitisTarihi || kunye.bitisTarihi)}`],
+    ['Süre Uzatım Tarihi', tarih(by.uzatimTarihi)],
+    ['Öncelikli Yatırım', str(by.oncelikliYatirim)]
+  ]);
+
+  // ── 4. Ürünler ──────────────────────────────────────────────────────────
+  // Tamamen boş satırlar atlanır: müşterinin ilk çıktısında "-" dolu satırlar vardı
+  const urunler = (tesvik.urunler || []).filter((u) => {
+    const kod = u.u97Kodu || u.us97Kodu || u.naceKodu || u.kodu;
+    const ad = u.urunAdi || u.cinsi || u.adi || u.urunCinsi;
+    return kod || ad || u.mevcutKapasite || u.ilaveKapasite;
+  });
+  bolum('4. Ürün Bilgileri'); y += 6;
   if (urunler.length) {
-    bolum('2. Ürün Bilgileri'); y += 6;
     tablo(
-      ['Kod', 'Ürün Adı', 'Mevcut', 'İlave', 'Toplam', 'Birim'],
-      urunler.map((u) => [
-        str(u.kod || u.u97Kodu), str(u.ad || u.aciklama),
-        num(u.mevcut), num(u.ilave), num(u.toplam ?? (Number(u.mevcut || 0) + Number(u.ilave || 0))),
-        str(u.kapasiteBirimi || u.birim)
-      ])
+      ['Kod', 'Ürün Adı / Cinsi', 'Mevcut', 'İlave', 'Toplam', 'Birim'],
+      urunler.map((u) => {
+        const mevcut = u.mevcutKapasite; const ilave = u.ilaveKapasite;
+        const toplamDb = u.toplamKapasite;
+        const toplam = (toplamDb !== undefined && toplamDb !== null && toplamDb !== '')
+          ? toplamDb : (Number(mevcut) || 0) + (Number(ilave) || 0);
+        return [
+          str(u.u97Kodu || u.us97Kodu || u.naceKodu || u.kodu),
+          str(u.urunAdi || u.cinsi || u.adi || u.urunCinsi),
+          num(mevcut), num(ilave), num(toplam),
+          str(u.kapasiteBirimi || u.birim)
+        ];
+      }),
+      { columnStyles: { 1: { cellWidth: 200 } } }
     );
+  } else {
+    bosSatir('Ürün bilgisi girilmemiş.');
   }
 
-  // ── Özel şartlar ────────────────────────────────────────────────────────
-  const sartlar = tesvik.ozelSartlar || [];
+  // ── 5. Finansal ─────────────────────────────────────────────────────────
+  const sayi = (v) => Number(v || 0);
+  const araziArsa = sayi(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn);
+  const binaInsaat = sayi(mali.binaInsaatGideri?.toplamBinaGideri);
+  const toplamMak = sayi(mali.makinaTechizat?.toplamMakina);
+  const digerToplam = ['ev', 'ew', 'et', 'ex', 'ey'].reduce((t, k) => t + sayi(mali.yatirimHesaplamalari?.[k]), 0);
+  const topSabit = sayi(mali.toplamSabitYatirim) || (araziArsa + binaInsaat + toplamMak + digerToplam);
+  const yabanci = sayi(mali.finansman?.yabanciKaynak);
+  const ozkaynak = sayi(mali.finansman?.ozKaynak);
+
+  bolum('5. Finansal Bilgiler'); y += 6;
+  bilgiTablosu([
+    ['Arazi-Arsa Gideri', tl(araziArsa)],
+    ['Bina-İnşaat Gideri', tl(binaInsaat)],
+    ['Makine Teçhizat (İthal)', tl(mali.makinaTechizat?.ithalMakina)],
+    ['Makine Teçhizat (Yerli)', tl(mali.makinaTechizat?.yerliMakina)],
+    ['Makine Teçhizat (Toplam)', tl(toplamMak)],
+    ['Diğer Yatırım Harcamaları', tl(digerToplam)],
+    ['TOPLAM SABİT YATIRIM', tl(topSabit)],
+    ['Finansman (Yabancı / Öz kaynak)', `${tl(yabanci)} / ${tl(ozkaynak)}`]
+  ]);
+
+  // ── 6. Özel şartlar ─────────────────────────────────────────────────────
+  const sartlar = (tesvik.ozelSartlar || []).filter((sa) =>
+    (sa?.koşulMetni || sa?.kisaltma || '').trim() || (sa?.aciklamaNotu || sa?.sart || sa?.metin || sa?.aciklama || '').trim());
+  bolum('6. Özel Şartlar'); y += 6;
   if (sartlar.length) {
-    bolum('3. Özel Şartlar'); y += 6;
     tablo(
       ['Şart', 'Açıklama'],
-      sartlar.map((s) => [str(s.kisaltma || s.sartAdi), str(s.aciklama || s.sartAciklamasi)]),
+      sartlar.map((sa, i) => [
+        str(sa?.koşulMetni || sa?.kisaltma || `Şart ${i + 1}`),
+        str(sa?.aciklamaNotu || sa?.sart || sa?.metin || sa?.aciklama)
+      ]),
       { columnStyles: { 0: { cellWidth: 130 }, 1: { cellWidth: 'auto' } } }
     );
+  } else {
+    bosSatir('Özel şart bulunmuyor.');
+  }
+
+  // ── 7. Destek unsurları ─────────────────────────────────────────────────
+  const destekler = (tesvik.destekUnsurlari || []).filter((d) =>
+    (d.destekUnsuru || d.adi || d.destekAdi || '').trim());
+  bolum('7. Destek Unsurları'); y += 6;
+  if (destekler.length) {
+    tablo(
+      ['Destek Adı', 'Şartı', 'Açıklama'],
+      destekler.map((d) => [
+        str(d.destekUnsuru || d.adi || d.destekAdi),
+        str(d.sarti || d.sart),
+        str(d.aciklama || (d.orani ? `${d.orani} %` : d.tutari ? `${d.tutari} TL` : ''))
+      ]),
+      { columnStyles: { 0: { cellWidth: 150 }, 1: { cellWidth: 110 } } }
+    );
+  } else {
+    bosSatir('Destek unsuru bulunmuyor.');
   }
 
   // ── Makine listeleri: HER BİRİ YENİ SAYFADA, BAŞLIKLI ───────────────────
