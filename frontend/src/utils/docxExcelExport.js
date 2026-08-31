@@ -430,11 +430,23 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     ];
     yerliSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
+    // Müşteri: "Excel'i PDF'e çevirdiğimde makine listelerinin başlığı yok."
+    // Sayfa ADI PDF'e taşınmıyor; bu yüzden başlık sayfanın İÇİNE yazılıyor.
+    yerliSheet.addRow([`YERLİ MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ""}`]);
+    const yBaslik = yerliSheet.lastRow;
+    yerliSheet.mergeCells(`A${yBaslik.number}:I${yBaslik.number}`);
+    yBaslik.getCell(1).font = { bold: true, size: 14 };
+    yBaslik.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    yBaslik.height = 24;
+    yerliSheet.addRow([]);
+
     const hRow = yerliSheet.addRow([
       "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
       "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
+    // Uzun listeler birden fazla sayfaya taşıyor; başlık her sayfada tekrarlansın
+    yerliSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
 
     yerliList.forEach(m => {
       const r = yerliSheet.addRow([
@@ -471,12 +483,21 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     ];
     ithalSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
+    ithalSheet.addRow([`İTHAL MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ""}`]);
+    const iBaslik = ithalSheet.lastRow;
+    ithalSheet.mergeCells(`A${iBaslik.number}:L${iBaslik.number}`);
+    iBaslik.getCell(1).font = { bold: true, size: 14 };
+    iBaslik.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
+    iBaslik.height = 24;
+    ithalSheet.addRow([]);
+
     const hRow = ithalSheet.addRow([
       "Sıra No", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
       "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)",
       "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
+    ithalSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
 
     ithalList.forEach(m => {
       const r = ithalSheet.addRow([

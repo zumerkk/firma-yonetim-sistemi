@@ -32,6 +32,24 @@ const YeniTesvikDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  // 📄 Müşteri görünümü PDF (müşteri: "Excel var ya, bir de PDF indirebilir miyiz")
+  // Font çalışma anında indiği için kısa bir hazırlık süresi olabiliyor; düğme kilitlenir.
+  const [pdfHazirlaniyor, setPdfHazirlaniyor] = useState(false);
+  const musteriGorunumuPdf = async () => {
+    setPdfHazirlaniyor(true);
+    try {
+      // Dinamik import: jspdf + autotable ~120 KB. Statik alınırsa herkesin
+      // ana paketine giriyordu; PDF nadiren istendiği için tıklayınca inmesi yeterli.
+      const { exportTesvikToPdf } = await import('../../utils/musteriGorunumPdf');
+      await exportTesvikToPdf(tesvik);
+    } catch (hata) {
+      console.error('PDF oluşturulamadı:', hata);
+      window.alert('PDF oluşturulamadı. Sayfayı yenileyip tekrar deneyin.');
+    } finally {
+      setPdfHazirlaniyor(false);
+    }
+  };
+
   // State management
   const [tesvik, setTesvik] = useState(null);
   const [activities, setActivities] = useState([]); // 🔧 Ensure it's always an array
@@ -803,6 +821,28 @@ const YeniTesvikDetail = () => {
               }}
             >
               Müşteri Görünümü (Excel)
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<FileDownloadIcon />}
+              onClick={musteriGorunumuPdf}
+              disabled={pdfHazirlaniyor}
+              sx={{
+                background: 'rgba(255,255,255,0.2)',
+                border: '1px solid rgba(255,255,255,0.3)',
+                color: 'white',
+                fontWeight: 500,
+                px: 1.5,
+                py: 0.5,
+                borderRadius: 1,
+                textTransform: 'none',
+                fontSize: '0.8rem',
+                ml: 1,
+                '&:hover': { background: 'rgba(255,255,255,0.3)' }
+              }}
+            >
+              {pdfHazirlaniyor ? 'PDF hazırlanıyor…' : 'Müşteri Görünümü (PDF)'}
             </Button>
           </Box>
 
