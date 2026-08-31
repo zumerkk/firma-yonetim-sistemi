@@ -1,7 +1,7 @@
 // 📋 Dosya İş Akış Takip - Talep Detay ve İş Akışı Takibi
 // Sol: Dikey stepper / timeline, Sağ: Aktif aşama form, Alt: Tarihçe
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
     Box, Typography, Button, Chip, Paper, Grid, Avatar,
     Stepper, Step, StepLabel, StepContent, TextField,
@@ -315,6 +315,8 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
     // pencere içi kaydırma alanı kullanılamaz hale geliyordu.
     const tema = useTheme();
     const darEkran = useMediaQuery(tema.breakpoints.down('sm'));
+    // Enter ile ilerlemek/yüklemek için kutulara erişim (müşteri: "entera basınca da yükleyebilir mi")
+    const kutuRefleri = useRef([]);
 
     // Dialog her açıldığında (yeni dosya seçimi) kutuları sıfırla
     useEffect(() => {
@@ -337,6 +339,19 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
     const onayla = () => {
         if (!hepsiDolu) return;
         onOnayla(dosyalar.map((file, i) => ({ file, aciklama: aciklamalar[i].trim() })));
+    };
+
+    // Enter: her şey hazırsa yükler; değilse bir sonraki BOŞ kutuya atlar.
+    // Doğrudan yüklemek çok dosyalıda yarım kalmış açıklamalarla gönderime yol açardı.
+    const enterBasildi = (e, i) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        if (hepsiDolu) { onayla(); return; }
+        const sonraki = aciklamalar.findIndex((a, j) => j > i && !(a || '').trim());
+        const hedef = sonraki >= 0
+            ? sonraki
+            : aciklamalar.findIndex((a) => !(a || '').trim()); // başa dön
+        if (hedef >= 0) kutuRefleri.current[hedef]?.focus();
     };
 
     return (
@@ -378,8 +393,12 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
                             placeholder="Bu dosya ne? (zorunlu)"
                             value={aciklamalar[i] || ''}
                             onChange={(e) => guncelle(i, e.target.value)}
+                            onKeyDown={(e) => enterBasildi(e, i)}
+                            inputRef={(el) => { kutuRefleri.current[i] = el; }}
                             error={!(aciklamalar[i] || '').trim()}
-                            helperText={!(aciklamalar[i] || '').trim() ? 'Açıklama zorunludur' : `${(aciklamalar[i] || '').length}/300`}
+                            helperText={!(aciklamalar[i] || '').trim()
+                                ? 'Açıklama zorunludur'
+                                : `${(aciklamalar[i] || '').length}/300${hepsiDolu ? ' • Enter ile yükle' : ' • Enter ile sonraki'}`}
                             inputProps={{ maxLength: 300 }}
                         />
                     </Box>
