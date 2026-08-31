@@ -36,7 +36,7 @@ exports.turDetay = wrap(async (req, res) => {
 });
 
 exports.turKaydet = wrap(async (req, res) => {
-  const { kod, ad, aciklama, mailKonusu, mailGovdesi, istenenEvraklar, varyantlar, aktif, siraNo } = req.body || {};
+  const { kod, ad, aciklama, mailKonusu, mailGovdesi, istenenEvraklar, sorular, varyantlar, aktif, siraNo } = req.body || {};
   if (!ad || !String(ad).trim()) { const e = new Error('İşlem adı zorunludur.'); e.code = 'BAD_INPUT'; throw e; }
 
   const govde = {
@@ -45,6 +45,10 @@ exports.turKaydet = wrap(async (req, res) => {
     mailKonusu: mailKonusu || '',
     mailGovdesi: mailGovdesi || '',
     istenenEvraklar: Array.isArray(istenenEvraklar) ? istenenEvraklar : [],
+    // Metni boş bırakılmış soru koşulları bozar (evrak hiç görünmez hale gelir) → elenir
+    sorular: Array.isArray(sorular)
+      ? sorular.filter((x) => x && x.id && String(x.metin || '').trim())
+      : [],
     varyantlar: Array.isArray(varyantlar) ? varyantlar : [],
     aktif: aktif !== false,
     siraNo: Number(siraNo) || 0
@@ -117,8 +121,8 @@ exports.talepDetay = wrap(async (req, res) => {
 });
 
 exports.talepOlustur = wrap(async (req, res) => {
-  const { firmaId, islemTuruId, varyantKod } = req.body || {};
-  const talep = await svc.talepOlustur({ firmaId, islemTuruId, varyantKod, user: req.user });
+  const { firmaId, islemTuruId, varyantKod, cevaplar } = req.body || {};
+  const talep = await svc.talepOlustur({ firmaId, islemTuruId, varyantKod, cevaplar, user: req.user });
   res.json({ success: true, data: talep, message: 'Talep oluşturuldu' });
 });
 
@@ -164,7 +168,9 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
   const sablon = tur.varyantCoz(varyantKod);
   talep.varyantKod = sablon.kod || '';
   talep.varyantAd = sablon.ad || '';
-  talep.istenenEvraklar = (sablon.istenenEvraklar || []).map((e) => ({
+  // Varyant değişince liste yeniden kurulur; talepteki cevaplarla AYNI süzgeçten geçer,
+  // yoksa sihirbazda elenen 55 kalem varyant değiştirir değiştirmez geri gelirdi.
+  talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => ({
     ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
     ornekDosya: e.ornekDosya || undefined,
     isteyenKullanici: req.user?._id, isteyenAdi: req.user?.adSoyad || '', istenmeTarihi: new Date()

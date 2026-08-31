@@ -10,6 +10,11 @@ const istenenEvrakSchema = new mongoose.Schema({
   ad: { type: String, required: true, trim: true, maxlength: 200 },
   aciklama: { type: String, trim: true, maxlength: 500, default: '' },
   zorunlu: { type: Boolean, default: true },
+  // 🔀 Koşullu görünürlük (müşteri Excel'i: "9. SATIR EVET tikine koşullu aktif").
+  // Boş bırakılırsa evrak HER ZAMAN istenir — eski kayıtlar aynen çalışmaya devam eder.
+  // İç içe obje yerine iki düz alan: eski dokümanlarda undefined kalması sorun çıkarmıyor.
+  kosulSoruId: { type: String, trim: true, default: '' },
+  kosulDeger: { type: String, enum: ['', 'EVET', 'HAYIR'], default: '' },
   // Firmaya gönderilecek örnek/şablon dosya (doldurup geri yükleyecekleri form)
   ornekDosya: {
     dosyaAdi: { type: String, trim: true },
@@ -29,6 +34,13 @@ const varyantSchema = new mongoose.Schema({
   istenenEvraklar: { type: [istenenEvrakSchema], default: [] }
 }, { _id: false });
 
+// 🔀 EVET/HAYIR sorusu: talep açılırken sorulur, evrak listesini daraltır
+const soruSchema = new mongoose.Schema({
+  id: { type: String, required: true, trim: true },   // evrak koşulları buna bakar
+  metin: { type: String, required: true, trim: true, maxlength: 500 },
+  siraNo: { type: Number, default: 0 }
+}, { _id: false });
+
 const islemTuruSchema = new mongoose.Schema({
   kod: { type: String, required: true, unique: true, trim: true, index: true },
   ad: { type: String, required: true, trim: true, maxlength: 200 },
@@ -37,6 +49,9 @@ const islemTuruSchema = new mongoose.Schema({
   mailKonusu: { type: String, trim: true, default: '' },
   mailGovdesi: { type: String, default: '' },
   istenenEvraklar: { type: [istenenEvrakSchema], default: [] },
+  // Soru listesi BOŞSA sihirbaz hiç çıkmaz; talep bugünkü gibi düz listeyle açılır.
+  // Bu, özelliği kod değiştirmeden kapatmanın yolu (bkz. geri alma kademesi 1).
+  sorular: { type: [soruSchema], default: [] },
   varyantlar: { type: [varyantSchema], default: [] },
   aktif: { type: Boolean, default: true, index: true },
   siraNo: { type: Number, default: 0 },
@@ -56,7 +71,8 @@ islemTuruSchema.methods.varyantCoz = function (varyantKod) {
         ad: v.ad,
         mailKonusu: v.mailKonusu || this.mailKonusu || '',
         mailGovdesi: v.mailGovdesi || this.mailGovdesi || '',
-        istenenEvraklar: (v.istenenEvraklar && v.istenenEvraklar.length) ? v.istenenEvraklar : this.istenenEvraklar
+        istenenEvraklar: (v.istenenEvraklar && v.istenenEvraklar.length) ? v.istenenEvraklar : this.istenenEvraklar,
+        sorular: this.sorular || []   // sorular tür seviyesinde, varyanta göre değişmiyor
       };
     }
   }
@@ -65,7 +81,8 @@ islemTuruSchema.methods.varyantCoz = function (varyantKod) {
     ad: '',
     mailKonusu: this.mailKonusu || '',
     mailGovdesi: this.mailGovdesi || '',
-    istenenEvraklar: this.istenenEvraklar || []
+    istenenEvraklar: this.istenenEvraklar || [],
+    sorular: this.sorular || []
   };
 };
 

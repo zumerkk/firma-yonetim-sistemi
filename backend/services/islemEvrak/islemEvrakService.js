@@ -157,8 +157,30 @@ async function dosyaKaydet(talep, file, altKlasor = 'Gelen') {
   };
 }
 
+/**
+ * 🔀 Şablon evraklarını verilen EVET/HAYIR cevaplarına göre süzer.
+ *
+ * Kural: `kosulSoruId` boş olan evrak HER ZAMAN listeye girer. Doluysa, ilgili
+ * sorunun cevabı `kosulDeger` ile birebir eşleşmelidir. Cevaplanmamış bir soruya
+ * bağlı evrak listeye GİRMEZ — "sorulmadıysa istenmez" tarafında kalmak, yanlışlıkla
+ * 55 kalemlik enerji/madencilik listesini firmaya göndermekten iyidir.
+ *
+ * Sorusu olmayan şablonlarda cevaplar boş gelir ve liste olduğu gibi döner:
+ * özelliği kapatmanın en hafif yolu şablondan soruları silmektir.
+ */
+function kosullaSuz(evraklar, cevaplar = []) {
+  const harita = new Map((cevaplar || []).map((c) => [String(c.soruId), String(c.deger || '').toUpperCase()]));
+  return (evraklar || []).filter((e) => {
+    const soruId = String(e.kosulSoruId || '').trim();
+    if (!soruId) return true;
+    const beklenen = String(e.kosulDeger || '').toUpperCase();
+    if (!beklenen) return true;      // koşul yarım tanımlanmışsa evrakı gizleme
+    return harita.get(soruId) === beklenen;
+  });
+}
+
 // 🆕 Firma + işlem türünden talep oluştur (istenen evraklar şablondan kopyalanır)
-async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', user }) {
+async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = [], user }) {
   const [firma, tur] = await Promise.all([
     Firma.findById(firmaId).select('tamUnvan firmaEmail yetkiliKisiler').lean(),
     IslemTuru.findById(islemTuruId)
@@ -168,6 +190,15 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', user }) {
 
   const sablon = tur.varyantCoz(varyantKod);
   const alici = firma.firmaEmail || (firma.yetkiliKisiler || []).map((y) => y.email).find(Boolean) || '';
+  // Cevapları soru metniyle birlikte sakla: şablon sonradan değişse de talepte
+  // hangi soruya ne cevap verildiği okunabilir kalsın
+  const cevapKayitlari = (cevaplar || [])
+    .filter((c) => c && c.soruId && ['EVET', 'HAYIR'].includes(String(c.deger || '').toUpperCase()))
+    .map((c) => ({
+      soruId: String(c.soruId),
+      metin: (sablon.sorular || []).find((s) => s.id === c.soruId)?.metin || '',
+      deger: String(c.deger).toUpperCase()
+    }));
 
   const talep = await IslemTalebi.create({
     firma: firma._id,
@@ -177,8 +208,9 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', user }) {
     islemTuruAdi: tur.ad,
     varyantKod: sablon.kod || '',
     varyantAd: sablon.ad || '',
+    cevaplar: cevapKayitlari,
     // Şablondaki evraklar talebe kopyalanır → burada serbestçe düzenlenir
-    istenenEvraklar: (sablon.istenenEvraklar || []).map((e) => ({
+    istenenEvraklar: kosullaSuz(sablon.istenenEvraklar, cevapKayitlari).map((e) => ({
       ad: e.ad,
       aciklama: e.aciklama || '',
       zorunlu: e.zorunlu !== false,
@@ -197,6 +229,7 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', user }) {
 }
 
 module.exports = {
+  kosullaSuz,
   talepKlasoru,
   ensureUploadLink,
   resolveByToken,

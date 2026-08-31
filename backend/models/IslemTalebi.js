@@ -58,6 +58,17 @@ const islemTalebiSchema = new mongoose.Schema({
   istenenEvraklar: { type: [talepEvrakSchema], default: [] },
   yuklenenEvraklar: { type: [yuklenenEvrakSchema], default: [] },
 
+  // 🔀 Sihirbazda verilen EVET/HAYIR cevapları. Hem iz kaydı hem de varyant
+  // değiştirilince listeyi aynı koşullarla yeniden süzebilmek için saklanır.
+  cevaplar: {
+    type: [new mongoose.Schema({
+      soruId: { type: String, trim: true },
+      metin: { type: String, trim: true, default: '' },   // soru metni anlık kopya
+      deger: { type: String, enum: ['EVET', 'HAYIR'], required: true }
+    }, { _id: false })],
+    default: []
+  },
+
   // Mail (düzenlenebilir; gönderim öncesi son hali saklanır)
   mailKonusu: { type: String, trim: true, default: '' },
   mailGovdesi: { type: String, default: '' },
