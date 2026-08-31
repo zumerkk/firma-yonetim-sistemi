@@ -10,7 +10,7 @@ import {
     Tooltip, LinearProgress, Collapse, Tabs, Tab,
     List, ListItem, ListItemIcon, ListItemText, ListItemAvatar,
     Dialog, DialogTitle, DialogContent, DialogActions,
-    Autocomplete, Link as MuiLink
+    Autocomplete, Link as MuiLink, useMediaQuery, useTheme
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -309,8 +309,12 @@ const dosyaIndir = async (talepId, dosya) => {
 // ana bileşenin içinde tanımlansaydı her render'da yeni bir bileşen kimliği doğar, alt ağaç
 // remount olur ve input her tuşta odağını kaybederdi. Açıklamaları burada tutmanın ikinci
 // faydası: tuş başına koca DosyaTakipDetail sayfası yeniden render edilmiyor.
-const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) => {
+const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriChange, onIptal, onOnayla }) => {
     const [aciklamalar, setAciklamalar] = useState([]);
+    // Telefon/tablette dialog tam ekran açılır: dar ekranda klavye açılınca
+    // pencere içi kaydırma alanı kullanılamaz hale geliyordu.
+    const tema = useTheme();
+    const darEkran = useMediaQuery(tema.breakpoints.down('sm'));
 
     // Dialog her açıldığında (yeni dosya seçimi) kutuları sıfırla
     useEffect(() => {
@@ -326,7 +330,9 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) 
     };
 
     const eksikSayisi = dosyalar.length - aciklamalar.filter((a) => (a || '').trim()).length;
-    const hepsiDolu = dosyalar.length > 0 && eksikSayisi === 0;
+    // Tür de burada seçiliyor: eskiden yükleme öncesi seçilmek zorundaydı ve
+    // seçilmediğinde dosya seçici hiç açılmıyordu (sessiz ölü dokunuş).
+    const hepsiDolu = dosyalar.length > 0 && eksikSayisi === 0 && !!kategori;
 
     const onayla = () => {
         if (!hepsiDolu) return;
@@ -334,7 +340,7 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) 
     };
 
     return (
-        <Dialog open={open} onClose={onIptal} maxWidth="sm" fullWidth>
+        <Dialog open={open} onClose={onIptal} maxWidth="sm" fullWidth fullScreen={darEkran}>
             <DialogTitle sx={{ fontWeight: 600 }}>
                 Dosya Açıklaması
                 <Typography variant="caption" sx={{ display: 'block', color: '#64748b', fontWeight: 400 }}>
@@ -346,6 +352,16 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) 
                     Her dosya için açıklama zorunludur. Dosyanın ne olduğu sonradan anlaşılsın diye
                     kısa bir not yazın (ör. &quot;SGK borcu yoktur yazısı&quot;).
                 </Alert>
+                <TextField
+                    select fullWidth required size="small" label="Dosya Türü"
+                    value={kategori || ''}
+                    onChange={(e) => onKategoriChange(e.target.value)}
+                    error={!kategori}
+                    helperText={!kategori ? 'Dosya türü seçin' : ' '}
+                    sx={{ mb: 2 }}
+                >
+                    {(turler || []).map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+                </TextField>
                 {dosyalar.map((f, i) => (
                     <Box key={`${f.name}-${i}`} sx={{ mb: 2 }}>
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, wordBreak: 'break-all' }}>
@@ -377,7 +393,9 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, onIptal, onOnayla }) 
                     disabled={!hepsiDolu}
                     sx={{ textTransform: 'none' }}
                 >
-                    {hepsiDolu ? `Yükle (${dosyalar.length})` : `${eksikSayisi} açıklama eksik`}
+                    {hepsiDolu
+                        ? `Yükle (${dosyalar.length})`
+                        : (!kategori ? 'Dosya türü seçin' : `${eksikSayisi} açıklama eksik`)}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -398,7 +416,10 @@ const DosyaTakipDetail = () => {
     const [notAlan, setNotAlan] = useState('genelNotlar');
     // 🔔 Not eklenirken bildirim gönderilecek personeller (müşteri talebi)
     const [notBildirimKisiler, setNotBildirimKisiler] = useState([]);
-    const [dosyaKategori, setDosyaKategori] = useState(''); // müşteri: yüklemeden önce dosya türü seç
+    // 📱 Müşteri: "telefon ya da tabletten girdiğimizde de durumları güncelleyebilelim"
+    const tema = useTheme();
+    const darEkran = useMediaQuery(tema.breakpoints.down('sm'));
+    const [dosyaKategori, setDosyaKategori] = useState(''); // dosya türü (yükleme dialogunda da seçilebilir)
     const [dosyaDragOver, setDosyaDragOver] = useState(false); // sürükle-bırak görsel geri bildirim
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
@@ -614,15 +635,18 @@ const DosyaTakipDetail = () => {
     const uploadFiles = async (fileList) => {
         const files = Array.from(fileList || []);
         if (!files.length) return;
-        if (!dosyaKategori) {
-            setSnackbar({ open: true, message: 'Lütfen önce dosya türünü seçin.', severity: 'warning' });
-            return;
-        }
+        // Tür seçilmemişse artık reddetmiyoruz: eskiden burada duruyor ve kullanıcı
+        // (özellikle telefon/tablette) hiçbir tepki alamıyordu. Tür de açıklamayla
+        // birlikte dialogda soruluyor.
         setAciklamaDialog({ open: true, dosyalar: files });
     };
 
     // Dialog onaylanınca çalışır: [{ file, aciklama }] listesini sırayla yükler
     const dosyalariYukle = async (secimler) => {
+        if (!dosyaKategori) {
+            setSnackbar({ open: true, message: 'Lütfen dosya türünü seçin.', severity: 'warning' });
+            return;
+        }
         setAciklamaDialog({ open: false, dosyalar: [] });
         let basarili = 0, hatali = 0;
         let ilkHataMesaji = '';
@@ -955,6 +979,9 @@ const DosyaTakipDetail = () => {
                             <Tabs
                                 value={activeTab}
                                 onChange={(e, v) => setActiveTab(v)}
+                                variant="scrollable"
+                                scrollButtons="auto"
+                                allowScrollButtonsMobile
                                 sx={{
                                     borderBottom: '1px solid #e2e8f0',
                                     background: '#f8fafc',
@@ -1052,21 +1079,30 @@ const DosyaTakipDetail = () => {
                                     <Box>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1, flexWrap: 'wrap' }}>
                                             <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Yüklenen Dosyalar</Typography>
-                                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                                            {/* Dar ekranda alt alta ve tam genişlik: yan yana dizilince
+                                                düğme taşıyor ve telefonda görünmez oluyordu */}
+                                            <Box sx={{
+                                                display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap',
+                                                width: { xs: '100%', sm: 'auto' }
+                                            }}>
                                                 <TextField
                                                     select size="small" label="Dosya Türü" value={dosyaKategori}
                                                     onChange={(e) => setDosyaKategori(e.target.value)}
-                                                    sx={{ minWidth: 210 }}
+                                                    sx={{ minWidth: { xs: '100%', sm: 210 }, flex: { xs: '1 1 100%', sm: '0 0 auto' } }}
                                                 >
-                                                    <MenuItem value=""><em>Önce tür seçin…</em></MenuItem>
+                                                    <MenuItem value=""><em>Tür seçin…</em></MenuItem>
                                                     {DOSYA_TURLERI.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
                                                 </TextField>
                                                 <Button
                                                     variant="outlined"
                                                     component="label"
                                                     startIcon={<CloudUploadIcon />}
-                                                    disabled={!dosyaKategori || !!yukleme}
-                                                    sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
+                                                    disabled={!!yukleme}
+                                                    fullWidth={false}
+                                                    sx={{
+                                                        textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151',
+                                                        width: { xs: '100%', sm: 'auto' }
+                                                    }}
                                                 >
                                                     {yukleme ? 'Yükleniyor…' : 'Dosya Yükle'}
                                                     <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!!yukleme} />
@@ -1085,23 +1121,24 @@ const DosyaTakipDetail = () => {
                                             onDrop={handleDosyaDrop}
                                             sx={{
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                gap: 0.5, py: 2.5, mb: 2, borderRadius: 2,
-                                                cursor: (dosyaKategori && !yukleme) ? 'pointer' : 'not-allowed',
+                                                gap: 0.5, py: { xs: 3.5, sm: 2.5 }, mb: 2, px: 2, borderRadius: 2,
+                                                cursor: yukleme ? 'not-allowed' : 'pointer',
                                                 border: '2px dashed',
                                                 borderColor: dosyaDragOver ? '#f59e0b' : '#e2e8f0',
                                                 background: dosyaDragOver ? '#fffbeb' : '#fafafa',
-                                                transition: 'all 0.2s', opacity: (dosyaKategori && !yukleme) ? 1 : 0.65,
-                                                pointerEvents: yukleme ? 'none' : 'auto'
+                                                transition: 'all 0.2s', opacity: yukleme ? 0.65 : 1,
+                                                pointerEvents: yukleme ? 'none' : 'auto',
+                                                textAlign: 'center'
                                             }}
                                         >
                                             <CloudUploadIcon sx={{ fontSize: 28, color: dosyaDragOver ? '#f59e0b' : '#94a3b8' }} />
                                             <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>
-                                                Dosyaları sürükleyip bırakın, tıklayıp seçin veya Ctrl/⌘+V ile yapıştırın
+                                                Dosya seçmek için dokunun
                                             </Typography>
                                             <Typography variant="caption" sx={{ color: '#94a3b8' }}>
-                                                Kopyaladığınız ekran görüntüsünü doğrudan yapıştırabilirsiniz{dosyaKategori ? '' : ' • önce yukarıdan dosya türü seçin'}
+                                                Sürükleyip bırakabilir veya Ctrl/⌘+V ile yapıştırabilirsiniz • tür ve açıklama sonraki adımda sorulur
                                             </Typography>
-                                            <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!dosyaKategori} />
+                                            <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!!yukleme} />
                                         </Box>
 
                                         {renderDosyalar(seciliTalep, askDeleteConfirm, handleAciklamaKaydet)}
@@ -1319,7 +1356,7 @@ const DosyaTakipDetail = () => {
                 </Grid>
 
                 {/* Durum Değiştir Dialog */}
-                <Dialog open={durumDialog.open} onClose={() => setDurumDialog({ open: false, yeniDurum: '', aciklama: '' })} maxWidth="sm" fullWidth>
+                <Dialog open={durumDialog.open} onClose={() => setDurumDialog({ open: false, yeniDurum: '', aciklama: '' })} maxWidth="sm" fullWidth fullScreen={darEkran}>
                     <DialogTitle sx={{ fontWeight: 600, borderBottom: '1px solid #e2e8f0' }}>
                         🔄 Durum Değiştir
                     </DialogTitle>
@@ -1419,6 +1456,8 @@ const DosyaTakipDetail = () => {
                     open={aciklamaDialog.open}
                     dosyalar={aciklamaDialog.dosyalar}
                     kategori={dosyaKategori}
+                    turler={DOSYA_TURLERI}
+                    onKategoriChange={setDosyaKategori}
                     onIptal={() => setAciklamaDialog({ open: false, dosyalar: [] })}
                     onOnayla={dosyalariYukle}
                 />
@@ -1569,6 +1608,10 @@ function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
             px: 2, py: 1.5, mb: 1,
             borderRadius: 2,
             border: '1px solid #e2e8f0',
+            // Dar ekranda satır sarmalanmazsa açıklama kutusu ile düğmeler
+            // dosya adının üstüne biniyor ve kutuya dokunmak imkânsızlaşıyor
+            flexWrap: { xs: 'wrap', md: 'nowrap' },
+            gap: { xs: 1, md: 0 },
             '&:hover': { background: '#f8fafc' }
         }}>
             <ListItemIcon sx={{ minWidth: 40 }}>
