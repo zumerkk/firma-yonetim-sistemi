@@ -70,6 +70,7 @@ import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../dat
 // 🏭 Yatırım Konusu NACE Kodları Import
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
+import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
 import { yatirimKonusuKodlari, yatirimKonusuKategorileri } from '../../data/yatirimKonusuData';
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -88,37 +89,11 @@ const TesvikForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
 
-  // 🔢 NUMBER FORMATTING UTILITIES
-  const formatNumber = (value) => {
-    // Boş, null, undefined ise boş string döndür
-    if (value === null || value === undefined || value === '') return '';
-
-    // 0 değeri için özel kontrol - 0 geçerli bir sayıdır!
-    if (value === 0 || value === '0') return '0';
-
-    // Sadece sayıları al (nokta ve virgülleri temizle)
-    const numericValue = value.toString().replace(/[^\d]/g, '');
-    if (numericValue === '') return '';
-
-    // Sayıyı formatla (3'lü gruplar halinde nokta koy)
-    return parseInt(numericValue).toLocaleString('tr-TR');
-  };
-
-  const parseNumber = (formattedValue) => {
-    if (!formattedValue || formattedValue === '') return '';
-    // Formatlanmış değerden sadece sayıları al
-    return formattedValue.toString().replace(/[^\d]/g, '');
-  };
-
-  // 🔧 FIX: Güvenli parseInt - Türkçe formatlı sayıları ("1.088.000") doğru parse eder
-  // parseInt("1.088.000") → 1 (YANLIŞ!), safeParseInt("1.088.000") → 1088000 (DOĞRU)
-  const safeParseInt = (value) => {
-    if (value === null || value === undefined || value === '') return 0;
-    // Önce string'e çevir, sonra tüm nokta/virgül/boşluk ayırıcıları temizle
-    const cleaned = value.toString().replace(/[^\d]/g, '');
-    const parsed = parseInt(cleaned, 10);
-    return isNaN(parsed) ? 0 : parsed;
-  };
+  // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
+  // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
+  const formatNumber = yazarkenBicimle;
+  const parseNumber = bicimiCoz;
+  const safeParseInt = (value) => Math.round(sayiyaCevir(value));
 
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
@@ -5151,12 +5126,9 @@ const TesvikForm = () => {
 
     const finansal = formData.finansalBilgiler;
 
-    // Güvenli sayı dönüştürme fonksiyonu
-    const toNumber = (value) => {
-      if (value === null || value === undefined || value === '') return 0;
-      const num = parseFloat(value);
-      return isNaN(num) ? 0 : num;
-    };
+    // Güvenli sayı dönüştürme. parseFloat kullanılamaz: alan biçimlenmiş bir
+    // metin ("18.000.000") taşıyorsa parseFloat 18 döndürüyordu.
+    const toNumber = (value) => sayiyaCevir(value);
 
     // 1. Arazi-Arsa Bedeli hesapla
     const araziTotal = toNumber(finansal.araziArsaBedeli?.metrekaresi) * toNumber(finansal.araziArsaBedeli?.birimFiyatiTl);
@@ -5551,19 +5523,14 @@ const TesvikForm = () => {
                 <TextField
                   fullWidth
                   label="TOPLAM YABANCI KAYNAK"
-                  type="number"
-                  value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                  type="text"
+                  value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
                   onChange={(e) => {
-                    const value = parseFloat(e.target.value) || 0;
+                    const value = parseNumber(e.target.value);
                     handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
                     // Bank Kredisi de aynı değeri alsın (backend uyumluluğu için)
                     handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
                   }}
-                  onFocus={handleNumberFieldFocus}
-                  onBlur={(e) => handleNumberFieldBlur(e, (val) => {
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', val);
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', val);
-                  })}
                   InputProps={{
                     endAdornment: '₺',
                     style: { fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }
@@ -5577,8 +5544,8 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Özkaynaklar (= Sabit Yatırım - Yabancı Kaynak)"
-                type="number"
-                value={formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar)}
                 InputProps={{
                   readOnly: true,
                   endAdornment: '₺',
@@ -5630,14 +5597,11 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="İthal"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal).toLocaleString('tr-TR')}
+                value={formatNumber(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal)}
                 name="makineTlIthal"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.ithal"
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', raw ? parseInt(raw, 10) : 0);
-                }}
+                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseNumber(e.target.value))}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', val))}
                 inputProps={{ inputMode: 'numeric' }}
@@ -5648,14 +5612,11 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yerli"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli).toLocaleString('tr-TR')}
+                value={formatNumber(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli)}
                 name="makineTlYerli"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.yerli"
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', raw ? parseInt(raw, 10) : 0);
-                }}
+                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseNumber(e.target.value))}
                 onFocus={handleNumberFieldFocus}
                 onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', val))}
                 inputProps={{ inputMode: 'numeric' }}
@@ -5734,14 +5695,12 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Yardımcı İşl. Mak. Teç. Gid."
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
                 name="yardimciIslMakTecGid"
                 data-section="digerYatirimHarcamalari"
                 data-field="yardimciIslMakTeçGid"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', val))}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5749,14 +5708,12 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="İthalat ve Güm.Giderleri"
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri)}
                 name="ithalatVeGumGiderleri"
                 data-section="digerYatirimHarcamalari"
                 data-field="ithalatVeGumGiderleri"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', val))}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5764,11 +5721,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Taşıma ve Sigorta G."
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', val))}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5777,11 +5732,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Montaj Giderleri"
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', val))}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5789,11 +5742,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Etüd ve Proje Giderleri"
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', val))}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5801,11 +5752,9 @@ const TesvikForm = () => {
               <TextField
                 fullWidth
                 label="Diğer Giderleri"
-                type="number"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseFloat(e.target.value) || 0)}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', val))}
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseNumber(e.target.value))}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>

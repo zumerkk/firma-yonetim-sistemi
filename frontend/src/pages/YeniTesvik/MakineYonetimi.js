@@ -2623,7 +2623,7 @@ const MakineYonetimi = () => {
       ) },
       { field: 'toplamUsd', headerName: '$', width: 75, align:'right', headerAlign:'right',
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
-        valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
+        valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('tr-TR')
       },
       { field: 'toplamTl', headerName: '₺', width: 85, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
         renderCell: (p) => {
@@ -3293,7 +3293,7 @@ const MakineYonetimi = () => {
           <Box sx={{ flex: 1 }} />
           
           <Typography sx={{ fontSize: '10px', color: '#64748b' }}>
-            {rows.length} satır | Toplam: {quickTab === 'yerli' ? yerliToplamTl.toLocaleString('tr-TR') + ' ₺' : ithalToplamUsd.toLocaleString('en-US') + ' $'}
+            {rows.length} satır | Toplam: {quickTab === 'yerli' ? yerliToplamTl.toLocaleString('tr-TR') + ' ₺' : ithalToplamUsd.toLocaleString('tr-TR') + ' $'}
           </Typography>
           
           {/* Kapat */}
@@ -3658,7 +3658,7 @@ const MakineYonetimi = () => {
             borderRadius: 1.5
           }}>
             <Typography sx={{ color: theme.warningDark, fontWeight: 700, fontSize: '0.8rem' }}>
-              İthal: {ithalToplamUsd.toLocaleString('en-US')} $
+              İthal: {ithalToplamUsd.toLocaleString('tr-TR')} $
             </Typography>
           </Box>
         </Stack>
@@ -4968,7 +4968,7 @@ const MakineYonetimi = () => {
                         Toplam FOB:
                       </Typography>
                       <Typography variant="body2" fontWeight="bold" color="primary">
-                        {((manuelKurEditingRow?.miktar || 0) * (manuelKurEditingRow?.birimFiyatiFob || 0)).toLocaleString('en-US')} {manuelKurEditingRow?.doviz}
+                        {((manuelKurEditingRow?.miktar || 0) * (manuelKurEditingRow?.birimFiyatiFob || 0)).toLocaleString('tr-TR')} {manuelKurEditingRow?.doviz}
                       </Typography>
                     </Stack>
                     <Stack direction="row" justifyContent="space-between">

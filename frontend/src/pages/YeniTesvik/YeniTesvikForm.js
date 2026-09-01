@@ -69,6 +69,7 @@ import RevisionTimeline from '../../components/RevisionTimeline';
 import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
+import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
 // 🏭 Yatırım Konusu OECD 4 Haneli Kodları artık API'den çekiliyor (templateData.yatirimKonusuKodlari)
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -87,37 +88,11 @@ const YeniTesvikForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
 
-  // 🔢 NUMBER FORMATTING UTILITIES
-  const formatNumber = (value) => {
-    // Boş, null, undefined ise boş string döndür
-    if (value === null || value === undefined || value === '') return '';
-
-    // 0 değeri için özel kontrol - 0 geçerli bir sayıdır!
-    if (value === 0 || value === '0') return '0';
-
-    // Sadece sayıları al (nokta ve virgülleri temizle)
-    const numericValue = value.toString().replace(/[^\d]/g, '');
-    if (numericValue === '') return '';
-
-    // Sayıyı formatla (3'lü gruplar halinde nokta koy)
-    return parseInt(numericValue).toLocaleString('tr-TR');
-  };
-
-  const parseNumber = (formattedValue) => {
-    if (!formattedValue || formattedValue === '') return '';
-    // Formatlanmış değerden sadece sayıları al
-    return formattedValue.toString().replace(/[^\d]/g, '');
-  };
-
-  // 🔧 FIX: Güvenli parseInt - Türkçe formatlı sayıları ("1.088.000") doğru parse eder
-  // parseInt("1.088.000") → 1 (YANLIŞ!), safeParseInt("1.088.000") → 1088000 (DOĞRU)
-  const safeParseInt = (value) => {
-    if (value === null || value === undefined || value === '') return 0;
-    // Önce string'e çevir, sonra tüm nokta/virgül/boşluk ayırıcıları temizle
-    const cleaned = value.toString().replace(/[^\d]/g, '');
-    const parsed = parseInt(cleaned, 10);
-    return isNaN(parsed) ? 0 : parsed;
-  };
+  // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
+  // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
+  const formatNumber = yazarkenBicimle;
+  const parseNumber = bicimiCoz;
+  const safeParseInt = (value) => Math.round(sayiyaCevir(value));
 
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
@@ -4538,12 +4513,9 @@ const YeniTesvikForm = () => {
 
     const finansal = formData.finansalBilgiler;
 
-    // Güvenli sayı dönüştürme fonksiyonu
-    const toNumber = (value) => {
-      if (value === null || value === undefined || value === '') return 0;
-      const num = parseFloat(value);
-      return isNaN(num) ? 0 : num;
-    };
+    // Güvenli sayı dönüştürme. parseFloat kullanılamaz: alan biçimlenmiş bir
+    // metin ("18.000.000") taşıyorsa parseFloat 18 döndürüyordu.
+    const toNumber = (value) => sayiyaCevir(value);
 
     // 1. Arazi-Arsa Bedeli hesapla
     const araziTotal = toNumber(finansal.araziArsaBedeli?.metrekaresi) * toNumber(finansal.araziArsaBedeli?.birimFiyatiTl);
@@ -4698,30 +4670,6 @@ const YeniTesvikForm = () => {
   ]);
 
   // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için - ENHANCED!
-  const handleNumberFieldFocus = (e) => {
-    // Kullanıcı tıklayınca 0 ise tamamen temizle (tip number olduğu için sadece value='')
-    if (e.target.value === '0' || e.target.value === 0 || e.target.value === '0.00') {
-      e.target.value = '';
-      // Field'ı boşalttığımızı state'e de yansıt (blur beklemeden) → pasif toplam ve validasyonlar canlı çalışsın
-      const nameAttr = e.target.getAttribute('name');
-      const dataSection = e.target.getAttribute('data-section');
-      const dataField = e.target.getAttribute('data-field');
-      if (dataSection && dataField) {
-        // Finansal alanlara özel: 0 yerine boş anlık state yaz
-        handleFinansalChange(dataSection, dataField, '');
-      } else if (nameAttr) {
-        // Genel sayı alanları için destek (varsa)
-        setFormData(prev => ({ ...prev, [nameAttr]: '' }));
-      }
-    }
-  };
-
-  const handleNumberFieldBlur = (e, changeHandler) => {
-    // Boşsa sıfır yap
-    if (e.target.value === '' || e.target.value === null) {
-      changeHandler(0);
-    }
-  };
 
   // 💰 5. FİNANSAL BİLGİLER - Devlet Sistemine Uygun İki Kolonlu Düzen
   const renderFinansalBilgiler = () => (
@@ -4993,10 +4941,10 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam Yabancı Kaynak:</Typography>
-                  <TextField size="small" fullWidth type="number"
-                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                  <TextField size="small" fullWidth type="text"
+                    value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
                     onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
+                      const value = parseNumber(e.target.value);
                       handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
                       handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
                     }}

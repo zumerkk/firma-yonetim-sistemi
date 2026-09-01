@@ -1,6 +1,7 @@
 // 🔎 Generic Lookup Controller: Unit and Currency codes
 
 const UnitCode = require('../models/UnitCode');
+const { sayiyaCevir } = require('../utils/sayiFormat');
 const CurrencyCode = require('../models/CurrencyCode');
 const UsedMachineCode = require('../models/UsedMachineCode');
 const MachineTypeCode = require('../models/MachineTypeCode');
@@ -79,13 +80,9 @@ module.exports.getCurrencyRate = async (req, res) => {
         const unitMatch = slice.match(/<Unit>(\d+)<\/Unit>/);
         const fsMatch = slice.match(/<ForexSelling>([\d.,]+)<\/ForexSelling>/);
         const bsMatch = slice.match(/<BanknoteSelling>([\d.,]+)<\/BanknoteSelling>/);
-        const num = (s) => {
-          const v = (s || '').trim();
-          if (!v) return NaN;
-          // Eğer virgül içeriyorsa binlik ayırıcıları (.) kaldır ve , => .
-          if (v.includes(',')) return Number(v.replace(/\./g, '').replace(/,/g, '.'));
-          return Number(v); // 40.8047 gibi değerler
-        };
+        // TCMB "40,8047" (TR) ya da "40.8047" (EN) dönebiliyor; ortak parser
+        // ayıracın konumuna bakarak ikisini de doğru çözüyor.
+        const num = (s) => sayiyaCevir(s, NaN);
         const unit = num(unitMatch && unitMatch[1]);
         const val = num((fsMatch && fsMatch[1]) || (bsMatch && bsMatch[1]));
         if (!val || !unit) return null;
