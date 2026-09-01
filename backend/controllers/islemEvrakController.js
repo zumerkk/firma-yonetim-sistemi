@@ -3,6 +3,7 @@
 
 const IslemTuru = require('../models/IslemTuru');
 const IslemTalebi = require('../models/IslemTalebi');
+const Firma = require('../models/Firma');
 const svc = require('../services/islemEvrak/islemEvrakService');
 const storageService = require('../services/tesvikMakine/storageService');
 const mailService = require('../services/tesvikMakine/mailService');
@@ -36,7 +37,8 @@ exports.turDetay = wrap(async (req, res) => {
 });
 
 exports.turKaydet = wrap(async (req, res) => {
-  const { kod, ad, aciklama, mailKonusu, mailGovdesi, istenenEvraklar, sorular, varyantlar, aktif, siraNo } = req.body || {};
+  const { kod, ad, aciklama, mailKonusu, mailGovdesi, googleFormUrl, googleFormAlanlari,
+    istenenEvraklar, sorular, varyantlar, aktif, siraNo } = req.body || {};
   if (!ad || !String(ad).trim()) { const e = new Error('İşlem adı zorunludur.'); e.code = 'BAD_INPUT'; throw e; }
 
   const govde = {
@@ -44,6 +46,11 @@ exports.turKaydet = wrap(async (req, res) => {
     aciklama: aciklama || '',
     mailKonusu: mailKonusu || '',
     mailGovdesi: mailGovdesi || '',
+    // Google Form ön-dolgusu: anahtarı boş kalan eşleme link üretiminde işe yaramaz, elenir
+    googleFormUrl: String(googleFormUrl || '').trim(),
+    googleFormAlanlari: Array.isArray(googleFormAlanlari)
+      ? googleFormAlanlari.filter((a) => a && String(a.entryId || '').trim())
+      : [],
     istenenEvraklar: Array.isArray(istenenEvraklar) ? istenenEvraklar : [],
     // Metni boş bırakılmış soru koşulları bozar (evrak hiç görünmez hale gelir) → elenir
     sorular: Array.isArray(sorular)
@@ -186,7 +193,10 @@ exports.talepMailOnizle = wrap(async (req, res) => {
   const tur = await IslemTuru.findById(talep.islemTuru);
   const sablon = tur ? tur.varyantCoz(talep.varyantKod) : { mailKonusu: '', mailGovdesi: '' };
   const uploadLink = await svc.ensureUploadLink(talep);
-  const { konu, govde } = svc.mailOlustur({ talep, sablon, uploadLink });
+  // Google Form bağlantısı firmaya göre ön-doldurulacağı için firma kaydı da lazım
+  // (talep yalnızca ad/e-posta snapshot'ı taşıyor; vergi no firmadan geliyor).
+  const firma = await Firma.findById(talep.firma).select('tamUnvan vergiNoTC firmaEmail').lean();
+  const { konu, govde } = svc.mailOlustur({ talep, sablon, uploadLink, firma });
   res.json({
     success: true,
     data: {

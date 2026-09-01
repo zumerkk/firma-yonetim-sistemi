@@ -31,6 +31,8 @@ const varyantSchema = new mongoose.Schema({
   ad: { type: String, required: true, trim: true },    // "Şahıs", "Şirket"
   mailKonusu: { type: String, trim: true, default: '' },
   mailGovdesi: { type: String, default: '' },
+  // Varyanta özel form; boşsa işlem türündeki kullanılır
+  googleFormUrl: { type: String, trim: true, default: '' },
   istenenEvraklar: { type: [istenenEvrakSchema], default: [] }
 }, { _id: false });
 
@@ -48,6 +50,21 @@ const islemTuruSchema = new mongoose.Schema({
   // Varyant yoksa bu liste/metin kullanılır
   mailKonusu: { type: String, trim: true, default: '' },
   mailGovdesi: { type: String, default: '' },
+  // 🔗 Google Form: firmadan bilgi toplamak için maile eklenen bağlantı.
+  // Müşteri: "Google Forms linkini koyabilirsek ek gibi çok iyi olur ... otomatik
+  // olarak ilişkin firmaya ait olsun." Google Forms'ta firma bazlı ayrı form açmak
+  // yerine TEK form kullanılır; link her firma için ön-doldurulmuş üretilir, böylece
+  // e-tabloda gelen her satır hangi firmaya ait olduğu belli olur.
+  // googleFormAlanlari: Forms'un "Ön doldurulmuş bağlantı al" ekranından alınan
+  // entry.<id> anahtarlarını hangi firma bilgisiyle dolduracağımızı söyler.
+  googleFormUrl: { type: String, trim: true, default: '' },
+  googleFormAlanlari: {
+    type: [{
+      entryId: { type: String, trim: true, required: true },   // ör. "entry.1234567890"
+      kaynak: { type: String, trim: true, enum: ['firmaAdi', 'vergiNoTC', 'firmaEmail', 'islemAdi'], default: 'firmaAdi' }
+    }],
+    default: []
+  },
   istenenEvraklar: { type: [istenenEvrakSchema], default: [] },
   // Soru listesi BOŞSA sihirbaz hiç çıkmaz; talep bugünkü gibi düz listeyle açılır.
   // Bu, özelliği kod değiştirmeden kapatmanın yolu (bkz. geri alma kademesi 1).
@@ -71,6 +88,9 @@ islemTuruSchema.methods.varyantCoz = function (varyantKod) {
         ad: v.ad,
         mailKonusu: v.mailKonusu || this.mailKonusu || '',
         mailGovdesi: v.mailGovdesi || this.mailGovdesi || '',
+        // Form varyanta özel tanımlanmadıysa işlem türününki kullanılır
+        googleFormUrl: v.googleFormUrl || this.googleFormUrl || '',
+        googleFormAlanlari: this.googleFormAlanlari || [],
         istenenEvraklar: (v.istenenEvraklar && v.istenenEvraklar.length) ? v.istenenEvraklar : this.istenenEvraklar,
         sorular: this.sorular || []   // sorular tür seviyesinde, varyanta göre değişmiyor
       };
@@ -81,6 +101,8 @@ islemTuruSchema.methods.varyantCoz = function (varyantKod) {
     ad: '',
     mailKonusu: this.mailKonusu || '',
     mailGovdesi: this.mailGovdesi || '',
+    googleFormUrl: this.googleFormUrl || '',
+    googleFormAlanlari: this.googleFormAlanlari || [],
     istenenEvraklar: this.istenenEvraklar || [],
     sorular: this.sorular || []
   };
