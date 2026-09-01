@@ -10,7 +10,7 @@ import currencyService from '../../services/currencyService';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
-import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI } from '../../utils/makineFormat';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
@@ -241,6 +241,14 @@ const MakineYonetimi = () => {
   const [rowClipboard, setRowClipboard] = useState(null);
   const [partialOpen, setPartialOpen] = useState(false);
   const [partialQty, setPartialQty] = useState(0);
+  // Madde 10: "toplu işlem - toplu tarih vs girebilelim"
+  // Seçili satırlara TEK SEFERDE hem durum hem TARİH yazan diyalog. Mevcut toplu
+  // menü hep bugünün tarihini yazıyordu; bakanlık kararları geriye dönük girildiği
+  // için tarihin seçilebilmesi gerekiyor.
+  const [topluOpen, setTopluOpen] = useState(false);
+  const [topluIslem, setTopluIslem] = useState('onay'); // talep | onay | kismi_onay | red
+  const [topluTarih, setTopluTarih] = useState('');
+  const [topluAdet, setTopluAdet] = useState(0);
   const [favAnchor, setFavAnchor] = useState(null);
   const [favType, setFavType] = useState(null); // 'gtip'|'unit'|'currency'
   const [favRowId, setFavRowId] = useState(null);
@@ -1834,13 +1842,15 @@ const MakineYonetimi = () => {
     else setIthalRows(rows => [...rows, calcIthal({ id: Math.random().toString(36).slice(2), ...tpl })]);
   };
 
-  const handleBulkTalep = async () => {
+  // Madde 10: "toplu işlem - toplu tarih vs girebilelim".
+  // tarih verilmezse eski davranış korunur (satırdaki tarih, yoksa bugün).
+  const handleBulkTalep = async (tarih) => {
     if (!selectedTesvik || selectionModel.length === 0) return;
     const list = tab === 'yerli' ? yerliRows : ithalRows;
     const apply = async (row) => {
       const rid = await ensureRowId(tab, row);
       if (!rid) return;
-      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: row?.talep?.talepTarihi ? row.talep.talepTarihi : new Date() };
+      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: tarih || row?.talep?.talepTarihi || new Date() };
       const result = await tesvikService.setMakineTalep(selectedTesvik._id, { liste: tab, rowId: rid, talep });
       // Backend'ten gelen güncel veriyi kullan
       if (result?.data?.makineListeleri) {
@@ -1865,10 +1875,14 @@ const MakineYonetimi = () => {
     }
   };
 
-  const handleBulkKarar = async (type) => {
+  // Madde 10 + hata düzeltmesi: kısmi onay diyaloğu partialQty topluyordu ama bu
+  // fonksiyon ikinci parametreyi yok sayıp window.prompt açıyordu — girilen adet
+  // çöpe gidiyordu. Artık adet ve tarih dışarıdan geliyor; ikisi de verilmezse
+  // eski davranış (prompt / bugünün tarihi) korunuyor.
+  const handleBulkKarar = async (type, adet, tarih) => {
     if (!selectedTesvik || selectionModel.length === 0) return;
-    let onayAdet = 0;
-    if (type === 'kismi_onay') {
+    let onayAdet = Number(adet) || 0;
+    if (type === 'kismi_onay' && !onayAdet) {
       const v = window.prompt('Kısmi onay adedi');
       onayAdet = Number(v) || 0;
     }
@@ -1879,7 +1893,7 @@ const MakineYonetimi = () => {
       const karar = {
         kararDurumu: type,
         onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
-        kararTarihi: row?.karar?.kararTarihi ? row.karar.kararTarihi : new Date()
+        kararTarihi: tarih || row?.karar?.kararTarihi || new Date()
       };
       const result = await tesvikService.setMakineKarar(selectedTesvik._id, { liste: tab, rowId: rid, karar });
       // Backend'ten gelen güncel veriyi kullan
@@ -1903,6 +1917,14 @@ const MakineYonetimi = () => {
     } catch(e) {
       console.error('Veri yenilenemedi:', e);
     }
+  };
+
+  // Toplu tarih/durum diyaloğunun "Uygula" düğmesi
+  const topluUygula = async () => {
+    const tarih = topluTarih ? new Date(topluTarih) : undefined;
+    setTopluOpen(false);
+    if (topluIslem === 'talep') await handleBulkTalep(tarih);
+    else await handleBulkKarar(topluIslem, topluIslem === 'kismi_onay' ? topluAdet : undefined, tarih);
   };
 
   // 🎯 Kompakt Input Stilleri
@@ -2473,7 +2495,7 @@ const MakineYonetimi = () => {
       // Sıra no dar sütuna sıkıştırılmış bir input'tu, rakam okunmuyordu (müşteri şikayeti).
       // Revize modunda düzenlenebilir input; dışında düz, okunur metin.
       // Görünüm YeniTesvik/MakineYonetimi ile aynı tutuldu (müşteri: "iki liste aynı olsun").
-      { field: 'siraNo', headerName: 'Sıra', width: 62,
+      { field: 'siraNo', headerName: 'Sıra', description: 'Sıra No', width: 62,
         renderCell: (p) => (
           isReviseMode ? (
             <TextField
@@ -2491,7 +2513,7 @@ const MakineYonetimi = () => {
           )
         )
       },
-      { field: 'makineId', headerName: 'M.ID', width: 65, 
+      { field: 'makineId', headerName: 'M.ID', description: 'Makine ID', width: 80, 
         renderCell: (p) => (
           <TextField 
             size="small" 
@@ -2530,14 +2552,14 @@ const MakineYonetimi = () => {
       { field: 'adi', headerName: 'Adı', flex: 1, minWidth: 180, editable: isReviseMode, renderCell:(p)=> (
         <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%', fontSize: '0.68rem' }}>{p.value||''}</Box></Tooltip>
       ) },
-      { field: 'kdvIstisnasi', headerName: 'KDV', width: 65, renderCell: (p) => (
+      { field: 'kdvIstisnasi', headerName: 'KDV', description: 'KDV İstisnası', width: 65, renderCell: (p) => (
         <Select size="small" value={p.row.kdvIstisnasi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { kdvIstisnasi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
           <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="EVET" sx={{ fontSize: '0.68rem' }}>E</MenuItem>
           <MenuItem value="HAYIR" sx={{ fontSize: '0.68rem' }}>H</MenuItem>
         </Select>
       ) },
-      { field: 'miktar', headerName: 'Adet', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'birim', headerName: 'Birim', width: 160, renderCell: (p) => (
           <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%' }}>
             <Box sx={{ flex: 1 }}>
@@ -2546,36 +2568,36 @@ const MakineYonetimi = () => {
             <IconButton size="small" sx={{ p: 0.25 }} onClick={(e)=> openFavMenu(e,'unit', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></IconButton>
           </Stack>
         ) },
-      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
-      { field: 'makineTechizatTipi', headerName: 'Tip', width: 85, renderCell: (p)=> (
+      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', description: 'Birim Fiyatı (TL)', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'makineTechizatTipi', headerName: 'Tip', description: 'Makine / Teçhizat Tipi', width: 85, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
           <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="Ana Makine" sx={{ fontSize: '0.68rem' }}>Ana</MenuItem>
           <MenuItem value="Yardımcı Makine" sx={{ fontSize: '0.68rem' }}>Yard.</MenuItem>
         </Select>
       ) },
-      { field: 'finansalKiralamaMi', headerName: 'FK', width: 55, renderCell: (p) => (
+      { field: 'finansalKiralamaMi', headerName: 'FK', description: 'Finansal Kiralama mı?', width: 55, renderCell: (p) => (
         <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
           <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       )},
-      { field: 'finansalKiralamaAdet', headerName: 'FK Adet', width: 100, editable: isReviseMode, type: 'number' },
-      { field: 'finansalKiralamaSirket', headerName: 'FK Şirket', width: 160, editable: isReviseMode },
-      { field: 'gerceklesenAdet', headerName: 'Gerç. Adet', width: 110, editable: isReviseMode, type: 'number' },
-      { field: 'gerceklesenTutar', headerName: 'Gerç. Tutar', width: 130, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış Var mı?', width: 150, renderCell: (p) => (
+      { field: 'finansalKiralamaAdet', headerName: 'FK#', description: 'Finansal Kiralama Adedi', width: 50, editable: isReviseMode, type: 'number' },
+      { field: 'finansalKiralamaSirket', headerName: 'FK Şrk', description: 'Finansal Kiralama Şirketi', width: 80, editable: isReviseMode },
+      { field: 'gerceklesenAdet', headerName: 'G.Adet', description: 'Gerçekleşen Adet', width: 55, editable: isReviseMode, type: 'number' },
+      { field: 'gerceklesenTutar', headerName: 'G.Tutar', description: 'Gerçekleşen Tutar', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisVarMi', headerName: 'DVR', description: 'İade / Devir / Satış Var mı?', width: 55, renderCell: (p) => (
         <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> isReviseMode && updateYerli(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: isReviseMode, type: 'number' },
-      { field: 'toplamTl', headerName: 'Toplam (TL)', width: 140, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
-      { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
+      { field: 'iadeDevirSatisAdet', headerName: 'DVR#', description: 'İade / Devir / Satış Adedi', width: 55, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', description: 'İade / Devir / Satış Tutarı', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <Button size="small" disabled={hucreYukleme === p.row.id}
             onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>
@@ -2590,13 +2612,13 @@ const MakineYonetimi = () => {
           )}
         </Box>
       )},
-      { field: 'etuysSecili', headerName: 'ETUYS', width: 80, sortable:false, renderCell:(p)=> (
+      { field: 'etuysSecili', headerName: '✓', description: 'ETUYS listesine dahil', width: 35, sortable:false, renderCell:(p)=> (
         <input type="checkbox" checked={!!p.row.etuysSecili} disabled={!isReviseMode} onChange={(e)=> updateYerli(p.row.id, { etuysSecili: e.target.checked })} />
       ) },
-      { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
+      { field: 'copy', headerName: '', width: 30, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setYerliRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 90, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', description: 'Talep Durumu', width: 85, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
             <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
@@ -2627,7 +2649,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 95, sortable: false, renderCell: (p)=>{
+      { field: 'karar', headerName: 'Karar', description: 'Karar Durumu', width: 90, sortable: false, renderCell: (p)=>{
         // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
         const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
         const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
@@ -2684,7 +2706,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
           
@@ -2706,7 +2728,14 @@ const MakineYonetimi = () => {
                 
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) return;
+                // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
+                // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
+                // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
                 const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
+                if (newValue && !talep.durum) {
+                  talep.durum = 'bakanliga_gonderildi';
+                  if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
+                }
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
                 updateYerli(p.row.id, { rowId: rid, talep });
                 setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -2716,7 +2745,7 @@ const MakineYonetimi = () => {
         };
         return <TalepTarihiCell />;
       } },
-      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> {
         const KararTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
           
@@ -2738,7 +2767,14 @@ const MakineYonetimi = () => {
                 
                 const rid = await ensureRowId('yerli', p.row);
                 if (!rid) return;
+                // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
+                // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
+                // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
                 const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
+                if (newValue && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
+                  karar.kararDurumu = 'onay';
+                  if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
+                }
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
                 updateYerli(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -2819,7 +2855,7 @@ const MakineYonetimi = () => {
       // Sıra no dar sütuna sıkıştırılmış bir input'tu, rakam okunmuyordu (müşteri şikayeti).
       // Revize modunda düzenlenebilir input; dışında düz, okunur metin.
       // Görünüm YeniTesvik/MakineYonetimi ile aynı tutuldu (müşteri: "iki liste aynı olsun").
-      { field: 'siraNo', headerName: 'Sıra', width: 62,
+      { field: 'siraNo', headerName: 'Sıra', description: 'Sıra No', width: 62,
         renderCell: (p) => (
           isReviseMode ? (
             <TextField
@@ -2837,7 +2873,7 @@ const MakineYonetimi = () => {
           )
         )
       },
-      { field: 'makineId', headerName: 'Makine ID', width: 90, 
+      { field: 'makineId', headerName: 'M.ID', description: 'Makine ID', width: 80, 
         renderCell: (p) => (
           <TextField 
             size="small" 
@@ -2877,7 +2913,7 @@ const MakineYonetimi = () => {
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 260, editable: isReviseMode, renderCell:(p)=> (
         <Tooltip title={p.value||''}><Box sx={{ whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'100%' }}>{p.value||''}</Box></Tooltip>
       ) },
-      { field: 'miktar', headerName: 'Miktar', width: 90, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
       { field: 'birim', headerName: 'Birim', width: 280, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1, pr:1 }}>
@@ -2887,8 +2923,8 @@ const MakineYonetimi = () => {
         </Stack>
       ) },
       // birimAciklamasi kolonu kaldırıldı
-      { field: 'birimFiyatiFob', headerName: 'FOB BF', width: 110, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
-      { field: 'doviz', headerName: 'Döviz / Kur', width: 240, renderCell: (p)=>(
+      { field: 'birimFiyatiFob', headerName: 'FOB', description: 'Birim Fiyatı (FOB)', width: 75, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'doviz', headerName: 'Döviz', description: 'Döviz Cinsi / Kur', width: 140, renderCell: (p)=>(
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <UnitCurrencySearch type="currency" value={p.row.doviz} onChange={(kod)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{doviz:kod}); }} />
@@ -2947,11 +2983,11 @@ const MakineYonetimi = () => {
           </IconButton>
         </Stack>
       ) },
-      { field: 'toplamUsd', headerName: '$', width: 110, align:'right', headerAlign:'right',
+      { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (USD)', width: 75, align:'right', headerAlign:'right',
         valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
         valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('en-US')
       },
-      { field: 'toplamTl', headerName: 'TL', width: 140, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
+      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
         renderCell: (p) => {
           const value = p.value;
           const row = p.row;
@@ -2978,7 +3014,7 @@ const MakineYonetimi = () => {
       // seçim yapıyoruz sadece." Arama modali yerine düz liste. Değerler bakanlık
       // kodları (usedmachinecodes): 1=Komple, 2=HAYIR, 3=Münferit — açıklama da
       // birlikte yazılır ki dışa aktarımda etiket çözülebilsin.
-      { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=> (
+      { field: 'kullanilmis', headerName: 'Kull.', description: 'Kullanılmış Makine Durumu', width: 100, renderCell: (p)=> (
         <Select size="small" value={p.row.kullanilmisKod || ''}
           onChange={(e)=>{
             if(!isReviseMode) return;
@@ -2992,62 +3028,62 @@ const MakineYonetimi = () => {
           <MenuItem value="3" sx={{ fontSize: '0.68rem' }}>Kullanılmış Münferit</MenuItem>
         </Select>
       ) },
-      { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, renderCell: (p)=> (
+      { field: 'ckdSkd', headerName: 'CKD', description: 'CKD / SKD mi?', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.ckdSkd || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { ckdSkd: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'aracMi', headerName: 'Araç mı?', width: 110, renderCell: (p)=> (
+      { field: 'aracMi', headerName: 'Araç', description: 'Araç mı?', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.aracMi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { aracMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'makineTechizatTipi', headerName: 'M.Teşhizat Tipi', width: 180, renderCell: (p)=> (
+      { field: 'makineTechizatTipi', headerName: 'Tip', description: 'Makine / Teçhizat Tipi', width: 85, renderCell: (p)=> (
         <Select size="small" value={p.row.makineTechizatTipi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { makineTechizatTipi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="Ana Makine">Ana Makine</MenuItem>
           <MenuItem value="Yardımcı Makine">Yardımcı Makine</MenuItem>
         </Select>
       ) },
-      { field: 'kdvMuafiyeti', headerName: 'KDV Muaf?', width: 120, renderCell: (p)=> (
+      { field: 'kdvMuafiyeti', headerName: 'KDV', description: 'KDV Muafiyeti', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.kdvMuafiyeti || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { kdvMuafiyeti: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'gumrukVergisiMuafiyeti', headerName: 'G.Verg. Muaf?', width: 140, renderCell: (p)=> (
+      { field: 'gumrukVergisiMuafiyeti', headerName: 'G.V.', description: 'Gümrük Vergisi Muafiyeti', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.gumrukVergisiMuafiyeti || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { gumrukVergisiMuafiyeti: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'finansalKiralamaMi', headerName: 'FK mı?', width: 100, renderCell: (p)=> (
+      { field: 'finansalKiralamaMi', headerName: 'FK', description: 'Finansal Kiralama mı?', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.finansalKiralamaMi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { finansalKiralamaMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'finansalKiralamaAdet', headerName: 'FK Adet', width: 100, editable: isReviseMode, type: 'number' },
-      { field: 'finansalKiralamaSirket', headerName: 'FK Şirket', width: 160, editable: isReviseMode },
-      { field: 'gerceklesenAdet', headerName: 'Gerç. Adet', width: 110, editable: isReviseMode, type: 'number' },
-      { field: 'gerceklesenTutar', headerName: 'Gerç. Tutar', width: 130, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisVarMi', headerName: 'İade/Devir/Satış?', width: 150, renderCell: (p)=> (
+      { field: 'finansalKiralamaAdet', headerName: 'FK#', description: 'Finansal Kiralama Adedi', width: 50, editable: isReviseMode, type: 'number' },
+      { field: 'finansalKiralamaSirket', headerName: 'FK Şrk', description: 'Finansal Kiralama Şirketi', width: 80, editable: isReviseMode },
+      { field: 'gerceklesenAdet', headerName: 'G.Adet', description: 'Gerçekleşen Adet', width: 55, editable: isReviseMode, type: 'number' },
+      { field: 'gerceklesenTutar', headerName: 'G.Tutar', description: 'Gerçekleşen Tutar', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisVarMi', headerName: 'DVR', description: 'İade / Devir / Satış Var mı?', width: 55, renderCell: (p)=> (
         <Select size="small" value={p.row.iadeDevirSatisVarMi || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { iadeDevirSatisVarMi: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>
           <MenuItem value="">-</MenuItem>
           <MenuItem value="EVET">EVET</MenuItem>
           <MenuItem value="HAYIR">HAYIR</MenuItem>
         </Select>
       ) },
-      { field: 'iadeDevirSatisAdet', headerName: 'İade/Devir/Satış Adet', width: 170, editable: isReviseMode, type: 'number' },
-      { field: 'iadeDevirSatisTutar', headerName: 'İade/Devir/Satış Tutar', width: 180, editable: isReviseMode, type: 'number' },
-      { field: 'dosya', headerName: 'Dosya', width: 120, sortable: false, renderCell: (p)=> (
+      { field: 'iadeDevirSatisAdet', headerName: 'DVR#', description: 'İade / Devir / Satış Adedi', width: 55, editable: isReviseMode, type: 'number' },
+      { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', description: 'İade / Devir / Satış Tutarı', width: 70, editable: isReviseMode, type: 'number' },
+      { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <Button size="small" disabled={hucreYukleme === p.row.id}
             onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>
@@ -3062,13 +3098,13 @@ const MakineYonetimi = () => {
           )}
         </Box>
       )},
-      { field: 'etuysSecili', headerName: 'ETUYS', width: 80, sortable:false, renderCell:(p)=> (
+      { field: 'etuysSecili', headerName: '✓', description: 'ETUYS listesine dahil', width: 35, sortable:false, renderCell:(p)=> (
         <input type="checkbox" checked={!!p.row.etuysSecili} disabled={!isReviseMode} onChange={(e)=> updateIthal(p.row.id, { etuysSecili: e.target.checked })} />
       ) },
-      { field: 'copy', headerName: '', width: 42, sortable: false, renderCell: (p)=> (
+      { field: 'copy', headerName: '', width: 30, sortable: false, renderCell: (p)=> (
         <IconButton size="small" onClick={()=> isReviseMode && setIthalRows(rows => duplicateRow(rows, p.row.id))} disabled={!isReviseMode}><CopyIcon fontSize="inherit"/></IconButton>
       )},
-      { field: 'talep', headerName: 'Talep', width: 90, sortable: false, renderCell: (p)=>(
+      { field: 'talep', headerName: 'Talep', description: 'Talep Durumu', width: 85, sortable: false, renderCell: (p)=>(
         <Stack direction="row" spacing={0.25} alignItems="center">
           {p.row.talep?.durum && (
             <Tooltip title={`Talep: ${p.row.talep.istenenAdet||0} adet - ${p.row.talep?.talepTarihi ? new Date(p.row.talep.talepTarihi).toLocaleDateString('tr-TR') : ''}`}>
@@ -3099,7 +3135,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       ) },
-      { field: 'karar', headerName: 'Karar', width: 95, sortable: false, renderCell: (p)=>{
+      { field: 'karar', headerName: 'Karar', description: 'Karar Durumu', width: 90, sortable: false, renderCell: (p)=>{
         // Karar durumu: 1=Onay (Yeşil), 2=Kısmi (Sarı), 3=Red (Kırmızı)
         const kararKodu = p.row.karar?.kararDurumu === 'onay' ? 1 : p.row.karar?.kararDurumu === 'kismi_onay' ? 2 : p.row.karar?.kararDurumu === 'red' ? 3 : null;
         const kararRenk = kararKodu === 1 ? { bg: '#dcfce7', color: '#15803d', border: '#22c55e' } : kararKodu === 2 ? { bg: '#fef9c3', color: '#a16207', border: '#eab308' } : kararKodu === 3 ? { bg: '#fee2e2', color: '#dc2626', border: '#ef4444' } : null;
@@ -3156,7 +3192,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'Talep Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> {
         const TalepTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
           
@@ -3178,7 +3214,14 @@ const MakineYonetimi = () => {
                 
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) return;
+                // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
+                // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
+                // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
                 const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
+                if (newValue && !talep.durum) {
+                  talep.durum = 'bakanliga_gonderildi';
+                  if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
+                }
                 await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
                 updateIthal(p.row.id, { rowId: rid, talep });
                 setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -3188,7 +3231,7 @@ const MakineYonetimi = () => {
         };
         return <TalepTarihiCell />;
       } },
-      { field: 'kararTarihi', headerName: 'Karar Tarihi', width: 150, sortable: false, renderCell: (p)=> {
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> {
         const KararTarihiCell = () => {
           const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
           
@@ -3210,7 +3253,14 @@ const MakineYonetimi = () => {
                 
                 const rid = await ensureRowId('ithal', p.row);
                 if (!rid) return;
+                // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
+                // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
+                // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
                 const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
+                if (newValue && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
+                  karar.kararDurumu = 'onay';
+                  if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
+                }
                 await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
                 updateIthal(p.row.id, { rowId: rid, karar });
                 setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
@@ -3973,7 +4023,57 @@ const MakineYonetimi = () => {
         <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('onay'); }} sx={{ fontSize: '0.75rem', py: 0.5 }}>Onayla</MenuItem>
         <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('kismi_onay'); }} sx={{ fontSize: '0.75rem', py: 0.5 }}>Kısmi Onay</MenuItem>
         <MenuItem onClick={()=> { setBulkMenuAnchor(null); handleBulkKarar('red'); }} sx={{ fontSize: '0.75rem', py: 0.5, color: theme.error }}>Reddet</MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <MenuItem
+          onClick={()=> { setBulkMenuAnchor(null); setTopluOpen(true); }}
+          sx={{ fontSize: '0.75rem', py: 1, px: 2, fontWeight: 600 }}
+        >
+          <EventIcon sx={{ fontSize: 16, mr: 1.5, color: theme.accent }} />
+          Toplu Tarih Gir…
+        </MenuItem>
       </Menu>
+
+      {/* 📅 Toplu Tarih / Durum — madde 10 */}
+      <Dialog open={topluOpen} onClose={()=> setTopluOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>
+          Toplu Tarih / Durum
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2 }}>
+            Seçili <b>{selectionModel.length}</b> satıra uygulanacak. Tarih boş bırakılırsa bugünün
+            tarihi yazılır.
+          </Typography>
+          <Stack spacing={2} sx={{ mt: 0.5 }}>
+            <TextField
+              select size="small" label="İşlem" fullWidth
+              value={topluIslem} onChange={(e)=> setTopluIslem(e.target.value)}
+            >
+              <MenuItem value="talep">Talep (bakanlığa gönderildi)</MenuItem>
+              <MenuItem value="onay">Onay</MenuItem>
+              <MenuItem value="kismi_onay">Kısmi Onay</MenuItem>
+              <MenuItem value="red">Red</MenuItem>
+            </TextField>
+            <TextField
+              type="date" size="small" label="Tarih" fullWidth
+              InputLabelProps={{ shrink: true }}
+              value={topluTarih} onChange={(e)=> setTopluTarih(e.target.value)}
+            />
+            {topluIslem === 'kismi_onay' && (
+              <TextField
+                type="number" size="small" label="Onaylanan Adet" fullWidth
+                value={topluAdet} onChange={(e)=> setTopluAdet(Number(e.target.value) || 0)}
+                helperText="Seçili tüm satırlara aynı adet yazılır"
+              />
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={()=> setTopluOpen(false)} color="inherit">İptal</Button>
+          <Button variant="contained" onClick={topluUygula} disabled={selectionModel.length === 0}>
+            Uygula ({selectionModel.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* müşteri: Silinen Satırlar & İşlem Özeti panelleri kaldırıldı (Revizyon Geçmişi kapsıyor) */}
       {false && (<Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
