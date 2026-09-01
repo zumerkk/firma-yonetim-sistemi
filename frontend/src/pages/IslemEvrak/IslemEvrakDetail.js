@@ -14,6 +14,8 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SendIcon from '@mui/icons-material/Send';
 import SaveIcon from '@mui/icons-material/Save';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
@@ -25,6 +27,7 @@ import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
+import { tasi } from '../../utils/dizi';
 
 // 📎 Toplu örnek yükleme — dosya adını evrak adıyla eşleştirme
 // Müşteri: "mail düzenlerken bunları manuel eklememiz gerekiyor, arkadaşlara kafa
@@ -129,6 +132,11 @@ const IslemEvrakDetail = () => {
   const evrakSil = (i) => setEvraklar((p) => p.filter((_, j) => j !== i));
   const evrakDegistir = (i, alan, deger) =>
     setEvraklar((p) => p.map((e, j) => (j === i ? { ...e, [alan]: deger } : e)));
+
+  // Müşteri: "istenen evrakları sıralayabilelim önem sırasına vs göre."
+  // Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor. Taşımadan sonra
+  // "Kaydet" gerekiyor — evraklariKaydet tüm diziyi gönderdiği için sıra korunuyor.
+  const evrakTasi = (i, yon) => setEvraklar((p) => tasi(p, i, yon));
 
   // Evrak listesi değişince mail gövdesindeki {evrakListesi} bayatlar.
   // Kaydedilmiş taslak YOKSA metni şablondan tazeleriz; VARSA kullanıcının yazdığına
@@ -435,6 +443,9 @@ const IslemEvrakDetail = () => {
           <Stack spacing={1}>
             {evraklar.map((e, i) => (
               <Box key={e._id || i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', pb: 1, borderBottom: '1px dashed #e2e8f0' }}>
+                <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
+                  {i + 1}.
+                </Typography>
                 <Tooltip title={e.geldiMi ? 'Firmadan geldi' : 'Bekleniyor'}>
                   {e.geldiMi
                     ? <CheckCircleIcon sx={{ color: '#059669', mt: 1 }} />
@@ -472,6 +483,22 @@ const IslemEvrakDetail = () => {
                     </Button>
                   </Tooltip>
                 )}
+                <Stack direction="row" spacing={0} alignItems="center">
+                  <Tooltip title="Yukarı taşı">
+                    <span>
+                      <IconButton size="small" disabled={i === 0} onClick={() => evrakTasi(i, -1)} sx={{ p: 0.25 }}>
+                        <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                  <Tooltip title="Aşağı taşı">
+                    <span>
+                      <IconButton size="small" disabled={i === evraklar.length - 1} onClick={() => evrakTasi(i, 1)} sx={{ p: 0.25 }}>
+                        <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Stack>
                 <Tooltip title="Satırı sil">
                   <IconButton size="small" color="error" onClick={() => evrakSil(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
                 </Tooltip>

@@ -138,6 +138,54 @@ describe('islemEvrakService.mailOlustur - evrak listesi metne dönüşür', () =
     expect(govde).not.toContain('2. ');
   });
 
+  // Müşteri (madde 3/14): "Birde istenen evrakları sıralayabilelim önem sırasına vs göre."
+  // Ayrı bir siraNo alanı YOK; sıralama dizi sırasıyla taşınıyor. Bu testler o
+  // sözleşmeyi sabitliyor — biri diziyi sıralamaya kalkarsa burada yakalanır.
+  describe('İstenen evrak sırası mail listesine aynen yansır', () => {
+    const mailGovdesi = (evraklar) => {
+      const talep = talepKur(evraklar);
+      talep.firmaAdi = 'ÖRNEK A.Ş.';
+      talep.islemTuruAdi = 'ETUYS';
+      return svc.mailOlustur({
+        talep, sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE }, uploadLink: 'https://x/y'
+      }).govde;
+    };
+
+    test('dizi sırası numaralandırmayı belirler', () => {
+      const govde = mailGovdesi([
+        { ad: 'Vergi Levhası', zorunlu: true },
+        { ad: 'İmza Sirküleri', zorunlu: true },
+        { ad: 'Faaliyet Belgesi', zorunlu: true }
+      ]);
+      expect(govde).toContain('1. Vergi Levhası');
+      expect(govde).toContain('2. İmza Sirküleri');
+      expect(govde).toContain('3. Faaliyet Belgesi');
+    });
+
+    test('sıra değişince mail numaralandırması da değişir', () => {
+      const govde = mailGovdesi([
+        { ad: 'İmza Sirküleri', zorunlu: true },
+        { ad: 'Vergi Levhası', zorunlu: true },
+        { ad: 'Faaliyet Belgesi', zorunlu: true }
+      ]);
+      expect(govde).toContain('1. İmza Sirküleri');
+      expect(govde).toContain('2. Vergi Levhası');
+    });
+
+    test('işaretsiz evrak numaralandırmada boşluk bırakmaz', () => {
+      const govde = mailGovdesi([
+        { ad: 'İmza Sirküleri', zorunlu: true },
+        { ad: 'Atlanacak Evrak', zorunlu: false },
+        { ad: 'Vergi Levhası', zorunlu: true }
+      ]);
+      expect(govde).toContain('1. İmza Sirküleri');
+      // Atlanan evrak 2 numarayı tüketmemeli
+      expect(govde).toContain('2. Vergi Levhası');
+      expect(govde).not.toContain('Atlanacak Evrak');
+      expect(govde).not.toContain('3. ');
+    });
+  });
+
   // Müşteri (madde 15): "Google Forms linkini koyabilirsek ek gibi çok iyi olur ...
   // otomatik olarak ilişkin firmaya ait olsun." Tek form + firma bazlı ön dolgu.
   describe('Google Form bağlantısı firmaya göre ön-doldurulur', () => {
