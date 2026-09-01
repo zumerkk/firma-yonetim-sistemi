@@ -30,89 +30,8 @@ require(path.join(__dirname, '..', 'backend', 'models', 'Firma'));
 const Tesvik = require(path.join(__dirname, '..', 'backend', 'models', 'Tesvik'));
 const YeniTesvik = require(path.join(__dirname, '..', 'backend', 'models', 'YeniTesvik'));
 
-// ─────────────────────────── AYARLANABİLİR EŞİK ───────────────────────────
-// Bir yatırım teşvik belgesinde toplam sabit yatırımın makul alt sınırı.
-// Bunun altındaki dolu kayıtlar "1000'e bölünmüş olabilir" diye işaretlenir.
-// ⚠️ Bu değeri kendi portföyünüze göre ayarlayın: gerçekten küçük yatırımlarınız
-//    varsa düşürün, hepsi milyonlarsa yükseltin.
-const MAKUL_ALT_SINIR_TL = 100000; // 100 bin TL
-
-// Bileşenlerin toplamı ile kayıtlı toplam arasında kabul edilebilir sapma.
-// 1000 kat fark net bir bozulma sinyali; küçük yuvarlama farkları normal.
-const TUTARSIZLIK_ORANI = 100; // kat
-
-// ─────────────────────────── ŞÜPHE + ONARIM ANALİZİ ───────────────────────────
-// Bozulmanın imzası: rakamlar korunmuş, araya bir ondalık nokta girmiş.
-//   "10.978.972" → 10978.972   (gerçek: 10.978.972 TL)
-// Yani ondalık noktayı silmek çoğu kayıtta orijinal tutarı geri veriyor.
-// Ama her zaman değil: 22090210 → 22090.21 olarak saklanmışsa sondaki sıfır
-// float gösteriminde kaybolmuş demektir ve nokta silinince 2209021 çıkar (eksik).
-// Bu yüzden onarım her kayıtta bileşenlerin toplamıyla ÇAPRAZ DOĞRULANIYOR.
-
-/** Ondalık noktayı silerek orijinal tam sayıyı geri almayı dener. */
-const noktayiSil = (n) => {
-  const s = String(n);
-  return s.includes('.') ? Number(s.replace('.', '')) : n;
-};
-
-const SAY = (v) => Number(v) || 0;
-
-/** Kaydın mali bileşenlerini tek yerden okur (eski/yeni şema aynı). */
-function bilesenleriOku(mali) {
-  return {
-    arazi: SAY(mali.maliyetlenen?.sn) || SAY(mali.araciArsaBedeli),
-    bina: SAY(mali.binaInsaatGideri?.toplamBinaGideri),
-    makine: SAY(mali.makinaTechizat?.toplamMakina),
-    diger: SAY(mali.yatirimHesaplamalari?.ez),
-    toplam: SAY(mali.toplamSabitYatirim)
-  };
-}
-
-/**
- * Bir kaydı değerlendirir.
- * @returns {null | {sinif, ham, onarilmis, bilesenToplami, aciklama}}
- *   sinif: 'ONARILABILIR'  → nokta silindiğinde bileşenler toplamı = toplam (güvenli)
- *          'TOPLAM_BOZUK'  → bileşenler sağlam, sadece toplam tutmuyor (yeniden hesaplanabilir)
- *          'ELLE_INCELE'   → otomatik karar verilemez
- *   null  → kayıt temiz
- */
-function degerlendir(mali) {
-  if (!mali) return null;
-  const ham = bilesenleriOku(mali);
-  if (ham.toplam <= 0) return null;
-
-  // Bozulma şüphesi: ya toplam absürt küçük ya da tam sayı olmayan bir TL tutarı var
-  const ondalikVar = Object.values(ham).some((v) => v > 0 && !Number.isInteger(v));
-  const kucukToplam = ham.toplam < MAKUL_ALT_SINIR_TL;
-  if (!ondalikVar && !kucukToplam) return null;
-
-  const onarilmis = {
-    arazi: noktayiSil(ham.arazi), bina: noktayiSil(ham.bina),
-    makine: noktayiSil(ham.makine), diger: noktayiSil(ham.diger),
-    toplam: noktayiSil(ham.toplam)
-  };
-  const bilesenToplami = onarilmis.arazi + onarilmis.bina + onarilmis.makine + onarilmis.diger;
-
-  // Tolerans: 1 TL ya da binde bir — hangisi büyükse
-  const tolerans = Math.max(1, onarilmis.toplam * 0.001);
-
-  if (bilesenToplami > 0 && Math.abs(bilesenToplami - onarilmis.toplam) <= tolerans) {
-    return {
-      sinif: 'ONARILABILIR', ham, onarilmis, bilesenToplami,
-      aciklama: `Nokta silindiğinde bileşenler (${bilesenToplami.toLocaleString('tr-TR')}) toplamla birebir tutuyor`
-    };
-  }
-  if (bilesenToplami > 0) {
-    return {
-      sinif: 'TOPLAM_BOZUK', ham, onarilmis, bilesenToplami,
-      aciklama: `Bileşenler ${bilesenToplami.toLocaleString('tr-TR')} ₺ ama onarılmış toplam ${onarilmis.toplam.toLocaleString('tr-TR')} ₺ — toplam bileşenlerden yeniden hesaplanmalı`
-    };
-  }
-  return {
-    sinif: 'ELLE_INCELE', ham, onarilmis, bilesenToplami,
-    aciklama: 'Bileşenler boş; kaynak Excel ile karşılaştırılmalı'
-  };
-}
+// Sınıflandırma mantığı ortak modülde — onarım script'i de aynısını kullanıyor
+const { MAKUL_ALT_SINIR_TL, degerlendir } = require(path.join(__dirname, 'lib', 'bozukTutar'));
 
 // ─────────────────────────── TARAMA ───────────────────────────
 async function tara(Model, etiket) {
@@ -156,7 +75,7 @@ async function main() {
   console.log('═'.repeat(100));
   console.log(`📊 TARAMA  —  Eski Teşvik: ${eski.toplamKayit} kayıt, Yeni Teşvik: ${yeni.toplamKayit} kayıt`);
   console.log(`   Bozulma şüphesi: ${hepsi.length} kayıt`);
-  console.log(`     ✅ ONARILABILIR : ${sayim.ONARILABILIR || 0}  (nokta silinince bileşenler toplamla birebir tutuyor)`);
+  console.log(`     ✅ ONARILABILIR : ${sayim.ONARILABILIR || 0}  (onarım sonrası bileşenler toplamla birebir tutuyor)`);
   console.log(`     ⚠️  TOPLAM_BOZUK : ${sayim.TOPLAM_BOZUK || 0}  (bileşenler sağlam, toplam yeniden hesaplanmalı)`);
   console.log(`     🔍 ELLE_INCELE  : ${sayim.ELLE_INCELE || 0}  (kaynak Excel ile karşılaştırılmalı)`);
   console.log('═'.repeat(100));
