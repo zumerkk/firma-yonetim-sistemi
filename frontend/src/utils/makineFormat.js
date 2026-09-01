@@ -86,12 +86,24 @@ export const KULLANILMIS_KODLARI = {
   '3': 'KULLANILMIŞ MÜNFERİT'
 };
 
+// 🕰️ ESKİ VERİ UYUMLULUĞU
+// Hızlı mod bir dönem hiçbir tabloda karşılığı olmayan 'KM' / 'KK' kodlarını
+// yazmış; üretimde 495 satır bunları taşıyor (KM: 474, KK: 21) ve müşteriye giden
+// PDF/Excel'de ham "KM" olarak çıkıyordu. Veriyi geriye dönük değiştirmek yerine
+// GÖRÜNTÜLEMEDE çözüyoruz: eski kayıtlar olduğu gibi kalsın, ekranda anlamlı görünsün.
+// Yazma yolu artık bakanlık kodlarını (1/2/3) kullanıyor, yani bu liste büyümeyecek.
+const ESKI_KULLANILMIS_KODLARI = {
+  'KM': 'KULLANILMIŞ MÜNFERİT',
+  'KK': 'KULLANILMIŞ KOMPLE',
+  'H': 'HAYIR'
+};
+
 const KULLANILMAMIS_DEGERLER = ['', '0', '2', 'HAYIR', 'HAYİR', 'YOK', 'YENİ', 'YENI'];
 
 export const kullanilmisMi = (kod) => {
   const k = String(kod ?? '').trim().toLocaleUpperCase('tr');
-  // Sayısal kod geldiyse önce tabloya bak: "2" → HAYIR → kullanılmış değil
-  const tablo = KULLANILMIS_KODLARI[k];
+  // Önce bakanlık tablosu ("2" → HAYIR → kullanılmış değil), sonra eski kısa kodlar
+  const tablo = KULLANILMIS_KODLARI[k] || ESKI_KULLANILMIS_KODLARI[k];
   if (tablo) return tablo !== 'HAYIR';
   return !KULLANILMAMIS_DEGERLER.includes(k);
 };
@@ -100,8 +112,9 @@ export const kullanilmisMi = (kod) => {
 export const kullanilmisEtiketi = (kod, aciklama) => {
   if (!kullanilmisMi(kod)) return 'Yeni Makine';
   const k = String(kod ?? '').trim();
-  // Sayısal kod → tablodan çöz ("1" → KULLANILMIŞ KOMPLE)
+  // Bakanlık kodu ("1" → KULLANILMIŞ KOMPLE) ya da eski kısa kod ("KM" → MÜNFERİT)
   if (KULLANILMIS_KODLARI[k]) return KULLANILMIS_KODLARI[k];
+  if (ESKI_KULLANILMIS_KODLARI[k]) return ESKI_KULLANILMIS_KODLARI[k];
   const a = String(aciklama ?? '').trim();
   // Kod zaten açıklayıcı ("KULLANILMIŞ MÜNFERİT"); sayısal kodlarda açıklamaya düşülür.
   if (k && !/^\d+$/.test(k)) return k;
