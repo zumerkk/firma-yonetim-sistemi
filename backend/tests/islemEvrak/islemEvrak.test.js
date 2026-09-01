@@ -111,9 +111,45 @@ describe('islemEvrakService.mailOlustur - evrak listesi metne dönüşür', () =
 
     expect(konu).toBe('ETUYS Yetkilendirme — ÖRNEK A.Ş.');
     expect(govde).toContain('1. İmza Sirküleri — Noter onaylı');
-    expect(govde).toContain('2. Faaliyet Belgesi (opsiyonel)');
     expect(govde).toContain('https://gmplansis.com/evrak/abc123');
     expect(govde).not.toContain('{'); // doldurulmamış placeholder kalmamalı
+  });
+
+  // Müşteri isteği (PR #90): "tikleri kaldırınca mailde otomatik silinsin,
+  // (opsiyonel) yazmak yerine." Davranış değişti ama test güncellenmemişti.
+  test('zorunlu tiki kaldırılan evrak maile HİÇ yazılmaz', () => {
+    const talep = talepKur([
+      { ad: 'İmza Sirküleri', aciklama: 'Noter onaylı', zorunlu: true },
+      { ad: 'Faaliyet Belgesi', zorunlu: false }
+    ]);
+    talep.firmaAdi = 'ÖRNEK A.Ş.';
+    talep.islemTuruAdi = 'ETUYS Yetkilendirme';
+
+    const { govde } = svc.mailOlustur({
+      talep,
+      sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE },
+      uploadLink: 'https://gmplansis.com/evrak/abc123'
+    });
+
+    expect(govde).not.toContain('Faaliyet Belgesi');
+    expect(govde).not.toContain('opsiyonel');
+    // Tek işaretli evrak kaldığı için numaralandırma 1'de bitmeli
+    expect(govde).toContain('1. İmza Sirküleri — Noter onaylı');
+    expect(govde).not.toContain('2. ');
+  });
+
+  test('hiç işaretli evrak yoksa maili düzenleyen uyarılır', () => {
+    const talep = talepKur([{ ad: 'İmza Sirküleri', zorunlu: false }]);
+    talep.firmaAdi = 'ÖRNEK A.Ş.';
+    talep.islemTuruAdi = 'ETUYS Yetkilendirme';
+
+    const { govde } = svc.mailOlustur({
+      talep,
+      sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE },
+      uploadLink: 'https://gmplansis.com/evrak/abc123'
+    });
+
+    expect(govde).toContain('İşaretli evrak yok');
   });
 });
 
