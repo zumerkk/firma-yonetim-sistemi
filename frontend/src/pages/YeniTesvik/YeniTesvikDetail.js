@@ -28,6 +28,27 @@ import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 
+// 🎛️ Tasarım sistemi (madde 6 / Faz 2). Bu ekran ETUYS temasıyla SARMALANIYOR;
+// uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
+// ekran ekran ve geri alınabilir ilerliyor.
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema, renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
+
+// ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
+// sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
+const BOLUMLER = [
+  { anahtar: 'kunye',    baslik: 'Belge Künye Bilgileri' },
+  { anahtar: 'cins',     baslik: 'Yatırım Cinsi' },
+  { anahtar: 'urun',     baslik: 'Ürün Bilgileri' },
+  { anahtar: 'yerli',    baslik: 'Yerli Liste' },
+  { anahtar: 'ithal',    baslik: 'İthal Liste' },
+  { anahtar: 'finansal', baslik: 'Finansal Bilgiler' },
+  { anahtar: 'sart',     baslik: 'Özel Şartlar' },
+  { anahtar: 'destek',   baslik: 'Destek Unsurları' },
+  { anahtar: 'proje',    baslik: 'Proje Tanıtımı' },
+  { anahtar: 'evrak',    baslik: 'Evrak Listesi' }
+];
+
 const YeniTesvikDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -52,6 +73,7 @@ const YeniTesvikDetail = () => {
 
   // State management
   const [tesvik, setTesvik] = useState(null);
+  const [aktifBolum, setAktifBolum] = useState('kunye');
   const [activities, setActivities] = useState([]); // 🔧 Ensure it's always an array
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1070,10 +1092,9 @@ const YeniTesvikDetail = () => {
             </Grid>
           </Grid>
 
-          {/* ========================================================= */}
-          {/* 10 BÖLÜMLÜ DOCX ŞABLONU ACCORDION YAPISI (YENİ BELGE)  */}
-          {/* ========================================================= */}
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Aşağıdaki iki blok müşteri talebiyle gizlenmişti (display:none);
+              veri kaybı olmasın diye olduğu gibi bırakıldı, sekmelere alınmadı. */}
+          <Box sx={{ display: 'none' }}>
             
             {/* 1. GMdigi BİLGİLERİ — müşteri talebi: gizlendi */}
             <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
@@ -1115,15 +1136,23 @@ const YeniTesvikDetail = () => {
                 </Grid>
               </AccordionDetails>
             </Accordion>
+          </Box>
 
-            {/* 3. Belge İle İlgili Bilgiler — müşteri talebi: en başa alındı.
-                Üstteki GMdigi ve Yatırımcı blokları display:none olduğu için
-                ekranda ilk görünen bölüm burasıdır; varsayılan açık geliyor. */}
-            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Belge İle İlgili Bilgiler</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+          {/* ═══════════════════════════════════════════════════════════
+              ETUYS SEKME YAPISI (madde 6 / Faz 3)
+              Önceden 10 bölüm alt alta akordeondu; kullanıcı finansal bilgiye
+              ulaşmak için kaydırıyordu. Sekme sırası ETUYS'ünkiyle BİREBİR —
+              kullanıcılar bu sırayı bakanlık sisteminde ezberlemiş durumda.
+              ═══════════════════════════════════════════════════════════ */}
+          <ThemeProvider theme={etuysTema}>
+            <Box>
+              <SekmeSeridi sekmeler={BOLUMLER} etkin={aktifBolum} onDegis={setAktifBolum} />
+
+              <Box sx={{ border: `1px solid ${renk.cizgi}`, borderTop: 'none', backgroundColor: renk.yuzey, p: 1.75 }}>
+
+                {/* 1 · Belge Künye Bilgileri — ETUYS'te künye = Belge + Yatırım */}
+                {aktifBolum === 'kunye' && (
+                  <Box>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge ID</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeId || tesvik._id || '-'}</Typography></Grid>
@@ -1198,15 +1227,6 @@ const YeniTesvikDetail = () => {
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Parsel</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.parsel || '-'}</Typography></Grid>
                 </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            {/* 4. Yatırım İle İlgili Bilgiler */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Yatırım İle İlgili Bilgiler</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Destekleme Sınıfı</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</Typography></Grid>
@@ -1262,15 +1282,27 @@ const YeniTesvikDetail = () => {
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlave İstihdam</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.ilaveKisi || '0'}</Typography></Grid>
                 </Grid>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
 
-            {/* 5. Ürün Bilgileri (YENİ BELGE - NACE KODU) */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Ürün Bilgileri</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff', overflow: 'auto' }}>
+                {/* 2 · Yatırım Cinsi — ETUYS'te ayrı sekme; bizde künye içinde
+                    tek satıra sıkışmıştı. sCinsi1..vCinsi4 alanları liste olur. */}
+                {aktifBolum === 'cins' && (
+                  <VeriTablosu
+                    sutunlar={[{ anahtar: 'cins', baslik: 'Yatırım Cinsi' }]}
+                    satirlar={[
+                      tesvik.yatirimBilgileri?.sCinsi1,
+                      tesvik.yatirimBilgileri?.tCinsi2,
+                      tesvik.yatirimBilgileri?.uCinsi3,
+                      tesvik.yatirimBilgileri?.vCinsi4
+                    ].filter(Boolean).map((cins, i) => ({ id: i, cins }))}
+                    bosMetin="Yatırım cinsi tanımlanmamış"
+                  />
+                )}
+
+                {/* 3 · Ürün Bilgileri */}
+                {aktifBolum === 'urun' && (
+                  <Box>
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
@@ -1299,11 +1331,30 @@ const YeniTesvikDetail = () => {
                     )}
                   </tbody>
                 </table>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
 
-            {/* 6. Finansal Bilgiler */}
-            {(() => {
+                {/* 4-5 · Yerli / İthal Liste — makine kalemleri bu sayfada
+                    yüklenmiyor (830 satıra kadar çıkabiliyor). ETUYS'teki sekme
+                    yapısı korunsun diye sekmeler duruyor, içerik yönetim
+                    ekranına yönlendiriyor. */}
+                {(aktifBolum === 'yerli' || aktifBolum === 'ithal') && (
+                  <Box sx={{ py: 4, textAlign: 'center' }}>
+                    <Typography sx={{ color: renk.sessiz, fontSize: 13, mb: 2 }}>
+                      {aktifBolum === 'yerli' ? 'Yerli' : 'İthal'} makine teçhizat listesi
+                      makine yönetimi ekranında düzenlenir.
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      onClick={() => navigate('/yeni-tesvik/makine-yonetimi')}
+                    >
+                      Makine Listesini Aç
+                    </Button>
+                  </Box>
+                )}
+
+                {/* 6 · Finansal Bilgiler */}
+                {aktifBolum === 'finansal' && (() => {
               const mali = tesvik.maliHesaplamalar || {};
               const araziArsa = Number(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn || 0);
               const binaInsaat = Number(mali.binaInsaatGideri?.toplamBinaGideri || 0);
@@ -1332,12 +1383,8 @@ const YeniTesvikDetail = () => {
               const ozkaynak = Number(mali.finansman?.ozKaynak || 0);
               const topFin = Number(mali.finansman?.toplamFinansman || 0);
 
-              return (
-                <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-                  <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Finansal Bilgiler</Typography>
-                  </AccordionSummary>
-                  <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                  return (
+                    <Box>
                     <Grid container spacing={2}>
                       <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Arazi-Arsa Gideri</Typography></Grid>
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Arazi-Arsa Bedeli Açıklama:</Typography></Grid>
@@ -1411,17 +1458,13 @@ const YeniTesvikDetail = () => {
                       <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Finansman</Typography></Grid>
                       <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right', color: '#0369a1' }}>₺{topFin.toLocaleString('tr-TR')}</Typography></Grid>
                     </Grid>
-                  </AccordionDetails>
-                </Accordion>
-              );
-            })()}
+                    </Box>
+                  );
+                })()}
 
-            {/* 7. Özel Şartlar */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Özel Şartlar</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff', overflow: 'auto' }}>
+                {/* 7 · Özel Şartlar */}
+                {aktifBolum === 'sart' && (
+                  <Box>
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
@@ -1442,15 +1485,12 @@ const YeniTesvikDetail = () => {
                     )}
                   </tbody>
                 </table>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
 
-            {/* 8. Destek Unsurları */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Destek Unsurları</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff', overflow: 'auto' }}>
+                {/* 8 · Destek Unsurları */}
+                {aktifBolum === 'destek' && (
+                  <Box>
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
@@ -1472,25 +1512,19 @@ const YeniTesvikDetail = () => {
                     )}
                   </tbody>
                 </table>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
 
-            {/* 9. Proje Tanıtım — müşteri talebi: gizlendi */}
-            <Accordion sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Proje Tanıtım</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                {/* 9 · Proje Tanıtımı — akordeonken gizliydi, sekmede görünür */}
+                {aktifBolum === 'proje' && (
+                  <Box>
                 <Typography variant="body2" sx={{ color: '#94a3b8' }}>Proje tanıtım bilgisi bulunmuyor.</Typography>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
 
-            {/* 10. Evrak Listesi — müşteri talebi: gizlendi */}
-            <Accordion sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Evrak Listesi</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff', overflow: 'auto' }}>
+                {/* 10 · Evrak Listesi — akordeonken gizliydi, sekmede görünür */}
+                {aktifBolum === 'evrak' && (
+                  <Box>
                 <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                   <thead style={{ backgroundColor: '#f1f5f9' }}>
                     <tr>
@@ -1503,10 +1537,12 @@ const YeniTesvikDetail = () => {
                     <tr><td colSpan="3" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Evrak listesi boş</td></tr>
                   </tbody>
                 </table>
-              </AccordionDetails>
-            </Accordion>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          </ThemeProvider>
 
-          </Box>
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
