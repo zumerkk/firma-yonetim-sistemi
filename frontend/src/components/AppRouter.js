@@ -19,6 +19,9 @@ import FirmaDetail from '../pages/Firma/FirmaDetail';
 import ActivityList from '../pages/Activities/ActivityList';
 import Statistics from '../pages/Statistics/Statistics';
 import Settings from '../pages/Settings/Settings';
+// 🎛️ Tasarım sistemi canlı kılavuzu (madde 6 / Faz 2). Menüde YOK; adresi
+// bilen açar. Bileşenlerin çalışma zamanında doğrulandığı yer de burası.
+import TasarimSistemi from '../pages/TasarimSistemi/TasarimSistemi';
 import Profile from '../pages/Profile/Profile';
 import NotificationPage from '../pages/Notifications/NotificationPage';
 
@@ -288,6 +291,12 @@ const AppRouter = () => {
       <Route path="/ayarlar" element={
         <ProtectedRoute>
           <Settings />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/tasarim-sistemi" element={
+        <ProtectedRoute>
+          <TasarimSistemi />
         </ProtectedRoute>
       } />
 
