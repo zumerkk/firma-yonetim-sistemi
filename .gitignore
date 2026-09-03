@@ -80,3 +80,6 @@ backend/db_fields.json
 
 # AI assistant configs
 .claude/
+
+# Tutar onarim yedekleri — firma unvani + mali veri icerir, repoya girmemeli
+yedek-tutar-onarim-*.json
