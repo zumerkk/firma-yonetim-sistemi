@@ -2,6 +2,8 @@
 // var olan bir teşvik belgesinin makineListeleri.yerli/ithal alt-listesine
 // isim bazlı eşleştirerek aktarır (yeni ekler, eşleşeni günceller, dokunulmayana dokunmaz).
 
+const { sayiyaCevir } = require('../../../utils/sayiFormat');
+
 const normalizeKey = (h) =>
   String(h || '')
     .toLowerCase()
@@ -34,30 +36,9 @@ function pick(lookup, candidates, fallback = '') {
 }
 
 // Kaynaklar farklı sayı biçimleri kullanır: ETUYS ham → düz noktalı ondalık
-// ("1866962.03"), sistem export'u (Excel biçimlendirmesi) → İngilizce
-// ("66,430.00", virgül=binlik/nokta=ondalık), elle giriş → TR ("1.866.962,03",
-// nokta=binlik/virgül=ondalık) olabilir. Hangi ayracın SONDA geçtiğine bakarak
-// ayrımı doğru yapıyoruz — tek bir formatı varsaymak veri bozulmasına yol açar
-// (ör. "66,430.00"ı TR sanıp virgülü silmek 6643000 üretir, "1866962.03"ü TR
-// sanıp noktayı silmek 186696203 üretir — ikisi de yanlış).
-const toNumber = (v) => {
-  if (v === '' || v === null || v === undefined) return 0;
-  if (typeof v === 'number') return v;
-  let s = String(v).trim();
-  if (s === '') return 0;
-  const lastComma = s.lastIndexOf(',');
-  const lastDot = s.lastIndexOf('.');
-  if (lastComma !== -1 && lastDot !== -1) {
-    s = lastComma > lastDot
-      ? s.replace(/\./g, '').replace(',', '.') // TR: nokta binlik, virgül ondalık
-      : s.replace(/,/g, ''); // İngilizce: virgül binlik, nokta ondalık
-  } else if (lastComma !== -1) {
-    s = s.replace(',', '.'); // yalnız virgül → TR ondalık ayracı
-  }
-  // yalnız nokta (veya ayraçsız): JS varsayılanı (nokta=ondalık) zaten doğru
-  const n = Number(s);
-  return Number.isNaN(n) ? 0 : n;
-};
+// ("1866962.03"), sistem export'u → İngilizce ("66,430.00"), elle giriş → TR
+// ("1.866.962,03"). Ayrımı utils/sayiFormat yapıyor (son ayıraç kuralı).
+const toNumber = (v) => sayiyaCevir(v);
 
 const toEvetHayir = (v) => {
   const s = normalizeKey(v);

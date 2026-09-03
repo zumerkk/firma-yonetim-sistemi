@@ -145,7 +145,7 @@ const YeniTesvikDashboard = () => {
               color: '#1f2937',
               fontSize: '2rem'
             }}>
-              {loading ? <Skeleton width={80} /> : value.toLocaleString()}
+              {loading ? <Skeleton width={80} /> : value.toLocaleString('tr-TR')}
             </Typography>
             <Typography variant="body2" color="text.secondary">
               {title}

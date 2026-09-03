@@ -11,6 +11,7 @@ const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
+const { sayiyaCevir } = require('../utils/sayiFormat');
 
 // ────────────────────────── MULTER CONFIG ──────────────────────────
 const storage = multer.diskStorage({
@@ -39,25 +40,7 @@ const upload = multer({
 
 // ────────────────────────── TURKISH NUMBER UTILS ──────────────────────────
 // Excel'deki Türkçe formatlı sayıları temizle: "114.384.036" → 114384036
-const cleanTurkishNumber = (val) => {
-  if (val === null || val === undefined || val === '') return 0;
-  if (typeof val === 'number') return val;
-  const str = String(val).trim();
-  if (str === '' || str === '-') return 0;
-  // Virgül ondalık ayırıcı ise: "1.234,56" → "1234.56"
-  if (str.includes(',') && str.includes('.')) {
-    return Number(str.replace(/\./g, '').replace(',', '.')) || 0;
-  }
-  // Sadece nokta var: binlik ayırıcı olabilir
-  if (str.includes('.') && str.split('.').length > 2) {
-    return Number(str.replace(/\./g, '')) || 0;
-  }
-  // Sadece virgül: ondalık
-  if (str.includes(',')) {
-    return Number(str.replace(',', '.')) || 0;
-  }
-  return Number(str) || 0;
-};
+const cleanTurkishNumber = (val) => sayiyaCevir(val);
 
 // ────────────────────────── DATE PARSER ──────────────────────────
 const parseDate = (val) => {

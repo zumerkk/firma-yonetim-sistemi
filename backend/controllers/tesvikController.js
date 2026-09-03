@@ -9,6 +9,7 @@ const Notification = require('../models/Notification');
 const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const { validationResult } = require('express-validator');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
+const { tamSayiyaCevir } = require('../utils/sayiFormat');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -34,8 +35,10 @@ function normalizeAndMergeUrunler(urunler = []) {
         urunAdi = urunAdi.slice(0, 400);
       }
       const kapasiteBirimi = (raw.kapasiteBirimi || raw.birim || '').toString().trim();
-      // 🔧 FIX: Türkçe formatı (noktalı binlik ayırıcı) temizle - Number("1.088.000") → NaN engellendi
-      const cleanNum = (v) => Number(String(v || 0).replace(/\./g, '')) || 0;
+      // Türkçe/İngilizce formatlı kapasiteleri güvenle çevir. Eskiden tüm noktalar
+      // silindiği için gerçek ondalıklar şişiyordu ("1250.5" → 12505); artık ayıraç
+      // konumuna bakan ortak parser kullanılıyor.
+      const cleanNum = (v) => tamSayiyaCevir(v);
       const mevcutKapasite = cleanNum(raw.mevcutKapasite || raw.mevcut);
       const ilaveKapasite = cleanNum(raw.ilaveKapasite || raw.ilave);
       const toplamKapasite = cleanNum(raw.toplamKapasite || raw.toplam) || (mevcutKapasite + ilaveKapasite);

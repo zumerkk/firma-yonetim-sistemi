@@ -9,6 +9,7 @@ const fs = require('fs');
 const Tesvik = require('../models/Tesvik');
 const Firma = require('../models/Firma');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
+const { sayiyaCevir } = require('../utils/sayiFormat');
 
 // ────────────────────────── MULTER CONFIG ──────────────────────────
 const storage = multer.diskStorage({
@@ -38,22 +39,7 @@ const upload = multer({
 // ────────────────────────── SHARED UTILITIES ──────────────────────────
 // (YeniTesvik import controller ile aynı parse mantığı)
 
-const cleanTurkishNumber = (val) => {
-  if (val === null || val === undefined || val === '') return 0;
-  if (typeof val === 'number') return val;
-  const str = String(val).trim();
-  if (str === '' || str === '-') return 0;
-  if (str.includes(',') && str.includes('.')) {
-    return Number(str.replace(/\./g, '').replace(',', '.')) || 0;
-  }
-  if (str.includes('.') && str.split('.').length > 2) {
-    return Number(str.replace(/\./g, '')) || 0;
-  }
-  if (str.includes(',')) {
-    return Number(str.replace(',', '.')) || 0;
-  }
-  return Number(str) || 0;
-};
+const cleanTurkishNumber = (val) => sayiyaCevir(val);
 
 const parseDate = (val) => {
   if (!val || val === '' || val === '-') return null;
