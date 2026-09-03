@@ -72,15 +72,34 @@ const TUTAR_ALANLARI = [
 
 const oku = (nesne, yol) => yol.split('.').reduce((o, k) => (o == null ? undefined : o[k]), nesne);
 
+// ─────────────────────────── KARDEŞ ALAN GRUPLARI ───────────────────────────
+// Bu alanlar aritmetik olarak BAĞLI: iki bileşen + onların toplamı. Biri onarılıp
+// kardeşi tavan kuralıyla atlanırsa bağıntı KIRILIR — kayıt onarımdan önce
+// tutarlıyken sonra tutarsız hale gelir. Yarım onarım, hiç onarmamaktan kötüdür.
+//
+// Ölçüldü (3 Eylül 2026, üretim çalışması): tam olarak bu oldu. TES20260106'da
+// yeniMakina (2.621.083,88) ve toplamYeniMakina (2.691.475,42) tavanı aştığı için
+// korundu, ama kullanimisMakina (70.391,54) tavanın altında kaldığı için geçti ve
+// 1000 katına çıktı. "yeni + kullanılmış = toplamYeni" bağıntısı bozuldu. Aynı imza
+// 4 kayıtta görüldü (TES20260106/202/214/663) ve elle geri alındı.
+//
+// Kural: bir gruptan TEK ÜYE bile atlanıyorsa grubun TAMAMI atlanır.
+const KARDES_GRUPLARI = [
+  ['makinaTechizat.ithalMakina', 'makinaTechizat.yerliMakina', 'makinaTechizat.toplamMakina'],
+  ['makinaTechizat.yeniMakina', 'makinaTechizat.kullanimisMakina', 'makinaTechizat.toplamYeniMakina'],
+  ['binaInsaatGideri.anaBinaGideri', 'binaInsaatGideri.yardimciBinaGideri', 'binaInsaatGideri.toplamBinaGideri'],
+  ['finansman.yabanciKaynak', 'finansman.ozKaynak', 'finansman.toplamFinansman']
+];
+
+const GRUP_INDEKSI = new Map();
+KARDES_GRUPLARI.forEach((g, i) => g.forEach((a) => GRUP_INDEKSI.set(a, i)));
+
 // ─────────────────────────── ONARIM PLANI ───────────────────────────
 /**
  * Bir kayıt için değişecek alanları çıkarır. Hiçbir şey yazmaz.
- * @returns {{alan: string, eski: number, yeni: number}[]}
+ * @returns {{degisiklikler: {alan,eski,yeni}[], atlanan: {alan,deger,onarilmis,sebep?}[]}}
  */
 function onarimPlani(mali, onarilmisToplam) {
-  const degisiklikler = [];
-  const atlanan = [];
-
   // Değişmez: hiçbir mali kalem, toplam sabit yatırımı aşamaz. Beş çekirdek alan
   // (arazi/bina/makine/diğer/toplam) zaten degerlendir() tarafından aritmetikle
   // doğrulanıyor; geri kalanlar doğrulanmıyor, bu yüzden onlara bu tavanı
@@ -88,6 +107,11 @@ function onarimPlani(mali, onarilmisToplam) {
   // tutar) ve çarpılsaydı 1000 kat şişerdi — dokunmuyor, elle incelemeye bırakıyoruz.
   // Ölçüldü: bu kural olmadan 4 alan 100 milyar TL'yi aşıyordu.
   const tavan = onarilmisToplam > 0 ? onarilmisToplam * 1.001 : Infinity;
+
+  // 1. geçiş — adayları çıkar, tavanı aşanları işaretle
+  const adaylar = [];
+  const atlanan = [];
+  const kirliGruplar = new Set();
 
   for (const alan of TUTAR_ALANLARI) {
     const deger = oku(mali, alan);
@@ -97,13 +121,27 @@ function onarimPlani(mali, onarilmisToplam) {
     if (onarilmis === deger || !Number.isFinite(onarilmis)) continue;
 
     if (alan !== 'toplamSabitYatirim' && onarilmis > tavan) {
-      atlanan.push({ alan, deger, onarilmis });
+      atlanan.push({ alan, deger, onarilmis, sebep: 'tavanı aşıyor' });
+      if (GRUP_INDEKSI.has(alan)) kirliGruplar.add(GRUP_INDEKSI.get(alan));
       continue;
     }
-    degisiklikler.push({ alan, eski: deger, yeni: onarilmis });
+    adaylar.push({ alan, eski: deger, yeni: onarilmis });
+  }
+
+  // 2. geçiş — atlanan kardeşi olan grubun tamamını geri çek
+  const degisiklikler = [];
+  for (const d of adaylar) {
+    const grup = GRUP_INDEKSI.get(d.alan);
+    if (grup !== undefined && kirliGruplar.has(grup)) {
+      atlanan.push({ alan: d.alan, deger: d.eski, onarilmis: d.yeni, sebep: 'kardeş alan atlandı' });
+      continue;
+    }
+    degisiklikler.push(d);
   }
   return { degisiklikler, atlanan };
 }
+
+module.exports.onarimPlani = onarimPlani;   // test edilebilsin diye
 
 const tl = (n) => Number(n).toLocaleString('tr-TR');
 
@@ -217,7 +255,11 @@ async function main() {
   await mongoose.disconnect();
 }
 
-main().catch((e) => {
-  console.error('❌ Hata:', e.message);
-  process.exit(1);
-});
+// Yalnız doğrudan çalıştırıldığında ana akışı başlat. `require` edildiğinde
+// (regresyon testi onarimPlani'yi içe aktarıyor) veritabanına bağlanmasın.
+if (require.main === module) {
+  main().catch((e) => {
+    console.error('❌ Hata:', e.message);
+    process.exit(1);
+  });
+}
