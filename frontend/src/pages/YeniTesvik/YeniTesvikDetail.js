@@ -1153,135 +1153,79 @@ const YeniTesvikDetail = () => {
                 {/* 1 · Belge Künye Bilgileri — ETUYS'te künye = Belge + Yatırım */}
                 {aktifBolum === 'kunye' && (
                   <Box>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge ID</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeId || tesvik._id || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge NO</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeNo || tesvik.belgeNo || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeTarihi ? new Date(tesvik.belgeYonetimi.belgeTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.kararTarihi ? new Date(tesvik.kunyeBilgileri.kararTarihi).toLocaleDateString('tr-TR') : '-')}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Dayandığı Kanun</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.dayandigiKanun || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat No</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeMuracaatNo || tesvik.kunyeBilgileri?.dosyaNo || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Talep Tipi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
-                    // Formdaki "Belge Müracaat Talep Tipi" kunyeBilgileri.talepSonuc alanına kaydediliyor
-                    const t = tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || tesvik.kunyeBilgileri?.talepSonuc;
-                    const MAP = { 'Sonuç': 'Yatırım Teşvik Belgesi', 'Talep': 'Talep', 'Taslak': 'Taslak' };
-                    return MAP[t] || t || 'Yatırım Teşvik Belgesi';
-                  })()}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Müracaat Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.basvuruTarihi ? new Date(tesvik.kunyeBilgileri.basvuruTarihi).toLocaleDateString('tr-TR') : '-')}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge Başlama Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeBaslamaTarihi ? new Date(tesvik.belgeYonetimi.belgeBaslamaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Belge Bitiş Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.belgeBitisTarihi ? new Date(tesvik.belgeYonetimi.belgeBitisTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Süre Uzatım Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
-
-                  {/* müşteri: Kapanma + Ekspertiz tarihleri belge bilgilerinde görünsün */}
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kapanma Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.kapanmaTarihi ? new Date(tesvik.belgeYonetimi.kapanmaTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Ekspertiz Tarihi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.ekspertizTarihi ? new Date(tesvik.belgeYonetimi.ekspertizTarihi).toLocaleDateString('tr-TR') : '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mücbir Uzatma</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
-                    const b = tesvik.belgeYonetimi || {};
-                    const tarih = b.mucbirUzumaTarihi ? new Date(b.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '';
-                    const evet = b.mucbirUzatma === 'evet' || (!b.mucbirUzatma && !!tarih);
-                    if (!evet) return 'Hayır';
-                    return tarih ? `Evet — ${tarih}` : 'Evet';
-                  })()}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Öncelikli Yatırım</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Öncelikli Yatırım Türü</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.belgeYonetimi?.oncelikliYatirimTuru || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırım Cinsi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {[
-                      tesvik.yatirimBilgileri?.sCinsi1,
-                      tesvik.yatirimBilgileri?.tCinsi2,
-                      tesvik.yatirimBilgileri?.uCinsi3,
-                      tesvik.yatirimBilgileri?.vCinsi4
-                    ].filter(Boolean).join(', ') || tesvik.yatirimBilgileri?.yatirimCinsi || '-'}
-                  </Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Ada</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ada || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Parsel</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.parsel || '-'}</Typography></Grid>
-                </Grid>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Destekleme Sınıfı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Sermaye Türü</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(NACE6)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
-                    const kod = String(tesvik.yatirimBilgileri?.yatirimKonusu || '').trim();
-                    if (!kod) return '-';
-                    const tanim = naceKodMap[kod];
-                    return tanim ? `${kod} — ${tanim}` : kod;
-                  })()}</Typography></Grid>
-
-                  {/* müşteri: OECD (Orta-Yüksek) belge bilgilerinde görünmüyordu */}
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{kararnameGoster(tesvik)}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIlce || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 1</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 2 (varsa)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi2 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 3 (varsa)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OSB Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Serbest Bölge Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İl Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçe Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mevcut İstihdam</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.mevcutKisi || '0'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlave İstihdam</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.ilaveKisi || '0'}</Typography></Grid>
-                </Grid>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: '0 28px' }}>
+                    {/* ETUYS künyesi iki sütun: solda yatırım, sağda belge bilgileri */}
+                    <Box>
+                      <BolumBasligi>Yatırım ile ilgili bilgiler</BolumBasligi>
+                      <AlanSatiri etiket="Destekleme Sınıfı">{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Sermaye Türü">{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</AlanSatiri>
+                      <AlanSatiri etiket="Yatırımın Konusu(NACE6)">
+                        {(() => {
+                        const kod = String(tesvik.yatirimBilgileri?.yatirimKonusu || '').trim();
+                        if (!kod) return '-';
+                        const tanim = naceKodMap[kod];
+                        return tanim ? `${kod} — ${tanim}` : kod;
+                        })()}
+                      </AlanSatiri>
+                      <AlanSatiri etiket="OECD (Orta-Yüksek)">{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</AlanSatiri>
+                      <AlanSatiri etiket="Kararname Tarih/Sayı">{kararnameGoster(tesvik)}</AlanSatiri>
+                      <AlanSatiri etiket="İli">{tesvik.yatirimBilgileri?.yerinIl || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="İlçesi">{tesvik.yatirimBilgileri?.yerinIlce || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Adres 1" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Adres 2 (varsa)" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi2 || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Adres 3 (varsa)" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="OSB Adı">{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Serbest Bölge Adı">{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="İl Bazlı Bölgesi">{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="İlçe Bazlı Bölgesi">{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Mevcut İstihdam">{tesvik.istihdam?.mevcutKisi || '0'}</AlanSatiri>
+                      <AlanSatiri etiket="İlave İstihdam">{tesvik.istihdam?.ilaveKisi || '0'}</AlanSatiri>
+                    </Box>
+                    <Box>
+                      <BolumBasligi>Belge ile ilgili bilgiler</BolumBasligi>
+                      <AlanSatiri etiket="Belge ID">{tesvik.belgeYonetimi?.belgeId || tesvik._id || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Belge NO">{tesvik.belgeYonetimi?.belgeNo || tesvik.belgeNo || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Belge Tarihi">{tesvik.belgeYonetimi?.belgeTarihi ? new Date(tesvik.belgeYonetimi.belgeTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.kararTarihi ? new Date(tesvik.kunyeBilgileri.kararTarihi).toLocaleDateString('tr-TR') : '-')}</AlanSatiri>
+                      <AlanSatiri etiket="Dayandığı Kanun">{tesvik.belgeYonetimi?.dayandigiKanun || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Müracaat No">{tesvik.belgeYonetimi?.belgeMuracaatNo || tesvik.kunyeBilgileri?.dosyaNo || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Müracaat Talep Tipi">
+                        {(() => {
+                        // Formdaki "Belge Müracaat Talep Tipi" kunyeBilgileri.talepSonuc alanına kaydediliyor
+                        const t = tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || tesvik.kunyeBilgileri?.talepSonuc;
+                        const MAP = { 'Sonuç': 'Yatırım Teşvik Belgesi', 'Talep': 'Talep', 'Taslak': 'Taslak' };
+                        return MAP[t] || t || 'Yatırım Teşvik Belgesi';
+                        })()}
+                      </AlanSatiri>
+                      <AlanSatiri etiket="Müracaat Tarihi">{tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.basvuruTarihi ? new Date(tesvik.kunyeBilgileri.basvuruTarihi).toLocaleDateString('tr-TR') : '-')}</AlanSatiri>
+                      <AlanSatiri etiket="Belge Başlama Tarihi">{tesvik.belgeYonetimi?.belgeBaslamaTarihi ? new Date(tesvik.belgeYonetimi.belgeBaslamaTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Belge Bitiş Tarihi">{tesvik.belgeYonetimi?.belgeBitisTarihi ? new Date(tesvik.belgeYonetimi.belgeBitisTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Süre Uzatım Tarihi">{tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Kapanma Tarihi">{tesvik.belgeYonetimi?.kapanmaTarihi ? new Date(tesvik.belgeYonetimi.kapanmaTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Ekspertiz Tarihi">{tesvik.belgeYonetimi?.ekspertizTarihi ? new Date(tesvik.belgeYonetimi.ekspertizTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Mücbir Uzatma">
+                        {(() => {
+                        const b = tesvik.belgeYonetimi || {};
+                        const tarih = b.mucbirUzumaTarihi ? new Date(b.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '';
+                        const evet = b.mucbirUzatma === 'evet' || (!b.mucbirUzatma && !!tarih);
+                        if (!evet) return 'Hayır';
+                        return tarih ? `Evet — ${tarih}` : 'Evet';
+                        })()}
+                      </AlanSatiri>
+                      <AlanSatiri etiket="Öncelikli Yatırım">{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Öncelikli Yatırım Türü">{tesvik.belgeYonetimi?.oncelikliYatirimTuru || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Yatırım Cinsi">
+                        
+                        {[
+                        tesvik.yatirimBilgileri?.sCinsi1,
+                        tesvik.yatirimBilgileri?.tCinsi2,
+                        tesvik.yatirimBilgileri?.uCinsi3,
+                        tesvik.yatirimBilgileri?.vCinsi4
+                        ].filter(Boolean).join(', ') || tesvik.yatirimBilgileri?.yatirimCinsi || '-'}
+                      </AlanSatiri>
+                      <AlanSatiri etiket="Ada">{tesvik.yatirimBilgileri?.ada || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Parsel">{tesvik.yatirimBilgileri?.parsel || '-'}</AlanSatiri>
+                    </Box>
+                  </Box>
                   </Box>
                 )}
 
