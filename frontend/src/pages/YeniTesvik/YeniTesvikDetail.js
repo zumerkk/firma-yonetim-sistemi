@@ -1247,34 +1247,24 @@ const YeniTesvikDetail = () => {
                 {/* 3 · Ürün Bilgileri */}
                 {aktifBolum === 'urun' && (
                   <Box>
-                <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                  <thead style={{ backgroundColor: '#f1f5f9' }}>
-                    <tr>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0' }}>NACE Kodu</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0' }}>Ürün Adı</th>
-                      <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>Mevcut Kap.</th>
-                      <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>İlave Kap.</th>
-                      <th style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>Toplam Kap.</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0' }}>Kap. Birim</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tesvik.urunler && tesvik.urunler.length > 0 ? (
-                      tesvik.urunler.map((urun, i) => (
-                        <tr key={i}>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{urun.naceKodu || urun.u97Kodu || urun.us97Kodu || '-'}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 600 }}>{urun.urunAdi || '-'}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>{(Number(urun.mevcutKapasite) || 0).toLocaleString('tr-TR')}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>{(Number(urun.ilaveKapasite) || 0).toLocaleString('tr-TR')}</td>
-                          <td style={{ padding: '8px', textAlign: 'right', border: '1px solid #e2e8f0' }}>{(Number(urun.toplamKapasite) || 0).toLocaleString('tr-TR')}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{urun.kapasiteBirimi || '-'}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="6" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Ürün bulunamadı</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <VeriTablosu
+                      enAzGenislik={600}
+                      satirlar={tesvik.urunler || []}
+                      anahtarAl={(u, i) => u?._id || i}
+                      bosMetin="Ürün bulunamadı"
+                      sutunlar={[
+                        { anahtar: 'nace', baslik: 'NACE Kodu', genislik: 120,
+                          bicim: (_, u) => u.naceKodu || u.u97Kodu || u.us97Kodu || '-' },
+                        { anahtar: 'urunAdi', baslik: 'Ürün Adı', bicim: (v) => v || '-' },
+                        { anahtar: 'mevcutKapasite', baslik: 'Mevcut Kap.', sayi: true,
+                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
+                        { anahtar: 'ilaveKapasite', baslik: 'İlave Kap.', sayi: true,
+                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
+                        { anahtar: 'toplamKapasite', baslik: 'Toplam Kap.', sayi: true,
+                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
+                        { anahtar: 'kapasiteBirimi', baslik: 'Kap. Birim', genislik: 120, bicim: (v) => v || '-' }
+                      ]}
+                    />
                   </Box>
                 )}
 
@@ -1380,53 +1370,35 @@ const YeniTesvikDetail = () => {
                 {/* 7 · Özel Şartlar */}
                 {aktifBolum === 'sart' && (
                   <Box>
-                <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                  <thead style={{ backgroundColor: '#f1f5f9' }}>
-                    <tr>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '20%' }}>Kısaltma</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '80%' }}>Açıklama</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tesvik.ozelSartlar && tesvik.ozelSartlar.length > 0 ? (
-                      tesvik.ozelSartlar.map((sart, i) => (
-                        <tr key={i}>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', verticalAlign: 'top' }}>{sart?.koşulMetni || sart?.kisaltma || `Şart ${i+1}`}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{sart?.aciklamaNotu || sart?.sart || sart?.metin || sart?.aciklama || '-'}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="2" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Özel şart bulunamadı</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <VeriTablosu
+                      enAzGenislik={600}
+                      satirlar={tesvik.ozelSartlar || []}
+                      anahtarAl={(x, i) => x?._id || i}
+                      bosMetin="Özel şart bulunamadı"
+                      sutunlar={[
+                        { anahtar: 'kisaltma', baslik: 'Kısaltma', genislik: '30%',
+                          bicim: (_, x, i) => x?.koşulMetni || x?.kisaltma || `Şart ${i + 1}` },
+                        { anahtar: 'aciklama', baslik: 'Açıklama',
+                          bicim: (_, x) => x?.aciklamaNotu || x?.sart || x?.metin || x?.aciklama || '-' }
+                      ]}
+                    />
                   </Box>
                 )}
 
                 {/* 8 · Destek Unsurları */}
                 {aktifBolum === 'destek' && (
                   <Box>
-                <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                  <thead style={{ backgroundColor: '#f1f5f9' }}>
-                    <tr>
-                      {/* Müşteri isteği: Destek Unsurunda Açıklama kolonu kaldırıldı */}
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '40%' }}>Destek Unsuru</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '60%' }}>Şartı</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {tesvik.destekUnsurlari && tesvik.destekUnsurlari.length > 0 ? (
-                      tesvik.destekUnsurlari.map((destek, i) => (
-                        <tr key={i}>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0', fontWeight: 600, color: '#7c3aed' }}>{destek.destekUnsuru || '-'}</td>
-                          <td style={{ padding: '8px', border: '1px solid #e2e8f0' }}>{destek.sarti || destek.sart || '-'}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr><td colSpan="2" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Destek unsuru bulunamadı</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                {/* Müşteri isteği: Destek Unsurunda Açıklama kolonu kaldırılmıştı — korunuyor */}
+                    <VeriTablosu
+                      enAzGenislik={600}
+                      satirlar={tesvik.destekUnsurlari || []}
+                      anahtarAl={(x, i) => x?._id || i}
+                      bosMetin="Destek unsuru bulunamadı"
+                      sutunlar={[
+                        { anahtar: 'destekUnsuru', baslik: 'Destek Unsuru', genislik: '40%', bicim: (v) => v || '-' },
+                        { anahtar: 'sarti', baslik: 'Şartı', bicim: (_, x) => x.sarti || x.sart || '-' }
+                      ]}
+                    />
                   </Box>
                 )}
 
@@ -1440,18 +1412,17 @@ const YeniTesvikDetail = () => {
                 {/* 10 · Evrak Listesi — akordeonken gizliydi, sekmede görünür */}
                 {aktifBolum === 'evrak' && (
                   <Box>
-                <table style={{ width: '100%', minWidth: '600px', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-                  <thead style={{ backgroundColor: '#f1f5f9' }}>
-                    <tr>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '15%' }}>ID</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '35%' }}>Evrak Tipi</th>
-                      <th style={{ padding: '8px', textAlign: 'left', border: '1px solid #e2e8f0', width: '50%' }}>Açıklama</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr><td colSpan="3" style={{ padding: '8px', textAlign: 'center', color: '#94a3b8', border: '1px solid #e2e8f0' }}>Evrak listesi boş</td></tr>
-                  </tbody>
-                </table>
+                <VeriTablosu
+                      enAzGenislik={600}
+                      satirlar={tesvik.evrakListesi || []}
+                      anahtarAl={(x, i) => x?._id || i}
+                      bosMetin="Evrak listesi boş"
+                      sutunlar={[
+                        { anahtar: 'id', baslik: 'ID', genislik: '15%' },
+                        { anahtar: 'tip', baslik: 'Evrak Tipi', genislik: '35%' },
+                        { anahtar: 'aciklama', baslik: 'Açıklama' }
+                      ]}
+                    />
                   </Box>
                 )}
               </Box>

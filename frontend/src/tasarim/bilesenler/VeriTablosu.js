@@ -13,6 +13,8 @@ import { renk, yazi, stil } from '../jetonlar';
 
 /**
  * @param {Array}  sutunlar  [{ anahtar, baslik, sayi?, genislik?, bicim? }]
+ *   bicim: (deger, satir, index) => node — index, "Şart 3" gibi sıralı
+ *   yedek metinler için gerekiyor (ham tablolarda kullanılıyordu).
  * @param {Array}  satirlar  veri dizisi
  * @param {func}   anahtarAl (satir, i) => benzersiz anahtar
  * @param {func}   seciliMi  (satir) => boolean
@@ -88,7 +90,7 @@ const VeriTablosu = ({
                     ...(s.sayi ? { textAlign: 'right', fontVariantNumeric: 'tabular-nums' } : {})
                   }}
                 >
-                  {s.bicim ? s.bicim(satir[s.anahtar], satir) : satir[s.anahtar]}
+                  {s.bicim ? s.bicim(satir[s.anahtar], satir, i) : satir[s.anahtar]}
                 </Box>
               ))}
             </Box>
