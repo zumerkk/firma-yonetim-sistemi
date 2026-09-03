@@ -32,7 +32,7 @@ import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 // uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
 // ekran ekran ve geri alınabilir ilerliyor.
 import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema, renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
+import { etuysTema, renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
 // sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
@@ -1385,79 +1385,50 @@ const YeniTesvikDetail = () => {
 
                   return (
                     <Box>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Arazi-Arsa Gideri</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Arazi-Arsa Bedeli Açıklama:</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{mali.maliyetlenen?.aciklama || mali.araziArsaBedeli?.aciklama || '-'}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Metrekaresi</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{Number(mali.maliyetlenen?.sl || 0).toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Birim Fiyatı</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.maliyetlenen?.sm || 0).toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Arazi Arsa Bedeli</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{araziArsa.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Bina İnşaat Gideri</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Bina-İnşaat Giderleri Açıklama:</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{mali.binaInsaatGideri?.aciklama || '-'}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Ana bina ve tesisleri:</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.binaInsaatGideri?.anaBinaGideri || 0).toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yardımcı işletmeler bina ve tesisleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{Number(mali.binaInsaatGideri?.yardimciBinaGideri || 0).toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>İdare binaları</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺0</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Bina İnşaat Giderleri:</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{binaInsaat.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block' }}>Diğer Yatırım Harcamaları</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>İthalat ve gümrükleme giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{ithalatGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Taşıma ve sigorta giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{tasimaGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Montaj giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{montajGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Etüd ve proje giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{etudGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Faiz veya kâr payı giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{faizGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kur farkı giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{kurFarki.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Maddi olmayan duran varlık giderleri</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{maddiOlmayan.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Diğer giderler</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{digerGider.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Diğer Yatırım Harcamaları</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{toplamDigerHarcama.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#fef3c7', p: 1, borderRadius: 1, display: 'block', textAlign: 'center', mt: 1 }}>TOPLAM SABİT YATIRIM TUTARI : ₺{topSabit.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block', mt: 1 }}>Makina ve Teçhizat Giderleri</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>İthal</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{ithalMak.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yerli</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{yerliMak.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Makine Teçhizat</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>₺{toplamMak.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block', mt: 1 }}>İthal Makine ($)</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Yeni Makine</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>${yeniMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Kullanılmış Makine</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>${kullMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Top. İthal. Mak. ($)</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right' }}>${topMakUsd.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block', mt: 1 }}>Yabancı Kaynaklar</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Top. Yabancı Kaynak</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{yabanci.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#f1f5f9', p: 0.5, borderRadius: 1, display: 'block', mt: 1 }}>Özkaynaklar</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#475569' }}>Özkaynaklar</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>₺{ozkaynak.toLocaleString('tr-TR')}</Typography></Grid>
-
-                      <Grid item xs={12}><Typography variant="caption" sx={{ fontWeight: 700, color: '#0f172a', bgcolor: '#e0f2fe', p: 0.5, borderRadius: 1, display: 'block', mt: 1 }}>TOPLAM FİNANSMAN</Typography></Grid>
-                      <Grid item xs={8}><Typography variant="body2" sx={{ color: '#0f172a', fontWeight: 600 }}>Toplam Finansman</Typography></Grid>
-                      <Grid item xs={4}><Typography variant="body2" sx={{ fontWeight: 700, textAlign: 'right', color: '#0369a1' }}>₺{topFin.toLocaleString('tr-TR')}</Typography></Grid>
-                    </Grid>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: '0 28px' }}>
+                      {/* ETUYS düzeni: solda arazi/bina/diğer + toplam sabit yatırım,
+                          sağda makine/finansman. Grup sırası ETUYS ile aynı. */}
+                      <Box>
+                        <BolumBasligi>Arazi-Arsa Gideri</BolumBasligi>
+                        <AlanSatiri etiket="Arazi-Arsa Bedeli Açıklama">{mali.maliyetlenen?.aciklama || mali.araziArsaBedeli?.aciklama || '-'}</AlanSatiri>
+                        <AlanSatiri etiket="Metrekaresi" sayi>{Number(mali.maliyetlenen?.sl || 0).toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Birim Fiyatı" sayi>₺{Number(mali.maliyetlenen?.sm || 0).toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Arazi Arsa Bedeli" sayi hesap>₺{araziArsa.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>Bina İnşaat Gideri</BolumBasligi>
+                        <AlanSatiri etiket="Bina-İnşaat Giderleri Açıklama">{mali.binaInsaatGideri?.aciklama || '-'}</AlanSatiri>
+                        <AlanSatiri etiket="Ana bina ve tesisleri" sayi>₺{Number(mali.binaInsaatGideri?.anaBinaGideri || 0).toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Yardımcı işletmeler bina ve tesisleri" sayi>₺{Number(mali.binaInsaatGideri?.yardimciBinaGideri || 0).toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="İdare binaları" sayi>₺0</AlanSatiri>
+                        <AlanSatiri etiket="Toplam Bina İnşaat Giderleri" sayi hesap>₺{binaInsaat.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>Diğer Yatırım Harcamaları</BolumBasligi>
+                        <AlanSatiri etiket="İthalat ve gümrükleme giderleri" sayi>₺{ithalatGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Taşıma ve sigorta giderleri" sayi>₺{tasimaGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Montaj giderleri" sayi>₺{montajGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Etüd ve proje giderleri" sayi>₺{etudGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Faiz veya kâr payı giderleri" sayi>₺{faizGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Kur farkı giderleri" sayi>₺{kurFarki.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Maddi olmayan duran varlık giderleri" sayi>₺{maddiOlmayan.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Diğer giderler" sayi>₺{digerGider.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Toplam Diğer Yatırım Harcamaları" sayi hesap>₺{toplamDigerHarcama.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="TOPLAM SABİT YATIRIM TUTARI" sayi hesap>₺{topSabit.toLocaleString('tr-TR')}</AlanSatiri>
+                      </Box>
+                      <Box>
+                        <BolumBasligi>Makina ve Teçhizat Giderleri</BolumBasligi>
+                        <AlanSatiri etiket="İthal" sayi>₺{ithalMak.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Yerli" sayi>₺{yerliMak.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Toplam Makine Teçhizat" sayi hesap>₺{toplamMak.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>İthal Makine ($)</BolumBasligi>
+                        <AlanSatiri etiket="Yeni Makine" sayi>${yeniMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Kullanılmış Makine" sayi>${kullMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
+                        <AlanSatiri etiket="Top. İthal. Mak. ($)" sayi hesap>${topMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>Yabancı Kaynaklar</BolumBasligi>
+                        <AlanSatiri etiket="Top. Yabancı Kaynak" sayi>₺{yabanci.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>Özkaynaklar</BolumBasligi>
+                        <AlanSatiri etiket="Özkaynaklar" sayi>₺{ozkaynak.toLocaleString('tr-TR')}</AlanSatiri>
+                        <BolumBasligi>TOPLAM FİNANSMAN</BolumBasligi>
+                        <AlanSatiri etiket="Toplam Finansman" sayi hesap>₺{topFin.toLocaleString('tr-TR')}</AlanSatiri>
+                      </Box>
+                    </Box>
                     </Box>
                   );
                 })()}
