@@ -8,7 +8,7 @@
 //   • varyant varsa evrak listesi ve mail metni varyant bazında tutulur
 //   • varyant yoksa türün kendi listesi/metni kullanılır (IslemTuru.varyantCoz mantığı)
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, IconButton, Tooltip,
@@ -18,11 +18,15 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
+import { tasi } from '../../utils/dizi';
+import YerTutucuCubugu from '../../components/YerTutucuCubugu';
 
 // Mail gövdesinde kullanılabilecek yer tutucular (islemEvrakService.mailOlustur ile aynı liste)
 const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{evrakListesi}', '{uploadLink}', '{formLink}', '{imza}'];
@@ -70,6 +74,27 @@ const EvrakListesiEditoru = ({ evraklar, onChange, baslik, sorular = [] }) => (
     <Stack spacing={1}>
       {evraklar.map((e, i) => (
         <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          {/* Müşteri: "istenen evrakları sıralayabilelim önem sırasına vs göre."
+              Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor. */}
+          <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
+            {i + 1}.
+          </Typography>
+          <Stack direction="row" spacing={0} alignItems="center" sx={{ mt: 0.4 }}>
+            <Tooltip title="Yukarı taşı">
+              <span>
+                <IconButton size="small" disabled={i === 0} onClick={() => onChange(tasi(evraklar, i, -1))} sx={{ p: 0.25 }}>
+                  <ArrowUpwardIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+            <Tooltip title="Aşağı taşı">
+              <span>
+                <IconButton size="small" disabled={i === evraklar.length - 1} onClick={() => onChange(tasi(evraklar, i, 1))} sx={{ p: 0.25 }}>
+                  <ArrowDownwardIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </span>
+            </Tooltip>
+          </Stack>
           <TextField
             size="small" label="Evrak adı" value={e.ad || ''} sx={{ flex: '1 1 220px' }}
             onChange={(ev) => onChange(evraklar.map((x, j) => (j === i ? { ...x, ad: ev.target.value } : x)))}
@@ -166,6 +191,11 @@ const IslemTuruYonetimi = () => {
   const yeniTur = () => { setSeciliId(null); setForm(bosTur()); };
 
   const alan = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  // Yer tutucu rozetleri imleç konumuna eklerken hedef alanın DOM referansı gerekiyor.
+  // Ana gövde için tek ref, varyantlar için index bazlı bir harita tutuluyor.
+  const govdeRef = useRef(null);
+  const varyantGovdeRefleri = useRef({});
 
   const kaydet = async () => {
     if (!String(form.ad || '').trim()) { notify('İşlem adı zorunludur.', 'warning'); return; }
@@ -344,9 +374,18 @@ const IslemTuruYonetimi = () => {
 
               <TextField size="small" label="Mail Konusu" value={form.mailKonusu}
                 onChange={(e) => alan('mailKonusu', e.target.value)} fullWidth />
-              <TextField size="small" label="Mail Gövdesi" value={form.mailGovdesi}
-                onChange={(e) => alan('mailGovdesi', e.target.value)} fullWidth multiline minRows={6}
-                helperText={`Yer tutucular: ${PLACEHOLDERLAR.join('  ')}`} />
+              <Box>
+                <TextField size="small" label="Mail Gövdesi" value={form.mailGovdesi}
+                  inputRef={govdeRef}
+                  onChange={(e) => alan('mailGovdesi', e.target.value)} fullWidth multiline minRows={6}
+                  helperText="Rozete tıklayınca imlecin bulunduğu yere eklenir." />
+                <YerTutucuCubugu
+                  placeholders={PLACEHOLDERLAR}
+                  inputRef={govdeRef}
+                  deger={form.mailGovdesi || ''}
+                  onChange={(v) => alan('mailGovdesi', v)}
+                />
+              </Box>
 
               {/* 🔗 Google Form — müşteri: "Google Forms linkini koyabilirsek ek gibi
                   çok iyi olur ... otomatik olarak ilişkin firmaya ait olsun."
@@ -470,10 +509,19 @@ const IslemTuruYonetimi = () => {
                       <TextField size="small" label="Mail Konusu (boşsa varsayılan kullanılır)"
                         value={v.mailKonusu || ''} fullWidth
                         onChange={(e) => varyantDegistir(i, { mailKonusu: e.target.value })} />
-                      <TextField size="small" label="Mail Gövdesi (boşsa varsayılan kullanılır)"
-                        value={v.mailGovdesi || ''} fullWidth multiline minRows={5}
-                        onChange={(e) => varyantDegistir(i, { mailGovdesi: e.target.value })}
-                        helperText={`Yer tutucular: ${PLACEHOLDERLAR.join('  ')}`} />
+                      <Box>
+                        <TextField size="small" label="Mail Gövdesi (boşsa varsayılan kullanılır)"
+                          value={v.mailGovdesi || ''} fullWidth multiline minRows={5}
+                          inputRef={(el) => { varyantGovdeRefleri.current[i] = el; }}
+                          onChange={(e) => varyantDegistir(i, { mailGovdesi: e.target.value })}
+                          helperText="Rozete tıklayınca imlecin bulunduğu yere eklenir." />
+                        <YerTutucuCubugu
+                          placeholders={PLACEHOLDERLAR}
+                          inputRef={{ current: varyantGovdeRefleri.current[i] }}
+                          deger={v.mailGovdesi || ''}
+                          onChange={(val) => varyantDegistir(i, { mailGovdesi: val })}
+                        />
+                      </Box>
 
                       <EvrakListesiEditoru
                         baslik="İstenen Evraklar (bu varyant)"
