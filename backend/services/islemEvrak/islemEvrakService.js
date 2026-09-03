@@ -54,8 +54,49 @@ async function resolveByToken(token) {
   return { talep };
 }
 
+// 🔗 Firmaya özel Google Form bağlantısı
+// Müşteri: "Google Forms linkini koyabilirsek ek gibi çok iyi olur ... otomatik
+// olarak ilişkin firmaya ait olsun."
+// Google Forms'ta firma başına ayrı form açmak yerine TEK form kullanılır ve link
+// her firma için ön-doldurulmuş üretilir (Forms'un "pp_url" ön-dolgu biçimi). Böylece
+// e-tabloya düşen her yanıt satırında firma bilgisi hazır gelir, elle eşleştirme
+// gerekmez. Form tanımlı değilse boş string döner ve mail gövdesindeki satır düşer.
+function formLinkiUret(sablon, talep, firma) {
+  const temel = String(sablon?.googleFormUrl || '').trim();
+  if (!temel) return '';
+
+  const alanlar = sablon?.googleFormAlanlari || [];
+  if (!alanlar.length) return temel;
+
+  const kaynaklar = {
+    firmaAdi: talep?.firmaAdi || firma?.tamUnvan || '',
+    vergiNoTC: firma?.vergiNoTC || '',
+    firmaEmail: talep?.firmaEmail || firma?.firmaEmail || '',
+    islemAdi: talep?.islemTuruAdi || ''
+  };
+
+  const parcalar = [];
+  for (const alan of alanlar) {
+    const anahtar = String(alan?.entryId || '').trim();
+    const deger = kaynaklar[alan?.kaynak];
+    if (!anahtar || !deger) continue;
+    parcalar.push(`${encodeURIComponent(anahtar)}=${encodeURIComponent(deger)}`);
+  }
+  if (!parcalar.length) return temel;
+
+  // Forms paylaşım linkleri çoğu zaman ?usp=sf_link taşır. Kendi usp=pp_url'imizi
+  // eklemeden önce onu ayıklıyoruz; iki usp parametresi bırakmak çalışır ama kirli.
+  const [yol, sorgu = ''] = temel.split('?');
+  const kalanSorgu = sorgu
+    .split('&')
+    .filter((p) => p && !p.startsWith('usp='))
+    .join('&');
+  const onek = kalanSorgu ? `${yol}?${kalanSorgu}&` : `${yol}?`;
+  return `${onek}usp=pp_url&${parcalar.join('&')}`;
+}
+
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
-function mailOlustur({ talep, sablon, uploadLink }) {
+function mailOlustur({ talep, sablon, uploadLink, firma }) {
   // Müşteri: "tikleri kaldırınca mailde otomatik silinsin, (opsiyonel) yazmak yerine."
   // İşareti kaldırılan evrak firmadan İSTENMİYOR demektir; maile hiç yazılmaz.
   const secililer = (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false);
@@ -72,12 +113,34 @@ function mailOlustur({ talep, sablon, uploadLink }) {
     varyant: talep.varyantAd || '',
     evrakListesi,
     uploadLink: uploadLink || '',
+    formLink: formLinkiUret(sablon, talep, firma),
     imza: getSignature(),
     tarih: new Date().toLocaleDateString('tr-TR')
   };
 
   const konu = engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', data);
-  const govde = engine.render(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
+
+  // Motor, değeri boş olan placeholder'ı bilerek yerinde bırakır ("{x}" görünür kalsın
+  // ki eksik veri fark edilsin). Ama Google Form opsiyonel: tanımlı değilse mailde
+  // "{formLink}" yazması hata gibi durur. Bu yüzden yalnız bu satırı şablondan
+  // render ÖNCESİ düşürüyoruz; diğer placeholder'ların uyarı davranışı bozulmuyor.
+  // KURAL: {formLink} form tanımlı değilse, o placeholder'ın GEÇTİĞİ SATIRIN TAMAMI
+  // düşer — böylece "Formu doldurun: {formLink}" gibi açıklamalı satırlar da temiz
+  // kaybolur. Bu yüzden {formLink} kendi satırında yazılmalı; aynı satıra {uploadLink}
+  // konursa o da düşer. (Arayüzdeki yardım metni bunu söylüyor.)
+  let sablonMetni = sablon.mailGovdesi || VARSAYILAN_GOVDE;
+  if (!data.formLink) {
+    sablonMetni = String(sablonMetni)
+      .split('\n')
+      .filter((satir) => !satir.includes('{formLink}'))
+      .join('\n');
+  }
+
+  const govde = engine
+    .render(sablonMetni, data)
+    // Düşen satırın bıraktığı çift boşluğu topla
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   return { konu, govde, data };
 }
 
@@ -92,6 +155,9 @@ const VARSAYILAN_GOVDE = [
   'Evrakları aşağıdaki bağlantı üzerinden tarafımıza iletmenizi rica ederiz:',
   '',
   '{uploadLink}',
+  '',
+  // Form tanımlı değilse bu satırın tamamı düşer (bkz. mailOlustur içindeki kural)
+  'Ayrıca bilgi formumuzu doldurmanızı rica ederiz: {formLink}',
   '',
   'İyi çalışmalar dileriz.',
   '',
@@ -234,6 +300,7 @@ module.exports = {
   ensureUploadLink,
   resolveByToken,
   mailOlustur,
+  formLinkiUret,
   mailGonder,
   dosyaKaydet,
   talepOlustur,

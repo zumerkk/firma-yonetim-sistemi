@@ -1116,72 +1116,10 @@ const YeniTesvikDetail = () => {
               </AccordionDetails>
             </Accordion>
 
-            {/* 3. Yatırım İle İlgili Bilgiler */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Yatırım İle İlgili Bilgiler</Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Destekleme Sınıfı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Sermaye Türü</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(NACE6)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
-                    const kod = String(tesvik.yatirimBilgileri?.yatirimKonusu || '').trim();
-                    if (!kod) return '-';
-                    const tanim = naceKodMap[kod];
-                    return tanim ? `${kod} — ${tanim}` : kod;
-                  })()}</Typography></Grid>
-
-                  {/* müşteri: OECD (Orta-Yüksek) belge bilgilerinde görünmüyordu */}
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{kararnameGoster(tesvik)}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIlce || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 1</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 2 (varsa)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi2 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 3 (varsa)</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OSB Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Serbest Bölge Adı</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İl Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçe Bazlı Bölgesi</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mevcut İstihdam</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.mevcutKisi || '0'}</Typography></Grid>
-
-                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlave İstihdam</Typography></Grid>
-                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.ilaveKisi || '0'}</Typography></Grid>
-                </Grid>
-              </AccordionDetails>
-            </Accordion>
-
-            {/* 4. Belge İle İlgili Bilgiler */}
-            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            {/* 3. Belge İle İlgili Bilgiler — müşteri talebi: en başa alındı.
+                Üstteki GMdigi ve Yatırımcı blokları display:none olduğu için
+                ekranda ilk görünen bölüm burasıdır; varsayılan açık geliyor. */}
+            <Accordion defaultExpanded sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Belge İle İlgili Bilgiler</Typography>
               </AccordionSummary>
@@ -1259,6 +1197,70 @@ const YeniTesvikDetail = () => {
 
                   <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Parsel</Typography></Grid>
                   <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.parsel || '-'}</Typography></Grid>
+                </Grid>
+              </AccordionDetails>
+            </Accordion>
+
+            {/* 4. Yatırım İle İlgili Bilgiler */}
+            <Accordion sx={{ border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Yatırım İle İlgili Bilgiler</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 2, backgroundColor: '#ffffff' }}>
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Destekleme Sınıfı</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Sermaye Türü</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Yatırımın Konusu(NACE6)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{(() => {
+                    const kod = String(tesvik.yatirimBilgileri?.yatirimKonusu || '').trim();
+                    if (!kod) return '-';
+                    const tanim = naceKodMap[kod];
+                    return tanim ? `${kod} — ${tanim}` : kod;
+                  })()}</Typography></Grid>
+
+                  {/* müşteri: OECD (Orta-Yüksek) belge bilgilerinde görünmüyordu */}
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OECD (Orta-Yüksek)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Kararname Tarih/Sayı:</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{kararnameGoster(tesvik)}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İli</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIl || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçesi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yerinIlce || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 1</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 2 (varsa)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi2 || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Adres 3 (varsa)</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>OSB Adı</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Serbest Bölge Adı</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İl Bazlı Bölgesi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlçe Bazlı Bölgesi</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>Mevcut İstihdam</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.mevcutKisi || '0'}</Typography></Grid>
+
+                  <Grid item xs={12} sm={4}><Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>İlave İstihdam</Typography></Grid>
+                  <Grid item xs={12} sm={8}><Typography variant="body2" sx={{ fontWeight: 600 }}>{tesvik.istihdam?.ilaveKisi || '0'}</Typography></Grid>
                 </Grid>
               </AccordionDetails>
             </Accordion>

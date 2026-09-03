@@ -12,8 +12,7 @@ import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import GTIPSuperSearch from '../../components/GTIPSuperSearch';
-import { kullanilmisMi, birimEtiketi } from '../../utils/makineFormat';
+import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI } from '../../utils/makineFormat';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -45,6 +44,17 @@ const parseTrCurrency = (value) => {
 };
 
 // 🔧 Default değerler: Yerli → Tip:Ana, FK:Hayır, DVR:Hayır | İthal → CKD/Arç/FK/DV:Hayır, Tip:Ana
+// 🔠 Hızlı mod ↔ standart mod değer sözleşmesi
+// Hızlı mod dar sütunlara sığsın diye eskiden 'A' / 'E' / 'H' gibi KISALTMALARI
+// doğrudan değer olarak yazıyordu. Standart moddaki <Select>'lerin value'ları ise
+// 'Ana Makine' / 'EVET' / 'HAYIR'. Hızlı modda bir hücreye dokunulunca kısa kod
+// kaydediliyor, standart mod bu değeri tanımayıp boş ("-") gösteriyordu.
+// Çözüm: DEĞER her iki modda da tam metin; kısaltma yalnızca ETİKET.
+const EH_OPTIONS = ['', 'EVET', 'HAYIR'];
+const EH_LABELS = { '': '-', 'EVET': 'E', 'HAYIR': 'H' };
+const TIP_OPTIONS = ['', 'Ana Makine', 'Yardımcı Makine'];
+const TIP_LABELS = { '': '-', 'Ana Makine': 'A', 'Yardımcı Makine': 'Y' };
+
 const emptyYerli = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiTl: 0, toplamTl: 0, kdvIstisnasi: '', makineTechizatTipi:'Ana Makine', finansalKiralamaMi:'HAYIR', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'HAYIR', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 const emptyIthal = () => ({ id: Math.random().toString(36).slice(2), siraNo: 0, makineId: '', gtipKodu: '', gtipAciklama: '', adi: '', miktar: 0, birim: '', birimAciklamasi: '', birimFiyatiFob: 0, doviz: '', toplamUsd: 0, toplamTl: 0, tlManuel: false, kurManuel: false, kurManuelDeger: 0, kullanilmisKod: '', kullanilmisAciklama: '', ckdSkd: 'HAYIR', aracMi: 'HAYIR', makineTechizatTipi:'Ana Makine', kdvMuafiyeti:'', gumrukVergisiMuafiyeti:'', finansalKiralamaMi:'HAYIR', finansalKiralamaAdet:0, finansalKiralamaSirket:'', gerceklesenAdet:0, gerceklesenTutar:0, iadeDevirSatisVarMi:'HAYIR', iadeDevirSatisAdet:0, iadeDevirSatisTutar:0, dosyalar: []});
 
@@ -78,6 +88,51 @@ const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...p
       placeholder={placeholder}
       style={style}
       {...props}
+    />
+  );
+});
+
+// GtipKodInput: müşteri "GTIP NO seçiciye gerek yok, zaten kopyala yapıştır
+// yapıyoruz" dedi. Modal arama yerine doğrudan yazılan/yapıştırılan alan.
+// Öneri açılır listesi YOK — DataGrid hücreleri overflow:hidden olduğu için
+// mutlak konumlu bir liste kırpılırdı. Bunun yerine kod tamamlanınca açıklama
+// tek seferlik sorgulanıp doldurulur.
+const GtipKodInput = memo(({ value, rowId, onCommit, disabled }) => {
+  const [local, setLocal] = useState(value ?? '');
+  const ref = useRef(null);
+  useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
+
+  const commit = async () => {
+    const kod = String(local || '').trim();
+    if (kod === String(value ?? '')) return;
+    let aciklama = '';
+    if (kod) {
+      try {
+        const gtipService = (await import('../../services/gtipService')).default;
+        const kayit = await gtipService.getByKod(kod);
+        aciklama = kayit?.aciklama || '';
+      } catch { /* açıklama bulunamazsa kod yine de kaydedilir */ }
+    }
+    onCommit(rowId, kod, aciklama);
+  };
+
+  return (
+    <input
+      ref={ref}
+      type="text"
+      value={local}
+      onChange={(e) => setLocal(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); e.target.blur(); } }}
+      onPaste={(e) => e.stopPropagation()}
+      disabled={disabled}
+      placeholder="GTIP yapıştır..."
+      autoComplete="off"
+      style={{
+        width: '100%', border: '1px solid #cbd5e1', borderRadius: 4,
+        padding: '4px 6px', fontSize: '0.72rem', color: '#2563eb',
+        outline: 'none', background: disabled ? '#f8fafc' : '#fff'
+      }}
     />
   );
 });
@@ -1891,8 +1946,10 @@ const MakineYonetimi = () => {
     }, [birimListesi]);
 
     // Kullanılmış makine seçenekleri
-    const kullanilmisOptions = ['', 'H', 'KM', 'KK'];
-    const kullanilmisLabels = { '': '-', 'H': 'Hayır', 'KM': 'K.Münferit', 'KK': 'K.Komple' };
+    // Bakanlık kodları (usedmachinecodes): 1=Komple, 2=HAYIR, 3=Münferit.
+    // Eskiden 'H'/'KM'/'KK' uyduruk kodları yazılıyordu; hiçbir tabloda karşılığı yok.
+    const kullanilmisOptions = ['', '2', '1', '3'];
+    const kullanilmisLabels = { '': '-', '2': 'Hayır', '1': 'K.Komple', '3': 'K.Münferit' };
 
     // Talep/Karar seçenekleri
     const talepDurumOptions = ['', 'taslak', 'bakanliga_gonderildi', 'revize_istendi'];
@@ -1902,22 +1959,25 @@ const MakineYonetimi = () => {
 
     // Sütun tanımları - Yerli (TÜM SÜTUNLAR)
     const yerliCols = [
-      { key: 'siraNo', label: '#', w: 28, type: 'number' },
+      { key: 'siraNo', label: 'Sıra', w: 40, type: 'number' },
       { key: 'makineId', label: 'M.ID', w: 45 },
       { key: 'gtipKodu', label: 'GTIP', w: 70, type: 'gtip' },
       { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
       { key: 'adi', label: 'Adı', w: 130, flex: true },
-      { key: 'kdvIstisnasi', label: 'KDV', w: 30, options: ['', 'E', 'H'] },
+      { key: 'kdvIstisnasi', label: 'KDV', w: 30, options: EH_OPTIONS, optionLabels: EH_LABELS },
       { key: 'miktar', label: 'Adet', w: 35, type: 'number' },
-      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels },
+      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels,
+        // Standart mod birim + birimAciklamasi'nı BİRLİKTE yazar. Hızlı mod yalnız kodu
+        // yazdığı için açıklama boş kalıyor, grid'de ham kod ("142") görünüyordu.
+        onUpdate: (rowId, kod) => updater(rowId, { birim: kod, birimAciklamasi: kod ? (birimLabels[kod] || '') : '' }) },
       { key: 'birimFiyatiTl', label: 'B.Fiy', w: 55, type: 'number' },
-      { key: 'makineTechizatTipi', label: 'Tip', w: 30, options: ['', 'A', 'Y'] },
-      { key: 'finansalKiralamaMi', label: 'FK', w: 26, options: ['', 'E', 'H'] },
+      { key: 'makineTechizatTipi', label: 'Tip', w: 30, options: TIP_OPTIONS, optionLabels: TIP_LABELS },
+      { key: 'finansalKiralamaMi', label: 'FK', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
       { key: 'finansalKiralamaAdet', label: 'FK#', w: 30, type: 'number' },
       { key: 'finansalKiralamaSirket', label: 'FKŞrk', w: 50 },
       { key: 'gerceklesenAdet', label: 'G.Ad', w: 32, type: 'number' },
       { key: 'gerceklesenTutar', label: 'G.Tut', w: 45, type: 'number' },
-      { key: 'iadeDevirSatisVarMi', label: 'DVR', w: 26, options: ['', 'E', 'H'] },
+      { key: 'iadeDevirSatisVarMi', label: 'DVR', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
       { key: 'iadeDevirSatisAdet', label: 'DV#', w: 28, type: 'number' },
       { key: 'iadeDevirSatisTutar', label: 'DV₺', w: 45, type: 'number' },
       { key: 'toplamTl', label: 'Toplam', w: 65, type: 'number', computed: true },
@@ -1930,29 +1990,32 @@ const MakineYonetimi = () => {
     
     // Sütun tanımları - İthal (TÜM SÜTUNLAR)
     const ithalCols = [
-      { key: 'siraNo', label: '#', w: 28, type: 'number' },
+      { key: 'siraNo', label: 'Sıra', w: 40, type: 'number' },
       { key: 'makineId', label: 'M.ID', w: 45 },
       { key: 'gtipKodu', label: 'GTIP', w: 70, type: 'gtip' },
       { key: 'gtipAciklama', label: 'GTIP Açk.', w: 90 },
       { key: 'adi', label: 'Adı', w: 110, flex: true },
       { key: 'miktar', label: 'Adet', w: 32, type: 'number' },
-      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels },
+      { key: 'birim', label: 'Birim', w: 50, options: birimOptions, optionLabels: birimLabels,
+        // Standart mod birim + birimAciklamasi'nı BİRLİKTE yazar. Hızlı mod yalnız kodu
+        // yazdığı için açıklama boş kalıyor, grid'de ham kod ("142") görünüyordu.
+        onUpdate: (rowId, kod) => updater(rowId, { birim: kod, birimAciklamasi: kod ? (birimLabels[kod] || '') : '' }) },
       { key: 'birimFiyatiFob', label: 'FOB', w: 50, type: 'number' },
       { key: 'doviz', label: 'Dvz', w: 50, options: useMemo(() => ['', ...dovizListesi.map(d => d.kod)], [dovizListesi]), optionLabels: useMemo(() => { const l = { '': '-' }; dovizListesi.forEach(d => { l[d.kod] = d.aciklama || d.kod; }); return l; }, [dovizListesi]) },
       { key: 'toplamUsd', label: '$', w: 55, type: 'number', computed: true },
       { key: 'toplamTl', label: '₺', w: 60, type: 'number' },
       { key: 'kullanilmisKod', label: 'Kullanılmış', w: 65, options: kullanilmisOptions, optionLabels: kullanilmisLabels },
-      { key: 'ckdSkd', label: 'CKD', w: 26, options: ['', 'E', 'H'] },
-      { key: 'aracMi', label: 'Arç', w: 26, options: ['', 'E', 'H'] },
-      { key: 'makineTechizatTipi', label: 'Tip', w: 26, options: ['', 'A', 'Y'] },
-      { key: 'kdvMuafiyeti', label: 'KDV', w: 26, options: ['', 'E', 'H'] },
-      { key: 'gumrukVergisiMuafiyeti', label: 'GV', w: 26, options: ['', 'E', 'H'] },
-      { key: 'finansalKiralamaMi', label: 'FK', w: 24, options: ['', 'E', 'H'] },
+      { key: 'ckdSkd', label: 'CKD', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
+      { key: 'aracMi', label: 'Arç', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
+      { key: 'makineTechizatTipi', label: 'Tip', w: 26, options: TIP_OPTIONS, optionLabels: TIP_LABELS },
+      { key: 'kdvMuafiyeti', label: 'KDV', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
+      { key: 'gumrukVergisiMuafiyeti', label: 'GV', w: 26, options: EH_OPTIONS, optionLabels: EH_LABELS },
+      { key: 'finansalKiralamaMi', label: 'FK', w: 24, options: EH_OPTIONS, optionLabels: EH_LABELS },
       { key: 'finansalKiralamaAdet', label: 'F#', w: 26, type: 'number' },
       { key: 'finansalKiralamaSirket', label: 'FŞrk', w: 45 },
       { key: 'gerceklesenAdet', label: 'G#', w: 26, type: 'number' },
       { key: 'gerceklesenTutar', label: 'G₺', w: 40, type: 'number' },
-      { key: 'iadeDevirSatisVarMi', label: 'DV', w: 24, options: ['', 'E', 'H'] },
+      { key: 'iadeDevirSatisVarMi', label: 'DV', w: 24, options: EH_OPTIONS, optionLabels: EH_LABELS },
       { key: 'iadeDevirSatisAdet', label: 'D#', w: 26, type: 'number' },
       { key: 'iadeDevirSatisTutar', label: 'D₺', w: 40, type: 'number' },
       { key: 'dosyaSayisi', label: '📎', w: 24, type: 'display', render: (row) => (row.dosyalar?.length || 0) },
@@ -2343,7 +2406,9 @@ const MakineYonetimi = () => {
                           <select
                             data-row={rowIdx}
                             data-col={colIdx}
-                            value={shortVal}
+                            /* shortVal DEĞİL: option değerleri artık tam metin ('EVET'),
+                               kısaltma yalnızca etikette. shortVal ile eşleşme kopardı. */
+                            value={displayVal ?? ''}
                             onChange={handleChange}
                             onKeyDown={(e) => handleKeyDown(e, rowIdx, colIdx)}
                             disabled={!isReviseStarted}
@@ -2405,17 +2470,25 @@ const MakineYonetimi = () => {
 
   const YerliGrid = () => {
     const cols = [
-      { field: 'siraNo', headerName: '#', width: 40, 
+      // Sıra no dar sütuna sıkıştırılmış bir input'tu, rakam okunmuyordu (müşteri şikayeti).
+      // Revize modunda düzenlenebilir input; dışında düz, okunur metin.
+      // Görünüm YeniTesvik/MakineYonetimi ile aynı tutuldu (müşteri: "iki liste aynı olsun").
+      { field: 'siraNo', headerName: 'Sıra', width: 62,
         renderCell: (p) => (
-          <TextField 
-            size="small" 
-            value={p.row.siraNo || ''} 
-            onChange={(e) => isReviseMode && updateRowSiraNo('yerli', p.row.id, e.target.value)}
-            disabled={!isReviseMode}
-            type="number"
-            sx={{ ...compactInputSx, width: '100%' }}
-            inputProps={{ min: 1, style: { textAlign: 'center' } }}
-          />
+          isReviseMode ? (
+            <TextField
+              size="small"
+              value={p.row.siraNo || ''}
+              onChange={(e) => updateRowSiraNo('yerli', p.row.id, e.target.value)}
+              type="number"
+              sx={{ ...compactInputSx, width: '100%' }}
+              inputProps={{ min: 1, style: { textAlign: 'center' } }}
+            />
+          ) : (
+            <Box sx={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>
+              {p.row.siraNo || '-'}
+            </Box>
+          )
         )
       },
       { field: 'makineId', headerName: 'M.ID', width: 65, 
@@ -2433,16 +2506,19 @@ const MakineYonetimi = () => {
       { field: 'gtipKodu', headerName: 'GTIP', width: 140, renderCell: (p) => (
         <Stack direction="row" spacing={0.25} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch 
-              value={p.row.gtipKodu} 
-              onChange={(kod, aciklama)=>{ 
-                if(!isReviseMode) return; 
-                const patch = { gtipKodu: kod, gtipAciklama: aciklama }; 
-                if (!p.row.adi) patch.adi = aciklama; 
-                updateYerli(p.row.id, patch); 
-              }} 
+            <GtipKodInput
+              value={p.row.gtipKodu}
+              rowId={p.row.id}
               disabled={!isReviseStarted}
-              disableMessage="Revize başlatın"
+              onCommit={(rowId, kod, aciklama) => {
+                if (!isReviseMode) return;
+                const patch = { gtipKodu: kod };
+                if (aciklama) {
+                  patch.gtipAciklama = aciklama;
+                  if (!p.row.adi) patch.adi = aciklama;
+                }
+                updateYerli(rowId, patch);
+              }}
             />
           </Box>
           <IconButton size="small" sx={{ p: 0.25 }} onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></IconButton>
@@ -2740,17 +2816,25 @@ const MakineYonetimi = () => {
   const IthalGrid = () => {
     const cols = [
       // Birim Açıklaması kolonu kaldırıldı (müşteri istemiyor)
-      { field: 'siraNo', headerName: '#', width: 50, 
+      // Sıra no dar sütuna sıkıştırılmış bir input'tu, rakam okunmuyordu (müşteri şikayeti).
+      // Revize modunda düzenlenebilir input; dışında düz, okunur metin.
+      // Görünüm YeniTesvik/MakineYonetimi ile aynı tutuldu (müşteri: "iki liste aynı olsun").
+      { field: 'siraNo', headerName: 'Sıra', width: 62,
         renderCell: (p) => (
-          <TextField 
-            size="small" 
-            value={p.row.siraNo || ''} 
-            onChange={(e) => isReviseMode && updateRowSiraNo('ithal', p.row.id, e.target.value)}
-            disabled={!isReviseMode}
-            type="number"
-            sx={{ width: '100%' }}
-            inputProps={{ min: 1, style: { textAlign: 'center', fontSize: '0.75rem' } }}
-          />
+          isReviseMode ? (
+            <TextField
+              size="small"
+              value={p.row.siraNo || ''}
+              onChange={(e) => updateRowSiraNo('ithal', p.row.id, e.target.value)}
+              type="number"
+              sx={{ ...compactInputSx, width: '100%' }}
+              inputProps={{ min: 1, style: { textAlign: 'center' } }}
+            />
+          ) : (
+            <Box sx={{ width: '100%', textAlign: 'center', fontSize: '0.78rem', fontWeight: 600, color: '#334155' }}>
+              {p.row.siraNo || '-'}
+            </Box>
+          )
         )
       },
       { field: 'makineId', headerName: 'Makine ID', width: 90, 
@@ -2769,16 +2853,19 @@ const MakineYonetimi = () => {
       { field: 'gtipKodu', headerName: 'GTIP', width: 180, renderCell: (p) => (
         <Stack direction="row" spacing={0.5} alignItems="center" sx={{ width: '100%' }}>
           <Box sx={{ flex: 1 }}>
-            <GTIPSuperSearch 
-              value={p.row.gtipKodu} 
-              onChange={(kod, aciklama)=>{ 
-                if(!isReviseMode) return; 
-                const patch = { gtipKodu: kod, gtipAciklama: aciklama }; 
-                if (!p.row.adi) patch.adi = aciklama; 
-                updateIthal(p.row.id, patch); 
-              }} 
+            <GtipKodInput
+              value={p.row.gtipKodu}
+              rowId={p.row.id}
               disabled={!isReviseStarted}
-              disableMessage="GTIP girişi için revize talebi başlatmanız gerekmektedir"
+              onCommit={(rowId, kod, aciklama) => {
+                if (!isReviseMode) return;
+                const patch = { gtipKodu: kod };
+                if (aciklama) {
+                  patch.gtipAciklama = aciklama;
+                  if (!p.row.adi) patch.adi = aciklama;
+                }
+                updateIthal(rowId, patch);
+              }}
             />
           </Box>
           <IconButton size="small" onClick={(e)=> openFavMenu(e, 'gtip', p.row.id)}><StarBorderIcon fontSize="inherit"/></IconButton>
@@ -2887,8 +2974,23 @@ const MakineYonetimi = () => {
           return { ...params.props, value: raw, error: !Number.isFinite(parsed) };
         }
       },
-      { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=>(
-        <UnitCurrencySearch type="used" labelMode="name" value={{ kod: p.row.kullanilmisKod, aciklama: p.row.kullanilmisAciklama }} onChange={(kod,aciklama)=>{ if(!isReviseMode) return; updateIthal(p.row.id,{kullanilmisKod:kod,kullanilmisAciklama:aciklama}); }} />
+      // Müşteri: "kullanılmış makinelere de seçiciye gerek yok, 3 seçenek arasında
+      // seçim yapıyoruz sadece." Arama modali yerine düz liste. Değerler bakanlık
+      // kodları (usedmachinecodes): 1=Komple, 2=HAYIR, 3=Münferit — açıklama da
+      // birlikte yazılır ki dışa aktarımda etiket çözülebilsin.
+      { field: 'kullanilmis', headerName: 'Kullanılmış', width: 180, renderCell: (p)=> (
+        <Select size="small" value={p.row.kullanilmisKod || ''}
+          onChange={(e)=>{
+            if(!isReviseMode) return;
+            const kod = e.target.value;
+            updateIthal(p.row.id, { kullanilmisKod: kod, kullanilmisAciklama: KULLANILMIS_KODLARI[kod] || '' });
+          }}
+          displayEmpty fullWidth disabled={!isReviseMode} sx={compactSelectSx}>
+          <MenuItem value="" sx={{ fontSize: '0.68rem' }}>-</MenuItem>
+          <MenuItem value="2" sx={{ fontSize: '0.68rem' }}>Hayır</MenuItem>
+          <MenuItem value="1" sx={{ fontSize: '0.68rem' }}>Kullanılmış Komple</MenuItem>
+          <MenuItem value="3" sx={{ fontSize: '0.68rem' }}>Kullanılmış Münferit</MenuItem>
+        </Select>
       ) },
       { field: 'ckdSkd', headerName: 'CKD/SKD', width: 110, renderCell: (p)=> (
         <Select size="small" value={p.row.ckdSkd || ''} onChange={(e)=> isReviseMode && updateIthal(p.row.id, { ckdSkd: e.target.value })} displayEmpty fullWidth disabled={!isReviseMode}>

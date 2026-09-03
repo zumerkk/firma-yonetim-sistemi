@@ -56,6 +56,15 @@ const kullanilmisDurum = (m) => kullanilmisEtiketi(m.kullanilmisMakine, m.kullan
 // Birim: kayıtta kod tutulur ("142"), müşteriye "ADET" gitmeli
 const birimDegeri = (m) => birimEtiketi(m.birim, m.birimAciklamasi) || "-";
 
+// Müşteri: "makinelere onay tarihi sütunu da ekleyelim, makine revizyonlarındaki
+// gibi sadece onay tarihi yeterli." Karar onaylandıysa tarihi, değilse "-".
+const onayTarihi = (m) => {
+  const d = m?.karar?.kararTarihi;
+  const durum = m?.karar?.kararDurumu;
+  if (!d || (durum && durum !== "onay" && durum !== "kismi_onay")) return "-";
+  return fmtDate(d);
+};
+
 export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Teşvik Belgesi");
@@ -418,15 +427,17 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   if (yerliList.length > 0) {
     const yerliSheet = workbook.addWorksheet("Yerli Makine Listesi");
     yerliSheet.columns = [
+      // Müşteri: "yerli makinelerde GTİP sütununa gerek yok, gizleyebiliriz."
+      // Yerine onay tarihi geldi; sütun sayısı 9'da kaldığı için A:I birleştirmesi bozulmuyor.
       { width: 10 }, // Sıra No
       { width: 15 }, // Makine ID
-      { width: 15 }, // GTİP Kodu
       { width: 45 }, // Adı ve Özelliği
       { width: 12 }, // Miktar
       { width: 15 }, // Birim
       { width: 20 }, // Birim Fiyatı (TL)
       { width: 20 }, // Toplam Tutar (TL)
-      { width: 15 }  // KDV İstisnası
+      { width: 15 }, // KDV İstisnası
+      { width: 16 }  // Onay Tarihi
     ];
     yerliSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
@@ -441,8 +452,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     yerliSheet.addRow([]);
 
     const hRow = yerliSheet.addRow([
-      "Sıra No", "Makine ID", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
-      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası"
+      "Sıra No", "Makine ID", "Adı ve Özelliği", "Miktar", "Birim",
+      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası", "Onay Tarihi"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
     // Uzun listeler birden fazla sayfaya taşıyor; başlık her sayfada tekrarlansın
@@ -452,13 +463,13 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       const r = yerliSheet.addRow([
         m.siraNo || "-",
         m.makineId || "-",
-        m.gtipKodu || "-",
         m.adiVeOzelligi || "-",
         num(m.miktar),
         birimDegeri(m),
         tl(m.birimFiyatiTl),
         tl(m.toplamTutariTl || m.toplamTl),
-        m.kdvIstisnasi || "-"
+        m.kdvIstisnasi || "-",
+        onayTarihi(m)
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });
@@ -479,13 +490,15 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 20 }, // Toplam Tutar (TL)
       { width: 18 }, // Kullanılmış Makine
       { width: 22 }, // Gümrük Vergisi İstisnası
-      { width: 15 }  // KDV İstisnası
+      { width: 15 }, // KDV İstisnası
+      { width: 16 }  // Onay Tarihi
     ];
     ithalSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
     ithalSheet.addRow([`İTHAL MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ""}`]);
     const iBaslik = ithalSheet.lastRow;
-    ithalSheet.mergeCells(`A${iBaslik.number}:L${iBaslik.number}`);
+    // Sütun sayısı 12 → 13 oldu (Onay Tarihi), başlık birleştirmesi de M'ye uzatıldı
+    ithalSheet.mergeCells(`A${iBaslik.number}:M${iBaslik.number}`);
     iBaslik.getCell(1).font = { bold: true, size: 14 };
     iBaslik.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     iBaslik.height = 24;
@@ -494,7 +507,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     const hRow = ithalSheet.addRow([
       "Sıra No", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
       "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)",
-      "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası"
+      "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası", "Onay Tarihi"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
     ithalSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
@@ -512,7 +525,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         tl(m.toplamTutarFobTl || m.toplamTl),
         kullanilmisDurum(m),
         evetHayir(m.gumrukVergisiMuafiyeti),
-        evetHayir(m.kdvMuafiyeti)
+        evetHayir(m.kdvMuafiyeti),
+        onayTarihi(m)
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });

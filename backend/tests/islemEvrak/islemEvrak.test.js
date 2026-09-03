@@ -111,9 +111,108 @@ describe('islemEvrakService.mailOlustur - evrak listesi metne dönüşür', () =
 
     expect(konu).toBe('ETUYS Yetkilendirme — ÖRNEK A.Ş.');
     expect(govde).toContain('1. İmza Sirküleri — Noter onaylı');
-    expect(govde).toContain('2. Faaliyet Belgesi (opsiyonel)');
     expect(govde).toContain('https://gmplansis.com/evrak/abc123');
     expect(govde).not.toContain('{'); // doldurulmamış placeholder kalmamalı
+  });
+
+  // Müşteri isteği (PR #90): "tikleri kaldırınca mailde otomatik silinsin,
+  // (opsiyonel) yazmak yerine." Davranış değişti ama test güncellenmemişti.
+  test('zorunlu tiki kaldırılan evrak maile HİÇ yazılmaz', () => {
+    const talep = talepKur([
+      { ad: 'İmza Sirküleri', aciklama: 'Noter onaylı', zorunlu: true },
+      { ad: 'Faaliyet Belgesi', zorunlu: false }
+    ]);
+    talep.firmaAdi = 'ÖRNEK A.Ş.';
+    talep.islemTuruAdi = 'ETUYS Yetkilendirme';
+
+    const { govde } = svc.mailOlustur({
+      talep,
+      sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE },
+      uploadLink: 'https://gmplansis.com/evrak/abc123'
+    });
+
+    expect(govde).not.toContain('Faaliyet Belgesi');
+    expect(govde).not.toContain('opsiyonel');
+    // Tek işaretli evrak kaldığı için numaralandırma 1'de bitmeli
+    expect(govde).toContain('1. İmza Sirküleri — Noter onaylı');
+    expect(govde).not.toContain('2. ');
+  });
+
+  // Müşteri (madde 15): "Google Forms linkini koyabilirsek ek gibi çok iyi olur ...
+  // otomatik olarak ilişkin firmaya ait olsun." Tek form + firma bazlı ön dolgu.
+  describe('Google Form bağlantısı firmaya göre ön-doldurulur', () => {
+    const FORM = 'https://docs.google.com/forms/d/e/ABC123/viewform';
+    const ALANLAR = [
+      { entryId: 'entry.111', kaynak: 'firmaAdi' },
+      { entryId: 'entry.222', kaynak: 'vergiNoTC' }
+    ];
+
+    test('firma bilgileri ön dolgu parametresine yazılır', () => {
+      const link = svc.formLinkiUret(
+        { googleFormUrl: FORM, googleFormAlanlari: ALANLAR },
+        { firmaAdi: 'ÖRNEK A.Ş.' },
+        { vergiNoTC: '1234567890' }
+      );
+      expect(link).toContain('usp=pp_url');
+      expect(link).toContain(`entry.111=${encodeURIComponent('ÖRNEK A.Ş.')}`);
+      expect(link).toContain('entry.222=1234567890');
+    });
+
+    test('iki farklı firma iki farklı link alır', () => {
+      const uret = (ad) => svc.formLinkiUret(
+        { googleFormUrl: FORM, googleFormAlanlari: ALANLAR }, { firmaAdi: ad }, {});
+      expect(uret('A FİRMASI')).not.toBe(uret('B FİRMASI'));
+    });
+
+    test('form tanımlı değilse boş döner ve mail gövdesinde satır bırakmaz', () => {
+      expect(svc.formLinkiUret({}, { firmaAdi: 'X' }, {})).toBe('');
+
+      const talep = talepKur([{ ad: 'İmza Sirküleri', zorunlu: true }]);
+      talep.firmaAdi = 'ÖRNEK A.Ş.';
+      talep.islemTuruAdi = 'ETUYS';
+      const { govde } = svc.mailOlustur({
+        talep, sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE }, uploadLink: 'https://x/y'
+      });
+      expect(govde).not.toContain('{formLink}');
+      expect(govde).not.toMatch(/\n{3,}/); // boş placeholder üç satır boşluk bırakmamalı
+    });
+
+    test('form tanımlıysa link gövdeye girer', () => {
+      const talep = talepKur([{ ad: 'İmza Sirküleri', zorunlu: true }]);
+      talep.firmaAdi = 'ÖRNEK A.Ş.';
+      talep.islemTuruAdi = 'ETUYS';
+      const { govde } = svc.mailOlustur({
+        talep,
+        sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE, googleFormUrl: FORM, googleFormAlanlari: ALANLAR },
+        uploadLink: 'https://x/y',
+        firma: { vergiNoTC: '1234567890' }
+      });
+      expect(govde).toContain('docs.google.com/forms');
+      expect(govde).toContain('entry.222=1234567890');
+    });
+
+    test('paylaşım linkindeki usp=sf_link temizlenir', () => {
+      const link = svc.formLinkiUret(
+        { googleFormUrl: `${FORM}?usp=sf_link`, googleFormAlanlari: ALANLAR },
+        { firmaAdi: 'X' }, {}
+      );
+      expect(link).not.toContain('sf_link');
+      expect((link.match(/usp=/g) || []).length).toBe(1);
+    });
+  });
+
+  test('hiç işaretli evrak yoksa maili düzenleyen uyarılır', () => {
+    const talep = talepKur([{ ad: 'İmza Sirküleri', zorunlu: false }]);
+    talep.firmaAdi = 'ÖRNEK A.Ş.';
+    talep.islemTuruAdi = 'ETUYS Yetkilendirme';
+
+    const { govde } = svc.mailOlustur({
+      talep,
+      sablon: { mailGovdesi: svc.VARSAYILAN_GOVDE },
+      uploadLink: 'https://gmplansis.com/evrak/abc123'
+    });
+
+    expect(govde).toContain('İşaretli evrak yok');
   });
 });
 

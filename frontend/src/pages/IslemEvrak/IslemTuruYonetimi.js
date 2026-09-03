@@ -25,14 +25,23 @@ import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
 
 // Mail gövdesinde kullanılabilecek yer tutucular (islemEvrakService.mailOlustur ile aynı liste)
-const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{evrakListesi}', '{uploadLink}', '{imza}'];
+const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{evrakListesi}', '{uploadLink}', '{formLink}', '{imza}'];
 
 const bosEvrak = () => ({ ad: '', aciklama: '', zorunlu: true });
 const bosVaryant = () => ({ kod: '', ad: '', mailKonusu: '', mailGovdesi: '', istenenEvraklar: [] });
 const bosTur = () => ({
   _id: null, ad: '', aciklama: '', mailKonusu: '', mailGovdesi: '',
+  googleFormUrl: '', googleFormAlanlari: [],
   istenenEvraklar: [], sorular: [], varyantlar: [], aktif: true, siraNo: 0
 });
+
+// Google Form ön-dolgusunda kullanılabilecek firma bilgileri
+const FORM_KAYNAKLARI = [
+  { deger: 'firmaAdi', etiket: 'Firma Adı' },
+  { deger: 'vergiNoTC', etiket: 'Vergi No / TC' },
+  { deger: 'firmaEmail', etiket: 'Firma E-postası' },
+  { deger: 'islemAdi', etiket: 'İşlem Adı' }
+];
 
 // Türkçe karakterleri sadeleştirip kod üretir (backend de aynı kuralı uyguluyor)
 const kodTuret = (metin) => String(metin || '').toLowerCase()
@@ -170,6 +179,8 @@ const IslemTuruYonetimi = () => {
       const govde = {
         ad: form.ad, aciklama: form.aciklama,
         mailKonusu: form.mailKonusu, mailGovdesi: form.mailGovdesi,
+        googleFormUrl: form.googleFormUrl || '',
+        googleFormAlanlari: (form.googleFormAlanlari || []).filter((a) => String(a.entryId || '').trim()),
         istenenEvraklar: form.istenenEvraklar, sorular: form.sorular || [], varyantlar: form.varyantlar,
         aktif: form.aktif !== false, siraNo: Number(form.siraNo) || 0
       };
@@ -336,6 +347,73 @@ const IslemTuruYonetimi = () => {
               <TextField size="small" label="Mail Gövdesi" value={form.mailGovdesi}
                 onChange={(e) => alan('mailGovdesi', e.target.value)} fullWidth multiline minRows={6}
                 helperText={`Yer tutucular: ${PLACEHOLDERLAR.join('  ')}`} />
+
+              {/* 🔗 Google Form — müşteri: "Google Forms linkini koyabilirsek ek gibi
+                  çok iyi olur ... otomatik olarak ilişkin firmaya ait olsun."
+                  Firma başına ayrı form açmak yerine tek form kullanılır; mail'e giden
+                  {formLink} her firma için ön-doldurulmuş üretilir, böylece e-tabloya
+                  düşen yanıt satırında firma bilgisi hazır gelir. */}
+              <Box sx={{ border: '1px dashed #cbd5e1', borderRadius: 1, p: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Google Form Bağlantısı (opsiyonel)
+                </Typography>
+                <TextField
+                  size="small" label="Form Linki" fullWidth
+                  value={form.googleFormUrl || ''}
+                  onChange={(e) => alan('googleFormUrl', e.target.value)}
+                  placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                  helperText="Boş bırakılırsa {formLink} yazan SATIRIN TAMAMI mailden düşer — bu yüzden onu kendi satırına yazın."
+                />
+
+                {!!String(form.googleFormUrl || '').trim() && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 1 }}>
+                      Ön dolgu alanları — Google Forms'ta <b>⋮ → Ön doldurulmuş bağlantı al</b> deyip
+                      örnek bir yanıt kaydedin; çıkan adresteki <code>entry.123456</code> anahtarlarını
+                      buraya girin. Her firmaya o firmanın bilgisiyle dolu link gider.
+                    </Typography>
+                    <Stack spacing={1}>
+                      {(form.googleFormAlanlari || []).map((a, i) => (
+                        <Stack key={i} direction="row" spacing={1} alignItems="center">
+                          <TextField
+                            size="small" label="Alan anahtarı" sx={{ flex: 1 }}
+                            value={a.entryId || ''} placeholder="entry.1234567890"
+                            onChange={(e) => {
+                              const yeni = [...(form.googleFormAlanlari || [])];
+                              yeni[i] = { ...yeni[i], entryId: e.target.value };
+                              alan('googleFormAlanlari', yeni);
+                            }}
+                          />
+                          <TextField
+                            size="small" select label="Doldurulacak bilgi" sx={{ width: 190 }}
+                            value={a.kaynak || 'firmaAdi'}
+                            onChange={(e) => {
+                              const yeni = [...(form.googleFormAlanlari || [])];
+                              yeni[i] = { ...yeni[i], kaynak: e.target.value };
+                              alan('googleFormAlanlari', yeni);
+                            }}
+                          >
+                            {FORM_KAYNAKLARI.map((k) => (
+                              <MenuItem key={k.deger} value={k.deger}>{k.etiket}</MenuItem>
+                            ))}
+                          </TextField>
+                          <Tooltip title="Kaldır">
+                            <IconButton size="small" onClick={() => alan('googleFormAlanlari',
+                              (form.googleFormAlanlari || []).filter((_, j) => j !== i))}>
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      ))}
+                    </Stack>
+                    <Button size="small" startIcon={<AddIcon />} sx={{ mt: 1 }}
+                      onClick={() => alan('googleFormAlanlari',
+                        [...(form.googleFormAlanlari || []), { entryId: '', kaynak: 'firmaAdi' }])}>
+                      Alan Ekle
+                    </Button>
+                  </Box>
+                )}
+              </Box>
               <EvrakListesiEditoru
                 baslik="İstenen Evraklar (varsayılan)"
                 evraklar={form.istenenEvraklar || []}

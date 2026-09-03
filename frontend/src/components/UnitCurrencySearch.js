@@ -5,9 +5,20 @@ import { Search as SearchIcon } from '@mui/icons-material';
 import unitService from '../services/unitService';
 import currencyService from '../services/currencyService';
 import usedMachineService from '../services/usedMachineService';
+import { birimEtiketi, kullanilmisEtiketi } from '../utils/makineFormat';
 
 const debounce = (fn, wait = 250) => {
   let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+};
+
+// Hücrede görünecek etiket. Veride 15.000'den fazla satırda `aciklama` BOŞ ve
+// `kod` alanı ya sayısal kod ("142") ya da doğrudan metin ("ADET(UNIT)"); eskiden
+// `aciklama || kod` yazıldığı için ekranda ham "142" görünüyordu (müşteri şikayeti).
+// Birim ve kullanılmış-makine için bakanlık tablosundan çözüyoruz.
+const etiketCoz = (type, kod, aciklama) => {
+  if (type === 'unit') return birimEtiketi(kod, aciklama);
+  if (type === 'used') return kullanilmisEtiketi(kod, aciklama);
+  return String(aciklama || kod || '').trim();
 };
 
 // type: 'unit' | 'currency' | 'used' | 'machineType'
@@ -76,7 +87,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
               // İsim öncelikli gösterim: açıklama (isim) varsa onu bas, yoksa kodu.
               // Eski kayıtlarda isim zaten kod alanında ("ADET(UNIT)") olduğundan görünüm değişmez;
               // yeni seçimlerde "142" yerine ismi gösterir. Kod, üstteki Tooltip'te görünmeye devam eder.
-              <Chip label={selected.aciklama || selected.kod} size="small" color="primary" sx={{ maxWidth: '100%' }} />
+              <Chip label={etiketCoz(type, selected.kod, selected.aciklama)} size="small" color="primary" sx={{ maxWidth: '100%' }} />
             ) : (
               <Typography variant="body2" sx={{ color:'text.disabled' }}>{ph}</Typography>
             )}
@@ -87,7 +98,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
     return (
       <TextField
         inputRef={inputRef}
-        value={selected ? (labelMode === 'name' ? (selected.aciklama || selected.kod) : (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : ''))) : ''}
+        value={selected ? (labelMode === 'name' ? etiketCoz(type, selected.kod, selected.aciklama) : (selected.kod + (selected.aciklama ? ` - ${selected.aciklama}` : ''))) : ''}
         onClick={() => setIsOpen(true)}
         placeholder={ph}
         size={size}
