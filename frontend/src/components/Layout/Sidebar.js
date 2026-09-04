@@ -58,7 +58,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <DashboardIcon />,
       path: '/dashboard',
       color: '#1e40af',
-      gradient: 'linear-gradient(135deg, #1e3a8a, #1e40af)',
+      gradient: '#1e3a8a',
       description: 'Ana kontrol paneli'
     },
     {
@@ -66,7 +66,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ImportExportIcon />,
       path: '/import',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #5b21b6, #7c3aed)',
+      gradient: '#5b21b6',
       description: 'Dosya analiz & toplu import',
       isNew: true
     }
@@ -79,7 +79,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <DashboardIcon />,
       path: '/tesvik',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      gradient: '#7f1d1d',
       description: 'Teşvik kontrol paneli'
     },
     {
@@ -87,7 +87,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ListIcon />,
       path: '/tesvik/liste',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      gradient: '#7f1d1d',
       description: 'Tüm teşvikleri görüntüle'
     },
     {
@@ -95,7 +95,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AddIcon />,
       path: '/tesvik/yeni',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      gradient: '#7f1d1d',
       permission: 'belgeEkle',
       description: 'Yeni teşvik belgesi'
     },
@@ -104,7 +104,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/tesvik/makine-yonetimi',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      gradient: '#4c1d95',
       description: 'Makine/Teçhizat kayıt ve yönetimi',
       isNew: true
     },
@@ -113,7 +113,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/tesvikler',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      gradient: '#4c1d95',
       description: 'Süreç, mail, evrak ve hatırlatma takibi (eski + yeni)',
       isNew: true
     }
@@ -127,7 +127,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <DashboardIcon />,
       path: '/yeni-tesvik',
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      gradient: '#064e3b',
       description: 'Yeni teşvik kontrol paneli'
     },
     {
@@ -135,7 +135,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ListIcon />,
       path: '/yeni-tesvik/liste',
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      gradient: '#064e3b',
       description: 'Tüm yeni teşvikleri görüntüle'
     },
     {
@@ -143,7 +143,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AddIcon />,
       path: '/yeni-tesvik/yeni',
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      gradient: '#064e3b',
       permission: 'belgeEkle',
       description: 'Yeni sistem teşvik belgesi',
       isNew: true
@@ -153,7 +153,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/yeni-tesvik/makine-yonetimi',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      gradient: '#4c1d95',
       description: 'Makine/Teçhizat kayıt ve yönetimi',
       isNew: true
     }
@@ -166,7 +166,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <DashboardIcon />,
       path: '/dosya-takip',
       color: '#d97706',
-      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      gradient: '#92400e',
       description: 'İş akış kontrol paneli'
     },
     {
@@ -174,7 +174,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ListIcon />,
       path: '/dosya-takip/liste',
       color: '#d97706',
-      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      gradient: '#92400e',
       description: 'Tüm talepleri görüntüle'
     },
     {
@@ -182,7 +182,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AddIcon />,
       path: '/dosya-takip/yeni',
       color: '#d97706',
-      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      gradient: '#92400e',
       description: 'Yeni iş akış talebi oluştur',
       isNew: true
     }
@@ -197,7 +197,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <BusinessIcon />,
       path: '/firmalar',
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      gradient: '#064e3b',
       description: 'Firma listesi'
     },
     {
@@ -205,7 +205,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/tesvik/liste',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      gradient: '#7f1d1d',
       description: 'Eski + yeni belgeler (firma araması birleşik)'
     },
     {
@@ -213,7 +213,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/yeni-tesvik/makine-yonetimi',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      gradient: '#4c1d95',
       description: 'Makine teçhizat yönetimi'
     },
     {
@@ -221,7 +221,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmojiEventsIcon />,
       path: '/tesvikler',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)',
+      gradient: '#4c1d95',
       description: 'Süreç, mail, evrak takibi'
     },
     {
@@ -229,7 +229,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <EmailIcon />,
       path: '/tesvikler/ara-kontrol',
       color: '#0ea5e9',
-      gradient: 'linear-gradient(135deg, #0c4a6e, #0ea5e9)',
+      gradient: '#0c4a6e',
       description: 'Firmaya makine listesi + fatura talebi'
     },
     {
@@ -237,7 +237,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AssignmentIcon />,
       path: '/islem-evrak',
       color: '#0891b2',
-      gradient: 'linear-gradient(135deg, #164e63, #0891b2)',
+      gradient: '#164e63',
       description: 'Firmadan işlem bazlı evrak talebi'
     },
     {
@@ -245,7 +245,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ListIcon />,
       path: '/dosya-takip/liste',
       color: '#d97706',
-      gradient: 'linear-gradient(135deg, #92400e, #d97706)',
+      gradient: '#92400e',
       description: 'Dosya iş akış talepleri'
     }
   ];
@@ -256,7 +256,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <ListIcon />,
       path: '/firmalar',
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #064e3b, #059669)',
+      gradient: '#064e3b',
       description: 'Tüm firmaları görüntüle'
     },
     {
@@ -264,7 +264,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AddIcon />,
       path: '/firmalar/yeni',
       color: '#a16207',
-      gradient: 'linear-gradient(135deg, #7c2d12, #a16207)',
+      gradient: '#7c2d12',
       permission: 'firmaEkle',
       description: 'Yeni firma kaydı'
     }
@@ -277,7 +277,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AdminPanelSettingsIcon />,
       path: '/admin',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #991b1b, #dc2626)',
+      gradient: '#991b1b',
       permission: 'yonetimPaneli',
       description: 'Sistem yönetimi',
       isNew: true
@@ -287,7 +287,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <FolderIcon />,
       path: '/dosyalar',
       color: '#f59e0b',
-      gradient: 'linear-gradient(135deg, #d97706, #f59e0b)',
+      gradient: '#d97706',
       description: 'Belge yükleme & yönetim',
       isNew: true
     },
@@ -296,7 +296,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <AssessmentIcon />,
       path: '/raporlar',
       color: '#0891b2',
-      gradient: 'linear-gradient(135deg, #0e7490, #0891b2)',
+      gradient: '#0e7490',
       permission: 'raporGoruntule',
       description: 'PDF/Excel raporlar',
       isNew: true
@@ -310,7 +310,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <HistoryIcon />,
       path: '/son-islemler',
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
+      gradient: '#7f1d1d',
       description: 'Aktivite geçmişi'
     },
     {
@@ -318,7 +318,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <TrendingUpIcon />,
       path: '/istatistikler',
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
+      gradient: '#581c87',
       description: 'Detaylı analiz'
     },
     {
@@ -326,7 +326,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       icon: <SettingsIcon />,
       path: '/ayarlar',
       color: '#64748b',
-      gradient: 'linear-gradient(135deg, #475569, #64748b)',
+      gradient: '#475569',
       description: 'Sistem ayarları'
     }
   ];
@@ -365,7 +365,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
         <ListItemButton
           onClick={() => handleNavigation(item.path)}
           sx={{
-            borderRadius: 2,
             position: 'relative',
             overflow: 'hidden',
             background: active
@@ -375,9 +374,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
             border: active
               ? '1px solid rgba(226, 232, 240, 0.8)'
               : '1px solid transparent',
-            boxShadow: active
-              ? '0 2px 8px rgba(0, 0, 0, 0.04)'
-              : 'none',
             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
             py: 1.25,
             px: 1.5,
@@ -386,7 +382,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               background: 'rgba(255, 255, 255, 0.95)',
               backdropFilter: 'blur(10px)',
               transform: 'translateX(2px)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.06)',
               border: '1px solid rgba(226, 232, 240, 0.8)',
             },
             '&::before': {
@@ -398,7 +393,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               width: active ? 3 : 0,
               background: item.gradient,
               transition: 'width 0.25s ease',
-              borderRadius: '0 2px 2px 0'
             },
             '&:hover::before': {
               width: 3
@@ -440,7 +434,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                       height: 18,
                       fontSize: '0.625rem',
                       fontWeight: 700,
-                      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                      background: '#ef4444',
                       color: 'white',
                       border: 'none',
                       '& .MuiChip-label': {
@@ -500,10 +494,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
         left: 0,
         right: 0,
         bottom: 0,
-        background: `
-          radial-gradient(circle at 20% 20%, rgba(30, 64, 175, 0.02) 0%, transparent 50%),
-          radial-gradient(circle at 80% 80%, rgba(5, 150, 105, 0.015) 0%, transparent 50%)
-        `,
         pointerEvents: 'none'
       }} />
 
@@ -581,7 +571,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               <ListItemButton
                 onClick={() => setFirmaMenuOpen(!firmaMenuOpen)}
                 sx={{
-                  borderRadius: 2,
                   background: 'rgba(5, 150, 105, 0.05)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(5, 150, 105, 0.12)',
@@ -592,7 +581,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   '&:hover': {
                     background: 'rgba(5, 150, 105, 0.08)',
                     transform: 'translateX(1px)',
-                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.1)'
                   }
                 }}
               >
@@ -600,8 +588,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #064e3b, #059669)',
-                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.15)'
+                    background: '#064e3b',
                   }}>
                     <BusinessIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
@@ -676,7 +663,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 height: 16,
                 fontSize: '0.625rem',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                background: '#ef4444',
                 color: 'white',
                 border: 'none',
                 '& .MuiChip-label': {
@@ -690,7 +677,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               <ListItemButton
                 onClick={() => setTesvikMenuOpen(!tesvikMenuOpen)}
                 sx={{
-                  borderRadius: 2,
                   background: 'rgba(220, 38, 38, 0.05)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(220, 38, 38, 0.12)',
@@ -701,7 +687,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   '&:hover': {
                     background: 'rgba(220, 38, 38, 0.08)',
                     transform: 'translateX(1px)',
-                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.1)'
                   }
                 }}
               >
@@ -709,8 +694,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
-                    boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)'
+                    background: '#7f1d1d',
                   }}>
                     <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
@@ -785,7 +769,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 height: 16,
                 fontSize: '0.625rem',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #059669, #047857)',
+                background: '#059669',
                 color: 'white',
                 border: 'none',
                 '& .MuiChip-label': {
@@ -799,7 +783,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               <ListItemButton
                 onClick={() => setYeniTesvikMenuOpen(!yeniTesvikMenuOpen)}
                 sx={{
-                  borderRadius: 2,
                   background: 'rgba(5, 150, 105, 0.05)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(5, 150, 105, 0.12)',
@@ -810,7 +793,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   '&:hover': {
                     background: 'rgba(5, 150, 105, 0.08)',
                     transform: 'translateX(1px)',
-                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.1)'
                   }
                 }}
               >
@@ -818,8 +800,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #064e3b, #059669)',
-                    boxShadow: '0 2px 8px rgba(5, 150, 105, 0.15)'
+                    background: '#064e3b',
                   }}>
                     <EmojiEventsIcon sx={{ fontSize: 16, color: 'white' }} />
                   </Avatar>
@@ -894,7 +875,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 height: 16,
                 fontSize: '0.625rem',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
+                background: '#d97706',
                 color: 'white',
                 border: 'none',
                 '& .MuiChip-label': {
@@ -908,18 +889,17 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               <ListItemButton
                 onClick={() => setDosyaTakipMenuOpen(!dosyaTakipMenuOpen)}
                 sx={{
-                  borderRadius: 2.5,
                   py: 1.25,
                   px: 2,
                   background: dosyaTakipMenuOpen
-                    ? 'linear-gradient(135deg, rgba(217, 119, 6, 0.08), rgba(245, 158, 11, 0.04))'
+                    ? 'rgba(217, 119, 6, 0.08)'
                     : 'transparent',
                   border: dosyaTakipMenuOpen
                     ? '1px solid rgba(217, 119, 6, 0.15)'
                     : '1px solid transparent',
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(245, 158, 11, 0.06))',
+                    background: 'rgba(217, 119, 6, 0.1)',
                     border: '1px solid rgba(217, 119, 6, 0.2)',
                     transform: 'translateX(2px)'
                   }
@@ -929,8 +909,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #92400e, #d97706)',
-                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)'
+                    background: '#92400e',
                   }}>
                     <AssignmentIcon sx={{ fontSize: 16 }} />
                   </Avatar>
@@ -1007,7 +986,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 height: 16,
                 fontSize: '0.625rem',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #9ca3af, #6b7280)',
+                background: '#9ca3af',
                 color: 'white',
                 border: 'none',
                 opacity: 0.7,
@@ -1022,7 +1001,6 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               <ListItemButton
                 disabled
                 sx={{
-                  borderRadius: 2,
                   background: 'rgba(107, 114, 128, 0.03)',
                   backdropFilter: 'blur(8px)',
                   border: '1px solid rgba(107, 114, 128, 0.08)',
@@ -1047,8 +1025,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   <Avatar sx={{
                     width: 32,
                     height: 32,
-                    background: 'linear-gradient(135deg, #9ca3af, #6b7280)',
-                    boxShadow: '0 2px 8px rgba(107, 114, 128, 0.1)',
+                    background: '#9ca3af',
                     opacity: 0.7
                   }}>
                     <BugReportIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />
@@ -1136,10 +1113,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           <Box sx={{
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(12px)',
-            borderRadius: 2.5,
             p: 2,
             border: '1px solid rgba(226, 232, 240, 0.6)',
-            boxShadow: '0 2px 12px rgba(0, 0, 0, 0.03)',
             position: 'relative',
             overflow: 'hidden'
           }}>
@@ -1150,7 +1125,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
               left: 0,
               right: 0,
               height: 3,
-              background: 'linear-gradient(90deg, #1e40af 0%, #059669 50%, #7c3aed 100%)'
+              background: '#1e40af'
             }} />
 
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.25, mt: 0.25 }}>
@@ -1158,10 +1133,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                 width: 38,
                 height: 38,
                 mr: 1.25,
-                background: 'linear-gradient(135deg, #1e40af, #059669)',
+                background: '#1e40af',
                 fontSize: '1rem',
                 fontWeight: 600,
-                boxShadow: '0 2px 8px rgba(30, 64, 175, 0.15)'
               }}>
                 {user?.adSoyad?.charAt(0)}
               </Avatar>
@@ -1182,7 +1156,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
                   label={user?.rolAciklama || user?.rol}
                   size="small"
                   sx={{
-                    background: 'linear-gradient(135deg, #1e40af, #059669)',
+                    background: '#1e40af',
                     color: 'white',
                     fontWeight: 500,
                     fontSize: '0.65rem',
@@ -1274,10 +1248,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
           '& .MuiDrawer-paper': {
             width: 280,
             boxSizing: 'border-box',
-            background: 'linear-gradient(180deg, #1a1a2e 0%, #16213e 100%)',
+            background: '#1a1a2e',
             color: 'white',
             borderRight: 'none',
-            boxShadow: '4px 0 20px rgba(0,0,0,0.15)',
             position: variant === 'temporary' ? 'fixed' : 'fixed', // Always fixed to prevent layout shift
             top: 0,
             left: 0,

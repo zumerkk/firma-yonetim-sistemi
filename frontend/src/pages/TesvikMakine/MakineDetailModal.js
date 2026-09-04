@@ -194,7 +194,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
         ) : (
           <Box>
             {/* Kimlik özeti (readonly) */}
-            <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 1, mb: 2 }}>
+            <Box sx={{ bgcolor: '#f8fafc', p: 2, mb: 2 }}>
               <Grid container spacing={1}>
                 <Info label="Firma" value={proc.firmaName} xs={12} sm={6} />
                 <Info label="Belge No / ID" value={`${proc.documentNo || '-'} / ${proc.documentId || '-'}`} xs={12} sm={6} />

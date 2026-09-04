@@ -228,7 +228,6 @@ const US97SuperSearch = ({
             '&:hover': {
               backgroundColor: '#f8fafc',
               transform: 'translateY(-1px)',
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)',
               '& fieldset': {
                 borderColor: '#3b82f6',
                 borderWidth: '2px'
@@ -279,12 +278,10 @@ const US97SuperSearch = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
             minHeight: '70vh',
             maxHeight: '90vh',
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.95) 100%)',
+            background: 'rgba(255,255,255,0.98)',
             backdropFilter: 'blur(20px)',
-            boxShadow: '0 25px 80px rgba(0, 0, 0, 0.25)',
           }
         }}
         BackdropProps={{
@@ -296,7 +293,7 @@ const US97SuperSearch = ({
       >
         {/* 🎯 MODAL HEADER */}
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+          background: '#3b82f6',
           color: 'white',
           py: 3,
           position: 'relative',
@@ -375,7 +372,6 @@ const US97SuperSearch = ({
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       backgroundColor: '#ffffff',
-                      borderRadius: 2,
                       '& fieldset': {
                         borderColor: '#e2e8f0'
                       },
@@ -503,7 +499,7 @@ const US97SuperSearch = ({
                           top: 0,
                           bottom: 0,
                           width: '4px',
-                          background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                          background: '#3b82f6',
                           transform: 'scaleY(0)',
                           transformOrigin: 'center',
                           transition: 'transform 0.2s ease'
@@ -540,7 +536,6 @@ const US97SuperSearch = ({
                             backgroundColor: '#f1f5f9',
                             px: 1.5,
                             py: 0.5,
-                            borderRadius: 1,
                             fontSize: '0.7rem',
                             fontWeight: 500
                           }}>
@@ -567,7 +562,6 @@ const US97SuperSearch = ({
                       variant="outlined"
                       size="large"
                       sx={{
-                        borderRadius: 2,
                         px: 4,
                         py: 1.5,
                         borderColor: '#3b82f6',
@@ -615,7 +609,7 @@ const US97SuperSearch = ({
           <Button
             onClick={() => setIsOpen(false)}
             variant="outlined"
-            sx={{ borderRadius: 2, px: 3 }}
+            sx={{ px: 3 }}
           >
             İptal
           </Button>
@@ -623,7 +617,7 @@ const US97SuperSearch = ({
             onClick={() => setIsOpen(false)}
             variant="contained"
             color="primary"
-            sx={{ borderRadius: 2, px: 3 }}
+            sx={{ px: 3 }}
           >
             Kapat
           </Button>

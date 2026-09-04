@@ -303,7 +303,7 @@ const FileManager = () => {
           <LinearProgress 
             variant="determinate" 
             value={(storageStats.used / (storageStats.total * 1024 * 1024)) * 100}
-            sx={{ height: 8, borderRadius: 4 }}
+            sx={{ height: 8 }}
           />
         </Box>
         
@@ -378,7 +378,7 @@ const FileManager = () => {
 
   // 📄 FILE TABLE
   const renderFiles = () => (
-    <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+    <TableContainer component={Paper}>
       <Table>
         <TableHead sx={{ backgroundColor: '#f8fafc' }}>
           <TableRow>
@@ -542,7 +542,7 @@ const FileManager = () => {
                     <ListItem 
                       button 
                       onClick={() => setUploadDialog(true)}
-                      sx={{ borderRadius: 1, mb: 1 }}
+                      sx={{ mb: 1 }}
                     >
                       <ListItemIcon>
                         <UploadIcon color="primary" />
@@ -553,7 +553,7 @@ const FileManager = () => {
                     <ListItem 
                       button 
                       onClick={() => {}}
-                      sx={{ borderRadius: 1, mb: 1 }}
+                      sx={{ mb: 1 }}
                     >
                       <ListItemIcon>
                         <NewFolderIcon color="primary" />
@@ -562,8 +562,7 @@ const FileManager = () => {
                     </ListItem>
                     
                     <ListItem 
-                      button 
-                      sx={{ borderRadius: 1 }}
+                      button
                     >
                       <ListItemIcon>
                         <SearchIcon color="primary" />

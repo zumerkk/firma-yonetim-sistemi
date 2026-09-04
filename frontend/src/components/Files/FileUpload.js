@@ -275,7 +275,6 @@ const FileUpload = ({ open, onClose, onUploadComplete, currentPath = '' }) => {
           sx={{
             border: '2px dashed',
             borderColor: isDragActive ? 'primary.main' : 'grey.300',
-            borderRadius: 2,
             p: 4,
             textAlign: 'center',
             backgroundColor: isDragActive ? 'action.hover' : 'background.paper',
@@ -320,7 +319,6 @@ const FileUpload = ({ open, onClose, onUploadComplete, currentPath = '' }) => {
                   sx={{
                     border: 1,
                     borderColor: 'divider',
-                    borderRadius: 1,
                     mb: 1
                   }}
                 >

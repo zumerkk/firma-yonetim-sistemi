@@ -34,24 +34,21 @@ import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 const styles = {
   pageContainer: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f0f4ff 0%, #f8fafc 60%, #f5f3ff 100%)',
+    background: '#f0f4ff',
     p: { xs: 2, sm: 2.5, md: 3 },
   },
   hero: {
-    background: 'linear-gradient(135deg, #1e40af 0%, #3730a3 60%, #6d28d9 100%)',
-    borderRadius: 3,
+    background: '#1e40af',
     p: { xs: 2.5, sm: 3 },
     mb: 3,
     color: 'white',
   },
   card: {
-    borderRadius: 3,
     border: '1px solid rgba(226, 232, 240, 0.9)',
     overflow: 'hidden',
   },
   dropZone: (hasFile) => ({
     border: `2px dashed ${hasFile ? '#10b981' : '#94a3b8'}`,
-    borderRadius: 3,
     p: 3,
     textAlign: 'center',
     bgcolor: hasFile ? 'rgba(16, 185, 129, 0.04)' : 'rgba(248, 250, 252, 0.9)',
@@ -66,7 +63,6 @@ const styles = {
   codeBlock: {
     mt: 2,
     p: 2,
-    borderRadius: 2,
     border: '1px solid rgba(226, 232, 240, 0.9)',
     background: 'rgba(15, 23, 42, 0.96)',
     color: '#e2e8f0',

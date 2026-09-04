@@ -812,7 +812,7 @@ const FirmaList = () => {
       }}>
         <Container maxWidth="xl">
           {/* 📋 Compact Header */}
-          <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Box sx={{
               display: 'flex',
               flexDirection: { xs: 'column', md: 'row' },
@@ -841,7 +841,6 @@ const FirmaList = () => {
                 onClick={() => navigate('/firmalar/yeni')}
                 size="medium"
                 sx={{
-                  borderRadius: 2,
                   textTransform: 'none',
                   fontWeight: 600,
                   px: 2.5,
@@ -854,7 +853,7 @@ const FirmaList = () => {
           </Paper>
 
           {/* 🏷️ Quick Filter Tabs */}
-          <Paper sx={{ mb: 2, borderRadius: 2, overflow: 'hidden' }}>
+          <Paper sx={{ mb: 2, overflow: 'hidden' }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
               {[
                 { key: 'all', label: 'Tümü', color: '#6366f1' },
@@ -869,7 +868,6 @@ const FirmaList = () => {
                   onClick={() => handleTabChange(tab.key)}
                   sx={{
                     px: 2.5, py: 1.2,
-                    borderRadius: 0,
                     textTransform: 'none',
                     fontWeight: activeTab === tab.key ? 700 : 500,
                     fontSize: '0.85rem',
@@ -890,7 +888,7 @@ const FirmaList = () => {
           </Paper>
 
           {/* 🔍 Advanced Search & Filters */}
-          <Paper sx={{ p: 2, mb: 2, borderRadius: 2 }}>
+          <Paper sx={{ p: 2, mb: 2 }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={4}>
                 <TextField
@@ -949,7 +947,7 @@ const FirmaList = () => {
                     size="small"
                     startIcon={showAdvancedFilters ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                     onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                    sx={{ textTransform: 'none' }}
                   >
                     Gelişmiş Filtreler
                   </Button>
@@ -960,7 +958,7 @@ const FirmaList = () => {
                     startIcon={<RefreshIcon />}
                     onClick={handleRefresh}
                     disabled={localLoading}
-                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                    sx={{ textTransform: 'none' }}
                   >
                     Yenile
                   </Button>
@@ -971,7 +969,7 @@ const FirmaList = () => {
                     startIcon={exportLoading ? <CircularProgress size={16} color="inherit" /> : <GetAppIcon />}
                     onClick={handleExcelExport}
                     disabled={exportLoading}
-                    sx={{ borderRadius: 2, textTransform: 'none' }}
+                    sx={{ textTransform: 'none' }}
                   >
                     Excel
                   </Button>
@@ -981,7 +979,7 @@ const FirmaList = () => {
                     size="small"
                     startIcon={<CloudUploadIcon />}
                     onClick={() => setImportDialog(true)}
-                    sx={{ borderRadius: 2, textTransform: 'none', bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
+                    sx={{ textTransform: 'none', bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
                   >
                     İçe Aktar
                   </Button>
@@ -1032,7 +1030,7 @@ const FirmaList = () => {
                         setSearchQuery('');
                         clearSearchResults(); // Arama sonuçlarını da temizle
                       }}
-                      sx={{ borderRadius: 2, textTransform: 'none' }}
+                      sx={{ textTransform: 'none' }}
                     >
                       Filtreleri Temizle
                     </Button>
@@ -1050,7 +1048,7 @@ const FirmaList = () => {
           </Paper>
 
           {/* 📊 Compact DataGrid */}
-          <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+          <Paper sx={{ overflow: 'hidden' }}>
             {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
             <UstKaydirmaCubugu>
             <DataGrid

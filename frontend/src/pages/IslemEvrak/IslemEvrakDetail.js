@@ -418,7 +418,7 @@ const IslemEvrakDetail = () => {
             onDrop={(ev) => { ev.preventDefault(); topluDosyaSecildi(ev.dataTransfer?.files); }}
             sx={{
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              gap: 0.25, py: 1.5, px: 2, mb: 1.5, borderRadius: 2, textAlign: 'center',
+              gap: 0.25, py: 1.5, px: 2, mb: 1.5, textAlign: 'center',
               border: '2px dashed #e2e8f0', background: '#fafafa',
               cursor: busy === 'toplu' ? 'not-allowed' : 'pointer',
               opacity: busy === 'toplu' ? 0.6 : 1
@@ -534,7 +534,7 @@ const IslemEvrakDetail = () => {
           )}
 
           {ornekliEvraklar.length > 0 && (
-            <Box sx={{ mb: 1.5, p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
+            <Box sx={{ mb: 1.5, p: 1.25, bgcolor: '#f8fafc', border: '1px dashed #cbd5e1' }}>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 0.5 }}>
                 Maile eklenecek örnek dosyalar:
               </Typography>

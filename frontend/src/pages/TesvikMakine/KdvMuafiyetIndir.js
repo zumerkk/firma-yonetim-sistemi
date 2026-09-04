@@ -76,7 +76,7 @@ export default function KdvMuafiyetIndir() {
         </Typography>
       </Stack>
 
-      <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 1, mb: 2 }}>
+      <Box sx={{ bgcolor: '#f8fafc', p: 2, mb: 2 }}>
         <Row label="Firma" value={bilgi.firmaAdi} />
         <Row label="Belge No" value={bilgi.belgeNo} />
         <Divider sx={{ my: 1 }} />

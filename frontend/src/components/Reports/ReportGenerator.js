@@ -130,7 +130,9 @@ const ReportGenerator = ({ open, onClose }) => {
   const formatOptions = [
     { value: 'excel', label: 'Excel (.xlsx)', icon: <ExcelIcon /> },
     { value: 'pdf', label: 'PDF (.pdf)', icon: <PdfIcon /> },
-    { value: 'csv', label: 'CSV (.csv)', icon: <TableChart /> }
+    // TableChart, yukarıda `TableChart as ExcelIcon` diye içe aktarılmış;
+    // çıplak adı TANIMSIZ. <TableChart /> render edilince React çökerdi.
+    { value: 'csv', label: 'CSV (.csv)', icon: <ExcelIcon /> }
   ];
 
   // 📊 Handle template selection
@@ -311,7 +313,6 @@ const ReportGenerator = ({ open, onClose }) => {
                   sx={{
                     border: 1,
                     borderColor: reportConfig.type === template.id ? 'primary.main' : 'divider',
-                    borderRadius: 1,
                     mb: 1,
                     backgroundColor: reportConfig.type === template.id ? 'action.selected' : 'background.paper'
                   }}

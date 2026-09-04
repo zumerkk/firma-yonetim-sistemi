@@ -192,7 +192,6 @@ const RevisionTimeline = ({ tesvikId }) => {
                     backgroundColor: '#fef2f2', 
                     color: '#dc2626',
                     p: 1,
-                    borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
                     {formatValue(change.oldValue || change.eskiDeger)}
@@ -203,7 +202,6 @@ const RevisionTimeline = ({ tesvikId }) => {
                     backgroundColor: '#f0fdf4', 
                     color: '#16a34a',
                     p: 1,
-                    borderRadius: 1,
                     fontSize: '0.8rem'
                   }}>
                     {formatValue(change.newValue || change.yeniDeger)}

@@ -295,7 +295,7 @@ const ActivitySelector = ({
 
       {/* Loading Progress */}
       {isLoading && (
-        <Box sx={{ mb: 2, p: 2, backgroundColor: 'info.light', borderRadius: 1 }}>
+        <Box sx={{ mb: 2, p: 2, backgroundColor: 'info.light' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <CircularProgress size={20} />
             <Typography variant="body2" color="info.dark">
@@ -307,7 +307,7 @@ const ActivitySelector = ({
 
       {/* Arama İstatistikleri */}
       {!isLoading && (
-        <Box sx={{ mb: 2, p: 1.5, backgroundColor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ mb: 2, p: 1.5, backgroundColor: 'grey.50' }}>
           <Typography variant="caption" color="text.secondary">
             {searchStats.hasFilter 
               ? `${searchStats.filtered} sonuç bulundu (${searchStats.total} toplam)`
@@ -411,7 +411,7 @@ const ActivitySelector = ({
 
       {/* Seçim Bilgisi - Geliştirilmiş */}
       {value && (
-        <Box sx={{ mt: 2, p: 2, backgroundColor: 'success.light', borderRadius: 1, border: '1px solid', borderColor: 'success.main' }}>
+        <Box sx={{ mt: 2, p: 2, backgroundColor: 'success.light', border: '1px solid', borderColor: 'success.main' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <CheckCircle sx={{ fontSize: 16, color: 'success.dark' }} />
             <Typography variant="caption" sx={{ color: 'success.dark', fontWeight: 600 }}>

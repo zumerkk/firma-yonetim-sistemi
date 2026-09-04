@@ -278,7 +278,7 @@ const ReportCenter = () => {
   const renderAnalyticsCards = () => (
     <Grid container spacing={3} sx={{ mb: 3 }}>
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Card sx={{ background: '#667eea', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -296,7 +296,7 @@ const ReportCenter = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+        <Card sx={{ background: '#f5576c', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -314,7 +314,7 @@ const ReportCenter = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
+        <Card sx={{ background: '#4facfe', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -332,7 +332,7 @@ const ReportCenter = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
+        <Card sx={{ background: '#43e97b', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -368,7 +368,6 @@ const ReportCenter = () => {
                 transition: 'transform 0.2s, box-shadow 0.2s',
                 '&:hover': {
                   transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
                 }
               }}
               onClick={report.action}
@@ -525,7 +524,7 @@ const ReportCenter = () => {
         📋 Kaydedilmiş Şablonlar
       </Typography>
       
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead sx={{ backgroundColor: '#f8fafc' }}>
             <TableRow>
@@ -648,8 +647,7 @@ const ReportCenter = () => {
           {renderAnalyticsCards()}
 
           {/* Main Content Tabs */}
-          <Card sx={{ 
-            borderRadius: 3, 
+          <Card sx={{  
             overflow: 'hidden',
             flex: 1, // ✅ Flex grow to fill available space
             display: 'flex',

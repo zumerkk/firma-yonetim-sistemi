@@ -112,7 +112,7 @@ export default function PublicUpload() {
         <Typography variant="h6" sx={{ fontWeight: 700 }}>Teşvik Evrak Yükleme</Typography>
         <Typography variant="body2" color="text.secondary">Lütfen ilgili evrakı aşağıdan yükleyiniz.</Typography>
       </Stack>
-      <Box sx={{ bgcolor: '#f8fafc', p: 2, borderRadius: 1, mb: 2 }}>
+      <Box sx={{ bgcolor: '#f8fafc', p: 2, mb: 2 }}>
         <Row label="Firma" value={info.firmaAdi} />
         <Row label="Belge No" value={info.belgeNo} />
         <Row label="Makine" value={`${info.siraNo ? info.siraNo + '. ' : ''}${info.makineAdi}`} />

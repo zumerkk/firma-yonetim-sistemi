@@ -36,7 +36,7 @@ const UploadProgress = ({ active, pct, loaded, total, fileName, index, count, sx
       <LinearProgress
         variant={yuzdeVar ? 'determinate' : 'indeterminate'}
         value={yuzdeVar ? pct : undefined}
-        sx={{ height: 6, borderRadius: 3 }}
+        sx={{ height: 6 }}
       />
     </Box>
   );

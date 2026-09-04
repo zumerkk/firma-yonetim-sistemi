@@ -187,7 +187,7 @@ const IslemEvrakList = () => {
                   onClick={() => navigate(`/islem-evrak/${t._id}`)}
                   sx={{
                     display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap',
-                    p: 1.25, borderRadius: 2, border: '1px solid #e2e8f0', cursor: 'pointer',
+                    p: 1.25, border: '1px solid #e2e8f0', cursor: 'pointer',
                     '&:hover': { borderColor: '#3b82f6', bgcolor: '#f8fafc' }
                   }}
                 >
@@ -257,7 +257,7 @@ const IslemEvrakList = () => {
             {/* 🔀 Koşullu sorular — yalnızca şablonda soru tanımlıysa çıkar.
                 Soru yoksa bu bölüm hiç render edilmez ve akış bugünkü gibi kalır. */}
             {sorular.length > 0 && (
-              <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 2, p: 1.5, background: '#f8fafc' }}>
+              <Box sx={{ border: '1px solid #e2e8f0', p: 1.5, background: '#f8fafc' }}>
                 <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 1 }}>
                   Yatırım Bilgileri ({sorular.filter((q) => cevaplar[q.id]).length}/{sorular.length} cevaplandı)
                 </Typography>

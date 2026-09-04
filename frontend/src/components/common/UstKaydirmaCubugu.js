@@ -114,10 +114,9 @@ const UstKaydirmaCubugu = ({ children }) => {
                     // çubuk görünmezse kullanıcı varlığını hiç fark etmez. Bu yüzden
                     // hem WebKit hem Firefox için açıkça çizdiriliyor.
                     '&::-webkit-scrollbar': { height: 10, WebkitAppearance: 'none' },
-                    '&::-webkit-scrollbar-track': { background: '#f1f5f9', borderRadius: 5 },
+                    '&::-webkit-scrollbar-track': { background: '#f1f5f9' },
                     '&::-webkit-scrollbar-thumb': {
                         background: '#cbd5e1',
-                        borderRadius: 5,
                         '&:hover': { background: '#94a3b8' }
                     },
                     scrollbarWidth: 'thin',
