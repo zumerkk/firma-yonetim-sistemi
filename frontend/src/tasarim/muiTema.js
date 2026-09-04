@@ -148,6 +148,58 @@ export const etuysTema = createTheme({
     },
     MuiTooltip: {
       styleOverrides: { tooltip: { fontSize: `${yazi.kucuk}px` } }
+    },
+
+    // 📋 DataGrid — liste ekranlarının çoğu bunu kullanıyor (FirmaList,
+    // DosyaTakipList, TesvikMakineList).
+    //
+    // ⚠️ DataGrid'i VeriTablosu ile DEĞİŞTİRMİYORUZ. Sıralama, filtreleme,
+    // sütun boyutlandırma, satır seçimi ve sanallaştırmayı hazır getiriyor;
+    // bunları görsel uyum uğruna elden çıkarmak, kullanıcının fiilen kullandığı
+    // işlevi tasarım tutarlılığına feda etmek olurdu. Onun yerine giydiriyoruz:
+    // kural burada bir kez yazılıyor, ekranların JSX'ine hiç dokunulmuyor.
+    MuiDataGrid: {
+      styleOverrides: {
+        root: {
+          border: kenar.ince,
+          borderRadius: kenar.yaricap,
+          fontSize: `${yazi.govde}px`,
+          backgroundColor: renk.yuzey
+        },
+        columnHeaders: {
+          backgroundColor: renk.yuzeyAlt,
+          borderBottom: kenar.ince,
+          borderRadius: 0,
+          minHeight: '32px !important',
+          maxHeight: '32px !important'
+        },
+        columnHeaderTitle: {
+          fontSize: `${yazi.tabloBaslik}px`,
+          fontWeight: yazi.kalin,
+          color: renk.murekkep
+        },
+        cell: {
+          borderColor: renk.cizgi,
+          padding: '0 9px',
+          fontVariantNumeric: 'tabular-nums'
+        },
+        // ETUYS'te zebra YOK; hover yalnız zemini değiştirir, satır oynamaz.
+        row: {
+          '&:hover': { backgroundColor: renk.anaHafif },
+          // 🟡 Seçili satır sarı — hesaplanan alanla AYNI sarı.
+          // VeriTablosu da bunu yapıyor; iki tablo bileşeni aynı dili konuşmalı.
+          '&.Mui-selected': {
+            backgroundColor: renk.hesapZemin,
+            '&:hover': { backgroundColor: renk.hesapZemin }
+          }
+        },
+        footerContainer: {
+          borderTop: kenar.ince,
+          minHeight: '34px',
+          fontSize: `${yazi.kucuk}px`
+        },
+        columnSeparator: { color: renk.cizgi }
+      }
     }
   }
 });

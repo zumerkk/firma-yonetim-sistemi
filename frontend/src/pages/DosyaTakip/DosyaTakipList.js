@@ -25,6 +25,8 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import axios from '../../utils/axios';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
 // Tek kaynak burasıdır — hücre renderer'larında ayrı fontSize yazmayın, bu sabiti kullanın.
@@ -477,6 +479,10 @@ const DosyaTakipList = () => {
     ];
 
     return (
+    // 📋 ETUYS teması — DataGrid'in görünümü buradan geliyor.
+    // Grid'in KENDİSİ değişmedi: sıralama, filtreleme, sütun boyutlandırma ve
+    // seçim aynen duruyor. Yalnız giydiriliyor (tasarim/muiTema.js → MuiDataGrid).
+        <ThemeProvider theme={etuysTema}>
         <LayoutWrapper>
             <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
                 {/* Header */}
@@ -752,6 +758,7 @@ const DosyaTakipList = () => {
                 </Dialog>
             </Box>
         </LayoutWrapper>
+        </ThemeProvider>
     );
 };
 
