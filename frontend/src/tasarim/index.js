@@ -24,3 +24,4 @@ export { default as AracCubugu } from './bilesenler/AracCubugu';
 export { default as EylemSeridi } from './bilesenler/EylemSeridi';
 export { default as SekmeSeridi } from './bilesenler/SekmeSeridi';
 export { default as DurumRozeti } from './bilesenler/DurumRozeti';
+export { default as SayiKutusu } from './bilesenler/SayiKutusu';

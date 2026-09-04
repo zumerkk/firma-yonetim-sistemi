@@ -1,12 +1,18 @@
-// 📊 Dosya İş Akış Takip - Dashboard
-// Ana istatistik ve özet sayfası
+// 📊 DOSYA İŞ AKIŞ TAKİP PANELİ — ETUYS diline geçirildi (madde 6 / Faz 3)
+//
+// Önce: 7 kart, her biri 135° gradyan + 44px avatar + renkli gölge + hover'da
+// 4px yukarı zıplama; listede avatar; dağılımda gradyanlı ilerleme çubuğu.
+// etuys/README.md "Olmayanlar": gradyan, gölge, yuvarlak köşeli kart, emoji.
+//
+// Korunanlar (bilerek):
+//   • Kartların `hedef` linkleri — müşteri isteği, aşağıdaki nota bakın
+//   • aria-label'lar — sadeleştirme erişilebilirlikten feragat değil
+//   • Dağılımdaki oran çubuğu — büyüklük karşılaştırması bilgi taşıyor;
+//     yalnız gradyanı ve yuvarlak köşesi gitti, tek renk düz çubuk kaldı
 
 import React, { useEffect, useState } from 'react';
-import {
-    Box, Typography, Grid, Card, CardContent, CardActions,
-    Button, Chip, LinearProgress, Avatar, IconButton,
-    Paper, Divider, Alert
-} from '@mui/material';
+import { Box, Grid, Button, IconButton, LinearProgress, Alert } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import {
     Assignment as AssignmentIcon,
     PlaylistAddCheck as PlaylistAddCheckIcon,
@@ -18,7 +24,6 @@ import {
     ArrowForward as ArrowForwardIcon,
     Refresh as RefreshIcon,
     AccountBalance as AccountBalanceIcon,
-    Warning as WarningIcon,
     Schedule as ScheduleIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -27,15 +32,21 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 // Layout
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 
-// Renk eşleştirmeleri
-const DURUM_RENKLERI = {
-    mavi: { bg: '#eff6ff', text: '#1e40af', border: '#93c5fd' },
-    sari: { bg: '#fefce8', text: '#a16207', border: '#fde047' },
-    turuncu: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
-    kirmizi: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' },
-    yesil: { bg: '#f0fdf4', text: '#16a34a', border: '#86efac' },
-    gri: { bg: '#f9fafb', text: '#4b5563', border: '#d1d5db' },
-    mor: { bg: '#faf5ff', text: '#7c3aed', border: '#c4b5fd' }
+import {
+    etuysTema, renk, yazi, aralik,
+    Panel, SayiKutusu, VeriTablosu, DurumRozeti
+} from '../../tasarim';
+
+// Sunucunun `durumRengi` alanı → jeton anlam adı. Eskiden bu dosyada 7 renk için
+// bg/text/border üçlüsü elle yazılıydı; artık tek kaynak jetonlar.js.
+const DURUM_ANLAMI = {
+    yesil: 'onay',
+    sari: 'beklemede',
+    turuncu: 'beklemede',
+    mor: 'beklemede',
+    kirmizi: 'red',
+    mavi: 'notr',   // rozette bilinmeyen anahtar → nötr
+    gri: 'notr'
 };
 
 const DosyaTakipDashboard = () => {
@@ -63,25 +74,21 @@ const DosyaTakipDashboard = () => {
             title: 'Toplam Talep',
             value: dashboardStats?.ozet?.toplamTalep || 0,
             hedef: '/dosya-takip/liste?kapsam=tumu', // arşivdekiler dahil hepsi
-            icon: <AssignmentIcon />,
-            gradient: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
-            shadowColor: 'rgba(30, 64, 175, 0.3)'
+            icon: <AssignmentIcon />
         },
         {
             title: 'Aktif Talep',
             value: dashboardStats?.ozet?.aktifTalep || 0,
             hedef: '/dosya-takip/liste?kapsam=aktif', // yalnız "Tamamlandı" hariç
             icon: <PlaylistAddCheckIcon />,
-            gradient: 'linear-gradient(135deg, #7c2d12, #f59e0b)',
-            shadowColor: 'rgba(245, 158, 11, 0.3)'
+            vurgu: 'bekle'
         },
         {
             title: '1. Müracaat Öncesi',
             value: dashboardStats?.ozet?.muraacatOncesi || 0,
             hedef: '/dosya-takip/liste?anaAsama=MURACAAT_ONCESI',
             icon: <HourglassEmptyIcon />,
-            gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
-            shadowColor: 'rgba(124, 58, 237, 0.3)'
+            vurgu: 'bekle'
         },
         {
             title: '2. Kurum Değerlendirme',
@@ -89,300 +96,158 @@ const DosyaTakipDashboard = () => {
             // Sunucu bu değeri eski MURACAAT_SONRASI kayıtlarıyla birlikte eşler
             hedef: '/dosya-takip/liste?anaAsama=KURUM_DEGERLENDIRME',
             icon: <AccountBalanceIcon />,
-            gradient: 'linear-gradient(135deg, #581c87, #7c3aed)',
-            shadowColor: 'rgba(124, 58, 237, 0.3)'
+            vurgu: 'bekle'
         },
         {
             title: '3. Kurum Eksik',
             value: dashboardStats?.ozet?.kurumEksik || 0,
             hedef: '/dosya-takip/liste?anaAsama=KURUM_EKSIK',
             icon: <HourglassEmptyIcon />,
-            gradient: 'linear-gradient(135deg, #7f1d1d, #dc2626)',
-            shadowColor: 'rgba(220, 38, 38, 0.3)'
+            vurgu: 'red'
         },
         {
             title: '4. Sonuçlanma',
             value: dashboardStats?.ozet?.kurumSonuclanma || 0,
             hedef: '/dosya-takip/liste?anaAsama=KURUM_SONUCLANMA',
             icon: <ScheduleIcon />,
-            gradient: 'linear-gradient(135deg, #064e3b, #059669)',
-            shadowColor: 'rgba(5, 150, 105, 0.3)'
+            vurgu: 'bekle'
         },
         {
             title: 'Tamamlanan',
             value: dashboardStats?.ozet?.tamamlanan || 0,
             hedef: '/dosya-takip/liste?anaAsama=TAMAMLANDI',
             icon: <CheckCircleIcon />,
-            gradient: 'linear-gradient(135deg, #14532d, #22c55e)',
-            shadowColor: 'rgba(34, 197, 94, 0.3)'
+            vurgu: 'onay'
         }
     ];
 
     return (
+        // Tema yalnız BU ekranı sarıyor; global tema değişmiyor.
+        <ThemeProvider theme={etuysTema}>
         <LayoutWrapper>
-            <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
-                {/* Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Box sx={{ p: { xs: 1.5, sm: 2 }, width: '100%', minWidth: 0, backgroundColor: renk.zemin }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: `${aralik.grup}px`, gap: 1, flexWrap: 'wrap' }}>
                     <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.5 }}>
-                            📋 İş Akış Takip Sistemi
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: '#64748b' }}>
+                        <Box sx={{ fontSize: `${yazi.buyuk}px`, fontWeight: yazi.cokKalin, color: renk.murekkep }}>
+                            İş Akış Takip Sistemi
+                        </Box>
+                        <Box sx={{ fontSize: `${yazi.etiket}px`, color: renk.sessiz, mt: 0.2 }}>
                             Dosya talep ve iş akışı takip merkezi
-                        </Typography>
+                        </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1.5 }}>
-                        <IconButton
-                            onClick={handleRefresh}
-                            disabled={refreshing}
-                            sx={{
-                                background: 'rgba(255,255,255,0.9)',
-                                border: '1px solid #e2e8f0',
-                                '&:hover': { background: '#f1f5f9' }
-                            }}
-                        >
-                            <RefreshIcon sx={{ animation: refreshing ? 'spin 1s linear infinite' : 'none', '@keyframes spin': { from: { transform: 'rotate(0deg)' }, to: { transform: 'rotate(360deg)' } } }} />
+                    <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }}>
+                        <IconButton onClick={handleRefresh} disabled={refreshing} size="small" aria-label="Yenile"
+                            sx={{ border: `1px solid ${renk.cizgi}`, borderRadius: 0, color: renk.sessiz }}>
+                            <RefreshIcon sx={{ fontSize: 16 }} />
                         </IconButton>
-                        <Button
-                            variant="outlined"
-                            startIcon={<ListIcon />}
-                            onClick={() => navigate('/dosya-takip/liste')}
-                            sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}
-                        >
+                        <Button variant="outlined" size="small" startIcon={<ListIcon />}
+                            onClick={() => navigate('/dosya-takip/liste')}>
                             Tüm Talepler
                         </Button>
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => navigate('/dosya-takip/yeni')}
-                            sx={{
-                                borderRadius: 2,
-                                textTransform: 'none',
-                                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
-                                '&:hover': {
-                                    background: 'linear-gradient(135deg, #b45309, #d97706)',
-                                    boxShadow: '0 6px 20px rgba(245, 158, 11, 0.45)'
-                                }
-                            }}
-                        >
+                        <Button variant="contained" size="small" startIcon={<AddIcon />}
+                            onClick={() => navigate('/dosya-takip/yeni')}>
                             Yeni Talep Oluştur
                         </Button>
                     </Box>
                 </Box>
 
-                {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1 }} />}
+                {loading && <LinearProgress sx={{ mb: 1, height: 2 }} />}
                 {error && (
-                    <Alert severity="error" onClose={clearError} sx={{ mb: 3, borderRadius: 2 }}>
+                    <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 0 }}>
                         {error}
                     </Alert>
                 )}
 
-                {/* İstatistik Kartları */}
-                <Grid container spacing={2.5} sx={{ mb: 4 }}>
-                    {statsCards.map((card, index) => (
-                        <Grid item xs={12} sm={6} md={4} lg={2} key={index}>
-                            <Card
-                                onClick={() => navigate(card.hedef)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(card.hedef); }
-                                }}
-                                aria-label={`${card.title}: ${card.value} talep — listeyi aç`}
-                                sx={{
-                                borderRadius: 3,
-                                border: '1px solid rgba(226, 232, 240, 0.6)',
-                                boxShadow: `0 4px 20px ${card.shadowColor}`,
-                                transition: 'all 0.3s ease',
-                                overflow: 'visible',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 30px ${card.shadowColor}`
-                                },
-                                '&:focus-visible': {
-                                    outline: '2px solid #3b82f6',
-                                    outlineOffset: 2
-                                }
-                            }}>
-                                <CardContent sx={{ p: 2.5, pb: '16px !important' }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                                        <Avatar sx={{
-                                            width: 44,
-                                            height: 44,
-                                            background: card.gradient,
-                                            boxShadow: `0 4px 12px ${card.shadowColor}`
-                                        }}>
-                                            {React.cloneElement(card.icon, { sx: { fontSize: 22 } })}
-                                        </Avatar>
-                                    </Box>
-                                    <Typography variant="h4" sx={{ fontWeight: 700, color: '#1e293b', mb: 0.25 }}>
-                                        {card.value}
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
-                                        {card.title}
-                                    </Typography>
-                                </CardContent>
-                            </Card>
+                {/* Özet kutuları — hepsi tıklanabilir, saydığı kümeyle aynı listeyi açar */}
+                <Grid container spacing={1.2} sx={{ mb: `${aralik.grup}px` }}>
+                    {statsCards.map((kart) => (
+                        <Grid item xs={12} sm={6} md={4} lg={12 / 7} key={kart.title}>
+                            <SayiKutusu
+                                etiket={kart.title}
+                                deger={kart.value}
+                                ikon={kart.icon}
+                                vurgu={kart.vurgu}
+                                yukleniyor={loading && !dashboardStats}
+                                onTik={() => navigate(kart.hedef)}
+                                ariaEtiket={`${kart.title}: ${kart.value} talep — listeyi aç`}
+                            />
                         </Grid>
                     ))}
                 </Grid>
 
-                {/* Son Talepler ve Dağılım */}
-                <Grid container spacing={3}>
-                    {/* Son Talepler */}
+                <Grid container spacing={1.2}>
                     <Grid item xs={12} lg={7}>
-                        <Paper sx={{
-                            borderRadius: 3,
-                            border: '1px solid rgba(226, 232, 240, 0.6)',
-                            overflow: 'hidden'
-                        }}>
-                            <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9' }}>
-                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#1e293b' }}>
-                                    Son Talepler
-                                </Typography>
-                                <Button
-                                    size="small"
-                                    endIcon={<ArrowForwardIcon />}
+                        <Panel
+                            baslik="Son Talepler"
+                            ikon={<AssignmentIcon sx={{ fontSize: 14 }} />}
+                            bosluksuz
+                            sagUnsur={
+                                <Button size="small" endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
                                     onClick={() => navigate('/dosya-takip/liste')}
-                                    sx={{ textTransform: 'none', color: '#6b7280' }}
-                                >
+                                    sx={{ fontSize: `${yazi.kucuk}px`, py: 0, minHeight: 0 }}>
                                     Tümünü Gör
                                 </Button>
-                            </Box>
-                            <Box sx={{ p: 0 }}>
-                                {(!dashboardStats?.sonTalepler || dashboardStats.sonTalepler.length === 0) ? (
-                                    <Box sx={{ p: 4, textAlign: 'center' }}>
-                                        <AssignmentIcon sx={{ fontSize: 48, color: '#d1d5db', mb: 1 }} />
-                                        <Typography color="textSecondary">Henüz talep oluşturulmamış</Typography>
-                                        <Button
-                                            variant="outlined"
-                                            startIcon={<AddIcon />}
-                                            onClick={() => navigate('/dosya-takip/yeni')}
-                                            sx={{ mt: 2, textTransform: 'none', borderRadius: 2 }}
-                                        >
-                                            İlk Talebi Oluştur
-                                        </Button>
-                                    </Box>
-                                ) : (
-                                    dashboardStats.sonTalepler.map((talep, index) => {
-                                        const renk = DURUM_RENKLERI[talep.durumRengi] || DURUM_RENKLERI.mavi;
-                                        return (
-                                            <Box key={talep._id || index}>
-                                                <Box
-                                                    sx={{
-                                                        px: 2.5,
-                                                        py: 1.75,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 2,
-                                                        cursor: 'pointer',
-                                                        transition: 'background 0.2s',
-                                                        '&:hover': { background: '#f8fafc' }
-                                                    }}
-                                                    onClick={() => navigate(`/dosya-takip/${talep._id}`)}
-                                                >
-                                                    <Avatar sx={{
-                                                        width: 36,
-                                                        height: 36,
-                                                        background: renk.bg,
-                                                        color: renk.text,
-                                                        fontSize: '0.75rem',
-                                                        fontWeight: 700,
-                                                        border: `1px solid ${renk.border}`
-                                                    }}>
-                                                        {talep.takipId?.slice(-3) || '?'}
-                                                    </Avatar>
-                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                            {talep.firmaUnvan || 'Firma Bilgisi Yok'}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.72rem' }}>
-                                                            {talep.takipId} • {talep.talepTuru}
-                                                        </Typography>
-                                                    </Box>
-                                                    <Chip
-                                                        label={talep.durum?.replace(/_/g, ' ').replace(/^\d+\.\d+(\.\d+)*\s*/, '').substring(0, 20)}
-                                                        size="small"
-                                                        sx={{
-                                                            background: renk.bg,
-                                                            color: renk.text,
-                                                            border: `1px solid ${renk.border}`,
-                                                            fontWeight: 600,
-                                                            fontSize: '0.65rem',
-                                                            height: 24
-                                                        }}
-                                                    />
-                                                </Box>
-                                                {index < dashboardStats.sonTalepler.length - 1 && (
-                                                    <Divider sx={{ mx: 2.5 }} />
-                                                )}
-                                            </Box>
-                                        );
-                                    })
-                                )}
-                            </Box>
-                        </Paper>
+                            }
+                        >
+                            <VeriTablosu
+                                sutunlar={[
+                                    { anahtar: 'takipId', baslik: 'Takip No', genislik: 110 },
+                                    { anahtar: 'firmaUnvan', baslik: 'Firma Unvanı',
+                                      bicim: (v) => v || 'Firma Bilgisi Yok' },
+                                    { anahtar: 'talepTuru', baslik: 'Talep Türü', genislik: 150 },
+                                    { anahtar: 'durum', baslik: 'Durum', genislik: 160,
+                                      // Durum metni "1.2.3 Bir Şey" biçiminde geliyor; baştaki
+                                      // numarayı atıp okunur kısmı bırakıyoruz (eski davranış).
+                                      // Renk sunucunun `durumRengi` alanından geliyor; eskiden
+                                      // bu dosyada 7 renk için bg/text/border elle yazılıydı.
+                                      bicim: (v, satir) => (
+                                        <DurumRozeti
+                                          durum={DURUM_ANLAMI[satir.durumRengi]}
+                                          metin={(v || '—').replace(/_/g, ' ').replace(/^\d+\.\d+(\.\d+)*\s*/, '')}
+                                        />
+                                      ) }
+                                ]}
+                                satirlar={dashboardStats?.sonTalepler || []}
+                                onSatirTik={(satir) => navigate(`/dosya-takip/${satir._id}`)}
+                                bosMetin="Henüz talep oluşturulmamış"
+                            />
+                        </Panel>
                     </Grid>
 
-                    {/* Talep Türü Dağılımı */}
                     <Grid item xs={12} lg={5}>
-                        <Paper sx={{
-                            borderRadius: 3,
-                            border: '1px solid rgba(226, 232, 240, 0.6)',
-                            overflow: 'hidden'
-                        }}>
-                            <Box sx={{ p: 2.5, borderBottom: '1px solid #f1f5f9' }}>
-                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem', color: '#1e293b' }}>
-                                    <TrendingUpIcon sx={{ fontSize: 18, mr: 0.5, verticalAlign: 'middle', color: '#f59e0b' }} />
-                                    Talep Türü Dağılımı (Top 10)
-                                </Typography>
-                            </Box>
-                            <Box sx={{ p: 2.5 }}>
-                                {(!dashboardStats?.talepTuruDagilimi || dashboardStats.talepTuruDagilimi.length === 0) ? (
-                                    <Box sx={{ textAlign: 'center', py: 3 }}>
-                                        <WarningIcon sx={{ fontSize: 40, color: '#d1d5db', mb: 1 }} />
-                                        <Typography color="textSecondary" variant="body2">Henüz veri yok</Typography>
-                                    </Box>
-                                ) : (
-                                    dashboardStats.talepTuruDagilimi.map((item, index) => {
-                                        const maxSayi = Math.max(...dashboardStats.talepTuruDagilimi.map(d => d.sayi));
-                                        const yuzde = maxSayi > 0 ? (item.sayi / maxSayi) * 100 : 0;
-                                        const renkler = ['#3b82f6', '#f59e0b', '#ef4444', '#10b981', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899', '#6366f1', '#14b8a6'];
+                        <Panel
+                            baslik="Talep Türü Dağılımı (İlk 10)"
+                            ikon={<TrendingUpIcon sx={{ fontSize: 14 }} />}
+                            bosluksuz
+                        >
+                            <VeriTablosu
+                                sutunlar={[
+                                    { anahtar: '_id', baslik: 'Talep Türü' },
+                                    { anahtar: 'sayi', baslik: 'Adet', sayi: true, genislik: 60 },
+                                    { anahtar: 'oran', baslik: 'Oran', genislik: 90,
+                                      // Düz tek renk çubuk: büyüklük karşılaştırması kalıyor,
+                                      // gradyan ve yuvarlak köşe gidiyor.
+                                      bicim: (_v, satir) => {
+                                        const liste = dashboardStats?.talepTuruDagilimi || [];
+                                        const enBuyuk = Math.max(1, ...liste.map((d) => d.sayi || 0));
+                                        const yuzde = Math.round(((satir.sayi || 0) / enBuyuk) * 100);
                                         return (
-                                            <Box key={index} sx={{ mb: 2 }}>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                                    <Typography variant="caption" sx={{ color: '#374151', fontWeight: 500, fontSize: '0.72rem', maxWidth: '70%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                        {item._id}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ fontWeight: 700, color: renkler[index % renkler.length] }}>
-                                                        {item.sayi}
-                                                    </Typography>
-                                                </Box>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={yuzde}
-                                                    sx={{
-                                                        height: 6,
-                                                        borderRadius: 3,
-                                                        backgroundColor: '#f1f5f9',
-                                                        '& .MuiLinearProgress-bar': {
-                                                            borderRadius: 3,
-                                                            background: `linear-gradient(90deg, ${renkler[index % renkler.length]}, ${renkler[index % renkler.length]}88)`
-                                                        }
-                                                    }}
-                                                />
-                                            </Box>
+                                          <Box aria-label={`%${yuzde}`} sx={{ backgroundColor: renk.yuzeyAlt, height: 8 }}>
+                                            <Box sx={{ width: `${yuzde}%`, height: '100%', backgroundColor: renk.ana }} />
+                                          </Box>
                                         );
-                                    })
-                                )}
-                            </Box>
-                        </Paper>
+                                      } }
+                                ]}
+                                satirlar={dashboardStats?.talepTuruDagilimi || []}
+                                anahtarAl={(s2, i) => s2?._id ?? i}
+                                bosMetin="Henüz veri yok"
+                            />
+                        </Panel>
                     </Grid>
                 </Grid>
             </Box>
         </LayoutWrapper>
+        </ThemeProvider>
     );
 };
 
