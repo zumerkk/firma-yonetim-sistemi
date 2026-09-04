@@ -430,7 +430,7 @@ const ScreenshotImport = () => {
       variant="outlined"
       sx={{
         mb: 1.5,
-        '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: '0.85rem' },
+        '& .MuiOutlinedInput-root': { fontSize: '0.85rem' },
         '& .MuiInputLabel-root': { fontSize: '0.8rem' },
       }}
     />
@@ -446,7 +446,6 @@ const ScreenshotImport = () => {
         cursor: 'pointer',
         py: 1,
         px: 1.5,
-        borderRadius: 1.5,
         '&:hover': { backgroundColor: 'rgba(0,0,0,0.03)' },
       }}
     >
@@ -471,22 +470,19 @@ const ScreenshotImport = () => {
       elevation={2}
       sx={{
         mb: 3,
-        borderRadius: 3,
         border: '1px solid rgba(226, 232, 240, 0.7)',
         overflow: 'hidden',
         background: '#ffffff',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
         transition: 'all 0.3s ease',
         flexShrink: 0,
         '&:hover': {
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
         },
       }}
     >
       {/* Header */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 60%, #3b82f6 100%)',
+          background: '#1e3a5f',
           px: { xs: 2, sm: 3 },
           py: 2,
           display: 'flex',
@@ -531,7 +527,7 @@ const ScreenshotImport = () => {
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
           {/* Error */}
           {error && (
-            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
               <AlertTitle>Hata</AlertTitle>
               {error}
             </Alert>
@@ -539,7 +535,7 @@ const ScreenshotImport = () => {
 
           {/* Commit Success */}
           {commitResult && (
-            <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }} icon={<SuccessIcon />}>
+            <Alert severity="success" sx={{ mb: 2 }} icon={<SuccessIcon />}>
               <AlertTitle>Başarılı!</AlertTitle>
               <Typography variant="body2">
                 <strong>{commitResult.firmaAdi}</strong> firması için{' '}
@@ -563,7 +559,6 @@ const ScreenshotImport = () => {
                 onClick={() => fileInputRef.current?.click()}
                 sx={{
                   border: '2px dashed rgba(148, 163, 184, 0.5)',
-                  borderRadius: 3,
                   p: 4,
                   textAlign: 'center',
                   cursor: 'pointer',
@@ -621,7 +616,6 @@ const ScreenshotImport = () => {
                         <Box
                           sx={{
                             position: 'relative',
-                            borderRadius: 2,
                             border: '1px solid #e2e8f0',
                             overflow: 'hidden',
                             '&:hover .delete-btn': { opacity: 1 },
@@ -687,13 +681,12 @@ const ScreenshotImport = () => {
                       disabled={analyzing || files.length === 0}
                       startIcon={analyzing ? <CircularProgress size={18} color="inherit" /> : <AiIcon />}
                       sx={{
-                        background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                        borderRadius: 2,
+                        background: '#2563eb',
                         textTransform: 'none',
                         fontWeight: 600,
                         px: 3,
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #1d4ed8, #2563eb)',
+                          background: '#1d4ed8',
                         },
                       }}
                     >
@@ -703,7 +696,7 @@ const ScreenshotImport = () => {
                       variant="outlined"
                       onClick={handleReset}
                       startIcon={<ResetIcon />}
-                      sx={{ borderRadius: 2, textTransform: 'none' }}
+                      sx={{ textTransform: 'none' }}
                     >
                       Sıfırla
                     </Button>
@@ -717,11 +710,9 @@ const ScreenshotImport = () => {
                         value={analyzeProgress}
                         sx={{
                           height: 6,
-                          borderRadius: 3,
                           backgroundColor: '#e2e8f0',
                           '& .MuiLinearProgress-bar': {
-                            background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-                            borderRadius: 3,
+                            background: '#3b82f6',
                           },
                         }}
                       />
@@ -747,7 +738,7 @@ const ScreenshotImport = () => {
           {analysisResult && editedData && !commitResult && (
             <Box>
               {/* Analysis Summary */}
-              <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
                 <AlertTitle>Analiz Sonuçları</AlertTitle>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
                   {analysisResult.screenshots?.map((s, i) => (
@@ -782,7 +773,6 @@ const ScreenshotImport = () => {
                   onClick={() => fileInputRef.current?.click()}
                   sx={{
                     border: '2px dashed rgba(59, 130, 246, 0.5)',
-                    borderRadius: 3,
                     p: 2,
                     textAlign: 'center',
                     cursor: 'pointer',
@@ -813,14 +803,14 @@ const ScreenshotImport = () => {
                 
                 {/* Eğer yeni batch dosyaları seçilmişse buton göster */}
                 {files.length > 0 && (
-                  <Box sx={{ mt: 2, p: 2, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                  <Box sx={{ mt: 2, p: 2, border: '1px solid #e2e8f0' }}>
                      <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                        📁 Yeni Eklenecek Görseller ({files.length})
                      </Typography>
                      <Grid container spacing={1}>
                        {previews.map((preview, index) => (
                          <Grid item xs={4} sm={3} md={2} key={index}>
-                           <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden' }}>
+                           <Box sx={{ position: 'relative', overflow: 'hidden' }}>
                              <img src={preview.url} alt={preview.name} style={{ width: '100%', height: 60, objectFit: 'cover' }} />
                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); removeFile(index); }} sx={{ position: 'absolute', top: 0, right: 0, backgroundColor: 'rgba(239,68,68,0.9)', color: '#fff', width: 20, height: 20 }}>
                                <DeleteIcon sx={{ fontSize: 12 }} />
@@ -830,7 +820,7 @@ const ScreenshotImport = () => {
                        ))}
                      </Grid>
                      <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
-                       <Button variant="contained" onClick={handleAnalyze} disabled={analyzing} startIcon={analyzing ? <CircularProgress size={18} color="inherit" /> : <UploadIcon />} sx={{ textTransform: 'none', borderRadius: 2, background: 'linear-gradient(135deg, #2563eb, #3b82f6)' }}>
+                       <Button variant="contained" onClick={handleAnalyze} disabled={analyzing} startIcon={analyzing ? <CircularProgress size={18} color="inherit" /> : <UploadIcon />} sx={{ textTransform: 'none', background: '#2563eb' }}>
                          {analyzing ? 'Analiz Ediliyor...' : `Yeni Partiyi Analiz Et ve Birleştir`}
                        </Button>
                      </Box>
@@ -838,7 +828,7 @@ const ScreenshotImport = () => {
                      {/* Progress */}
                      {analyzing && (
                        <Box sx={{ mt: 2 }}>
-                         <LinearProgress variant="determinate" value={analyzeProgress} sx={{ height: 6, borderRadius: 3 }} />
+                         <LinearProgress variant="determinate" value={analyzeProgress} sx={{ height: 6 }} />
                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
                            AI Vision API ile yeni görseller analiz ediliyor... {Math.round(analyzeProgress)}%
                          </Typography>
@@ -952,7 +942,7 @@ const ScreenshotImport = () => {
               <Collapse in={expandedSections.urunler}>
                 <Box sx={{ pl: 1, pr: 1, pb: 2 }}>
                   {editedData.urunler?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead>
                           <TableRow sx={{ backgroundColor: '#f8fafc' }}>
@@ -1001,7 +991,7 @@ const ScreenshotImport = () => {
                   {editedData.finansal ? (
                     <Grid container spacing={1.5}>
                       <Grid item xs={6} md={3}>
-                        <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: '#fefce8', textAlign: 'center' }}>
+                        <Box sx={{ p: 1.5, backgroundColor: '#fefce8', textAlign: 'center' }}>
                           <Typography variant="caption" color="text.secondary">Toplam Sabit Yatırım</Typography>
                           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
                             {(editedData.finansal.toplamSabitYatirimTutari || 0).toLocaleString('tr-TR')} ₺
@@ -1009,7 +999,7 @@ const ScreenshotImport = () => {
                         </Box>
                       </Grid>
                       <Grid item xs={6} md={3}>
-                        <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: '#eff6ff', textAlign: 'center' }}>
+                        <Box sx={{ p: 1.5, backgroundColor: '#eff6ff', textAlign: 'center' }}>
                           <Typography variant="caption" color="text.secondary">Toplam Makine Teçhizat</Typography>
                           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
                             {(editedData.finansal.makinaTechizatGiderleri?.toplamMakine || 0).toLocaleString('tr-TR')} ₺
@@ -1017,7 +1007,7 @@ const ScreenshotImport = () => {
                         </Box>
                       </Grid>
                       <Grid item xs={6} md={3}>
-                        <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: '#f0fdf4', textAlign: 'center' }}>
+                        <Box sx={{ p: 1.5, backgroundColor: '#f0fdf4', textAlign: 'center' }}>
                           <Typography variant="caption" color="text.secondary">Toplam Finansman</Typography>
                           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
                             {(editedData.finansal.toplamFinansman || 0).toLocaleString('tr-TR')} ₺
@@ -1025,7 +1015,7 @@ const ScreenshotImport = () => {
                         </Box>
                       </Grid>
                       <Grid item xs={6} md={3}>
-                        <Box sx={{ p: 1.5, borderRadius: 2, backgroundColor: '#fdf2f8', textAlign: 'center' }}>
+                        <Box sx={{ p: 1.5, backgroundColor: '#fdf2f8', textAlign: 'center' }}>
                           <Typography variant="caption" color="text.secondary">İthal Makine ($)</Typography>
                           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem' }}>
                             {(editedData.finansal.ithalMakineDolar?.toplam || 0).toLocaleString('tr-TR')} $
@@ -1053,7 +1043,7 @@ const ScreenshotImport = () => {
               <Collapse in={expandedSections.ozelSartlar}>
                 <Box sx={{ pl: 1, pr: 1, pb: 2 }}>
                   {editedData.ozelSartlar?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead>
                           <TableRow sx={{ backgroundColor: '#fef2f2' }}>
@@ -1091,7 +1081,7 @@ const ScreenshotImport = () => {
               <Collapse in={expandedSections.destekUnsurlari}>
                 <Box sx={{ pl: 1, pr: 1, pb: 2 }}>
                   {editedData.destekUnsurlari?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead>
                           <TableRow sx={{ backgroundColor: '#ecfeff' }}>
@@ -1125,7 +1115,7 @@ const ScreenshotImport = () => {
                   variant="outlined"
                   onClick={handleReset}
                   startIcon={<ResetIcon />}
-                  sx={{ borderRadius: 2, textTransform: 'none' }}
+                  sx={{ textTransform: 'none' }}
                 >
                   Sıfırla
                 </Button>
@@ -1135,13 +1125,12 @@ const ScreenshotImport = () => {
                   disabled={committing || !editedData.firmaAdi}
                   startIcon={committing ? <CircularProgress size={18} color="inherit" /> : <SaveIcon />}
                   sx={{
-                    background: 'linear-gradient(135deg, #059669, #10b981)',
-                    borderRadius: 2,
+                    background: '#059669',
                     textTransform: 'none',
                     fontWeight: 700,
                     px: 4,
                     '&:hover': {
-                      background: 'linear-gradient(135deg, #047857, #059669)',
+                      background: '#047857',
                     },
                   }}
                 >
@@ -1159,8 +1148,7 @@ const ScreenshotImport = () => {
                 onClick={handleReset}
                 startIcon={<CameraIcon />}
                 sx={{
-                  background: 'linear-gradient(135deg, #2563eb, #3b82f6)',
-                  borderRadius: 2,
+                  background: '#2563eb',
                   textTransform: 'none',
                   fontWeight: 600,
                 }}

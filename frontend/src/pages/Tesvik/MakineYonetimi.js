@@ -129,7 +129,7 @@ const GtipKodInput = memo(({ value, rowId, onCommit, disabled }) => {
       placeholder="GTIP yapıştır..."
       autoComplete="off"
       style={{
-        width: '100%', border: '1px solid #cbd5e1', borderRadius: 4,
+        width: '100%', border: '1px solid #cbd5e1',
         padding: '4px 6px', fontSize: '0.72rem', color: '#2563eb',
         outline: 'none', background: disabled ? '#f8fafc' : '#fff'
       }}
@@ -186,8 +186,7 @@ const GtipCell = memo(({ value, rowId, onCommit, style, disabled }) => {
       {showDropdown && suggestions.length > 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 9999,
-          background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+          background: '#fff', border: '1px solid #cbd5e1', maxHeight: 180, overflowY: 'auto',
           minWidth: 280, fontSize: '10px'
         }}>
           {suggestions.map((item, idx) => (
@@ -2318,7 +2317,7 @@ const MakineYonetimi = () => {
             flex: 1, 
             overflow: 'auto',
             '&::-webkit-scrollbar': { width: 8, height: 8 },
-            '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8', borderRadius: 4 }
+            '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8' }
           }}
         >
           <table style={{ borderCollapse: 'collapse', width: 'max-content', minWidth: '100%', fontSize: '10px', fontFamily: 'Consolas, Monaco, monospace' }}>
@@ -2605,7 +2604,7 @@ const MakineYonetimi = () => {
           </Button>
           {hucreYukleme === p.row.id && (
             <LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'}
-              value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />
+              value={hucreYuklemePct} sx={{ height: 3, mt: 0.25 }} />
           )}
           {Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 && (
             <Chip label={p.row.dosyalar.length} size="small" sx={{ ml: 0.5 }} />
@@ -3091,7 +3090,7 @@ const MakineYonetimi = () => {
           </Button>
           {hucreYukleme === p.row.id && (
             <LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'}
-              value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />
+              value={hucreYuklemePct} sx={{ height: 3, mt: 0.25 }} />
           )}
           {Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 && (
             <Chip label={p.row.dosyalar.length} size="small" sx={{ ml: 0.5 }} />
@@ -3353,7 +3352,7 @@ const MakineYonetimi = () => {
     accentGlow: 'rgba(99, 102, 241, 0.15)',
     
     // Backgrounds
-    bg: 'linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #e0e7ff 100%)',
+    bg: '#f8fafc',
     bgSolid: '#f8fafc',
     card: '#ffffff',
     cardHover: '#fafbff',
@@ -3361,9 +3360,9 @@ const MakineYonetimi = () => {
     // Borders & Shadows
     border: '#e0e7ff',
     borderLight: '#eef2ff',
-    shadow: '0 1px 3px rgba(30, 27, 75, 0.04), 0 4px 12px rgba(30, 27, 75, 0.06)',
-    shadowHover: '0 4px 16px rgba(30, 27, 75, 0.08), 0 8px 24px rgba(30, 27, 75, 0.12)',
-    shadowInner: 'inset 0 1px 2px rgba(30, 27, 75, 0.05)',
+    shadow: 'none',   // ETUYS: gölge yok
+    shadowHover: 'none',   // ETUYS: gölge yok
+    shadowInner: 'none',   // ETUYS: gölge yok
     
     // Text
     text: { 
@@ -3387,12 +3386,12 @@ const MakineYonetimi = () => {
     infoLight: '#cffafe',
     
     // Gradients
-    gradientPrimary: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
-    gradientAccent: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-    gradientSuccess: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    gradientWarning: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    gradientError: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    gradientSubtle: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+    gradientPrimary: '#1e1b4b',
+    gradientAccent: '#6366f1',
+    gradientSuccess: '#10b981',
+    gradientWarning: '#f59e0b',
+    gradientError: '#ef4444',
+    gradientSubtle: '#ffffff',
     
     // Special
     yerli: { bg: '#10b981', light: '#d1fae5', text: '#065f46' },
@@ -3452,13 +3451,11 @@ const MakineYonetimi = () => {
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box sx={{ 
               width: 36, 
-              height: 36, 
-              borderRadius: 1.5, 
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              height: 36,  
+              background: '#10b981',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.25)'
             }}>
               <BuildIcon sx={{ fontSize: 20, color: '#fff' }} />
             </Box>
@@ -3495,7 +3492,6 @@ const MakineYonetimi = () => {
             border: `1px solid ${theme.success}30`,
             px: 1.5, 
             py: 0.5, 
-            borderRadius: 1.5
           }}>
             <Typography sx={{ color: theme.successDark, fontWeight: 700, fontSize: '0.8rem' }}>
               Yerli: {yerliToplamTl.toLocaleString('tr-TR')} ₺
@@ -3506,7 +3502,6 @@ const MakineYonetimi = () => {
             border: `1px solid ${theme.warning}30`,
             px: 1.5, 
             py: 0.5, 
-            borderRadius: 1.5
           }}>
             <Typography sx={{ color: theme.warningDark, fontWeight: 700, fontSize: '0.8rem' }}>
               İthal: {ithalToplamUsd.toLocaleString('tr-TR')} $
@@ -3523,11 +3518,10 @@ const MakineYonetimi = () => {
           mb: 1, 
           flexShrink: 0,
           border: `1px solid ${theme.border}`,
-          borderRadius: 2,
           bgcolor: theme.card,
           boxShadow: theme.shadow,
           transition: 'all 0.2s ease',
-          '&:hover': { boxShadow: theme.shadowHover }
+          '&:hover': { }
         }}
       >
         <Stack direction="row" spacing={2} alignItems="center">
@@ -3537,7 +3531,6 @@ const MakineYonetimi = () => {
             gap: 1,
             px: 1.5,
             py: 0.75,
-            borderRadius: 1,
             bgcolor: theme.accentGlow,
             border: `1px solid ${theme.accent}20`
           }}>
@@ -3552,11 +3545,10 @@ const MakineYonetimi = () => {
               flex: 1, 
               maxWidth: 450,
               '& .MuiOutlinedInput-root': {
-                borderRadius: 1.5,
                 bgcolor: '#fff',
                 transition: 'all 0.2s',
-                '&:hover': { boxShadow: '0 2px 8px rgba(99, 102, 241, 0.1)' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' }
+                '&:hover': { },
+                '&.Mui-focused': { }
               }
             }}
             getOptionLabel={(o)=> o?.belgeYonetimi?.belgeNo || o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
@@ -3624,7 +3616,7 @@ const MakineYonetimi = () => {
       {/* 🪪 Belge Kimlik Şeridi — müşteri: hangi belgede olduğumuz net görünsün
           (belge no + firma + il/ilçe + yatırım konusu + US97) */}
       {selectedTesvik && (
-        <Paper elevation={0} sx={{ px: 1.5, py: 0.75, mb: 1, borderRadius: 2, border: `1px solid ${theme.border}`, bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Paper elevation={0} sx={{ px: 1.5, py: 0.75, mb: 1, border: `1px solid ${theme.border}`, bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip size="small" label={selectedTesvik.belgeYonetimi?.belgeNo || selectedTesvik.tesvikId || selectedTesvik.gmId} sx={{ fontWeight: 700, bgcolor: theme.accentGlow, color: theme.accent }} />
           <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }} noWrap>
             {selectedTesvik.yatirimciUnvan || ''}
@@ -3650,7 +3642,6 @@ const MakineYonetimi = () => {
         elevation={0} 
         sx={{ 
           border: `1px solid ${theme.border}`,
-          borderRadius: 2,
           bgcolor: theme.card,
           position: fullScreen ? 'fixed' : 'relative', 
           inset: fullScreen ? 0 : 'auto', 
@@ -3681,7 +3672,6 @@ const MakineYonetimi = () => {
             gap: 0.5,
             p: 0.5,
             bgcolor: '#eef2ff',
-            borderRadius: 1.5
           }}>
             <Button 
               size="small" 
@@ -3694,7 +3684,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: tab === 'yerli' ? '#fff' : theme.text.secondary,
                 background: tab === 'yerli' ? theme.gradientSuccess : 'transparent',
-                borderRadius: 1,
                 boxShadow: tab === 'yerli' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': { 
@@ -3716,7 +3705,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: tab === 'ithal' ? '#fff' : theme.text.secondary,
                 background: tab === 'ithal' ? theme.gradientWarning : 'transparent',
-                borderRadius: 1,
                 boxShadow: tab === 'ithal' ? '0 2px 8px rgba(245, 158, 11, 0.3)' : 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': { 
@@ -3737,7 +3725,6 @@ const MakineYonetimi = () => {
             gap: 0.5,
             p: 0.5,
             bgcolor: '#f0f9ff',
-            borderRadius: 1.5
           }}>
             <Button 
               size="small" 
@@ -3751,7 +3738,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: viewMode === 'standard' ? '#fff' : '#64748b',
                 background: viewMode === 'standard' ? '#3b82f6' : 'transparent',
-                borderRadius: 1,
                 boxShadow: viewMode === 'standard' ? '0 2px 6px rgba(59, 130, 246, 0.3)' : 'none',
                 '&:hover': { 
                   background: viewMode === 'standard' ? '#2563eb' : 'rgba(59, 130, 246, 0.1)'
@@ -3772,7 +3758,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: viewMode === 'quick' ? '#fff' : '#64748b',
                 background: viewMode === 'quick' ? '#8b5cf6' : 'transparent',
-                borderRadius: 1,
                 boxShadow: viewMode === 'quick' ? '0 2px 6px rgba(139, 92, 246, 0.3)' : 'none',
                 '&:hover': { 
                   background: viewMode === 'quick' ? '#7c3aed' : 'rgba(139, 92, 246, 0.1)'
@@ -3797,10 +3782,9 @@ const MakineYonetimi = () => {
                 fontSize: '0.7rem', 
                 height: 28, 
                 bgcolor: '#fff',
-                borderRadius: 1.5,
                 transition: 'all 0.2s',
-                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(99, 102, 241, 0.1)' }
+                '&:hover': { },
+                '&.Mui-focused': { }
               },
               '& .MuiOutlinedInput-notchedOutline': { borderColor: theme.border }
             }} 
@@ -3830,7 +3814,6 @@ const MakineYonetimi = () => {
                   fontSize: '0.68rem',
                   py: 0.5,
                   px: 1.5,
-                  borderRadius: 1.5,
                   fontWeight: 600,
                   color: theme.accent,
                   borderColor: theme.accent,
@@ -3879,15 +3862,12 @@ const MakineYonetimi = () => {
                     fontSize: '0.68rem',
                     py: 0.5,
                     px: 1.5,
-                    borderRadius: 1.5,
                     fontWeight: 600,
                     color: '#fff',
                     background: theme.gradientSuccess,
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
                     '&:hover': { 
                       background: theme.gradientSuccess,
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
                     }
                   }}
                 >
@@ -3900,7 +3880,6 @@ const MakineYonetimi = () => {
                     fontSize: '0.68rem',
                     py: 0.5,
                     px: 1.5,
-                    borderRadius: 1.5,
                     fontWeight: 600,
                     color: theme.warning,
                     border: `1px solid ${theme.warning}`,
@@ -3923,11 +3902,9 @@ const MakineYonetimi = () => {
             spacing={0.25}
             sx={{ 
               bgcolor: '#eef2ff',
-              borderRadius: 1.5,
               p: 0.5,
               '& .MuiIconButton-root': { 
                 p: 0.75,
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 '&:hover': { 
                   bgcolor: theme.accentGlow,
@@ -4004,7 +3981,7 @@ const MakineYonetimi = () => {
           p: 0.5,
           display: 'flex',
           flexDirection: 'column',
-          background: 'linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%)'
+          background: '#fafbfc'
         }}>
           {/* 🚀 PERF: fonksiyon çağrısı {YerliGrid()} — <YerliGrid/> DEĞİL.
               <YerliGrid/> her render'da grid'i remount edip scroll'u başa atıyor + kasıyordu. */}
@@ -4076,7 +4053,7 @@ const MakineYonetimi = () => {
       </Dialog>
 
       {/* müşteri: Silinen Satırlar & İşlem Özeti panelleri kaldırıldı (Revizyon Geçmişi kapsıyor) */}
-      {false && (<Paper sx={{ p:2, mb:2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+      {false && (<Paper sx={{ p:2, mb:2 }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb:1 }}>
           <DeleteOutlineIcon sx={{ color:'#ef4444' }} />
           <Typography variant="subtitle2" sx={{ fontWeight:700 }}>Silinen Satırlar</Typography>
@@ -4114,7 +4091,7 @@ const MakineYonetimi = () => {
 
       {/* 🗒️ NOTLAR — müşteri: "Taleplerde yaptığımız gibi not kısmı" (tarihli, kim yazdı belli) */}
       {selectedTesvik && (
-      <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+      <Paper sx={{ p: 2, mb: 2, border: '1px solid #e5e7eb' }}>
         <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
           <Box sx={{ fontSize: 20 }}>🗒️</Box>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
@@ -4146,8 +4123,8 @@ const MakineYonetimi = () => {
               onClick={notEkle}
               sx={{
                 fontSize: '0.75rem', py: 0.75, px: 2, whiteSpace: 'nowrap',
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }
+                background: '#10b981',
+                '&:hover': { background: '#059669' }
               }}
             >
               Not Ekle
@@ -4161,7 +4138,7 @@ const MakineYonetimi = () => {
             )}
             <Stack spacing={1}>
               {notListesi.map((n) => (
-                <Box key={n._id} sx={{ p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <Box key={n._id} sx={{ p: 1.25, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155' }}>
                       {n.yazanAdi || 'Bilinmiyor'}
@@ -4391,7 +4368,7 @@ const MakineYonetimi = () => {
                 }
               }
               return (
-                <Paper key={r.revizeId || i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                <Paper key={r.revizeId || i} variant="outlined" sx={{ p: 1.5 }}>
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                     <Chip size="small" label={(r.revizeTuru || 'revize').toUpperCase()} color={r.revizeTuru === 'revert' ? 'warning' : r.revizeTuru === 'final' ? 'success' : 'default'} sx={{ fontWeight: 700 }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.revizeTarihi ? new Date(r.revizeTarihi).toLocaleString('tr-TR') : '-'}</Typography>

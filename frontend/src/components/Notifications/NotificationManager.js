@@ -350,7 +350,7 @@ const NotificationManager = ({ open, onClose }) => {
                           : [...prev.recipients, recipient.id]
                       }));
                     }}
-                    sx={{ border: 1, borderColor: 'divider', borderRadius: 1, mb: 1 }}
+                    sx={{ border: 1, borderColor: 'divider', mb: 1 }}
                   >
                     <ListItemIcon>
                       {recipient.type === 'group' ? <GroupIcon /> : <PersonIcon />}

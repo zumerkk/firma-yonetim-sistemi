@@ -268,7 +268,7 @@ const IslemTuruYonetimi = () => {
               {turler.map((t) => (
                 <ListItemButton
                   key={t._id} selected={t._id === seciliId} onClick={() => turSec(t._id)}
-                  sx={{ borderRadius: 1, mb: 0.5 }}
+                  sx={{ mb: 0.5 }}
                 >
                   <ListItemText
                     primary={t.ad}
@@ -328,7 +328,7 @@ const IslemTuruYonetimi = () => {
               {/* 🔀 EVET/HAYIR soruları — talep açılırken sorulur, evrak listesini daraltır.
                   Liste BOŞSA sihirbaz hiç çıkmaz ve talep bugünkü gibi düz listeyle açılır;
                   özelliği kapatmanın en hızlı yolu buradaki soruları silmektir. */}
-              <Box sx={{ border: '1px dashed #cbd5e1', borderRadius: 2, p: 1.5 }}>
+              <Box sx={{ border: '1px dashed #cbd5e1', p: 1.5 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
                   <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
                     EVET/HAYIR Soruları ({(form.sorular || []).length})
@@ -392,7 +392,7 @@ const IslemTuruYonetimi = () => {
                   Firma başına ayrı form açmak yerine tek form kullanılır; mail'e giden
                   {formLink} her firma için ön-doldurulmuş üretilir, böylece e-tabloya
                   düşen yanıt satırında firma bilgisi hazır gelir. */}
-              <Box sx={{ border: '1px dashed #cbd5e1', borderRadius: 1, p: 1.5 }}>
+              <Box sx={{ border: '1px dashed #cbd5e1', p: 1.5 }}>
                 <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
                   Google Form Bağlantısı (opsiyonel)
                 </Typography>

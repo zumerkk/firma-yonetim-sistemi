@@ -114,9 +114,7 @@ const Login = () => {
         <Card 
           elevation={12}
           sx={{ 
-            borderRadius: 4,
             overflow: 'hidden',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)'
           }}
         >
           <CardContent sx={{ p: 4 }}>

@@ -268,7 +268,6 @@ const GTIPSuperSearch = ({
         <ListItemButton 
           onClick={() => handleSelect(item)}
           sx={{
-            borderRadius: 1,
             mb: 0.5,
             '&:hover': {
               backgroundColor: alpha(theme.palette.primary.main, 0.08),
@@ -392,9 +391,8 @@ const GTIPSuperSearch = ({
         TransitionComponent={Zoom}
         PaperProps={{
           sx: {
-            borderRadius: 3,
             maxHeight: '85vh',
-            background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)'
+            background: '#ffffff'
           }
         }}
       >
@@ -403,7 +401,7 @@ const GTIPSuperSearch = ({
           pb: 1, 
           borderBottom: '1px solid',
           borderColor: 'divider',
-          background: 'linear-gradient(90deg, #1e40af 0%, #3b82f6 100%)',
+          background: '#1e40af',
           color: 'white'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -459,7 +457,6 @@ const GTIPSuperSearch = ({
               sx={{
                 '& .MuiOutlinedInput-root': {
                   backgroundColor: 'white',
-                  borderRadius: 2,
                   '&.Mui-focused fieldset': {
                     borderColor: 'primary.main',
                     borderWidth: 2
@@ -597,14 +594,12 @@ const GTIPSuperSearch = ({
                         cursor: 'pointer',
                         border: '1px solid',
                         borderColor: chapter.highlight ? 'primary.main' : 'divider',
-                        borderRadius: 2,
                         transition: 'all 0.2s',
                         backgroundColor: chapter.highlight ? alpha(theme.palette.primary.main, 0.05) : 'transparent',
                         '&:hover': {
                           borderColor: 'primary.main',
                           backgroundColor: alpha(theme.palette.primary.main, 0.08),
                           transform: 'translateY(-2px)',
-                          boxShadow: 2
                         }
                       }}
                     >

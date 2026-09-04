@@ -52,12 +52,11 @@ import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 const styles = {
   pageContainer: {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #f0f4ff 0%, #e8eeff 50%, #f5f0ff 100%)',
+    background: '#f0f4ff',
     pb: 6
   },
   heroSection: {
-    background: 'linear-gradient(135deg, #1e40af 0%, #3730a3 50%, #6d28d9 100%)',
-    borderRadius: 4,
+    background: '#1e40af',
     p: 4,
     mb: 4,
     color: 'white',
@@ -68,12 +67,11 @@ const styles = {
       position: 'absolute',
       top: 0, right: 0,
       width: '40%', height: '100%',
-      background: 'radial-gradient(circle at 80% 50%, rgba(255,255,255,0.1) 0%, transparent 70%)',
+      background: 'rgba(255,255,255,0.1)',
     }
   },
   dropZone: (isDragOver, hasFile) => ({
     border: `3px dashed ${isDragOver ? '#3b82f6' : hasFile ? '#10b981' : '#cbd5e1'}`,
-    borderRadius: 4,
     p: 6,
     textAlign: 'center',
     cursor: 'pointer',
@@ -83,15 +81,12 @@ const styles = {
       borderColor: '#3b82f6',
       bgcolor: 'rgba(59, 130, 246, 0.03)',
       transform: 'translateY(-2px)',
-      boxShadow: '0 8px 25px rgba(59, 130, 246, 0.12)'
     }
   }),
   previewCard: {
-    borderRadius: 3,
     border: '1px solid #e2e8f0',
     transition: 'all 0.2s ease',
     '&:hover': {
-      boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
       borderColor: '#94a3b8'
     }
   },
@@ -101,24 +96,21 @@ const styles = {
     gap: 1.5,
     mb: 2,
     p: 1.5,
-    borderRadius: 2,
     bgcolor: 'rgba(30, 64, 175, 0.04)'
   },
   statCard: (color) => ({
-    borderRadius: 3,
     p: 2.5,
     textAlign: 'center',
     border: `1px solid ${color}20`,
     bgcolor: `${color}05`,
     transition: 'all 0.2s ease',
-    '&:hover': { transform: 'translateY(-2px)', boxShadow: `0 4px 15px ${color}15` }
+    '&:hover': { transform: 'translateY(-2px)' }
   }),
   successScreen: {
     textAlign: 'center',
     py: 8,
     px: 4,
-    background: 'linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 50%, #f5f3ff 100%)',
-    borderRadius: 4,
+    background: '#ecfdf5',
     border: '1px solid #86efac'
   }
 };
@@ -315,10 +307,10 @@ const EskiTesvikImport = () => {
                   onClick={(e) => { e.stopPropagation(); handleUpload(); }}
                   disabled={uploading}
                   sx={{
-                    background: 'linear-gradient(135deg, #1e40af 0%, #6d28d9 100%)',
-                    px: 4, py: 1.2, borderRadius: 3,
+                    background: '#1e40af',
+                    px: 4, py: 1.2,
                     fontWeight: 600, fontSize: '1rem',
-                    '&:hover': { background: 'linear-gradient(135deg, #1e3a8a 0%, #5b21b6 100%)' }
+                    '&:hover': { background: '#1e3a8a' }
                   }}
                 >
                   {uploading ? 'İşleniyor...' : 'Analiz Et ve Önizle'}
@@ -344,11 +336,10 @@ const EskiTesvikImport = () => {
               variant="determinate"
               value={uploadProgress}
               sx={{
-                height: 8, borderRadius: 4,
+                height: 8,
                 bgcolor: '#e2e8f0',
                 '& .MuiLinearProgress-bar': {
-                  background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-                  borderRadius: 4
+                  background: '#3b82f6',
                 }
               }}
             />
@@ -395,7 +386,7 @@ const EskiTesvikImport = () => {
 
           {/* Error List */}
           {errors?.length > 0 && (
-            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+            <Alert severity="error" sx={{ mb: 3 }}>
               <AlertTitle>Parse Hataları</AlertTitle>
               {errors.map((err, i) => (
                 <Typography key={i} variant="body2">• Satır {err.rowIndex}: {err.message}</Typography>
@@ -467,12 +458,12 @@ const EskiTesvikImport = () => {
                   {(preview.validation?.errors?.length > 0 || preview.validation?.warnings?.length > 0) && (
                     <Box sx={{ mb: 3 }}>
                       {preview.validation.errors.map((e, i) => (
-                        <Alert key={`e-${i}`} severity="error" sx={{ mb: 1, borderRadius: 2 }}>
+                        <Alert key={`e-${i}`} severity="error" sx={{ mb: 1 }}>
                           {e}
                         </Alert>
                       ))}
                       {preview.validation.warnings.map((w, i) => (
-                        <Alert key={`w-${i}`} severity="warning" sx={{ mb: 1, borderRadius: 2 }}>
+                        <Alert key={`w-${i}`} severity="warning" sx={{ mb: 1 }}>
                           {w}
                         </Alert>
                       ))}
@@ -481,7 +472,7 @@ const EskiTesvikImport = () => {
 
                   {/* Firma Info */}
                   {preview.firma.existing && (
-                    <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>
+                    <Alert severity="success" sx={{ mb: 2 }}>
                       <AlertTitle>Firma Eşleştirildi</AlertTitle>
                       <strong>{preview.firma.existing.tamUnvan}</strong> ({preview.firma.existing.firmaId})
                       {preview.firma.matchType === 'partial' && ' — Kısmi eşleşme'}
@@ -552,19 +543,19 @@ const EskiTesvikImport = () => {
                         <Typography variant="subtitle2" fontWeight={600}>İstihdam</Typography>
                       </Box>
                       <Stack direction="row" spacing={2}>
-                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, borderRadius: 2, bgcolor: '#f5f3ff' }}>
+                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, bgcolor: '#f5f3ff' }}>
                           <Typography variant="h5" fontWeight={700} color="#7c3aed">
                             {preview.tesvikData?.istihdam?.mevcutKisi || 0}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">Mevcut</Typography>
                         </Box>
-                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, borderRadius: 2, bgcolor: '#ecfdf5' }}>
+                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, bgcolor: '#ecfdf5' }}>
                           <Typography variant="h5" fontWeight={700} color="#059669">
                             {preview.tesvikData?.istihdam?.ilaveKisi || 0}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">İlave</Typography>
                         </Box>
-                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, borderRadius: 2, bgcolor: '#eff6ff' }}>
+                        <Box sx={{ textAlign: 'center', flex: 1, p: 1.5, bgcolor: '#eff6ff' }}>
                           <Typography variant="h5" fontWeight={700} color="#1e40af">
                             {(preview.tesvikData?.istihdam?.mevcutKisi || 0) + (preview.tesvikData?.istihdam?.ilaveKisi || 0)}
                           </Typography>
@@ -582,7 +573,7 @@ const EskiTesvikImport = () => {
                         </Typography>
                       </Box>
                       {preview.tesvikData?.urunler?.length > 0 ? (
-                        <TableContainer sx={{ borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                        <TableContainer sx={{ border: '1px solid #e2e8f0' }}>
                           <Table size="small">
                             <TableHead>
                               <TableRow sx={{ bgcolor: '#f8fafc' }}>
@@ -611,7 +602,7 @@ const EskiTesvikImport = () => {
                           </Table>
                         </TableContainer>
                       ) : (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>Ürün bilgisi bulunamadı</Alert>
+                        <Alert severity="info">Ürün bilgisi bulunamadı</Alert>
                       )}
                     </Grid>
 
@@ -624,13 +615,13 @@ const EskiTesvikImport = () => {
                         </Typography>
                       </Box>
                       {preview.tesvikData?.destekUnsurlari?.map((d, di) => (
-                        <Box key={di} sx={{ p: 1.5, mb: 1, borderRadius: 2, bgcolor: '#f0fdfa', border: '1px solid #99f6e4' }}>
+                        <Box key={di} sx={{ p: 1.5, mb: 1, bgcolor: '#f0fdfa', border: '1px solid #99f6e4' }}>
                           <Typography variant="body2" fontWeight={600} color="#0f766e">{d.destekUnsuru}</Typography>
                           {d.sarti && <Typography variant="caption" color="text.secondary">{d.sarti}</Typography>}
                         </Box>
                       ))}
                       {(!preview.tesvikData?.destekUnsurlari || preview.tesvikData.destekUnsurlari.length === 0) && (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>Destek unsuru bulunamadı</Alert>
+                        <Alert severity="info">Destek unsuru bulunamadı</Alert>
                       )}
                     </Grid>
 
@@ -643,7 +634,7 @@ const EskiTesvikImport = () => {
                         </Typography>
                       </Box>
                       {preview.tesvikData?.ozelSartlar?.slice(0, 5).map((s, si) => (
-                        <Box key={si} sx={{ p: 1.5, mb: 1, borderRadius: 2, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
+                        <Box key={si} sx={{ p: 1.5, mb: 1, bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
                           <Typography variant="body2" fontWeight={600} color="#991b1b">{s.koşulMetni}</Typography>
                           {s.aciklamaNotu && (
                             <Typography variant="caption" color="text.secondary" sx={{
@@ -676,7 +667,7 @@ const EskiTesvikImport = () => {
                           { label: 'Toplam Finansman', value: preview.tesvikData?.maliHesaplamalar?.finansman?.toplamFinansman, color: '#0891b2' },
                         ].map((item, i) => (
                           <Grid item xs={6} sm={4} md key={i}>
-                            <Box sx={{ p: 2, borderRadius: 2, bgcolor: `${item.color}08`, border: `1px solid ${item.color}20`, textAlign: 'center' }}>
+                            <Box sx={{ p: 2, bgcolor: `${item.color}08`, border: `1px solid ${item.color}20`, textAlign: 'center' }}>
                               <Typography variant="h6" fontWeight={700} color={item.color}>
                                 {formatNumber(item.value)} ₺
                               </Typography>
@@ -698,7 +689,6 @@ const EskiTesvikImport = () => {
               variant="outlined"
               startIcon={<ArrowBackIcon />}
               onClick={handleRemoveFile}
-              sx={{ borderRadius: 3 }}
             >
               Geri — Yeni Dosya
             </Button>
@@ -708,13 +698,11 @@ const EskiTesvikImport = () => {
               onClick={handleConfirm}
               disabled={confirming || !previewData?.summary?.canImport}
               sx={{
-                background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
-                px: 5, py: 1.5, borderRadius: 3,
+                background: '#059669',
+                px: 5, py: 1.5,
                 fontWeight: 700, fontSize: '1rem',
-                boxShadow: '0 4px 15px rgba(5, 150, 105, 0.3)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #047857 0%, #0f766e 100%)',
-                  boxShadow: '0 6px 20px rgba(5, 150, 105, 0.4)',
+                  background: '#047857',
                 }
               }}
             >
@@ -748,7 +736,7 @@ const EskiTesvikImport = () => {
           {/* Created Records */}
           {importResult.created?.length > 0 && (
             <Box sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
-              <TableContainer component={Paper} sx={{ borderRadius: 3, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+              <TableContainer component={Paper}>
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ bgcolor: '#f0fdf4' }}>
@@ -787,7 +775,7 @@ const EskiTesvikImport = () => {
 
           {/* Error List */}
           {importResult.errors?.length > 0 && (
-            <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mb: 4, borderRadius: 2, textAlign: 'left' }}>
+            <Alert severity="warning" sx={{ maxWidth: 600, mx: 'auto', mb: 4, textAlign: 'left' }}>
               <AlertTitle>Bazı Hatalar Oluştu</AlertTitle>
               {importResult.errors.map((err, i) => (
                 <Typography key={i} variant="body2">• {err}</Typography>
@@ -801,8 +789,8 @@ const EskiTesvikImport = () => {
               startIcon={<ArrowIcon />}
               onClick={() => navigate('/tesvik')}
               sx={{
-                background: 'linear-gradient(135deg, #1e40af 0%, #6d28d9 100%)',
-                px: 4, py: 1.2, borderRadius: 3, fontWeight: 600
+                background: '#1e40af',
+                px: 4, py: 1.2, fontWeight: 600
               }}
             >
               Teşvik Listesine Git
@@ -815,7 +803,6 @@ const EskiTesvikImport = () => {
                 setImportResult(null);
                 setActiveStep(0);
               }}
-              sx={{ borderRadius: 3 }}
             >
               Yeni Import
             </Button>
@@ -851,7 +838,6 @@ const EskiTesvikImport = () => {
                 sx={{
                   color: 'white', borderColor: 'rgba(255,255,255,0.4)',
                   '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' },
-                  borderRadius: 3
                 }}
               >
                 Geri Dön
@@ -860,7 +846,7 @@ const EskiTesvikImport = () => {
           </Box>
 
           {/* Stepper */}
-          <Paper sx={{ p: 3, mb: 4, borderRadius: 3 }} elevation={0}>
+          <Paper sx={{ p: 3, mb: 4 }} elevation={0}>
             <Stepper activeStep={activeStep} alternativeLabel>
               {steps.map((label, i) => (
                 <Step key={label} completed={activeStep > i}>
@@ -885,7 +871,7 @@ const EskiTesvikImport = () => {
           {error && (
             <Alert
               severity="error"
-              sx={{ mb: 3, borderRadius: 2 }}
+              sx={{ mb: 3 }}
               onClose={() => setError(null)}
             >
               <AlertTitle>Hata</AlertTitle>

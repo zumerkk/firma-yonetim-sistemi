@@ -132,7 +132,7 @@ export default function KdvMuafiyetYazisi({ tesvikModel, tesvikId, saltOkunur = 
   const islemVar = Boolean(mesgul);
 
   return (
-    <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+    <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
         <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#6366f1' }} />
         <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
@@ -204,7 +204,7 @@ export default function KdvMuafiyetYazisi({ tesvikModel, tesvikId, saltOkunur = 
           )}
 
           {bilgi?.varMi && (
-            <Box sx={{ mt: 1, p: 1, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 1 }}>
+            <Box sx={{ mt: 1, p: 1, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
               <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
                 <Typography variant="caption" sx={{ color: '#0f172a', fontWeight: 600, fontSize: '0.7rem' }}>
                   {bilgi.dosyaAdi}

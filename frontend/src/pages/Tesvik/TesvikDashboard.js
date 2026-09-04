@@ -159,7 +159,7 @@ const TesvikDashboard = () => {
             </Box>
           </Box>
 
-          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 0 }}>{error}</Alert>}
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
           {/* Özet kutuları — eskiden dört gradyanlı StatsCard'dı */}
           <Grid container spacing={1.2} sx={{ mb: `${aralik.grup}px` }}>

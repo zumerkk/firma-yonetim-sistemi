@@ -214,7 +214,7 @@ const NotificationPage = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar sx={{ 
-              background: 'linear-gradient(135deg, #f59e0b, #f97316)',
+              background: '#f97316',
               width: 48,
               height: 48
             }}>
@@ -244,7 +244,7 @@ const NotificationPage = () => {
         {/* 📊 Stats Cards */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #3b82f6, #1e40af)', color: 'white' }}>
+            <Card sx={{ background: '#3b82f6', color: 'white' }}>
               <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
@@ -262,7 +262,7 @@ const NotificationPage = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white' }}>
+            <Card sx={{ background: '#ef4444', color: 'white' }}>
               <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
@@ -280,7 +280,7 @@ const NotificationPage = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: 'white' }}>
+            <Card sx={{ background: '#10b981', color: 'white' }}>
               <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>
@@ -298,7 +298,7 @@ const NotificationPage = () => {
           </Grid>
           
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white' }}>
+            <Card sx={{ background: '#8b5cf6', color: 'white' }}>
               <CardContent sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box>

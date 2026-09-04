@@ -245,7 +245,6 @@ const NotificationDropdown = ({ sx = {} }) => {
             title={bildirimHedefi(notification) ? 'Açmak için tıklayın' : undefined}
             sx={{
               cursor: 'pointer',
-              borderRadius: 2,
               mb: 0.5,
               mx: 1,
               background: notification.isRead 
@@ -372,7 +371,6 @@ const NotificationDropdown = ({ sx = {} }) => {
             '&:hover': {
               background: 'rgba(245, 158, 11, 0.2)',
               transform: 'scale(1.05)',
-              boxShadow: '0 8px 25px rgba(245, 158, 11, 0.3)'
             },
             ...sx
           }}
@@ -381,11 +379,10 @@ const NotificationDropdown = ({ sx = {} }) => {
             badgeContent={unreadCount} 
             sx={{
               '& .MuiBadge-badge': {
-                background: 'linear-gradient(135deg, #ef4444, #f97316)',
+                background: '#ef4444',
                 color: 'white',
                 fontWeight: 700,
                 fontSize: '0.75rem',
-                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
                 animation: unreadCount > 0 ? 'pulse 2s infinite' : 'none'
               },
               '@keyframes pulse': {
@@ -420,11 +417,9 @@ const NotificationDropdown = ({ sx = {} }) => {
             mt: 2,
             width: 420,
             maxWidth: '90vw',
-            borderRadius: 3,
             background: 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px) saturate(180%)',
             border: '1px solid rgba(255, 255, 255, 0.3)',
-            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
             overflow: 'hidden',
             '&::before': {
               content: '""',
@@ -433,7 +428,7 @@ const NotificationDropdown = ({ sx = {} }) => {
               left: 0,
               right: 0,
               height: 4,
-              background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)'
+              background: '#3b82f6'
             }
           }
         }}
@@ -563,7 +558,7 @@ const NotificationDropdown = ({ sx = {} }) => {
           </Box>
         </Box>
 
-        <Divider sx={{ background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent)' }} />
+        <Divider sx={{ background: 'rgba(59, 130, 246, 0.2)' }} />
 
         {/* 📋 Notifications List */}
         <Box sx={{ maxHeight: 400, overflow: 'hidden' }}>

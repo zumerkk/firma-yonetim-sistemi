@@ -251,10 +251,8 @@ const NaceSuperSearch = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
             overflow: 'hidden',
             maxHeight: '90vh',
-            boxShadow: '0 25px 50px rgba(0,0,0,0.25)'
           }
         }}
         BackdropProps={{
@@ -266,7 +264,7 @@ const NaceSuperSearch = ({
       >
         {/* Compact Header */}
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #059669, #047857)',
+          background: '#059669',
           color: 'white',
           py: 1.5,
           px: 3
@@ -343,8 +341,6 @@ const NaceSuperSearch = ({
                       right: 0,
                       bgcolor: 'white',
                       border: '1px solid #d1d5db',
-                      borderRadius: 1,
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
                       maxHeight: '150px',
                       overflowY: 'auto'
                     }}>
@@ -365,7 +361,6 @@ const NaceSuperSearch = ({
                               color: '#065f46',
                               px: 1,
                               py: 0.25,
-                              borderRadius: 0.5,
                               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas',
                               fontWeight: 600,
                               fontSize: '0.7rem'
@@ -527,7 +522,7 @@ const NaceSuperSearch = ({
                   pb: 1,
                   '&::-webkit-scrollbar': { height: 4 },
                   '&::-webkit-scrollbar-track': { backgroundColor: '#f3f4f6' },
-                  '&::-webkit-scrollbar-thumb': { backgroundColor: '#d1d5db', borderRadius: 2 }
+                  '&::-webkit-scrollbar-thumb': { backgroundColor: '#d1d5db' }
                 }}>
                   {categories
                     .filter(cat => !categorySearchTerm || cat.toLowerCase().includes(categorySearchTerm.toLowerCase()))
@@ -568,8 +563,8 @@ const NaceSuperSearch = ({
             px: 2,
             py: 1,
             '&::-webkit-scrollbar': { width: 8 },
-            '&::-webkit-scrollbar-track': { backgroundColor: '#f3f4f6', borderRadius: 4 },
-            '&::-webkit-scrollbar-thumb': { backgroundColor: '#a7f3d0', borderRadius: 4, '&:hover': { backgroundColor: '#86efac' } }
+            '&::-webkit-scrollbar-track': { backgroundColor: '#f3f4f6' },
+            '&::-webkit-scrollbar-thumb': { backgroundColor: '#a7f3d0', '&:hover': { backgroundColor: '#86efac' } }
           }}>
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
@@ -626,17 +621,14 @@ const NaceSuperSearch = ({
                     sx={{
                       p: { xs: 2, sm: 2.5 },
                       mb: 1.5,
-                      borderRadius: 2,
                       border: idx === highlightIndex ? '2px solid #059669' : '1px solid #f1f5f9',
                       bgcolor: idx === highlightIndex ? '#f0fdf4' : 'white',
                       cursor: 'pointer',
                       transition: 'all 0.2s ease',
-                      boxShadow: idx === highlightIndex ? '0 4px 16px rgba(5,150,105,0.15)' : '0 1px 3px rgba(0,0,0,0.05)',
                       '&:hover': {
                         borderColor: '#059669',
                         bgcolor: '#f9fafb',
                         transform: 'translateY(-1px)',
-                        boxShadow: '0 4px 12px rgba(5,150,105,0.1)'
                       }
                     }}
                   >
@@ -653,7 +645,6 @@ const NaceSuperSearch = ({
                         color: 'white',
                         px: { xs: 1.5, sm: 2 },
                         py: { xs: 0.5, sm: 0.8 },
-                        borderRadius: 1.5,
                         fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas',
                         fontWeight: 700,
                         fontSize: { xs: '0.8rem', sm: '0.9rem' },
@@ -723,7 +714,7 @@ const NaceSuperSearch = ({
                       variant="contained"
                       startIcon={<KeyboardArrowDownIcon />}
                       onClick={() => setDisplayLimit(l => l + 50)}
-                      sx={{ background: 'linear-gradient(135deg, #059669, #047857)' }}
+                      sx={{ background: '#059669' }}
                     >
                       Daha Fazla Göster
                     </Button>

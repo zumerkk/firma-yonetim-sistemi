@@ -630,12 +630,10 @@ const Settings = () => {
             {/* 💾 Sistem Yedeği */}
             <Grid item xs={12}>
               <Card sx={{ 
-                background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
+                background: '#0f172a',
                 color: 'white',
                 position: 'relative',
                 overflow: 'hidden',
-                borderRadius: 3,
-                boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
               }}>
                 {/* Dekoratif arka plan efekti */}
                 <Box sx={{
@@ -645,7 +643,7 @@ const Settings = () => {
                   width: 200,
                   height: 200,
                   borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(56,189,248,0.15) 0%, transparent 70%)',
+                  background: 'rgba(56,189,248,0.15)',
                   pointerEvents: 'none'
                 }} />
                 <Box sx={{
@@ -655,7 +653,7 @@ const Settings = () => {
                   width: 150,
                   height: 150,
                   borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(168,85,247,0.1) 0%, transparent 70%)',
+                  background: 'rgba(168,85,247,0.1)',
                   pointerEvents: 'none'
                 }} />
 
@@ -664,13 +662,11 @@ const Settings = () => {
                     <Box sx={{
                       width: 48,
                       height: 48,
-                      borderRadius: 2,
-                      background: 'linear-gradient(135deg, #38bdf8, #818cf8)',
+                      background: '#38bdf8',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                       mr: 2,
-                      boxShadow: '0 4px 15px rgba(56,189,248,0.3)'
                     }}>
                       <BackupIcon sx={{ fontSize: 28, color: 'white' }} />
                     </Box>
@@ -690,7 +686,6 @@ const Settings = () => {
                       <Grid item xs={4}>
                         <Box sx={{
                           background: 'rgba(255,255,255,0.06)',
-                          borderRadius: 2,
                           p: 2,
                           textAlign: 'center',
                           border: '1px solid rgba(255,255,255,0.08)'
@@ -706,7 +701,6 @@ const Settings = () => {
                       <Grid item xs={4}>
                         <Box sx={{
                           background: 'rgba(255,255,255,0.06)',
-                          borderRadius: 2,
                           p: 2,
                           textAlign: 'center',
                           border: '1px solid rgba(255,255,255,0.08)'
@@ -722,7 +716,6 @@ const Settings = () => {
                       <Grid item xs={4}>
                         <Box sx={{
                           background: 'rgba(255,255,255,0.06)',
-                          borderRadius: 2,
                           p: 2,
                           textAlign: 'center',
                           border: '1px solid rgba(255,255,255,0.08)'
@@ -754,13 +747,11 @@ const Settings = () => {
                         value={backupProgress}
                         sx={{
                           height: 8,
-                          borderRadius: 4,
                           backgroundColor: 'rgba(255,255,255,0.1)',
                           '& .MuiLinearProgress-bar': {
-                            borderRadius: 4,
                             background: backupProgress >= 100
-                              ? 'linear-gradient(90deg, #34d399, #10b981)'
-                              : 'linear-gradient(90deg, #38bdf8, #818cf8, #a78bfa)'
+                              ? '#34d399'
+                              : '#38bdf8'
                           }
                         }}
                       />
@@ -779,16 +770,13 @@ const Settings = () => {
                       py: 1.5,
                       fontSize: '1rem',
                       fontWeight: 700,
-                      borderRadius: 2,
                       background: backupLoading
                         ? 'rgba(255,255,255,0.1)'
-                        : 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
-                      boxShadow: backupLoading ? 'none' : '0 4px 20px rgba(56,189,248,0.3)',
+                        : '#38bdf8',
                       textTransform: 'none',
                       letterSpacing: '0.02em',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%)',
-                        boxShadow: '0 6px 25px rgba(56,189,248,0.4)',
+                        background: '#0ea5e9',
                         transform: 'translateY(-1px)'
                       },
                       '&.Mui-disabled': {

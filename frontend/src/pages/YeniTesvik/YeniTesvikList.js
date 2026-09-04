@@ -674,7 +674,7 @@ const YeniTesvikList = () => {
           Bu teşviki silmek istediğinizden emin misiniz?
         </DialogContentText>
         {deleteDialog.tesvik && (
-          <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
+          <Box sx={{ p: 2, backgroundColor: '#f8fafc' }}>
             <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
               📋 Silinecek Teşvik:
             </Typography>
@@ -775,7 +775,6 @@ const YeniTesvikList = () => {
                     sx={{
                       p: 2,
                       border: revizyonDialog.form.revizyonSebebi === sebep ? '2px solid #059669' : '1px solid #e5e7eb',
-                      borderRadius: 1,
                       cursor: 'pointer',
                       backgroundColor: revizyonDialog.form.revizyonSebebi === sebep ? '#f0fdf4' : 'white',
                       '&:hover': {
@@ -811,7 +810,6 @@ const YeniTesvikList = () => {
                 minHeight: '100px',
                 padding: '12px',
                 border: '1px solid #e5e7eb',
-                borderRadius: '8px',
                 fontSize: '14px',
                 fontFamily: 'inherit',
                 resize: 'vertical'

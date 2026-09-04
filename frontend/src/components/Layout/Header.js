@@ -62,7 +62,6 @@ const Header = ({ onSidebarToggle }) => {
         color: '#1f2937',
         zIndex: 1400,
         height: '64px',
-        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
       }}
     >
       <Toolbar sx={{ 
@@ -82,7 +81,6 @@ const Header = ({ onSidebarToggle }) => {
           sx={{ 
             color: '#4b5563',
             p: 1,
-            borderRadius: 2,
             '&:hover': {
               backgroundColor: '#f3f4f6',
             }
@@ -111,7 +109,6 @@ const Header = ({ onSidebarToggle }) => {
                 '&:hover': {
                   background: 'rgba(16, 185, 129, 0.2)',
                   transform: 'scale(1.05)',
-                  boxShadow: '0 8px 25px rgba(16, 185, 129, 0.3)'
                 }
               }}
             >
@@ -155,7 +152,6 @@ const Header = ({ onSidebarToggle }) => {
                   '&:hover': {
                     borderColor: 'rgba(59, 130, 246, 0.4)',
                     transform: 'scale(1.05)',
-                    boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)'
                   }
                 }}
               >
@@ -163,11 +159,10 @@ const Header = ({ onSidebarToggle }) => {
                   sx={{ 
                     width: 44, 
                     height: 44,
-                    background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
+                    background: '#3b82f6',
                     fontSize: '1.125rem',
                     fontWeight: 700,
                     color: 'white',
-                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
                   }}
                 >
                   {user?.adSoyad?.charAt(0) || <AccountCircleIcon />}
@@ -187,11 +182,9 @@ const Header = ({ onSidebarToggle }) => {
             sx: {
               mt: 2,
               minWidth: 280,
-              borderRadius: 4,
               background: 'rgba(255, 255, 255, 0.95)',
               backdropFilter: 'blur(20px) saturate(180%)',
               border: '1px solid rgba(255, 255, 255, 0.3)',
-              boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
               overflow: 'hidden',
               '&::before': {
                 content: '""',
@@ -200,7 +193,7 @@ const Header = ({ onSidebarToggle }) => {
                 left: 0,
                 right: 0,
                 height: 4,
-                background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%)'
+                background: '#3b82f6'
               }
             }
           }}
@@ -215,10 +208,9 @@ const Header = ({ onSidebarToggle }) => {
                   width: 56, 
                   height: 56, 
                   mr: 2,
-                  background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                  background: '#3b82f6',
                   fontSize: '1.5rem',
                   fontWeight: 700,
-                  boxShadow: '0 8px 25px rgba(59, 130, 246, 0.3)'
                 }}
               >
                 {user?.adSoyad?.charAt(0)}
@@ -249,12 +241,11 @@ const Header = ({ onSidebarToggle }) => {
                   label={user?.rolAciklama || user?.rol}
                   size="small"
                   sx={{ 
-                    background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+                    background: '#3b82f6',
                     color: 'white',
                     fontWeight: 600,
                     fontSize: '0.75rem',
                     border: 'none',
-                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
                   }}
                 />
               </Box>
@@ -262,7 +253,7 @@ const Header = ({ onSidebarToggle }) => {
           </Box>
           
           <Divider sx={{ 
-            background: 'linear-gradient(90deg, transparent, rgba(59, 130, 246, 0.2), transparent)',
+            background: 'rgba(59, 130, 246, 0.2)',
             height: 1.5
           }} />
           
@@ -272,7 +263,6 @@ const Header = ({ onSidebarToggle }) => {
             sx={{
               mx: 2,
               my: 1,
-              borderRadius: 2,
               transition: 'all 0.3s ease',
               '&:hover': {
                 background: 'rgba(59, 130, 246, 0.1)',
@@ -299,7 +289,6 @@ const Header = ({ onSidebarToggle }) => {
             sx={{
               mx: 2,
               my: 1,
-              borderRadius: 2,
               transition: 'all 0.3s ease',
               '&:hover': {
                 background: 'rgba(139, 92, 246, 0.1)',
@@ -321,7 +310,7 @@ const Header = ({ onSidebarToggle }) => {
           <Divider sx={{ 
             mx: 2,
             my: 1,
-            background: 'linear-gradient(90deg, transparent, rgba(239, 68, 68, 0.2), transparent)',
+            background: 'rgba(239, 68, 68, 0.2)',
             height: 1.5
           }} />
           
@@ -330,7 +319,6 @@ const Header = ({ onSidebarToggle }) => {
             sx={{ 
               mx: 2,
               my: 1,
-              borderRadius: 2,
               transition: 'all 0.3s ease',
               '&:hover': {
                 background: 'rgba(239, 68, 68, 0.1)',

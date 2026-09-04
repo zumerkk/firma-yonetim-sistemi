@@ -218,7 +218,7 @@ const Profile = () => {
       width: '100%',
       height: '100%',
       padding: { xs: '20px', sm: '24px', md: '32px', lg: '40px' },
-      background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+      background: '#f8fafc',
       overflow: 'auto'
     }}>
       {/* 📱 Page Header */}
@@ -235,8 +235,7 @@ const Profile = () => {
         {/* 👤 Profile Summary Card */}
         <Grid item xs={12} md={4}>
           <Card sx={{ 
-            borderRadius: 3,
-            background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+            background: '#1e40af',
             color: 'white',
             position: 'sticky',
             top: 0
@@ -297,7 +296,7 @@ const Profile = () => {
 
         {/* 📝 Main Content */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 3 }}>
+          <Card>
             <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
               <Tabs value={activeTab} onChange={handleTabChange}>
                 <Tab icon={<EditIcon />} label="Profil Düzenle" />

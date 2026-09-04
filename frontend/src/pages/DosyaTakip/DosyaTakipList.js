@@ -37,7 +37,7 @@ const TABLO_FONT = '0.75rem';
 // scale(0.75) ile küçültüyor, ayrıca çentik (legend) genişliğini etiket
 // boyutundan hesapladığı için küçültmek kenarlıkta boşluk bırakıyor.
 const FILTRE_SX = {
-    '& .MuiOutlinedInput-root': { borderRadius: 2, fontSize: TABLO_FONT }
+    '& .MuiOutlinedInput-root': { fontSize: TABLO_FONT }
 };
 
 // Açılır menü seçenekleri portal içinde render edildiği için üstteki sx onlara
@@ -508,10 +508,9 @@ const DosyaTakipList = () => {
                             // varsayılan olarak 'sayfa'yı siler); ayrıca çağrı gereksiz.
                             onClick={() => setArsivModu(!arsivModu)}
                             sx={{
-                                borderRadius: 2,
                                 textTransform: 'none',
                                 ...(arsivModu
-                                    ? { background: 'linear-gradient(135deg, #047857, #059669)', boxShadow: '0 4px 14px rgba(5, 150, 105, 0.3)' }
+                                    ? { background: '#047857' }
                                     : { borderColor: '#cbd5e1', color: '#475569' })
                             }}
                         >
@@ -522,10 +521,8 @@ const DosyaTakipList = () => {
                             startIcon={<AddIcon />}
                             onClick={() => navigate('/dosya-takip/yeni')}
                             sx={{
-                                borderRadius: 2,
                                 textTransform: 'none',
-                                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)'
+                                background: '#d97706',
                             }}
                         >
                             Yeni Talep
@@ -533,10 +530,10 @@ const DosyaTakipList = () => {
                     </Box>
                 </Box>
 
-                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* Filtreler */}
-                <Paper sx={{ p: 2, mb: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                <Paper sx={{ p: 2, mb: 2, border: '1px solid #e2e8f0' }}>
                     <Grid container spacing={2} alignItems="center">
                         <Grid item xs={12} md={4}>
                             <TextField
@@ -644,7 +641,7 @@ const DosyaTakipList = () => {
                         <Grid item xs={12} md={3}>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button fullWidth variant="outlined" size="small" onClick={loadData} startIcon={<RefreshIcon />}
-                                    sx={{ borderRadius: 2, textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}>
+                                    sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}>
                                     Yenile
                                 </Button>
                                 {(search || filterAnaAsama || kapsam || filterTalepTuru || filterHazirlayan || filterTakipEden) && (
@@ -659,7 +656,6 @@ const DosyaTakipList = () => {
 
                 {/* DataGrid */}
                 <Paper sx={{
-                    borderRadius: 3,
                     border: '1px solid rgba(226, 232, 240, 0.6)',
                     overflow: 'hidden',
                     width: '100%',
@@ -748,7 +744,7 @@ const DosyaTakipList = () => {
                         <Button onClick={() => setDeleteDialog({ open: false, id: null, takipId: '' })} sx={{ textTransform: 'none' }}>
                             İptal
                         </Button>
-                        <Button onClick={handleDelete} color="error" variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>
+                        <Button onClick={handleDelete} color="error" variant="contained" sx={{ textTransform: 'none' }}>
                             Sil
                         </Button>
                     </DialogActions>

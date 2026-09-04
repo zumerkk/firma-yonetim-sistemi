@@ -47,13 +47,13 @@ import axios from '../../utils/axios';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
-    mavi: { bg: '#eff6ff', text: '#1e40af', border: '#93c5fd', gradient: 'linear-gradient(135deg, #1e3a8a, #3b82f6)' },
-    sari: { bg: '#fefce8', text: '#a16207', border: '#fde047', gradient: 'linear-gradient(135deg, #92400e, #f59e0b)' },
-    turuncu: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74', gradient: 'linear-gradient(135deg, #9a3412, #f97316)' },
-    kirmizi: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5', gradient: 'linear-gradient(135deg, #991b1b, #ef4444)' },
-    yesil: { bg: '#f0fdf4', text: '#16a34a', border: '#86efac', gradient: 'linear-gradient(135deg, #14532d, #22c55e)' },
-    gri: { bg: '#f9fafb', text: '#4b5563', border: '#d1d5db', gradient: 'linear-gradient(135deg, #374151, #6b7280)' },
-    mor: { bg: '#faf5ff', text: '#7c3aed', border: '#c4b5fd', gradient: 'linear-gradient(135deg, #4c1d95, #7c3aed)' }
+    mavi: { bg: '#eff6ff', text: '#1e40af', border: '#93c5fd', gradient: '#1e3a8a' },
+    sari: { bg: '#fefce8', text: '#a16207', border: '#fde047', gradient: '#92400e' },
+    turuncu: { bg: '#fff7ed', text: '#c2410c', border: '#fdba74', gradient: '#9a3412' },
+    kirmizi: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5', gradient: '#991b1b' },
+    yesil: { bg: '#f0fdf4', text: '#16a34a', border: '#86efac', gradient: '#14532d' },
+    gri: { bg: '#f9fafb', text: '#4b5563', border: '#d1d5db', gradient: '#374151' },
+    mor: { bg: '#faf5ff', text: '#7c3aed', border: '#c4b5fd', gradient: '#4c1d95' }
 };
 
 // Dosya türleri (müşteri: yüklemeden önce seçilir)
@@ -746,7 +746,7 @@ const DosyaTakipDetail = () => {
     return (
         <LayoutWrapper>
             <Box sx={{ p: { xs: 2, sm: 3 }, width: '100%', minWidth: 0 }}>
-                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>{error}</Alert>}
 
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
@@ -781,7 +781,7 @@ const DosyaTakipDetail = () => {
                             variant="outlined"
                             startIcon={<EditIcon />}
                             onClick={() => navigate(`/dosya-takip/${id}/duzenle`)}
-                            sx={{ textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151' }}
+                            sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}
                         >
                             Düzenle
                         </Button>
@@ -790,7 +790,6 @@ const DosyaTakipDetail = () => {
                             onClick={() => setDurumDialog({ open: true, yeniDurum: '', aciklama: '' })}
                             sx={{
                                 textTransform: 'none',
-                                borderRadius: 2,
                                 background: renk.gradient,
                                 boxShadow: `0 4px 14px ${renk.text}35`
                             }}
@@ -801,7 +800,7 @@ const DosyaTakipDetail = () => {
                 </Box>
 
                 {/* Talep Özet Kartı */}
-                <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0', background: `linear-gradient(135deg, ${renk.bg}, white)` }}>
+                <Paper sx={{ p: 2.5, mb: 3, border: '1px solid #e2e8f0', background: `${renk.bg}` }}>
                     <Grid container spacing={3}>
                         <Grid item xs={12} md={3}>
                             <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem' }}>Firma</Typography>
@@ -848,7 +847,7 @@ const DosyaTakipDetail = () => {
                 </Paper>
 
                 {/* Ek Bilgiler Kartı - Her zaman göster */}
-                <Paper sx={{ p: 2.5, mb: 3, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                <Paper sx={{ p: 2.5, mb: 3, border: '1px solid #e2e8f0' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
                         <InfoIcon sx={{ fontSize: 18, color: '#f59e0b' }} /> Ek Bilgiler
                     </Typography>
@@ -895,7 +894,7 @@ const DosyaTakipDetail = () => {
 
                 {/* Kurum Eksik (2.2.3) → Kurum Değerlendirme aktarım aksiyonu */}
                 {String(seciliTalep.durum || '').startsWith('2.2.3') && (
-                    <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}
+                    <Alert severity="info" sx={{ mb: 2 }}
                         action={<Button color="inherit" size="small" variant="outlined" onClick={handleEksikTamamla}>Eksiği Tamamla → Değerlendirmeye Aktar</Button>}>
                         Kurum Eksik aşamasındasınız. Eksikler tamamlandıysa bu aşamadaki dosya ve notlar belge ekine (Dosyalar/Notlar) kaydedilip durum otomatik <strong>Kurum Değerlendirme</strong>'ye taşınır.
                     </Alert>
@@ -905,7 +904,7 @@ const DosyaTakipDetail = () => {
                 <Grid container spacing={3}>
                     {/* Sol: İş Akışı Timeline */}
                     <Grid item xs={12} md={4}>
-                        <Paper sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <Paper sx={{ border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                             <Box sx={{ p: 2, borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                     <TimelineIcon sx={{ fontSize: 18, color: '#f59e0b' }} />
@@ -959,7 +958,6 @@ const DosyaTakipDetail = () => {
                                                                         sx={{
                                                                         display: 'flex', alignItems: 'center', gap: 1,
                                                                         py: 0.75, px: 1, mb: 0.5,
-                                                                        borderRadius: 1.5,
                                                                         cursor: 'pointer',
                                                                         background: isCurrentSub ? `${step.color}10` : 'transparent',
                                                                         border: isCurrentSub ? `1px solid ${step.color}30` : '1px solid transparent',
@@ -994,7 +992,7 @@ const DosyaTakipDetail = () => {
                     {/* Sağ: Detay Panelleri */}
                     <Grid item xs={12} md={8}>
                         {/* Tab Paneli */}
-                        <Paper sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                        <Paper sx={{ border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                             <Tabs
                                 value={activeTab}
                                 onChange={(e, v) => setActiveTab(v)}
@@ -1033,14 +1031,14 @@ const DosyaTakipDetail = () => {
                                                 onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleNotEkle()}
                                                 multiline
                                                 maxRows={3}
-                                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                sx={{ '& .MuiOutlinedInput-root': { } }}
                                             />
                                             <TextField
                                                 select
                                                 size="small"
                                                 value={notAlan}
                                                 onChange={(e) => setNotAlan(e.target.value)}
-                                                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { } }}
                                             >
                                                 <MenuItem value="genelNotlar">Genel Not</MenuItem>
                                                 <MenuItem value="muraacatOncesi.gorusmeNotlari">Görüşme Notu</MenuItem>
@@ -1064,7 +1062,7 @@ const DosyaTakipDetail = () => {
                                                         ? 'Kimseye'
                                                         : `${secili.length} kişi`
                                                 }}
-                                                sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                                                sx={{ minWidth: 140, '& .MuiOutlinedInput-root': { } }}
                                             >
                                                 {(Array.isArray(users) ? users : []).map(u => (
                                                     <MenuItem key={u._id || u.id} value={u._id || u.id}>
@@ -1079,9 +1077,8 @@ const DosyaTakipDetail = () => {
                                                 disabled={!notText.trim()}
                                                 sx={{
                                                     minWidth: 48,
-                                                    borderRadius: 2,
-                                                    background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                                                    '&:hover': { background: 'linear-gradient(135deg, #b45309, #d97706)' }
+                                                    background: '#d97706',
+                                                    '&:hover': { background: '#b45309' }
                                                 }}
                                             >
                                                 <SendIcon sx={{ fontSize: 18 }} />
@@ -1119,7 +1116,7 @@ const DosyaTakipDetail = () => {
                                                     disabled={!!yukleme}
                                                     fullWidth={false}
                                                     sx={{
-                                                        textTransform: 'none', borderRadius: 2, borderColor: '#e2e8f0', color: '#374151',
+                                                        textTransform: 'none', borderColor: '#e2e8f0', color: '#374151',
                                                         width: { xs: '100%', sm: 'auto' }
                                                     }}
                                                 >
@@ -1140,7 +1137,7 @@ const DosyaTakipDetail = () => {
                                             onDrop={handleDosyaDrop}
                                             sx={{
                                                 display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                                                gap: 0.5, py: { xs: 3.5, sm: 2.5 }, mb: 2, px: 2, borderRadius: 2,
+                                                gap: 0.5, py: { xs: 3.5, sm: 2.5 }, mb: 2, px: 2,
                                                 cursor: yukleme ? 'not-allowed' : 'pointer',
                                                 border: '2px dashed',
                                                 borderColor: dosyaDragOver ? '#f59e0b' : '#e2e8f0',
@@ -1231,7 +1228,7 @@ const DosyaTakipDetail = () => {
                                                 <Box sx={{ display: 'flex', gap: 1 }}>
                                                     <Button size="small" onClick={() => setAtamaEditing(false)} sx={{ textTransform: 'none' }}>İptal</Button>
                                                     <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleAtamaKaydet}
-                                                        sx={{ textTransform: 'none', background: 'linear-gradient(135deg, #059669, #10b981)', borderRadius: 2 }}>Kaydet</Button>
+                                                        sx={{ textTransform: 'none', background: '#059669' }}>Kaydet</Button>
                                                 </Box>
                                             )}
                                         </Box>
@@ -1243,7 +1240,7 @@ const DosyaTakipDetail = () => {
                                                 { label: 'Sonuçlama Personeli', idKey: 'kurumSonuclanma.personel', nameKey: 'kurumSonuclanma.personelAdi', value: seciliTalep.kurumSonuclanma?.personel?.adSoyad || seciliTalep.kurumSonuclanma?.personelAdi }
                                             ].map((atama, i) => (
                                                 <Grid item xs={12} md={6} key={i}>
-                                                    <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0', background: atama.value ? '#f0fdf4' : '#f9fafb' }}>
+                                                    <Paper sx={{ p: 2, border: '1px solid #e2e8f0', background: atama.value ? '#f0fdf4' : '#f9fafb' }}>
                                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
                                                             {atama.label}
                                                         </Typography>
@@ -1269,7 +1266,7 @@ const DosyaTakipDetail = () => {
 
                                             {/* Kurum Bilgileri */}
                                             <Grid item xs={12} md={6}>
-                                                <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                <Paper sx={{ p: 2, border: '1px solid #e2e8f0' }}>
                                                     <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>Kurum Dairesi</Typography>
                                                     {atamaEditing ? (
                                                         <Autocomplete freeSolo size="small" options={oneriler.daireler}
@@ -1291,7 +1288,7 @@ const DosyaTakipDetail = () => {
                                                 </Paper>
                                             </Grid>
                                             <Grid item xs={12} md={6}>
-                                                <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                <Paper sx={{ p: 2, border: '1px solid #e2e8f0' }}>
                                                     {/* müşteri: "kurum bekleniyor" seçildikten sonra uzman kaydetmek zorunlu */}
                                                     <Typography variant="caption" sx={{ color: uzmanZorunlu && !uzmanDolu ? '#dc2626' : '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
                                                         Daire Uzmanı{uzmanZorunlu ? ' *' : ''}
@@ -1338,14 +1335,14 @@ const DosyaTakipDetail = () => {
                                                 <Box sx={{ display: 'flex', gap: 1 }}>
                                                     <Button size="small" onClick={() => setZamanlamaEditing(false)} sx={{ textTransform: 'none' }}>İptal</Button>
                                                     <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleZamanlamaKaydet}
-                                                        sx={{ textTransform: 'none', background: 'linear-gradient(135deg, #059669, #10b981)', borderRadius: 2 }}>Kaydet</Button>
+                                                        sx={{ textTransform: 'none', background: '#059669' }}>Kaydet</Button>
                                                 </Box>
                                             )}
                                         </Box>
                                         <Grid container spacing={2}>
                                             {ZAMANLAMA_ALANLARI.map((alan) => (
                                                 <Grid item xs={12} sm={6} key={alan.key}>
-                                                    <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid #e2e8f0' }}>
+                                                    <Paper sx={{ p: 2, border: '1px solid #e2e8f0' }}>
                                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
                                                             {alan.label}
                                                         </Typography>
@@ -1417,9 +1414,8 @@ const DosyaTakipDetail = () => {
                             disabled={!durumDialog.yeniDurum || loading}
                             sx={{
                                 textTransform: 'none',
-                                borderRadius: 2,
-                                background: 'linear-gradient(135deg, #d97706, #f59e0b)',
-                                '&:hover': { background: 'linear-gradient(135deg, #b45309, #d97706)' }
+                                background: '#d97706',
+                                '&:hover': { background: '#b45309' }
                             }}
                         >
                             Durumu Güncelle
@@ -1434,7 +1430,7 @@ const DosyaTakipDetail = () => {
                     onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
                 >
-                    <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} sx={{ borderRadius: 2 }}>
+                    <Alert severity={snackbar.severity} onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
                         {snackbar.message}
                     </Alert>
                 </Snackbar>
@@ -1463,7 +1459,7 @@ const DosyaTakipDetail = () => {
                             variant="contained"
                             color="error"
                             onClick={handleConfirmDelete}
-                            sx={{ textTransform: 'none', borderRadius: 2 }}
+                            sx={{ textTransform: 'none' }}
                         >
                             Sil
                         </Button>
@@ -1593,7 +1589,7 @@ const DosyaAciklamaKutusu = ({ dosya, onKaydet }) => {
             sx={{
                 width: { xs: '100%', sm: 260 },
                 mr: 1,
-                '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: '0.8rem', background: '#fff' }
+                '& .MuiOutlinedInput-root': { fontSize: '0.8rem', background: '#fff' }
             }}
         />
     );
@@ -1625,7 +1621,6 @@ function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
     const renderDosyaSatiri = (dosya, index) => (
         <ListItem key={dosya._id || index} sx={{
             px: 2, py: 1.5, mb: 1,
-            borderRadius: 2,
             border: '1px solid #e2e8f0',
             // Dar ekranda satır sarmalanmazsa açıklama kutusu ile düğmeler
             // dosya adının üstüne biniyor ve kutuya dokunmak imkânsızlaşıyor

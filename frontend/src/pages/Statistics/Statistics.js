@@ -105,7 +105,6 @@ const ChartPlaceholder = ({ title, type, data, height = 300 }) => (
               height: Math.random() * 40 + 10,
               bgcolor: 'primary.main',
               opacity: 0.7,
-              borderRadius: 1
             }}
           />
         ))}
@@ -618,7 +617,7 @@ const Statistics = () => {
           {/* 📊 Loading State */}
           {loading && !refreshing && (
             <Box sx={{ mb: 3 }}>
-              <LinearProgress sx={{ borderRadius: 2, height: 6 }} />
+              <LinearProgress sx={{ height: 6 }} />
               <Typography variant="body2" color="text.secondary" sx={{ mt: 1, textAlign: 'center' }}>
                 İstatistikler yükleniyor...
               </Typography>

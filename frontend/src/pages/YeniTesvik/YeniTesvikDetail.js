@@ -485,9 +485,7 @@ const YeniTesvikDetail = () => {
         top: '50%',
         transform: 'translateY(-50%)',
         zIndex: 1000,
-        borderRadius: '0 8px 8px 0',
-        background: 'linear-gradient(180deg, #1e293b 0%, #334155 100%)',
-        boxShadow: '2px 0 12px rgba(0,0,0,0.15)',
+        background: '#1e293b',
         border: 'none',
         transition: 'left 0.3s ease',
         '&:hover': {
@@ -562,10 +560,8 @@ const YeniTesvikDetail = () => {
         <Paper sx={{
           mb: 0.5,
           p: 1,
-          borderRadius: 2,
-          background: 'linear-gradient(90deg, #f8fafc 0%, #ffffff 100%)',
+          background: '#f8fafc',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* Sol Taraf - Geri Gitme & Breadcrumb */}
@@ -680,13 +676,11 @@ const YeniTesvikDetail = () => {
         {/* 🎨 KOMPAKT PROFESYONEL HEADER */}
         <Box sx={{
           mb: 1,
-          background: 'linear-gradient(135deg, #0f172a 0%, #059669 100%)',
-          borderRadius: 2,
+          background: '#0f172a',
           p: 2,
           color: 'white',
           position: 'relative',
           overflow: 'hidden',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -696,7 +690,6 @@ const YeniTesvikDetail = () => {
                   border: '1px solid rgba(255,255,255,0.3)',
                   width: 45,
                   height: 45,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                 }}>
                   <EmojiEventsIcon sx={{ fontSize: 24, color: 'white' }} />
                 </Avatar>
@@ -759,7 +752,6 @@ const YeniTesvikDetail = () => {
                   color: 'white',
                   px: 1.5,
                   py: 0.5,
-                  borderRadius: 1,
                   fontWeight: 500,
                   fontSize: '0.8rem',
                   textTransform: 'none',
@@ -789,7 +781,6 @@ const YeniTesvikDetail = () => {
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
                 textTransform: 'none',
                 fontSize: '0.8rem',
                 '&:hover': { background: 'rgba(255,255,255,0.3)' },
@@ -814,7 +805,6 @@ const YeniTesvikDetail = () => {
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
                 textTransform: 'none',
                 fontSize: '0.8rem',
                 '&:hover': { background: 'rgba(255,255,255,0.3)' }
@@ -835,7 +825,6 @@ const YeniTesvikDetail = () => {
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
                 textTransform: 'none',
                 fontSize: '0.8rem',
                 '&:hover': { background: 'rgba(255,255,255,0.3)' }
@@ -856,7 +845,6 @@ const YeniTesvikDetail = () => {
                 fontWeight: 500,
                 px: 1.5,
                 py: 0.5,
-                borderRadius: 1,
                 textTransform: 'none',
                 fontSize: '0.8rem',
                 ml: 1,
@@ -882,12 +870,9 @@ const YeniTesvikDetail = () => {
               value={getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
               sx={{
                 height: 6,
-                borderRadius: 2,
                 backgroundColor: 'rgba(255,255,255,0.2)',
                 '& .MuiLinearProgress-bar': {
                   backgroundColor: 'white',
-                  borderRadius: 2,
-                  boxShadow: '0 2px 8px rgba(255,255,255,0.3)'
                 }
               }}
             />
@@ -910,10 +895,9 @@ const YeniTesvikDetail = () => {
                 justifyContent: 'center',
                 background: '#ffffff',
                 border: `2px solid ${getDurumColor(tesvik.durumBilgileri?.genelDurum)}`,
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 cursor: 'pointer',
-                '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }
+                '&:hover': { transform: 'translateY(-1px)' }
               }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
@@ -969,10 +953,9 @@ const YeniTesvikDetail = () => {
                 justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #3b82f6',
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 cursor: 'pointer',
-                '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)' }
+                '&:hover': { transform: 'translateY(-1px)' }
               }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1017,10 +1000,9 @@ const YeniTesvikDetail = () => {
                 justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #10b981',
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 cursor: 'pointer',
-                '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.1)' }
+                '&:hover': { transform: 'translateY(-1px)' }
               }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1059,10 +1041,9 @@ const YeniTesvikDetail = () => {
                 justifyContent: 'center',
                 background: '#ffffff',
                 border: '2px solid #f59e0b',
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 cursor: 'pointer',
-                '&:hover': { transform: 'translateY(-1px)', boxShadow: '0 2px 8px rgba(245, 158, 11, 0.1)' }
+                '&:hover': { transform: 'translateY(-1px)' }
               }}>
                 <Box sx={{ textAlign: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, mb: 0.5 }}>
@@ -1096,7 +1077,7 @@ const YeniTesvikDetail = () => {
           <Box sx={{ display: 'none' }}>
             
             {/* 1. GMdigi BİLGİLERİ — müşteri talebi: gizlendi */}
-            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>GMdigi BİLGİLERİ</Typography>
               </AccordionSummary>
@@ -1121,7 +1102,7 @@ const YeniTesvikDetail = () => {
             </Accordion>
 
             {/* 2. Yatırımcı İle İlgili Bilgiler — müşteri talebi: gizlendi (isim zaten üstte) */}
-            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', borderRadius: '8px !important', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+            <Accordion defaultExpanded sx={{ display: 'none', border: '1px solid #e2e8f0', '&:before': { display: 'none' }, overflow: 'hidden' }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                 <Typography variant="body1" sx={{ fontWeight: 700, color: '#0f172a' }}>Yatırımcı İle İlgili Bilgiler</Typography>
               </AccordionSummary>
@@ -1428,7 +1409,7 @@ const YeniTesvikDetail = () => {
 
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#6366f1' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
@@ -1438,7 +1419,7 @@ const YeniTesvikDetail = () => {
 
             <Grid container spacing={0.5}>
               <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#f0f9ff', borderRadius: 1, border: '1px solid #bae6fd', textAlign: 'center' }}>
+                <Box sx={{ p: 1, backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', textAlign: 'center' }}>
                   <Typography variant="caption" sx={{ color: '#0369a1', fontSize: '0.65rem', fontWeight: 500 }}>Oluşturan</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#0284c7', fontSize: '0.8rem' }}>
                     {tesvik?.olusturanKullanici?.adSoyad || 'Bilinmiyor'}
@@ -1449,7 +1430,7 @@ const YeniTesvikDetail = () => {
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#f0fdf4', borderRadius: 1, border: '1px solid #bbf7d0', textAlign: 'center' }}>
+                <Box sx={{ p: 1, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', textAlign: 'center' }}>
                   <Typography variant="caption" sx={{ color: '#166534', fontSize: '0.65rem', fontWeight: 500 }}>Oluşturma Tarihi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#15803d', fontSize: '0.8rem' }}>
                     {formatDate(tesvik.createdAt) || '8 Ağustos 2025'}
@@ -1457,7 +1438,7 @@ const YeniTesvikDetail = () => {
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#fffbeb', borderRadius: 1, border: '1px solid #fed7aa', textAlign: 'center' }}>
+                <Box sx={{ p: 1, backgroundColor: '#fffbeb', border: '1px solid #fed7aa', textAlign: 'center' }}>
                   <Typography variant="caption" sx={{ color: '#92400e', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleyen</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#d97706', fontSize: '0.8rem' }}>
                     {tesvik?.sonGuncelleyen?.adSoyad || '—'}
@@ -1465,7 +1446,7 @@ const YeniTesvikDetail = () => {
                 </Box>
               </Grid>
               <Grid item xs={6} sm={3}>
-                <Box sx={{ p: 1, backgroundColor: '#fef2f2', borderRadius: 1, border: '1px solid #fecaca', textAlign: 'center' }}>
+                <Box sx={{ p: 1, backgroundColor: '#fef2f2', border: '1px solid #fecaca', textAlign: 'center' }}>
                   <Typography variant="caption" sx={{ color: '#dc2626', fontSize: '0.65rem', fontWeight: 500 }}>Son Güncelleme Tarihi</Typography>
                   <Typography variant="body2" sx={{ fontWeight: 600, color: '#991b1b', fontSize: '0.8rem' }}>
                     {formatDate(tesvik.updatedAt) || '10 Ağustos 2025'}
@@ -1476,7 +1457,7 @@ const YeniTesvikDetail = () => {
           </Paper>
 
           {/* 📊 BELGE İŞLEM YÖNETİMİ - KOMPAKT */}
-          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: 2 }}>
+          <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>
@@ -1529,7 +1510,6 @@ const YeniTesvikDetail = () => {
                 <Typography variant="caption" sx={{
                   p: 1,
                   backgroundColor: '#f8fafc',
-                  borderRadius: 1,
                   border: '1px solid #e2e8f0',
                   display: 'block',
                   textAlign: 'center',
@@ -1565,7 +1545,7 @@ const YeniTesvikDetail = () => {
           )}
           <Stack spacing={1.5}>
             {[...(tesvik?.revizyonlar || [])].reverse().map((r, i) => (
-              <Paper key={i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+              <Paper key={i} variant="outlined" sx={{ p: 1.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                   <Chip size="small" label={`Revizyon ${r.revizyonNo}`} color="primary" sx={{ fontWeight: 700 }} />
                   {/* Müşteri isteği: "Otomatik Güncelleme" etiketi gizlendi — detaylı alan değişiklikleri aşağıda */}
@@ -1693,9 +1673,8 @@ const YeniTesvikDetail = () => {
                       <Paper key={index} elevation={0} sx={{
                         p: 2,
                         mb: 1.25,
-                        background: 'linear-gradient(180deg,#ffffff, #f9fafb)',
+                        background: '#ffffff',
                         border: '1px solid #e5e7eb',
-                        borderRadius: 2
                       }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                           <Chip size="small" label="Alan" color="secondary" variant="outlined" />

@@ -170,7 +170,7 @@ const GtipKodInput = memo(({ value, rowId, onCommit, disabled }) => {
       placeholder="GTIP yapıştır..."
       autoComplete="off"
       style={{
-        width: '100%', border: '1px solid #cbd5e1', borderRadius: 4,
+        width: '100%', border: '1px solid #cbd5e1',
         padding: '4px 6px', fontSize: '0.72rem', color: '#2563eb',
         outline: 'none', background: disabled ? '#f8fafc' : '#fff'
       }}
@@ -227,8 +227,7 @@ const GtipCell = memo(({ value, rowId, onCommit, style, disabled }) => {
       {showDropdown && suggestions.length > 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, zIndex: 9999,
-          background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)', maxHeight: 180, overflowY: 'auto',
+          background: '#fff', border: '1px solid #cbd5e1', maxHeight: 180, overflowY: 'auto',
           minWidth: 280, fontSize: '10px'
         }}>
           {suggestions.map((item, idx) => (
@@ -2241,7 +2240,6 @@ const MakineYonetimi = () => {
                   width: '100%',
                   '& .MuiInputBase-input': {
                     bgcolor: !p.row.makineId && isReviseStarted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                    borderRadius: 0.5,
                     fontWeight: p.row.makineId ? 600 : 400,
                     color: p.row.makineId ? '#10b981' : '#94a3b8',
                     '&::placeholder': { color: '#f59e0b', opacity: 0.7 }
@@ -2258,7 +2256,6 @@ const MakineYonetimi = () => {
                   height: 6, 
                   borderRadius: '50%', 
                   bgcolor: '#f59e0b',
-                  boxShadow: '0 0 4px rgba(245, 158, 11, 0.5)'
                 }} />
               )}
             </Box>
@@ -2340,7 +2337,7 @@ const MakineYonetimi = () => {
       { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 40, py: 0.25, px: 0.5 }} disabled={hucreYukleme === p.row.id} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{hucreYukleme === p.row.id ? `%${hucreYuklemePct}` : (Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+')}</Button>
-          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />)}
+          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, mt: 0.25 }} />)}
         </Box>
       )},
       { field: 'etuysSecili', headerName: '✓', description: 'ETUYS listesine dahil', width: 35, sortable:false, renderCell:(p)=> (
@@ -2542,16 +2539,14 @@ const MakineYonetimi = () => {
           height: '100%',
           width: '100%',
           border: '1px solid #e2e8f0',
-          borderRadius: 2,
           fontSize: '0.72rem',
           fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
             borderLeft: '3px solid #ef4444'
           },
           '& .MuiDataGrid-columnHeaders': { 
-            background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+            background: '#f8fafc',
             borderBottom: '2px solid #e2e8f0',
             minHeight: '36px !important',
             maxHeight: '36px !important'
@@ -2584,16 +2579,14 @@ const MakineYonetimi = () => {
             '&:nth-of-type(even)': { backgroundColor: '#fafbfc' },
             '&:hover': { 
               backgroundColor: '#f0f9ff',
-              boxShadow: 'inset 0 0 0 1px rgba(59, 130, 246, 0.15)'
             },
             '&.Mui-selected': { 
               backgroundColor: '#eff6ff !important',
-              boxShadow: 'inset 3px 0 0 #3b82f6'
             }
           },
           '& .MuiDataGrid-footerContainer': { 
             minHeight: 40, 
-            background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+            background: '#f8fafc',
             borderTop: '2px solid #e2e8f0',
             '& .MuiTablePagination-root': { fontSize: '0.7rem' },
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { 
@@ -2609,8 +2602,8 @@ const MakineYonetimi = () => {
           '& .MuiDataGrid-cellCheckbox': { minWidth: 40, maxWidth: 40 },
           '& .MuiDataGrid-virtualScroller': {
             '&::-webkit-scrollbar': { width: 8, height: 8 },
-            '&::-webkit-scrollbar-track': { background: '#f1f5f9', borderRadius: 4 },
-            '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', borderRadius: 4, '&:hover': { background: '#94a3b8' } }
+            '&::-webkit-scrollbar-track': { background: '#f1f5f9' },
+            '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', '&:hover': { background: '#94a3b8' } }
           }
         }}
       />
@@ -2654,7 +2647,6 @@ const MakineYonetimi = () => {
                   width: '100%',
                   '& .MuiInputBase-input': {
                     bgcolor: !p.row.makineId && isReviseStarted ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
-                    borderRadius: 0.5,
                     fontWeight: p.row.makineId ? 600 : 400,
                     color: p.row.makineId ? '#10b981' : '#94a3b8',
                     '&::placeholder': { color: '#f59e0b', opacity: 0.7 }
@@ -2671,7 +2663,6 @@ const MakineYonetimi = () => {
                   height: 6, 
                   borderRadius: '50%', 
                   bgcolor: '#f59e0b',
-                  boxShadow: '0 0 4px rgba(245, 158, 11, 0.5)'
                 }} />
               )}
             </Box>
@@ -2824,7 +2815,7 @@ const MakineYonetimi = () => {
       { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <Box onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateIthal(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <Button size="small" sx={{ fontSize: '0.6rem', minWidth: 36, py: 0.25, px: 0.5 }} disabled={hucreYukleme === p.row.id} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{hucreYukleme === p.row.id ? `%${hucreYuklemePct}` : (Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+')}</Button>
-          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, borderRadius: 2, mt: 0.25 }} />)}
+          {hucreYukleme === p.row.id && (<LinearProgress variant={hucreYuklemePct > 0 && hucreYuklemePct < 100 ? 'determinate' : 'indeterminate'} value={hucreYuklemePct} sx={{ height: 3, mt: 0.25 }} />)}
         </Box>
       )},
       { field: 'etuysSecili', headerName: '✓', description: 'ETUYS listesine dahil', width: 35, sortable:false, renderCell:(p)=> (
@@ -3033,16 +3024,14 @@ const MakineYonetimi = () => {
           height: '100%',
           width: '100%',
           border: '1px solid #e2e8f0',
-          borderRadius: 2,
           fontSize: '0.72rem',
           fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-          boxShadow: '0 1px 3px rgba(15, 23, 42, 0.04)',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
             borderLeft: '3px solid #ef4444'
           },
           '& .MuiDataGrid-columnHeaders': { 
-            background: 'linear-gradient(180deg, #fefce8 0%, #fef9c3 100%)',
+            background: '#fefce8',
             borderBottom: '2px solid #fde047',
             minHeight: '36px !important',
             maxHeight: '36px !important'
@@ -3075,16 +3064,14 @@ const MakineYonetimi = () => {
             '&:nth-of-type(even)': { backgroundColor: '#fffbeb' },
             '&:hover': { 
               backgroundColor: '#fef3c7',
-              boxShadow: 'inset 0 0 0 1px rgba(245, 158, 11, 0.2)'
             },
             '&.Mui-selected': { 
               backgroundColor: '#fef3c7 !important',
-              boxShadow: 'inset 3px 0 0 #f59e0b'
             }
           },
           '& .MuiDataGrid-footerContainer': { 
             minHeight: 40, 
-            background: 'linear-gradient(180deg, #fefce8 0%, #fef9c3 100%)',
+            background: '#fefce8',
             borderTop: '2px solid #fde047',
             '& .MuiTablePagination-root': { fontSize: '0.7rem' },
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { 
@@ -3100,8 +3087,8 @@ const MakineYonetimi = () => {
           '& .MuiDataGrid-cellCheckbox': { minWidth: 40, maxWidth: 40 },
           '& .MuiDataGrid-virtualScroller': {
             '&::-webkit-scrollbar': { width: 8, height: 8 },
-            '&::-webkit-scrollbar-track': { background: '#fef9c3', borderRadius: 4 },
-            '&::-webkit-scrollbar-thumb': { background: '#fcd34d', borderRadius: 4, '&:hover': { background: '#fbbf24' } }
+            '&::-webkit-scrollbar-track': { background: '#fef9c3' },
+            '&::-webkit-scrollbar-thumb': { background: '#fcd34d', '&:hover': { background: '#fbbf24' } }
           }
         }}
       />
@@ -3464,7 +3451,7 @@ const MakineYonetimi = () => {
             flex: 1, 
             overflow: 'auto',
             '&::-webkit-scrollbar': { width: 8, height: 8 },
-            '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8', borderRadius: 4 }
+            '&::-webkit-scrollbar-thumb': { bgcolor: '#94a3b8' }
           }}
         >
           <table style={{ borderCollapse: 'collapse', width: 'max-content', fontSize: '10px', fontFamily: 'Consolas, Monaco, monospace' }}>
@@ -3652,7 +3639,7 @@ const MakineYonetimi = () => {
     accentGlow: 'rgba(59, 130, 246, 0.15)',
     
     // Backgrounds
-    bg: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 50%, #e2e8f0 100%)',
+    bg: '#f8fafc',
     bgSolid: '#f8fafc',
     card: '#ffffff',
     cardHover: '#fafbff',
@@ -3660,9 +3647,9 @@ const MakineYonetimi = () => {
     // Borders & Shadows
     border: '#e2e8f0',
     borderLight: '#f1f5f9',
-    shadow: '0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06)',
-    shadowHover: '0 4px 16px rgba(15, 23, 42, 0.08), 0 8px 24px rgba(15, 23, 42, 0.12)',
-    shadowInner: 'inset 0 1px 2px rgba(15, 23, 42, 0.05)',
+    shadow: 'none',   // ETUYS: gölge yok
+    shadowHover: 'none',   // ETUYS: gölge yok
+    shadowInner: 'none',   // ETUYS: gölge yok
     
     // Text
     text: { 
@@ -3686,12 +3673,12 @@ const MakineYonetimi = () => {
     infoLight: '#cffafe',
     
     // Gradients
-    gradientPrimary: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-    gradientAccent: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-    gradientSuccess: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-    gradientWarning: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
-    gradientError: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-    gradientSubtle: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+    gradientPrimary: '#0f172a',
+    gradientAccent: '#3b82f6',
+    gradientSuccess: '#10b981',
+    gradientWarning: '#f59e0b',
+    gradientError: '#ef4444',
+    gradientSubtle: '#ffffff',
     
     // Special
     yerli: { bg: '#10b981', light: '#d1fae5', text: '#065f46' },
@@ -3751,13 +3738,11 @@ const MakineYonetimi = () => {
           <Stack direction="row" alignItems="center" spacing={1.5}>
             <Box sx={{ 
               width: 36, 
-              height: 36, 
-              borderRadius: 1.5, 
-              background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+              height: 36,  
+              background: '#3b82f6',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 8px rgba(59, 130, 246, 0.25)'
             }}>
               <BuildIcon sx={{ fontSize: 20, color: '#fff' }} />
             </Box>
@@ -3794,7 +3779,6 @@ const MakineYonetimi = () => {
             border: `1px solid ${theme.success}30`,
             px: 1.5, 
             py: 0.5, 
-            borderRadius: 1.5
           }}>
             <Typography sx={{ color: theme.successDark, fontWeight: 700, fontSize: '0.8rem' }}>
               Yerli: {yerliToplamTl.toLocaleString('tr-TR')} ₺
@@ -3805,7 +3789,6 @@ const MakineYonetimi = () => {
             border: `1px solid ${theme.warning}30`,
             px: 1.5, 
             py: 0.5, 
-            borderRadius: 1.5
           }}>
             <Typography sx={{ color: theme.warningDark, fontWeight: 700, fontSize: '0.8rem' }}>
               İthal: {ithalToplamUsd.toLocaleString('tr-TR')} $
@@ -3822,11 +3805,10 @@ const MakineYonetimi = () => {
           mb: 1, 
           flexShrink: 0,
           border: `1px solid ${theme.border}`,
-          borderRadius: 2,
           bgcolor: theme.card,
           boxShadow: theme.shadow,
           transition: 'all 0.2s ease',
-          '&:hover': { boxShadow: theme.shadowHover }
+          '&:hover': { }
         }}
       >
         <Stack direction="row" spacing={2} alignItems="center">
@@ -3836,7 +3818,6 @@ const MakineYonetimi = () => {
             gap: 1,
             px: 1.5,
             py: 0.75,
-            borderRadius: 1,
             bgcolor: theme.accentGlow,
             border: `1px solid ${theme.accent}20`
           }}>
@@ -3851,11 +3832,10 @@ const MakineYonetimi = () => {
               flex: 1, 
               maxWidth: 450,
               '& .MuiOutlinedInput-root': {
-                borderRadius: 1.5,
                 bgcolor: '#fff',
                 transition: 'all 0.2s',
-                '&:hover': { boxShadow: '0 2px 8px rgba(59, 130, 246, 0.1)' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)' }
+                '&:hover': { },
+                '&.Mui-focused': { }
               }
             }}
             getOptionLabel={(o)=> o?.belgeYonetimi?.belgeNo || o?.tesvikId || o?.gmId || o?.yatirimciUnvan || ''}
@@ -3923,7 +3903,7 @@ const MakineYonetimi = () => {
       {/* 🪪 Belge Kimlik Şeridi — müşteri: hangi belgede olduğumuz net görünsün
           (belge no + firma + il/ilçe + yatırım konusu + US97) */}
       {selectedTesvik && (
-        <Paper elevation={0} sx={{ px: 1.5, py: 0.75, mb: 1, borderRadius: 2, border: `1px solid ${theme.border}`, bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Paper elevation={0} sx={{ px: 1.5, py: 0.75, mb: 1, border: `1px solid ${theme.border}`, bgcolor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip size="small" label={selectedTesvik.belgeYonetimi?.belgeNo || selectedTesvik.tesvikId || selectedTesvik.gmId} sx={{ fontWeight: 700, bgcolor: theme.accentGlow, color: theme.accent }} />
           <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }} noWrap>
             {selectedTesvik.yatirimciUnvan || ''}
@@ -3949,7 +3929,6 @@ const MakineYonetimi = () => {
         elevation={0} 
         sx={{ 
           border: `1px solid ${theme.border}`,
-          borderRadius: 2,
           bgcolor: theme.card,
           position: fullScreen ? 'fixed' : 'relative', 
           inset: fullScreen ? 0 : 'auto', 
@@ -3980,7 +3959,6 @@ const MakineYonetimi = () => {
             gap: 0.5,
             p: 0.5,
             bgcolor: '#f1f5f9',
-            borderRadius: 1.5
           }}>
             <Button 
               size="small" 
@@ -3993,7 +3971,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: tab === 'yerli' ? '#fff' : theme.text.secondary,
                 background: tab === 'yerli' ? theme.gradientSuccess : 'transparent',
-                borderRadius: 1,
                 boxShadow: tab === 'yerli' ? '0 2px 8px rgba(16, 185, 129, 0.3)' : 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': { 
@@ -4015,7 +3992,6 @@ const MakineYonetimi = () => {
                 fontWeight: 600,
                 color: tab === 'ithal' ? '#fff' : theme.text.secondary,
                 background: tab === 'ithal' ? theme.gradientWarning : 'transparent',
-                borderRadius: 1,
                 boxShadow: tab === 'ithal' ? '0 2px 8px rgba(245, 158, 11, 0.3)' : 'none',
                 transition: 'all 0.2s ease',
                 '&:hover': { 
@@ -4079,10 +4055,9 @@ const MakineYonetimi = () => {
                 fontSize: '0.7rem', 
                 height: 28, 
                 bgcolor: '#fff',
-                borderRadius: 1.5,
                 transition: 'all 0.2s',
-                '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-                '&.Mui-focused': { boxShadow: '0 0 0 3px rgba(59, 130, 246, 0.1)' }
+                '&:hover': { },
+                '&.Mui-focused': { }
               },
               '& .MuiOutlinedInput-notchedOutline': { borderColor: theme.border }
             }} 
@@ -4096,7 +4071,6 @@ const MakineYonetimi = () => {
               gap: 0.5,
               px: 1,
               py: 0.25,
-              borderRadius: 1,
               bgcolor: syncStatus === 'syncing' ? 'rgba(59, 130, 246, 0.1)' : 
                        syncStatus === 'synced' ? 'rgba(16, 185, 129, 0.1)' : 
                        syncStatus === 'error' ? 'rgba(239, 68, 68, 0.1)' : 
@@ -4243,7 +4217,6 @@ const MakineYonetimi = () => {
                   fontSize: '0.68rem',
                   py: 0.5,
                   px: 1.5,
-                  borderRadius: 1.5,
                   fontWeight: 600,
                   color: theme.accent,
                   borderColor: theme.accent,
@@ -4291,15 +4264,12 @@ const MakineYonetimi = () => {
                     fontSize: '0.68rem',
                     py: 0.5,
                     px: 1.5,
-                    borderRadius: 1.5,
                     fontWeight: 600,
                     color: '#fff',
                     background: theme.gradientSuccess,
-                    boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)',
                     '&:hover': { 
                       background: theme.gradientSuccess,
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.4)'
                     }
                   }}
                 >
@@ -4312,7 +4282,6 @@ const MakineYonetimi = () => {
                     fontSize: '0.68rem',
                     py: 0.5,
                     px: 1.5,
-                    borderRadius: 1.5,
                     fontWeight: 600,
                     color: theme.warning,
                     border: `1px solid ${theme.warning}`,
@@ -4335,11 +4304,9 @@ const MakineYonetimi = () => {
             spacing={0.25}
             sx={{ 
               bgcolor: '#f8fafc',
-              borderRadius: 1.5,
               p: 0.5,
               '& .MuiIconButton-root': { 
                 p: 0.75,
-                borderRadius: 1,
                 transition: 'all 0.2s ease',
                 '&:hover': { 
                   bgcolor: theme.accentGlow,
@@ -4424,7 +4391,7 @@ const MakineYonetimi = () => {
           p: 1,
           display: 'flex',
           flexDirection: 'column',
-          background: 'linear-gradient(180deg, #fafbfc 0%, #f8fafc 100%)'
+          background: '#fafbfc'
         }}>
           <Box sx={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Grid - Standart mod */}
@@ -4464,7 +4431,7 @@ const MakineYonetimi = () => {
               <LinearProgress 
                 variant="determinate" 
                 value={(bulkProgress.current / bulkProgress.total) * 100} 
-                sx={{ height: 6, borderRadius: 3 }}
+                sx={{ height: 6 }}
               />
             </Stack>
           </Box>
@@ -4473,7 +4440,7 @@ const MakineYonetimi = () => {
 
       {/* 🗒️ NOTLAR — müşteri: "Taleplerde yaptığımız gibi not kısmı" (tarihli, kim yazdı belli) */}
       {selectedTesvik && (
-        <Paper sx={{ p: 2, mb: 2, borderRadius: 2, boxShadow: '0 6px 18px rgba(0,0,0,0.05)', border: '1px solid #e5e7eb' }}>
+        <Paper sx={{ p: 2, mb: 2, border: '1px solid #e5e7eb' }}>
           <Stack direction="row" alignItems="center" spacing={1} onClick={() => setNotlarAcik(v => !v)} sx={{ cursor: 'pointer', mb: notlarAcik ? 1.5 : 0 }}>
             <Box sx={{ fontSize: 20 }}>🗒️</Box>
             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#374151' }}>NOTLAR</Typography>
@@ -4505,8 +4472,8 @@ const MakineYonetimi = () => {
                 onClick={notEkle}
                 sx={{
                   fontSize: '0.75rem', py: 0.75, px: 2, whiteSpace: 'nowrap',
-                  background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                  '&:hover': { background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }
+                  background: '#10b981',
+                  '&:hover': { background: '#059669' }
                 }}
               >
                 Not Ekle
@@ -4520,7 +4487,7 @@ const MakineYonetimi = () => {
               )}
               <Stack spacing={1}>
                 {notListesi.map((n) => (
-                  <Box key={n._id} sx={{ p: 1.25, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box key={n._id} sx={{ p: 1.25, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                     <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                       <Typography variant="caption" sx={{ fontWeight: 700, color: '#334155' }}>
                         {n.yazanAdi || 'Bilinmiyor'}
@@ -4551,7 +4518,6 @@ const MakineYonetimi = () => {
         anchorEl={bulkMenuAnchor} 
         PaperProps={{ 
           sx: { 
-            borderRadius: 2,
             boxShadow: theme.shadowHover,
             border: `1px solid ${theme.border}`,
             minWidth: 180
@@ -4845,7 +4811,7 @@ const MakineYonetimi = () => {
                 }
               }
               return (
-                <Paper key={r.revizeId || i} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                <Paper key={r.revizeId || i} variant="outlined" sx={{ p: 1.5 }}>
                   <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
                     <Chip size="small" label={(r.revizeTuru || 'revize').toUpperCase()} color={r.revizeTuru === 'revert' ? 'warning' : r.revizeTuru === 'final' ? 'success' : 'default'} sx={{ fontWeight: 700 }} />
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{r.revizeTarihi ? new Date(r.revizeTarihi).toLocaleString('tr-TR') : '-'}</Typography>
@@ -4961,7 +4927,7 @@ const MakineYonetimi = () => {
         <DialogContent dividers>
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mt: 1 }}>
             {/* Yerli Özet */}
-            <Paper sx={{ p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
               <Typography variant="subtitle2" sx={{ color: '#10b981', fontWeight: 600, mb: 1 }}>YERLİ MAKİNE</Typography>
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -4986,7 +4952,7 @@ const MakineYonetimi = () => {
             </Paper>
 
             {/* İthal Özet */}
-            <Paper sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
               <Typography variant="subtitle2" sx={{ color: '#f59e0b', fontWeight: 600, mb: 1 }}>İTHAL MAKİNE</Typography>
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -5015,7 +4981,7 @@ const MakineYonetimi = () => {
             </Paper>
 
             {/* Genel Özet */}
-            <Paper sx={{ p: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: 'rgba(59, 130, 246, 0.05)', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
               <Typography variant="subtitle2" sx={{ color: '#3b82f6', fontWeight: 600, mb: 1 }}>GENEL ÖZET</Typography>
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -5040,7 +5006,7 @@ const MakineYonetimi = () => {
             </Paper>
 
             {/* Veri Kalitesi */}
-            <Paper sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)', borderRadius: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: 'rgba(139, 92, 246, 0.05)', border: '1px solid rgba(139, 92, 246, 0.2)' }}>
               <Typography variant="subtitle2" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1 }}>VERİ KALİTESİ</Typography>
               <Stack spacing={0.5}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -5238,8 +5204,7 @@ const MakineYonetimi = () => {
           <Stack direction="row" alignItems="center" spacing={1}>
             <Box sx={{ 
               width: 32, 
-              height: 32, 
-              borderRadius: 1, 
+              height: 32,  
               bgcolor: theme.accentGlow, 
               display: 'flex', 
               alignItems: 'center', 
@@ -5270,8 +5235,7 @@ const MakineYonetimi = () => {
                     minWidth: 90, 
                     px: 1, 
                     py: 0.25, 
-                    bgcolor: '#f1f5f9', 
-                    borderRadius: 0.5, 
+                    bgcolor: '#f1f5f9',  
                     fontFamily: 'monospace', 
                     fontSize: '0.75rem',
                     fontWeight: 600,
@@ -5299,8 +5263,7 @@ const MakineYonetimi = () => {
                     minWidth: 90, 
                     px: 1, 
                     py: 0.25, 
-                    bgcolor: 'rgba(16, 185, 129, 0.1)', 
-                    borderRadius: 0.5, 
+                    bgcolor: 'rgba(16, 185, 129, 0.1)',  
                     fontFamily: 'monospace', 
                     fontSize: '0.75rem',
                     fontWeight: 600,
@@ -5324,8 +5287,7 @@ const MakineYonetimi = () => {
                     minWidth: 90, 
                     px: 1, 
                     py: 0.25, 
-                    bgcolor: 'rgba(245, 158, 11, 0.1)', 
-                    borderRadius: 0.5, 
+                    bgcolor: 'rgba(245, 158, 11, 0.1)',  
                     fontFamily: 'monospace', 
                     fontSize: '0.75rem',
                     fontWeight: 600,

@@ -56,7 +56,7 @@ const MODULE_CONFIG = {
     label: 'Firma Listesi',
     icon: <FirmaIcon />,
     color: '#059669',
-    gradient: 'linear-gradient(135deg, #064e3b 0%, #059669 100%)',
+    gradient: '#064e3b',
     bgLight: 'rgba(5, 150, 105, 0.08)',
     borderLight: 'rgba(5, 150, 105, 0.25)',
     emoji: '🏢',
@@ -65,7 +65,7 @@ const MODULE_CONFIG = {
     label: 'Eski Teşvik Belgesi',
     icon: <TesvikIcon />,
     color: '#dc2626',
-    gradient: 'linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%)',
+    gradient: '#7f1d1d',
     bgLight: 'rgba(220, 38, 38, 0.08)',
     borderLight: 'rgba(220, 38, 38, 0.25)',
     emoji: '🏆',
@@ -74,7 +74,7 @@ const MODULE_CONFIG = {
     label: 'Yeni Teşvik Belgesi',
     icon: <TesvikIcon />,
     color: '#2563eb',
-    gradient: 'linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%)',
+    gradient: '#1e3a8a',
     bgLight: 'rgba(37, 99, 235, 0.08)',
     borderLight: 'rgba(37, 99, 235, 0.25)',
     emoji: '🆕',
@@ -83,7 +83,7 @@ const MODULE_CONFIG = {
     label: 'Dosya İş Akış Takip',
     icon: <DosyaIcon />,
     color: '#d97706',
-    gradient: 'linear-gradient(135deg, #92400e 0%, #d97706 100%)',
+    gradient: '#92400e',
     bgLight: 'rgba(217, 119, 6, 0.08)',
     borderLight: 'rgba(217, 119, 6, 0.25)',
     emoji: '📋',
@@ -92,7 +92,7 @@ const MODULE_CONFIG = {
     label: 'Makine Teçhizat Listesi',
     icon: <MakineIcon />,
     color: '#7c3aed',
-    gradient: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)',
+    gradient: '#4c1d95',
     bgLight: 'rgba(124, 58, 237, 0.08)',
     borderLight: 'rgba(124, 58, 237, 0.25)',
     emoji: '🔧',
@@ -101,7 +101,7 @@ const MODULE_CONFIG = {
     label: 'Bilinmeyen Format',
     icon: <UnknownIcon />,
     color: '#64748b',
-    gradient: 'linear-gradient(135deg, #334155 0%, #64748b 100%)',
+    gradient: '#334155',
     bgLight: 'rgba(100, 116, 139, 0.08)',
     borderLight: 'rgba(100, 116, 139, 0.25)',
     emoji: '❓',
@@ -302,22 +302,19 @@ const SmartUpload = () => {
       elevation={2}
       sx={{
         mb: 3,
-        borderRadius: 3,
         border: '1px solid rgba(226, 232, 240, 0.7)',
         overflow: 'hidden',
         background: '#ffffff',
-        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
         transition: 'all 0.3s ease',
         flexShrink: 0,
         '&:hover': {
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
         },
       }}
     >
       {/* Header */}
       <Box
         sx={{
-          background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #334155 100%)',
+          background: '#0f172a',
           px: { xs: 2, sm: 3 },
           py: 2,
           display: 'flex',
@@ -332,8 +329,7 @@ const SmartUpload = () => {
             sx={{
               width: 36,
               height: 36,
-              background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-              boxShadow: '0 4px 14px rgba(59, 130, 246, 0.35)',
+              background: '#3b82f6',
             }}
           >
             <SmartIcon sx={{ fontSize: 20 }} />
@@ -387,7 +383,7 @@ const SmartUpload = () => {
           sx={{
             height: 3,
             '& .MuiLinearProgress-bar': {
-              background: 'linear-gradient(90deg, #3b82f6, #8b5cf6, #3b82f6)',
+              background: '#3b82f6',
               backgroundSize: '200% 100%',
               animation: 'shimmer 2s linear infinite',
             },
@@ -406,7 +402,7 @@ const SmartUpload = () => {
             <Alert
               severity="error"
               onClose={() => setError(null)}
-              sx={{ mb: 2, borderRadius: 2, fontSize: '0.8rem' }}
+              sx={{ mb: 2, fontSize: '0.8rem' }}
             >
               {error}
             </Alert>
@@ -423,7 +419,6 @@ const SmartUpload = () => {
               onClick={() => fileInputRef.current?.click()}
               sx={{
                 border: `2px dashed ${isDragOver ? '#3b82f6' : '#cbd5e1'}`,
-                borderRadius: 3,
                 py: { xs: 3, sm: 4 },
                 px: 3,
                 textAlign: 'center',
@@ -436,7 +431,6 @@ const SmartUpload = () => {
                   borderColor: '#3b82f6',
                   background: 'rgba(59, 130, 246, 0.03)',
                   transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)',
                 },
               }}
             >
@@ -496,7 +490,6 @@ const SmartUpload = () => {
                     alignItems: 'center',
                     gap: 2,
                     p: 2,
-                    borderRadius: 2.5,
                     background: moduleConfig.bgLight,
                     border: `1px solid ${moduleConfig.borderLight}`,
                     mb: 2,
@@ -507,7 +500,6 @@ const SmartUpload = () => {
                       width: 48,
                       height: 48,
                       background: moduleConfig.gradient,
-                      boxShadow: `0 4px 14px ${moduleConfig.color}30`,
                     }}
                   >
                     {moduleConfig.icon}
@@ -594,7 +586,6 @@ const SmartUpload = () => {
                     <Collapse in={showPreviewTable}>
                       <TableContainer
                         sx={{
-                          borderRadius: 2,
                           border: '1px solid rgba(226, 232, 240, 0.7)',
                           maxHeight: 260,
                           overflow: 'auto',
@@ -751,13 +742,10 @@ const SmartUpload = () => {
                     sx={{
                       textTransform: 'none',
                       fontWeight: 800,
-                      borderRadius: 2,
                       px: 3,
                       py: 1,
                       background: moduleConfig.gradient,
-                      boxShadow: `0 4px 14px ${moduleConfig.color}30`,
                       '&:hover': {
-                        boxShadow: `0 6px 20px ${moduleConfig.color}40`,
                       },
                     }}
                   >
@@ -770,7 +758,7 @@ const SmartUpload = () => {
                       label="Mod"
                       value={commitMode}
                       onChange={(e) => setCommitMode(e.target.value)}
-                      sx={{ fontSize: '0.75rem', borderRadius: 2 }}
+                      sx={{ fontSize: '0.75rem' }}
                     >
                       <MenuItem value="upsert" sx={{ fontSize: '0.75rem' }}>
                         Upsert (Önerilen)
@@ -789,7 +777,6 @@ const SmartUpload = () => {
                     sx={{
                       textTransform: 'none',
                       fontWeight: 600,
-                      borderRadius: 2,
                       fontSize: '0.75rem',
                       borderColor: '#cbd5e1',
                       color: '#64748b',
@@ -810,7 +797,6 @@ const SmartUpload = () => {
                   severity="success"
                   icon={<SuccessIcon sx={{ fontSize: 28 }} />}
                   sx={{
-                    borderRadius: 2.5,
                     mb: 2,
                     background: 'rgba(5, 150, 105, 0.06)',
                     border: '1px solid rgba(5, 150, 105, 0.2)',
@@ -884,7 +870,6 @@ const SmartUpload = () => {
                       mt: 1,
                       mb: 2,
                       p: 1.5,
-                      borderRadius: 2,
                       background: 'rgba(220, 38, 38, 0.04)',
                       border: '1px solid rgba(220, 38, 38, 0.15)',
                       maxHeight: 160,
@@ -924,7 +909,6 @@ const SmartUpload = () => {
                   sx={{
                     textTransform: 'none',
                     fontWeight: 700,
-                    borderRadius: 2,
                     borderColor: '#cbd5e1',
                     color: '#475569',
                   }}

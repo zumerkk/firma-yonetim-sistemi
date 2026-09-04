@@ -134,7 +134,7 @@ const DosyaTakipDashboard = () => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }}>
                         <IconButton onClick={handleRefresh} disabled={refreshing} size="small" aria-label="Yenile"
-                            sx={{ border: `1px solid ${renk.cizgi}`, borderRadius: 0, color: renk.sessiz }}>
+                            sx={{ border: `1px solid ${renk.cizgi}`, color: renk.sessiz }}>
                             <RefreshIcon sx={{ fontSize: 16 }} />
                         </IconButton>
                         <Button variant="outlined" size="small" startIcon={<ListIcon />}
@@ -150,7 +150,7 @@ const DosyaTakipDashboard = () => {
 
                 {loading && <LinearProgress sx={{ mb: 1, height: 2 }} />}
                 {error && (
-                    <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 0 }}>
+                    <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>
                         {error}
                     </Alert>
                 )}

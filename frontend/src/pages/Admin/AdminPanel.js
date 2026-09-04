@@ -136,7 +136,7 @@ const AdminPanel = () => {
           padding: 3,
           flex: 1
         }}>
-          <Alert severity="error" sx={{ borderRadius: 2 }}>
+          <Alert severity="error">
             <Typography variant="h6" sx={{ mb: 1 }}>
               🚫 Erişim Engellendi
             </Typography>
@@ -153,7 +153,7 @@ const AdminPanel = () => {
   const renderMetricsCards = () => (
     <Grid container spacing={3} sx={{ mb: 4 }}>
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
+        <Card sx={{ background: '#667eea', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -169,7 +169,7 @@ const AdminPanel = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)', color: 'white' }}>
+        <Card sx={{ background: '#f5576c', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -185,7 +185,7 @@ const AdminPanel = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)', color: 'white' }}>
+        <Card sx={{ background: '#4facfe', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -201,7 +201,7 @@ const AdminPanel = () => {
       </Grid>
       
       <Grid item xs={12} sm={6} md={3}>
-        <Card sx={{ background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)', color: 'white' }}>
+        <Card sx={{ background: '#43e97b', color: 'white' }}>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
@@ -235,7 +235,7 @@ const AdminPanel = () => {
         </Button>
       </Box>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      <TableContainer component={Paper}>
         <Table>
           <TableHead sx={{ backgroundColor: '#f8fafc' }}>
             <TableRow>
@@ -490,8 +490,7 @@ const AdminPanel = () => {
         {renderMetricsCards()}
 
         {/* Main Content Tabs */}
-        <Card sx={{ 
-          borderRadius: 3, 
+        <Card sx={{  
           overflow: 'hidden',
           flex: 1, // ✅ Flex grow to fill available space
           display: 'flex',
