@@ -82,6 +82,8 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 // 📏 Kapasite Birimleri Import  
 import { kapasiteBirimleri } from '../../data/kapasiteData';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 const YeniTesvikForm = () => {
   const navigate = useNavigate();
@@ -2342,7 +2344,6 @@ const YeniTesvikForm = () => {
           sx={{
             mb: 2,
             border: '1px solid #cbd5e1',
-            borderRadius: 1,
             overflow: 'hidden'
           }}
         >
@@ -2453,7 +2454,6 @@ const YeniTesvikForm = () => {
           elevation={1}
           sx={{
             border: '1px solid #cbd5e1',
-            borderRadius: 1,
             overflow: 'hidden'
           }}
         >
@@ -2810,7 +2810,6 @@ const YeniTesvikForm = () => {
           elevation={1}
           sx={{
             border: '1px solid #cbd5e1',
-            borderRadius: 1,
             overflow: 'hidden',
             height: '100%'
           }}
@@ -3341,7 +3340,6 @@ const YeniTesvikForm = () => {
         <Box sx={{
           backgroundColor: '#f8fafc',
           border: '1px solid #e2e8f0',
-          borderRadius: 2,
           mb: 2,
           p: 2
         }}>
@@ -3352,7 +3350,6 @@ const YeniTesvikForm = () => {
                 <Box sx={{
                   width: 40,
                   height: 40,
-                  borderRadius: 1,
                   backgroundColor: '#3b82f6',
                   display: 'flex',
                   alignItems: 'center',
@@ -3383,7 +3380,6 @@ const YeniTesvikForm = () => {
               {/* Aktif Ürünler Sayacı */}
               <Box sx={{
                 backgroundColor: '#dbeafe',
-                borderRadius: 1,
                 px: 2,
                 py: 1,
                 textAlign: 'center',
@@ -3409,7 +3405,6 @@ const YeniTesvikForm = () => {
                 <Box key={index} sx={{
                   flex: 1,
                   backgroundColor: 'white',
-                  borderRadius: 1,
                   p: 1.5,
                   textAlign: 'center',
                   border: '1px solid #e2e8f0'
@@ -3524,8 +3519,7 @@ const YeniTesvikForm = () => {
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {/* 📊 PROFESSIONAL HEADER BAR */}
           <Box sx={{
-            background: 'linear-gradient(90deg, #f8fafc 0%, #e2e8f0 100%)',
-            borderRadius: 2,
+            backgroundColor: '#f8fafc',
             p: 2,
             border: '1px solid #e2e8f0'
           }}>
@@ -3555,15 +3549,13 @@ const YeniTesvikForm = () => {
             <Card
               key={`product-card-${index}`}
               sx={{
-                background: urun.kod ? 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)' : 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+                background: urun.kod ? '#ffffff' : '#f9fafb',
                 border: urun.kod ? '2px solid #e2e8f0' : '2px dashed #d1d5db',
-                borderRadius: 3,
                 overflow: 'hidden',
                 transition: 'all 0.3s ease',
                 '&:hover': {
                   borderColor: urun.kod ? '#3b82f6' : '#6b7280',
                   transform: 'translateY(-2px)',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
                 }
               }}
             >
@@ -3574,8 +3566,7 @@ const YeniTesvikForm = () => {
                     <Box sx={{
                       width: 50,
                       height: 50,
-                      borderRadius: 3,
-                      background: urun.kod ? 'linear-gradient(45deg, #3b82f6, #1d4ed8)' : 'linear-gradient(45deg, #9ca3af, #6b7280)',
+                      background: urun.kod ? '#3b82f6' : '#9ca3af',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -3653,7 +3644,6 @@ const YeniTesvikForm = () => {
                       sx={{
                         '& .MuiOutlinedInput-root': {
                           backgroundColor: '#ffffff',
-                          borderRadius: 2,
                           '& fieldset': {
                             borderColor: '#e5e7eb'
                           },
@@ -3672,8 +3662,7 @@ const YeniTesvikForm = () => {
                   {/* 💼 KAPASİTE & DURUM - TEK SATIR PROFESYONEL DÜZEN */}
                   <Grid item xs={12}>
                     <Box sx={{
-                      background: 'linear-gradient(90deg, #f8fafc, #f1f5f9)',
-                      borderRadius: 2,
+                      backgroundColor: '#f8fafc',
                       p: 2,
                       border: '1px solid #e2e8f0',
                       mt: 1
@@ -3709,7 +3698,6 @@ const YeniTesvikForm = () => {
                             sx={{
                               '& .MuiOutlinedInput-root': {
                                 backgroundColor: '#ffffff',
-                                borderRadius: 1,
                                 '& fieldset': { borderColor: '#e5e7eb' },
                                 '&:hover fieldset': { borderColor: '#3b82f6' },
                                 '&.Mui-focused fieldset': { borderColor: '#3b82f6', borderWidth: '2px' }
@@ -3743,7 +3731,6 @@ const YeniTesvikForm = () => {
                             sx={{
                               '& .MuiOutlinedInput-root': {
                                 backgroundColor: '#ffffff',
-                                borderRadius: 1,
                                 '& fieldset': { borderColor: '#e5e7eb' },
                                 '&:hover fieldset': { borderColor: '#10b981' },
                                 '&.Mui-focused fieldset': { borderColor: '#10b981', borderWidth: '2px' }
@@ -3776,8 +3763,7 @@ const YeniTesvikForm = () => {
                             variant="outlined"
                             sx={{
                               '& .MuiOutlinedInput-root': {
-                                background: 'linear-gradient(135deg, #ecfdf5, #d1fae5)',
-                                borderRadius: 1,
+                                backgroundColor: '#ecfdf5',
                                 '& fieldset': { borderColor: '#10b981', borderWidth: '2px' }
                               }
                             }}
@@ -3800,7 +3786,6 @@ const YeniTesvikForm = () => {
                               variant="outlined"
                               sx={{
                                 backgroundColor: '#ffffff',
-                                borderRadius: 1,
                                 '& .MuiSelect-select': { py: 0.75, fontSize: '0.85rem' },
                                 '& fieldset': { borderColor: '#e5e7eb' },
                                 '&:hover fieldset': { borderColor: '#f59e0b' },
@@ -3854,11 +3839,9 @@ const YeniTesvikForm = () => {
         {/* 🎛️ ULTRA-MODERN CONTROL PANEL */}
         <Box sx={{
           mt: 3,
-          background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-          borderRadius: 3,
+          backgroundColor: '#f8fafc',
           p: 3,
           border: '2px solid #e2e8f0',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
             {/* ➕ ADD PRODUCT SECTION */}
@@ -3870,17 +3853,14 @@ const YeniTesvikForm = () => {
                   startIcon={<AddIcon />}
                   size="large"
                   sx={{
-                    background: 'linear-gradient(45deg, #3b82f6, #1d4ed8)',
+                    backgroundColor: '#3b82f6',
                     color: 'white',
                     fontWeight: 600,
                     py: 1.5,
                     px: 3,
-                    borderRadius: 2,
-                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)',
                     '&:hover': {
-                      background: 'linear-gradient(45deg, #1d4ed8, #1e40af)',
+                      backgroundColor: '#1d4ed8',
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 8px 25px rgba(59, 130, 246, 0.6)'
                     },
                     transition: 'all 0.3s ease'
                   }}
@@ -3889,11 +3869,10 @@ const YeniTesvikForm = () => {
                 </Button>
               ) : (
                 <Box sx={{
-                  background: 'linear-gradient(45deg, #ef4444, #dc2626)',
+                  backgroundColor: '#ef4444',
                   color: 'white',
                   px: 3,
                   py: 1.5,
-                  borderRadius: 2,
                   fontWeight: 600
                 }}>
                   🚫 Maksimum 10 ürün limiti
@@ -3974,7 +3953,6 @@ const YeniTesvikForm = () => {
               backgroundColor: index % 2 === 0 ? '#fdf2f8' : '#f0f9ff',
               border: '2px solid',
               borderColor: index % 2 === 0 ? '#ec4899' : '#3b82f6',
-              borderRadius: 3,
               position: 'relative'
             }}
           >
@@ -4183,7 +4161,7 @@ const YeniTesvikForm = () => {
 
       {/* İstatistikler */}
       <Grid item xs={12}>
-        <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
+        <Box sx={{ p: 2, backgroundColor: '#f8fafc' }}>
           <Typography variant="body2" color="text.secondary">
             💡 <strong>Aktif Satır:</strong> {destekSayisi}/8 |
             <strong> Destek Doldurulmuş:</strong> {formData.destekUnsurlari.slice(0, destekSayisi).filter(d => d.destekUnsuru).length} |
@@ -4241,7 +4219,6 @@ const YeniTesvikForm = () => {
               backgroundColor: index % 2 === 0 ? '#fff7ed' : '#fef3f2',
               border: '2px solid',
               borderColor: index % 2 === 0 ? '#ea580c' : '#f97316',
-              borderRadius: 3,
               position: 'relative'
             }}
           >
@@ -4464,7 +4441,7 @@ const YeniTesvikForm = () => {
 
       {/* İstatistikler */}
       <Grid item xs={12}>
-        <Box sx={{ p: 2, backgroundColor: '#f8fafc', borderRadius: 1 }}>
+        <Box sx={{ p: 2, backgroundColor: '#f8fafc' }}>
           <Typography variant="body2" color="text.secondary">
             🏷️ <strong>Aktif Satır:</strong> {ozelSartSayisi} |
             <strong> Kısaltma Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.kisaltma).length} |
@@ -4987,7 +4964,7 @@ const YeniTesvikForm = () => {
       </Grid>
 
       {/* DENGE KONTROLÜ */}
-      <Box sx={{ mt: 2, p: 2, backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 ? '#f0fdf4' : '#fef2f2', borderRadius: 1, border: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 ? '2px solid #22c55e' : '2px solid #ef4444' }}>
+      <Box sx={{ mt: 2, p: 2, backgroundColor: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 ? '#f0fdf4' : '#fef2f2', border: Math.abs(formData.finansalBilgiler.toplamSabitYatirimTutari - formData.finansalBilgiler.finansman.toplamFinansman) < 0.01 ? '2px solid #22c55e' : '2px solid #ef4444' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -5039,6 +5016,9 @@ const YeniTesvikForm = () => {
   }
 
   return (
+    // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
+    // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
+    <ThemeProvider theme={etuysTema}>
     <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -5217,7 +5197,6 @@ const YeniTesvikForm = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: '12px',
             background: '#2563eb',
             color: 'white'
           }
@@ -5253,11 +5232,10 @@ const YeniTesvikForm = () => {
         <DialogContent sx={{
           backgroundColor: 'white',
           color: '#1f2937',
-          borderRadius: '0 0 12px 12px'
         }}>
           <Alert
             severity="info"
-            sx={{ mb: 3, borderRadius: '8px' }}
+            sx={{ mb: 3 }}
             icon={<InfoIcon />}
           >
             <Typography variant="body2">
@@ -5362,6 +5340,7 @@ const YeniTesvikForm = () => {
         </DialogActions>
       </Dialog>
     </Box>
+    </ThemeProvider>
   );
 };
 

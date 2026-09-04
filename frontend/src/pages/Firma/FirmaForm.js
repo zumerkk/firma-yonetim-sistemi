@@ -47,6 +47,8 @@ import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 
 // 🎯 Import activity selector component
 import ActivitySelector from '../../components/ActivitySelector';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 // 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
 const toTurkishUpperCase = (str) => {
@@ -191,12 +193,10 @@ const YetkiliKisiForm = memo(({
       elevation={2}
       sx={{
         p: 3,
-        borderRadius: 2,
         border: '1px solid #e5e7eb',
-        background: 'linear-gradient(135deg, #ffffff 0%, #f9fafb 100%)',
+        backgroundColor: '#ffffff',
         transition: 'all 0.2s ease',
         '&:hover': {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
           transform: 'translateY(-1px)'
         }
       }}
@@ -742,6 +742,9 @@ const FirmaForm = () => {
   }, []);
 
   return (
+    // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
+    // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
+    <ThemeProvider theme={etuysTema}>
     <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -792,9 +795,7 @@ const FirmaForm = () => {
                 size="medium"
                 sx={{
                   bgcolor: 'white',
-                  boxShadow: 2,
                   '&:hover': {
-                    boxShadow: 4,
                     transform: 'scale(1.05)'
                   }
                 }}
@@ -830,9 +831,7 @@ const FirmaForm = () => {
           {!isEdit && (
             <Card sx={{
               mb: 3,
-              borderRadius: 3,
               border: '1px solid #e2e8f0',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }}>
               <CardContent sx={{ p: 3 }}>
                 <Typography variant="h6" sx={{
@@ -854,7 +853,6 @@ const FirmaForm = () => {
                   textAlign: 'center',
                   py: 2,
                   backgroundColor: '#f8fafc',
-                  borderRadius: 2,
                   border: '1px dashed #cbd5e1'
                 }}>
                   💡 Mevcut firma kontrolü için yukarıdaki "Vergi No/TC" veya "Tam Ünvan" alanlarını doldurup "🔍 Kayıt Arama" butonuna tıklayın.
@@ -875,12 +873,10 @@ const FirmaForm = () => {
                             cursor: 'pointer',
                             transition: 'all 0.3s ease',
                             border: '1px solid #e5e7eb',
-                            borderRadius: 2,
                             '&:hover': {
                               bgcolor: '#f9fafb',
                               borderColor: '#3b82f6',
                               transform: 'translateY(-2px)',
-                              boxShadow: '0 8px 24px rgba(0,0,0,0.1)'
                             }
                           }}
                           onClick={() => loadFirmaToForm(firma)}
@@ -915,9 +911,7 @@ const FirmaForm = () => {
 
           {/* 📝 Main Form Card */}
           <Card sx={{
-            borderRadius: 3,
             border: '1px solid #e2e8f0',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
           }}>
             {/* 📋 Form Header */}
             <CardHeader
@@ -926,7 +920,6 @@ const FirmaForm = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <Box sx={{
                       backgroundColor: '#3b82f6',
-                      borderRadius: '8px',
                       p: 1,
                       mr: 2,
                       display: 'flex',
@@ -1010,7 +1003,6 @@ const FirmaForm = () => {
                       mb: 3,
                       backgroundColor: '#fef2f2',
                       border: '1px solid #fecaca',
-                      borderRadius: 2
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
@@ -1071,7 +1063,6 @@ const FirmaForm = () => {
                   }}>
                     <Box sx={{
                       backgroundColor: '#3b82f6',
-                      borderRadius: '8px',
                       p: 1,
                       mr: 2,
                       display: 'flex',
@@ -1200,9 +1191,9 @@ const FirmaForm = () => {
                           height: '56px',
                           fontSize: '1rem',
                           fontWeight: 600,
-                          background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                          backgroundColor: '#3b82f6',
                           '&:hover': {
-                            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                            backgroundColor: '#2563eb',
                           }
                         }}
                       >
@@ -1562,9 +1553,9 @@ const FirmaForm = () => {
                           fontSize: '1rem',
                           fontWeight: 600,
                           px: 3,
-                          background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                          backgroundColor: '#059669',
                           '&:hover': {
-                            background: 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                            backgroundColor: '#047857',
                             transform: 'translateY(-1px)'
                           }
                         }}
@@ -1715,15 +1706,15 @@ const FirmaForm = () => {
                         fontSize: '1.1rem',
                         fontWeight: 600,
                         background: loading
-                          ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                          : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                          ? '#94a3b8'
+                          : '#059669',
                         '&:hover': {
                           background: loading
-                            ? 'linear-gradient(135deg, #94a3b8 0%, #64748b 100%)'
-                            : 'linear-gradient(135deg, #047857 0%, #065f46 100%)',
+                            ? '#94a3b8'
+                            : '#047857',
                         },
                         '&:disabled': {
-                          background: 'linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%)',
+                          backgroundColor: '#d1d5db',
                           color: '#6b7280'
                         }
                       }}
@@ -1765,6 +1756,7 @@ const FirmaForm = () => {
         </Container>
       </Box>
     </Box>
+    </ThemeProvider>
   );
 };
 
