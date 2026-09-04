@@ -4060,7 +4060,7 @@ const MakineYonetimi = () => {
         </Stack>
         <Stack spacing={0.5} sx={{ maxHeight: 120, overflow:'auto' }}>
           {deletedRows.map((it, idx)=> (
-            <Paper key={idx} variant="outlined" sx={{ p: 0.75, display:'flex', alignItems:'center', gap:1, borderRadius:1.5, fontSize: '0.75rem' }}>
+            <Paper key={idx} variant="outlined" sx={{ p: 0.75, display:'flex', alignItems:'center', gap:1, fontSize: '0.75rem' }}>
               <Chip size="small" color="error" label="SİLİNDİ" sx={{ fontSize: '0.65rem' }} />
               <Chip size="small" label={it.type.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
               <Chip size="small" label={`#${it.row.siraNo||0}`} sx={{ fontSize: '0.65rem' }} />
@@ -4077,7 +4077,7 @@ const MakineYonetimi = () => {
         </Stack>
         <Stack spacing={0.75} sx={{ maxHeight: 150, overflow:'auto' }}>
           {activityLog.map((it, idx)=> (
-            <Paper key={idx} variant="outlined" sx={{ p:0.75, display:'flex', alignItems:'center', gap:1, borderRadius:1.5, fontSize: '0.75rem' }}>
+            <Paper key={idx} variant="outlined" sx={{ p:0.75, display:'flex', alignItems:'center', gap:1, fontSize: '0.75rem' }}>
               <Chip size="small" label={it.list.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
               <Chip size="small" color={it.type==='talep'?'primary': it.type==='karar'?'success':'default'} label={it.type.toUpperCase()} sx={{ fontSize: '0.65rem' }} />
               <Box sx={{ flex:1, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', fontSize: '0.7rem' }}>{`${it.row?.gtipKodu||''} — ${it.row?.adi||it.row?.adiVeOzelligi||''}`}</Box>

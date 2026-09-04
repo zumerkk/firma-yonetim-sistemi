@@ -80,7 +80,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
       return (
         <Tooltip title={selected ? `${selected.kod}${selected.aciklama ? ` — ${selected.aciklama}` : ''}` : ph} placement="top">
           <Box onClick={() => setIsOpen(true)} role="button" tabIndex={0}
-            sx={{ display:'flex', alignItems:'center', gap:1, width:'100%', border:'1px solid', borderColor:'divider', borderRadius:1.5, px:0.75, py:0.25, minHeight:32, cursor:'pointer', '&:hover':{ borderColor:'primary.main' } }}
+            sx={{ display:'flex', alignItems:'center', gap:1, width:'100%', border:'1px solid', borderColor:'divider', px:0.75, py:0.25, minHeight:32, cursor:'pointer', '&:hover':{ borderColor:'primary.main' } }}
           >
             <SearchIcon sx={{ color:'#3b82f6', fontSize:'1.05rem' }} />
             {selected ? (

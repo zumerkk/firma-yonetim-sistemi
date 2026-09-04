@@ -790,8 +790,7 @@ const DosyaTakipDetail = () => {
                             onClick={() => setDurumDialog({ open: true, yeniDurum: '', aciklama: '' })}
                             sx={{
                                 textTransform: 'none',
-                                background: renk.gradient,
-                                boxShadow: `0 4px 14px ${renk.text}35`
+                                background: renk.gradient
                             }}
                         >
                             Durum Değiştir

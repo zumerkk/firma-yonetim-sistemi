@@ -420,7 +420,7 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
 
       {/* Seçim özeti */}
       {(selectedCity || selectedDistrict) && (
-        <Box sx={{ p: 2, backgroundColor: 'grey.50', borderRadius: 1 }}>
+        <Box sx={{ p: 2, backgroundColor: 'grey.50' }}>
           <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: 'text.primary' }}>
             Seçili Konum:
           </Typography>
