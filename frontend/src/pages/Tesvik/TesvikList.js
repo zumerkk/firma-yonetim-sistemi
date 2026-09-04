@@ -53,6 +53,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 const TesvikList = () => {
   const navigate = useNavigate();
@@ -345,6 +347,9 @@ const TesvikList = () => {
   };
 
   return (
+    // 📋 ETUYS teması — tablo görünümü temadan geliyor (MuiTableCell).
+    // Tablonun KENDİSİ değişmedi: filtreler, yükleme iskeleti, hücre mantığı aynı.
+    <ThemeProvider theme={etuysTema}>
     <>
       <Box sx={{ 
         display: 'grid',
@@ -440,22 +445,14 @@ const TesvikList = () => {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/tesvik/yeni')}
-                sx={{
-                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-                  fontWeight: 600
-                }}
               >
                 Eski Teşvik Ekle
               </Button>
 
               <Button
-                variant="contained"
+                variant="outlined"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/yeni-tesvik/yeni')}
-                sx={{
-                  background: 'linear-gradient(135deg, #1e3a8a, #2563eb)',
-                  fontWeight: 600
-                }}
               >
                 Yeni Teşvik Ekle
               </Button>
@@ -539,18 +536,18 @@ const TesvikList = () => {
             <UstKaydirmaCubugu>
             <TableContainer component={Paper}>
               <Table>
-                <TableHead sx={{ backgroundColor: '#f8fafc' }}>
+                <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Belge No</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Belge ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Yatırımcı Ünvanı</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>İl</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Belge Bitiş Tarihi</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Süre Uzatım Tarihi</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Oluşturan</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Oluşturma Tarihi</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>İşlemler</TableCell>
+                    <TableCell>Belge No</TableCell>
+                    <TableCell>Belge ID</TableCell>
+                    <TableCell>Yatırımcı Ünvanı</TableCell>
+                    <TableCell>Durum</TableCell>
+                    <TableCell>İl</TableCell>
+                    <TableCell>Belge Bitiş Tarihi</TableCell>
+                    <TableCell>Süre Uzatım Tarihi</TableCell>
+                    <TableCell>Oluşturan</TableCell>
+                    <TableCell>Oluşturma Tarihi</TableCell>
+                    <TableCell>İşlemler</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -573,14 +570,6 @@ const TesvikList = () => {
                       >
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ 
-                              width: 24, 
-                              height: 24,
-                              backgroundColor: getDurumColor(tesvik.durumBilgileri?.genelDurum),
-                              fontSize: '0.7rem'
-                            }}>
-                              🏆
-                            </Avatar>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {tesvik.belgeYonetimi?.belgeNo || '-'}
                             </Typography>
@@ -925,6 +914,7 @@ const TesvikList = () => {
       </DialogActions>
     </Dialog>
   </>
+  </ThemeProvider>
   );
 };
 

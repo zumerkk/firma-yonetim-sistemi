@@ -52,6 +52,8 @@ import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 const YeniTesvikList = () => {
   const navigate = useNavigate();
@@ -326,6 +328,9 @@ const YeniTesvikList = () => {
   };
 
   return (
+    // 📋 ETUYS teması — tablo görünümü temadan geliyor (MuiTableCell).
+    // Tablonun KENDİSİ değişmedi: filtreler, yükleme iskeleti, hücre mantığı aynı.
+    <ThemeProvider theme={etuysTema}>
     <>
       <Box sx={{ 
         display: 'grid',
@@ -429,10 +434,6 @@ const YeniTesvikList = () => {
                 variant="contained"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/yeni-tesvik/yeni')}
-                sx={{
-                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-                  fontWeight: 600
-                }}
               >
                 Yeni Teşvik
               </Button>
@@ -503,16 +504,16 @@ const YeniTesvikList = () => {
           <Card>
             <TableContainer component={Paper}>
               <Table>
-                <TableHead sx={{ backgroundColor: '#f8fafc' }}>
+                <TableHead>
                   <TableRow>
-                    <TableCell sx={{ fontWeight: 600 }}>Belge No</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Belge ID</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Yatırımcı Ünvanı</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>İl</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Oluşturan</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Oluşturma Tarihi</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>İşlemler</TableCell>
+                    <TableCell>Belge No</TableCell>
+                    <TableCell>Belge ID</TableCell>
+                    <TableCell>Yatırımcı Ünvanı</TableCell>
+                    <TableCell>Durum</TableCell>
+                    <TableCell>İl</TableCell>
+                    <TableCell>Oluşturan</TableCell>
+                    <TableCell>Oluşturma Tarihi</TableCell>
+                    <TableCell>İşlemler</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -535,14 +536,6 @@ const YeniTesvikList = () => {
                       >
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ 
-                              width: 24, 
-                              height: 24,
-                              backgroundColor: getDurumColor(tesvik.durumBilgileri?.genelDurum),
-                              fontSize: '0.7rem'
-                            }}>
-                              🏆
-                            </Avatar>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {tesvik.belgeYonetimi?.belgeNo || '-'}
                             </Typography>
@@ -857,6 +850,7 @@ const YeniTesvikList = () => {
       </DialogActions>
     </Dialog>
   </>
+  </ThemeProvider>
   );
 };
 

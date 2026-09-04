@@ -13,6 +13,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitForElementToBeRemoved } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
+import { DataGrid } from '@mui/x-data-grid';
 import {
   etuysTema, renk,
   Panel, BolumBasligi, AlanSatiri, VeriTablosu,
@@ -273,5 +274,46 @@ describe('SayiKutusu — erişilebilirlik', () => {
         ariaEtiket="Aktif Talep: 7 talep — listeyi aç" />
     );
     expect(screen.getByRole('button', { name: 'Aktif Talep: 7 talep — listeyi aç' })).toBeInTheDocument();
+  });
+});
+
+// DataGrid'i VeriTablosu ile DEĞİŞTİRMİYORUZ (sıralama/filtre/sütun boyutlandırma
+// hazır geliyor); temayla giydiriyoruz. Ama MUI X geçersiz kılmaları anahtar adı
+// yanlışsa SESSİZCE uygulanmaz — tema dosyası "doğru görünür", ekran değişmez.
+// Bu yüzden gerçek bir DataGrid basıp ölçüyoruz.
+describe('etuysTema — DataGrid giydirmesi', () => {
+  const sutunlar = [{ field: 'ad', headerName: 'Firma Unvanı', width: 200 }];
+  const satirlar = [{ id: 1, ad: 'ST TURKUAZ' }, { id: 2, ad: 'ARSLAN CNC' }];
+
+  test('sütun başlığı şeridi ETUYS gri zeminini alır', () => {
+    const { container } = goster(
+      <div style={{ height: 200, width: 400 }}>
+        <DataGrid rows={satirlar} columns={sutunlar} />
+      </div>
+    );
+    const baslik = container.querySelector('.MuiDataGrid-columnHeaders');
+    expect(baslik).not.toBeNull();
+    expect(rgbToHex(getComputedStyle(baslik).backgroundColor)).toBe(renk.yuzeyAlt.toUpperCase());
+  });
+
+  test('yuvarlak köşe yok — ETUYS "Olmayanlar" kuralı', () => {
+    const { container } = goster(
+      <div style={{ height: 200, width: 400 }}>
+        <DataGrid rows={satirlar} columns={sutunlar} />
+      </div>
+    );
+    const kok = container.querySelector('.MuiDataGrid-root');
+    expect(parseFloat(getComputedStyle(kok).borderRadius) || 0).toBe(0);
+  });
+
+  test('seçili satır SARI — VeriTablosu ile aynı jeton', () => {
+    const { container } = goster(
+      <div style={{ height: 200, width: 400 }}>
+        <DataGrid rows={satirlar} columns={sutunlar} rowSelectionModel={[1]} />
+      </div>
+    );
+    const secili = container.querySelector('.MuiDataGrid-row.Mui-selected');
+    expect(secili).not.toBeNull();
+    expect(rgbToHex(getComputedStyle(secili).backgroundColor)).toBe(renk.hesapZemin.toUpperCase());
   });
 });
