@@ -16,7 +16,7 @@ import { ThemeProvider } from '@mui/material/styles';
 import {
   etuysTema, renk,
   Panel, BolumBasligi, AlanSatiri, VeriTablosu,
-  Sayfalama, AracCubugu, EylemSeridi, SekmeSeridi, DurumRozeti
+  Sayfalama, AracCubugu, EylemSeridi, SekmeSeridi, DurumRozeti, SayiKutusu
 } from './index';
 
 const goster = (ui) => render(<ThemeProvider theme={etuysTema}>{ui}</ThemeProvider>);
@@ -210,5 +210,68 @@ describe('AracCubugu / EylemSeridi / BolumBasligi', () => {
   test('bölüm başlığı basılır', () => {
     goster(<BolumBasligi>Yatırımcı ile ilgili bilgiler</BolumBasligi>);
     expect(screen.getByText('Yatırımcı ile ilgili bilgiler')).toBeInTheDocument();
+  });
+});
+
+// SayiKutusu, ETUYS'te doğrudan karşılığı OLMAYAN tek bileşen — panel ekranları
+// için referansın genel kurallarından türetildi. Karşılığı olmadığı için
+// "gradyan/gölge/yuvarlak köşe yok" kuralının burada kayması en kolay yer;
+// testler o yüzden görünümü doğrudan ölçüyor.
+describe('SayiKutusu', () => {
+  test('sayıyı TR biçiminde yazar — binlik nokta', () => {
+    goster(<SayiKutusu etiket="Toplam Firma" deger={1840000} />);
+    expect(screen.getByText('1.840.000')).toBeInTheDocument();
+  });
+
+  test('ETUYS "Olmayanlar" kuralı: gradyan, gölge, yuvarlak köşe yok', () => {
+    goster(<SayiKutusu etiket="Toplam Firma" deger={12} />);
+    const kutu = screen.getByText('Toplam Firma').closest('div').parentElement;
+    const s = getComputedStyle(kutu);
+    expect(s.backgroundImage === '' || s.backgroundImage === 'none').toBe(true);
+    expect(s.boxShadow === '' || s.boxShadow === 'none').toBe(true);
+    expect(parseFloat(s.borderRadius) || 0).toBe(0);
+  });
+
+  test('yüklenirken 0 değil iskelet gösterir — yanlış sayı okutmaz', () => {
+    goster(<SayiKutusu etiket="Toplam Firma" deger={0} yukleniyor />);
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+  });
+
+  test('değer yoksa tire — boş kutu bırakmaz', () => {
+    goster(<SayiKutusu etiket="SGK" />);
+    expect(screen.getByText('—')).toBeInTheDocument();
+  });
+
+  test('tıklanabilir kutu klavyeyle de çalışır', () => {
+    const tik = jest.fn();
+    goster(<SayiKutusu etiket="Aktif Firmalar" deger={5} onTik={tik} />);
+    const dugme = screen.getByRole('button');
+    fireEvent.keyDown(dugme, { key: 'Enter' });
+    expect(tik).toHaveBeenCalled();
+  });
+
+  test('tıklanamaz kutu düğme rolü almaz — yanıltıcı olmaz', () => {
+    goster(<SayiKutusu etiket="Toplam" deger={5} />);
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  test('anlam rengi rakama uygulanır', () => {
+    goster(<SayiKutusu etiket="Süresi Geçmiş" deger={3} vurgu="red" />);
+    expect(rgbToHex(getComputedStyle(screen.getByText('3')).color)).toBe(renk.red.toUpperCase());
+  });
+});
+
+describe('SayiKutusu — erişilebilirlik', () => {
+  test('tıklanabilir kutu varsayılan olarak etiket+değeri duyurur', () => {
+    goster(<SayiKutusu etiket="Toplam Talep" deger={12} onTik={() => {}} />);
+    expect(screen.getByRole('button', { name: 'Toplam Talep: 12' })).toBeInTheDocument();
+  });
+
+  test('özel aria etiketi verilebilir', () => {
+    goster(
+      <SayiKutusu etiket="Aktif Talep" deger={7} onTik={() => {}}
+        ariaEtiket="Aktif Talep: 7 talep — listeyi aç" />
+    );
+    expect(screen.getByRole('button', { name: 'Aktif Talep: 7 talep — listeyi aç' })).toBeInTheDocument();
   });
 });

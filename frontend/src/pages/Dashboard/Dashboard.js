@@ -1,20 +1,19 @@
-// 🏢 Dashboard - COMPACT PROFESSIONAL EDITION  
-// Minimal, functional, clickable dashboard with optimized layout
+// 🏢 ANA PANEL — ETUYS diline geçirildi (madde 6 / Faz 3)
+//
+// Önce: 4 gradyanlı kart (üstte 3px gradyan şerit + 36px avatar + hover'da
+// zıplama), gradyanlı kritik uyarı kartı, avatarlı listeler, başlıklarda emoji.
+// etuys/README.md "Olmayanlar": gradyan, gölge, yuvarlak köşeli kart, emoji.
+//
+// ⚠️ KALDIRILAN UYDURMA VERİ: kutularda `change: '+5.2%'`, `'+2.1%'`,
+// `'-12.5%'`, `'+3'` sabit dizgileri vardı ve `label={stat.change}` ile
+// GERÇEK TREND GÖSTERGESİ gibi, yeşil/amber renklendirmeyle basılıyordu.
+// Hiçbiri veriden gelmiyordu; hiç değişmemişti. ETUYS'te trend rozeti de yok.
+// Gerçek trend istenirse backend'de tarihsel toplama gerekir — ayrı iş.
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Typography,
-  Card,
-  CardContent,
-  Grid,
-  Button,
-  Avatar,
-  Chip,
-  LinearProgress,
-  IconButton
-} from '@mui/material';
+import { Box, Grid, Button, IconButton, LinearProgress } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
 import {
   Business as BusinessIcon,
   CheckCircle as CheckCircleIcon,
@@ -28,15 +27,22 @@ import {
   History as HistoryIcon
 } from '@mui/icons-material';
 import { useFirma } from '../../contexts/FirmaContext';
+import { useAuth } from '../../contexts/AuthContext';
 import activityService from '../../services/activityService';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import SmartUpload from '../../components/Dashboard/SmartUpload';
 import ScreenshotImport from '../../components/Dashboard/ScreenshotImport';
+import {
+  etuysTema, renk, yazi, aralik,
+  Panel, SayiKutusu, VeriTablosu, DurumRozeti
+} from '../../tasarim';
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { firmalar, loading, stats, fetchFirmalar, fetchStats } = useFirma();
+  // Karşılama metninde ad sabit "Sistem" yazıyordu; gerçek kullanıcıdan geliyor.
+  const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivities, setRecentActivities] = useState([]);
   const [criticalAlerts, setCriticalAlerts] = useState([]);
@@ -202,46 +208,35 @@ const Dashboard = () => {
     })
     .slice(0, 5);
 
-  // 📊 Dashboard Statistics - Compact & Clickable
+  // 📊 Özet kutuları — hepsi tıklanabilir
+  // Not: burada eskiden `change`/`changeType` alanları vardı ve sabit yüzdeler
+  // gerçek trend gibi gösteriliyordu. Kaldırıldı (dosya başındaki nota bakın).
   const dashboardStats = [
     {
       title: 'Toplam Firma',
       value: stats?.toplamFirma || 0,
-      change: '+5.2%',
-      changeType: 'increase',
-      icon: <BusinessIcon sx={{ fontSize: 20 }} />,
-      color: '#1e40af',
-      gradient: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+      icon: <BusinessIcon />,
       action: () => navigate('/firmalar')
     },
     {
-      title: 'Aktif Firmalar', 
+      title: 'Aktif Firmalar',
       value: stats?.aktifFirma || 0,
-      change: '+2.1%',
-      changeType: 'increase',
-      icon: <CheckCircleIcon sx={{ fontSize: 20 }} />,
-      color: '#059669',
-      gradient: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+      icon: <CheckCircleIcon />,
+      vurgu: 'onay',
       action: () => navigate('/firmalar?aktif=true')
     },
     {
       title: 'Yetki Süresi Yaklaşan',
       value: stats?.etuysUyarilari?.count || 0,
-      change: '-12.5%',
-      changeType: 'decrease',
-      icon: <WarningIcon sx={{ fontSize: 20 }} />,
-      color: '#a16207',
-      gradient: 'linear-gradient(135deg, #a16207 0%, #f59e0b 100%)',
+      icon: <WarningIcon />,
+      vurgu: 'bekle',
       action: () => navigate('/firmalar?etuysUyari=true')
     },
     {
       title: 'Süresi Geçmiş',
       value: (stats?.toplamFirma || 0) - (stats?.etuysYetkili || 0) - (stats?.etuysUyarilari?.count || 0),
-      change: '+3',
-      changeType: 'neutral',
-      icon: <LocationIcon sx={{ fontSize: 20 }} />,
-      color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+      icon: <LocationIcon />,
+      vurgu: 'red',
       action: () => navigate('/firmalar?etuysGecmis=true')
     }
   ];
@@ -265,6 +260,8 @@ const Dashboard = () => {
   ];
 
   return (
+    // Tema yalnız BU ekranı sarıyor; global tema değişmiyor.
+    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -303,519 +300,179 @@ const Dashboard = () => {
         display: 'flex',
         flexDirection: 'column'
       }}>
-      {/* 👋 Compact Welcome Section */}
-      <Box sx={{ mb: 2.5, position: 'relative' }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', md: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', md: 'center' },
-          gap: 2
-        }}>
-          <Box>
-            <Typography 
-              variant="h4" 
-              component="h1" 
-              sx={{ 
-                fontWeight: 700, 
-                color: '#1e293b', 
-                mb: 0.5,
-                fontSize: { xs: '1.5rem', md: '1.75rem' }
-              }}
-            >
-              Hoş geldiniz, Sistem
-            </Typography>
-            <Typography 
-              variant="body1" 
-              color="text.secondary"
-              sx={{ 
-                fontSize: '0.875rem'
-              }}
-            >
-                              GM Planlama Danışmanlık - Ana kontrol paneli
-            </Typography>
+      {/* Karşılama */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1, flexWrap: 'wrap', mb: `${aralik.grup}px` }}>
+        <Box>
+          <Box sx={{ fontSize: `${yazi.buyuk}px`, fontWeight: yazi.cokKalin, color: renk.murekkep }}>
+            Hoş geldiniz{user?.adSoyad ? `, ${user.adSoyad}` : ''}
           </Box>
-          
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <Button
-              variant="outlined"
-              startIcon={refreshing ? <AutorenewIcon className="rotating" /> : <RefreshIcon />}
-              onClick={handleRefresh}
-              disabled={refreshing}
-              size="small"
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                px: 1.5,
-                py: 0.5,
-                minWidth: 'auto',
-                '& .rotating': {
-                  animation: 'spin 1s linear infinite'
-                },
-                '@keyframes spin': {
-                  '0%': { transform: 'rotate(0deg)' },
-                  '100%': { transform: 'rotate(360deg)' }
-                }
-              }}
-            >
-              Yenile
-            </Button>
-            
-            <Button
-              variant="contained"
-              color="success"
-              startIcon={<AssessmentIcon />}
-              onClick={() => navigate('/istatistikler')}
-              size="small"
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-                fontSize: '0.75rem',
-                px: 1.5,
-                py: 0.5,
-                minWidth: 'auto'
-              }}
-            >
-              İstatistikler
-            </Button>
+          <Box sx={{ fontSize: `${yazi.etiket}px`, color: renk.sessiz, mt: 0.2 }}>
+            GM Planlama Danışmanlık — Ana kontrol paneli
           </Box>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }}>
+          <Button variant="outlined" size="small" disabled={refreshing} onClick={handleRefresh}
+            startIcon={refreshing ? <AutorenewIcon className="rotating" /> : <RefreshIcon />}
+            sx={{ '& .rotating': { animation: 'spin 1s linear infinite' }, '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }}>
+            Yenile
+          </Button>
+          <Button variant="contained" size="small" startIcon={<AssessmentIcon />}
+            onClick={() => navigate('/istatistikler')}>
+            İstatistikler
+          </Button>
         </Box>
       </Box>
 
-      {/* Loading Bar */}
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
+      {loading && <LinearProgress sx={{ mb: 1, height: 2 }} />}
 
-      {/* 🧠 Akıllı Dosya Yükleme Modülü */}
       <SmartUpload />
-
-      {/* 📸 Ekran Görüntüsünden Belge Oluşturma Modülü */}
       <ScreenshotImport />
 
-      {/* 🚨 Critical Alerts Section */}
+      {/* Kritik durumlar — gradyanlı kart yerine kırmızı kenarlı panel */}
       {criticalAlerts.length > 0 && (
-        <Card sx={{ 
-          mb: 3,
-          borderRadius: 2,
-          border: '2px solid #ef4444',
-          background: 'linear-gradient(135deg, #fef2f2 0%, #fff5f5 100%)'
-        }}>
-          <CardContent sx={{ p: 2.5 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <WarningIcon sx={{ color: '#dc2626', mr: 1, fontSize: 24 }} />
-              <Typography variant="h6" sx={{ fontWeight: 700, color: '#dc2626', fontSize: '1.1rem' }}>
-                🚨 Kritik Durumlar
-              </Typography>
-              <Chip 
-                label={`${criticalAlerts.length} Uyarı`}
-                size="small"
-                color="error"
-                sx={{ ml: 2, fontWeight: 600 }}
-              />
-            </Box>
-            
-            <Grid container spacing={2}>
-              {criticalAlerts.map((alert, index) => (
-                <Grid item xs={12} md={6} key={index}>
-                  <Card 
-                    onClick={alert.action}
-                    sx={{ 
-                      cursor: 'pointer',
-                      border: alert.type === 'error' ? '1px solid #fca5a5' : '1px solid #fcd34d',
-                      background: alert.type === 'error' ? '#fef2f2' : '#fffbeb',
-                      transition: 'all 0.2s ease',
-                      '&:hover': {
-                        transform: 'translateY(-1px)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
-                      }
-                    }}
-                  >
-                    <CardContent sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                        <Typography variant="subtitle1" sx={{ 
-                          fontWeight: 700, 
-                          color: alert.type === 'error' ? '#dc2626' : '#d97706',
-                          fontSize: '0.9rem'
-                        }}>
-                          {alert.title}
-                        </Typography>
-                        <Chip 
-                          label={alert.count}
-                          size="small"
-                          color={alert.type === 'error' ? 'error' : 'warning'}
-                          sx={{ fontWeight: 600, fontSize: '0.7rem' }}
-                        />
-                      </Box>
-                      
-                      <Typography variant="body2" sx={{ 
-                        color: alert.type === 'error' ? '#991b1b' : '#92400e',
-                        mb: 1.5,
-                        fontSize: '0.8rem'
-                      }}>
-                        {alert.message}
-                      </Typography>
-                      
-                      {alert.firms && alert.firms.length > 0 && (
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {alert.firms.map((firma, firmIndex) => (
-                            <Typography key={firmIndex} variant="caption" sx={{ 
-                              color: '#6b7280',
-                              fontSize: '0.7rem',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}>
-                              • {firma.tamUnvan} ({firma.firmaId})
-                            </Typography>
-                          ))}
-                          {alert.count > 3 && (
-                            <Typography variant="caption" sx={{ 
-                              color: '#6b7280',
-                              fontSize: '0.7rem',
-                              fontStyle: 'italic'
-                            }}>
-                              ... ve {alert.count - 3} firma daha
-                            </Typography>
-                          )}
-                        </Box>
-                      )}
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </CardContent>
-        </Card>
+        <Panel
+          baslik="Kritik Durumlar"
+          ikon={<WarningIcon sx={{ fontSize: 14 }} />}
+          sagUnsur={<DurumRozeti durum="red" metin={`${criticalAlerts.length} Uyarı`} />}
+          sx={{ '& > div:first-of-type': { borderLeftColor: renk.red, color: renk.red } }}
+        >
+          <Grid container spacing={1.2}>
+            {criticalAlerts.map((uyari, i) => (
+              <Grid item xs={12} md={6} key={i}>
+                <Box
+                  onClick={uyari.action}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); uyari.action(); } }}
+                  aria-label={`${uyari.title}: ${uyari.count} — listeyi aç`}
+                  sx={{
+                    border: `1px solid ${uyari.type === 'error' ? renk.red : renk.bekle}`,
+                    borderLeft: `3px solid ${uyari.type === 'error' ? renk.red : renk.bekle}`,
+                    backgroundColor: uyari.type === 'error' ? renk.redHafif : renk.bekleHafif,
+                    p: 1, cursor: 'pointer', height: '100%',
+                    '&:focus-visible': { outline: `2px solid ${renk.ana}`, outlineOffset: '-2px' }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.4 }}>
+                    <Box sx={{ fontSize: `${yazi.baslik}px`, fontWeight: yazi.cokKalin, color: uyari.type === 'error' ? renk.red : renk.bekle }}>
+                      {uyari.title}
+                    </Box>
+                    <Box sx={{ fontSize: `${yazi.govde}px`, fontWeight: yazi.cokKalin, fontVariantNumeric: 'tabular-nums' }}>
+                      {uyari.count}
+                    </Box>
+                  </Box>
+                  <Box sx={{ fontSize: `${yazi.etiket}px`, color: renk.murekkep, mb: 0.4 }}>
+                    {uyari.message}
+                  </Box>
+                  {uyari.firms?.length > 0 && (
+                    <Box sx={{ fontSize: `${yazi.kucuk}px`, color: renk.sessiz }}>
+                      {uyari.firms.map((f, fi) => (
+                        <Box key={fi}>• {f.tamUnvan} ({f.firmaId})</Box>
+                      ))}
+                      {uyari.count > 3 && <Box sx={{ fontStyle: 'italic' }}>… ve {uyari.count - 3} firma daha</Box>}
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Panel>
       )}
 
-      {/* 📊 Compact Dashboard Stats Cards - CLICKABLE */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {dashboardStats.map((stat, index) => (
-          <Grid item xs={12} sm={6} md={3} key={index}>
-            <Card 
-              onClick={stat.action}
-              sx={{ 
-                height: '100%',
-                background: 'rgba(255, 255, 255, 0.95)',
-                borderRadius: 2,
-                border: '1px solid rgba(226, 232, 240, 0.5)',
-                position: 'relative',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  transform: 'translateY(-1px)',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.08)',
-                  borderColor: stat.color
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  background: stat.gradient
-                }
-              }}
-            >
-              <CardContent sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
-                  <Avatar sx={{ 
-                    background: stat.gradient,
-                    width: 36, 
-                    height: 36,
-                    boxShadow: `0 2px 8px ${stat.color}25`
-                  }}>
-                    {stat.icon}
-                  </Avatar>
-                  
-                  <Chip 
-                    label={stat.change}
-                    size="small"
-                    sx={{
-                      background: stat.changeType === 'increase' ? 'rgba(5, 150, 105, 0.1)' : 
-                                stat.changeType === 'decrease' ? 'rgba(161, 98, 7, 0.1)' : 'rgba(30, 64, 175, 0.1)',
-                      color: stat.changeType === 'increase' ? '#059669' : 
-                             stat.changeType === 'decrease' ? '#a16207' : '#1e40af',
-                      fontWeight: 600,
-                      fontSize: '0.6rem',
-                      height: 18,
-                      border: 'none'
-                    }}
-                  />
-                </Box>
-                
-                <Typography variant="h5" sx={{
-                  color: stat.color,
-                  fontWeight: 800,
-                  fontSize: '1.4rem',
-                  lineHeight: 1,
-                  mb: 0.5
-                }}>
-                  {typeof stat.value === 'number' ? stat.value.toLocaleString('tr-TR') : stat.value}
-                </Typography>
-                
-                <Typography variant="subtitle2" sx={{ 
-                  fontWeight: 600, 
-                  color: '#374151', 
-                  fontSize: '0.75rem',
-                  lineHeight: 1.2
-                }}>
-                  {stat.title}
-                </Typography>
-              </CardContent>
-            </Card>
+      {/* Özet kutuları */}
+      <Grid container spacing={1.2} sx={{ mb: `${aralik.grup}px` }}>
+        {dashboardStats.map((kutu) => (
+          <Grid item xs={12} sm={6} md={3} key={kutu.title}>
+            <SayiKutusu
+              etiket={kutu.title}
+              deger={kutu.value}
+              ikon={kutu.icon}
+              vurgu={kutu.vurgu}
+              yukleniyor={loading && !stats}
+              onTik={kutu.action}
+              ariaEtiket={`${kutu.title}: ${kutu.value} — listeyi aç`}
+            />
           </Grid>
         ))}
       </Grid>
 
-      <Grid container spacing={2}>
-        {/* 🚀 Compact Quick Actions */}
+      <Grid container spacing={1.2}>
         <Grid item xs={12} lg={4}>
-          <Card sx={{ 
-            height: '100%',
-            borderRadius: 2,
-            border: '1px solid rgba(226, 232, 240, 0.5)'
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <BusinessIcon sx={{ color: 'primary.main', mr: 1, fontSize: 20 }} />
-                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                  🚀 Hızlı İşlemler
-                </Typography>
-              </Box>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                {quickActions.map((action, index) => (
-                  <Button
-                    key={index}
-                    onClick={action.action}
-                    variant="outlined"
-                    startIcon={action.icon}
-                    sx={{
-                      justifyContent: 'flex-start',
-                      textTransform: 'none',
-                      borderRadius: 2,
-                      p: 1.5,
-                      borderColor: 'rgba(226, 232, 240, 0.8)',
-                      color: action.color,
-                      fontSize: '0.8rem',
-                      fontWeight: 500,
-                      '&:hover': {
-                        borderColor: action.color,
-                        bgcolor: `${action.color}08`
-                      }
-                    }}
-                  >
-                    <Box sx={{ textAlign: 'left', flex: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
-                        {action.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                        {action.description}
-                      </Typography>
+          <Panel baslik="Hızlı İşlemler" ikon={<BusinessIcon sx={{ fontSize: 14 }} />}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
+              {quickActions.map((eylem, i) => (
+                <Button key={i} onClick={eylem.action} variant="outlined" startIcon={eylem.icon}
+                  sx={{ justifyContent: 'flex-start', textAlign: 'left' }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ fontSize: `${yazi.govde}px`, fontWeight: yazi.kalin }}>{eylem.title}</Box>
+                    <Box sx={{ fontSize: `${yazi.kucuk}px`, color: renk.sessiz, textTransform: 'none' }}>
+                      {eylem.description}
                     </Box>
-                  </Button>
-                ))}
-              </Box>
-            </CardContent>
-          </Card>
+                  </Box>
+                </Button>
+              ))}
+            </Box>
+          </Panel>
         </Grid>
 
-        {/* 👥 Compact Recent Companies */}
         <Grid item xs={12} lg={4}>
-          <Card sx={{ 
-            height: '100%',
-            borderRadius: 2,
-            border: '1px solid rgba(226, 232, 240, 0.5)'
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <CheckCircleIcon sx={{ color: 'success.main', mr: 1, fontSize: 20 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                    📋 Son Eklenen Firmalar
-                  </Typography>
-                </Box>
-                <IconButton 
-                  size="small" 
-                  onClick={() => navigate('/firmalar')}
-                  sx={{ color: 'text.secondary' }}
-                >
-                  <ViewListIcon fontSize="small" />
-                </IconButton>
-              </Box>
-              
-              {recentCompanies.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {recentCompanies.map((firma) => (
-                    <Box 
-                      key={firma._id}
-                      onClick={() => navigate(`/firmalar/${firma._id}`)}
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        p: 1.5,
-                        borderRadius: 2,
-                        border: '1px solid rgba(226, 232, 240, 0.5)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          bgcolor: 'rgba(59, 130, 246, 0.02)',
-                          borderColor: 'rgba(59, 130, 246, 0.3)'
-                        }
-                      }}
-                    >
-                      <Avatar sx={{ 
-                        width: 32, 
-                        height: 32, 
-                        bgcolor: 'primary.main',
-                        fontSize: '0.7rem',
-                        mr: 1.5
-                      }}>
-                        {firma.tamUnvan?.charAt(0)}
-                      </Avatar>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ 
-                          fontWeight: 600, 
-                          mb: 0.25,
-                          fontSize: '0.8rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {firma.tamUnvan}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          {firma.firmaId} • {firma.firmaIl || 'Şehir belirtilmemiş'}
-                        </Typography>
-                      </Box>
-                      
-                      <Chip 
-                        label={firma.firmaId}
-                        size="small"
-                        color="primary"
-                        sx={{ fontSize: '0.6rem', height: 20 }}
-                      />
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  textAlign: 'center', 
-                  py: 2,
-                  color: 'text.secondary'
-                }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                    Henüz firma eklenmemiş
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
+          <Panel
+            baslik="Son Eklenen Firmalar"
+            ikon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
+            bosluksuz
+            sagUnsur={
+              <IconButton size="small" onClick={() => navigate('/firmalar')}
+                aria-label="Firma listesini aç" sx={{ p: 0.15, color: renk.sessiz }}>
+                <ViewListIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            }
+          >
+            <VeriTablosu
+              sutunlar={[
+                { anahtar: 'firmaId', baslik: 'Firma No', genislik: 90 },
+                { anahtar: 'tamUnvan', baslik: 'Unvan' },
+                { anahtar: 'firmaIl', baslik: 'İl', genislik: 100,
+                  bicim: (v) => v || 'Belirtilmemiş' }
+              ]}
+              satirlar={recentCompanies}
+              onSatirTik={(satir) => navigate(`/firmalar/${satir._id}`)}
+              bosMetin="Henüz firma eklenmemiş"
+            />
+          </Panel>
         </Grid>
 
-        {/* 📋 Son İşlemler Widget */}
         <Grid item xs={12} lg={4}>
-          <Card sx={{ 
-            height: '100%',
-            borderRadius: 2,
-            border: '1px solid rgba(226, 232, 240, 0.5)'
-          }}>
-            <CardContent sx={{ p: 2.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <HistoryIcon sx={{ color: 'error.main', mr: 1, fontSize: 20 }} />
-                  <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                    📋 Son İşlemler
-                  </Typography>
-                </Box>
-                <IconButton 
-                  size="small" 
-                  onClick={() => navigate('/son-islemler')}
-                  sx={{ color: 'text.secondary' }}
-                >
-                  <ViewListIcon fontSize="small" />
-                </IconButton>
-              </Box>
-              
-              {recentActivities.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {recentActivities.map((activity) => (
-                    <Box 
-                      key={activity._id}
-                      onClick={() => navigate('/son-islemler')}
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        p: 1.5,
-                        borderRadius: 2,
-                        border: '1px solid rgba(226, 232, 240, 0.5)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          bgcolor: 'rgba(220, 38, 38, 0.02)',
-                          borderColor: 'rgba(220, 38, 38, 0.3)'
-                        }
-                      }}
-                    >
-                      <Avatar sx={{ 
-                        width: 32, 
-                        height: 32, 
-                        bgcolor: activityService.getStatusColor(activity.status) === 'error' ? 'error.main' : 
-                                activityService.getStatusColor(activity.status) === 'success' ? 'success.main' : 'primary.main',
-                        fontSize: '0.7rem',
-                        mr: 1.5
-                      }}>
-                        {activity.user?.name?.charAt(0)?.toUpperCase()}
-                      </Avatar>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ 
-                          fontWeight: 600, 
-                          mb: 0.25,
-                          fontSize: '0.8rem',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {activity.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                          {activity.user?.name} • {activityService.formatDate(activity.createdAt, 'relative')}
-                        </Typography>
-                      </Box>
-                      
-                      <Chip 
-                        label={activityService.getActionDisplayName(activity.action)}
-                        size="small"
-                        color={activityService.getStatusColor(activity.status)}
-                        variant="outlined"
-                        sx={{ fontSize: '0.6rem', height: 20 }}
-                      />
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Box sx={{ 
-                  textAlign: 'center', 
-                  py: 2,
-                  color: 'text.secondary'
-                }}>
-                  <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>
-                    📝 Henüz işlem geçmişi bulunmamaktadır
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
+          <Panel
+            baslik="Son İşlemler"
+            ikon={<HistoryIcon sx={{ fontSize: 14 }} />}
+            bosluksuz
+            sagUnsur={
+              <IconButton size="small" onClick={() => navigate('/son-islemler')}
+                aria-label="Tüm işlemleri aç" sx={{ p: 0.15, color: renk.sessiz }}>
+                <ViewListIcon sx={{ fontSize: 16 }} />
+              </IconButton>
+            }
+          >
+            <VeriTablosu
+              sutunlar={[
+                { anahtar: 'title', baslik: 'İşlem' },
+                { anahtar: 'user', baslik: 'Kullanıcı', genislik: 110,
+                  bicim: (_v, satir) => satir.user?.name || '—' },
+                { anahtar: 'action', baslik: 'Tür', genislik: 110,
+                  bicim: (v) => activityService.getActionDisplayName(v) },
+                { anahtar: 'createdAt', baslik: 'Zaman', genislik: 90,
+                  bicim: (v) => activityService.formatDate(v, 'relative') }
+              ]}
+              satirlar={recentActivities}
+              onSatirTik={() => navigate('/son-islemler')}
+              bosMetin="Henüz işlem geçmişi bulunmamaktadır"
+            />
+          </Panel>
         </Grid>
       </Grid>
       </Box>
     </Box>
+    </ThemeProvider>
   );
 };
 
