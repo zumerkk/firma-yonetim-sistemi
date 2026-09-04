@@ -462,7 +462,7 @@ const FirmaDetail = () => {
                     <Grid container spacing={3}>
                       {/* 🏢 Temel Bilgiler */}
                       <Grid item xs={12} md={6}>
-                        <Card className="glass-card" sx={{ height: '100%' }}>
+                        <Card sx={{ height: '100%' }}>
                           <CardHeader
                             avatar={<BusinessIcon sx={{ color: 'primary.main' }} />}
                             title="Temel Bilgiler"
@@ -545,7 +545,7 @@ const FirmaDetail = () => {
 
                       {/* 📍 Lokasyon Bilgileri */}
                       <Grid item xs={12} md={6}>
-                        <Card className="glass-card" sx={{ height: '100%' }}>
+                        <Card sx={{ height: '100%' }}>
                           <CardHeader
                             avatar={<LocationIcon sx={{ color: 'primary.main' }} />}
                             title="Lokasyon Bilgileri"
@@ -616,7 +616,7 @@ const FirmaDetail = () => {
 
                       {/* 📅 Yetki Bilgileri */}
                       <Grid item xs={12} md={6}>
-                        <Card className="glass-card" sx={{ height: '100%' }}>
+                        <Card sx={{ height: '100%' }}>
                           <CardHeader
                             avatar={<ScheduleIcon sx={{ color: 'primary.main' }} />}
                             title="Yetki Bilgileri"
@@ -678,7 +678,7 @@ const FirmaDetail = () => {
 
                       {/* 👥 Yetkili Kişiler */}
                       <Grid item xs={12} md={6}>
-                        <Card className="glass-card" sx={{ height: '100%' }}>
+                        <Card sx={{ height: '100%' }}>
                           <CardHeader
                             avatar={<PersonIcon sx={{ color: 'primary.main' }} />}
                             title="Yetkili Kişiler"
@@ -765,7 +765,7 @@ const FirmaDetail = () => {
                       {/* 📝 Notlar ve Sistem Bilgileri */}
                       {(firma.notlar || firma.createdAt) && (
                         <Grid item xs={12}>
-                          <Card className="glass-card">
+                          <Card>
                             <CardHeader
                               avatar={<NotesIcon sx={{ color: 'primary.main' }} />}
                               title="Notlar ve Sistem Bilgileri"
