@@ -47,8 +47,6 @@ import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
 
 // 🎯 Import activity selector component
 import ActivitySelector from '../../components/ActivitySelector';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 // 🇹🇷 Türkçe karakter dönüştürme fonksiyonu
 const toTurkishUpperCase = (str) => {
@@ -742,9 +740,6 @@ const FirmaForm = () => {
   }, []);
 
   return (
-    // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
-    // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -1756,7 +1751,6 @@ const FirmaForm = () => {
         </Container>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 

@@ -7,12 +7,11 @@
 // Sonra: SayiKutusu + Panel + VeriTablosu. Yerel StatsCard (48 satır) silindi;
 // aynı fikrin dört panelde dört ayrı kopyası vardı.
 //
-// Ekran ETUYS temasıyla sarmalanıyor (ThemeProvider) — geçiş ekran ekran ve
-// geri alınabilir olsun diye; tema global olarak değiştirilmiyor.
+// Tema Faz 4'te global oldu (App.js → etuysTema); ekran bazlı ThemeProvider
+// sarmalayıcısı kaldırıldı.
 
 import React, { useState, useEffect } from 'react';
 import { Box, Container, Grid, Button, Alert } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
 import {
   EmojiEvents as EmojiEventsIcon,
   Add as AddIcon,
@@ -29,7 +28,7 @@ import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
 import {
-  etuysTema, renk, yazi, aralik,
+  renk, yazi, aralik,
   Panel, SayiKutusu, VeriTablosu, DurumRozeti
 } from '../../tasarim';
 
@@ -114,7 +113,6 @@ const TesvikDashboard = () => {
   return (
     // Tema yalnız BU ekranı sarıyor. Global tema değişmiyor; madde 6 ekran ekran
     // ilerlesin ve her adım tek satırla geri alınabilsin diye.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -276,7 +274,6 @@ const TesvikDashboard = () => {
         </Container>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 

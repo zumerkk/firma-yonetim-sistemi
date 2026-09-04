@@ -1,34 +1,31 @@
-// 🎨 MUI TEMALARI — GEÇİŞ STRATEJİSİ
+// 🎨 MUI TEMALARI
 //
 // Bu dosya İKİ tema dışa aktarır:
 //
-//   mevcutTema  App.js'te satır içi duran temanın BİREBİR aynısı. Taşındı,
-//               değiştirilmedi. Bugünkü görünüm hiç bozulmuyor.
+//   etuysTema   ✅ AKTİF — App.js'in global teması (Faz 4, 4 Eylül 2026).
+//               Faz 1'de onaylanan tasarım dili, jetonlar.js'ten üretilir.
 //
-//   etuysTema   Faz 1'de onaylanan tasarım dili (jetonlar.js'ten üretilir).
-//               HENÜZ HİÇBİR YERDE UYGULANMIYOR.
+//   mevcutTema  Faz 2 öncesi görünüm. ARTIK KULLANILMIYOR ama BİLEREK DURUYOR:
+//               App.js'te tek satır (`etuysTema` → `mevcutTema`) tüm uygulamayı
+//               eski görünüme döndürür. Faz 3'te hiç incelenmemiş 26 ekran da
+//               global anahtarla değişti; sorun çıkarsa geri dönüş yolu bu.
+//               Bir süre sorunsuz gittikten sonra silinebilir.
 //
-// ── Neden iki tema? ────────────────────────────────────────────────────
+// ── Geçiş nasıl yürüdü ─────────────────────────────────────────────────
 // Global temayı bir anda değiştirmek 48.395 satırlık ekran kodunun tamamının
-// görünümünü aynı saniyede değiştirir — hangi ekranın bozulduğunu anlamak
-// imkânsız hale gelir. Bunun yerine MUI'nin iç içe ThemeProvider desteğini
-// kullanıyoruz: Faz 3'te her ekran sırası gelince kendi etrafına sarmalanır:
+// görünümünü aynı saniyede değiştirirdi — hangi ekranın bozulduğunu anlamak
+// imkânsız olurdu. Bunun yerine MUI'nin iç içe ThemeProvider desteği kullanıldı:
+// Faz 3'te 19 ekran tek tek kendi etrafına sarmalandı, her adım ayrı PR'da
+// doğrulandı (#100, #101, #103, #104, #105). Faz 4'te anahtar buraya alındı ve
+// ekran bazlı sarmalayıcılar toplandı.
 //
-//   import { ThemeProvider } from '@mui/material/styles';
-//   import { etuysTema } from '../../tasarim/muiTema';
-//
-//   <ThemeProvider theme={etuysTema}>
-//     <TesvikDetay />
-//   </ThemeProvider>
-//
-// Böylece geçiş ekran ekran, geri alınabilir şekilde ilerler. Bütün ekranlar
-// bittiğinde App.js'teki mevcutTema doğrudan etuysTema ile değiştirilir ve
-// bu dosyadaki ikilik kalkar.
+// ⚠️ `sx`, tema `styleOverrides`'ı EZER. Bir ekran hâlâ eski görünüyorsa
+// büyük olasılıkla yerel `sx` içinde borderRadius/boxShadow/background vardır.
 
 import { createTheme } from '@mui/material/styles';
 import { renk, yazi, kenar } from './jetonlar';
 
-// ═══════════════ MEVCUT TEMA (dokunulmadı) ═══════════════
+// ═══════════════ ESKİ TEMA (yalnız geri dönüş için) ═══════════════
 export const mevcutTema = createTheme({
   palette: {
     mode: 'light',
@@ -58,7 +55,7 @@ export const mevcutTema = createTheme({
   }
 });
 
-// ═══════════════ ETUYS TEMASI (Faz 3'te uygulanacak) ═══════════════
+// ═══════════════ ETUYS TEMASI — AKTİF GLOBAL TEMA ═══════════════
 export const etuysTema = createTheme({
   palette: {
     mode: 'light',
@@ -107,6 +104,47 @@ export const etuysTema = createTheme({
     MuiPaper: {
       defaultProps: { elevation: 0 },
       styleOverrides: { root: { border: kenar.ince, borderRadius: kenar.yaricap } }
+    },
+
+    // ── YÜZEN YÜZEYLER ──────────────────────────────────────────────────
+    // Düz yüzeyler düz kalır; yüzen yüzeyler yüzdüğünü belli eder.
+    //
+    // Neden istisna: MUI'de Dialog, Menu, Select/Autocomplete açılır listesi ve
+    // Drawer'ın hepsi Paper. Yukarıdaki kural onlara da uygulanınca ölçüldü:
+    //     DIALOG  gölge:none  kenarlık:1px solid #DCE3E9  zemin:beyaz
+    //     MENU    gölge:none  kenarlık:1px solid #DCE3E9  zemin:beyaz
+    // Beyaz bir tablonun üstüne açılan menü, arkasından yalnız 1px açık gri
+    // ile ayrılıyordu — pratikte yüzdüğü anlaşılmıyor.
+    //
+    // ETUYS bu soruyu CEVAPLAMIYOR: onun açılır listeleri yerel tarayıcı
+    // select'i, yani yüzen katmanı işletim sistemi çiziyor (ve gölgesi var).
+    // ETUYS düz görünümü yalnız KENDİ çizdiği yüzeylere uyguluyor. Biz MUI ile
+    // o yüzeyleri kendimiz çizdiğimiz için, "gölge yok" kuralını buraya
+    // taşımak referansı taklit etmek değil, hiç almadığı bir kararı ona
+    // atfetmek olurdu. Bkz. etuys/Screenshot 2026-09-02 130333.png
+    //
+    // Gölge ölçülü: ETUYS'ün sakinliğini bozmayacak kadar, katmanı belli
+    // edecek kadar. Kenarlık da bir ton koyu (alanCizgi).
+    MuiDialog: {
+      styleOverrides: {
+        paper: { border: kenar.alan, boxShadow: '0 2px 10px rgba(27, 39, 51, 0.18)' }
+      }
+    },
+    // Popover, Menu / Select / Autocomplete açılır listelerinin ortak tabanı
+    MuiPopover: {
+      styleOverrides: {
+        paper: { border: kenar.alan, boxShadow: '0 2px 8px rgba(27, 39, 51, 0.16)' }
+      }
+    },
+    MuiAutocomplete: {
+      styleOverrides: {
+        paper: { border: kenar.alan, boxShadow: '0 2px 8px rgba(27, 39, 51, 0.16)' }
+      }
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: { borderRight: kenar.alan, boxShadow: '0 0 10px rgba(27, 39, 51, 0.12)' }
+      }
     },
     MuiCard: {
       defaultProps: { elevation: 0 },

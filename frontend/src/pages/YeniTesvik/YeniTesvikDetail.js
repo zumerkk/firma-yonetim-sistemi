@@ -31,8 +31,7 @@ import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 // 🎛️ Tasarım sistemi (madde 6 / Faz 2). Bu ekran ETUYS temasıyla SARMALANIYOR;
 // uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
 // ekran ekran ve geri alınabilir ilerliyor.
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema, renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
+import { renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
 // sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
@@ -1144,7 +1143,6 @@ const YeniTesvikDetail = () => {
               ulaşmak için kaydırıyordu. Sekme sırası ETUYS'ünkiyle BİREBİR —
               kullanıcılar bu sırayı bakanlık sisteminde ezberlemiş durumda.
               ═══════════════════════════════════════════════════════════ */}
-          <ThemeProvider theme={etuysTema}>
             <Box>
               <SekmeSeridi sekmeler={BOLUMLER} etkin={aktifBolum} onDegis={setAktifBolum} />
 
@@ -1427,7 +1425,6 @@ const YeniTesvikDetail = () => {
                 )}
               </Box>
             </Box>
-          </ThemeProvider>
 
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}

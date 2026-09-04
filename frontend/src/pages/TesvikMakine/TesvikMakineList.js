@@ -14,8 +14,6 @@ import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import { formatDate, formatMoney } from './helpers';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 const CARD_DEFS = [
   { key: 'totalCertificates', label: 'Toplam Teşvik Belgesi', color: '#1e40af' },
@@ -85,7 +83,6 @@ export default function TesvikMakineList() {
     // 📋 ETUYS teması — DataGrid'in görünümü buradan geliyor.
     // Grid'in KENDİSİ değişmedi: sıralama, filtreleme, sütun boyutlandırma ve
     // seçim aynen duruyor. Yalnız giydiriliyor (tasarim/muiTema.js → MuiDataGrid).
-    <ThemeProvider theme={etuysTema}>
     <LayoutWrapper>
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -146,6 +143,5 @@ export default function TesvikMakineList() {
         {snack && <Alert severity={snack.severity} onClose={() => setSnack(null)}>{snack.message}</Alert>}
       </Snackbar>
     </LayoutWrapper>
-    </ThemeProvider>
   );
 }

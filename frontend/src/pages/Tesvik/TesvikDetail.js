@@ -30,8 +30,7 @@ import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
 
 // 🎛️ Tasarım sistemi (madde 6). Bu ekran ETUYS temasıyla sarmalanıyor.
 // Yeni teşvik detay sayfasıyla AYNI yapı — iki sayfa bir daha ayrışmasın.
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema, renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
+import { renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN (bkz. etuys/README.md)
 const BOLUMLER = [
@@ -1135,7 +1134,6 @@ const TesvikDetail = () => {
 
           {/* ═══ ETUYS SEKME YAPISI (madde 6 / Faz 3) ═══
               Sıra ETUYS'ünkiyle birebir; bkz. etuys/README.md */}
-          <ThemeProvider theme={etuysTema}>
             <Box>
               <SekmeSeridi sekmeler={BOLUMLER} etkin={aktifBolum} onDegis={setAktifBolum} />
               <Box sx={{ border: `1px solid ${renk.cizgi}`, borderTop: 'none', backgroundColor: renk.yuzey, p: 1.75 }}>
@@ -1379,7 +1377,6 @@ const TesvikDetail = () => {
                 )}
               </Box>
             </Box>
-          </ThemeProvider>
 
 
           {/* 👨‍💼 KULLANICI TAKİBİ - KOMPAKT */}

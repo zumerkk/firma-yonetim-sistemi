@@ -4,13 +4,9 @@
 //
 //   import { Panel, AlanSatiri, VeriTablosu, renk } from '../../tasarim';
 //
-// Faz 3'te bir ekran sırası gelince, o ekran ETUYS temasıyla sarmalanır:
-//
-//   import { ThemeProvider } from '@mui/material/styles';
-//   import { etuysTema } from '../../tasarim';
-//   <ThemeProvider theme={etuysTema}> … </ThemeProvider>
-//
-// Böylece geçiş ekran ekran ve geri alınabilir olur.
+// Faz 4'ten (4 Eylül 2026) beri etuysTema App.js'in GLOBAL teması; ekran bazlı
+// ThemeProvider sarmalayıcısına gerek yok, hepsi kaldırıldı. Bir ekran hâlâ eski
+// görünüyorsa sebebi tema değil, yerel `sx` — `sx` styleOverrides'ı ezer.
 
 export { default as jetonlar, renk, yazi, aralik, kenar, stil, durumStili } from './jetonlar';
 export { mevcutTema, etuysTema } from './muiTema';

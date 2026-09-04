@@ -4,10 +4,17 @@
 import React from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { CssBaseline, ThemeProvider } from '@mui/material';
-// 🎛️ Tema artık tasarim/muiTema.js'te. mevcutTema, burada duran temanın
-// BİREBİR aynısı — bu taşıma görünümü değiştirmiyor. Faz 3'te ekranlar
-// sırayla etuysTema ile sarmalanacak, en sonda burası da ona geçecek.
-import { mevcutTema as theme } from './tasarim/muiTema';
+// 🎛️ GLOBAL TEMA — Faz 4'te etuysTema'ya geçildi.
+//
+// Faz 2'de iki tema yan yana kondu, Faz 3'te ekranlar tek tek etuysTema ile
+// sarmalandı (19 ekran). Sarmalayıcılar artık gereksiz ve kaldırıldı; tema
+// buradan tek noktadan geliyor.
+//
+// ⚠️ GERİ ALMA TEK SATIR: aşağıyı `mevcutTema as theme` yapmak tüm uygulamayı
+// eski görünüme döndürür. mevcutTema muiTema.js'te bilerek duruyor —
+// Faz 3'te hiç incelenmemiş 26 ekran da bu anahtarla değişti, sorun çıkarsa
+// tek satırla geri dönülebilsin diye.
+import { etuysTema as theme } from './tasarim/muiTema';
 
 // 🛡️ App Router with Refresh Handler
 import AppRouter from './components/AppRouter';

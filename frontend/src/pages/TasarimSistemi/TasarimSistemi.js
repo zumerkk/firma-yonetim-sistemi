@@ -11,11 +11,10 @@
 // ya da kaldırılır — o zaman karar verilir.
 
 import React, { useState } from 'react';
-import { ThemeProvider } from '@mui/material/styles';
 import { Box, Button, Typography } from '@mui/material';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import {
-  etuysTema, renk, yazi, aralik, kenar,
+  renk, yazi, aralik, kenar,
   Panel, BolumBasligi, AlanSatiri, VeriTablosu,
   Sayfalama, AracCubugu, EylemSeridi, SekmeSeridi, DurumRozeti
 } from '../../tasarim';
@@ -76,7 +75,6 @@ const TasarimSistemi = () => {
     <LayoutWrapper>
       {/* Kılavuzun kendisi de ETUYS temasıyla sarılı — Faz 3'te her ekran
           aynı şekilde sarmalanacak. Kullanım örneği yerine geçiyor. */}
-      <ThemeProvider theme={etuysTema}>
         <Box sx={{ p: 3, backgroundColor: renk.zemin, minHeight: '100%' }}>
 
           <Typography sx={{ fontSize: 26, fontWeight: 700, color: renk.murekkep }}>
@@ -220,7 +218,6 @@ const TasarimSistemi = () => {
             </Typography>
           </Box>
         </Box>
-      </ThemeProvider>
     </LayoutWrapper>
   );
 };

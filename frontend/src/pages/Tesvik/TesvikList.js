@@ -53,8 +53,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 const TesvikList = () => {
   const navigate = useNavigate();
@@ -347,9 +345,6 @@ const TesvikList = () => {
   };
 
   return (
-    // 📋 ETUYS teması — tablo görünümü temadan geliyor (MuiTableCell).
-    // Tablonun KENDİSİ değişmedi: filtreler, yükleme iskeleti, hücre mantığı aynı.
-    <ThemeProvider theme={etuysTema}>
     <>
       <Box sx={{ 
         display: 'grid',
@@ -914,7 +909,6 @@ const TesvikList = () => {
       </DialogActions>
     </Dialog>
   </>
-  </ThemeProvider>
   );
 };
 

@@ -28,6 +28,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { renk } from '../../tasarim';
 
 // 🎯 Validation Schema
 const loginSchema = yup.object({
@@ -102,7 +103,7 @@ const Login = () => {
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#f5f5f5',
+        background: renk.zemin,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -226,12 +227,7 @@ const Login = () => {
                   py: 1.5,
                   fontSize: '1.1rem',
                   fontWeight: 600,
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  background: 'linear-gradient(45deg, #1976d2, #42a5f5)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #1565c0, #1976d2)',
-                  }
+                  textTransform: 'none'
                 }}
               >
                 {submitLoading || loading ? (
@@ -257,10 +253,13 @@ const Login = () => {
           </CardContent>
         </Card>
 
-        {/* 📄 Alt Bilgi */}
+        {/* 📄 Alt Bilgi
+            Buradaki metin BEYAZDI (rgba(255,255,255,0.8)) ama sayfa zemini
+            #f5f5f5 — yani ilk commit'ten beri görünmüyordu. Yılı da sabit
+            yazılmıştı (2024); artık kendiliğinden güncelleniyor. */}
         <Box sx={{ textAlign: 'center', mt: 3 }}>
-          <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-                            © 2024 GM Planlama Danışmanlık. Tüm hakları saklıdır.
+          <Typography variant="body2" sx={{ color: renk.sessiz }}>
+            © {new Date().getFullYear()} GM Planlama Danışmanlık. Tüm hakları saklıdır.
           </Typography>
         </Box>
       </Container>
