@@ -22,6 +22,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 
 const DosyaTakipForm = () => {
@@ -370,6 +372,9 @@ const DosyaTakipForm = () => {
     };
 
     return (
+        // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
+        // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
+        <ThemeProvider theme={etuysTema}>
         <LayoutWrapper>
             <Box sx={{ p: 3, maxWidth: 1000, margin: '0 auto' }}>
                 {/* Header */}
@@ -391,15 +396,15 @@ const DosyaTakipForm = () => {
                     </Box>
                 </Box>
 
-                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
-                {success && <Alert severity="success" sx={{ mb: 2, borderRadius: 2 }}>{success}</Alert>}
+                {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>{error}</Alert>}
+                {success && <Alert severity="success" sx={{ mb: 2 }}>{success}</Alert>}
 
                 {/* Tek sayfa — aç/kapa (accordion) bölümler */}
 
-                <Paper sx={{ p: 4, borderRadius: 3, border: '1px solid #e2e8f0' }}>
+                <Paper sx={{ p: 4, border: '1px solid #e2e8f0' }}>
                     {/* BÖLÜM 1: FİRMA & BELGE SEÇİMİ */}
                     {(
-                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0' }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>1. Firma & Belge Seçimi</Typography></AccordionSummary>
                         <AccordionDetails>
                         <Box>
@@ -445,7 +450,7 @@ const DosyaTakipForm = () => {
                             />
 
                             {formData.firma && (
-                                <Paper sx={{ p: 2, background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 2, mb: 3 }}>
+                                <Paper sx={{ p: 2, background: '#f0fdf4', border: '1px solid #86efac', mb: 3 }}>
                                     <Typography variant="body2" sx={{ fontWeight: 600, color: '#16a34a' }}>
                                         ✅ Seçili Firma: {formData.firmaUnvan}
                                     </Typography>
@@ -457,7 +462,7 @@ const DosyaTakipForm = () => {
 
                             {/* Firmaya ait mevcut belgeler */}
                             {formData.firma && (
-                                <Paper sx={{ p: 2, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, mb: 3 }}>
+                                <Paper sx={{ p: 2, background: '#f8fafc', border: '1px solid #e2e8f0', mb: 3 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <FolderIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
                                         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#1e293b' }}>
@@ -478,7 +483,7 @@ const DosyaTakipForm = () => {
                                             {firmaninBelgeleri.filter(b => b._kaynak !== 'Dosya Takip').slice(0, 15).map((belge, idx) => (
                                                 <ListItem key={belge._id || idx} onClick={() => handleBelgeSelect(belge)}
                                                     selected={formData.belge === belge._id}
-                                                    sx={{ px: 1, py: 0.5, borderRadius: 1, cursor: 'pointer', '&:hover': { backgroundColor: '#eff6ff' }, '&.Mui-selected': { backgroundColor: '#dbeafe' } }}>
+                                                    sx={{ px: 1, py: 0.5, cursor: 'pointer', '&:hover': { backgroundColor: '#eff6ff' }, '&.Mui-selected': { backgroundColor: '#dbeafe' } }}>
                                                     <ListItemIcon sx={{ minWidth: 32 }}>
                                                         <InfoIcon sx={{ fontSize: 16, color: belge._kaynakRenk || '#94a3b8' }} />
                                                     </ListItemIcon>
@@ -530,7 +535,7 @@ const DosyaTakipForm = () => {
 
                     {/* BÖLÜM 2: TALEP BİLGİLERİ */}
                     {(
-                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Accordion defaultExpanded sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0' }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>2. Talep Bilgileri</Typography></AccordionSummary>
                         <AccordionDetails>
                         <Box>
@@ -591,7 +596,7 @@ const DosyaTakipForm = () => {
 
                     {/* BÖLÜM 3: EK BİLGİLER (opsiyonel) */}
                     {(
-                        <Accordion sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0', borderRadius: 2 }}>
+                        <Accordion sx={{ mb: 1.5, '&:before': { display: 'none' }, border: '1px solid #e2e8f0' }}>
                         <AccordionSummary expandIcon={<ExpandMoreIcon />}><Typography sx={{ fontWeight: 700, color: '#1e293b' }}>3. Ek Bilgiler (opsiyonel)</Typography></AccordionSummary>
                         <AccordionDetails>
                         <Box>
@@ -630,7 +635,7 @@ const DosyaTakipForm = () => {
                             />
 
                             {/* Özet */}
-                            <Paper sx={{ p: 2.5, mt: 3, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 2 }}>
+                            <Paper sx={{ p: 2.5, mt: 3, background: '#fffbeb', border: '1px solid #fde68a' }}>
                                 <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#92400e', mb: 1 }}>
                                     📋 Talep Özeti
                                 </Typography>
@@ -655,11 +660,9 @@ const DosyaTakipForm = () => {
                             startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
                             sx={{
                                 textTransform: 'none',
-                                borderRadius: 2,
                                 px: 4,
-                                background: 'linear-gradient(135deg, #059669, #10b981)',
-                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-                                '&:hover': { background: 'linear-gradient(135deg, #047857, #059669)' }
+                                backgroundColor: '#059669',
+                                '&:hover': { backgroundColor: '#047857' }
                             }}
                         >
                             {isEdit ? 'Güncelle' : 'Talebi Oluştur'}
@@ -668,6 +671,7 @@ const DosyaTakipForm = () => {
                 </Paper>
             </Box>
         </LayoutWrapper>
+        </ThemeProvider>
     );
 };
 

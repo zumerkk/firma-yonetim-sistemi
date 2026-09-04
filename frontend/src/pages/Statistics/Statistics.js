@@ -65,6 +65,8 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import api from '../../utils/axios';
+import { ThemeProvider } from '@mui/material/styles';
+import { etuysTema } from '../../tasarim';
 
 // 📊 Mock Chart Component (in production, use Chart.js, Recharts, or D3)
 const ChartPlaceholder = ({ title, type, data, height = 300 }) => (
@@ -76,7 +78,6 @@ const ChartPlaceholder = ({ title, type, data, height = 300 }) => (
       justifyContent: 'center',
       bgcolor: 'rgba(25, 118, 210, 0.04)',
       border: '1px dashed rgba(25, 118, 210, 0.3)',
-      borderRadius: 2,
       position: 'relative'
     }}
   >
@@ -361,17 +362,24 @@ const Statistics = () => {
     return [csvHeaders, ...csvRows].join('\n');
   };
 
-  // 🎯 Enhanced stat cards with more metrics - FIXED DATA MAPPING
+  // 📊 İstatistik kutuları
+  //
+  // ⚠️ KALDIRILAN UYDURMA VERİ: altı kutuda `change: '+5.2%'`, `'+2.1%'`,
+  // `'+8.7%'`, `'+3.4%'`, `'+1.8%'`, `'+4.2%'` sabit dizgileri vardı ve hepsi
+  // `trend: 'up'` idi — ekran müşteriye "her şey artıyor" diyordu. Hiçbiri
+  // veriden gelmiyordu. `label={card.change}` ile rozet olarak basılıyorlardı.
+  //
+  // Ana panelde (Dashboard.js) aynı desen PR #103'te temizlenmişti; bu dosya
+  // gözden kaçmıştı — canlı bundle'da `+5.2%` aranınca ortaya çıktı.
+  // Gerçek trend istenirse backend'de tarihsel toplama gerekir.
   const enhancedStatCards = useMemo(() => [
     {
       title: 'Toplam Firma',
       value: firmaStats?.toplamFirma || 0,
       icon: <BusinessIcon />,
       color: '#1e40af',
-      gradient: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)',
+      gradient: '#1e40af',
       description: 'Sistemdeki toplam firma sayısı',
-      change: '+5.2%',
-      trend: 'up',
       details: [
         { label: 'Bu ay eklenen', value: firmaStats?.buAyEklenen || 0 },
         { label: 'Aktif firmalar', value: firmaStats?.aktifFirmalar || firmaStats?.aktifFirma || 0 },
@@ -383,10 +391,8 @@ const Statistics = () => {
       value: firmaStats?.ilSayisi || 0,
       icon: <LocationIcon />,
       color: '#059669',
-      gradient: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+      gradient: '#059669',
       description: 'Farklı il sayısı',
-      change: '+2.1%',
-      trend: 'up',
       details: [
         { label: 'İstanbul', value: firmaStats?.istanbul || 0 },
         { label: 'Ankara', value: firmaStats?.ankara || 0 },
@@ -398,10 +404,8 @@ const Statistics = () => {
       value: firmaStats?.etuysYetkili || 0,
       icon: <CheckCircleIcon />,
       color: '#7c3aed',
-      gradient: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+      gradient: '#7c3aed',
       description: 'ETUYS yetki sahibi firma',
-      change: '+8.7%',
-      trend: 'up',
       details: [
         { label: 'Aktif yetkiler', value: firmaStats?.etuysYetkili || 0 },
         { label: 'Süresi yakın', value: firmaStats?.etuysUyarilari?.count || 0 },
@@ -413,10 +417,8 @@ const Statistics = () => {
       value: firmaStats?.dysYetkili || 0,
       icon: <CheckCircleIcon />,
       color: '#dc2626',
-      gradient: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+      gradient: '#dc2626',
       description: 'DYS yetki sahibi firma',
-      change: '+3.4%',
-      trend: 'up',
       details: [
         { label: 'Aktif yetkiler', value: firmaStats?.dysYetkili || 0 },
         { label: 'Yüzdelik oran', value: `%${firmaStats?.yuzdesel?.dysYetkiliOrani || 0}` },
@@ -428,10 +430,8 @@ const Statistics = () => {
       value: firmaStats?.yabanciSermaye || firmaStats?.yabanciSermayeli || 0,
       icon: <PublicIcon />,
       color: '#ea580c',
-      gradient: 'linear-gradient(135deg, #ea580c 0%, #fb923c 100%)',
+      gradient: '#ea580c',
       description: 'Yabancı sermayeli firma',
-      change: '+1.8%',
-      trend: 'up',
       details: [
         { label: 'Toplam sayı', value: firmaStats?.yabanciSermaye || firmaStats?.yabanciSermayeli || 0 },
         { label: 'Yüzdelik oran', value: `%${firmaStats?.yuzdesel?.yabanciSermayeliOrani || 0}` },
@@ -443,10 +443,8 @@ const Statistics = () => {
       value: `${firmaStats?.performansSkoru || 85}%`,
       icon: <SpeedIcon />,
       color: '#0891b2',
-      gradient: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)',
+      gradient: '#0891b2',
       description: 'Sistem performans değerlendirmesi',
-      change: '+4.2%',
-      trend: 'up',
       details: [
         { label: 'Aktif oran', value: `%${Math.round((firmaStats?.aktifFirma || 0) / Math.max(firmaStats?.toplamFirma || 1, 1) * 100)}` },
         { label: 'Veri kalitesi', value: '%92' },
@@ -469,6 +467,8 @@ const Statistics = () => {
   };
 
   return (
+    // 📋 ETUYS teması — kart/tipografi temadan geliyor; içerik değişmedi.
+    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -646,7 +646,6 @@ const Statistics = () => {
                         transition: 'transform 0.3s ease, box-shadow 0.3s ease',
                     '&:hover': { 
                           transform: 'translateY(-4px)',
-                          boxShadow: 6
                         }
                       }}
                     >
@@ -676,17 +675,7 @@ const Statistics = () => {
                           </Avatar>
                       </Box>
                       
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <Chip 
-                            label={card.change}
-                        size="small"
-                        sx={{
-                              bgcolor: 'rgba(255,255,255,0.2)', 
-                              color: 'white',
-                              fontWeight: 600
-                            }}
-                          />
-                          
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                           <IconButton 
                             size="small"
                             onClick={() => toggleCardExpansion(index)}
@@ -944,6 +933,7 @@ const Statistics = () => {
         </Container>
       </Box>
     </Box>
+    </ThemeProvider>
   );
 };
 
