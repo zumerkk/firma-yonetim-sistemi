@@ -12,7 +12,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { Box, Grid, Button, IconButton, LinearProgress, Alert } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
 import {
     Assignment as AssignmentIcon,
     PlaylistAddCheck as PlaylistAddCheckIcon,
@@ -33,7 +32,7 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 
 import {
-    etuysTema, renk, yazi, aralik,
+    renk, yazi, aralik,
     Panel, SayiKutusu, VeriTablosu, DurumRozeti
 } from '../../tasarim';
 
@@ -122,8 +121,6 @@ const DosyaTakipDashboard = () => {
     ];
 
     return (
-        // Tema yalnız BU ekranı sarıyor; global tema değişmiyor.
-        <ThemeProvider theme={etuysTema}>
         <LayoutWrapper>
             <Box sx={{ p: { xs: 1.5, sm: 2 }, width: '100%', minWidth: 0, backgroundColor: renk.zemin }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: `${aralik.grup}px`, gap: 1, flexWrap: 'wrap' }}>
@@ -247,7 +244,6 @@ const DosyaTakipDashboard = () => {
                 </Grid>
             </Box>
         </LayoutWrapper>
-        </ThemeProvider>
     );
 };
 

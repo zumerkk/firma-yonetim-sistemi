@@ -38,8 +38,6 @@ import {
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import activityService from '../../services/activityService';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 const ActivityList = () => {
   // 🎯 Layout State Management
@@ -210,8 +208,6 @@ const ActivityList = () => {
   };
 
   return (
-    // 📋 ETUYS teması — Paper/Card/tipografi temadan geliyor; içerik değişmedi.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -464,7 +460,6 @@ const ActivityList = () => {
         </Container>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 

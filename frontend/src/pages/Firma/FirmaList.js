@@ -60,8 +60,6 @@ import { TURKEY_CITIES } from '../../data/turkeyData';
 import ExcelJS from 'exceljs';
 import { importExcel, downloadTemplate } from '../../services/firmaService'; // Import servislerini ekledim
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 const FirmaList = () => {
   const navigate = useNavigate();
@@ -776,7 +774,6 @@ const FirmaList = () => {
     // 📋 ETUYS teması — DataGrid'in görünümü buradan geliyor.
     // Grid'in KENDİSİ değişmedi: sıralama, filtreleme, sütun boyutlandırma ve
     // seçim aynen duruyor. Yalnız giydiriliyor (tasarim/muiTema.js → MuiDataGrid).
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -1218,7 +1215,6 @@ const FirmaList = () => {
         </Container>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 

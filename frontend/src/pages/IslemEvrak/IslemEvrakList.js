@@ -18,8 +18,6 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
 import api from '../../utils/axios';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 // 🔀 Koşul süzgeci — backend'deki islemEvrakService.kosullaSuz ile AYNI kural.
 // Burada yalnızca ÖNİZLEME için kullanılıyor; kaydı her zaman backend süzüyor.
@@ -130,8 +128,6 @@ const IslemEvrakList = () => {
   };
 
   return (
-    // 📋 ETUYS teması — Paper/Card/tipografi temadan geliyor; içerik değişmedi.
-    <ThemeProvider theme={etuysTema}>
     <LayoutWrapper>
       <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 1200, mx: 'auto' }}>
         <Paper sx={{ p: 2, mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -308,7 +304,6 @@ const IslemEvrakList = () => {
         {snack ? <Alert severity={snack.severity} onClose={() => setSnack(null)}>{snack.message}</Alert> : null}
       </Snackbar>
     </LayoutWrapper>
-    </ThemeProvider>
   );
 };
 

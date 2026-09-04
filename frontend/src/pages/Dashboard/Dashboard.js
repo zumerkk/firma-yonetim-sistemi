@@ -13,7 +13,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Box, Grid, Button, IconButton, LinearProgress } from '@mui/material';
-import { ThemeProvider } from '@mui/material/styles';
 import {
   Business as BusinessIcon,
   CheckCircle as CheckCircleIcon,
@@ -34,7 +33,7 @@ import Sidebar from '../../components/Layout/Sidebar';
 import SmartUpload from '../../components/Dashboard/SmartUpload';
 import ScreenshotImport from '../../components/Dashboard/ScreenshotImport';
 import {
-  etuysTema, renk, yazi, aralik,
+  renk, yazi, aralik,
   Panel, SayiKutusu, VeriTablosu, DurumRozeti
 } from '../../tasarim';
 
@@ -260,8 +259,6 @@ const Dashboard = () => {
   ];
 
   return (
-    // Tema yalnız BU ekranı sarıyor; global tema değişmiyor.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -472,7 +469,6 @@ const Dashboard = () => {
       </Grid>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 

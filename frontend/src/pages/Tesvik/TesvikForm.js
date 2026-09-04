@@ -83,8 +83,6 @@ import GTIPSuperSearch from '../../components/GTIPSuperSearch';
 import UnitCurrencySearch from '../../components/UnitCurrencySearch';
 // 📏 Kapasite Birimleri Import  
 import { kapasiteBirimleri } from '../../data/kapasiteData';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 const TesvikForm = () => {
   const navigate = useNavigate();
@@ -5932,9 +5930,6 @@ const TesvikForm = () => {
   }
 
   return (
-    // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
-    // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -6256,7 +6251,6 @@ const TesvikForm = () => {
         </DialogActions>
       </Dialog>
     </Box>
-    </ThemeProvider>
   );
 };
 

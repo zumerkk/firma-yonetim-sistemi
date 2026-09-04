@@ -22,8 +22,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 
 const DosyaTakipForm = () => {
@@ -372,9 +370,6 @@ const DosyaTakipForm = () => {
     };
 
     return (
-        // 📋 ETUYS teması — alan yükseklikleri, köşeler, tipografi temadan geliyor.
-        // Formun KENDİSİ değişmedi: doğrulama, durum, alan mantığı aynen duruyor.
-        <ThemeProvider theme={etuysTema}>
         <LayoutWrapper>
             <Box sx={{ p: 3, maxWidth: 1000, margin: '0 auto' }}>
                 {/* Header */}
@@ -671,7 +666,6 @@ const DosyaTakipForm = () => {
                 </Paper>
             </Box>
         </LayoutWrapper>
-        </ThemeProvider>
     );
 };
 

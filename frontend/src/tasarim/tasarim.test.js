@@ -14,6 +14,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitForElementToBeRemoved } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { DataGrid } from '@mui/x-data-grid';
+import { Paper, Dialog, DialogContent, Menu, MenuItem } from '@mui/material';
 import {
   etuysTema, renk,
   Panel, BolumBasligi, AlanSatiri, VeriTablosu,
@@ -315,5 +316,44 @@ describe('etuysTema — DataGrid giydirmesi', () => {
     const secili = container.querySelector('.MuiDataGrid-row.Mui-selected');
     expect(secili).not.toBeNull();
     expect(rgbToHex(getComputedStyle(secili).backgroundColor)).toBe(renk.hesapZemin.toUpperCase());
+  });
+});
+
+// Düz yüzeyler düz kalır, yüzen yüzeyler yüzdüğünü belli eder.
+// Ölçüldü: istisna olmadan Dialog/Menu yalnız 1px #DCE3E9 ile ayrılıyordu ve
+// beyaz tablonun üstünde katman okunmuyordu. ETUYS bu soruyu cevaplamıyor —
+// onun açılır listeleri yerel tarayıcı select'i, gölgeyi işletim sistemi
+// çiziyor. Ayrıntı: muiTema.js "YÜZEN YÜZEYLER" notu.
+describe('etuysTema — yüzen yüzeyler', () => {
+  const golgeliMi = (el) => {
+    const g = getComputedStyle(el).boxShadow;
+    return !!g && g !== 'none' && g !== '';
+  };
+
+  test('düz Paper gölgesiz kalır', () => {
+    const { container } = goster(<Paper>düz yüzey</Paper>);
+    expect(golgeliMi(container.querySelector('.MuiPaper-root'))).toBe(false);
+  });
+
+  test('Dialog gölge alır — katman belli olur', () => {
+    const { baseElement } = goster(
+      <Dialog open><DialogContent>diyalog</DialogContent></Dialog>
+    );
+    expect(golgeliMi(baseElement.querySelector('.MuiDialog-paper'))).toBe(true);
+  });
+
+  test('Menu gölge alır — beyaz tablonun üstünde kaybolmaz', () => {
+    goster(<Menu open anchorEl={document.body}><MenuItem>seçenek</MenuItem></Menu>);
+    const menu = document.querySelector('.MuiPopover-paper');
+    expect(menu).not.toBeNull();
+    expect(golgeliMi(menu)).toBe(true);
+  });
+
+  test('yüzen yüzey yine de yuvarlak köşe almaz', () => {
+    const { baseElement } = goster(
+      <Dialog open><DialogContent>diyalog</DialogContent></Dialog>
+    );
+    const s = getComputedStyle(baseElement.querySelector('.MuiDialog-paper'));
+    expect(parseFloat(s.borderRadius) || 0).toBe(0);
   });
 });

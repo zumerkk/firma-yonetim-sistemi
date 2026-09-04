@@ -65,8 +65,6 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import api from '../../utils/axios';
-import { ThemeProvider } from '@mui/material/styles';
-import { etuysTema } from '../../tasarim';
 
 // 📊 Mock Chart Component (in production, use Chart.js, Recharts, or D3)
 const ChartPlaceholder = ({ title, type, data, height = 300 }) => (
@@ -467,8 +465,6 @@ const Statistics = () => {
   };
 
   return (
-    // 📋 ETUYS teması — kart/tipografi temadan geliyor; içerik değişmedi.
-    <ThemeProvider theme={etuysTema}>
     <Box sx={{ 
       display: 'grid',
       gridTemplateRows: '64px 1fr',
@@ -933,7 +929,6 @@ const Statistics = () => {
         </Container>
       </Box>
     </Box>
-    </ThemeProvider>
   );
 };
 
