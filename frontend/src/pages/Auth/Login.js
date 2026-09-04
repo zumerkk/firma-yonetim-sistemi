@@ -14,7 +14,8 @@ import {
   InputAdornment,
   IconButton,
   Divider,
-  Link
+  Link,
+  CircularProgress
 } from '@mui/material';
 import {
   Email as EmailIcon,
@@ -230,7 +231,7 @@ const Login = () => {
               >
                 {submitLoading || loading ? (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <div className="loading-spinner" />
+                    <CircularProgress size={16} color="inherit" />
                     Giriş Yapılıyor...
                   </Box>
                 ) : (
