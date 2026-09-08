@@ -31,6 +31,12 @@ import YerTutucuCubugu from '../../components/YerTutucuCubugu';
 // Mail gövdesinde kullanılabilecek yer tutucular (islemEvrakService.mailOlustur ile aynı liste)
 const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{evrakListesi}', '{uploadLink}', '{formLink}', '{imza}'];
 
+// Konu satırına UYGUN olanlar. Gövdedekilerin tamamını buraya koymak yanlış
+// olurdu: {evrakListesi} numaralı ÇOK SATIRLI bir liste, {uploadLink} ve
+// {formLink} uzun URL'ler, {imza} kurum imzası — hiçbiri konu satırında iş
+// görmez, konuyu bozar. Konuda anlamlı olan yalnız kısa kimlik alanları.
+const KONU_PLACEHOLDERLARI = ['{firmaAdi}', '{islemAdi}', '{varyant}'];
+
 const bosEvrak = () => ({ ad: '', aciklama: '', zorunlu: true });
 const bosVaryant = () => ({ kod: '', ad: '', mailKonusu: '', mailGovdesi: '', istenenEvraklar: [] });
 const bosTur = () => ({
@@ -195,6 +201,8 @@ const IslemTuruYonetimi = () => {
   // Yer tutucu rozetleri imleç konumuna eklerken hedef alanın DOM referansı gerekiyor.
   // Ana gövde için tek ref, varyantlar için index bazlı bir harita tutuluyor.
   const govdeRef = useRef(null);
+  const konuRef = useRef(null);
+  const varyantKonuRefleri = useRef({});
   const varyantGovdeRefleri = useRef({});
 
   const kaydet = async () => {
@@ -372,8 +380,20 @@ const IslemTuruYonetimi = () => {
                 )}
               </Box>
 
-              <TextField size="small" label="Mail Konusu" value={form.mailKonusu}
-                onChange={(e) => alan('mailKonusu', e.target.value)} fullWidth />
+              {/* Konu şablonu da yer tutucu çözüyor (islemEvrakService.mailOlustur →
+                  engine.render(sablon.mailKonusu ...)), ama rozet çubuğu yalnız
+                  gövdede vardı; konuyu elle yazmak gerekiyordu. */}
+              <Box>
+                <TextField size="small" label="Mail Konusu" value={form.mailKonusu}
+                  inputRef={konuRef}
+                  onChange={(e) => alan('mailKonusu', e.target.value)} fullWidth />
+                <YerTutucuCubugu
+                  placeholders={KONU_PLACEHOLDERLARI}
+                  inputRef={konuRef}
+                  deger={form.mailKonusu || ''}
+                  onChange={(v) => alan('mailKonusu', v)}
+                />
+              </Box>
               <Box>
                 <TextField size="small" label="Mail Gövdesi" value={form.mailGovdesi}
                   inputRef={govdeRef}
@@ -506,9 +526,18 @@ const IslemTuruYonetimi = () => {
                         </Tooltip>
                       </Stack>
 
-                      <TextField size="small" label="Mail Konusu (boşsa varsayılan kullanılır)"
-                        value={v.mailKonusu || ''} fullWidth
-                        onChange={(e) => varyantDegistir(i, { mailKonusu: e.target.value })} />
+                      <Box>
+                        <TextField size="small" label="Mail Konusu (boşsa varsayılan kullanılır)"
+                          value={v.mailKonusu || ''} fullWidth
+                          inputRef={(el) => { varyantKonuRefleri.current[i] = el; }}
+                          onChange={(e) => varyantDegistir(i, { mailKonusu: e.target.value })} />
+                        <YerTutucuCubugu
+                          placeholders={KONU_PLACEHOLDERLARI}
+                          inputRef={{ current: varyantKonuRefleri.current[i] }}
+                          deger={v.mailKonusu || ''}
+                          onChange={(val) => varyantDegistir(i, { mailKonusu: val })}
+                        />
+                      </Box>
                       <Box>
                         <TextField size="small" label="Mail Gövdesi (boşsa varsayılan kullanılır)"
                           value={v.mailGovdesi || ''} fullWidth multiline minRows={5}
