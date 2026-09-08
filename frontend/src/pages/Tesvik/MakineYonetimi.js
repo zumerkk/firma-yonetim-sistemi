@@ -12,7 +12,7 @@ import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI } from '../../utils/makineFormat';
+import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle } from '../../utils/makineFormat';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -406,7 +406,9 @@ const MakineYonetimi = () => {
           tlManuel: r.tlManuel || false,
           kurManuel: r.kurManuel || false,
           kurManuelDeger: r.kurManuelDeger || 0,
-          kullanilmisKod: r.kullanilmisMakine || '',
+          // Saklanan değer HAYIR/KM/KK gibi olabiliyor; Select bakanlık kodu
+          // bekliyor. Çevrilmezse ızgarada BOŞ görünür (bkz. makineFormat notu).
+          kullanilmisKod: kullanilmisKoduNormalle(r.kullanilmisMakine),
           kullanilmisAciklama: r.kullanilmisMakineAciklama || '',
           ckdSkd: r.ckdSkdMi || '',
           aracMi: r.aracMi || '',
@@ -1473,7 +1475,9 @@ const MakineYonetimi = () => {
       kurManuel: r.kurManuel || false,
       kurManuelDeger: r.kurManuelDeger || 0,
       kdvIstisnasi: r.kdvIstisnasi || '',
-      kullanilmisKod: r.kullanilmisMakine || '',
+      // Saklanan değer HAYIR/KM/KK gibi olabiliyor; Select bakanlık kodu
+          // bekliyor. Çevrilmezse ızgarada BOŞ görünür (bkz. makineFormat notu).
+          kullanilmisKod: kullanilmisKoduNormalle(r.kullanilmisMakine),
       kullanilmisAciklama: r.kullanilmisMakineAciklama || '',
       ckdSkd: r.ckdSkdMi || '',
       aracMi: r.aracMi || '',
