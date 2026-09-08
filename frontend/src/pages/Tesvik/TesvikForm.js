@@ -2227,8 +2227,13 @@ const TesvikForm = () => {
 
       if (response.data.success) {
         setSuccess(isEdit ? 'Teşvik başarıyla güncellendi' : 'Teşvik başarıyla oluşturuldu');
+        // Müşteri: "Belgede revize yaptıktan sonra firma listesine atıyor,
+        // belgeye atsa daha iyi olur." Kaydettikten sonra kullanıcı çoğunlukla
+        // sonucu görmek istiyor; listeye dönmek onu tekrar aramaya zorluyordu.
+        // Yeni kayıtta da sunucudan dönen _id ile doğrudan belgeye gidiyoruz.
+        const yeniId = isEdit ? id : (response.data.data?._id || response.data.data?.id);
         setTimeout(() => {
-          navigate('/tesvik/liste');
+          navigate(yeniId ? `/tesvik/${yeniId}` : '/tesvik/liste');
         }, 2000);
       }
     } catch (error) {

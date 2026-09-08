@@ -533,6 +533,10 @@ const TesvikList = () => {
               <Table>
                 <TableHead>
                   <TableRow>
+                    {/* Müşteri: "Teşvik listesinde Belge görüntüleme işlemini en başa
+                        alalım." Tablo 10 sütun ve yatay kayıyor; İşlemler en sağdayken
+                        görüntüle düğmesine ulaşmak için kaydırmak gerekiyordu. */}
+                    <TableCell>İşlemler</TableCell>
                     <TableCell>Belge No</TableCell>
                     <TableCell>Belge ID</TableCell>
                     <TableCell>Yatırımcı Ünvanı</TableCell>
@@ -542,7 +546,6 @@ const TesvikList = () => {
                     <TableCell>Süre Uzatım Tarihi</TableCell>
                     <TableCell>Oluşturan</TableCell>
                     <TableCell>Oluşturma Tarihi</TableCell>
-                    <TableCell>İşlemler</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -563,6 +566,43 @@ const TesvikList = () => {
                         hover 
                         sx={{ '&:hover': { backgroundColor: '#f8fafc' } }}
                       >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                            <Tooltip title="Görüntüle">
+                              <IconButton
+                                size="small"
+                                onClick={() => navigate(tesvik.sistem === 'Yeni' ? `/yeni-tesvik/${tesvik._id}` : `/tesvik/${tesvik._id}`)}
+                              >
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+
+                            {(user?.yetkiler?.belgeEkle || user?.yetkiler?.belgeDuzenle) && (
+                              <Tooltip title={tesvik.sistem === 'Yeni' ? 'Düzenle' : 'Revizyon Ekle / Düzenle'}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => tesvik.sistem === 'Yeni' ? navigate(`/yeni-tesvik/${tesvik._id}/duzenle`) : handleRevizyonClick(tesvik)}
+                                  sx={{ color: '#059669' }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
+                            {/* 🔧 Admin ve belgeSil yetkisi olan kullanıcılar görebilir (yeni sistem belgeleri kendi listesinden silinir) */}
+                            {tesvik.sistem !== 'Yeni' && (user?.rol === 'admin' || user?.yetkiler?.belgeSil) && (
+                              <Tooltip title="Sil">
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleDeleteClick(tesvik)}
+                                  sx={{ color: '#dc2626' }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
@@ -654,43 +694,7 @@ const TesvikList = () => {
                           </Typography>
                         </TableCell>
                         
-                        <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
-                            <Tooltip title="Görüntüle">
-                              <IconButton
-                                size="small"
-                                onClick={() => navigate(tesvik.sistem === 'Yeni' ? `/yeni-tesvik/${tesvik._id}` : `/tesvik/${tesvik._id}`)}
-                              >
-                                <VisibilityIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
 
-                            {(user?.yetkiler?.belgeEkle || user?.yetkiler?.belgeDuzenle) && (
-                              <Tooltip title={tesvik.sistem === 'Yeni' ? 'Düzenle' : 'Revizyon Ekle / Düzenle'}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => tesvik.sistem === 'Yeni' ? navigate(`/yeni-tesvik/${tesvik._id}/duzenle`) : handleRevizyonClick(tesvik)}
-                                  sx={{ color: '#059669' }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-
-                            {/* 🔧 Admin ve belgeSil yetkisi olan kullanıcılar görebilir (yeni sistem belgeleri kendi listesinden silinir) */}
-                            {tesvik.sistem !== 'Yeni' && (user?.rol === 'admin' || user?.yetkiler?.belgeSil) && (
-                              <Tooltip title="Sil">
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleDeleteClick(tesvik)}
-                                  sx={{ color: '#dc2626' }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                            )}
-                          </Box>
-                        </TableCell>
                       </TableRow>
                     ))
                   ) : (
