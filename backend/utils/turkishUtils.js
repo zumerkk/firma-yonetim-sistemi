@@ -65,10 +65,28 @@ const createTurkishInsensitiveRegex = (searchTerm) => {
     'Ü': '[uüÜU]'
   };
   
-  // Arama terimini karakterlere böl ve her karakter için regex pattern oluştur
-  const pattern = searchTerm
+  // ⚠️ BOŞLUK BİREBİR EŞLEŞMEZ, ESNEK EŞLEŞİR.
+  //
+  // Müşteri şikayeti (8 Eylül 2026, Ankara ofisi): "Firma listesinde ROCA TR
+  // BANYO diye bir firma var ama arama butonundan gelmiyor."
+  // Ölçüldü — sebebi çift boşluktu:
+  //     "ROCA TR BANYO"  → 1 sonuç   ✔
+  //     "ROCA  TR"       → 0 sonuç   ✗   (iki boşluk)
+  // Terim olduğu gibi regex'e çevriliyordu; controller'daki trim() yalnız
+  // baş/sonu kırpıyor, İÇERİDEKİ fazla boşluğu değil. Kullanıcı unvan
+  // yapıştırdığında veya iki kez boşluğa bastığında arama sessizce boş dönüyordu.
+  //
+  // Çözüm: baştaki/sondaki boşluk atılır, içerideki her boşluk öbeği \s+ olur.
+  // Böylece "ROCA  TR" de "ROCA TR" de aynı kaydı bulur.
+  const temizTerim = searchTerm.trim();
+
+  const pattern = temizTerim
     .split('')
     .map(char => {
+      // Boşluk öbeği: bir veya daha fazla boşluk karakteriyle eşleş
+      if (/\s/.test(char)) {
+        return '\\s+';
+      }
       // Eğer bu karakter için özel map varsa onu kullan
       if (charMap[char]) {
         return charMap[char];
@@ -76,7 +94,9 @@ const createTurkishInsensitiveRegex = (searchTerm) => {
       // Değilse karakteri escape et ve olduğu gibi kullan
       return char.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     })
-    .join('');
+    .join('')
+    // Arka arkaya gelen boşluk öbekleri tek \s+ olsun ("a  b" → "a\s+b")
+    .replace(/(?:\\s\+)+/g, '\\s+');
   
   return new RegExp(pattern, 'i');
 };

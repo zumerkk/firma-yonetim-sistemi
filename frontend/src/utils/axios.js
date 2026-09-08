@@ -46,10 +46,20 @@ api.interceptors.response.use(
       console.error('❌ API Error', error.config?.url, error.response?.status || '-', msg);
     }
 
-    // 401 Unauthorized - sessiz hata yönetimi (kullanıcıyı atma)
+    // 401 Unauthorized — kullanıcı BİLEREK login'e atılmıyor (ani veri kaybı
+    // yaşamasın diye). Ama sessiz kalmak da zarar veriyordu:
+    //
+    // Ekranda duran liste React state'inde olduğu için görünmeye devam eder;
+    // o andan sonraki HER yeni istek sessizce boş döner. Kullanıcı "firma
+    // listede var ama aramada gelmiyor" görür, sebebini anlayamaz ve ancak
+    // çıkıp girince düzelir. (Müşteri 8 Eylül 2026'da bunu bildirdi.)
+    //
+    // Çözüm: yönlendirme yok, ama ne olduğunu SÖYLEYEN bir mesaj var.
+    // Ekranlar hata gösterirken `kullaniciMesaji` varsa onu kullanıyor.
     if (error.response?.status === 401) {
-      // Token sorunu varsa sadece logla, kullanıcıyı login'e yönlendirme
       console.log('⚠️ 401 hatası alındı, oturum devam ediyor...');
+      error.kullaniciMesaji =
+        'Oturumunuz doğrulanamadı. Çıkış yapıp tekrar giriş yapın — o zamana kadar ekrandaki veriler güncellenmeyecek.';
     }
 
     // ⏱️ Zaman aşımı ayırt edilebilsin: ekranlar "Dosya yüklenemedi" yerine

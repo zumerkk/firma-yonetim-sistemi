@@ -438,7 +438,7 @@ export const FirmaProvider = ({ children }) => {
   }, [setError]);
 
   // 🔍 Enhanced Search Firmalar
-  const searchFirmalar = useCallback(async (searchTerm, field = null) => {
+  const searchFirmalar = useCallback(async (searchTerm, field = null, aktif = 'true') => {
     const trimmedSearchTerm = searchTerm?.trim();
     
     if (!trimmedSearchTerm || trimmedSearchTerm.length < 2) {
@@ -449,7 +449,7 @@ export const FirmaProvider = ({ children }) => {
     dispatch({ type: ACTION_TYPES.SET_SEARCH_LOADING, payload: true });
     
     try {
-      const result = await firmaService.searchFirmalar(trimmedSearchTerm, field);
+      const result = await firmaService.searchFirmalar(trimmedSearchTerm, field, aktif);
       
       console.log('🔍 Context Search Result:', result);
       
@@ -461,15 +461,23 @@ export const FirmaProvider = ({ children }) => {
         });
         return firmalar;
       } else {
+        // ⚠️ Başarısız arama ile "sonuç yok" EKRANDA AYNI görünüyordu: ikisi de
+        // boş liste. Kullanıcı 401 aldığında bile "firma yok" sanıyordu.
+        // Artık sebep yüzeye çıkıyor.
         dispatch({
           type: ACTION_TYPES.SET_SEARCH_RESULTS,
           payload: []
         });
+        if (result.message) {
+          dispatch({ type: ACTION_TYPES.SET_ERROR, payload: result.message });
+        }
         return [];
       }
     } catch (error) {
       console.error('🚨 Context Search Error:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Arama yapılamadı';
+      // kullaniciMesaji ÖNCE: 401/timeout gibi durumlarda axios katmanı
+      // anlaşılır bir açıklama koyuyor; ham 'Request failed' onu gizlemesin.
+      const errorMessage = error.kullaniciMesaji || error.response?.data?.message || error.message || 'Arama yapılamadı';
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
       return [];
     }

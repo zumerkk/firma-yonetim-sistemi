@@ -154,13 +154,15 @@ const FirmaList = () => {
 
     setLocalLoading(true);
     try {
-      await searchFirmalar(searchQuery);
+      // Aramaya ekranda SEÇİLİ olan aktiflik filtresini ver; liste ne
+      // gösteriyorsa arama da onu bulsun.
+      await searchFirmalar(searchQuery, null, filters.aktif || 'true');
     } catch (error) {
       showNotification('Arama işlemi başarısız: ' + error.message, 'error');
     } finally {
       setLocalLoading(false);
     }
-  }, [searchQuery, searchFirmalar, showNotification]);
+  }, [searchQuery, searchFirmalar, showNotification, filters.aktif]);
 
   // 🔄 Data Loading
   useEffect(() => {

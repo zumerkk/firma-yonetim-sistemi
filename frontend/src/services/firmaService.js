@@ -25,7 +25,9 @@ const handleError = (error) => {
     const errorData = error.response.data;
     return {
       success: false,
-      message: errorData?.message || 'Sunucu hatası',
+      // kullaniciMesaji ÖNCE: axios katmanı 401/timeout için anlaşılır bir
+      // açıklama koyuyor, ham "Sunucu hatası" onu gizlemesin.
+      message: error.kullaniciMesaji || errorData?.message || 'Sunucu hatası',
       errors: errorData?.errors || null,
       status: error.response.status,
       // Backend'den gelen tam error response'unu da ekle
@@ -132,7 +134,10 @@ export const deleteFirma = async (id) => {
 };
 
 // 🔍 Search Firmalar - Enhanced General Search
-export const searchFirmalar = async (searchTerm, field = null) => {
+// `aktif`: liste ekranındaki filtreyle AYNI olmalı. Aksi halde kullanıcı
+// listeyi "Tümü"ne alıp pasif bir firmayı görür ama arayınca bulamaz —
+// müşteri 8 Eylül 2026'da tam olarak bunu bildirdi.
+export const searchFirmalar = async (searchTerm, field = null, aktif = 'true') => {
   try {
     const trimmedSearchTerm = searchTerm?.trim();
     
@@ -147,6 +152,9 @@ export const searchFirmalar = async (searchTerm, field = null) => {
     let url = `/firma/search?q=${encodeURIComponent(trimmedSearchTerm)}`;
     if (field) {
       url += `&field=${field}`;
+    }
+    if (aktif) {
+      url += `&aktif=${encodeURIComponent(aktif)}`;
     }
     
     console.log('🔍 API Search URL:', url);
