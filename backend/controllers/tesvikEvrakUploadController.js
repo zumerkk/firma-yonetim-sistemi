@@ -11,6 +11,15 @@ const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService'
 const { PUBLIC_DOCUMENT_TYPES, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
 const { ALLOWED_EXT } = require('../middleware/tesvikUpload');
 
+// fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
+// Kullanıcıya "tekrar deneyin" demek DISKTE_YOK durumunda yanıltıcı: dosya
+// gerçekten yok, tekrar denemek hiçbir şeyi değiştirmez.
+const KDV_INDIRME_MESAJI = {
+  KAYIT_YOK: 'KDV muafiyet yazısı yüklenmemiş.',
+  DISKTE_YOK: 'Dosya sunucuda bulunamadı. Yazının yeniden yüklenmesi gerekiyor — lütfen yetkiliyle iletişime geçin.',
+  ERISILEMEDI: 'Dosya kaynaktan alınamadı. Lütfen birazdan tekrar deneyin.'
+};
+
 function fail(res, code, message) {
   return res.status(code).json({ success: false, message });
 }
@@ -112,7 +121,11 @@ exports.kdvMuafiyetDownload = async (req, res) => {
     const bulunan = await kdvMuafiyetService.resolveByToken(req.params.token);
     if (!bulunan) return fail(res, 404, 'Bağlantı bulunamadı veya geçersiz.');
     const file = await kdvMuafiyetService.fetchBuffer(bulunan.kdv);
-    if (!file) return fail(res, 502, 'Dosya şu anda alınamıyor. Lütfen yetkiliyle iletişime geçin.');
+    if (!file || file.hata) {
+      const kod = (file && file.hata) || 'ERISILEMEDI';
+      return fail(res, kod === 'DISKTE_YOK' ? 410 : 502,
+        KDV_INDIRME_MESAJI[kod] || KDV_INDIRME_MESAJI.ERISILEMEDI);
+    }
     const ad = encodeURIComponent(bulunan.kdv.orijinalAd || bulunan.kdv.dosyaAdi || 'kdv-muafiyet-yazisi');
     res.setHeader('Content-Type', file.contentType);
     res.setHeader('Content-Length', file.buffer.length);

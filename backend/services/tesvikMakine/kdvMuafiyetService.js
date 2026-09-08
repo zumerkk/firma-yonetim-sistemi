@@ -211,8 +211,18 @@ async function removeDosya({ tesvikModel, tesvikId }) {
 //   2) imzalı delivery URL
 //   3) kayıtlı URL (local/eski kayıtlar)
 // İlk 200 dönen kaynak stream edilir. (bkz. dosyaTakipController.dosyaGetir)
+// Dönüş: { buffer, contentType }  |  { hata: 'KAYIT_YOK'|'DISKTE_YOK'|'ERISILEMEDI', detay }
+//
+// ⚠️ Eskiden her başarısızlıkta sadece `null` dönüyordu ve döngü tüm hataları
+// yutuyordu (`catch (_) {}`). Sonuç: kullanıcı "Dosya indirilemedi" görüyor,
+// sunucu logunda hiçbir iz yok, sebep anlaşılmıyordu.
+//
+// 8 Eylül 2026'da bu tam olarak yaşandı: dosya Render'ın UÇUCU diskindeydi
+// (/opt/render/.../uploads), backend yeniden başlayınca silinmişti. Kayıt
+// veritabanında duruyordu, dosya yoktu. Sebebi bulmak veritabanını elle
+// sorgulamayı gerektirdi. Artık sebep hem loglanıyor hem çağırana dönüyor.
 async function fetchBuffer(kdv) {
-  if (!dosyaVarMi(kdv)) return null;
+  if (!dosyaVarMi(kdv)) return { hata: 'KAYIT_YOK' };
 
   if (!storageService.isCloudinaryUrl(kdv.dosyaUrl) && !kdv.providerFileId) {
     // Local disk: storageService.serveFile mantığıyla aynı kök kontrolü
@@ -220,7 +230,15 @@ async function fetchBuffer(kdv) {
     const path = require('path');
     const abs = path.isAbsolute(kdv.dosyaYolu || '') ? kdv.dosyaYolu : storageService.absOf(kdv.dosyaYolu || '');
     const base = path.resolve(storageService.BASE_DIR);
-    if (!abs || !path.resolve(abs).startsWith(base) || !(await fs.pathExists(abs))) return null;
+    if (!abs || !path.resolve(abs).startsWith(base)) {
+      console.error('🚨 [kdvMuafiyet] geçersiz dosya yolu:', abs);
+      return { hata: 'DISKTE_YOK', detay: 'gecersiz-yol' };
+    }
+    if (!(await fs.pathExists(abs))) {
+      // En sık sebep: uçucu disk. Kayıt duruyor, dosya yok.
+      console.error('🚨 [kdvMuafiyet] dosya diskte YOK (uçucu depolama?):', abs);
+      return { hata: 'DISKTE_YOK', detay: 'dosya-silinmis' };
+    }
     return { buffer: await fs.readFile(abs), contentType: kdv.mimeType || 'application/octet-stream' };
   }
 
@@ -234,6 +252,7 @@ async function fetchBuffer(kdv) {
   }
   if (kdv.dosyaUrl && kdv.dosyaUrl.startsWith('http')) adaylar.push(kdv.dosyaUrl);
 
+  const sebepler = [];
   for (const u of adaylar) {
     try {
       const r = await fetch(u);
@@ -243,9 +262,13 @@ async function fetchBuffer(kdv) {
           contentType: kdv.mimeType || r.headers.get('content-type') || 'application/octet-stream'
         };
       }
-    } catch (_) { /* sonraki adaya geç */ }
+      sebepler.push(`${r.status}`);
+    } catch (e) {
+      sebepler.push(e && e.message ? e.message.slice(0, 60) : 'fetch-hatasi');
+    }
   }
-  return null;
+  console.error('🚨 [kdvMuafiyet] hiçbir kaynak alınamadı:', sebepler.join(' | ') || 'aday-yok');
+  return { hata: 'ERISILEMEDI', detay: sebepler.join(' | ') };
 }
 
 module.exports = {
