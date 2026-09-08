@@ -6,7 +6,8 @@ import {
     Box, Typography, Button, TextField, MenuItem, Grid,
     Paper, Autocomplete,
     Alert, CircularProgress, Divider, Chip, List, ListItem,
-    ListItemIcon, ListItemText, Accordion, AccordionSummary, AccordionDetails
+    ListItemIcon, ListItemText, Accordion, AccordionSummary, AccordionDetails,
+    Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon,
@@ -36,6 +37,7 @@ const DosyaTakipForm = () => {
     const [selectedFirma, setSelectedFirma] = useState(null);
     const [users, setUsers] = useState([]);
     const [success, setSuccess] = useState('');
+    const [mukerrer, setMukerrer] = useState(null);   // 409'da dönen mevcut talep
     const [firmaninBelgeleri, setFirmaninBelgeleri] = useState([]);
     const [firmaBelgeLoading, setFirmaBelgeLoading] = useState(false);
     const firmaBelgeRequestRef = React.useRef(0); // Race-condition koruması
@@ -342,21 +344,46 @@ const DosyaTakipForm = () => {
                 return;
             }
 
-            let result;
-            if (isEdit) {
-                result = await talepGuncelle(id, formData);
-            } else {
-                result = await talepOlustur(formData);
-            }
-
-            if (result?.success) {
-                setSuccess(isEdit ? 'Talep güncellendi!' : 'Talep oluşturuldu!');
-                setTimeout(() => {
-                    navigate(result.data?._id ? `/dosya-takip/${result.data._id}` : '/dosya-takip/liste');
-                }, 1000);
-            }
+            await kaydet(formData);
         } catch (err) {
+            // 409: aynı firma+talep türü+belge no ile açık talep var
+            if (err?.response?.status === 409 && err?.response?.data?.mevcut) {
+                setMukerrer(err.response.data.mevcut);
+                return;
+            }
             console.error('Kaydetme hatası:', err);
+        }
+    };
+
+    // Kaydetme, mükerrer onayından sonra da tekrar çağrılabilsin diye ayrıldı.
+    const kaydet = async (veri) => {
+        let result;
+        if (isEdit) {
+            result = await talepGuncelle(id, veri);
+        } else {
+            result = await talepOlustur(veri);
+        }
+
+        if (result?.success) {
+            setSuccess(isEdit ? 'Talep güncellendi!' : 'Talep oluşturuldu!');
+            setTimeout(() => {
+                navigate(result.data?._id ? `/dosya-takip/${result.data._id}` : '/dosya-takip/liste');
+            }, 1000);
+        }
+        return result;
+    };
+
+    // Müşteri: "aynı talep ve aynı belge no'su olan işlemden 1 tane açabilelim,
+    // halihazırda açık olan talebi unutup yeni sıfırdan açabiliyoruz bazen."
+    // Sunucu 409 + mevcut talebi döndürüyor; burada gösterip kullanıcıya seçim
+    // bırakıyoruz. Sert kilit değil — ölçümde meşru ikinci talepler de vardı.
+    const mukerrerOnayla = async () => {
+        const mevcut = mukerrer;
+        setMukerrer(null);
+        try {
+            await kaydet({ ...formData, mukerrereIzinVer: true });
+        } catch (e) {
+            console.error('Mükerrer onayı sonrası kaydetme hatası:', e, mevcut);
         }
     };
 
@@ -665,6 +692,50 @@ const DosyaTakipForm = () => {
                     </Box>
                 </Paper>
             </Box>
+
+            {/* Mükerrer açık talep uyarısı — engel değil, seçim.
+                Müşteri: "halihazırda açık olan talebi unutup yeni sıfırdan
+                açabiliyoruz bazen." Amaç unutmayı önlemek; ölçümde meşru
+                ikinci talepler de vardı, o yüzden devam yolu açık bırakıldı. */}
+            <Dialog open={Boolean(mukerrer)} onClose={() => setMukerrer(null)} maxWidth="sm" fullWidth>
+                <DialogTitle>Bu belge için zaten açık bir talep var</DialogTitle>
+                <DialogContent>
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                        Aynı firma, aynı talep türü ve aynı belge numarasıyla açık bir talep bulundu.
+                        Yeni talep açmadan önce mevcut olanı kontrol etmek isteyebilirsiniz.
+                    </Alert>
+                    {mukerrer && (
+                        <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 0.75, columnGap: 2 }}>
+                            <Typography variant="body2" color="text.secondary">Takip No</Typography>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{mukerrer.takipId}</Typography>
+                            <Typography variant="body2" color="text.secondary">Firma</Typography>
+                            <Typography variant="body2">{mukerrer.firmaUnvan || '—'}</Typography>
+                            <Typography variant="body2" color="text.secondary">Talep Türü</Typography>
+                            <Typography variant="body2">{mukerrer.talepTuru}</Typography>
+                            <Typography variant="body2" color="text.secondary">Belge No</Typography>
+                            <Typography variant="body2">{mukerrer.ytbNo || mukerrer.belgeId || '—'}</Typography>
+                            <Typography variant="body2" color="text.secondary">Aşama</Typography>
+                            <Typography variant="body2">{String(mukerrer.anaAsama || '').replace(/_/g, ' ')}</Typography>
+                            <Typography variant="body2" color="text.secondary">Açılış</Typography>
+                            <Typography variant="body2">
+                                {mukerrer.createdAt ? new Date(mukerrer.createdAt).toLocaleDateString('tr-TR') : '—'}
+                            </Typography>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, pb: 2, gap: 1, flexWrap: 'wrap' }}>
+                    <Button onClick={() => setMukerrer(null)}>Vazgeç</Button>
+                    <Button
+                        variant="contained"
+                        onClick={() => navigate(`/dosya-takip/${mukerrer._id}`)}
+                    >
+                        Mevcut Talebi Aç
+                    </Button>
+                    <Button color="warning" onClick={mukerrerOnayla}>
+                        Yine de yeni talep oluştur
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </LayoutWrapper>
     );
 };

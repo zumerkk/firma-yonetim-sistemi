@@ -306,6 +306,27 @@ exports.getTalepById = async (req, res) => {
 // ============================================================================
 exports.yeniTalepOlustur = async (req, res) => {
     try {
+        // 🔎 Aynı firma + talep türü + belge no ile ZATEN AÇIK bir talep var mı?
+        // Kullanıcı bilerek devam edebilsin diye engel değil, uyarı: 409 ile
+        // mevcut talebi döndürüyoruz. `mukerrereIzinVer: true` gelirse geçilir.
+        // Ayrıntı ve ölçüm: DosyaTakip.acikMukerrerBul notu.
+        if (!req.body.mukerrereIzinVer) {
+            const mevcut = await DosyaTakip.acikMukerrerBul({
+                firma: req.body.firma,
+                talepTuru: req.body.talepTuru,
+                ytbNo: req.body.ytbNo,
+                belgeId: req.body.belgeId
+            });
+            if (mevcut) {
+                return res.status(409).json({
+                    success: false,
+                    kod: 'MUKERRER_ACIK_TALEP',
+                    message: `Bu firma için aynı talep türü ve belge no ile zaten açık bir talep var: ${mevcut.takipId}`,
+                    mevcut
+                });
+            }
+        }
+
         const data = {
             ...req.body,
             olusturanKullanici: req.user._id,
@@ -314,6 +335,8 @@ exports.yeniTalepOlustur = async (req, res) => {
             anaAsama: 'MURACAAT_ONCESI',
             durumRengi: 'mavi'
         };
+
+        delete data.mukerrereIzinVer;   // yalnız istek bayrağı, kayda yazılmaz
 
         const talep = new DosyaTakip(data);
         await talep.save();
