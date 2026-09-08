@@ -4,6 +4,48 @@
 
 const { body } = require('express-validator');
 
+// 📅 YETKİ BİTİŞ TARİHİ DOĞRULAMASI
+//
+// ⚠️ "Geçmiş tarih olamaz" kuralı KALDIRILDI (8 Eylül 2026).
+//
+// Müşteri (Ankara ofisi): "bir de bu hatanın olmaması gerek, çünkü süresi bitse
+// de biz burada güncelleme yapmaya devam edebiliriz."
+//
+// Haklı ve kural sistemin kendisiyle çelişiyordu: panelde "Yetki Süresi
+// Yaklaşan" ve "Süresi Geçmiş" sayaçları var, yani süresi dolmuş firma
+// BİRİNCİ SINIF bir durum — takip edilmesi gereken şeyin ta kendisi. Buna
+// rağmen form o firmaları kaydettirmiyordu.
+//
+// Ölçüldü: üretimde 1257 firmanın 27'si (%2,1) bu yüzden hiç kaydedilemiyordu
+// ve sayı her gün artıyordu (biri 07.09.2026'da dolmuştu).
+//
+// Yerine daha yararlı bir kural kondu: yazım hatası koruması. "2026" yerine
+// "0226" ya da "20226" yazılırsa isISO8601() bunları geçerli sayar; makul
+// aralık kontrolü yakalar. Aralık bilinçli olarak GENİŞ — meşru hiçbir
+// geçmiş/gelecek tarihi engellememeli.
+const MAKUL_EN_ERKEN = new Date('2000-01-01');
+const MAKUL_EN_GEC_YIL_EKI = 50;
+
+const yetkiBitisTarihiDogrula = (alanAdi) =>
+  body(alanAdi)
+    .optional({ checkFalsy: true })
+    .isISO8601()
+    .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
+    .custom((value) => {
+      if (!value || String(value).trim() === '') return true;
+      const tarih = new Date(value);
+      if (Number.isNaN(tarih.getTime())) {
+        throw new Error('Geçerli bir tarih giriniz (YYYY-MM-DD)');
+      }
+      const enGec = new Date();
+      enGec.setFullYear(enGec.getFullYear() + MAKUL_EN_GEC_YIL_EKI);
+      if (tarih < MAKUL_EN_ERKEN || tarih > enGec) {
+        throw new Error('Tarih makul aralıkta değil — yıl hanesini kontrol edin');
+      }
+      // Geçmiş tarih SERBEST: süresi dolmuş yetki geçerli bir durumdur.
+      return true;
+    });
+
 // 👤 Kullanıcı Validasyonları
 const validateRegister = [
   body('adSoyad')
@@ -138,39 +180,9 @@ const validateCreateFirma = [
     .trim(),
     
   // Yetki bitiş tarihleri
-  body('etuysYetkiBitisTarihi')
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        const inputDate = new Date(value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
-        
-        if (inputDate < today) {
-          throw new Error('ETUYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
-        }
-      }
-      return true;
-    }),
+  yetkiBitisTarihiDogrula('etuysYetkiBitisTarihi'),
     
-  body('dysYetkiBitisTarihi')
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        const inputDate = new Date(value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
-        
-        if (inputDate < today) {
-          throw new Error('DYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
-        }
-      }
-      return true;
-    }),
+  yetkiBitisTarihiDogrula('dysYetkiBitisTarihi'),
     
   // İrtibat bilgisi - Excel'de zorunlu
   body('ilkIrtibatKisi')
@@ -334,39 +346,9 @@ const validateUpdateFirma = [
     .withMessage('Ana faaliyet konusu 500 karakterden fazla olamaz')
     .trim(),
     
-  body('etuysYetkiBitisTarihi')
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        const inputDate = new Date(value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
-        
-        if (inputDate < today) {
-          throw new Error('ETUYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
-        }
-      }
-      return true;
-    }),
+  yetkiBitisTarihiDogrula('etuysYetkiBitisTarihi'),
     
-  body('dysYetkiBitisTarihi')
-    .optional({ checkFalsy: true })
-    .isISO8601()
-    .withMessage('Geçerli bir tarih giriniz (YYYY-MM-DD)')
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        const inputDate = new Date(value);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Bugünün başlangıcı
-        
-        if (inputDate < today) {
-          throw new Error('DYS yetki bitiş tarihi bugün veya gelecek bir tarih olmalıdır');
-        }
-      }
-      return true;
-    }),
+  yetkiBitisTarihiDogrula('dysYetkiBitisTarihi'),
     
   body('ilkIrtibatKisi')
     .optional()
