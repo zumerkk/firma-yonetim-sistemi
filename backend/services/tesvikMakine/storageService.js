@@ -64,6 +64,45 @@ function getProvider() {
   return 'local';
 }
 
+// ⚠️ UÇUCU DİSK UYARISI — bir kez, açılışta.
+//
+// Render (ve çoğu PaaS) ücretsiz planda dosya sistemi KALICI DEĞİL: her dağıtım
+// ve her yeniden başlatmada `uploads/` altındaki her şey silinir. Sağlayıcı
+// 'local' kalırsa yüklenen evrak sessizce kaybolur; kullanıcı dosyayı sistemde
+// GÖRÜR (kayıt veritabanında durur) ama indiremez.
+//
+// Gerçek vaka (8 Eylül 2026): KDV muafiyet yazısı linki "Dosya indirilemedi"
+// veriyordu. Kayıt duruyordu, dosya yoktu — dosyaYolu
+// /opt/render/project/src/backend/uploads/... idi ve backend o gün iki kez
+// yeniden başlamıştı. Müşteri "silip yeniden yükleyince düzeliyor" demişti;
+// çünkü yeniden yükleme dosyayı diske geri koyuyor, sonraki restart'a kadar.
+//
+// Sebebi yapılandırmaydı: CLOUDINARY_STORAGE_ENABLED ayarlı değildi. Kimlik
+// bilgileri vardı (dosyaTakip modülü onları kullanıp Cloudinary'ye yazıyordu)
+// ama bu modül ayrıca bu bayrağı arıyor. Bayrak olmayınca sessizce diske düştü.
+//
+// Bir daha sessiz olmasın: açılışta yüksek sesle uyar.
+let _uyariVerildi = false;
+function uyarUcucuDepolama() {
+  if (_uyariVerildi) return;
+  _uyariVerildi = true;
+  if (getProvider() !== 'local') return;
+  if (process.env.NODE_ENV !== 'production') return;   // yerelde normal
+
+  const eksik = [];
+  if (!envBool(process.env.CLOUDINARY_STORAGE_ENABLED, false)) eksik.push('CLOUDINARY_STORAGE_ENABLED=true');
+  if (!process.env.CLOUDINARY_CLOUD_NAME) eksik.push('CLOUDINARY_CLOUD_NAME');
+  if (!process.env.CLOUDINARY_API_KEY) eksik.push('CLOUDINARY_API_KEY');
+  if (!process.env.CLOUDINARY_API_SECRET) eksik.push('CLOUDINARY_API_SECRET');
+
+  console.warn('');
+  console.warn('⚠️ ⚠️ ⚠️  TEŞVİK EVRAK DEPOLAMA: YEREL DİSK (UÇUCU)  ⚠️ ⚠️ ⚠️');
+  console.warn('   Yüklenen evrak her yeniden başlatmada SİLİNİR.');
+  console.warn('   Eksik ayar:', eksik.join(', ') || '(bilinmiyor)');
+  console.warn('   Çözüm: Render → Environment → yukarıdaki değişkenleri ekle → yeniden dağıt.');
+  console.warn('');
+}
+
 // 🔤 Path-güvenli segment. Türkçe harfler korunur; boşluk → _; tehlikeli karakterler atılır.
 function normalizeSegment(input, maxLen = 80) {
   let s = String(input == null ? '' : input).trim();
@@ -329,7 +368,10 @@ async function serveFile(doc, res) {
   return res.download(abs, doc.originalName || doc.fileName);
 }
 
+uyarUcucuDepolama();
+
 module.exports = {
+  uyarUcucuDepolama,
   BASE_DIR,
   URL_BASE,
   ROOT_LABEL,

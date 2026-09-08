@@ -8,6 +8,7 @@ import { Box, Paper, Typography, Button, Alert, CircularProgress, Stack, Divider
 import DownloadIcon from '@mui/icons-material/Download';
 import DescriptionIcon from '@mui/icons-material/Description';
 import svc from '../../services/tesvikMakineService';
+import { hataMesaji } from '../../utils/hataMesaji';
 
 // Component DIŞINDA: içeride tanımlanırsa her render'da alt ağaç remount olur.
 function Wrapper({ children }) {
@@ -58,7 +59,7 @@ export default function KdvMuafiyetIndir() {
       document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
     } catch (e) {
-      setIndirmeHatasi(e?.response?.data?.message || 'Dosya indirilemedi. Lütfen tekrar deneyin.');
+      setIndirmeHatasi(await hataMesaji(e, 'Dosya indirilemedi. Lütfen tekrar deneyin.'));
     } finally { setIndiriliyor(false); }
   };
 
