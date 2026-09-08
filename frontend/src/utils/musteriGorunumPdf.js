@@ -15,6 +15,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { birimEtiketi, kullanilmisEtiketi } from './makineFormat';
+import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
 
 const FONT_YOLLARI = {
   normal: `${process.env.PUBLIC_URL || ''}/fonts/Roboto-Regular.ttf`,
@@ -140,10 +141,11 @@ export const exportTesvikToPdf = async (tesvik) => {
   // İlk sürümde alan adları tahmin edilmişti (tesvik.belgeNo, u.ad, s.kisaltma…) ve
   // çıktıda künye/ürün/şart sütunları "-" geliyordu; veri aslında iç nesnelerde
   // duruyor (belgeYonetimi, yatirimBilgileri, maliHesaplamalar…).
-  baslik('TEŞVİK BELGESİ — MÜŞTERİ GÖRÜNÜMÜ', 15);
-  doc.setFont('Roboto', 'normal'); doc.setFontSize(9); doc.setTextColor(100);
-  doc.text(`Oluşturma: ${new Date().toLocaleString('tr-TR')}`, sayfaGenisligi / 2, y, { align: 'center' });
-  doc.setTextColor(0); y += 22;
+  // Müşteri: "pdfin en üstünde 'TEŞVİK BELGESİ — MÜŞTERİ GÖRÜNÜMÜ Oluşturma:
+  // ...' yazıyor, bunu çok küçük şekilde en sağ alta vs alabilir miyiz."
+  // Başlık ve oluşturma damgası sayfa sonuna taşındı (aşağıdaki dipnot);
+  // kapak artık doğrudan yatırımcı bilgileriyle başlıyor.
+  y += 4;
 
   const fb = tesvik.firmaBilgileri || {};
   const yb = tesvik.yatirimBilgileri || {};
@@ -170,7 +172,7 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['OSB Adı', str(yb.osbIseMudurluk)],
     ['Bölge (İl / İlçe bazlı)', [yb.ilBazliBolge, yb.ilceBazliBolge].filter(Boolean).join(' / ') || '-'],
     ['Yatırım Cinsi', str(yatirimCinsi)],
-    ['Destek Sınıfı', str(yb.destekSinifi)],
+    ['Destek Sınıfı', str(etiketNormalle(yb.destekSinifi))],
     ['İstihdam (Mevcut / İlave)', `${num(tesvik.istihdam?.mevcutKisi)} / ${num(tesvik.istihdam?.ilaveKisi)}`],
     ['Ada / Parsel', [yb.ada, yb.parsel].filter(Boolean).join(' / ') || '-']
   ]);
@@ -325,7 +327,23 @@ export const exportTesvikToPdf = async (tesvik) => {
     doc.text(`Sayfa ${i} / ${toplam}`, g - 40, h - 18, { align: 'right' });
   }
 
-  doc.save(`Tesvik_MusteriGorunumu_${tesvik.belgeNo || tesvik.gmId || tesvik._id}.pdf`);
+  // Müşteri: dosya "İSMİ-BELGE NO-SON REVİZE TARİHİ" olarak insin.
+  // Eskiden `tesvik.belgeNo` okunuyordu ama o alan ÜRETİMDE HİÇ YOK (865/865
+  // undefined); belge no belgeYonetimi.belgeNo'da. Değer bulunamayınca gmId'ye
+  // düşüyor ve dosya "Tesvik_MusteriGorunumu_A001014.pdf" oluyordu.
+  // ── Dipnot: başlık + oluşturma damgası, her sayfanın en sağ altında küçük ──
+  const sayfaSayisi = doc.internal.getNumberOfPages();
+  const damga = `TEŞVİK BELGESİ — MÜŞTERİ GÖRÜNÜMÜ · Oluşturma: ${new Date().toLocaleString('tr-TR')}`;
+  for (let i = 1; i <= sayfaSayisi; i += 1) {
+    doc.setPage(i);
+    doc.setFont('Roboto', 'normal');
+    doc.setFontSize(6.5);
+    doc.setTextColor(150);
+    doc.text(damga, sayfaGenisligi - 28, doc.internal.pageSize.getHeight() - 14, { align: 'right' });
+    doc.setTextColor(0);
+  }
+
+  doc.save(`${disaAktarimAdi(tesvik)}.pdf`);
 };
 
 export default exportTesvikToPdf;

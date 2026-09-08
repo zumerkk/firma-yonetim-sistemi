@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { birimEtiketi, kullanilmisEtiketi } from "./makineFormat";
+import { disaAktarimAdi, etiketNormalle } from "./disaAktarimAdi";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
 const tl = (val) => {
@@ -236,7 +237,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     tesvik.yatirimBilgileri?.uCinsi3,
     tesvik.yatirimBilgileri?.vCinsi4,
   ].filter(Boolean).join(", ") || tesvik.yatirimBilgileri?.yatirimCinsi;
-  addDataRow("Yatırım Cinsi", yatirimCinsi, "Destek Sınıfı", tesvik.yatirimBilgileri?.destekSinifi);
+  addDataRow("Yatırım Cinsi", yatirimCinsi, "Destek Sınıfı", etiketNormalle(tesvik.yatirimBilgileri?.destekSinifi));
   addDataRow("Ada", tesvik.yatirimBilgileri?.ada, "Parsel", tesvik.yatirimBilgileri?.parsel);
   worksheet.addRow([]);
 
@@ -538,7 +539,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `Tesvik_${tesvik.belgeNo || tesvik.gmId || tesvik._id}.xlsx`;
+  // Aynı düzeltme PDF tarafındaki gibi: tesvik.belgeNo üretimde YOK.
+  a.download = `${disaAktarimAdi(tesvik)}.xlsx`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
