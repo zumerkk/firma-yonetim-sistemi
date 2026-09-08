@@ -15,6 +15,7 @@ import { render, screen, fireEvent, waitForElementToBeRemoved } from '@testing-l
 import { ThemeProvider } from '@mui/material/styles';
 import { DataGrid } from '@mui/x-data-grid';
 import { Paper, Dialog, DialogContent, Menu, MenuItem } from '@mui/material';
+import { kullanilmisKoduNormalle } from '../utils/makineFormat';
 import {
   etuysTema, renk,
   Panel, BolumBasligi, AlanSatiri, VeriTablosu,
@@ -355,5 +356,47 @@ describe('etuysTema — yüzen yüzeyler', () => {
     );
     const s = getComputedStyle(baseElement.querySelector('.MuiDialog-paper'));
     expect(parseFloat(s.borderRadius) || 0).toBe(0);
+  });
+});
+
+// Müşteri (8 Eylül 2026): "Makinelerin kullanılmış olup olmadığını gösteren
+// kısım boş görünüyor bütün makinelerde."
+// Sebep: ızgaradaki <Select> '1'/'2'/'3' bekliyor, üretimde saklanan değerler
+// HAYIR/KM/KK karışığı. MUI Select eşleşmeyen value'da BOŞ gösterir — 4.376
+// ithal satırının 4.183'ü (%95,6) böyleydi. Veri sağlamdı, eşleşme yoktu.
+describe('kullanilmisKoduNormalle — saklanan değer → bakanlık kodu', () => {
+  test.each([
+    ['HAYIR',                 '2'],
+    ['hayır',                 '2'],
+    ['H',                     '2'],
+    ['KM',                    '3'],
+    ['km',                    '3'],
+    ['KK',                    '1'],
+    ['KULLANILMIŞ MÜNFERİT',  '3'],
+    ['KULLANILMIŞ KOMPLE',    '1'],
+    ['1',                     '1'],
+    ['2',                     '2'],
+    ['3',                     '3'],
+    ['  KM  ',                '3']
+  ])('%s → %s', (girdi, beklenen) => {
+    expect(kullanilmisKoduNormalle(girdi)).toBe(beklenen);
+  });
+
+  test('boş/yok değerler boş döner', () => {
+    for (const v of ['', null, undefined, '   ']) {
+      expect(kullanilmisKoduNormalle(v)).toBe('');
+    }
+  });
+
+  test('tanınmayan değer boş döner — sessizce yanlış koda düşmez', () => {
+    expect(kullanilmisKoduNormalle('ZZZ')).toBe('');
+    expect(kullanilmisKoduNormalle('9')).toBe('');
+  });
+
+  test('çıktı DAİMA Select seçeneklerinden biri', () => {
+    const gecerli = ['', '1', '2', '3'];
+    for (const v of ['HAYIR', 'KM', 'KK', '1', '2', '3', 'saçma', '', null]) {
+      expect(gecerli).toContain(kullanilmisKoduNormalle(v));
+    }
   });
 });

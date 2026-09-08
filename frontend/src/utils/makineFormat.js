@@ -98,6 +98,41 @@ const ESKI_KULLANILMIS_KODLARI = {
   'H': 'HAYIR'
 };
 
+// 🔁 SAKLANAN DEĞER → BAKANLIK KODU
+//
+// Müşteri (8 Eylül 2026): "Makinelerin kullanılmış olup olmadığını gösteren kısım
+// boş görünüyor bütün makinelerde."
+//
+// Sebep ölçüldü: ekrandaki <Select>'in seçenek değerleri '1'/'2'/'3' (bakanlık
+// kodları) ama üretimde saklanan değerler karışık — 4.376 ithal satırında:
+//     HAYIR 3.688 · KM 474 · '3' 151 · '2' 39 · KK 21
+// MUI Select, value hiçbir MenuItem ile eşleşmezse BOŞ gösterir. Yani 4.183
+// satır (%95,6) boş görünüyordu. Veri sağlamdı, eşleşme yoktu.
+//
+// PR #97'de eklenen ESKİ_KULLANILMIS_KODLARI yalnız DIŞA AKTARIMDA (PDF/Excel)
+// kullanılıyordu; ızgaranın Select'i ham değeri karşılaştırıyordu. Bu fonksiyon
+// o boşluğu kapatıyor: ne saklanmışsa Select'in anladığı koda çevirir.
+//
+// Veriye DOKUNMUYOR — dönüşüm yalnız görüntüleme/düzenleme tarafında.
+const KOD_ESLEME = {
+  '1': '1', '2': '2', '3': '3',
+  'KK': '1', 'KM': '3', 'H': '2',
+  'HAYIR': '2', 'HAYİR': '2',
+  'KULLANILMIŞ KOMPLE': '1', 'KULLANILMIS KOMPLE': '1',
+  'KULLANILMIŞ MÜNFERİT': '3', 'KULLANILMIS MUNFERIT': '3'
+};
+
+/**
+ * Saklanan kullanılmışlık değerini bakanlık koduna ('1'|'2'|'3') çevirir.
+ * Tanınmayan değer '' döner — Select boş görünür ama bu artık BİLİNÇLİ:
+ * gerçekten tanımadığımız bir değer var demektir.
+ */
+export const kullanilmisKoduNormalle = (deger) => {
+  const k = String(deger ?? '').trim().toLocaleUpperCase('tr');
+  if (!k) return '';
+  return KOD_ESLEME[k] || '';
+};
+
 const KULLANILMAMIS_DEGERLER = ['', '0', '2', 'HAYIR', 'HAYİR', 'YOK', 'YENİ', 'YENI'];
 
 export const kullanilmisMi = (kod) => {
