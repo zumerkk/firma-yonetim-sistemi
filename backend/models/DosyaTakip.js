@@ -391,6 +391,41 @@ const dosyaTakipSchema = new mongoose.Schema({
 // ============================================================================
 // INDEX'LER
 // ============================================================================
+// 🔎 MÜKERRER AÇIK TALEP ARAMA
+//
+// Müşteri (Yiğit, revize listesi): "Belge Takipde aynı talep ve aynı belge no'su
+// olan işlemden 1 tane açabilelim, halihazırda açık olan talebi unutup yeni
+// sıfırdan açabiliyoruz bazen."
+//
+// Ölçüldü (8 Eylül 2026): 241 talebin 19 grubu mükerrer, 20 gereksiz açık talep
+// (%8,3). Örnek: A001014 / "Yerli Makine Revize Talebi" / belge 578589 için
+// DT20260031 ve DT20260161 aynı anda açık.
+//
+// ⚠️ SERT KİLİT DEĞİL. Ölçümde bazı çiftler farklı aşamalardaydı
+// (MURACAAT_ONCESI ↔ KURUM_SONUCLANMA), yani meşru ikinci talep olabiliyor.
+// Bu yüzden kural "engelle" değil "uyar ve mevcudu göster"; kullanıcı bilerek
+// devam edebiliyor. Amaç unutmayı önlemek, işi kilitlemek değil.
+//
+// Belge no'su BOŞ olan talepte kural uygulanmaz (28 kayıt böyle) — neyin
+// mükerrer olduğunu söyleyecek bir anahtar yok.
+dosyaTakipSchema.statics.acikMukerrerBul = function ({ firma, talepTuru, ytbNo, belgeId, haricId }) {
+  const belgeNo = String(ytbNo || belgeId || '').trim();
+  if (!firma || !talepTuru || !belgeNo) return null;   // kural uygulanamaz
+
+  const sorgu = {
+    firma,
+    talepTuru,
+    anaAsama: { $ne: 'TAMAMLANDI' },
+    $or: [{ ytbNo: belgeNo }, { belgeId: belgeNo }]
+  };
+  if (haricId) sorgu._id = { $ne: haricId };           // güncellemede kendini sayma
+
+  return this.findOne(sorgu)
+    .select('takipId talepTuru ytbNo belgeId anaAsama durum firmaUnvan createdAt')
+    .sort({ createdAt: 1 })
+    .lean();
+};
+
 dosyaTakipSchema.index({ firma: 1, durum: 1 });
 dosyaTakipSchema.index({ talepTuru: 1 });
 dosyaTakipSchema.index({ anaAsama: 1 });
