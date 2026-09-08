@@ -554,18 +554,30 @@ const deleteFirma = async (req, res) => {
 // 🔍 Firma Arama - Türkçe Karakter Duyarsız
 const searchFirmalar = async (req, res) => {
   try {
-    const { q, field } = req.query;
+    // ⚠️ `aktif` LİSTEYLE AYNI ANLAMA GELMELİ.
+    //
+    // Müşteri şikayeti (8 Eylül 2026): "listede var ama aramada gelmiyor".
+    // Ölçüldü: liste ucu (getFirmalar) `aktif=all` kabul ediyor ve pasifleri de
+    // gösterebiliyor, ama arama `aktif: true` SABİT KODLUYDU. Sonuç: kullanıcı
+    // listeyi "Tümü"ne alıp pasif bir firmayı görüyor, aynı firmayı aradığında
+    // hiçbir şey bulamıyordu. Üretimde 66 firma bu durumda (1257 kayıttan).
+    //
+    // Artık liste ile aynı sözleşme: varsayılan 'true' (davranış korunuyor),
+    // 'all' geçilirse pasifler de aranır.
+    const { q, field, aktif = 'true' } = req.query;
 
     if (!q || q.length < 2) {
       return sendError(res, 'Arama terimi en az 2 karakter olmalıdır', 400);
     }
+
+    const aktifFiltresi = aktif === 'all' ? {} : { aktif: aktif === 'true' };
 
     let firmalar = [];
     const turkishRegex = createTurkishInsensitiveRegex(q);
 
     if (field) {
       // Belirli alanda arama - Türkçe karakter duyarsız
-      const filter = { aktif: true };
+      const filter = { ...aktifFiltresi };
 
       if (field === 'vergiNoTC') {
         filter.vergiNoTC = turkishRegex;
@@ -584,7 +596,7 @@ const searchFirmalar = async (req, res) => {
         .lean();
     } else {
       // Genel arama - Türkçe karakter duyarsız
-      firmalar = await Firma.searchFirmalar(q)
+      firmalar = await Firma.searchFirmalar(q, aktifFiltresi)
         .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi yetkiliKisiler etuysYetkiBitisTarihi dysYetkiBitisTarihi aktif')
         .limit(20)
         .lean();

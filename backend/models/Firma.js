@@ -322,7 +322,13 @@ firmaSchema.statics.findByFirmaId = function(firmaId) {
   return this.findOne({ firmaId: firmaId.toUpperCase(), aktif: true });
 };
 
-firmaSchema.statics.searchFirmalar = function(searchTerm) {
+/**
+ * @param {string} searchTerm
+ * @param {object} aktifFiltresi  {} → hepsi, {aktif:true} → yalnız aktifler.
+ *   Varsayılan aktif-only; çağıran taraf 'all' isterse {} geçer.
+ *   Bkz. firmaController.searchFirmalar'daki not (listeyle aynı sözleşme).
+ */
+firmaSchema.statics.searchFirmalar = function(searchTerm, aktifFiltresi = { aktif: true }) {
   // Türkçe karakter duyarsız regex oluştur
   const turkishRegex = createTurkishInsensitiveRegex(searchTerm);
   
@@ -333,7 +339,7 @@ firmaSchema.statics.searchFirmalar = function(searchTerm) {
       { vergiNoTC: turkishRegex },
       { ilkIrtibatKisi: turkishRegex }
     ],
-    aktif: true
+    ...aktifFiltresi
   }).sort({ tamUnvan: 1 });
 };
 
