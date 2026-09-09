@@ -91,6 +91,48 @@ exports.turSil = wrap(async (req, res) => {
   res.json({ success: true, message: 'İşlem türü silindi' });
 });
 
+// 📎 Şablon örnek dosyası yükle — işlem türü düzenleme ekranından.
+//
+// Müşteri: "örnekleri de işlem türleri kısmından yükleyip kaydedebilelim."
+// Daha önce örnek dosya yalnızca talep ekranından yüklenebiliyordu, yani aynı
+// boş formu her talepte yeniden yüklemek gerekiyordu.
+//
+// Uç bilinçli olarak TÜRE BAĞLI DEĞİL: dosyayı depoya koyar ve künyesini döner.
+// Arayüz künyeyi düzenlediği satıra yazar, "Kaydet"e basınca normal tür
+// güncellemesiyle kalıcılaşır. Nedeni: satır sırası değişebilir, tür henüz hiç
+// kaydedilmemiş olabilir — indekse bağlı bir uç ikisinde de yanlış satırı vurur.
+exports.turOrnekDosyaYukle = wrap(async (req, res) => {
+  const files = req.uploadedFiles || [];
+  if (!files.length) { const e = new Error('Dosya seçilmedi.'); e.code = 'BAD_INPUT'; throw e; }
+  const ornekDosya = await svc.sablonDosyaKaydet(req.body?.turAd || '', files[0]);
+  res.json({ success: true, data: ornekDosya, message: 'Örnek dosya yüklendi' });
+});
+
+// 📥 Şablon örnek dosyasını indir — hangi satırın örneği olduğunu SUNUCU çözer.
+// Dosya yolunu istemciden almak dizin dışına çıkma denemelerine kapı açardı;
+// bunun yerine kayıtlı türden okunur.
+exports.turOrnekDosyaIndir = wrap(async (req, res) => {
+  const tur = await IslemTuru.findById(req.params.id).lean();
+  if (!tur) { const e = new Error('İşlem türü bulunamadı.'); e.code = 'TUR_NOT_FOUND'; throw e; }
+
+  const varyantKod = String(req.query.varyant || '').trim();
+  const liste = varyantKod
+    ? ((tur.varyantlar || []).find((v) => v.kod === varyantKod) || {}).istenenEvraklar
+    : tur.istenenEvraklar;
+  const evrak = (liste || [])[Number(req.query.i)];
+  const ornek = evrak && evrak.ornekDosya;
+  if (!ornek || !(ornek.fileUrl || ornek.filePath)) {
+    const e = new Error('Bu satıra örnek dosya yüklenmemiş.'); e.code = 'BAD_INPUT'; throw e;
+  }
+
+  return storageService.serveFile({
+    fileUrl: ornek.fileUrl,
+    filePath: ornek.filePath,
+    originalName: ornek.dosyaAdi,
+    fileName: ornek.dosyaAdi
+  }, res);
+});
+
 // ───────── TALEPLER ─────────
 
 exports.talepListe = wrap(async (req, res) => {
@@ -128,8 +170,16 @@ exports.talepDetay = wrap(async (req, res) => {
 });
 
 exports.talepOlustur = wrap(async (req, res) => {
-  const { firmaId, islemTuruId, varyantKod, cevaplar } = req.body || {};
-  const talep = await svc.talepOlustur({ firmaId, islemTuruId, varyantKod, cevaplar, user: req.user });
+  const { firmaId, islemTuruId, varyantKod, cevaplar, secilenIndeksler } = req.body || {};
+  const talep = await svc.talepOlustur({
+    firmaId,
+    islemTuruId,
+    varyantKod,
+    cevaplar,
+    // Dizi değilse servise null gider = "seçim yapılmadı", eski davranış korunur
+    secilenIndeksler: Array.isArray(secilenIndeksler) ? secilenIndeksler : null,
+    user: req.user
+  });
   res.json({ success: true, data: talep, message: 'Talep oluşturuldu' });
 });
 
