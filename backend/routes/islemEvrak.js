@@ -20,6 +20,11 @@ router.use(authenticate);
 router.get('/turler', ctrl.turListe);
 router.get('/turler/:id', ctrl.turDetay);
 router.post('/turler', editor, ctrl.turKaydet);
+// Şablon örnek dosyası: yükleme türe bağlı değil — dosyayı depoya koyup künyesini
+// döner, satıra yazmayı ve kalıcılaştırmayı "Kaydet" (PUT /turler/:id) yapar.
+// İndirme ise kayıtlı türden okunur; dosya yolu istemciden alınmaz.
+router.post('/turler/ornek-yukle', editor, uploadMultiple('dosyalar'), ctrl.turOrnekDosyaYukle);
+router.get('/turler/:id/ornek-indir', ctrl.turOrnekDosyaIndir);
 router.put('/turler/:id', editor, ctrl.turKaydet);
 router.delete('/turler/:id', editor, ctrl.turSil);
 

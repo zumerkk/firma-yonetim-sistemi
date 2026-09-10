@@ -10,7 +10,10 @@ const DURUMLAR = ['taslak', 'mail_gonderildi', 'kismi_geldi', 'tamamlandi', 'ipt
 // Talep bazındaki istenen evrak: şablondan gelir, kullanıcı ekler/çıkarır
 const talepEvrakSchema = new mongoose.Schema({
   ad: { type: String, required: true, trim: true, maxlength: 200 },
-  aciklama: { type: String, trim: true, maxlength: 500, default: '' },
+  // ⚠️ IslemTuru.istenenEvraklar.aciklama ile AYNI sınır olmalı — metin oradan
+  // buraya kopyalanıyor. Ayrıştıkları için üretimde talep açılamıyordu:
+  // "istenenEvraklar.1.aciklama ... is longer than the maximum allowed length (500)".
+  aciklama: { type: String, trim: true, maxlength: 2000, default: '' },
   zorunlu: { type: Boolean, default: true },
   // Firmaya gönderilen örnek/şablon dosya (varsa maile eklenir)
   ornekDosya: {

@@ -28,6 +28,13 @@ function talepKlasoru(talep) {
   return [KLASOR_KOKU, firma, `${islem}-${String(talep._id).slice(-6)}`].join('/');
 }
 
+// Şablon (işlem türü) örnek dosyalarının klasörü: Islem_Evrak/_Sablonlar/<İşlem>
+// Talep klasöründen AYRI: bu dosyalar tek bir talebe değil türe ait, her yeni
+// talebe kopyalanıp firmaya gönderiliyorlar.
+function sablonKlasoru(turAd) {
+  return [KLASOR_KOKU, '_Sablonlar', storageService.normalizeSegment(turAd || 'Islem')].join('/');
+}
+
 // 🔗 Public yükleme linki — makine/ara-kontrol ile aynı biçim ("<önek>-<kısa kod>")
 // Bu modülün firma sayfası /evrak/:token (AppRouter). Teşvik-makine'nin /upload/tesvik
 // yolu kullanılırsa firma yanlış sayfaya düşer ve "Bağlantı geçersiz" hatası alır.
@@ -223,6 +230,33 @@ async function dosyaKaydet(talep, file, altKlasor = 'Gelen') {
   };
 }
 
+// 📎 Şablon örnek dosyası kaydet — TÜRE ait, henüz talep yok.
+//
+// Müşteri: "örnekleri de işlem türleri kısmından yükleyip kaydedebilelim".
+// Eskiden örnek dosya yalnız talep ekranından yüklenebiliyordu; yani aynı örneği
+// her yeni talepte tekrar yüklemek gerekiyordu.
+//
+// Bilinçli olarak DURUMSUZ: türü değiştirmez, sadece dosyayı depoya koyup künyeyi
+// döner. Çağıran arayüz künyeyi düzenlediği satıra yazar, kaydete basınca normal
+// tür güncellemesiyle kalıcılaşır. Böylece kaydedilmemiş türlerde de çalışır ve
+// satır sırası değişse bile örnek doğru satırla birlikte taşınır.
+// Bedeli: kullanıcı yükleyip kaydetmezse depoda sahipsiz bir dosya kalır.
+async function sablonDosyaKaydet(turAd, file) {
+  const saved = await storageService.saveBuffer({
+    folderRel: sablonKlasoru(turAd),
+    documentTypeFolder: 'Ornek_Sablonlar',
+    originalName: file.originalname,
+    buffer: file.buffer
+  });
+  return {
+    dosyaAdi: file.originalname || saved.fileName,
+    fileUrl: saved.fileUrl || '',
+    filePath: saved.relPath || '',
+    mimeType: file.mimetype || '',
+    fileSize: file.size || 0
+  };
+}
+
 /**
  * 🔀 Şablon evraklarını verilen EVET/HAYIR cevaplarına göre süzer.
  *
@@ -245,8 +279,47 @@ function kosullaSuz(evraklar, cevaplar = []) {
   });
 }
 
+/**
+ * ☑️ Koşul süzgeci + kullanıcının talep açarken yaptığı seçimi birleştirir.
+ *
+ * İki aşama art arda uygulanır: önce koşullar (soru cevaplarına göre), sonra
+ * işaretlenen satırlar. Sıra önemli — kullanıcı koşul yüzünden zaten elenmiş bir
+ * satırı indeksle geri getiremesin.
+ *
+ * `secilenIndeksler` dizi DEĞİLSE seçim yapılmamış sayılır ve yalnız koşul süzgeci
+ * çalışır; bu alanı göndermeyen eski çağrılar böylece aynen çalışmaya devam eder.
+ * Boş dizi ise ayrı bir durumdur: kullanıcı hepsini kaldırmış demektir, sessizce
+ * evraksız talep üretmek yerine hata veriyoruz (neredeyse her zaman arayüz hatası).
+ *
+ * İndeksler ŞABLONUN kendi dizisine göredir (IslemTuru.varyantCoz çıktısı).
+ * Arayüz de aynı diziyi listelediği için numaralar örtüşür.
+ */
+function secimUygula(evraklar, cevaplar = [], secilenIndeksler = null) {
+  const tumu = evraklar || [];
+  // kosullaSuz aynı diziyi süzdüğü için nesne kimliği korunur; koşul sonucunu
+  // indeksli seçimle bu sayede tek geçişte kesiştirebiliyoruz.
+  const izinli = new Set(kosullaSuz(tumu, cevaplar));
+  if (!Array.isArray(secilenIndeksler)) return tumu.filter((e) => izinli.has(e));
+
+  const secilen = new Set(
+    secilenIndeksler.map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n < tumu.length)
+  );
+  if (secilen.size === 0) {
+    const e = new Error('En az bir evrak seçmelisiniz.'); e.code = 'BAD_INPUT'; throw e;
+  }
+  return tumu.filter((e, i) => izinli.has(e) && secilen.has(i));
+}
+
 // 🆕 Firma + işlem türünden talep oluştur (istenen evraklar şablondan kopyalanır)
-async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = [], user }) {
+//
+// `secilenIndeksler`: şablonun istenenEvraklar dizisindeki konum numaraları.
+// Müşteri: "Belge içinde İstenen evrakları seçebilelim, seçtiklerimiz maile
+// eklensin — şimdilik sadece işlem türü yönetiminde görünüyor." Yani hangi
+// evrakların isteneceği artık talep açarken de belirlenebiliyor.
+//
+// Verilmezse (undefined/null) ESKİ davranış: koşul süzgecinden geçen her evrak
+// listeye girer. Böylece bu alanı göndermeyen eski çağrılar aynen çalışır.
+async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = [], secilenIndeksler = null, user }) {
   const [firma, tur] = await Promise.all([
     Firma.findById(firmaId).select('tamUnvan firmaEmail yetkiliKisiler').lean(),
     IslemTuru.findById(islemTuruId)
@@ -266,6 +339,8 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
       deger: String(c.deger).toUpperCase()
     }));
 
+  const secilenEvraklar = secimUygula(sablon.istenenEvraklar, cevapKayitlari, secilenIndeksler);
+
   const talep = await IslemTalebi.create({
     firma: firma._id,
     firmaAdi: firma.tamUnvan || '',
@@ -276,7 +351,7 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
     varyantAd: sablon.ad || '',
     cevaplar: cevapKayitlari,
     // Şablondaki evraklar talebe kopyalanır → burada serbestçe düzenlenir
-    istenenEvraklar: kosullaSuz(sablon.istenenEvraklar, cevapKayitlari).map((e) => ({
+    istenenEvraklar: secilenEvraklar.map((e) => ({
       ad: e.ad,
       aciklama: e.aciklama || '',
       zorunlu: e.zorunlu !== false,
@@ -296,7 +371,10 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
 
 module.exports = {
   kosullaSuz,
+  secimUygula,
   talepKlasoru,
+  sablonKlasoru,
+  sablonDosyaKaydet,
   ensureUploadLink,
   resolveByToken,
   mailOlustur,

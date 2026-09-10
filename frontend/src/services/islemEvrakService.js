@@ -11,6 +11,12 @@ const islemEvrakService = {
   turOlustur: (body) => api.post(`${base}/turler`, body).then(d),
   turGuncelle: (id, body) => api.put(`${base}/turler/${id}`, body).then(d),
   turSil: (id) => api.delete(`${base}/turler/${id}`).then((r) => r.data),
+  // Şablon örnek dosyası: dosyayı depoya koyar, künyesini döner. Künye satıra
+  // yazılır ve türü kaydedince kalıcılaşır — yükleme tek başına türü değiştirmez.
+  turOrnekYukle: (formData, onProgress) =>
+    uploadPost(`${base}/turler/ornek-yukle`, formData, { onProgress }).then(d),
+  turOrnekIndir: (id, { varyant = '', i } = {}) =>
+    api.get(`${base}/turler/${id}/ornek-indir`, { params: { varyant, i }, responseType: 'blob' }),
 
   // Talepler
   talepler: (params = {}) => api.get(`${base}/talepler`, { params }).then((r) => r.data),

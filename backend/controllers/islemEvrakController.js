@@ -8,7 +8,33 @@ const svc = require('../services/islemEvrak/islemEvrakService');
 const storageService = require('../services/tesvikMakine/storageService');
 const mailService = require('../services/tesvikMakine/mailService');
 
+// Mongoose doğrulama hatasını okunur tek cümleye çevirir.
+// Ham hâli kullanıcıya "IslemTalebi validation failed: istenenEvraklar.1.aciklama:
+// Path `aciklama` (`...500 karakterlik metnin tamamı...`) is longer than the maximum
+// allowed length (500)." diye görünüyordu: hangi satır olduğu, ne yapılacağı belirsiz.
+function dogrulamaMesaji(err) {
+  const alanlar = Object.values(err.errors || {}).map((h) => {
+    const yol = String(h.path || '');
+    // "istenenEvraklar.1.aciklama" → kullanıcının gördüğü satır numarası (1'den başlar)
+    const m = String(h.properties?.path ? h.path : yol).match(/istenenEvraklar\.(\d+)\.(\w+)/)
+      || String(h.path || '').match(/istenenEvraklar\.(\d+)\.(\w+)/);
+    const sira = m ? `${Number(m[1]) + 1}. evrak` : yol;
+    if (h.kind === 'maxlength') {
+      const sinir = h.properties?.maxlength;
+      const uzunluk = String(h.value || '').length;
+      return `${sira} — ${m ? m[2] : yol} çok uzun (${uzunluk} karakter, en fazla ${sinir})`;
+    }
+    if (h.kind === 'required') return `${sira} — ${m ? m[2] : yol} zorunlu`;
+    return `${sira} — ${h.message}`;
+  });
+  return alanlar.length ? `Kaydedilemedi: ${alanlar.join(' · ')}` : (err.message || 'Kaydedilemedi.');
+}
+
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((err) => {
+  // Doğrulama hatası kullanıcı girdisidir → 400, sunucu hatası değil
+  if (err && err.name === 'ValidationError') {
+    return res.status(400).json({ success: false, message: dogrulamaMesaji(err), code: 'BAD_INPUT' });
+  }
   const kod = err.code || '';
   const durum = ['FIRMA_NOT_FOUND', 'TUR_NOT_FOUND', 'TALEP_NOT_FOUND'].includes(kod) ? 404
     : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500;
@@ -62,7 +88,14 @@ exports.turKaydet = wrap(async (req, res) => {
   };
 
   if (req.params.id) {
-    const tur = await IslemTuru.findByIdAndUpdate(req.params.id, { $set: govde }, { new: true });
+    // ⚠️ runValidators olmadan findByIdAndUpdate şema sınırlarını HİÇ kontrol etmez.
+    // Üretimde tam olarak bu yaşandı: 500 karakteri aşan bir evrak açıklaması şablona
+    // sessizce yazıldı, hata ancak günler sonra talep açılırken (IslemTalebi.create
+    // doğrulama yapar) ortaya çıktı ve modül tamamen kullanılamaz oldu.
+    // Artık hata girildiği yerde, anlaşılır biçimde veriliyor.
+    const tur = await IslemTuru.findByIdAndUpdate(
+      req.params.id, { $set: govde }, { new: true, runValidators: true }
+    );
     if (!tur) { const e = new Error('İşlem türü bulunamadı.'); e.code = 'TUR_NOT_FOUND'; throw e; }
     return res.json({ success: true, data: tur, message: 'İşlem türü güncellendi' });
   }
@@ -89,6 +122,48 @@ exports.turSil = wrap(async (req, res) => {
   }
   await IslemTuru.findByIdAndDelete(req.params.id);
   res.json({ success: true, message: 'İşlem türü silindi' });
+});
+
+// 📎 Şablon örnek dosyası yükle — işlem türü düzenleme ekranından.
+//
+// Müşteri: "örnekleri de işlem türleri kısmından yükleyip kaydedebilelim."
+// Daha önce örnek dosya yalnızca talep ekranından yüklenebiliyordu, yani aynı
+// boş formu her talepte yeniden yüklemek gerekiyordu.
+//
+// Uç bilinçli olarak TÜRE BAĞLI DEĞİL: dosyayı depoya koyar ve künyesini döner.
+// Arayüz künyeyi düzenlediği satıra yazar, "Kaydet"e basınca normal tür
+// güncellemesiyle kalıcılaşır. Nedeni: satır sırası değişebilir, tür henüz hiç
+// kaydedilmemiş olabilir — indekse bağlı bir uç ikisinde de yanlış satırı vurur.
+exports.turOrnekDosyaYukle = wrap(async (req, res) => {
+  const files = req.uploadedFiles || [];
+  if (!files.length) { const e = new Error('Dosya seçilmedi.'); e.code = 'BAD_INPUT'; throw e; }
+  const ornekDosya = await svc.sablonDosyaKaydet(req.body?.turAd || '', files[0]);
+  res.json({ success: true, data: ornekDosya, message: 'Örnek dosya yüklendi' });
+});
+
+// 📥 Şablon örnek dosyasını indir — hangi satırın örneği olduğunu SUNUCU çözer.
+// Dosya yolunu istemciden almak dizin dışına çıkma denemelerine kapı açardı;
+// bunun yerine kayıtlı türden okunur.
+exports.turOrnekDosyaIndir = wrap(async (req, res) => {
+  const tur = await IslemTuru.findById(req.params.id).lean();
+  if (!tur) { const e = new Error('İşlem türü bulunamadı.'); e.code = 'TUR_NOT_FOUND'; throw e; }
+
+  const varyantKod = String(req.query.varyant || '').trim();
+  const liste = varyantKod
+    ? ((tur.varyantlar || []).find((v) => v.kod === varyantKod) || {}).istenenEvraklar
+    : tur.istenenEvraklar;
+  const evrak = (liste || [])[Number(req.query.i)];
+  const ornek = evrak && evrak.ornekDosya;
+  if (!ornek || !(ornek.fileUrl || ornek.filePath)) {
+    const e = new Error('Bu satıra örnek dosya yüklenmemiş.'); e.code = 'BAD_INPUT'; throw e;
+  }
+
+  return storageService.serveFile({
+    fileUrl: ornek.fileUrl,
+    filePath: ornek.filePath,
+    originalName: ornek.dosyaAdi,
+    fileName: ornek.dosyaAdi
+  }, res);
 });
 
 // ───────── TALEPLER ─────────
@@ -128,8 +203,16 @@ exports.talepDetay = wrap(async (req, res) => {
 });
 
 exports.talepOlustur = wrap(async (req, res) => {
-  const { firmaId, islemTuruId, varyantKod, cevaplar } = req.body || {};
-  const talep = await svc.talepOlustur({ firmaId, islemTuruId, varyantKod, cevaplar, user: req.user });
+  const { firmaId, islemTuruId, varyantKod, cevaplar, secilenIndeksler } = req.body || {};
+  const talep = await svc.talepOlustur({
+    firmaId,
+    islemTuruId,
+    varyantKod,
+    cevaplar,
+    // Dizi değilse servise null gider = "seçim yapılmadı", eski davranış korunur
+    secilenIndeksler: Array.isArray(secilenIndeksler) ? secilenIndeksler : null,
+    user: req.user
+  });
   res.json({ success: true, data: talep, message: 'Talep oluşturuldu' });
 });
 

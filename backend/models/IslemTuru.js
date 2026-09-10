@@ -8,7 +8,12 @@ const mongoose = require('mongoose');
 // İşlem türünde istenen tek bir evrak kalemi
 const istenenEvrakSchema = new mongoose.Schema({
   ad: { type: String, required: true, trim: true, maxlength: 200 },
-  aciklama: { type: String, trim: true, maxlength: 500, default: '' },
+  // Açıklama = mevzuat metni. 500 dardı: ETUYS listesindeki tek bir madde bile
+  // (Elektrik Piyasası Yönetmeliği fıkrası) tam 500 karakterde sığıyordu, kullanıcı
+  // başına "T.C. SANAYİ VE TEKNOLOJİ BAKANLIĞINA VERİLMEK ÜZERE - " eklediğinde taştı.
+  // ⚠️ IslemTalebi.istenenEvraklar.aciklama ile AYNI kalmalı — talep açılırken bu
+  // metin oraya kopyalanıyor, sınırlar ayrışırsa kopyalama doğrulamada patlar.
+  aciklama: { type: String, trim: true, maxlength: 2000, default: '' },
   zorunlu: { type: Boolean, default: true },
   // 🔀 Koşullu görünürlük (müşteri Excel'i: "9. SATIR EVET tikine koşullu aktif").
   // Boş bırakılırsa evrak HER ZAMAN istenir — eski kayıtlar aynen çalışmaya devam eder.
