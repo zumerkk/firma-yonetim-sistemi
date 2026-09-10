@@ -8,7 +8,33 @@ const svc = require('../services/islemEvrak/islemEvrakService');
 const storageService = require('../services/tesvikMakine/storageService');
 const mailService = require('../services/tesvikMakine/mailService');
 
+// Mongoose doğrulama hatasını okunur tek cümleye çevirir.
+// Ham hâli kullanıcıya "IslemTalebi validation failed: istenenEvraklar.1.aciklama:
+// Path `aciklama` (`...500 karakterlik metnin tamamı...`) is longer than the maximum
+// allowed length (500)." diye görünüyordu: hangi satır olduğu, ne yapılacağı belirsiz.
+function dogrulamaMesaji(err) {
+  const alanlar = Object.values(err.errors || {}).map((h) => {
+    const yol = String(h.path || '');
+    // "istenenEvraklar.1.aciklama" → kullanıcının gördüğü satır numarası (1'den başlar)
+    const m = String(h.properties?.path ? h.path : yol).match(/istenenEvraklar\.(\d+)\.(\w+)/)
+      || String(h.path || '').match(/istenenEvraklar\.(\d+)\.(\w+)/);
+    const sira = m ? `${Number(m[1]) + 1}. evrak` : yol;
+    if (h.kind === 'maxlength') {
+      const sinir = h.properties?.maxlength;
+      const uzunluk = String(h.value || '').length;
+      return `${sira} — ${m ? m[2] : yol} çok uzun (${uzunluk} karakter, en fazla ${sinir})`;
+    }
+    if (h.kind === 'required') return `${sira} — ${m ? m[2] : yol} zorunlu`;
+    return `${sira} — ${h.message}`;
+  });
+  return alanlar.length ? `Kaydedilemedi: ${alanlar.join(' · ')}` : (err.message || 'Kaydedilemedi.');
+}
+
 const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((err) => {
+  // Doğrulama hatası kullanıcı girdisidir → 400, sunucu hatası değil
+  if (err && err.name === 'ValidationError') {
+    return res.status(400).json({ success: false, message: dogrulamaMesaji(err), code: 'BAD_INPUT' });
+  }
   const kod = err.code || '';
   const durum = ['FIRMA_NOT_FOUND', 'TUR_NOT_FOUND', 'TALEP_NOT_FOUND'].includes(kod) ? 404
     : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500;
@@ -62,7 +88,14 @@ exports.turKaydet = wrap(async (req, res) => {
   };
 
   if (req.params.id) {
-    const tur = await IslemTuru.findByIdAndUpdate(req.params.id, { $set: govde }, { new: true });
+    // ⚠️ runValidators olmadan findByIdAndUpdate şema sınırlarını HİÇ kontrol etmez.
+    // Üretimde tam olarak bu yaşandı: 500 karakteri aşan bir evrak açıklaması şablona
+    // sessizce yazıldı, hata ancak günler sonra talep açılırken (IslemTalebi.create
+    // doğrulama yapar) ortaya çıktı ve modül tamamen kullanılamaz oldu.
+    // Artık hata girildiği yerde, anlaşılır biçimde veriliyor.
+    const tur = await IslemTuru.findByIdAndUpdate(
+      req.params.id, { $set: govde }, { new: true, runValidators: true }
+    );
     if (!tur) { const e = new Error('İşlem türü bulunamadı.'); e.code = 'TUR_NOT_FOUND'; throw e; }
     return res.json({ success: true, data: tur, message: 'İşlem türü güncellendi' });
   }
