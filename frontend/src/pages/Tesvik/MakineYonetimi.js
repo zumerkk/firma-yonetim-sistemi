@@ -13,6 +13,7 @@ import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
+import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -2709,84 +2710,48 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> {
-        const TalepTarihiCell = () => {
-          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
-          
-          // Row değiştiğinde local value'yu güncelle
-          useEffect(() => {
-            setLocalValue(formatDateForInput(p.row.talep?.talepTarihi));
-          }, [p.row.talep?.talepTarihi]);
-
-          return (
-            <TextField
-              type="date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik}
-              value={localValue}
-              onChange={async(e)=>{
-                const newValue = e.target.value;
-                setLocalValue(newValue); // Hemen UI'da güncelle
-                
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) return;
-                // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
-                // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
-                // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-                const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
-                if (newValue && !talep.durum) {
-                  talep.durum = 'bakanliga_gonderildi';
-                  if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
-                }
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
-                updateYerli(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}
-            />
-          );
-        };
-        return <TalepTarihiCell />;
-      } },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> {
-        const KararTarihiCell = () => {
-          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
-          
-          // Row değiştiğinde local value'yu güncelle
-          useEffect(() => {
-            setLocalValue(formatDateForInput(p.row.karar?.kararTarihi));
-          }, [p.row.karar?.kararTarihi]);
-
-          return (
-            <TextField
-              type="date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik}
-              value={localValue}
-              onChange={async(e)=>{
-                const newValue = e.target.value;
-                setLocalValue(newValue); // Hemen UI'da güncelle
-                
-                const rid = await ensureRowId('yerli', p.row);
-                if (!rid) return;
-                // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
-                // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
-                // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-                const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
-                if (newValue && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
-                  karar.kararDurumu = 'onay';
-                  if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
-                }
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
-                updateYerli(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}
-            />
-          );
-        };
-        return <KararTarihiCell />;
-      } },
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+        <IzgaraTarihHucresi
+          deger={p.row.talep?.talepTarihi}
+          disabled={!selectedTesvik}
+          onKaydet={async (yeni) => {
+            const rid = await ensureRowId('yerli', p.row);
+            if (!rid) return;
+            // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
+            // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
+            // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
+            const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+            if (yeni && !talep.durum) {
+              talep.durum = 'bakanliga_gonderildi';
+              if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
+            }
+            await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'yerli', rowId: rid, talep });
+            updateYerli(p.row.id, { rowId: rid, talep });
+            setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'yerli', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+          }}
+        />
+      ) },
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+        <IzgaraTarihHucresi
+          deger={p.row.karar?.kararTarihi}
+          disabled={!selectedTesvik}
+          onKaydet={async (yeni) => {
+            const rid = await ensureRowId('yerli', p.row);
+            if (!rid) return;
+            // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
+            // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
+            // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
+            const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+            if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
+              karar.kararDurumu = 'onay';
+              if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
+            }
+            await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'yerli', rowId: rid, karar });
+            updateYerli(p.row.id, { rowId: rid, karar });
+            setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'yerli', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+          }}
+        />
+      ) },
       { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
         <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
       )}
@@ -3196,82 +3161,50 @@ const MakineYonetimi = () => {
         </Stack>
       )} },
       { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> {
-        const TalepTarihiCell = () => {
-          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.talep?.talepTarihi));
-          
-          // Row değiştiğinde local value'yu güncelle
-          useEffect(() => {
-            setLocalValue(formatDateForInput(p.row.talep?.talepTarihi));
-          }, [p.row.talep?.talepTarihi]);
-
-          return (
-            <TextField
-              type="date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik}
-              value={localValue}
-              onChange={async(e)=>{
-                const newValue = e.target.value;
-                setLocalValue(newValue); // Hemen UI'da güncelle
-                
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) return;
-                // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
-                // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
-                // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-                const talep = { ...(p.row.talep||{}), talepTarihi: newValue ? new Date(newValue) : undefined };
-                if (newValue && !talep.durum) {
-                  talep.durum = 'bakanliga_gonderildi';
-                  if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
-                }
-                await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
-                updateIthal(p.row.id, { rowId: rid, talep });
-                setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}
-            />
-          );
-        };
-        return <TalepTarihiCell />;
+        return (
+          <IzgaraTarihHucresi
+            deger={p.row.talep?.talepTarihi}
+            disabled={!selectedTesvik}
+            onKaydet={async (yeni) => {
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
+              // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
+              // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
+              const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+              if (yeni && !talep.durum) {
+                talep.durum = 'bakanliga_gonderildi';
+                if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
+              }
+              await tesvikService.setMakineTalep(selectedTesvik._id, { liste:'ithal', rowId: rid, talep });
+              updateIthal(p.row.id, { rowId: rid, talep });
+              setActivityLog(log=> { const next = [{ type:'talep_tarih', list:'ithal', row:p.row, payload:talep, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}
+          />
+        );
       } },
       { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> {
-        const KararTarihiCell = () => {
-          const [localValue, setLocalValue] = useState(formatDateForInput(p.row.karar?.kararTarihi));
-          
-          // Row değiştiğinde local value'yu güncelle
-          useEffect(() => {
-            setLocalValue(formatDateForInput(p.row.karar?.kararTarihi));
-          }, [p.row.karar?.kararTarihi]);
-
-          return (
-            <TextField
-              type="date"
-              size="small"
-              InputLabelProps={{ shrink: true }}
-              disabled={!selectedTesvik}
-              value={localValue}
-              onChange={async(e)=>{
-                const newValue = e.target.value;
-                setLocalValue(newValue); // Hemen UI'da güncelle
-                
-                const rid = await ensureRowId('ithal', p.row);
-                if (!rid) return;
-                // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
-                // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
-                // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-                const karar = { ...(p.row.karar||{}), kararTarihi: newValue ? new Date(newValue) : undefined };
-                if (newValue && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
-                  karar.kararDurumu = 'onay';
-                  if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
-                }
-                await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
-                updateIthal(p.row.id, { rowId: rid, karar });
-                setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
-              }}
-            />
-          );
-        };
-        return <KararTarihiCell />;
+        return (
+          <IzgaraTarihHucresi
+            deger={p.row.karar?.kararTarihi}
+            disabled={!selectedTesvik}
+            onKaydet={async (yeni) => {
+              const rid = await ensureRowId('ithal', p.row);
+              if (!rid) return;
+              // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
+              // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
+              // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
+              const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+              if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
+                karar.kararDurumu = 'onay';
+                if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
+              }
+              await tesvikService.setMakineKarar(selectedTesvik._id, { liste:'ithal', rowId: rid, karar });
+              updateIthal(p.row.id, { rowId: rid, karar });
+              setActivityLog(log=> { const next = [{ type:'karar_tarih', list:'ithal', row:p.row, payload:karar, date:new Date() }, ...log].slice(0,200); if(selectedTesvik?._id){ saveLS(`mk_activity_${selectedTesvik._id}`, next); } return next; });
+            }}
+          />
+        );
       } },
       { field: 'actions', headerName: '', width: 32, renderCell: (p)=>(
         <IconButton size="small" sx={{ p: 0.25, color: '#ef4444' }} onClick={()=>delRow(p.row.id)}><DeleteIcon sx={{ fontSize: 14 }}/></IconButton>
