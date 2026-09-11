@@ -128,7 +128,11 @@ const DOSYA_TURLERI = [
   'ETUYS Eksik Görüntüsü', // müşteri: talep ve sonuç görüntüsünün arasında yer alsın
   'ETUYS Sonuç Görüntüsü', // müşteri: bu yüklenmeden talep "Sonuçlandı"ya alınamaz
   'Görüşme Sırası Talep Dosyaları',
-  'Eksik Tamamlama Evrakları' // müşteri: eski adı "Eksik Bildirimleri" idi
+  'Eksik Tamamlama Evrakları', // müşteri: eski adı "Eksik Bildirimleri" idi
+  // müşteri (Ödemeler modülü): "Birde bunlara yine notlu dosya ekleyebilelim."
+  // Dekont/fatura gibi ödeme evrakları bu türle yüklenir; dosya şemasındaki
+  // `aciklama` alanı zaten not yazmaya izin veriyor.
+  'Ödeme Belgesi'
 ];
 
 // Kullanımdan kalkan tür adları — eski kayıtlar validasyondan geçsin diye enum'da tutulur,
@@ -235,6 +239,30 @@ const dosyaTakipSchema = new mongoose.Schema({
     resmiMuracaatEksikSonGun: { type: Date }, // talep listesinde de kolon olarak gösterilir
     eksikBildirimTarihi: { type: Date },
     dosyaHazirlamaSonGun: { type: Date }
+  },
+
+  // --- ÖDEMELER (müşteri: "Ödemeler modülü birde zamanlama kısmının sağ tarafına") ---
+  //
+  // Müşterinin amacı raporlama: "ileride hangilerinin harcını ödemişiz faturasını
+  // ödemiş mi ödememiş mi görebilelim." Bu yüzden iki alan da SÜZÜLEBİLİR olmalı
+  // (bkz. talepListe'deki faturaDurumu / harciOdeyen parametreleri).
+  //
+  // Tutar alanı bilinçli olarak YOK: müşteri tutar istemedi, yalnızca durum sordu.
+  // Tutar eklemek her kayıtta doldurulacak yeni bir zorunluluk yaratırdı.
+  // "Kısmi ödendi" durumunun ayrıntısı serbest not alanına yazılabilir.
+  odeme: {
+    faturaDurumu: {
+      type: String,
+      enum: ['', 'odendi', 'odenmedi', 'kismi_odendi'],
+      default: ''
+    },
+    harciOdeyen: {
+      type: String,
+      enum: ['', 'firma', 'biz'],
+      default: ''
+    },
+    notlar: { type: String, trim: true, maxlength: 1000, default: '' },
+    guncellemeTarihi: { type: Date }
   },
 
   // --- DURUM YÖNETİMİ (State Machine) ---

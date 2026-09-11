@@ -32,6 +32,7 @@ import {
     CloudUpload as CloudUploadIcon,
     Description as DescriptionIcon,
     Schedule as ScheduleIcon,
+    Payments as PaymentsIcon,
     Cancel as CancelIcon,
     Delete as DeleteIcon,
     Download as DownloadIcon,
@@ -450,6 +451,9 @@ const DosyaTakipDetail = () => {
     // 📅 Zamanlama sekmesi (müşteri: 4 tarih — sadece tarih yazılacak)
     const [zamanlamaEditing, setZamanlamaEditing] = useState(false);
     const [zamanlamaData, setZamanlamaData] = useState({});
+    // 💳 Ödemeler sekmesi
+    const [odemeEditing, setOdemeEditing] = useState(false);
+    const [odemeData, setOdemeData] = useState({});
     // 📤 Dosya yükleme göstergesi (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
     const [yukleme, setYukleme] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
@@ -544,6 +548,31 @@ const DosyaTakipDetail = () => {
         { key: 'zamanlama.dosyaHazirlamaSonGun', label: 'Dosya Hazırlama Son Gün', oku: (t) => t?.zamanlama?.dosyaHazirlamaSonGun }
     ];
 
+    // 💳 Ödemeler sekmesinin iki seçimi. Etiketler listedeki süzgeçle AYNI olmalı
+    // (bkz. DosyaTakipList ODEME_SUZGEC_SECENEKLERI) — kullanıcı aynı kelimeyi
+    // iki ekranda farklı görürse aynı şey olduklarını anlamaz.
+    const ODEME_ALANLARI = [
+        {
+            key: 'odeme.faturaDurumu',
+            label: 'Fatura Durumu',
+            oku: (t) => t?.odeme?.faturaDurumu,
+            secenekler: [
+                { deger: 'odendi', etiket: 'Ödendi' },
+                { deger: 'odenmedi', etiket: 'Ödenmedi' },
+                { deger: 'kismi_odendi', etiket: 'Kısmi Ödendi' }
+            ]
+        },
+        {
+            key: 'odeme.harciOdeyen',
+            label: 'Harcı Kim Ödedi',
+            oku: (t) => t?.odeme?.harciOdeyen,
+            secenekler: [
+                { deger: 'firma', etiket: 'Firma' },
+                { deger: 'biz', etiket: 'Biz' }
+            ]
+        }
+    ];
+
     // ISO tarihi <input type="date"> biçimine indirger (saat dilimi kaymasın diye new Date() kullanılmaz)
     const tarihInputDegeri = (v) => (v ? String(v).split('T')[0] : '');
 
@@ -561,6 +590,25 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: 'Zamanlama kaydedildi!', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Zamanlama kaydedilemedi.', severity: 'error' });
+        }
+    };
+
+    // 💳 Ödemeler sekmesi
+    const handleOdemeDuzenle = () => {
+        const d = {};
+        ODEME_ALANLARI.forEach((a) => { d[a.key] = a.oku(seciliTalep) || ''; });
+        d['odeme.notlar'] = seciliTalep?.odeme?.notlar || '';
+        setOdemeData(d);
+        setOdemeEditing(true);
+    };
+
+    const handleOdemeKaydet = async () => {
+        try {
+            await talepGuncelle(id, odemeData);
+            setOdemeEditing(false);
+            setSnackbar({ open: true, message: 'Ödeme bilgisi kaydedildi!', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Ödeme bilgisi kaydedilemedi.', severity: 'error' });
         }
     };
 
@@ -1014,6 +1062,10 @@ const DosyaTakipDetail = () => {
                                 {/* müşteri: belge takibe "Zamanlama" sekmesi — sadece tarih.
                                     DİKKAT: sona eklenmeli, aksi halde setActiveTab(3) derin bağlantısı kayar. */}
                                 <Tab icon={<ScheduleIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Zamanlama" />
+                                {/* müşteri: "Ödemeler modülü birde zamanlama kısmının sağ tarafına"
+                                    Zamanlama gibi bu da SONA ekleniyor — araya girerse mevcut
+                                    sekme indeksleri (ve derin bağlantılar) kayar. */}
+                                <Tab icon={<PaymentsIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ödemeler" />
                             </Tabs>
 
                             <Box sx={{ p: 3 }}>
@@ -1371,6 +1423,91 @@ const DosyaTakipDetail = () => {
                                                 </Grid>
                                             ))}
                                         </Grid>
+                                    </Box>
+                                )}
+
+                                {/* TAB 5: ÖDEMELER
+                                    Müşteri: "1. Faturası ödendi-ödenmedi-kısmi ödendi seçeneği,
+                                    2. Harcı kim ödedi firma-biz seçimli ve süzmeli olsun ileride
+                                    hangilerinin harcını ödemişiz faturasını ödemiş mi ödememiş mi
+                                    görebilelim. Birde bunlara yine notlu dosya ekleyebilelim."
+                                    Süzme listede yapılıyor; buradaki seçimler ona besleniyor.
+                                    Notlu dosya için Dosyalar sekmesindeki "Ödeme Belgesi" türü
+                                    kullanılıyor — orada açıklama alanı zaten var. */}
+                                {activeTab === 5 && (
+                                    <Box>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Ödemeler</Typography>
+                                            {!odemeEditing ? (
+                                                <Button size="small" startIcon={<EditIcon />} onClick={handleOdemeDuzenle} sx={{ textTransform: 'none' }}>Düzenle</Button>
+                                            ) : (
+                                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                                    <Button size="small" onClick={() => setOdemeEditing(false)} sx={{ textTransform: 'none' }}>İptal</Button>
+                                                    <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={handleOdemeKaydet}
+                                                        sx={{ textTransform: 'none', background: '#059669' }}>Kaydet</Button>
+                                                </Box>
+                                            )}
+                                        </Box>
+
+                                        <Grid container spacing={2}>
+                                            {ODEME_ALANLARI.map((alan) => (
+                                                <Grid item xs={12} sm={6} key={alan.key}>
+                                                    <Paper sx={{ p: 2, border: '1px solid #e2e8f0' }}>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
+                                                            {alan.label}
+                                                        </Typography>
+                                                        {odemeEditing ? (
+                                                            <TextField
+                                                                fullWidth select size="small"
+                                                                value={odemeData[alan.key] ?? ''}
+                                                                onChange={(e) => setOdemeData((prev) => ({ ...prev, [alan.key]: e.target.value }))}
+                                                            >
+                                                                <MenuItem value=""><em>Belirtilmedi</em></MenuItem>
+                                                                {alan.secenekler.map((s) => (
+                                                                    <MenuItem key={s.deger} value={s.deger}>{s.etiket}</MenuItem>
+                                                                ))}
+                                                            </TextField>
+                                                        ) : (
+                                                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                                {alan.secenekler.find((s) => s.deger === alan.oku(seciliTalep))?.etiket || 'Belirtilmedi'}
+                                                            </Typography>
+                                                        )}
+                                                    </Paper>
+                                                </Grid>
+                                            ))}
+
+                                            <Grid item xs={12}>
+                                                <Paper sx={{ p: 2, border: '1px solid #e2e8f0' }}>
+                                                    <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
+                                                        Ödeme Notu
+                                                    </Typography>
+                                                    {odemeEditing ? (
+                                                        <TextField
+                                                            fullWidth multiline minRows={2} size="small"
+                                                            placeholder="Örn. Harcın yarısı 12.09 tarihinde ödendi, kalanı belge çıkınca"
+                                                            value={odemeData['odeme.notlar'] ?? ''}
+                                                            onChange={(e) => setOdemeData((prev) => ({ ...prev, 'odeme.notlar': e.target.value }))}
+                                                            inputProps={{ maxLength: 1000 }}
+                                                        />
+                                                    ) : (
+                                                        <Typography variant="body2" sx={{ fontWeight: 500, whiteSpace: 'pre-wrap' }}>
+                                                            {seciliTalep?.odeme?.notlar || 'Not yok'}
+                                                        </Typography>
+                                                    )}
+                                                </Paper>
+                                            </Grid>
+                                        </Grid>
+
+                                        {seciliTalep?.odeme?.guncellemeTarihi && (
+                                            <Typography variant="caption" sx={{ color: '#94a3b8', mt: 1.5, display: 'block' }}>
+                                                Son güncelleme: {new Date(seciliTalep.odeme.guncellemeTarihi).toLocaleString('tr-TR')}
+                                            </Typography>
+                                        )}
+
+                                        <Alert severity="info" sx={{ mt: 2, py: 0.5 }}>
+                                            Dekont ve fatura gibi belgeleri <b>Dosyalar</b> sekmesinden
+                                            “Ödeme Belgesi” türüyle yükleyip yanına açıklama yazabilirsiniz.
+                                        </Alert>
                                     </Box>
                                 )}
                             </Box>
