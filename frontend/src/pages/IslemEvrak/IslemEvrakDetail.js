@@ -28,6 +28,8 @@ import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { tasi } from '../../utils/dizi';
+import useSurukleSirala from '../../hooks/useSurukleSirala';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 
 // 📎 Toplu örnek yükleme — dosya adını evrak adıyla eşleştirme
 // Müşteri: "mail düzenlerken bunları manuel eklememiz gerekiyor, arkadaşlara kafa
@@ -137,6 +139,8 @@ const IslemEvrakDetail = () => {
   // Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor. Taşımadan sonra
   // "Kaydet" gerekiyor — evraklariKaydet tüm diziyi gönderdiği için sıra korunuyor.
   const evrakTasi = (i, yon) => setEvraklar((p) => tasi(p, i, yon));
+  // Sürükle-bırak sıralama (oklar ince ayar için duruyor)
+  const { satirProps } = useSurukleSirala(evraklar, setEvraklar);
 
   // Evrak listesi değişince mail gövdesindeki {evrakListesi} bayatlar.
   // Kaydedilmiş taslak YOKSA metni şablondan tazeleriz; VARSA kullanıcının yazdığına
@@ -442,7 +446,16 @@ const IslemEvrakDetail = () => {
 
           <Stack spacing={1}>
             {evraklar.map((e, i) => (
-              <Box key={e._id || i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', pb: 1, borderBottom: '1px dashed #e2e8f0' }}>
+              <Box
+                key={e._id || i}
+                {...satirProps(i)}
+                sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap', pb: 1, borderBottom: '1px dashed #e2e8f0' }}
+              >
+                {/* Müşteri: "Talebi oluşturduktan sonra talebin içinde de önem
+                    sırasına göre değiştirebilirsek iyi olur." */}
+                <Tooltip title="Sürükleyip bırakarak taşıyın">
+                  <DragIndicatorIcon sx={{ fontSize: 16, mt: 1.2, color: '#cbd5e1', cursor: 'grab' }} />
+                </Tooltip>
                 <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
                   {i + 1}.
                 </Typography>
