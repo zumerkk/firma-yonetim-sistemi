@@ -265,6 +265,21 @@ const dosyaTakipSchema = new mongoose.Schema({
     guncellemeTarihi: { type: Date }
   },
 
+  // --- FİRMAYA GÖNDERİLEN MAİLLER (müşteri: "o firmaya mail göndermek için bir kutu") ---
+  // Yalnızca İZ KAYDI. Gönderilen metni saklıyoruz ki "firmaya ne yazmıştık,
+  // ne zaman" sorusu sonradan cevaplanabilsin — mail kutusuna bakmak gerekmesin.
+  // Ekler yalnızca ADIYLA tutuluyor: dosyanın kendisi zaten `dosyalar` içinde.
+  firmaMailleri: [new mongoose.Schema({
+    alicilar: [{ type: String, trim: true }],
+    cc: [{ type: String, trim: true }],
+    konu: { type: String, trim: true, maxlength: 300 },
+    govde: { type: String, maxlength: 8000 },
+    ekDosyaAdlari: [{ type: String, trim: true }],
+    gonderenAdi: { type: String, trim: true },
+    gonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    tarih: { type: Date, default: Date.now }
+  }, { _id: true, timestamps: false })],
+
   // --- DURUM YÖNETİMİ (State Machine) ---
   anaAsama: {
     type: String,

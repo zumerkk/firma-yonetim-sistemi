@@ -83,6 +83,11 @@ router.post('/:id/eksik-tamamla', dosyaTakipController.eksikTamamla);
 // ✉️ 2.3 Kurum Sonuçlanma → sorumlu personele bilgilendirme maili düşür
 router.post('/:id/personel-mail', dosyaTakipController.personelMailDusur);
 
+// ✉️ Firmaya mail (Belge Takip → Firma Maili sekmesi)
+// Taslak: onerilen konu/govde + ek olarak secilebilecek dosyalar
+router.get('/:id/firma-mail-taslak', dosyaTakipController.firmaMailTaslak);
+router.post('/:id/firma-mail', dosyaTakipController.firmaMailGonder);
+
 // 📝 Not Ekle
 router.post('/:id/not', dosyaTakipController.notEkle);
 

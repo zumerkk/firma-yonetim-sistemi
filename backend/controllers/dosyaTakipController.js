@@ -1335,3 +1335,131 @@ function getAnaAsamaEtiketi(asama) {
     };
     return etiketler[asama] || asama;
 }
+
+// ============================================================================
+// ✉️ FİRMAYA MAİL GÖNDER (Belge Takip → "Firma Maili" sekmesi)
+//
+// Müşteri: "Belge takipde zamanlamanın sağ tarafına o firmaya mail göndermek için
+// bir kutu yapabilir miyiz, küçük bir modül gibi sadece eksikler ve uzmanların
+// paylaştığı notları göndermek için, ama ek gönderebilelim yine. Aşırı komplex
+// olmasına gerek yok."
+//
+// Bilinçli olarak SADE tutuldu: şablon yönetimi, zamanlanmış gönderim, takip
+// pikseli gibi şeyler yok. Metin sunucuda önerilip kullanıcı tarafından
+// düzenleniyor; ekler talebin MEVCUT dosyalarından seçiliyor (yeni yükleme yok).
+// ============================================================================
+
+// Mail eki için dosyayı kaynaktan çeker. dosyaGetir ile aynı sıra: authenticated
+// download API → imzalı delivery → kayıtlı URL. Cloudinary PDF teslimat kısıtı
+// yüzünden bu sıralama gerekli (bkz. dosyaGetir'deki not).
+async function ekIcinDosyaCek(dosya) {
+    const isImage = /^image\//.test(dosya.dosyaTipi || '');
+    const rt = isImage ? 'image' : 'raw';
+    const pid = dosya.cloudinaryPublicId;
+    const adaylar = [];
+    if (pid) {
+        try { adaylar.push(cloudinary.utils.private_download_url(pid, '', { resource_type: rt, type: 'upload' })); } catch (_) { /* yoksay */ }
+        try { adaylar.push(cloudinary.url(pid, { resource_type: rt, type: 'upload', secure: true, sign_url: true })); } catch (_) { /* yoksay */ }
+    }
+    if (dosya.dosyaYolu && dosya.dosyaYolu.startsWith('http')) adaylar.push(dosya.dosyaYolu);
+
+    for (const u of adaylar) {
+        try {
+            const r = await fetch(u);
+            if (r.ok) return Buffer.from(await r.arrayBuffer());
+        } catch (_) { /* sonraki adaya geç */ }
+    }
+    return null;
+}
+
+// Önerilen konu/gövde — kullanıcı düzenlemeden önce gördüğü taslak
+exports.firmaMailTaslak = async (req, res) => {
+    try {
+        const { konuOner, govdeOner } = require('../services/dosyaTakip/firmaMailMetni');
+        const talep = await DosyaTakip.findById(req.params.id).populate('firma', 'firmaEmail tamUnvan');
+        if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+
+        const mailService = require('../services/tesvikMakine/mailService');
+        const imza = (process.env.MAIL_SIGNATURE || '').replace(/\\n/g, '\n');
+
+        res.json({
+            success: true,
+            data: {
+                alici: talep.firma?.firmaEmail || '',
+                konu: konuOner(talep),
+                govde: govdeOner(talep, { imza }),
+                // Ek olarak seçilebilecek dosyalar (talebin kendi dosyaları)
+                dosyalar: (talep.dosyalar || []).map((d) => ({
+                    _id: d._id, dosyaAdi: d.dosyaAdi, kategori: d.kategori, aciklama: d.aciklama
+                })),
+                smtpHazir: mailService.isConfigured()
+            }
+        });
+    } catch (error) {
+        console.error('Firma mail taslağı hatası:', error);
+        res.status(500).json({ success: false, message: 'Taslak hazırlanamadı', error: error.message });
+    }
+};
+
+exports.firmaMailGonder = async (req, res) => {
+    try {
+        const mailService = require('../services/tesvikMakine/mailService');
+        if (!mailService.isConfigured()) {
+            return res.status(400).json({ success: false, message: 'SMTP yapılandırması eksik. Sunucu ayarlarını kontrol edin.' });
+        }
+
+        const talep = await DosyaTakip.findById(req.params.id);
+        if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+
+        const ayikla = (v) => String(v || '').split(/[,;]/).map((s) => s.trim()).filter(Boolean);
+        const alicilar = ayikla(req.body.alici);
+        const cc = ayikla(req.body.cc);
+        const konu = String(req.body.konu || '').trim();
+        const govde = String(req.body.govde || '').trim();
+
+        if (!alicilar.length) return res.status(400).json({ success: false, message: 'En az bir alıcı e-posta adresi girin.' });
+        if (!konu) return res.status(400).json({ success: false, message: 'Mail konusu boş olamaz.' });
+        if (!govde) return res.status(400).json({ success: false, message: 'Mail metni boş olamaz.' });
+
+        // Ekler: talebin MEVCUT dosyalarından seçilenler
+        const seciliIdler = Array.isArray(req.body.dosyaIdler) ? req.body.dosyaIdler.map(String) : [];
+        const attachments = [];
+        const eklenemeyenler = [];
+        for (const dosya of (talep.dosyalar || [])) {
+            if (!seciliIdler.includes(String(dosya._id))) continue;
+            const icerik = await ekIcinDosyaCek(dosya);
+            // Ek çekilemezse SESSİZ geçmiyoruz: kullanıcı "ek gitti" sanmasın
+            if (icerik) attachments.push({ filename: dosya.dosyaAdi, content: icerik });
+            else eklenemeyenler.push(dosya.dosyaAdi);
+        }
+        if (eklenemeyenler.length) {
+            return res.status(502).json({
+                success: false,
+                message: `Şu ek(ler) kaynaktan alınamadı, mail gönderilmedi: ${eklenemeyenler.join(', ')}`
+            });
+        }
+
+        await mailService.sendMail({ to: alicilar, cc, subject: konu, text: govde, attachments });
+
+        // İz kaydı — "firmaya ne yazmıştık, ne zaman" sonradan cevaplanabilsin
+        talep.firmaMailleri.push({
+            alicilar, cc, konu, govde,
+            ekDosyaAdlari: attachments.map((a) => a.filename),
+            gonderen: req.user._id,
+            gonderenAdi: req.user.adSoyad,
+            tarih: new Date()
+        });
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({
+            success: true,
+            message: `Mail gönderildi (${alicilar.length} alıcı${attachments.length ? `, ${attachments.length} ek` : ''})`,
+            data: await populateTalep(talep._id)
+        });
+    } catch (error) {
+        console.error('Firma mail gönderme hatası:', error);
+        res.status(500).json({ success: false, message: error.message || 'Mail gönderilemedi' });
+    }
+};

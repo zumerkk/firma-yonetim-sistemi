@@ -7,6 +7,7 @@ import {
     Stepper, Step, StepLabel, StepContent, TextField,
     MenuItem, IconButton, Alert, Snackbar,
     Checkbox,
+    FormControlLabel,
     Tooltip, LinearProgress, Collapse, Tabs, Tab,
     List, ListItem, ListItemIcon, ListItemText, ListItemAvatar,
     Dialog, DialogTitle, DialogContent, DialogActions,
@@ -33,6 +34,7 @@ import {
     Description as DescriptionIcon,
     Schedule as ScheduleIcon,
     Payments as PaymentsIcon,
+    Email as MailIcon,
     Cancel as CancelIcon,
     Delete as DeleteIcon,
     Download as DownloadIcon,
@@ -41,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
+import dosyaTakipService from '../../services/dosyaTakipService';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
@@ -454,6 +457,11 @@ const DosyaTakipDetail = () => {
     // 💳 Ödemeler sekmesi
     const [odemeEditing, setOdemeEditing] = useState(false);
     const [odemeData, setOdemeData] = useState({});
+    // ✉️ Firma maili sekmesi
+    const [mailTaslak, setMailTaslak] = useState(null);
+    const [mailEkler, setMailEkler] = useState([]);
+    const [mailYukleniyor, setMailYukleniyor] = useState(false);
+    const [mailGonderiliyor, setMailGonderiliyor] = useState(false);
     // 📤 Dosya yükleme göstergesi (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
     const [yukleme, setYukleme] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
@@ -600,6 +608,39 @@ const DosyaTakipDetail = () => {
         d['odeme.notlar'] = seciliTalep?.odeme?.notlar || '';
         setOdemeData(d);
         setOdemeEditing(true);
+    };
+
+    // ✉️ Firma maili — taslağı sunucudan al (eksikler + uzman notları orada toplanıyor)
+    const mailTaslakYukle = async () => {
+        setMailYukleniyor(true);
+        try {
+            const t = await dosyaTakipService.firmaMailTaslak(id);
+            setMailTaslak({ ...t, cc: '' });
+            // Ödeme belgeleri gibi dosyalar varsayılan olarak İŞARETLENMEZ:
+            // firmaya istemeden dekont göndermek geri alınamaz bir hata olurdu.
+            setMailEkler([]);
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Taslak hazırlanamadı.', severity: 'error' });
+        } finally { setMailYukleniyor(false); }
+    };
+
+    const firmaMailiGonder = async () => {
+        if (!mailTaslak) return;
+        setMailGonderiliyor(true);
+        try {
+            const sonuc = await dosyaTakipService.firmaMailGonder(id, {
+                alici: mailTaslak.alici,
+                cc: mailTaslak.cc,
+                konu: mailTaslak.konu,
+                govde: mailTaslak.govde,
+                dosyaIdler: mailEkler
+            });
+            setMailTaslak(null); setMailEkler([]);
+            await fetchTalep(id);
+            setSnackbar({ open: true, message: sonuc?.message || 'Mail gönderildi', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Mail gönderilemedi.', severity: 'error' });
+        } finally { setMailGonderiliyor(false); }
     };
 
     const handleOdemeKaydet = async () => {
@@ -1066,6 +1107,9 @@ const DosyaTakipDetail = () => {
                                     Zamanlama gibi bu da SONA ekleniyor — araya girerse mevcut
                                     sekme indeksleri (ve derin bağlantılar) kayar. */}
                                 <Tab icon={<PaymentsIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Ödemeler" />
+                                {/* müşteri: "o firmaya mail göndermek için bir kutu... sadece
+                                    eksikler ve uzmanların paylaştığı notları göndermek için" */}
+                                <Tab icon={<MailIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Firma Maili" />
                             </Tabs>
 
                             <Box sx={{ p: 3 }}>
@@ -1508,6 +1552,122 @@ const DosyaTakipDetail = () => {
                                             Dekont ve fatura gibi belgeleri <b>Dosyalar</b> sekmesinden
                                             “Ödeme Belgesi” türüyle yükleyip yanına açıklama yazabilirsiniz.
                                         </Alert>
+                                    </Box>
+                                )}
+
+                                {/* TAB 6: FİRMA MAİLİ
+                                    Müşteri: "küçük bir modül gibi sadece eksikler ve uzmanların
+                                    paylaştığı notları göndermek için, ama ek gönderebilelim yine.
+                                    Aşırı komplex olmasına gerek yok."
+                                    Bu yüzden şablon yönetimi/zamanlama yok: sunucu eksikleri ve
+                                    notları toplayıp taslak öneriyor, kullanıcı düzenleyip yolluyor. */}
+                                {activeTab === 6 && (
+                                    <Box>
+                                        {!mailTaslak ? (
+                                            <Box sx={{ textAlign: 'center', py: 4 }}>
+                                                <Button variant="contained" startIcon={<MailIcon />} onClick={mailTaslakYukle}
+                                                    disabled={mailYukleniyor} sx={{ textTransform: 'none' }}>
+                                                    {mailYukleniyor ? 'Hazırlanıyor…' : 'Mail Taslağı Hazırla'}
+                                                </Button>
+                                                <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: '#64748b' }}>
+                                                    Firmadan beklenen eksikler ve uzman notları otomatik toplanır;
+                                                    metni göndermeden önce düzenleyebilirsiniz.
+                                                </Typography>
+                                            </Box>
+                                        ) : (
+                                            <Box>
+                                                {!mailTaslak.smtpHazir && (
+                                                    <Alert severity="warning" sx={{ mb: 2 }}>
+                                                        SMTP yapılandırması eksik — mail gönderilemez. Sunucu ayarlarını kontrol edin.
+                                                    </Alert>
+                                                )}
+                                                <Grid container spacing={2}>
+                                                    <Grid item xs={12} sm={6}>
+                                                        <TextField fullWidth size="small" label="Alıcı(lar)"
+                                                            placeholder="ornek@firma.com, ikinci@firma.com"
+                                                            value={mailTaslak.alici}
+                                                            onChange={(e) => setMailTaslak((p) => ({ ...p, alici: e.target.value }))}
+                                                            helperText="Birden fazla adres virgülle ayrılır" />
+                                                    </Grid>
+                                                    <Grid item xs={12} sm={6}>
+                                                        <TextField fullWidth size="small" label="CC (opsiyonel)"
+                                                            value={mailTaslak.cc || ''}
+                                                            onChange={(e) => setMailTaslak((p) => ({ ...p, cc: e.target.value }))} />
+                                                    </Grid>
+                                                    <Grid item xs={12}>
+                                                        <TextField fullWidth size="small" label="Konu"
+                                                            value={mailTaslak.konu}
+                                                            onChange={(e) => setMailTaslak((p) => ({ ...p, konu: e.target.value }))} />
+                                                    </Grid>
+                                                    <Grid item xs={12}>
+                                                        <TextField fullWidth multiline minRows={10} label="Mail Metni"
+                                                            value={mailTaslak.govde}
+                                                            onChange={(e) => setMailTaslak((p) => ({ ...p, govde: e.target.value }))} />
+                                                    </Grid>
+                                                </Grid>
+
+                                                {mailTaslak.dosyalar?.length > 0 && (
+                                                    <Paper sx={{ p: 2, mt: 2, border: '1px solid #e2e8f0' }}>
+                                                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 1 }}>
+                                                            Ek olarak gönderilecek dosyalar ({mailEkler.length}/{mailTaslak.dosyalar.length})
+                                                        </Typography>
+                                                        <Box sx={{ maxHeight: 200, overflowY: 'auto' }}>
+                                                            {mailTaslak.dosyalar.map((d) => (
+                                                                <FormControlLabel key={d._id}
+                                                                    sx={{ display: 'flex', alignItems: 'flex-start', ml: 0, mb: 0.25 }}
+                                                                    control={<Checkbox size="small" sx={{ pt: 0.25 }}
+                                                                        checked={mailEkler.includes(d._id)}
+                                                                        onChange={() => setMailEkler((p) => p.includes(d._id)
+                                                                            ? p.filter((x) => x !== d._id) : [...p, d._id])} />}
+                                                                    label={
+                                                                        <Box>
+                                                                            <Typography variant="body2">{d.dosyaAdi}</Typography>
+                                                                            {(d.kategori || d.aciklama) && (
+                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.3 }}>
+                                                                                    {[d.kategori, d.aciklama].filter(Boolean).join(' — ')}
+                                                                                </Typography>
+                                                                            )}
+                                                                        </Box>
+                                                                    } />
+                                                            ))}
+                                                        </Box>
+                                                    </Paper>
+                                                )}
+
+                                                <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
+                                                    <Button onClick={() => { setMailTaslak(null); setMailEkler([]); }} sx={{ textTransform: 'none' }}>
+                                                        Vazgeç
+                                                    </Button>
+                                                    <Button variant="contained" startIcon={<MailIcon />} onClick={firmaMailiGonder}
+                                                        disabled={mailGonderiliyor || !mailTaslak.smtpHazir}
+                                                        sx={{ textTransform: 'none', background: '#059669' }}>
+                                                        {mailGonderiliyor ? 'Gönderiliyor…' : 'Gönder'}
+                                                    </Button>
+                                                </Box>
+                                            </Box>
+                                        )}
+
+                                        {/* Geçmiş — "firmaya ne yazmıştık, ne zaman" */}
+                                        {seciliTalep?.firmaMailleri?.length > 0 && (
+                                            <Box sx={{ mt: 3 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                                    Gönderilen Mailler ({seciliTalep.firmaMailleri.length})
+                                                </Typography>
+                                                {[...seciliTalep.firmaMailleri].reverse().map((m) => (
+                                                    <Paper key={m._id} sx={{ p: 1.5, mb: 1, border: '1px solid #e2e8f0' }}>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.konu}</Typography>
+                                                        <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
+                                                            {(m.alicilar || []).join(', ')} · {new Date(m.tarih).toLocaleString('tr-TR')}
+                                                            {m.gonderenAdi ? ` · ${m.gonderenAdi}` : ''}
+                                                            {m.ekDosyaAdlari?.length ? ` · ${m.ekDosyaAdlari.length} ek` : ''}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, whiteSpace: 'pre-wrap', color: '#475569' }}>
+                                                            {String(m.govde || '').slice(0, 300)}{String(m.govde || '').length > 300 ? '…' : ''}
+                                                        </Typography>
+                                                    </Paper>
+                                                ))}
+                                            </Box>
+                                        )}
                                     </Box>
                                 )}
                             </Box>
