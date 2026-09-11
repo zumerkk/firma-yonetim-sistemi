@@ -14,6 +14,7 @@ import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Downloa
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
+import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -2757,7 +2758,8 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid 
+      <UstKaydirmaCubugu>
+        <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
         initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
@@ -2813,7 +2815,8 @@ const MakineYonetimi = () => {
           '& .MuiCheckbox-root': { p: 0.25 },
           '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 }
         }}
-      />
+        />
+      </UstKaydirmaCubugu>
     );
   };
 
@@ -3211,7 +3214,8 @@ const MakineYonetimi = () => {
       )}
     ];
     return (
-      <DataGrid 
+      <UstKaydirmaCubugu>
+        <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
         initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
@@ -3275,7 +3279,8 @@ const MakineYonetimi = () => {
           '& .MuiCheckbox-root': { p: 0.25 },
           '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 }
         }}
-      />
+        />
+      </UstKaydirmaCubugu>
     );
   };
 
