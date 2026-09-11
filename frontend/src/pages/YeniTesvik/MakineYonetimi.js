@@ -15,6 +15,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
+import { gerceklesmeCoz, SABLON_BASLIKLARI } from '../../utils/makineSablonu';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
@@ -1958,8 +1959,30 @@ const MakineYonetimi = () => {
             iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
             iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
             iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
-            dosyalar: [] 
+            dosyalar: []
           };
+          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
+          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
+          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
+          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
+          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
+          const gerc = gerceklesmeCoz(r);
+          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
+          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
+          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
+          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
+          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
+            obj.talep = { ...(obj.talep || {}) };
+            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
+            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
+            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
+          }
+          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
+            obj.karar = { ...(obj.karar || {}) };
+            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
+            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
+            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
+          }
           const errs = [];
           if (!obj.adi) errs.push('Adı boş');
           if (!obj.birim) errs.push('Birim boş');
@@ -2006,8 +2029,30 @@ const MakineYonetimi = () => {
             iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
             ckdSkd: r['CKD'] || 'HAYIR', 
             aracMi: 'HAYIR', 
-            dosyalar: [] 
+            dosyalar: []
           };
+          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
+          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
+          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
+          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
+          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
+          const gerc = gerceklesmeCoz(r);
+          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
+          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
+          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
+          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
+          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
+            obj.talep = { ...(obj.talep || {}) };
+            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
+            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
+            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
+          }
+          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
+            obj.karar = { ...(obj.karar || {}) };
+            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
+            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
+            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
+          }
           const errs = [];
           if (!obj.adi) errs.push('Adı boş');
           if (!obj.birim) errs.push('Birim boş');
