@@ -60,6 +60,18 @@ const dosyaTakipService = {
         return data;
     },
 
+    // ✉️ Firmaya mail (Belge Takip → "Firma Maili" sekmesi)
+    // Taslak sunucuda hazırlanıyor: eksikler + uzman notları toplanıp önerilen
+    // konu/gövde dönüyor, kullanıcı düzenleyip gönderiyor.
+    firmaMailTaslak: async (id) => {
+        const { data } = await axios.get(`${API_URL}/${id}/firma-mail-taslak`);
+        return data?.data;
+    },
+    firmaMailGonder: async (id, govde) => {
+        const { data } = await axios.post(`${API_URL}/${id}/firma-mail`, govde);
+        return data;
+    },
+
     // 📝 Not Ekle
     // bildirimKullanicilar: notu bildirim olarak alacak personel id'leri (müşteri talebi)
     notEkle: async (id, metin, alan = 'genelNotlar', bildirimKullanicilar = []) => {
