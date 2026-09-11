@@ -7,8 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, MenuItem,
-  Snackbar, Alert, LinearProgress, Radio, RadioGroup, FormControlLabel, FormLabel, FormControl,
-  Checkbox
+  Snackbar, Alert, LinearProgress, Radio, RadioGroup, FormControlLabel, FormLabel, FormControl
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -95,31 +94,20 @@ const IslemEvrakList = () => {
   const sorular = secilenTur?.sorular || [];
   const tumSorularCevaplandi = sorular.every((s) => cevaplar[s.id]);
 
-  // Seçilen varyantın (yoksa türün) evrak listesi.
-  // ⚠️ Bu ifade backend'deki IslemTuru.varyantCoz ile BİREBİR aynı olmalı: aşağıda
-  // seçimi indeks numarasıyla gönderiyoruz, iki taraf ayrışırsa yanlış evrak istenir.
+  // Seçilen varyantın (yoksa türün) evrak listesi — yalnızca ÖNİZLEME sayısı için.
+  // Talebe hangi evrakların gireceğine backend karar veriyor (IslemTuru.varyantCoz).
   const adayEvraklar = (() => {
     const v = (secilenTur?.varyantlar || []).find((x) => x.kod === seciliVaryant);
     const liste = (v && v.istenenEvraklar?.length) ? v.istenenEvraklar : (secilenTur?.istenenEvraklar || []);
     return liste;
   })();
 
-  // ☑️ Talep açarken evrak seçimi — müşteri: "Belge içinde İstenen evrakları
-  // seçebilelim, seçtiklerimiz maile eklensin."
-  //
-  // Seçilenleri değil DIŞARIDA BIRAKILANLARI tutuyoruz: varsayılan "hepsi işaretli"
-  // olmalı ve koşullu sorular cevaplandıkça uygun liste değişiyor. Seçilenleri
-  // tutsaydık her cevap değişiminde listeyi yeniden kurmak gerekirdi.
-  const [disariBirakilan, setDisariBirakilan] = useState(() => new Set());
+  // Koşul süzgecinden geçen evraklar — diyalogda yalnızca SAYISI gösteriliyor.
+  // Hangilerinin isteneceği talep detayındaki "1. İstenen Evraklar" bölümünde
+  // seçiliyor (müşteri: "talebi oluşturunca açılan kısma sekme gibi yapsak").
   const uygunEvraklar = adayEvraklar
     .map((e, i) => ({ e, i }))
     .filter(({ e }) => kosulUygun(e, cevaplar));
-  const secilecekEvraklar = uygunEvraklar.filter(({ i }) => !disariBirakilan.has(i));
-  const evrakSec = (i) => setDisariBirakilan((onceki) => {
-    const yeni = new Set(onceki);
-    if (yeni.has(i)) yeni.delete(i); else yeni.add(i);
-    return yeni;
-  });
 
   const talepBaslat = async () => {
     if (!seciliFirma || !seciliTur) return notify('Firma ve işlem türü seçin', 'warning');
@@ -129,16 +117,13 @@ const IslemEvrakList = () => {
         firmaId: seciliFirma._id,
         islemTuruId: seciliTur,
         varyantKod: seciliVaryant || undefined,
-        cevaplar: sorular.map((s) => ({ soruId: s.id, deger: cevaplar[s.id] })).filter((c) => c.deger),
-        // Şablon dizisindeki konum numaraları; backend koşul süzgeciyle kesiştirir.
-        // Şablonda hiç uygun evrak yoksa alanı HİÇ göndermiyoruz: boş dizi backend'de
-        // "seçim yapılmadı" değil "hatalı seçim" sayılıyor, evraksız şablonla talep
-        // açmak ise geçerli bir durum.
-        secilenIndeksler: uygunEvraklar.length ? secilecekEvraklar.map(({ i }) => i) : undefined
+        // secilenIndeksler GÖNDERİLMİYOR: koşul süzgecinden geçen her evrak talebe
+        // gelsin, ayıklama detay ekranında yapılsın. Backend bu alanı opsiyonel
+        // tutuyor (verilmezse eski davranış), o yüzden orada bir değişiklik gerekmedi.
+        cevaplar: sorular.map((s) => ({ soruId: s.id, deger: cevaplar[s.id] })).filter((c) => c.deger)
       });
       setDialogAcik(false);
       setSeciliFirma(null); setSeciliTur(''); setSeciliVaryant(''); setCevaplar({});
-      setDisariBirakilan(new Set());
       navigate(`/islem-evrak/${talep._id}`);
     } catch (e) { notify(errMsg(e), 'error'); } finally { setKaydediyor(false); }
   };
@@ -267,7 +252,6 @@ const IslemEvrakList = () => {
               select size="small" label="İşlem Türü" value={seciliTur}
               onChange={(e) => {
                 setSeciliTur(e.target.value); setSeciliVaryant(''); setCevaplar({});
-                setDisariBirakilan(new Set());   // liste değişti, seçim sıfırlanır
               }}
             >
               {turler.map((t) => <MenuItem key={t._id} value={t._id}>{t.ad}</MenuItem>)}
@@ -275,7 +259,7 @@ const IslemEvrakList = () => {
             {secilenTur?.varyantlar?.length > 0 && (
               <TextField
                 select size="small" label="Tür (Şahıs / Şirket)" value={seciliVaryant}
-                onChange={(e) => { setSeciliVaryant(e.target.value); setDisariBirakilan(new Set()); }}
+                onChange={(e) => { setSeciliVaryant(e.target.value); }}
                 helperText="Seçime göre istenen evraklar ve mail metni değişir"
               >
                 {secilenTur.varyantlar.map((v) => <MenuItem key={v.kod} value={v.kod}>{v.ad}</MenuItem>)}
@@ -316,75 +300,29 @@ const IslemEvrakList = () => {
               </Box>
             )}
 
-            {/* ☑️ İstenecek evraklar — talep açarken tek tek seçilebilir.
-                Şablonda soru varsa liste önce koşula göre daralır, sonra buradan
-                işaretlenir. Seçilenler maile de aynen bu sırayla girer. */}
-            {seciliTur && tumSorularCevaplandi && (
-              <Box sx={{ border: '1px solid #e2e8f0', p: 1.5 }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
-                    İstenecek Evraklar ({secilecekEvraklar.length}/{uygunEvraklar.length})
-                  </Typography>
-                  {uygunEvraklar.length > 0 && (
-                    <Button
-                      size="small"
-                      onClick={() => setDisariBirakilan(
-                        disariBirakilan.size > 0 ? new Set() : new Set(uygunEvraklar.map(({ i }) => i))
-                      )}
-                    >
-                      {disariBirakilan.size > 0 ? 'Tümünü seç' : 'Tümünü kaldır'}
-                    </Button>
-                  )}
-                </Stack>
-
-                {uygunEvraklar.length === 0 ? (
-                  <Typography variant="caption" color="text.secondary">
-                    Bu şablonda istenecek evrak tanımlı değil.
-                  </Typography>
-                ) : (
-                  <Box sx={{ maxHeight: 220, overflowY: 'auto' }}>
-                    {uygunEvraklar.map(({ e, i }) => (
-                      <FormControlLabel
-                        key={i}
-                        sx={{ display: 'flex', alignItems: 'flex-start', ml: 0, mb: 0.25 }}
-                        control={
-                          <Checkbox
-                            size="small" sx={{ pt: 0.25 }}
-                            checked={!disariBirakilan.has(i)}
-                            onChange={() => evrakSec(i)}
-                          />
-                        }
-                        label={
-                          <Box>
-                            <Typography variant="body2">{e.ad || '(adsız evrak)'}</Typography>
-                            {e.aciklama && (
-                              <Typography variant="caption" color="text.secondary"
-                                sx={{ display: 'block', lineHeight: 1.3 }}>
-                                {e.aciklama.length > 120 ? `${e.aciklama.slice(0, 120)}…` : e.aciklama}
-                              </Typography>
-                            )}
-                          </Box>
-                        }
-                      />
-                    ))}
-                  </Box>
-                )}
-              </Box>
+            {/* ℹ️ Evrak seçimi TALEP DETAYINDA yapılıyor.
+                Müşteri (11 Eylül 2026): "Bu kısmı buraya değil de talebi oluşturunca
+                açılan kısma sekme gibi yapsak daha iyi olur."
+                Detay ekranındaki "1. İstenen Evraklar" bölümü bu işi zaten daha iyi
+                yapıyor: açıklamalar tam görünüyor, satır eklenip silinebiliyor,
+                sıralama değiştirilebiliyor ve örnek dosyalar orada. Bu diyaloğu
+                kalabalıklaştırmak yerine kaç evrak geleceğini söyleyip oraya yönlendiriyoruz. */}
+            {seciliTur && tumSorularCevaplandi && uygunEvraklar.length > 0 && (
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                <b>{uygunEvraklar.length} evrak</b> bu talebe eklenecek. Hangilerinin
+                isteneceğini ve sıralamayı, talep açıldıktan sonra
+                “1. İstenen Evraklar” bölümünden düzenleyebilirsiniz.
+              </Alert>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogAcik(false)}>Vazgeç</Button>
-          {/* Evrağı olan bir şablonda hepsi kaldırılmışsa talep açmak anlamsız —
-              backend de bu durumu reddediyor, kullanıcıyı oraya kadar götürmeyelim. */}
           <Button variant="contained" onClick={talepBaslat}
-            disabled={kaydediyor || !seciliFirma || !seciliTur || !tumSorularCevaplandi
-              || (uygunEvraklar.length > 0 && secilecekEvraklar.length === 0)}>
+            disabled={kaydediyor || !seciliFirma || !seciliTur || !tumSorularCevaplandi}>
             {sorular.length > 0 && !tumSorularCevaplandi
               ? `${sorular.length - sorular.filter((q) => cevaplar[q.id]).length} soru kaldı`
-              : uygunEvraklar.length > 0 && secilecekEvraklar.length === 0
-                ? 'En az bir evrak seçin'
-                : 'Talebi Oluştur'}
+              : 'Talebi Oluştur'}
           </Button>
         </DialogActions>
       </Dialog>
