@@ -178,7 +178,11 @@ exports.getTumTalepler = async (req, res) => {
             kapsam = '',
             // müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim"
             hazirlayan = '',
-            takipEden = ''
+            takipEden = '',
+            // 💳 Ödemeler — müşteri: "seçimli ve süzmeli olsun ileride hangilerinin
+            // harcını ödemişiz faturasını ödemiş mi ödememiş mi görebilelim"
+            faturaDurumu = '',
+            harciOdeyen = ''
         } = req.query;
 
         const filter = { aktif: true };
@@ -223,6 +227,19 @@ exports.getTumTalepler = async (req, res) => {
             filter.anaAsama = { $nin: ARSIV_ASAMALARI };
         }
         if (talepTuru) filter.talepTuru = talepTuru;
+        // 💳 Ödeme süzgeçleri. 'bos' özel değeri "henüz işaretlenmemiş" demek —
+        // asıl ihtiyaç bu: hangi taleplerin ödeme durumu hiç girilmemiş görebilmek.
+        // Eski kayıtlarda alan hiç bulunmadığı için $in ile null/eksik de kapsanıyor.
+        if (faturaDurumu) {
+            filter['odeme.faturaDurumu'] = faturaDurumu === 'bos'
+                ? { $in: ['', null] }
+                : faturaDurumu;
+        }
+        if (harciOdeyen) {
+            filter['odeme.harciOdeyen'] = harciOdeyen === 'bos'
+                ? { $in: ['', null] }
+                : harciOdeyen;
+        }
         if (firma) filter.firma = firma;
 
         // 👤 Personel filtreleri. 'YOK' → hiç atanmamış talepler.
@@ -402,6 +419,14 @@ exports.talepGuncelle = async (req, res) => {
         // müşteri: açıklama/not değiştiyse yazılma tarihi de güncellensin
         if (Object.prototype.hasOwnProperty.call(body, 'durumAciklamasi') && talep.isModified('durumAciklamasi')) {
             talep.durumAciklamasiTarihi = new Date();
+        }
+
+        // 💳 Ödeme bilgisi değiştiyse "en son ne zaman güncellendi" izi bırak.
+        // Ödeme durumu zamanla değişen bir alan (ödenmedi → kısmi → ödendi);
+        // tarih olmadan "bu bilgi ne kadar taze" sorusunun cevabı yok.
+        if (talep.isModified('odeme.faturaDurumu') || talep.isModified('odeme.harciOdeyen')
+            || talep.isModified('odeme.notlar')) {
+            talep.set('odeme.guncellemeTarihi', new Date());
         }
 
         talep.sonGuncelleyen = req.user._id;
