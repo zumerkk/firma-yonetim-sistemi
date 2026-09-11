@@ -232,6 +232,11 @@ const makinaKalemiIthalSchema = new mongoose.Schema({
   birimFiyatiFob: { type: Number, default: 0 }, // Menşe ülke döviz birim fiyatı (FOB)
   gumrukDovizKodu: { type: String, trim: true, uppercase: true, maxlength: 10 },
   toplamTutarFobUsd: { type: Number, default: 0 },
+  // FOB $ ELLE girildi mi? Musteri: "Fob \$ toplam tutarini da manuel
+  // degistirebilelim makinenin hangi tarihte alindigini bilmedigimiz zaman
+  // dolar kurunu degistiremiyoruz." Bayrak aciksa arayuz bu tutari
+  // miktar x birim fiyat formulunden YENIDEN HESAPLAMAZ.
+  usdManuel: { type: Boolean, default: false },
   toplamTutarFobTl: { type: Number, default: 0 },
   // Manuel kur girişi alanları
   kurManuel: { type: Boolean, default: false },

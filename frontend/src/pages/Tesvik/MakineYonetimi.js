@@ -251,6 +251,9 @@ const MakineYonetimi = () => {
   const [topluIslem, setTopluIslem] = useState('onay'); // talep | onay | kismi_onay | red
   const [topluTarih, setTopluTarih] = useState('');
   const [topluAdet, setTopluAdet] = useState(0);
+  // Toplu manuel kur diyalogu (yalniz ithal sekmesinde)
+  const [topluKurOpen, setTopluKurOpen] = useState(false);
+  const [topluKur, setTopluKur] = useState('');
   const [favAnchor, setFavAnchor] = useState(null);
   const [favType, setFavType] = useState(null); // 'gtip'|'unit'|'currency'
   const [favRowId, setFavRowId] = useState(null);
@@ -802,8 +805,22 @@ const MakineYonetimi = () => {
         return updatedRow;
       }
       
-      // Miktar veya FOB değiştiyse USD'yi yeniden hesapla
-      if (changedFields.includes('miktar') || changedFields.includes('birimFiyatiFob')) {
+      // FOB $ elle düzenlendiyse: usdManuel açılır, formül bu satırı bir daha ezmez.
+      // Müşteri: "Fob $ toplam tutarını da manuel değiştirebilelim."
+      // TL de manuel kurdan yeniden hesaplanıyor ki iki tutar tutarsız kalmasın.
+      if (changedFields.includes('toplamUsd')) {
+        const usd = parseTrCurrency((newRow.toplamUsd ?? '').toString());
+        const updatedRow = { ...newRow, toplamUsd: usd, usdManuel: true };
+        if (newRow.kurManuel && Number(newRow.kurManuelDeger) > 0) {
+          updatedRow.toplamTl = Math.round(usd * Number(newRow.kurManuelDeger));
+        }
+        updateIthal(newRow.id, updatedRow);
+        return updatedRow;
+      }
+
+      // Miktar veya FOB değiştiyse USD'yi yeniden hesapla.
+      // usdManuel açıksa dokunmuyoruz — kullanıcı tutarı bilerek sabitlemiş.
+      if (!newRow.usdManuel && (changedFields.includes('miktar') || changedFields.includes('birimFiyatiFob'))) {
         const miktar = numberOrZero(newRow.miktar);
         const fob = numberOrZero(newRow.birimFiyatiFob);
         const usd = miktar * fob;
@@ -899,7 +916,11 @@ const MakineYonetimi = () => {
   const calcIthal = (r) => {
     const miktar = numberOrZero(r.miktar);
     const fob = numberOrZero(r.birimFiyatiFob);
-    const usd = miktar * fob;
+    // Müşteri: "Fob $ toplam tutarını da manuel değiştirebilelim makinenin hangi
+    // tarihte alındığını bilmediğimiz zaman dolar kurunu değiştiremiyoruz."
+    // usdManuel açıksa kullanıcının yazdığı tutar korunur; miktar × birim fiyat
+    // formülü onu EZMEZ.
+    const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : miktar * fob;
     // Kur manuel girilmişse TL'yi o kurdan hesapla ve tlManuel'i de güvenceye al
     if (r.kurManuel && Number.isFinite(Number(r.kurManuelDeger)) && Number(r.kurManuelDeger) > 0) {
       const tl = Math.round(usd * Number(r.kurManuelDeger));
@@ -3012,16 +3033,38 @@ const MakineYonetimi = () => {
           </IconButton>
         </Stack>
       ) },
-      { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (USD)', width: 75, align:'right', headerAlign:'right',
-        valueGetter: (p)=> numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
-        valueFormatter: (p)=> numberOrZero(p.value)?.toLocaleString('tr-TR')
+      // Müşteri: "Fob $ toplam tutarını da manuel değiştirebilelim makinenin hangi
+      // tarihte alındığını bilmediğimiz zaman dolar kurunu değiştiremiyoruz."
+      // Eskiden salt-okunur türetilmiş bir sütundu (miktar × birim fiyat). Artık
+      // revize modunda yazılabiliyor; elle girilince usdManuel açılıyor ve formül
+      // bir daha üzerine yazmıyor. Hücre, manuel olduğunda ipucuyla işaretleniyor.
+      { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (USD) — elle de girilebilir', width: 75,
+        align:'right', headerAlign:'right', editable: isReviseMode, type:'string',
+        valueGetter: (p)=> p.row.usdManuel
+          ? numberOrZero(p.row.toplamUsd)
+          : numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
+        renderCell: (p)=> {
+          const metin = numberOrZero(p.value).toLocaleString('tr-TR');
+          if (!p.row.usdManuel) return metin;
+          return (
+            <Tooltip title="Elle girildi — miktar × birim fiyat formülü bu satırda uygulanmıyor">
+              <span style={{ fontWeight: 700, color: '#7c3aed' }}>{metin}</span>
+            </Tooltip>
+          );
+        }
       },
       { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
         renderCell: (p) => {
           const value = p.value;
           const row = p.row;
-          const formattedValue = row.__manualTLInput || Number(numberOrZero(value)).toLocaleString('tr-TR');
-          
+          // Müşteri: "toplam tl fiyatını değiştirince nokta veya virgülleri otomatik
+          // diğer yerlerdeki gibi ayarlamıyor."
+          // Sebep: elle yazılan HAM metin (__manualTLInput) gösterimde sayının önüne
+          // geçiyordu; "1234567" yazınca ekranda "1234567" kalıyor, "1.234.567" olmuyordu.
+          // Ham metin ayrıştırma için hâlâ saklanıyor, ama GÖSTERİM artık her zaman
+          // biçimlenmiş sayı — diğer tutar alanlarıyla aynı davranış.
+          const formattedValue = Number(numberOrZero(value)).toLocaleString('tr-TR');
+
           if (row.kurManuel && row.kurManuelDeger) {
             return (
               <Tooltip title={`Manuel Kur: ${row.kurManuelDeger}`}>
@@ -4033,7 +4076,55 @@ const MakineYonetimi = () => {
           <EventIcon sx={{ fontSize: 16, mr: 1.5, color: theme.accent }} />
           Toplu Tarih Gir…
         </MenuItem>
+        {/* Müşteri: "Birde ithal makinelere toplu manuel kur giremiyoruz."
+            Kur satır satır giriliyordu; 50 kalemlik listede kullanılamazdı. */}
+        {tab === 'ithal' && (
+          <MenuItem
+            onClick={()=> { setBulkMenuAnchor(null); setTopluKurOpen(true); }}
+            sx={{ fontSize: '0.75rem', py: 1, px: 2, fontWeight: 600 }}
+          >
+            <CurrencyExchangeIcon sx={{ fontSize: 16, mr: 1.5, color: theme.accent }} />
+            Toplu Manuel Kur Gir…
+          </MenuItem>
+        )}
       </Menu>
+
+      {/* 💱 Toplu Manuel Kur — seçili ithal satırlarına aynı kuru uygular */}
+      <Dialog open={topluKurOpen} onClose={()=> setTopluKurOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>Toplu Manuel Kur</DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2 }}>
+            Seçili <b>{selectionModel.length}</b> ithal satırına uygulanacak. TL tutarları
+            bu kurdan yeniden hesaplanır; FOB $ değerleri değişmez.
+          </Typography>
+          <TextField
+            type="number" size="small" label="Kur (1 döviz = ? TL)" fullWidth autoFocus
+            value={topluKur} onChange={(e)=> setTopluKur(e.target.value)}
+            inputProps={{ step: '0.0001', min: '0' }}
+            helperText="Makinenin alım tarihindeki kuru bilmiyorsanız kendi belirlediğiniz kuru girin"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={()=> setTopluKurOpen(false)} color="inherit">İptal</Button>
+          <Button
+            variant="contained"
+            disabled={selectionModel.length === 0 || !(Number(topluKur) > 0)}
+            onClick={()=> {
+              const kur = Number(topluKur);
+              const secili = new Set(selectionModel.map(String));
+              setIthalRows((satirlar) => satirlar.map((r) => {
+                if (!secili.has(String(r.id))) return r;
+                const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : numberOrZero(r.miktar) * numberOrZero(r.birimFiyatiFob);
+                return { ...r, kurManuel: true, kurManuelDeger: kur, toplamUsd: usd, toplamTl: Math.round(usd * kur), tlManuel: true };
+              }));
+              setTopluKurOpen(false);
+              openToast('success', `${selectionModel.length} satıra ${kur} kuru uygulandı — kaydetmeyi unutmayın`);
+            }}
+          >
+            Uygula ({selectionModel.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 📅 Toplu Tarih / Durum — madde 10 */}
       <Dialog open={topluOpen} onClose={()=> setTopluOpen(false)} maxWidth="xs" fullWidth>
