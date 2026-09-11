@@ -3906,7 +3906,26 @@ const MakineYonetimi = () => {
                 <HistoryIcon sx={{ fontSize: 16 }}/>
               </IconButton>
             </span></Tooltip>
-            <Tooltip title="Toplu İşlem"><IconButton size="small" onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}><MoreIcon sx={{ fontSize: 16 }}/></IconButton></Tooltip>
+            {/* Müşteri: "Birde toplu işlemleri daha görünen bir yere koyabilir miyiz".
+                Eskiden yalnız bir ⋮ ikonuydu; hangi işlemleri barındırdığı görünmüyordu.
+                Artık etiketli; satır seçilince renklenip kaç satıra uygulanacağını yazıyor. */}
+            <Tooltip title="Seçili satırlara toplu talep / onay / tarih uygula" arrow>
+              <span>
+                <Button
+                  size="small"
+                  variant={selectionModel.length > 0 ? 'contained' : 'outlined'}
+                  startIcon={<EventIcon sx={{ fontSize: 16 }} />}
+                  onClick={(e)=> setBulkMenuAnchor(e.currentTarget)}
+                  disabled={!selectedTesvik}
+                  sx={{
+                    ml: 0.5, fontSize: '0.68rem', py: 0.25, px: 1, fontWeight: 700,
+                    whiteSpace: 'nowrap', minWidth: 0
+                  }}
+                >
+                  {selectionModel.length > 0 ? `Toplu İşlem (${selectionModel.length})` : 'Toplu İşlem'}
+                </Button>
+              </span>
+            </Tooltip>
           </Stack>
         </Box>
 
