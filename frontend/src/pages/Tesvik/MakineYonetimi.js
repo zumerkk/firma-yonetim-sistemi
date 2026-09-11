@@ -14,6 +14,7 @@ import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Downloa
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
+import { anlikGoruntuAl, geriAlinacaklar } from '../../utils/talepKararGeriAl';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
@@ -261,7 +262,26 @@ const MakineYonetimi = () => {
   const [density, setDensity] = useState('compact');
   const [fullScreen, setFullScreen] = useState(false);
   const [columnsAnchor, setColumnsAnchor] = useState(null);
-  const [columnVisibilityModel, setColumnVisibilityModel] = useState({ gtipAciklama: false });
+  // Varsayilan olarak GIZLI sutunlar.
+  //
+  // Musteri (11 Eylul 2026): "Bu YUKLE - TIK ISARETI - KOPYALA - TALEP - KARAR
+  // sekmelerini kaldirabiliriz."
+  //
+  // Silmek yerine gizliyoruz: besi de calisan islevler ve "Sutunlar" menusunden
+  // tek tikla geri acilabiliyorlar; fikir degisirse yeni dagitim gerekmiyor.
+  // Gizlenebilmelerinin sebebi islevlerinin baska yerden karsilanmasi:
+  //   talep / karar -> T.Tarih ve K.Tarih sutunlari (tarih girilince durum
+  //                    kendiliginden yaziliyor) + arac cubugundaki Toplu Islem
+  //   copy          -> satira sag tik menusu ve Ctrl+C / Ctrl+V
+  //   dosya, etuysSecili -> satir bazinda nadiren kullaniliyor, tabloyu daraltiyordu
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    gtipAciklama: false,
+    dosya: false,          // YUKLE
+    etuysSecili: false,    // TIK ISARETI
+    copy: false,           // KOPYALA
+    talep: false,          // TALEP
+    karar: false           // KARAR
+  });
   const [columnOrderYerli, setColumnOrderYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_yerli')||'[]')}catch{return []};});
   const [columnOrderIthal, setColumnOrderIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_ithal')||'[]')}catch{return []};});
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
@@ -272,6 +292,7 @@ const MakineYonetimi = () => {
   const [quickTab, setQuickTab] = useState(tab);
   const quickScrollRef = useRef({ top: 0, left: 0 });
   const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 });
+  const talepKararAnlikRef = useRef(null);   // revize basindaki talep/karar goruntusu
   const revizeFinalizingRef = useRef(false); // 🔧 FIX: Çift tıklama engeli
   const [birimListesi, setBirimListesi] = useState([]);
   const [dovizListesi, setDovizListesi] = useState([]);
@@ -1922,6 +1943,43 @@ const MakineYonetimi = () => {
     } catch(e) {
       console.error('Veri yenilenemedi:', e);
     }
+  };
+
+  // ↩️ Revizeden vazgeç.
+  //
+  // Müşteri: "Listede işlemi iptal etsek bile yaptığımız değişiklikler kalıyor
+  // iptal olmuyor." Hücre düzenlemeleri yalnız yerelde durduğu için yeniden
+  // yükleme onları zaten atıyordu; sorun talep/karar'daydı — onlar anında
+  // sunucuya yazılıyor. Revize başlarken alınan anlık görüntüyle karşılaştırıp
+  // yalnızca DEĞİŞMİŞ olanları eski hâline geri yazıyoruz.
+  const revizeIptal = async () => {
+    if (!selectedTesvik?._id) return;
+    const anlik = talepKararAnlikRef.current;
+    let basarisiz = 0;
+
+    if (anlik) {
+      const isler = [
+        ...geriAlinacaklar(anlik.yerli, yerliRows, 'yerli'),
+        ...geriAlinacaklar(anlik.ithal, ithalRows, 'ithal')
+      ];
+      for (const is of isler) {
+        try {
+          if (is.alan === 'talep') {
+            await tesvikService.setMakineTalep(selectedTesvik._id, { liste: is.liste, rowId: is.rowId, talep: is.deger });
+          } else {
+            await tesvikService.setMakineKarar(selectedTesvik._id, { liste: is.liste, rowId: is.rowId, karar: is.deger });
+          }
+        } catch { basarisiz += 1; }
+      }
+    }
+
+    talepKararAnlikRef.current = null;
+    setIsReviseMode(false); setIsReviseStarted(false);
+    await loadMakineData(selectedTesvik._id);
+    // Kısmen başarısız geri almayı SESSİZ geçmiyoruz: kullanıcı neyin geri
+    // alınmadığını bilmeli, aksi halde "iptal ettim ama duruyor" yeniden yaşanır.
+    if (basarisiz > 0) openToast('warning', `${basarisiz} satırın talep/karar bilgisi geri alınamadı — listeyi kontrol edin`);
+    else openToast('info', 'Vazgeçildi');
   };
 
   // Toplu tarih/durum diyaloğunun "Uygula" düğmesi
@@ -3747,6 +3805,12 @@ const MakineYonetimi = () => {
                   if (!ok) return;
                   try {
                     await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
+                    // Talep/karar ANINDA sunucuya yazıldığı için İptal onları geri
+                    // alamıyordu. Revize başlarken anlık görüntü alıyoruz.
+                    talepKararAnlikRef.current = {
+                      yerli: anlikGoruntuAl(yerliRows),
+                      ithal: anlikGoruntuAl(ithalRows)
+                    };
                     setIsReviseMode(true); setIsReviseStarted(true);
                     const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
                     openToast('success', 'Revize başladı');
@@ -3817,7 +3881,7 @@ const MakineYonetimi = () => {
                 </Button>
                 <Button 
                   size="small" 
-                  onClick={()=>{ setIsReviseMode(false); setIsReviseStarted(false); if(selectedTesvik) loadMakineData(selectedTesvik._id); openToast('info','Vazgeçildi'); }} 
+                  onClick={revizeIptal}
                   sx={{ 
                     fontSize: '0.68rem',
                     py: 0.5,
