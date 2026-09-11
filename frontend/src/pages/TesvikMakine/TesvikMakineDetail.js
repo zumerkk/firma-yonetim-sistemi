@@ -72,8 +72,21 @@ export default function TesvikMakineDetail() {
 
   const refreshAll = () => { setDocs(null); setMails(null); setReminders(null); setTimeline(null); loadCore(); };
 
-  // Bu modülde sadece YERLİ makineler kullanılır (#5 — ithal gizlendi)
-  const localMachines = useMemo(() => machines.filter((m) => m.listType === 'local'), [machines]);
+  // 🔀 Liste tipi seçimi.
+  //
+  // Bu modül başlangıçta yalnız YERLİ makineler için açılmıştı (#5 — ithal gizlendi).
+  // Müşteri (11 Eylül 2026): "Birde İthal makineler için Beyanname isteyeceğiz aynı
+  // yerli listedeki faturalar gibi ithal liste için Beyanname isteme sistemi
+  // yapabilir miyiz?" — süreç altyapısı (MachineProcess.listType, klasörler, upload
+  // linki) ithali zaten destekliyordu, yalnızca burada süzülüp gizleniyordu.
+  //
+  // Fark tek yerde: ithal makinede firmadan FATURA değil GÜMRÜK BEYANNAMESİ
+  // isteniyor. Bunu backend liste tipine göre çözüyor (publicDocumentTypes).
+  const [listeTipi, setListeTipi] = useState('local'); // 'local' | 'import'
+  const localMachines = useMemo(
+    () => machines.filter((m) => m.listType === listeTipi),
+    [machines, listeTipi]
+  );
 
   // Makine tablosu filtreleme (yerli üzerinden)
   const now = Date.now();
@@ -91,7 +104,9 @@ export default function TesvikMakineDetail() {
   const handleYerliRowUpdate = async (newRow) => {
     let processId = newRow.process?._id;
     if (!processId) {
-      const p = await svc.ensureProcess({ tesvikModel, tesvikId, listType: 'local', rowId: newRow.rowId });
+      // Liste tipi satırın kendisinden alınır; ithal satırda 'local' yazmak
+      // yanlış klasöre ve yanlış belge türüne (fatura ↔ beyanname) yol açardı.
+      const p = await svc.ensureProcess({ tesvikModel, tesvikId, listType: newRow.listType || listeTipi, rowId: newRow.rowId });
       processId = p._id;
     }
     await svc.updateFields(processId, {
@@ -263,6 +278,16 @@ export default function TesvikMakineDetail() {
         {tab === 3 && (
           <Paper sx={{ p: 2 }}>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+              {/* Müşteri: "ithal liste için Beyanname isteme sistemi yapabilir miyiz" —
+                  ithal makineler artık bu modülde de görünüyor. Seçim değişince
+                  seçili satırlar temizleniyor: iki listeden karışık seçimle toplu
+                  işlem yapmak yanlış belgeyi istemeye yol açardı. */}
+              <TextField select size="small" label="Liste" value={listeTipi}
+                onChange={(e) => { setListeTipi(e.target.value); setSelection([]); }}
+                sx={{ minWidth: 130 }}>
+                <MenuItem value="local">Yerli (Fatura)</MenuItem>
+                <MenuItem value="import">İthal (Beyanname)</MenuItem>
+              </TextField>
               <TextField size="small" label="Ara" value={q} onChange={(e) => setQ(e.target.value)} sx={{ minWidth: 180 }} />
               <TextField select size="small" label="Durum" value={fStatus} onChange={(e) => setFStatus(e.target.value)} sx={{ minWidth: 180 }}>
                 <MenuItem value="">Tümü</MenuItem>

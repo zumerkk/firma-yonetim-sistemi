@@ -8,7 +8,7 @@ const mps = require('../services/tesvikMakine/machineProcessService');
 const araKontrol = require('../services/tesvikMakine/araKontrolService');
 const resolver = require('../services/tesvikMakine/certificateResolver');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
-const { PUBLIC_DOCUMENT_TYPES, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
+const { PUBLIC_DOCUMENT_TYPES, publicDocumentTypes, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
 const { ALLOWED_EXT } = require('../middleware/tesvikUpload');
 
 // fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
@@ -44,9 +44,12 @@ exports.getInfo = async (req, res) => {
     const { proc, belgeCtx, error } = await resolveByToken(req.params.token);
     if (error) return fail(res, error[0], error[1]);
     const ortak = {
-      // Firmaya yalnızca fatura türleri gösterilir; yükleme doğrulaması (DOCUMENT_TYPE_KEYS)
+      // Firmaya yalnızca ilgili türler gösterilir; yükleme doğrulaması (DOCUMENT_TYPE_KEYS)
       // tüm türleri kabul etmeye devam eder, böylece eski linkler/kayıtlar bozulmaz.
-      documentTypes: PUBLIC_DOCUMENT_TYPES,
+      //
+      // İthal makinede fatura değil GÜMRÜK BEYANNAMESİ isteniyor (müşteri talebi).
+      // Belge geneli linkte makine yok, o durumda yerli varsayılıyor.
+      documentTypes: publicDocumentTypes(proc && proc.listType),
       allowedExtensions: ALLOWED_EXT,
       maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
     };
