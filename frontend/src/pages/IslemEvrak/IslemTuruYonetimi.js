@@ -29,6 +29,8 @@ import ClearIcon from '@mui/icons-material/Clear';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
 import { tasi } from '../../utils/dizi';
+import useSurukleSirala from '../../hooks/useSurukleSirala';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { hataMesaji } from '../../utils/hataMesaji';
 import YerTutucuCubugu from '../../components/YerTutucuCubugu';
 
@@ -70,7 +72,11 @@ const kodTuret = (metin) => String(metin || '').toLowerCase()
 // kaydedilmemişken de örnek eklenebilir — indirme ise kaydettikten sonra açılır.
 const EvrakListesiEditoru = ({
   evraklar, onChange, baslik, sorular = [], turId = null, turAd = '', varyantKod = '', onDurum
-}) => (
+}) => {
+  // Müşteri: "yeni evrak ekleyince en alta ekliyor 30 kere yukarı oka tıklamamız
+  // gerekiyor" — satırlar artık sürüklenebiliyor.
+  const { satirProps } = useSurukleSirala(evraklar, onChange);
+  return (
   <Box>
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
       <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
@@ -89,9 +95,17 @@ const EvrakListesiEditoru = ({
 
     <Stack spacing={1}>
       {evraklar.map((e, i) => (
-        <Box key={i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <Box
+          key={i}
+          {...satirProps(i)}
+          sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}
+        >
           {/* Müşteri: "istenen evrakları sıralayabilelim önem sırasına vs göre."
-              Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor. */}
+              Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor.
+              Satırın tamamı sürüklenebilir; oklar klavye/ince ayar için duruyor. */}
+          <Tooltip title="Sürükleyip bırakarak taşıyın">
+            <DragIndicatorIcon sx={{ fontSize: 16, mt: 1.2, color: '#cbd5e1', cursor: 'grab' }} />
+          </Tooltip>
           <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
             {i + 1}.
           </Typography>
@@ -231,7 +245,8 @@ const EvrakListesiEditoru = ({
       ))}
     </Stack>
   </Box>
-);
+  );
+};
 
 const IslemTuruYonetimi = () => {
   const navigate = useNavigate();
