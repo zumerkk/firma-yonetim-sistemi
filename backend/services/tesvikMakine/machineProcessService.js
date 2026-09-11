@@ -297,6 +297,10 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
     : kdvLinkiEkle(rendered.body, kdvMuafiyet);
   return {
     template: tpl, audience, subject, body, to, cc,
+    // Toplu mailde ayni veri makine listeleriyle zenginlestirilip yeniden
+    // render ediliyor (bkz. topluMailIcerik). Disari vermezsek cagiran
+    // tarafin sablon verisini bastan kurmasi gerekirdi.
+    data,
     missing: rendered.missing, ok: rendered.ok && to.length > 0,
     needsUploadLink: templateNeedsUploadLink(tpl), kdvMuafiyet
   };
@@ -648,6 +652,7 @@ module.exports = {
   reminderDays, getSignature, autoSendDefault, parseEmails, audienceForTemplate, buildContext, addLog,
   // core
   ensureProcess, listForCertificate, updateFields, changeStatus,
+  resolveTemplate,
   composeMail, previewMail, createDraftMail, sendProcessMail, resendMail, kdvLinkiEkle,
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
