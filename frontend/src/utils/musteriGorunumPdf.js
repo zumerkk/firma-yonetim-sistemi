@@ -114,6 +114,25 @@ export const exportTesvikToPdf = async (tesvik) => {
     y = doc.lastAutoTable.finalY + 18;
   };
 
+  // Etiketli serbest metin paragrafı.
+  // Uzun açıklamalar (ör. Bina-İnşaat) iki sütunlu bilgi tablosuna sığmıyor;
+  // autoTable ile tek hücrelik bir blok basıyoruz ki sayfa sonu taşmasını
+  // kütüphane kendisi yönetsin — elle satır bölmek sayfa kırılımını bozardı.
+  const paragraf = (etiket, metin) => {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: 40, right: 40 },
+      body: [[etiket, metin]],
+      theme: 'grid',
+      styles: { font: 'Roboto', fontSize: 8.5, cellPadding: 4, lineColor: RENK.cizgi, lineWidth: 0.5, overflow: 'linebreak' },
+      columnStyles: {
+        0: { cellWidth: 150, fontStyle: 'bold', fillColor: RENK.satirBaslik },
+        1: { cellWidth: 'auto' }
+      }
+    });
+    y = doc.lastAutoTable.finalY + 18;
+  };
+
   const tablo = (kolonlar, satirlar, opts = {}) => {
     autoTable(doc, {
       startY: y,
@@ -171,8 +190,11 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['Yatırım Adresi', str(adres)],
     ['OSB Adı', str(yb.osbIseMudurluk)],
     ['Bölge (İl / İlçe bazlı)', [yb.ilBazliBolge, yb.ilceBazliBolge].filter(Boolean).join(' / ') || '-'],
-    ['Yatırım Cinsi', str(yatirimCinsi)],
+    ['Yatırım Cinsi', str(etiketNormalle(yatirimCinsi))],
     ['Destek Sınıfı', str(etiketNormalle(yb.destekSinifi))],
+    // Müşteri: "Mesela Bina-inşaat açıklamaları vs görünmüyor yada OECD ise OECD'si gibi"
+    // ETUYS çıktısında "OECD (Orta-Yüksek)" ayrı bir satır olarak duruyor; bizde hiç yoktu.
+    ['OECD Kategorisi', str(etiketNormalle(yb.oecdKategori))],
     ['İstihdam (Mevcut / İlave)', `${num(tesvik.istihdam?.mevcutKisi)} / ${num(tesvik.istihdam?.ilaveKisi)}`],
     ['Ada / Parsel', [yb.ada, yb.parsel].filter(Boolean).join(' / ') || '-']
   ]);
@@ -240,6 +262,19 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['TOPLAM SABİT YATIRIM', tl(topSabit)],
     ['Finansman (Yabancı / Öz kaynak)', `${tl(yabanci)} / ${tl(ozkaynak)}`]
   ]);
+
+  // 🏗️ Bina-İnşaat açıklaması — müşteri: "Mesela Bina-inşaat açıklamaları vs
+  // görünmüyor". ETUYS çıktısında bu metin ("MEVCUT ARSAMIZA YAPILACAK OLAN BU
+  // YATIRIM KONUSU İLE İLGİLİ ... FABRİKA BİNASI İNŞA...") gideri açıklıyor;
+  // yalnız tutarı göstermek bilgiyi eksik bırakıyordu.
+  //
+  // Tabloya sığmıyor: 2000 karaktere kadar serbest metin. Tutar satırlarının
+  // altına ayrı bir paragraf olarak basılıyor ve YALNIZCA doluysa yer kaplıyor.
+  const binaAciklama = String(mali.binaInsaatGideri?.aciklama || '').trim();
+  if (binaAciklama) {
+    y += 2;
+    paragraf('Bina-İnşaat Açıklaması', binaAciklama);
+  }
 
   // ── 6. Özel şartlar ─────────────────────────────────────────────────────
   const sartlar = (tesvik.ozelSartlar || []).filter((sa) =>

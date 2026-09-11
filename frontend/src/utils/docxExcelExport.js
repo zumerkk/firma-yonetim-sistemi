@@ -237,7 +237,10 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     tesvik.yatirimBilgileri?.uCinsi3,
     tesvik.yatirimBilgileri?.vCinsi4,
   ].filter(Boolean).join(", ") || tesvik.yatirimBilgileri?.yatirimCinsi;
-  addDataRow("Yatırım Cinsi", yatirimCinsi, "Destek Sınıfı", etiketNormalle(tesvik.yatirimBilgileri?.destekSinifi));
+  addDataRow("Yatırım Cinsi", etiketNormalle(yatirimCinsi), "Destek Sınıfı", etiketNormalle(tesvik.yatirimBilgileri?.destekSinifi));
+  // Müşteri: "yada OECD ise OECD'si gibi" — ETUYS çıktısında ayrı satır olarak
+  // duruyor, bizim çıktımızda hiç yoktu.
+  addDataRow("OECD Kategorisi", etiketNormalle(tesvik.yatirimBilgileri?.oecdKategori), "", "");
   addDataRow("Ada", tesvik.yatirimBilgileri?.ada, "Parsel", tesvik.yatirimBilgileri?.parsel);
   worksheet.addRow([]);
 

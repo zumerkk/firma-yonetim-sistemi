@@ -129,3 +129,32 @@ describe('etiketNormalle — alt çizgili enum değerleri', () => {
     }
   });
 });
+
+// 📄 PDF/Excel çıktısında alt çizgili enum değerleri
+//
+// Müşteri (11 Eylül 2026): "Birde pdf çıktısında bazı isimler
+// 'BÖLGESEL_ALT_BÖLGE' olarak '_' ile görünüyor."
+//
+// etiketNormalle önce yalnızca Destek Sınıfı'na uygulanıyordu; Yatırım Cinsi ve
+// yeni eklenen OECD Kategorisi ham değeri basıyordu. Yardımcı alan adından
+// bağımsız çalıştığı için hepsine uygulanabiliyor — aşağıdakiler o kapsamı
+// sabitliyor.
+describe('etiketNormalle - çıktıdaki diğer enum alanları', () => {
+  test('OECD kategorisi alt çizgisiz basılır', () => {
+    expect(etiketNormalle('ORTA_YUKSEK')).not.toContain('_');
+  });
+
+  test('yatırım cinsi alt çizgisiz basılır', () => {
+    expect(etiketNormalle('KOMPLE_YENI_YATIRIM')).not.toContain('_');
+  });
+
+  test('zaten okunur değerler değiştirilmez', () => {
+    expect(etiketNormalle('BÖLGESEL - ALT BÖLGE')).toBe('BÖLGESEL - ALT BÖLGE');
+    expect(etiketNormalle('Komple Yeni Yatırım')).toBe('Komple Yeni Yatırım');
+  });
+
+  test('boş değer boş kalır (çıktıda "undefined" yazmasın)', () => {
+    expect(etiketNormalle(undefined)).toBe('');
+    expect(etiketNormalle(null)).toBe('');
+  });
+});
