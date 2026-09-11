@@ -9,7 +9,10 @@ const MAIL_TEMPLATE_CODE = Object.freeze({
   SUPPLIER_INFO_REQUEST: 'supplier_info_request',
   REMINDER_NO_RESPONSE: 'reminder_no_response',
   INVOICE_DRAFT_APPROVED: 'invoice_draft_approved',
-  ARA_KONTROL_FATURA_TALEBI: 'ara_kontrol_fatura_talebi' // Belge geneli firma maili (makine listesi + fatura talebi)
+  ARA_KONTROL_FATURA_TALEBI: 'ara_kontrol_fatura_talebi', // Belge geneli firma maili (makine listesi + fatura talebi)
+  // Ithal makineler icin: gumruk beyannamesi talebi (musteri: "yerli listedeki
+  // faturalar gibi ithal liste icin Beyanname isteme sistemi yapabilir miyiz")
+  SUPPLIER_BEYANNAME_REQUEST: 'supplier_beyanname_request'
 });
 
 // ✒️ Varsayılan mail imzası (Admin panelden override edilebilir → app ayarı)
@@ -28,6 +31,31 @@ const DEFAULT_SIGNATURE = [
 //       Şablonda {kdvMuafiyetLinki} KULLANILMAZSA link, yazı geçerliyse imzanın üstüne
 //       otomatik eklenir (machineProcessService.kdvLinkiEkle). Yazı yoksa hiçbir şey eklenmez.
 const DEFAULT_TEMPLATES = [
+  {
+    code: MAIL_TEMPLATE_CODE.SUPPLIER_BEYANNAME_REQUEST,
+    name: 'İthalatçıdan Gümrük Beyannamesi Talebi',
+    // Müşteri: "İthal makineler için Beyanname isteyeceğiz aynı yerli listedeki
+    // faturalar gibi ithal liste için Beyanname isteme sistemi yapabilir miyiz?"
+    // Yerli listedeki fatura talebinin ithal karşılığı: orada fatura taslağı
+    // isteniyor, burada gümrük beyannamesi.
+    version: 1,
+    subjectTemplate: '{makineAdi} - YTB {belgeNo} Kapsamında Gümrük Beyannamesi Hk.',
+    bodyTemplate: [
+      'Merhabalar,',
+      '',
+      'İşbu firmanın {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında',
+      'ithal edilen {makineId} makine ID numaralı {siraNo}. kaleme ait GÜMRÜK BEYANNAMESİNİN',
+      'tarafımıza iletilmesi gerekmektedir.',
+      '',
+      'Beyannameyi aşağıdaki bağlantı üzerinden yükleyebilirsiniz:',
+      '',
+      '{uploadLink}',
+      '',
+      'İyi çalışmalar dileriz.',
+      '',
+      '{imza}'
+    ].join('\n')
+  },
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,
     name: 'Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi',
@@ -133,6 +161,8 @@ const DOCUMENT_TYPES = Object.freeze([
   { key: 'proforma_teklif', label: 'Proforma / Teklif', folder: 'Proforma_Teklif' },
   { key: 'fatura_taslak', label: 'Fatura Taslağı', folder: 'Fatura_Taslak' },
   { key: 'fatura_onayli', label: 'Onaylı Fatura', folder: 'Fatura_Onayli' },
+  // Ithal makineler: gumruk beyannamesi. Yerli listedeki fatura akisinin karsiligi.
+  { key: 'beyanname', label: "Gümrük Beyannamesi", folder: 'Beyanname' },
   { key: 'sevk_teslimat', label: 'Sevk / Teslimat Belgesi', folder: 'Sevk_Teslimat' },
   { key: 'diger', label: 'Diğer', folder: 'Diger' }
 ]);
@@ -146,6 +176,19 @@ const PUBLIC_DOCUMENT_TYPE_KEYS = Object.freeze(['fatura_taslak', 'fatura_onayli
 const PUBLIC_DOCUMENT_TYPES = Object.freeze(
   DOCUMENT_TYPES.filter((d) => PUBLIC_DOCUMENT_TYPE_KEYS.includes(d.key))
 );
+
+// İthal makinelerde firmadan istenen belge FATURA DEĞİL beyannamedir.
+// (müşteri: "İthal makineler için Beyanname isteyeceğiz")
+const PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT = Object.freeze(['beyanname']);
+const PUBLIC_DOCUMENT_TYPES_IMPORT = Object.freeze(
+  DOCUMENT_TYPES.filter((d) => PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT.includes(d.key))
+);
+
+// Public yükleme ekranında gösterilecek türleri liste tipine göre seçer.
+// listType bilinmiyorsa YERLİ varsayılır — mevcut davranış korunur.
+const publicDocumentTypes = (listType) =>
+  (listType === 'import' ? PUBLIC_DOCUMENT_TYPES_IMPORT : PUBLIC_DOCUMENT_TYPES);
+
 
 function getDocumentTypeFolder(key) {
   const found = DOCUMENT_TYPES.find((d) => d.key === key);
@@ -204,6 +247,9 @@ module.exports = {
   DOCUMENT_TYPES,
   DOCUMENT_TYPE_KEYS,
   PUBLIC_DOCUMENT_TYPES,
+  PUBLIC_DOCUMENT_TYPES_IMPORT,
+  PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT,
+  publicDocumentTypes,
   PUBLIC_DOCUMENT_TYPE_KEYS,
   getDocumentTypeFolder,
   UPLOADER_TYPE,
