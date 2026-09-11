@@ -15,6 +15,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { FixedSizeList as List } from 'react-window';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
+import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -2502,15 +2503,16 @@ const MakineYonetimi = () => {
     ];
     return (
       <Box ref={yerliGridRef} sx={{ height: '100%', width: '100%' }}>
-      <DataGrid 
+      <UstKaydirmaCubugu>
+        <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
         getRowId={(row) => row.id}
         initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
         pageSizeOptions={[50, 100, 200, 500]}
         disableRowSelectionOnClick 
-        rowHeight={32} 
-        columnHeaderHeight={36}
+        rowHeight={28} 
+        columnHeaderHeight={28}
         checkboxSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -2527,18 +2529,18 @@ const MakineYonetimi = () => {
         sx={{
           height: '100%',
           width: '100%',
-          border: '1px solid #e2e8f0',
-          fontSize: '0.72rem',
-          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          border: 'none',
+          fontSize: '0.7rem',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
             borderLeft: '3px solid #ef4444'
           },
           '& .MuiDataGrid-columnHeaders': { 
-            background: '#f8fafc',
-            borderBottom: '2px solid #e2e8f0',
-            minHeight: '36px !important',
-            maxHeight: '36px !important'
+            backgroundColor: '#f8f9fa',
+            borderBottom: '1px solid #e8eaed',
+            minHeight: '28px !important',
+            maxHeight: '28px !important'
           },
           '& .MuiDataGrid-columnHeader': { 
             py: 0,
@@ -2595,7 +2597,8 @@ const MakineYonetimi = () => {
             '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', '&:hover': { background: '#94a3b8' } }
           }
         }}
-      />
+        />
+      </UstKaydirmaCubugu>
       </Box>
     );
   };
@@ -2963,15 +2966,16 @@ const MakineYonetimi = () => {
     ];
     return (
       <Box ref={ithalGridRef} sx={{ height: '100%', width: '100%' }}>
-      <DataGrid 
+      <UstKaydirmaCubugu>
+        <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
         getRowId={(row) => row.id}
         initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
         pageSizeOptions={[50, 100, 200, 500]}
         disableRowSelectionOnClick 
-        rowHeight={32} 
-        columnHeaderHeight={36}
+        rowHeight={28} 
+        columnHeaderHeight={28}
         checkboxSelection
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={(m)=> setSelectionModel(m)}
@@ -2996,18 +3000,21 @@ const MakineYonetimi = () => {
         sx={{
           height: '100%',
           width: '100%',
-          border: '1px solid #e2e8f0',
-          fontSize: '0.72rem',
-          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+          border: 'none',
+          fontSize: '0.7rem',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
           '& .error-cell': { 
             backgroundColor: '#fef2f2',
             borderLeft: '3px solid #ef4444'
           },
-          '& .MuiDataGrid-columnHeaders': { 
-            background: '#fefce8',
-            borderBottom: '2px solid #fde047',
-            minHeight: '36px !important',
-            maxHeight: '36px !important'
+          // Müşteri: "Yeni ve eski belgelerin makine listesi görünümü ve renkleri
+          // aynı olsun - eski belge gibi yani". İthal listesi burada sarı başlıkla
+          // ayrışıyordu; eski belge ekranında ikisi de aynı gri başlığı kullanıyor.
+          '& .MuiDataGrid-columnHeaders': {
+            backgroundColor: '#f8f9fa',
+            borderBottom: '1px solid #e8eaed',
+            minHeight: '28px !important',
+            maxHeight: '28px !important'
           },
           '& .MuiDataGrid-columnHeader': { 
             py: 0,
@@ -3064,7 +3071,8 @@ const MakineYonetimi = () => {
             '&::-webkit-scrollbar-thumb': { background: '#fcd34d', '&:hover': { background: '#fbbf24' } }
           }
         }}
-      />
+        />
+      </UstKaydirmaCubugu>
       </Box>
     );
   };
