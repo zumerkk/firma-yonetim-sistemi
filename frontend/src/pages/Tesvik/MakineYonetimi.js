@@ -12,7 +12,7 @@ import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle } from '../../utils/makineFormat';
+import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 
   const numberOrZero = (v) => {
@@ -1704,7 +1704,7 @@ const MakineYonetimi = () => {
             doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'] || r['Döviz Cinsi'] || '', 
             toplamUsd: r['Toplam Tutar (FOB $)'] || r['Toplam Tutar (FOB$)'] || 0, 
             toplamTl: r['Toplam Tutar (FOB TL)'] || r['Toplam Tutar (FOBTL)'] || 0, 
-            kullanilmisKod: r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'] || r['Kullanılmış Mı?'] || 'HAYIR', 
+            kullanilmisKod: kullanilmisKoduIceAktar(r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'] || r['Kullanılmış Mı?']), 
             kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', 
             makineTechizatTipi: r['Makine Teçhizat Tipi'] || 'Ana Makine', 
             kdvMuafiyeti: r['KDV Muafiyeti'] || 'EVET', 
@@ -2795,14 +2795,14 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredYerliRows} 
         columns={cols} 
-        pageSize={100} 
-        rowsPerPageOptions={[50, 100, 200]} 
-        disableSelectionOnClick 
+        initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
+        pageSizeOptions={[50, 100, 200]}
+        disableRowSelectionOnClick 
         rowHeight={28} 
-        headerHeight={28}
+        columnHeaderHeight={28}
         checkboxSelection
-        selectionModel={selectionModel}
-        onSelectionModelChange={(m)=> setSelectionModel(m)}
+        rowSelectionModel={selectionModel}
+        onRowSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processYerliRowUpdate}
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
         density="compact"
@@ -3281,14 +3281,14 @@ const MakineYonetimi = () => {
       <DataGrid 
         rows={filteredIthalRows} 
         columns={cols} 
-        pageSize={100} 
-        rowsPerPageOptions={[50, 100, 200]} 
-        disableSelectionOnClick 
+        initialState={{ pagination: { paginationModel: { pageSize: 100 } } }}
+        pageSizeOptions={[50, 100, 200]}
+        disableRowSelectionOnClick 
         rowHeight={28} 
-        headerHeight={28}
+        columnHeaderHeight={28}
         checkboxSelection
-        selectionModel={selectionModel}
-        onSelectionModelChange={(m)=> setSelectionModel(m)}
+        rowSelectionModel={selectionModel}
+        onRowSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processIthalRowUpdate}
         onCellEditStop={(params)=>{
           if (params.field === 'toplamTl') {
