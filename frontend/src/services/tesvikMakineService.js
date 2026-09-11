@@ -42,6 +42,9 @@ const tesvikMakineService = {
 
   // Toplu işlem & raporlar
   bulk: (body) => api.post(`${base}/bulk`, body).then(d),
+  // Toplu mail: once onizle (tek ortak metin), sonra TEK mail gonder
+  bulkMailPreview: (body) => api.post(`${base}/bulk/mail/preview`, body).then(d),
+  bulkMailSend: (body) => api.post(`${base}/bulk/mail/send`, body).then((r) => r.data),
   reports: (type) => api.get(`${base}/reports/${type}`).then(d),
 
   // Şablon & SMTP & hatırlatma (admin)

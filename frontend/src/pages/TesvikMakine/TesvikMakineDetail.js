@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Tabs, Tab, Typography, Grid, Button, TextField, MenuItem, Stack, Chip,
-  IconButton, Tooltip, Snackbar, Alert, CircularProgress, Menu, Divider
+  IconButton, Tooltip, Snackbar, Alert, CircularProgress, Menu, Divider,
+  Dialog, DialogTitle, DialogContent, DialogActions
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -129,6 +130,9 @@ export default function TesvikMakineDetail() {
   const [bulkAnchor, setBulkAnchor] = useState(null);
   const [bulkStatus, setBulkStatus] = useState('');
   const [bulkTemplate, setBulkTemplate] = useState('');
+  // Toplu mail onizleme diyalogu (tek ortak mail)
+  const [topluMail, setTopluMail] = useState(null);
+  const [topluMailBusy, setTopluMailBusy] = useState(false);
   const selectedTargets = () => selection.map((rid) => { const r = machines.find((m) => m.rowId === rid); return { tesvikModel, tesvikId, listType: r.listType, rowId: r.rowId }; });
 
   const runBulk = async (action, payload = {}) => {
@@ -138,6 +142,41 @@ export default function TesvikMakineDetail() {
       notify(`${res.succeeded}/${res.total} işlem başarılı`);
       setBulkAnchor(null); refreshAll();
     } catch (e) { notify(e?.response?.data?.message || 'Toplu işlem hatası', 'error'); }
+  };
+
+  // 📧 Toplu mail — TEK ortak mail (müşteri: "tek bir ortak mail gitsin")
+  const topluMailAc = async () => {
+    if (!selection.length) return notify('Önce makine seçin', 'warning');
+    setTopluMailBusy(true);
+    try {
+      const t = await svc.bulkMailPreview({ targets: selectedTargets(), templateCode: bulkTemplate });
+      setTopluMail({
+        ...t,
+        to: (t.to || []).join(', '),
+        cc: (t.cc || []).join(', ')
+      });
+      setBulkAnchor(null);
+    } catch (e) {
+      notify(e?.response?.data?.message || 'Mail önizlemesi hazırlanamadı', 'error');
+    } finally { setTopluMailBusy(false); }
+  };
+
+  const topluMailGonder = async () => {
+    if (!topluMail) return;
+    setTopluMailBusy(true);
+    try {
+      const r = await svc.bulkMailSend({
+        targets: selectedTargets(),
+        templateCode: bulkTemplate,
+        to: topluMail.to, cc: topluMail.cc,
+        subject: topluMail.subject, body: topluMail.body
+      });
+      setTopluMail(null);
+      notify(r?.message || 'Mail gönderildi');
+      refreshAll();
+    } catch (e) {
+      notify(e?.response?.data?.message || 'Mail gönderilemedi', 'error');
+    } finally { setTopluMailBusy(false); }
   };
 
   if (loading && !cert) return <LayoutWrapper><Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box></LayoutWrapper>;
@@ -255,12 +294,55 @@ export default function TesvikMakineDetail() {
                 <TextField select fullWidth size="small" label="Mail Gönder" value={bulkTemplate} onChange={(e) => setBulkTemplate(e.target.value)} sx={{ mb: 1 }}>
                   {(meta?.templates || []).map((t) => <MenuItem key={t.code} value={t.code}>{t.name}</MenuItem>)}
                 </TextField>
-                <Button fullWidth size="small" variant="outlined" sx={{ mb: 1 }} disabled={!bulkTemplate} onClick={() => runBulk('send_mail', { templateCode: bulkTemplate })}>Mail Gönder</Button>
+                {/* Müşteri: "toplu mail göndere tıklayınca o mail şablonunu ve e-mail
+                    seçme yerini getirebilir, direkt kayıtlı olan şablonu gönderiyor...
+                    tek bir ortak mail gitsin". Eskiden her makineye AYRI mail gidiyordu;
+                    artık önce önizleme açılıyor, düzenlenip TEK mail gönderiliyor. */}
+                <Button fullWidth size="small" variant="contained" sx={{ mb: 1 }} disabled={!bulkTemplate}
+                  onClick={topluMailAc}>
+                  Tek Ortak Mail Hazırla…
+                </Button>
                 <Divider sx={{ my: 1 }} />
                 <Button fullWidth size="small" variant="outlined" sx={{ mb: 1 }} onClick={() => runBulk('create_folders')}>Klasör Oluştur</Button>
                 <Button fullWidth size="small" variant="outlined" onClick={() => runBulk('upload_link')}>Upload Link Üret</Button>
               </Box>
             </Menu>
+
+            {/* 📧 Toplu mail önizleme — TEK ortak mail */}
+            <Dialog open={!!topluMail} onClose={() => setTopluMail(null)} maxWidth="md" fullWidth>
+              <DialogTitle sx={{ fontWeight: 700 }}>
+                Toplu Mail — {topluMail?.makineler?.length || 0} makine kalemi tek mailde
+              </DialogTitle>
+              <DialogContent dividers>
+                {topluMail && (
+                  <Stack spacing={2} sx={{ mt: 0.5 }}>
+                    {!topluMail.smtpConfigured && (
+                      <Alert severity="warning">SMTP yapılandırması eksik — mail gönderilemez.</Alert>
+                    )}
+                    <Alert severity="info" sx={{ py: 0.5 }}>
+                      <b>Makine ID:</b> {topluMail.makineIdListesi || '—'}<br />
+                      <b>Sıra No:</b> {topluMail.siraNoListesi || '—'}
+                    </Alert>
+                    <TextField size="small" label="Alıcı(lar)" fullWidth
+                      value={topluMail.to} onChange={(e) => setTopluMail((p) => ({ ...p, to: e.target.value }))}
+                      helperText="Birden fazla adres virgülle ayrılır" />
+                    <TextField size="small" label="CC" fullWidth
+                      value={topluMail.cc} onChange={(e) => setTopluMail((p) => ({ ...p, cc: e.target.value }))} />
+                    <TextField size="small" label="Konu" fullWidth
+                      value={topluMail.subject} onChange={(e) => setTopluMail((p) => ({ ...p, subject: e.target.value }))} />
+                    <TextField label="Mail Metni" fullWidth multiline minRows={10}
+                      value={topluMail.body} onChange={(e) => setTopluMail((p) => ({ ...p, body: e.target.value }))} />
+                  </Stack>
+                )}
+              </DialogContent>
+              <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button onClick={() => setTopluMail(null)}>Vazgeç</Button>
+                <Button variant="contained" disabled={topluMailBusy || !topluMail?.smtpConfigured}
+                  onClick={topluMailGonder}>
+                  {topluMailBusy ? 'Gönderiliyor…' : 'Tek Mail Gönder'}
+                </Button>
+              </DialogActions>
+            </Dialog>
           </Paper>
         )}
 

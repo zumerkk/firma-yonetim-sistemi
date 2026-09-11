@@ -707,3 +707,82 @@ exports.deleteParserQueue = wrap(async (req, res) => {
   await ParsedMinistryMail.findByIdAndDelete(req.params.id);
   res.json({ success: true });
 });
+
+// ───────── TOPLU MAİL (tek ortak mail) ─────────
+//
+// Müşteri: "toplu işlem yaparken maili düzenleyebilelim ve tek bir ortak mail
+// gitsin... Mesela toplu mail göndere tıklayınca o mail şablonunu ve e-mail
+// seçme yerini getirebilir, direkt kayıtlı olan şablonu gönderiyor."
+//
+// Eski akış: /bulk action='send_mail' → her makine için AYRI mail. Tedarikçi 10
+// kalemlik teslimat için 10 mail alıyordu. Yeni akış: önce ÖNİZLE (şablon
+// doldurulmuş, alıcılar önerilmiş), kullanıcı düzenler, sonra TEK mail gider.
+
+// Seçilen hedeflerin süreç kayıtlarını getirir (yoksa oluşturur)
+async function topluSurecler(targets, user) {
+  const list = [];
+  for (const t of targets || []) {
+    list.push(await mps.ensureProcess({ ...t, user }));
+  }
+  return list;
+}
+
+exports.bulkMailPreview = wrap(async (req, res) => {
+  const { targets = [], templateCode } = req.body || {};
+  if (!Array.isArray(targets) || !targets.length) {
+    const e = new Error('Hedef makine seçilmedi.'); e.code = 'BAD_INPUT'; throw e;
+  }
+  const { topluPlaceholderVerisi } = require('../services/tesvikMakine/topluMailIcerik');
+
+  const surecler = await topluSurecler(targets, req.user);
+  // Metin İLK sürecin bağlamıyla kuruluyor (firma/belge hepsinde aynı), ama
+  // makine kimlikleri TÜM seçilenlerden birleştiriliyor.
+  const onizleme = await mps.composeMail(surecler[0], templateCode, {});
+  const veri = topluPlaceholderVerisi(onizleme.data || {}, surecler);
+
+  // Şablonu birleşik veriyle yeniden render et
+  const engine = require('../services/tesvikMakine/mailTemplateEngine');
+  const tpl = await mps.resolveTemplate(templateCode);
+  const rendered = engine.renderTemplate(tpl, veri);
+
+  res.json({
+    success: true,
+    data: {
+      to: onizleme.to, cc: onizleme.cc,
+      subject: rendered.subject, body: rendered.body,
+      makineler: surecler.map((p) => ({ rowId: p.rowId, siraNo: p.siraNo, makineId: p.makineId })),
+      makineIdListesi: veri.makineIdListesi,
+      siraNoListesi: veri.siraNoListesi,
+      smtpConfigured: mailService.isConfigured()
+    }
+  });
+});
+
+exports.bulkMailSend = wrap(async (req, res) => {
+  const { targets = [], templateCode, to, cc, subject, body } = req.body || {};
+  if (!Array.isArray(targets) || !targets.length) {
+    const e = new Error('Hedef makine seçilmedi.'); e.code = 'BAD_INPUT'; throw e;
+  }
+  if (!String(subject || '').trim() || !String(body || '').trim()) {
+    const e = new Error('Mail konusu ve metni boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
+  }
+
+  const surecler = await topluSurecler(targets, req.user);
+
+  // TEK gönderim: ilk süreç üzerinden, konu/metin/alıcı elle verilmiş hâliyle.
+  // Log da tek — N adet log üretmek "10 mail gitti" izlenimi verirdi, oysa 1 gitti.
+  // Kapsanan makineler yanıtta dönüyor ki arayüz kaç kalemin dahil olduğunu yazsın.
+  const r = await mps.sendProcessMail(surecler[0], templateCode, {
+    user: req.user,
+    toOverride: to,
+    ccOverride: cc,
+    subjectOverride: subject,
+    bodyOverride: body
+  });
+
+  res.json({
+    success: true,
+    message: `Tek mail gönderildi — ${surecler.length} makine kalemi kapsandı`,
+    data: { mailLogId: r.mailLog._id, makineSayisi: surecler.length }
+  });
+});
