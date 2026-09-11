@@ -14,6 +14,7 @@ import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Downloa
 import { useNavigate, useLocation } from 'react-router-dom';
 import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
+import { gerceklesmeCoz, SABLON_BASLIKLARI } from '../../utils/makineSablonu';
 import { anlikGoruntuAl, geriAlinacaklar } from '../../utils/talepKararGeriAl';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
@@ -982,6 +983,48 @@ const MakineYonetimi = () => {
   const openUpload = (rowId) => { setUploadRowId(rowId); setUploadOpen(true); };
   const closeUpload = () => { setUploadOpen(false); setUploadRowId(null); };
 
+  // 📗 Boş şablon indir — müşteri: "Her şeyi excelde düzenleyebileceğimiz boş bir
+  // şablon lazım içe aktarınca aktarsın hepsini."
+  //
+  // Başlıklar makineSablonu'ndan geliyor; içe aktarmanın TANIDIĞI adların ta
+  // kendisi. İkisi ayrı yerde yazılsaydı yine bugünkü duruma düşerdik: şablon
+  // doldurulur, yüklenir, hiçbir şey gelmez.
+  const sablonIndir = async () => {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Firma Yönetim Sistemi';
+    for (const [ad, basliklar] of Object.entries(SABLON_BASLIKLARI)) {
+      const ws = wb.addWorksheet(ad === 'yerli' ? 'Yerli' : 'İthal');
+      ws.columns = basliklar.map((b) => ({ header: b, key: b, width: Math.max(14, Math.min(34, b.length + 4)) }));
+      const bas = ws.getRow(1);
+      bas.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      bas.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      bas.height = 26;
+      bas.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
+      ws.views = [{ state: 'frozen', ySplit: 1 }];
+      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: basliklar.length } };
+    }
+    // Kullanım notu ayrı sayfada: başlık satırına not yazmak içe aktarmayı bozardı
+    const bilgi = wb.addWorksheet('Nasıl Kullanılır');
+    bilgi.columns = [{ header: 'Açıklama', key: 'a', width: 110 }];
+    [
+      'Bu şablonu doldurup makine listesi ekranındaki "İçe Aktar" ile yükleyin.',
+      'Sayfa adlarını (Yerli / İthal) ve BAŞLIK SATIRINI değiştirmeyin — eşleştirme onlara göre yapılır.',
+      'Boş bıraktığınız hücreler sistemdeki mevcut değeri SİLMEZ; yalnızca dolu hücreler aktarılır.',
+      'Eşleştirme "Makine ID" ve "Sıra No" üzerinden yapılır; eşleşen satır güncellenir, eşleşmeyen yeni satır olarak eklenir.',
+      'Tarihler gg.aa.yyyy (31.05.2027) veya yyyy-aa-gg yazılabilir; Excel tarih hücresi de kabul edilir.',
+      'Tutarlarda TR biçimi kullanabilirsiniz: 1.234.567,89'
+    ].forEach((satir) => bilgi.addRow({ a: satir }));
+    bilgi.getRow(1).font = { bold: true };
+
+    const buf = await wb.xlsx.writeBuffer();
+    const url = window.URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'Makine_Listesi_Sablonu.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+    window.URL.revokeObjectURL(url);
+    openToast('success', 'Boş şablon indirildi');
+  };
+
   const exportExcel = async () => {
     // Daha profesyonel Excel çıktı: stil, dondurulmuş başlık, filtre, numara formatları,
     // veri doğrulama (EVET/HAYIR ve Makine Tipi), toplam satırları ve özet sayfası.
@@ -1696,8 +1739,30 @@ const MakineYonetimi = () => {
             iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
             iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
             iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
-            dosyalar: [] 
+            dosyalar: []
           };
+          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
+          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
+          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
+          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
+          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
+          const gerc = gerceklesmeCoz(r);
+          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
+          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
+          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
+          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
+          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
+            obj.talep = { ...(obj.talep || {}) };
+            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
+            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
+            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
+          }
+          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
+            obj.karar = { ...(obj.karar || {}) };
+            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
+            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
+            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
+          }
           const errs = [];
           if (!obj.adi) errs.push('Adı boş');
           if (!obj.birim) errs.push('Birim boş');
@@ -1763,8 +1828,30 @@ const MakineYonetimi = () => {
             iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
             ckdSkd: r['CKD'] || 'HAYIR', 
             aracMi: 'HAYIR', 
-            dosyalar: [] 
+            dosyalar: []
           };
+          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
+          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
+          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
+          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
+          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
+          const gerc = gerceklesmeCoz(r);
+          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
+          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
+          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
+          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
+          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
+            obj.talep = { ...(obj.talep || {}) };
+            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
+            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
+            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
+          }
+          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
+            obj.karar = { ...(obj.karar || {}) };
+            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
+            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
+            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
+          }
           const errs = [];
           if (!obj.adi) errs.push('Adı boş');
           if (!obj.birim) errs.push('Birim boş');
@@ -3996,6 +4083,12 @@ const MakineYonetimi = () => {
             <Tooltip title="Dışa Aktar" arrow>
               <IconButton size="small" onClick={exportExcel} sx={{ color: theme.success }}>
                 <ExportIcon sx={{ fontSize: 17 }}/>
+              </IconButton>
+            </Tooltip>
+            {/* Müşteri: "Her şeyi excelde düzenleyebileceğimiz boş bir şablon lazım" */}
+            <Tooltip title="Boş Excel şablonu indir (doldurup İçe Aktar ile yükleyin)" arrow>
+              <IconButton size="small" onClick={sablonIndir} sx={{ color: theme.text.secondary }}>
+                <TableViewIcon sx={{ fontSize: 17 }}/>
               </IconButton>
             </Tooltip>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5, borderColor: theme.border }} />
