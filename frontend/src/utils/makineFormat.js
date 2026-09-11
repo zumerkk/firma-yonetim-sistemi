@@ -133,6 +133,28 @@ export const kullanilmisKoduNormalle = (deger) => {
   return KOD_ESLEME[k] || '';
 };
 
+/**
+ * 📥 İÇE AKTARMA İÇİN kullanılmışlık kodu çözücü.
+ *
+ * Müşteri (11 Eylül 2026): "İçe aktarınca kullanılmış kısmı boş geliyor HAYIR gelsin."
+ *
+ * İki ayrı sorun vardı:
+ *   1. İçe aktarma, Excel'deki METNİ ("HAYIR", "KULLANILMIŞ KOMPLE") doğrudan
+ *      `kullanilmisKod` alanına yazıyordu. Izgaradaki Select ise bakanlık KODU
+ *      ('1'|'2'|'3') bekliyor; eşleşmeyen değerde MUI Select boş görünür.
+ *      Yani sütun dolu olsa bile ekranda boş çıkıyordu.
+ *   2. Sütun hiç yoksa 'HAYIR' yazılıyordu — o da yine kod değil, etiketti.
+ *
+ * Burada ikisi birden çözülüyor: ne gelirse gelsin koda çevrilir, tanınmayan ya da
+ * boş değerde HAYIR ('2') varsayılır. Varsayılanın HAYIR olması bilinçli — makinenin
+ * yeni olması normal durum, kullanılmışlık istisna.
+ *
+ * ⚠️ Yalnızca İÇE AKTARMA yolunda kullanın. Kayıt okuma yolunda
+ * `kullanilmisKoduNormalle` kullanılmalı: orada boş değer "veride gerçekten yok"
+ * demektir ve sessizce HAYIR'a çevirmek veriyi çarpıtır.
+ */
+export const kullanilmisKoduIceAktar = (deger) => kullanilmisKoduNormalle(deger) || '2';
+
 const KULLANILMAMIS_DEGERLER = ['', '0', '2', 'HAYIR', 'HAYİR', 'YOK', 'YENİ', 'YENI'];
 
 export const kullanilmisMi = (kod) => {

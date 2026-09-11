@@ -43,6 +43,7 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
+import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import axios from '../../utils/axios';
 
 // Renk eşleştirmeleri
@@ -1353,6 +1354,13 @@ const DosyaTakipDetail = () => {
                                                                 InputLabelProps={{ shrink: true }}
                                                                 value={zamanlamaData[alan.key] || ''}
                                                                 onChange={(e) => setZamanlamaData((prev) => ({ ...prev, [alan.key]: e.target.value }))}
+                                                                // Müşteri: "şu kısma tarih kopyala yapıştır ekleyebilir miyiz".
+                                                                // <input type="date"> yapıştırılan "31.05.2027" gibi metni kabul
+                                                                // etmez, sessizce yutar. Yardımcı metni ISO'ya çevirip alana yazar
+                                                                // (firma formundaki tarih alanlarıyla aynı davranış).
+                                                                inputProps={{
+                                                                    onPaste: createFormDatePasteHandler(setZamanlamaData, alan.key)
+                                                                }}
                                                             />
                                                         ) : (
                                                             <Typography variant="body2" sx={{ fontWeight: 500 }}>
