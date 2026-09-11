@@ -329,7 +329,26 @@ const MakineYonetimi = () => {
   const [density, setDensity] = useState('compact');
   const [fullScreen, setFullScreen] = useState(false);
   const [columnsAnchor, setColumnsAnchor] = useState(null);
-  const [columnVisibilityModel, setColumnVisibilityModel] = useState({ gtipAciklama: false });
+  // Varsayilan olarak GIZLI sutunlar.
+  //
+  // Musteri (11 Eylul 2026): "Bu YUKLE - TIK ISARETI - KOPYALA - TALEP - KARAR
+  // sekmelerini kaldirabiliriz."
+  //
+  // Silmek yerine gizliyoruz: besi de calisan islevler ve "Sutunlar" menusunden
+  // tek tikla geri acilabiliyorlar; fikir degisirse yeni dagitim gerekmiyor.
+  // Gizlenebilmelerinin sebebi islevlerinin baska yerden karsilanmasi:
+  //   talep / karar -> T.Tarih ve K.Tarih sutunlari (tarih girilince durum
+  //                    kendiliginden yaziliyor) + arac cubugundaki Toplu Islem
+  //   copy          -> satira sag tik menusu ve Ctrl+C / Ctrl+V
+  //   dosya, etuysSecili -> satir bazinda nadiren kullaniliyor, tabloyu daraltiyordu
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({
+    gtipAciklama: false,
+    dosya: false,          // YUKLE
+    etuysSecili: false,    // TIK ISARETI
+    copy: false,           // KOPYALA
+    talep: false,          // TALEP
+    karar: false           // KARAR
+  });
   const [columnOrderYerli, setColumnOrderYerli] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_yerli')||'[]')}catch{return []};});
   const [columnOrderIthal, setColumnOrderIthal] = useState(()=>{ try{return JSON.parse(localStorage.getItem('mk_cols_order_ithal')||'[]')}catch{return []};});
   const [groupBy, setGroupBy] = useState('none'); // none|gtip|birim|kullanilmis
