@@ -12,7 +12,8 @@ import { Box } from '@mui/material';
 import { renk, yazi, stil } from '../jetonlar';
 
 /**
- * @param {Array}  sutunlar  [{ anahtar, baslik, sayi?, genislik?, bicim? }]
+ * @param {Array}  sutunlar  [{ anahtar, baslik, sayi?, genislik?, bicim?, sar? }]
+ *   sar: uzun metin kırpılmaz, satıra sarar (açıklama gibi okunması gereken sütunlar için)
  *   bicim: (deger, satir, index) => node — index, "Şart 3" gibi sıralı
  *   yedek metinler için gerekiyor (ham tablolarda kullanılıyordu).
  * @param {Array}  satirlar  veri dizisi
@@ -87,7 +88,9 @@ const VeriTablosu = ({
                   component="td"
                   sx={{
                     ...stil.tabloHucresi,
-                    ...(s.sayi ? { textAlign: 'right', fontVariantNumeric: 'tabular-nums' } : {})
+                    ...(s.sayi ? { textAlign: 'right', fontVariantNumeric: 'tabular-nums' } : {}),
+                    // Müşteri: "Özel şartların açıklamalarının hepsi görünmüyor" — kırpma kuralı bu sütunda geçersiz
+                    ...(s.sar ? { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'clip', maxWidth: 'none', wordBreak: 'break-word' } : {})
                   }}
                 >
                   {s.bicim ? s.bicim(satir[s.anahtar], satir, i) : satir[s.anahtar]}

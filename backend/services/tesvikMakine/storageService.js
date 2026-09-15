@@ -370,6 +370,65 @@ async function serveFile(doc, res) {
 
 uyarUcucuDepolama();
 
+// ────────── Cloudinary adresinden dosya indirme ──────────
+//
+// 'auto' ile yüklenen PDF'ler Cloudinary'de 'image' türünde saklanıyor ve hesap ayarı PDF teslimatını
+// kısıtladığı için DOĞRUDAN adres 401 dönüyor. Adres nodemailer'a `path` olarak verilince tüm mail
+// gönderimi düşüyordu (müşteri, İşlem & Evrak: "Mail gönderilemedi. Lütfen SMTP ayarlarını ..." —
+// sebep SMTP değil, ekti). Önce yetkili indirme API'si, sonra imzalı adres, en son ham adres denenir.
+
+// "https://res.cloudinary.com/<bulut>/<tür>/<teslim>/[s--imza--/][v123/]<public_id>[.<uzantı>]"
+function cloudinaryUrlCoz(url) {
+  const m = String(url || '').match(/^https?:\/\/res\.cloudinary\.com\/[^/]+\/(image|raw|video)\/(upload|private|authenticated)\/(.+)$/);
+  if (!m) return null;
+  const [, resourceType, deliveryType, kalan] = m;
+  let parcalar = kalan.split('?')[0].split('/').filter(Boolean);
+  if (parcalar[0] && parcalar[0].startsWith('s--')) parcalar = parcalar.slice(1);
+  const surum = parcalar.findIndex((p) => /^v\d+$/.test(p));
+  if (surum >= 0) parcalar = parcalar.slice(surum + 1);
+  let yol = parcalar.join('/');
+  try { yol = decodeURIComponent(yol); } catch (_) { /* kodlanmamış adres */ }
+  if (!yol) return null;
+  // raw dosyada uzantı public_id'nin parçası; image/video'da biçimdir
+  if (resourceType === 'raw') return { resourceType, deliveryType, publicId: yol, format: '' };
+  const nokta = yol.lastIndexOf('.');
+  if (nokta > yol.lastIndexOf('/') + 1) {
+    return { resourceType, deliveryType, publicId: yol.slice(0, nokta), format: yol.slice(nokta + 1) };
+  }
+  return { resourceType, deliveryType, publicId: yol, format: '' };
+}
+
+/** Cloudinary adresindeki dosyayı indirir → { buffer, contentType } | null (sebep loglanır). */
+async function bulutDosyasiniIndir(url, mimeType = '') {
+  const kimlik = cloudinaryUrlCoz(url);
+  ensureCloudinaryInit();
+  const adaylar = [];
+  if (kimlik) {
+    const secenek = { resource_type: kimlik.resourceType, type: kimlik.deliveryType };
+    try { adaylar.push(cloudinary.utils.private_download_url(kimlik.publicId, kimlik.format, secenek)); } catch (_) { /* yoksay */ }
+    try { adaylar.push(cloudinary.url(kimlik.publicId, { ...secenek, format: kimlik.format || undefined, secure: true, sign_url: true })); } catch (_) { /* yoksay */ }
+  }
+  if (/^https?:\/\//.test(String(url || ''))) adaylar.push(url);
+
+  const sebepler = [];
+  for (const aday of adaylar) {
+    try {
+      const r = await fetch(aday);
+      if (r.ok) {
+        return {
+          buffer: Buffer.from(await r.arrayBuffer()),
+          contentType: mimeType || r.headers.get('content-type') || 'application/octet-stream'
+        };
+      }
+      sebepler.push(String(r.status));
+    } catch (e) {
+      sebepler.push(e && e.message ? e.message.slice(0, 60) : 'fetch-hatasi');
+    }
+  }
+  console.error('🚨 [storageService] bulut dosyası alınamadı:', sebepler.join(' | ') || 'aday-yok');
+  return null;
+}
+
 module.exports = {
   uyarUcucuDepolama,
   BASE_DIR,
@@ -392,5 +451,7 @@ module.exports = {
   deleteFile,
   serveFile,
   urlOf,
-  absOf
+  absOf,
+  cloudinaryUrlCoz,
+  bulutDosyasiniIndir
 };

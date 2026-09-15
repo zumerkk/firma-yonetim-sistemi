@@ -92,4 +92,26 @@ export const etiketNormalle = (deger) => {
   return `${parcalar[0]} - ${parcalar.slice(1).join(' ')}`;
 };
 
+// Kod biçimli destek sınıfı ("BOLGESEL_ONCELIKLI_YATIRIM") ekranda okunur görünsün.
+// Müşteri: "Destekleme sınıfı BOLGESEL_ONCELIKLI_YATIRIM olarak görünüyor, pdfde düzgün ama sistemde
+// böyle sadece." BÖLGESEL ailesi etiketNormalle'nin kanonik yazımını kullanır (veride en yaygın biçim);
+// tek parçalı ya da ilk sözcükten sonra tire almayan sınıflar burada tek tek eşleniyor.
+const DESTEK_SINIFI_ETIKETI = {
+  GENEL: 'GENEL',
+  BOLGESEL: 'BÖLGESEL',
+  HEDEF_YATIRIMLAR: 'HEDEF YATIRIMLAR',
+  HEDEF_YATIRIMLAR_ALT_BOLGE: 'HEDEF YATIRIMLAR - ALT BÖLGE',
+  STRATEJIK_HAMLE: 'STRATEJİK HAMLE',
+  STRATEJIK_HAMLE_ALT_BOLGE: 'STRATEJİK HAMLE - ALT BÖLGE',
+  STRATEJIK_YATIRIMLAR: 'STRATEJİK YATIRIMLAR',
+  ONCELIKLI_YATIRIMLAR: 'ÖNCELİKLİ YATIRIMLAR',
+  ONCELIKLI_YATIRIMLAR_ALT_BOLGE: 'ÖNCELİKLİ YATIRIMLAR - ALT BÖLGE'
+};
+
+export const destekSinifiGoster = (deger) => {
+  const ham = String(deger ?? '').trim();
+  if (!ham) return '';
+  return DESTEK_SINIFI_ETIKETI[ham] || etiketNormalle(ham);
+};
+
 export default disaAktarimAdi;

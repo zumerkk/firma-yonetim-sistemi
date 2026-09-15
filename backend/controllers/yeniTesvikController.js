@@ -129,6 +129,8 @@ const createTesvik = async (req, res) => {
           toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
           kurManuel: !!r.kurManuel,
           kurManuelDeger: Number(r.kurManuelDeger) || 0,
+          // Elle girilmiş FOB $ bayrağı düşerse yeniden açılışta tutar formülle ezilir
+          usdManuel: !!r.usdManuel,
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
           kullanilmisMakineAciklama: (r.kullanilmisMakineAciklama || '').trim(),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
@@ -583,6 +585,8 @@ const updateTesvik = async (req, res) => {
           toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
           kurManuel: !!r.kurManuel,
           kurManuelDeger: Number(r.kurManuelDeger) || 0,
+          // Elle girilmiş FOB $ bayrağı düşerse yeniden açılışta tutar formülle ezilir
+          usdManuel: !!r.usdManuel,
           kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
           kullanilmisMakineAciklama: (r.kullanilmisMakineAciklama || '').trim(),
           ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
@@ -5815,6 +5819,7 @@ module.exports = {
                 dovizAciklamasi: r.dovizAciklamasi || '',
                 kurManuel: r.kurManuel ? 'EVET' : 'HAYIR',
                 kurManuelDeger: Number(r.kurManuelDeger) || 0,
+                usdManuel: !!r.usdManuel,
                 toplamUsd: Number(r.toplamTutarFobUsd || r.toplamUsd) || 0,
                 toplamTl: Number(r.toplamTutarFobTl || r.toplamTl) || 0,
                 kullanilmisMakine: r.kullanilmisMakine || '',
@@ -6382,6 +6387,39 @@ module.exports = {
     } catch (error) {
       console.error('setMakineKararDurumu error:', error);
       res.status(500).json({ success: false, message: 'Karar güncellenemedi' });
+    }
+  },
+  // 🚀 TOPLU talep / karar — seçilen satırlar tek okuma + tek kayıtla (bkz. services/tesvik/makineTalepKarar.js)
+  // Body: { liste:'yerli'|'ithal', islemler:[{ rowId, talep }] }
+  setMakineTalepToplu: async (req, res) => {
+    try {
+      const { topluUygula, ozetMesaji } = require('../services/tesvik/makineTalepKarar');
+      const tesvik = await YeniTesvik.findById(req.params.id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const { liste, islemler } = req.body || {};
+      const ozet = topluUygula(tesvik, { liste, alan: 'talep', islemler });
+      if (ozet.guncellenen.length) await tesvik.save();
+      res.json({ success: true, message: ozetMesaji('talep', ozet), ozet, data: tesvik.toSafeJSON() });
+    } catch (error) {
+      if (error.durum) return res.status(error.durum).json({ success: false, message: error.message });
+      console.error('setMakineTalepToplu error:', error);
+      res.status(500).json({ success: false, message: 'Toplu talep güncellenemedi' });
+    }
+  },
+  // Body: { liste:'yerli'|'ithal', islemler:[{ rowId, karar }] }
+  setMakineKararToplu: async (req, res) => {
+    try {
+      const { topluUygula, ozetMesaji } = require('../services/tesvik/makineTalepKarar');
+      const tesvik = await YeniTesvik.findById(req.params.id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const { liste, islemler } = req.body || {};
+      const ozet = topluUygula(tesvik, { liste, alan: 'karar', islemler });
+      if (ozet.guncellenen.length) await tesvik.save();
+      res.json({ success: true, message: ozetMesaji('karar', ozet), ozet, data: tesvik.toSafeJSON() });
+    } catch (error) {
+      if (error.durum) return res.status(error.durum).json({ success: false, message: error.message });
+      console.error('setMakineKararToplu error:', error);
+      res.status(500).json({ success: false, message: 'Toplu karar güncellenemedi' });
     }
   },
 

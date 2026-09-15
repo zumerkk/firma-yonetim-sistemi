@@ -317,7 +317,12 @@ const IslemEvrakDetail = () => {
         to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: gidecekEkIdler
       });
       setTalep(sonuc.talep);
-      notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
+      // Alınamayan örnek dosya atlanıp mail yine gidiyor; hangisinin gitmediği görünmeli
+      if (sonuc.atlananEkler?.length) {
+        notify(`Mail gönderildi ama ${sonuc.atlananEkler.length} ek eklenemedi: ${sonuc.atlananEkler.join(', ')} — dosyayı yeniden yükleyip gerekirse tekrar gönderin`, 'warning');
+      } else {
+        notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
+      }
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 

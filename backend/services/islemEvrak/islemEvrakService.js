@@ -171,6 +171,48 @@ const VARSAYILAN_GOVDE = [
   '{imza}'
 ].join('\n');
 
+// 📎 Mail eklerini hazırla.
+//
+// Bulut (Cloudinary) dosyası sunucuda indirilip İÇERİK olarak eklenir. Eskiden adres nodemailer'a
+// `path` olarak veriliyordu; PDF teslimatı kısıtlı olduğundan indirme 401 dönüyor ve gönderimin
+// TAMAMI "Mail gönderilemedi. Lütfen SMTP ayarlarını ..." hatasıyla düşüyordu (müşteri, 15.09.2026).
+// Alınamayan ek atlanır, gönderim sürer; atlananların adı çağırana döner ki kullanıcı görsün.
+async function ekleriHazirla(ekler = [], {
+  buluttanIndir = storageService.bulutDosyasiniIndir,
+  dosyaVarMi = fs.existsSync
+} = {}) {
+  const attachments = [];
+  const atlananEkler = [];
+  for (const e of ekler || []) {
+    if (!e) continue;
+    const ad = e.dosyaAdi || 'ek';
+    if (storageService.isCloudinaryUrl(e.fileUrl)) {
+      const icerik = await buluttanIndir(e.fileUrl, e.mimeType);
+      if (icerik && icerik.buffer) {
+        attachments.push({ filename: ad, content: icerik.buffer, contentType: e.mimeType || icerik.contentType });
+      } else {
+        console.warn(`⚠️ Örnek dosya buluttan alınamadı, ek atlandı: ${ad}`);
+        atlananEkler.push(ad);
+      }
+      continue;
+    }
+    if (e.filePath) {
+      const yerel = path.isAbsolute(e.filePath) ? e.filePath : path.join(storageService.BASE_DIR, e.filePath);
+      // Dosya diskte yoksa (ör. geçici disk temizlenmiş) nodemailer ENOENT fırlatıp
+      // TÜM gönderimi düşürüyordu. Eksik eki atla, gönderim devam etsin.
+      if (!dosyaVarMi(yerel)) {
+        console.warn(`⚠️ Örnek dosya bulunamadı, ek atlandı: ${yerel}`);
+        atlananEkler.push(ad);
+        continue;
+      }
+      attachments.push({ filename: ad, path: yerel });
+      continue;
+    }
+    if (e.fileUrl) attachments.push({ filename: ad, path: e.fileUrl });
+  }
+  return { attachments, atlananEkler };
+}
+
 // 📤 Talebi mail olarak gönder (konu/gövde dışarıdan düzenlenmiş gelebilir)
 async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user }) {
   if (!Array.isArray(to) || to.length === 0) {
@@ -180,23 +222,8 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
     const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
   }
 
-  // Ekler: istenen evrakların örnek dosyaları (nodemailer path ile çeker)
-  const attachments = ekler.map((e) => {
-    if (storageService.isCloudinaryUrl(e.fileUrl)) {
-      return { filename: e.dosyaAdi || 'ek', path: e.fileUrl };
-    }
-    if (e.filePath) {
-      const yerel = path.isAbsolute(e.filePath) ? e.filePath : path.join(storageService.BASE_DIR, e.filePath);
-      // Dosya diskte yoksa (ör. geçici disk temizlenmiş) nodemailer ENOENT fırlatıp
-      // TÜM gönderimi düşürüyordu. Eksik eki atla, gönderim devam etsin.
-      if (!fs.existsSync(yerel)) {
-        console.warn(`⚠️ Örnek dosya bulunamadı, ek atlandı: ${yerel}`);
-        return null;
-      }
-      return { filename: e.dosyaAdi || 'ek', path: yerel };
-    }
-    return e.fileUrl ? { filename: e.dosyaAdi || 'ek', path: e.fileUrl } : null;
-  }).filter(Boolean);
+  // Ekler: istenen evrakların örnek dosyaları (bkz. ekleriHazirla)
+  const { attachments, atlananEkler } = await ekleriHazirla(ekler);
 
   await mailService.sendMail({ to, cc, subject, text: body, attachments });
 
@@ -209,7 +236,7 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
   talep.sonGuncelleyen = user ? user._id : talep.sonGuncelleyen;
   talep.durumTazele();
   await talep.save();
-  return { sent: true, ekSayisi: attachments.length };
+  return { sent: true, ekSayisi: attachments.length, atlananEkler };
 }
 
 // 📎 Dosyayı talebin klasörüne kaydet (örnek şablon veya firma yüklemesi)
@@ -380,6 +407,7 @@ module.exports = {
   mailOlustur,
   formLinkiUret,
   mailGonder,
+  ekleriHazirla,
   dosyaKaydet,
   talepOlustur,
   VARSAYILAN_GOVDE

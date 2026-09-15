@@ -27,6 +27,8 @@ import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
+import { destekSinifiGoster } from '../../utils/disaAktarimAdi';
+import { oncelikliYatirimTuruEtiketi } from '../../data/oncelikliYatirimData';
 
 // 🎛️ Tasarım sistemi (madde 6 / Faz 2). Bu ekran ETUYS temasıyla SARMALANIYOR;
 // uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
@@ -1136,7 +1138,7 @@ const YeniTesvikDetail = () => {
                     {/* ETUYS künyesi iki sütun: solda yatırım, sağda belge bilgileri */}
                     <Box>
                       <BolumBasligi>Yatırım ile ilgili bilgiler</BolumBasligi>
-                      <AlanSatiri etiket="Destekleme Sınıfı">{String(tesvik.yatirimBilgileri?.destekSinifi || '').replace(/_/g, ' ') || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Destekleme Sınıfı">{destekSinifiGoster(tesvik.yatirimBilgileri?.destekSinifi) || '-'}</AlanSatiri>
                       <AlanSatiri etiket="Sermaye Türü">{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</AlanSatiri>
                       <AlanSatiri etiket="Yatırımın Konusu(NACE6)">
                         {(() => {
@@ -1191,7 +1193,7 @@ const YeniTesvikDetail = () => {
                         })()}
                       </AlanSatiri>
                       <AlanSatiri etiket="Öncelikli Yatırım">{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Öncelikli Yatırım Türü">{tesvik.belgeYonetimi?.oncelikliYatirimTuru || '-'}</AlanSatiri>
+                      <AlanSatiri etiket="Öncelikli Yatırım Türü">{oncelikliYatirimTuruEtiketi(tesvik.belgeYonetimi?.oncelikliYatirimTuru) || '-'}</AlanSatiri>
                       <AlanSatiri etiket="Yatırım Cinsi">
                         
                         {[
@@ -1358,7 +1360,7 @@ const YeniTesvikDetail = () => {
                         { anahtar: 'kisaltma', baslik: 'Kısaltma', genislik: '30%',
                           bicim: (_, x, i) => x?.koşulMetni || x?.kisaltma || `Şart ${i + 1}` },
                         { anahtar: 'aciklama', baslik: 'Açıklama',
-                          bicim: (_, x) => x?.aciklamaNotu || x?.sart || x?.metin || x?.aciklama || '-' }
+                          bicim: (_, x) => x?.aciklamaNotu || x?.sart || x?.metin || x?.aciklama || '-', sar: true }
                       ]}
                     />
                   </Box>
@@ -1375,7 +1377,7 @@ const YeniTesvikDetail = () => {
                       bosMetin="Destek unsuru bulunamadı"
                       sutunlar={[
                         { anahtar: 'destekUnsuru', baslik: 'Destek Unsuru', genislik: '40%', bicim: (v) => v || '-' },
-                        { anahtar: 'sarti', baslik: 'Şartı', bicim: (_, x) => x.sarti || x.sart || '-' }
+                        { anahtar: 'sarti', baslik: 'Şartı', bicim: (_, x) => x.sarti || x.sart || '-', sar: true }
                       ]}
                     />
                   </Box>

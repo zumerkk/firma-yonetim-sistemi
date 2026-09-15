@@ -30,6 +30,8 @@ const {
   saveMakineListeleri,
   setMakineTalepDurumu,
   setMakineKararDurumu,
+  setMakineTalepToplu,
+  setMakineKararToplu,
   getTesvikAnalytics,
   getTesvikFormTemplate, // YENİ: Template verileri
   getNextGmId, // YENİ: GM ID generation
@@ -530,6 +532,9 @@ router.post('/:id/revizyon',
 router.post('/:id/makine-talep', authenticate, checkPermission('belgeDuzenle'), setMakineTalepDurumu);
 // Body: { liste:'yerli'|'ithal', rowId, karar:{ kararDurumu:'onay|kismi_onay|red|revize', onaylananAdet, kararTarihi?, kararNotu? } }
 router.post('/:id/makine-karar', authenticate, checkPermission('belgeDuzenle'), setMakineKararDurumu);
+// 🚀 Toplu — Body: { liste:'yerli'|'ithal', islemler:[{ rowId, talep }] } / { liste, islemler:[{ rowId, karar }] }
+router.post('/:id/makine-talep/toplu', authenticate, checkPermission('belgeDuzenle'), setMakineTalepToplu);
+router.post('/:id/makine-karar/toplu', authenticate, checkPermission('belgeDuzenle'), setMakineKararToplu);
 // 🆕 Makine Listeleri Kaydet (tam liste)
 router.post('/:id/makine-listeleri', authenticate, checkPermission('belgeDuzenle'), saveMakineListeleri);
 
