@@ -130,6 +130,7 @@ const EKRANLAR = [
   ['IslemEvrakPublicUpload',  () => require('../pages/IslemEvrak/IslemEvrakPublicUpload').default],
   ['PublicUpload',            () => require('../pages/TesvikMakine/PublicUpload').default],
   ['KdvMuafiyetIndir',        () => require('../pages/TesvikMakine/KdvMuafiyetIndir').default],
+  ['BelgeTakipPublicUpload',  () => require('../pages/DosyaTakip/BelgeTakipPublicUpload').default],
   ['TesvikMakineDetail',      () => require('../pages/TesvikMakine/TesvikMakineDetail').default],
   ['AraKontrol',              () => require('../pages/TesvikMakine/AraKontrol').default],
   ['BakanlikMailParser',      () => require('../pages/TesvikMakine/BakanlikMailParser').default],

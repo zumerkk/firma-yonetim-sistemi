@@ -1375,19 +1375,34 @@ async function ekIcinDosyaCek(dosya) {
 // Önerilen konu/gövde — kullanıcı düzenlemeden önce gördüğü taslak
 exports.firmaMailTaslak = async (req, res) => {
     try {
-        const { konuOner, govdeOner } = require('../services/dosyaTakip/firmaMailMetni');
-        const talep = await DosyaTakip.findById(req.params.id).populate('firma', 'firmaEmail tamUnvan');
+        const { konuOner, govdeOner, alicilariOner } = require('../services/dosyaTakip/firmaMailMetni');
+        const { yuklemeLinkiHazirla } = require('../services/dosyaTakip/firmaYukleme');
+        const talep = await DosyaTakip.findById(req.params.id).populate('firma', 'firmaEmail tamUnvan yetkiliKisiler');
         if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
 
         const mailService = require('../services/tesvikMakine/mailService');
         const imza = (process.env.MAIL_SIGNATURE || '').replace(/\\n/g, '\n');
 
+        // Müşteri: "Sonrasında bizim yazdığımız mailleri kaydedebilir" — bu firmaya hangi talepten
+        // gönderilmiş olursa olsun önceki maillerin alıcıları hatırlanır
+        const firmaKimligi = talep.firma?._id || talep.firma;
+        const gecmis = firmaKimligi
+            ? (await DosyaTakip.find({ firma: firmaKimligi, 'firmaMailleri.0': { $exists: true } })
+                .select('firmaMailleri.alicilar firmaMailleri.cc firmaMailleri.tarih').lean())
+                .flatMap((t) => t.firmaMailleri || [])
+            : [];
+        const { alici, cc, oneriler } = alicilariOner({ firma: talep.firma, gecmis });
+        const yuklemeLinki = await yuklemeLinkiHazirla(DosyaTakip, talep);
+
         res.json({
             success: true,
             data: {
-                alici: talep.firma?.firmaEmail || '',
+                alici,
+                cc,
+                adresOnerileri: oneriler,
+                yuklemeLinki,
                 konu: konuOner(talep),
-                govde: govdeOner(talep, { imza }),
+                govde: govdeOner(talep, { imza, yuklemeLinki }),
                 // Ek olarak seçilebilecek dosyalar (talebin kendi dosyaları)
                 dosyalar: (talep.dosyalar || []).map((d) => ({
                     _id: d._id, dosyaAdi: d.dosyaAdi, kategori: d.kategori, aciklama: d.aciklama
@@ -1463,3 +1478,139 @@ exports.firmaMailGonder = async (req, res) => {
         res.status(500).json({ success: false, message: error.message || 'Mail gönderilemedi' });
     }
 };
+
+// ============================================================================
+// 📤 FİRMA YÜKLEME BAĞLANTISI (herkese açık, token ile — routes/belgeTakipYukleme.js)
+//
+// Müşteri (15.09.2026): "Birde firma mailine yükleme linki koyabilir miyiz, yüklenen belgeler
+// belge takipde firma maili- gelen gibi bir alt kısımda görünebilir"
+// ============================================================================
+
+const firmaTokenHatasi = (res, sonuc) => (sonuc?.suresiDoldu
+    ? res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş. Lütfen danışmanınızla iletişime geçin.' })
+    : res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' }));
+
+exports.firmaYuklemeBilgi = async (req, res) => {
+    try {
+        const firmaYukleme = require('../services/dosyaTakip/firmaYukleme');
+        const sonuc = await firmaYukleme.talebiBul(DosyaTakip, req.params.token);
+        if (!sonuc?.talep) return firmaTokenHatasi(res, sonuc);
+        res.json({ success: true, data: firmaYukleme.publicBilgi(sonuc.talep) });
+    } catch (error) {
+        console.error('Firma yükleme bilgisi hatası:', error);
+        res.status(500).json({ success: false, message: 'Bilgi alınamadı. Lütfen tekrar deneyin.' });
+    }
+};
+
+exports.firmaYuklemeYap = [
+    // Token, dosyalar Cloudinary'ye gitmeden ÖNCE doğrulanır: geçersiz bağlantı depolama harcatmasın
+    async (req, res, next) => {
+        try {
+            const firmaYukleme = require('../services/dosyaTakip/firmaYukleme');
+            const sonuc = await firmaYukleme.talebiBul(DosyaTakip, req.params.token);
+            if (!sonuc?.talep) return firmaTokenHatasi(res, sonuc);
+            req.firmaTalebi = sonuc.talep;
+            next();
+        } catch (error) {
+            console.error('Firma yükleme bağlantı hatası:', error);
+            res.status(500).json({ success: false, message: 'Dosya yüklenemedi. Lütfen tekrar deneyin.' });
+        }
+    },
+    (req, res, next) => {
+        const { EN_FAZLA_DOSYA } = require('../services/dosyaTakip/firmaYukleme');
+        upload.array('dosyalar', EN_FAZLA_DOSYA)(req, res, (err) => {
+            if (!err) return next();
+            const mb = Number(process.env.MAX_UPLOAD_MB) || 100;
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).json({ success: false, message: `Dosya çok büyük. Dosya başına en fazla ${mb} MB yükleyebilirsiniz.` });
+            }
+            if (err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE') {
+                return res.status(413).json({ success: false, message: `Tek seferde en fazla ${EN_FAZLA_DOSYA} dosya yükleyebilirsiniz.` });
+            }
+            return res.status(400).json({ success: false, message: err.message || 'Dosya yüklenemedi.' });
+        });
+    },
+    async (req, res) => {
+        const firmaYukleme = require('../services/dosyaTakip/firmaYukleme');
+        const dosyalar = req.files || [];
+        const talep = req.firmaTalebi;
+        if (!dosyalar.length) return res.status(400).json({ success: false, message: 'Lütfen en az bir dosya seçin.' });
+
+        const kayitlar = dosyalar.map((f) => firmaYukleme.gelenDosyaKaydi(f, {
+            yukleyenAdi: req.body?.yukleyenAdi,
+            aciklama: req.body?.aciklama
+        }));
+        try {
+            // save() değil $push: firmanın yüklemesi talebin başka bir alanındaki eski/geçersiz bir
+            // değer yüzünden düşmesin. Eklenen dosya kayıtları yine şemaya göre doğrulanır.
+            await DosyaTakip.updateOne(
+                { _id: talep._id },
+                { $push: { dosyalar: { $each: kayitlar } } },
+                { runValidators: true }
+            );
+        } catch (error) {
+            // Kayıt düştü: Cloudinary'de yetim dosya kalmasın
+            await Promise.all(dosyalar.map((f) => cloudinary.uploader
+                .destroy(f.filename, { resource_type: /^image\//.test(f.mimetype || '') ? 'image' : 'raw' })
+                .catch(() => null)));
+            console.error('Firma yükleme kayıt hatası:', error);
+            return res.status(500).json({ success: false, message: 'Dosya yüklenemedi. Lütfen tekrar deneyin.' });
+        }
+
+        // 🔔 Personele haber (best-effort: firmanın yüklemesi bundan etkilenmez)
+        const firmaAdi = talep.firmaUnvan || 'Firma';
+        const dosyaAdlari = kayitlar.map((k) => k.dosyaAdi);
+        const hedefler = firmaYukleme.bildirimHedefleri(talep);
+        try {
+            await Promise.all(hedefler.map((uid) => Notification.createNotification({
+                title: `Firmadan belge geldi — ${firmaAdi}`.slice(0, 100),
+                message: `${firmaAdi} · ${talep.talepTuru || '-'} · ${dosyaAdlari.length} dosya\n${dosyaAdlari.join(', ')}`.slice(0, 500),
+                type: 'info',
+                category: 'general',
+                priority: 'medium',
+                userId: uid,
+                actionButton: { text: 'Talebi Aç', url: `/dosya-takip/${talep._id}`, action: 'navigate' }
+            })));
+        } catch (bildirimHatasi) {
+            console.error('⚠️ Firma yükleme bildirimi düşülemedi:', bildirimHatasi.message);
+        }
+
+        res.json({
+            success: true,
+            message: kayitlar.length > 1
+                ? `${kayitlar.length} dosyanız iletildi. Teşekkür ederiz.`
+                : 'Dosyanız iletildi. Teşekkür ederiz.',
+            count: kayitlar.length
+        });
+
+        // 📧 Aynı haber personelin e-postasına (müşteri: "Gmplansis Belge Takip Bildirimi") — firma
+        // SMTP'yi beklemesin diye yanıttan sonra
+        try {
+            const mailService = require('../services/tesvikMakine/mailService');
+            if (!hedefler.length || !mailService.isConfigured()) return;
+            const User = require('../models/User');
+            const adresler = (await User.find({ _id: { $in: hedefler } }).select('email').lean())
+                .map((k) => k.email)
+                .filter(Boolean);
+            if (!adresler.length) return;
+            const tabanUrl = (process.env.UPLOAD_PUBLIC_BASE_URL || 'https://gmplansis.com').replace(/\/$/, '');
+            await mailService.sendMail({
+                to: adresler,
+                subject: `Gmplansis Belge Takip Bildirimi — ${firmaAdi}`,
+                text: [
+                    'Firma, yükleme bağlantısından belge gönderdi:',
+                    '',
+                    `Firma      : ${firmaAdi}`,
+                    `Talep Türü : ${talep.talepTuru || '-'}`,
+                    `Belge No   : ${talep.ytbNo || '-'}`,
+                    `Takip No   : ${talep.takipId || '-'}`,
+                    `Dosyalar   : ${dosyaAdlari.join(', ')}`,
+                    '',
+                    `Talebi görüntülemek için: ${tabanUrl}/dosya-takip/${talep._id}`
+                ].join('\n')
+            });
+        } catch (mailHatasi) {
+            console.error('⚠️ Firma yükleme bildirim maili gönderilemedi:', mailHatasi.message);
+        }
+    }
+];

@@ -46,6 +46,7 @@ const screenshotImportRoutes = require('./routes/screenshotImport'); // 📸 Ekr
 const tesvikMakineRoutes = require('./routes/tesvikMakine'); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin)
 const islemEvrakRoutes = require('./routes/islemEvrak'); // 🧩 İşlem ve Evrak Yönetimi (firma bazlı evrak talebi)
 const tesvikEvrakUploadRoutes = require('./routes/tesvikEvrakUpload'); // 🌐 Teşvik Evrak Public Upload (token)
+const belgeTakipYuklemeRoutes = require('./routes/belgeTakipYukleme'); // 🌐 Belge Takip → firma yükleme bağlantısı (token)
 const tesvikReminderService = require('./services/tesvikMakine/reminderService'); // ⏰ Makine hatırlatma cron servisi
 
 const app = express();
@@ -331,6 +332,7 @@ app.use('/api/screenshot-import', screenshotImportRoutes); // 📸 Ekran görün
 app.use('/api/tesvik-makine', tesvikMakineRoutes); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin/consultant)
 app.use('/api/islem-evrak', islemEvrakRoutes); // 🧩 İşlem ve Evrak Yönetimi
 app.use('/api/tesvik-evrak', tesvikEvrakUploadRoutes); // 🌐 Teşvik Evrak Public Upload (token tabanlı)
+app.use('/api/belge-takip-yukleme', belgeTakipYuklemeRoutes); // 🌐 Belge Takip → firma yükleme bağlantısı (token tabanlı, AUTH YOK)
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {

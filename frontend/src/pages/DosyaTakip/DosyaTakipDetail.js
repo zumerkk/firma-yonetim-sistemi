@@ -39,7 +39,9 @@ import {
     Delete as DeleteIcon,
     Download as DownloadIcon,
     Link as LinkIcon,
-    Info as InfoIcon
+    Info as InfoIcon,
+    Add as AddIcon,
+    ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
@@ -50,6 +52,7 @@ import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import axios from '../../utils/axios';
 import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
+import { adresEkle, eklenebilirOneriler } from '../../utils/epostaListesi';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
@@ -616,7 +619,9 @@ const DosyaTakipDetail = () => {
         setMailYukleniyor(true);
         try {
             const t = await dosyaTakipService.firmaMailTaslak(id);
-            setMailTaslak({ ...t, cc: '' });
+            // Alıcı ve CC, firmaya en son gönderilen maile göre sunucudan gelir
+            // (müşteri: "bizim yazdığımız mailleri kaydedebilir")
+            setMailTaslak({ ...t, cc: t?.cc || '' });
             // Ödeme belgeleri gibi dosyalar varsayılan olarak İŞARETLENMEZ:
             // firmaya istemeden dekont göndermek geri alınamaz bir hata olurdu.
             setMailEkler([]);
@@ -643,6 +648,21 @@ const DosyaTakipDetail = () => {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Mail gönderilemedi.', severity: 'error' });
         } finally { setMailGonderiliyor(false); }
     };
+
+    // Firma yükleme bağlantısı WhatsApp vb. ile de paylaşılabilsin
+    const baglantiKopyala = async (metin) => {
+        try {
+            await navigator.clipboard.writeText(metin);
+            setSnackbar({ open: true, message: 'Bağlantı kopyalandı', severity: 'success' });
+        } catch (_) {
+            setSnackbar({ open: true, message: 'Kopyalanamadı — bağlantıyı seçip kopyalayın.', severity: 'warning' });
+        }
+    };
+
+    // Firmanın yükleme bağlantısından gönderdikleri — en yeni üstte
+    const firmadanGelenler = (seciliTalep?.dosyalar || [])
+        .filter((d) => d.firmaYukledi)
+        .sort((a, b) => new Date(b.yuklemeTarihi || 0) - new Date(a.yuklemeTarihi || 0));
 
     const handleOdemeKaydet = async () => {
         try {
@@ -1588,6 +1608,19 @@ const DosyaTakipDetail = () => {
                                                             value={mailTaslak.alici}
                                                             onChange={(e) => setMailTaslak((p) => ({ ...p, alici: e.target.value }))}
                                                             helperText="Birden fazla adres virgülle ayrılır" />
+                                                        {/* müşteri: "firma bilgilerindeki maili otomatik çekebilir mi? Yetkili kişileri çekse
+                                                            olur. Sonrasında bizim yazdığımız mailleri kaydedebilir" — kayıtlı ve daha önce
+                                                            kullanılan adresler tek tıkla eklenir */}
+                                                        {eklenebilirOneriler(mailTaslak.adresOnerileri, mailTaslak.alici, mailTaslak.cc).length > 0 && (
+                                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                                                                {eklenebilirOneriler(mailTaslak.adresOnerileri, mailTaslak.alici, mailTaslak.cc).map((o) => (
+                                                                    <Chip key={o.adres} size="small" variant="outlined" icon={<AddIcon />}
+                                                                        label={`${o.adres} · ${o.etiket}`}
+                                                                        onClick={() => setMailTaslak((p) => ({ ...p, alici: adresEkle(p.alici, o.adres) }))}
+                                                                        sx={{ maxWidth: '100%' }} />
+                                                                ))}
+                                                            </Box>
+                                                        )}
                                                     </Grid>
                                                     <Grid item xs={12} sm={6}>
                                                         <TextField fullWidth size="small" label="CC (opsiyonel)"
@@ -1605,6 +1638,27 @@ const DosyaTakipDetail = () => {
                                                             onChange={(e) => setMailTaslak((p) => ({ ...p, govde: e.target.value }))} />
                                                     </Grid>
                                                 </Grid>
+
+                                                {/* müşteri: "firma mailine yükleme linki koyabilir miyiz" */}
+                                                {mailTaslak.yuklemeLinki && (
+                                                    <Alert severity="info" sx={{ mt: 2, '& .MuiAlert-message': { minWidth: 0, flex: 1 } }}
+                                                        action={
+                                                            <Button size="small" startIcon={<ContentCopyIcon />} sx={{ textTransform: 'none' }}
+                                                                onClick={() => baglantiKopyala(mailTaslak.yuklemeLinki)}>
+                                                                Kopyala
+                                                            </Button>
+                                                        }>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                            Firma yükleme bağlantısı metne eklendi
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ display: 'block', wordBreak: 'break-all' }}>
+                                                            {mailTaslak.yuklemeLinki}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ display: 'block', color: '#475569' }}>
+                                                            Firmanın bu bağlantıdan gönderdiği dosyalar aşağıda "Firmadan Gelen Belgeler" bölümünde görünür.
+                                                        </Typography>
+                                                    </Alert>
+                                                )}
 
                                                 {mailTaslak.dosyalar?.length > 0 && (
                                                     <Paper sx={{ p: 2, mt: 2, border: '1px solid #e2e8f0' }}>
@@ -1644,6 +1698,38 @@ const DosyaTakipDetail = () => {
                                                         {mailGonderiliyor ? 'Gönderiliyor…' : 'Gönder'}
                                                     </Button>
                                                 </Box>
+                                            </Box>
+                                        )}
+
+                                        {/* müşteri: "yüklenen belgeler belge takipde firma maili- gelen gibi bir alt kısımda
+                                            görünebilir" — dosyalar talebin kendi listesinde durur, burada süzülüp gösterilir */}
+                                        {firmadanGelenler.length > 0 && (
+                                            <Box sx={{ mt: 3 }}>
+                                                <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                                                    Firmadan Gelen Belgeler ({firmadanGelenler.length})
+                                                </Typography>
+                                                {firmadanGelenler.map((d) => (
+                                                    <Paper key={d._id} sx={{ p: 1.5, mb: 1, border: '1px solid #bbf7d0', background: '#f0fdf4', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <AttachFileIcon sx={{ color: '#059669', fontSize: 20 }} />
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                            <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>{d.dosyaAdi}</Typography>
+                                                            <Typography variant="caption" sx={{ color: '#475569', display: 'block' }}>
+                                                                {[d.aciklama, d.yukleyenAdi, d.yuklemeTarihi ? new Date(d.yuklemeTarihi).toLocaleString('tr-TR') : '']
+                                                                    .filter(Boolean).join(' · ')}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Tooltip title="Aç / Görüntüle">
+                                                            <IconButton size="small" onClick={() => dosyaAc(seciliTalep._id, d)}>
+                                                                <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="İndir">
+                                                            <IconButton size="small" onClick={() => dosyaIndir(seciliTalep._id, d)}>
+                                                                <DownloadIcon sx={{ fontSize: 18, color: '#3b82f6' }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                    </Paper>
+                                                ))}
                                             </Box>
                                         )}
 
@@ -1918,7 +2004,8 @@ function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
     // 📂 Dosyaları türüne (kategori) göre grupla — müşteri: "türü seçince o türde yüklenenler görünsün"
     const gruplar = {};
     tumDosyalar.forEach(d => {
-        const anahtar = d.kategori || d.kaynak || 'Diğer';
+        // Firmanın yükleme bağlantısından gönderdikleri kendi başlığında toplanır
+        const anahtar = d.kategori || (d.firmaYukledi ? 'Firmadan Gelen' : d.kaynak) || 'Diğer';
         (gruplar[anahtar] = gruplar[anahtar] || []).push(d);
     });
 
