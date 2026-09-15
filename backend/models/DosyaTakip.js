@@ -244,16 +244,18 @@ const dosyaTakipSchema = new mongoose.Schema({
   // --- ÖDEMELER (müşteri: "Ödemeler modülü birde zamanlama kısmının sağ tarafına") ---
   //
   // Müşterinin amacı raporlama: "ileride hangilerinin harcını ödemişiz faturasını
-  // ödemiş mi ödememiş mi görebilelim." Bu yüzden iki alan da SÜZÜLEBİLİR olmalı
+  // ödemiş mi ödememiş mi görebilelim." Bu yüzden iki alan da SÜZÜLEBİLİR
   // (bkz. talepListe'deki faturaDurumu / harciOdeyen parametreleri).
   //
-  // Tutar alanı bilinçli olarak YOK: müşteri tutar istemedi, yalnızca durum sordu.
-  // Tutar eklemek her kayıtta doldurulacak yeni bir zorunluluk yaratırdı.
-  // "Kısmi ödendi" durumunun ayrıntısı serbest not alanına yazılabilir.
+  // Fatura durumu müşteri isteğiyle "kesildi / kesilmedi / avans" oldu (15.09.2026);
+  // eski değerler açılışta FATURA_DURUMU_ESLESTIRME ile taşınıyor (server.js).
+  //
+  // Tutar, tarih, banka ve dekont burada DEĞİL: firmanın cari defterinde tutuluyor
+  // (models/CariHareket.js, `dosyaTakip` bağıyla) — aynı ödeme iki yere yazılmasın.
   odeme: {
     faturaDurumu: {
       type: String,
-      enum: ['', 'odendi', 'odenmedi', 'kismi_odendi'],
+      enum: ['', 'kesildi', 'kesilmedi', 'avans'],
       default: ''
     },
     harciOdeyen: {
@@ -555,6 +557,10 @@ dosyaTakipSchema.statics.ANA_ASAMALAR = ANA_ASAMALAR;
 dosyaTakipSchema.statics.DOSYA_TURLERI = DOSYA_TURLERI;
 dosyaTakipSchema.statics.ESKI_DOSYA_TURLERI = ESKI_DOSYA_TURLERI;
 dosyaTakipSchema.statics.DOSYA_TURU_ESLESTIRME = DOSYA_TURU_ESLESTIRME;
+// Fatura durumu yeniden adlandırma (müşteri, 15.09.2026) — eski değer → yeni değer.
+// server.js açılışta mevcut kayıtları bununla taşır; eşleşmeyen eski değer kalmamalı,
+// yoksa o talep yeni enum'a takılıp hiç kaydedilemez.
+dosyaTakipSchema.statics.FATURA_DURUMU_ESLESTIRME = { odendi: 'kesildi', odenmedi: 'kesilmedi', kismi_odendi: 'avans' };
 dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
 dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 

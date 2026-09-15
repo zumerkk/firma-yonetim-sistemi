@@ -1,11 +1,14 @@
 // 🧪 ÖDEMELER MODÜLÜ - model sözleşmesi
 //
-// Müşteri: "Ödemeler modülü birde zamanlama kısmının sağ tarafına yine,
+// Müşteri (ilk istek): "Ödemeler modülü birde zamanlama kısmının sağ tarafına yine,
 //   1. Faturası ödendi-ödenmedi-kısmi ödendi seçeneği,
 //   2. Harcı kim ödedi firma-biz seçimli ve süzmeli olsun ileride hangilerinin
 //      harcını ödemişiz faturasını ödemiş mi ödememiş mi görebilelim.
 //   Birde bunlara yine notlu dosya ekleyebilelim."
+// Müşteri (15.09.2026): "Ödemeler kısmında fatura durumunu ödendi-ödenmedi-kısmi ödendi
+//   yerine 'kesildi-kesilmedi-avans' olarak güncelleyebilir miyiz."
 //
+// Tutar/tarih/banka taşıyan ödeme hareketleri ayrı defterde: models/CariHareket.js
 // DB'siz: model örneği bellekte kurulup doğrulanıyor.
 
 const DosyaTakip = require('../../models/DosyaTakip');
@@ -20,9 +23,9 @@ const talepKur = (yama = {}) => new DosyaTakip({
 });
 
 describe('odeme bloğu - varsayılanlar', () => {
-  // Varsayılan BOŞ olmalı: "henüz işaretlenmedi" ile "ödenmedi" farklı şeyler.
-  // Varsayılanı 'odenmedi' yapmak, hiç dokunulmamış binlerce eski kaydı
-  // "ödenmemiş" gibi raporlardı.
+  // Varsayılan BOŞ olmalı: "henüz işaretlenmedi" ile "kesilmedi" farklı şeyler.
+  // Varsayılanı 'kesilmedi' yapmak, hiç dokunulmamış yüzlerce eski kaydı
+  // "faturası kesilmemiş" gibi raporlardı.
   test('yeni talepte fatura durumu ve harcı ödeyen boş gelir', () => {
     const t = talepKur();
     expect(t.odeme.faturaDurumu).toBe('');
@@ -36,10 +39,16 @@ describe('odeme bloğu - varsayılanlar', () => {
 });
 
 describe('odeme bloğu - izinli değerler', () => {
-  test.each(['odendi', 'odenmedi', 'kismi_odendi'])('fatura durumu %s kabul edilir', (deger) => {
+  test.each(['kesildi', 'kesilmedi', 'avans'])('fatura durumu %s kabul edilir', (deger) => {
     const t = talepKur({ odeme: { faturaDurumu: deger } });
     expect(t.validateSync()?.errors?.['odeme.faturaDurumu']).toBeUndefined();
     expect(t.odeme.faturaDurumu).toBe(deger);
+  });
+
+  // Eski değerler yeni kayda yazılamaz; mevcut kayıtlar açılışta taşınıyor
+  test.each(['odendi', 'odenmedi', 'kismi_odendi'])('eski fatura durumu %s artık reddedilir', (deger) => {
+    const t = talepKur({ odeme: { faturaDurumu: deger } });
+    expect(t.validateSync()?.errors?.['odeme.faturaDurumu']).toBeDefined();
   });
 
   test.each(['firma', 'biz'])('harcı ödeyen %s kabul edilir', (deger) => {
@@ -59,10 +68,22 @@ describe('odeme bloğu - izinli değerler', () => {
   });
 });
 
+describe('eski → yeni fatura durumu eşleştirmesi (açılış migrasyonu)', () => {
+  // Eşleştirmede geçersiz bir hedef olsaydı migrasyon kayıtları yeniden
+  // doğrulanamaz hale getirir, o talepler hiç kaydedilemezdi
+  test('her eski değerin geçerli bir yeni karşılığı var', () => {
+    const eslesme = DosyaTakip.FATURA_DURUMU_ESLESTIRME;
+    expect(eslesme).toEqual({ odendi: 'kesildi', odenmedi: 'kesilmedi', kismi_odendi: 'avans' });
+    Object.values(eslesme).forEach((yeni) => {
+      const t = talepKur({ odeme: { faturaDurumu: yeni } });
+      expect(t.validateSync()?.errors?.['odeme.faturaDurumu']).toBeUndefined();
+    });
+  });
+});
+
 describe('odeme notları', () => {
-  // "Kısmi ödendi" durumunun ayrıntısı buraya yazılıyor; tutar alanı bilinçli yok
   test('not yazılabilir', () => {
-    const t = talepKur({ odeme: { faturaDurumu: 'kismi_odendi', notlar: 'Yarısı peşin alındı' } });
+    const t = talepKur({ odeme: { faturaDurumu: 'avans', notlar: 'Yarısı peşin alındı' } });
     expect(t.validateSync()).toBeUndefined();
     expect(t.odeme.notlar).toBe('Yarısı peşin alındı');
   });

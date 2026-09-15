@@ -49,6 +49,7 @@ import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import axios from '../../utils/axios';
+import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
@@ -556,18 +557,18 @@ const DosyaTakipDetail = () => {
         { key: 'zamanlama.dosyaHazirlamaSonGun', label: 'Dosya Hazırlama Son Gün', oku: (t) => t?.zamanlama?.dosyaHazirlamaSonGun }
     ];
 
-    // 💳 Ödemeler sekmesinin iki seçimi. Etiketler listedeki süzgeçle AYNI olmalı
-    // (bkz. DosyaTakipList ODEME_SUZGEC_SECENEKLERI) — kullanıcı aynı kelimeyi
-    // iki ekranda farklı görürse aynı şey olduklarını anlamaz.
+    // 💳 Ödemeler sekmesinin iki seçimi. Listedeki süzgeçleri müşteri isteğiyle kaldırıldı
+    // ("şimdilik gerek yok ... görünmesine"); sunucu bu alanlarla süzmeyi desteklemeye devam ediyor.
     const ODEME_ALANLARI = [
         {
             key: 'odeme.faturaDurumu',
             label: 'Fatura Durumu',
             oku: (t) => t?.odeme?.faturaDurumu,
+            // müşteri (15.09.2026): "ödendi-ödenmedi-kısmi ödendi yerine kesildi-kesilmedi-avans"
             secenekler: [
-                { deger: 'odendi', etiket: 'Ödendi' },
-                { deger: 'odenmedi', etiket: 'Ödenmedi' },
-                { deger: 'kismi_odendi', etiket: 'Kısmi Ödendi' }
+                { deger: 'kesildi', etiket: 'Kesildi' },
+                { deger: 'kesilmedi', etiket: 'Kesilmedi' },
+                { deger: 'avans', etiket: 'Avans' }
             ]
         },
         {
@@ -1471,13 +1472,11 @@ const DosyaTakipDetail = () => {
                                 )}
 
                                 {/* TAB 5: ÖDEMELER
-                                    Müşteri: "1. Faturası ödendi-ödenmedi-kısmi ödendi seçeneği,
-                                    2. Harcı kim ödedi firma-biz seçimli ve süzmeli olsun ileride
-                                    hangilerinin harcını ödemişiz faturasını ödemiş mi ödememiş mi
-                                    görebilelim. Birde bunlara yine notlu dosya ekleyebilelim."
-                                    Süzme listede yapılıyor; buradaki seçimler ona besleniyor.
-                                    Notlu dosya için Dosyalar sekmesindeki "Ödeme Belgesi" türü
-                                    kullanılıyor — orada açıklama alanı zaten var. */}
+                                    Müşteri: "1. Faturası ... seçeneği, 2. Harcı kim ödedi firma-biz seçimli";
+                                    fatura durumu 15.09.2026'da "kesildi / kesilmedi / avans" oldu.
+                                    Altında mini cari tablo (TalepCariPaneli): "2 sütun olarak SOL tarafta
+                                    Ödenen Belge ... SAĞ tarafta Banka ... gelen-gideni yeşil/kırmızı".
+                                    Hareketler firmanın carisine yazılır; dekont/makbuz orada yüklenir. */}
                                 {activeTab === 5 && (
                                     <Box>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -1548,10 +1547,11 @@ const DosyaTakipDetail = () => {
                                             </Typography>
                                         )}
 
-                                        <Alert severity="info" sx={{ mt: 2, py: 0.5 }}>
-                                            Dekont ve fatura gibi belgeleri <b>Dosyalar</b> sekmesinden
-                                            “Ödeme Belgesi” türüyle yükleyip yanına açıklama yazabilirsiniz.
-                                        </Alert>
+                                        <TalepCariPaneli
+                                            talepId={id}
+                                            firmaId={seciliTalep?.firma?._id}
+                                            onMesaj={(message, severity) => setSnackbar({ open: true, message, severity })}
+                                        />
                                     </Box>
                                 )}
 

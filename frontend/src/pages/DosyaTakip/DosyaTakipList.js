@@ -120,8 +120,6 @@ const DosyaTakipList = () => {
     // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
     const filterHazirlayan = searchParams.get('hazirlayan') || '';
     const filterTakipEden = searchParams.get('takipEden') || '';
-    const filterFaturaDurumu = searchParams.get('faturaDurumu') || '';
-    const filterHarciOdeyen = searchParams.get('harciOdeyen') || '';
     const aramaTerimi = searchParams.get('q') || '';
     const sayfa = Math.max(0, (parseInt(searchParams.get('sayfa'), 10) || 1) - 1);
     const sayfaBoyutu = parseInt(searchParams.get('limit'), 10) || 50;
@@ -205,8 +203,6 @@ const DosyaTakipList = () => {
             talepTuru: filterTalepTuru,
             hazirlayan: filterHazirlayan,
             takipEden: filterTakipEden,
-            faturaDurumu: filterFaturaDurumu,
-            harciOdeyen: filterHarciOdeyen,
             // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
             arsiv: arsivModu ? '1' : '',
             // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
@@ -642,45 +638,9 @@ const DosyaTakipList = () => {
                                 ))}
                             </TextField>
                         </Grid>
-                        {/* 💳 Ödeme süzgeçleri — müşteri: "seçimli ve süzmeli olsun ileride
-                            hangilerinin harcını ödemişiz faturasını ödemiş mi ödememiş mi
-                            görebilelim". "Belirtilmemiş" seçeneği asıl ihtiyacı karşılıyor:
-                            ödeme bilgisi hiç girilmemiş talepleri bulmak. */}
-                        <Grid item xs={12} sm={6} md={4}>
-                            <TextField
-                                fullWidth
-                                size="small"
-                                select
-                                label="Fatura Durumu"
-                                value={filterFaturaDurumu}
-                                onChange={(e) => parametreYaz({ faturaDurumu: e.target.value })}
-                                sx={FILTRE_SX}
-                                SelectProps={FILTRE_MENU_PROPS}
-                            >
-                                <MenuItem value="">Tümü</MenuItem>
-                                <MenuItem value="bos">— Belirtilmemiş —</MenuItem>
-                                <MenuItem value="odendi">Ödendi</MenuItem>
-                                <MenuItem value="odenmedi">Ödenmedi</MenuItem>
-                                <MenuItem value="kismi_odendi">Kısmi Ödendi</MenuItem>
-                            </TextField>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={4}>
-                            <TextField
-                                fullWidth
-                                size="small"
-                                select
-                                label="Harcı Kim Ödedi"
-                                value={filterHarciOdeyen}
-                                onChange={(e) => parametreYaz({ harciOdeyen: e.target.value })}
-                                sx={FILTRE_SX}
-                                SelectProps={FILTRE_MENU_PROPS}
-                            >
-                                <MenuItem value="">Tümü</MenuItem>
-                                <MenuItem value="bos">— Belirtilmemiş —</MenuItem>
-                                <MenuItem value="firma">Firma</MenuItem>
-                                <MenuItem value="biz">Biz</MenuItem>
-                            </TextField>
-                        </Grid>
+                        {/* 💳 Fatura Durumu / Harcı Kim Ödedi süzgeçleri müşteri isteğiyle kaldırıldı
+                            ("Burada şimdilik gerek yok ... görünmesine"). Seçimler talebin Ödemeler
+                            sekmesinde duruyor; sunucu bu parametrelerle süzmeyi hâlâ destekliyor. */}
                         <Grid item xs={12} md={3}>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Button fullWidth variant="outlined" size="small" onClick={loadData} startIcon={<RefreshIcon />}
