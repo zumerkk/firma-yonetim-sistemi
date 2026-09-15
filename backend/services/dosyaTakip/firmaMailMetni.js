@@ -42,14 +42,27 @@ function uzmanNotlari(talep, enFazla = 5) {
     .map((n) => String(n.metin).trim());
 }
 
+// Firmaya gösterilen belge numarası: yalnız ytbNo (ekrandaki "Belge No"). belgeId sistemin iç
+// kimliği — canlıda (15.09.2026) ikisi de dolu 165 talebin 164'ünde farklı değer taşıyordu.
+function belgeNoAl(talep) {
+  return String(talep?.ytbNo || '').trim();
+}
+
 /**
  * Firmaya gönderilecek mailin ÖNERİLEN konusu.
+ *
+ * Müşteri (15.09.2026): "Firma maili gönderirken Konu kısmına belge no ve talep türü de ekleyebilir
+ * miyiz? bu - DT2026253- kısmını kaldırabiliriz firmanın görmesine gerek yok."
+ * Takip no (DT…) iç kimliğimiz olduğu için konuya girmez.
  */
 function konuOner(talep) {
-  const parcalar = ['Belge Takip'];
-  if (talep?.takipId) parcalar.push(talep.takipId);
-  if (talep?.firmaUnvan) parcalar.push(talep.firmaUnvan);
-  return parcalar.join(' — ');
+  const belgeNo = belgeNoAl(talep);
+  const parcalar = [
+    belgeNo ? `Belge No: ${belgeNo}` : '',
+    String(talep?.talepTuru || '').trim(),
+    String(talep?.firmaUnvan || '').trim()
+  ].filter(Boolean);
+  return parcalar.length ? parcalar.join(' — ') : 'Belge Takip';
 }
 
 /**
@@ -57,7 +70,7 @@ function konuOner(talep) {
  * Eksik ve not yoksa yine de kullanılabilir bir iskelet döner — kullanıcı
  * elle yazabilsin diye boş metin dönmüyoruz.
  */
-function govdeOner(talep, { imza = '' } = {}) {
+function govdeOner(talep, { imza = '', yuklemeLinki = '' } = {}) {
   const satirlar = [SELAM, ''];
 
   const eksikler = firmadanBeklenenler(talep);
@@ -74,8 +87,13 @@ function govdeOner(talep, { imza = '' } = {}) {
     satirlar.push('');
   }
 
+  // Müşteri (15.09.2026): "firma mailine yükleme linki koyabilir miyiz"
+  if (yuklemeLinki) {
+    satirlar.push('Evrakları aşağıdaki bağlantıdan yükleyebilirsiniz:', yuklemeLinki, '');
+  }
+
   // Hiç içerik yoksa kullanıcı boş bir kutuya bakmasın
-  if (!eksikler.length && !notlar.length) {
+  if (!eksikler.length && !notlar.length && !yuklemeLinki) {
     satirlar.push('');
   }
 
@@ -85,4 +103,56 @@ function govdeOner(talep, { imza = '' } = {}) {
   return satirlar.join('\n');
 }
 
-module.exports = { konuOner, govdeOner, firmadanBeklenenler, uzmanNotlari, SELAM };
+const EPOSTA_BICIMI = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const adresNormalle = (v) => String(v || '').trim().toLowerCase();
+const adresleriTemizle = (liste) =>
+  [...new Set((Array.isArray(liste) ? liste : []).map(adresNormalle).filter((a) => EPOSTA_BICIMI.test(a)))];
+
+/**
+ * Alıcı önerisi.
+ *
+ * Müşteri (15.09.2026): "İlk defa açarken kayıtlı olan firma bilgilerindeki maili otomatik çekebilir
+ * mi? Yetkili kişileri çekse olur. Sonrasında bizim yazdığımız mailleri kaydedebilir her seferinde
+ * tekrardan mail girmek yerine."
+ *
+ * Canlı ölçüm (15.09.2026): 1259 firmanın yalnız 463'ünde firma e-postası dolu, 588'inde adres yalnız
+ * yetkili kişilerde duruyor. Eski taslak yalnız firma e-postasını okuduğu için kutu çoğu firmada boş
+ * geliyordu.
+ *
+ * Öncelik: bu firmaya en son gönderilen maildeki alıcılar (hangi talepten gönderildiği fark etmez,
+ * elle yazılan adresler dahil) → firma e-postası + yetkili kişilerin e-postaları. CC yalnız geçmişten.
+ *
+ * @param firma  { firmaEmail, yetkiliKisiler: [{ adSoyad, eposta1, eposta2 }] }
+ * @param gecmis Bu firmaya gönderilmiş mailler [{ alicilar, cc, tarih }] — sırası önemsiz
+ * @returns {{ alici: string, cc: string, oneriler: Array<{ adres: string, etiket: string }> }}
+ */
+function alicilariOner({ firma, gecmis = [] } = {}) {
+  const oneriler = [];
+  const ekle = (adres, etiket) => {
+    const a = adresNormalle(adres);
+    if (!EPOSTA_BICIMI.test(a) || oneriler.some((o) => o.adres === a)) return;
+    oneriler.push({ adres: a, etiket });
+  };
+
+  ekle(firma?.firmaEmail, 'Firma e-postası');
+  (Array.isArray(firma?.yetkiliKisiler) ? firma.yetkiliKisiler : []).forEach((k) => {
+    const ad = String(k?.adSoyad || '').trim() || 'Yetkili kişi';
+    ekle(k?.eposta1, ad);
+    ekle(k?.eposta2, ad);
+  });
+  const kayitliAdresler = oneriler.map((o) => o.adres);
+
+  const sirali = (Array.isArray(gecmis) ? gecmis : [])
+    .filter(Boolean)
+    .sort((x, y) => new Date(y.tarih || 0) - new Date(x.tarih || 0));
+  sirali.forEach((m) => [...(m.alicilar || []), ...(m.cc || [])].forEach((a) => ekle(a, 'Daha önce kullanıldı')));
+
+  const sonAlicilar = adresleriTemizle(sirali[0]?.alicilar);
+  return {
+    alici: (sonAlicilar.length ? sonAlicilar : kayitliAdresler).join(', '),
+    cc: sonAlicilar.length ? adresleriTemizle(sirali[0].cc).join(', ') : '',
+    oneriler
+  };
+}
+
+module.exports = { konuOner, govdeOner, alicilariOner, belgeNoAl, firmadanBeklenenler, uzmanNotlari, SELAM };

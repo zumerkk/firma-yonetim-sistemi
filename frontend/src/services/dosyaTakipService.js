@@ -72,6 +72,16 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 🌐 Firma yükleme bağlantısı — firmanın açtığı sayfa (AUTH YOK, token ile)
+    publicBilgi: async (token) => {
+        const { data } = await axios.get(`/belge-takip-yukleme/${encodeURIComponent(token)}`);
+        return data?.data;
+    },
+    publicYukle: async (token, formData, onProgress) => {
+        const { data } = await uploadPost(`/belge-takip-yukleme/${encodeURIComponent(token)}`, formData, { onProgress });
+        return data;
+    },
+
     // 📝 Not Ekle
     // bildirimKullanicilar: notu bildirim olarak alacak personel id'leri (müşteri talebi)
     notEkle: async (id, metin, alan = 'genelNotlar', bildirimKullanicilar = []) => {

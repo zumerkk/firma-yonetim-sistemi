@@ -180,6 +180,8 @@ const dosyaSchema = new mongoose.Schema({
   aciklama: { type: String, trim: true, maxlength: 300, default: '' },
   dosyaBoyutu: { type: Number },
   cloudinaryPublicId: { type: String }, // silme için (controller zaten yazıyordu)
+  // Firma, maildeki yükleme bağlantısından gönderdi (müşteri: "firma maili - gelen")
+  firmaYukledi: { type: Boolean, default: false },
   yukleyenKisi: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   yukleyenAdi: { type: String },
   yuklemeTarihi: { type: Date, default: Date.now }
@@ -281,6 +283,15 @@ const dosyaTakipSchema = new mongoose.Schema({
     gonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     tarih: { type: Date, default: Date.now }
   }, { _id: true, timestamps: false })],
+
+  // --- FİRMA YÜKLEME BAĞLANTISI (müşteri, 15.09.2026: "firma mailine yükleme linki koyabilir miyiz") ---
+  // Talep başına tek bağlantı; ilk firma maili taslağında üretilir (services/dosyaTakip/firmaYukleme.js).
+  // Firmanın gönderdiği dosyalar `dosyalar` içinde `firmaYukledi: true` ile durur.
+  firmaYukleme: {
+    token: { type: String, trim: true },
+    olusturmaTarihi: { type: Date },
+    sonKullanma: { type: Date } // boşsa süresiz (UPLOAD_TOKEN_DAYS)
+  },
 
   // --- DURUM YÖNETİMİ (State Machine) ---
   anaAsama: {
@@ -479,6 +490,8 @@ dosyaTakipSchema.index({ ytbNo: 1 });
 // Talep listesindeki personel filtreleri (müşteri: isim isim filtreleme)
 dosyaTakipSchema.index({ 'muraacatOncesi.muraacatHazirlayanPersonel': 1 });
 dosyaTakipSchema.index({ 'muraacatSonrasi.takibiYapanPersonel': 1 });
+// Firmanın açtığı yükleme sayfası talebi bu alanla bulur (herkese açık uç koleksiyon taramasın)
+dosyaTakipSchema.index({ 'firmaYukleme.token': 1 }, { sparse: true });
 dosyaTakipSchema.index({ firmaUnvan: 'text', takipId: 'text', ytbNo: 'text' });
 
 // ============================================================================
