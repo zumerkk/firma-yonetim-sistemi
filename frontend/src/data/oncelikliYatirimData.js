@@ -263,6 +263,16 @@ export const getById = (id) => {
   return oncelikliYatirimTurleri.find(item => item.id === id);
 };
 
+// Kayıtlarda türün yalnız harf kodu ("n") saklanıyor; ekranda ve PDF'te okunur olsun.
+// Müşteri: "öncelikli yatırım türü sadece 'n' olarak görünüyor ve pdf görünümünde öncelikli yatırım
+// türü görünmüyor". Tanınmayan değer (ör. zaten tam metin) olduğu gibi döner.
+export const oncelikliYatirimTuruEtiketi = (deger) => {
+  const ham = String(deger ?? '').trim();
+  if (!ham) return '';
+  const tur = getById(ham) || oncelikliYatirimTurleri.find((t) => t.kod === ham);
+  return tur ? `${tur.id} - ${tur.baslik}` : ham;
+};
+
 // 📈 İstatistikler
 export const getStats = () => ({
   toplam: oncelikliYatirimTurleri.length,

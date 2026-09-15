@@ -16,6 +16,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { birimEtiketi, kullanilmisEtiketi } from './makineFormat';
 import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
+import { oncelikliYatirimTuruEtiketi } from '../data/oncelikliYatirimData';
 
 const FONT_YOLLARI = {
   normal: `${process.env.PUBLIC_URL || ''}/fonts/Roboto-Regular.ttf`,
@@ -209,7 +210,9 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['Müracaat Tarihi', tarih(by.belgeMuracaatTarihi || kunye.basvuruTarihi)],
     ['Belge Başlama / Bitiş', `${tarih(by.belgeBaslamaTarihi || kunye.baslamaTarihi)} — ${tarih(by.belgeBitisTarihi || kunye.bitisTarihi)}`],
     ['Süre Uzatım Tarihi', tarih(by.uzatimTarihi)],
-    ['Öncelikli Yatırım', str(by.oncelikliYatirim)]
+    ['Öncelikli Yatırım', str(by.oncelikliYatirim)],
+    // müşteri: "pdf görünümünde öncelikli yatırım türü görünmüyor"
+    ['Öncelikli Yatırım Türü', str(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru))]
   ]);
 
   // ── 4. Ürünler ──────────────────────────────────────────────────────────
