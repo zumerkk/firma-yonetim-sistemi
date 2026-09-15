@@ -46,6 +46,7 @@ import DosyaTakipDashboard from '../pages/DosyaTakip/DosyaTakipDashboard';
 import DosyaTakipList from '../pages/DosyaTakip/DosyaTakipList';
 import DosyaTakipForm from '../pages/DosyaTakip/DosyaTakipForm';
 import DosyaTakipDetail from '../pages/DosyaTakip/DosyaTakipDetail';
+import CariTakip from '../pages/Cari/CariTakip';
 
 // 📊 Dashboard Bileşenleri
 import TesvikAnalyticsDashboard from './Dashboard/TesvikDashboard';
@@ -364,6 +365,13 @@ const AppRouter = () => {
       <Route path="/dosya-takip/:id" element={
         <ProtectedRoute>
           <DosyaTakipDetail />
+        </ProtectedRoute>
+      } />
+
+      {/* 💳 Cari Hesaplar / Ödeme Takip */}
+      <Route path="/cari-takip" element={
+        <ProtectedRoute>
+          <CariTakip />
         </ProtectedRoute>
       } />
 

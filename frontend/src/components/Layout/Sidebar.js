@@ -33,7 +33,8 @@ import {
   BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
   Assignment as AssignmentIcon, // 📋 İş Akış Takip ikonu
   ImportExport as ImportExportIcon, // 📥 Import/Export ikonu
-  Email as EmailIcon // 📮 Ara Kontrol maili ikonu
+  Email as EmailIcon, // 📮 Ara Kontrol maili ikonu
+  AccountBalanceWallet as AccountBalanceWalletIcon // 💳 Cari hesap / ödeme takip ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -185,6 +186,15 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: '#92400e',
       description: 'Yeni iş akış talebi oluştur',
       isNew: true
+    },
+    {
+      text: 'Cari / Ödeme Takip',
+      icon: <AccountBalanceWalletIcon />,
+      path: '/cari-takip',
+      color: '#d97706',
+      gradient: '#92400e',
+      description: 'Firma bazlı fatura, ödeme ve bakiye',
+      isNew: true
     }
   ];
 
@@ -247,6 +257,16 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       color: '#d97706',
       gradient: '#92400e',
       description: 'Dosya iş akış talepleri'
+    },
+    {
+      // müşteri: "Sol sütunda belge takip'in altına Cari hesaplar/faturalar-ödeme takip gibi bir modül"
+      text: 'Cari / Ödeme Takip',
+      icon: <AccountBalanceWalletIcon />,
+      path: '/cari-takip',
+      color: '#d97706',
+      gradient: '#92400e',
+      description: 'Firma bazlı fatura, ödeme ve bakiye',
+      isNew: true
     }
   ];
 

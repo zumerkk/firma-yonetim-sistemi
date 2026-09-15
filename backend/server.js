@@ -37,6 +37,7 @@ const oecdKategoriRoutes = require('./routes/oecdKategori'); // 🌍 OECD Katego
 const naceRoutes = require('./routes/nace'); // 🌐 NACE 6-lı Kodları API
 const lookupRoutes = require('./routes/lookup'); // 🔎 Unit/Currency lookups
 const dosyaTakipRoutes = require('./routes/dosyaTakip'); // 📋 Dosya İş Akış Takip Sistemi
+const cariRoutes = require('./routes/cari'); // 💳 Cari Hesap / Ödeme Takip
 const tesvikImportRoutes = require('./routes/tesvikImport'); // 📊 Excel/CSV Teşvik Import Sistemi
 const eskiTesvikImportRoutes = require('./routes/eskiTesvikImport'); // 📊 Eski Teşvik Import Sistemi
 const backupRoutes = require('./routes/backup'); // 💾 Sistem Yedekleme
@@ -321,6 +322,7 @@ app.use('/api/oecd-kategori', oecdKategoriRoutes); // 🌍 OECD Kategori API
 app.use('/api/lookup', lookupRoutes); // 🔎 Unit & Currency lookup API
 app.use('/api/nace', naceRoutes); // 🌐 NACE 6-lı Kodları API
 app.use('/api/dosya-takip', dosyaTakipRoutes); // 📋 Dosya İş Akış Takip Sistemi
+app.use('/api/cari', cariRoutes); // 💳 Cari Hesap / Ödeme Takip
 app.use('/api/tesvik-import', tesvikImportRoutes); // 📊 Excel/CSV Teşvik Import Sistemi
 app.use('/api/eski-tesvik-import', eskiTesvikImportRoutes); // 📊 Eski Teşvik Import Sistemi
 app.use('/api/backup', backupRoutes); // 💾 Sistem Yedekleme API
@@ -500,6 +502,24 @@ const startServer = async () => {
       if (tasinan > 0) console.log(`✅ Dosya türü migrasyonu: ${tasinan} talepte kategori güncellendi`);
     } catch (err) {
       console.error('⚠️ Dosya türü migrasyonu hatası (kritik değil):', err.message);
+    }
+
+    // 🔄 Fatura durumu yeniden adlandırma (müşteri, 15.09.2026): ödendi / ödenmedi / kısmi ödendi
+    // → kesildi / kesilmedi / avans — idempotent. Taşınmayan eski değer yeni enum'a takılır
+    // ve o talep (not, durum vb.) hiç kaydedilemez hale gelirdi.
+    try {
+      const DosyaTakip = require('./models/DosyaTakip');
+      let tasinan = 0;
+      for (const [eski, yeni] of Object.entries(DosyaTakip.FATURA_DURUMU_ESLESTIRME || {})) {
+        const sonuc = await DosyaTakip.updateMany(
+          { 'odeme.faturaDurumu': eski },
+          { $set: { 'odeme.faturaDurumu': yeni } }
+        );
+        tasinan += sonuc.modifiedCount || 0;
+      }
+      if (tasinan > 0) console.log(`✅ Fatura durumu migrasyonu: ${tasinan} talep güncellendi`);
+    } catch (err) {
+      console.error('⚠️ Fatura durumu migrasyonu hatası (kritik değil):', err.message);
     }
 
     // 🌱 İşlem türleri seed (yalnızca hiç kayıt yoksa — kullanıcı düzenlemeleri korunur)

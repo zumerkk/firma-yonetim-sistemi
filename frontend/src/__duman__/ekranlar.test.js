@@ -124,6 +124,7 @@ const EKRANLAR = [
   ['ReportCenter',            () => require('../pages/Reports/ReportCenter').default],
   ['FirmaDetail',             () => require('../pages/Firma/FirmaDetail').default],
   ['DosyaTakipDetail',        () => require('../pages/DosyaTakip/DosyaTakipDetail').default],
+  ['CariTakip',               () => require('../pages/Cari/CariTakip').default],
   ['IslemEvrakDetail',        () => require('../pages/IslemEvrak/IslemEvrakDetail').default],
   ['IslemTuruYonetimi',       () => require('../pages/IslemEvrak/IslemTuruYonetimi').default],
   ['IslemEvrakPublicUpload',  () => require('../pages/IslemEvrak/IslemEvrakPublicUpload').default],
