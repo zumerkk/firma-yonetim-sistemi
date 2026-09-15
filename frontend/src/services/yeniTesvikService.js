@@ -21,6 +21,15 @@ const yeniTesvikService = {
     const res = await api.post(`/yeni-tesvik/${id}/makine-karar`, payload);
     return res.data;
   },
+  // Toplu talep/karar — tek istek. payload: { liste, islemler:[{ rowId, talep | karar }] }
+  async setMakineTalepToplu(id, payload) {
+    const res = await api.post(`/yeni-tesvik/${id}/makine-talep/toplu`, payload);
+    return res.data;
+  },
+  async setMakineKararToplu(id, payload) {
+    const res = await api.post(`/yeni-tesvik/${id}/makine-karar/toplu`, payload);
+    return res.data;
+  },
   async saveMakineListeleri(id, payload) {
     // payload: { yerli:[], ithal:[] }
     const res = await api.post(`/yeni-tesvik/${id}/makine-listeleri`, payload);

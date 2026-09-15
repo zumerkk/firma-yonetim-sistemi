@@ -6384,6 +6384,41 @@ module.exports = {
       res.status(500).json({ success: false, message: 'Karar güncellenemedi' });
     }
   },
+  // 🚀 TOPLU talep / karar — seçilen satırlar tek okuma + tek kayıtla (bkz. services/tesvik/makineTalepKarar.js)
+  // Body: { liste:'yerli'|'ithal', islemler:[{ rowId, talep }] }
+  setMakineTalepToplu: async (req, res) => {
+    try {
+      const Tesvik = require('../models/Tesvik');
+      const { topluUygula, ozetMesaji } = require('../services/tesvik/makineTalepKarar');
+      const tesvik = await Tesvik.findById(req.params.id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const { liste, islemler } = req.body || {};
+      const ozet = topluUygula(tesvik, { liste, alan: 'talep', islemler });
+      if (ozet.guncellenen.length) await tesvik.save();
+      res.json({ success: true, message: ozetMesaji('talep', ozet), ozet, data: tesvik.toSafeJSON() });
+    } catch (error) {
+      if (error.durum) return res.status(error.durum).json({ success: false, message: error.message });
+      console.error('setMakineTalepToplu error:', error);
+      res.status(500).json({ success: false, message: 'Toplu talep güncellenemedi' });
+    }
+  },
+  // Body: { liste:'yerli'|'ithal', islemler:[{ rowId, karar }] }
+  setMakineKararToplu: async (req, res) => {
+    try {
+      const Tesvik = require('../models/Tesvik');
+      const { topluUygula, ozetMesaji } = require('../services/tesvik/makineTalepKarar');
+      const tesvik = await Tesvik.findById(req.params.id);
+      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
+      const { liste, islemler } = req.body || {};
+      const ozet = topluUygula(tesvik, { liste, alan: 'karar', islemler });
+      if (ozet.guncellenen.length) await tesvik.save();
+      res.json({ success: true, message: ozetMesaji('karar', ozet), ozet, data: tesvik.toSafeJSON() });
+    } catch (error) {
+      if (error.durum) return res.status(error.durum).json({ success: false, message: error.message });
+      console.error('setMakineKararToplu error:', error);
+      res.status(500).json({ success: false, message: 'Toplu karar güncellenemedi' });
+    }
+  },
 
   // 📄 EXCEL EXPORT - Excel benzeri renk kodlamalı çıktı (ExcelJS ile)
   exportTesvikExcel: async (req, res) => {

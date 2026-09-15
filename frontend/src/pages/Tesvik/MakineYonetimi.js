@@ -432,7 +432,7 @@ const MakineYonetimi = () => {
           toplamTl: r.toplamTutarFobTl || 0,
           tlManuel: r.tlManuel || false,
           kurManuel: r.kurManuel || false,
-          kurManuelDeger: r.kurManuelDeger || 0,
+          kurManuelDeger: r.kurManuelDeger || 0, usdManuel: !!r.usdManuel,
           // Saklanan değer HAYIR/KM/KK gibi olabiliyor; Select bakanlık kodu
           // bekliyor. Çevrilmezse ızgarada BOŞ görünür (bkz. makineFormat notu).
           kullanilmisKod: kullanilmisKoduNormalle(r.kullanilmisMakine),
@@ -658,7 +658,7 @@ const MakineYonetimi = () => {
       try {
         const payload = {
           yerli: yerliRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiTl: r.birimFiyatiTl, toplamTutariTl: r.toplamTl, kdvIstisnasi: r.kdvIstisnasi, makineTechizatTipi: r.makineTechizatTipi, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
-          ithal: ithalRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiFob: r.birimFiyatiFob, gumrukDovizKodu: r.doviz, toplamTutarFobUsd: r.toplamUsd, toplamTutarFobTl: r.toplamTl, kurManuel: r.kurManuel, kurManuelDeger: r.kurManuelDeger, kullanilmisMakine: r.kullanilmisKod, kullanilmisMakineAciklama: r.kullanilmisAciklama, ckdSkdMi: r.ckdSkd, aracMi: r.aracMi, makineTechizatTipi: r.makineTechizatTipi, kdvMuafiyeti: r.kdvMuafiyeti, gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
+          ithal: ithalRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiFob: r.birimFiyatiFob, gumrukDovizKodu: r.doviz, toplamTutarFobUsd: r.toplamUsd, toplamTutarFobTl: r.toplamTl, kurManuel: r.kurManuel, kurManuelDeger: r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine: r.kullanilmisKod, kullanilmisMakineAciklama: r.kullanilmisAciklama, ckdSkdMi: r.ckdSkd, aracMi: r.aracMi, makineTechizatTipi: r.makineTechizatTipi, kdvMuafiyeti: r.kdvMuafiyeti, gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
         };
         await tesvikService.saveMakineListeleri(selectedTesvik._id, payload);
         console.log('✅ Makine verileri otomatik olarak veritabanına kaydedildi');
@@ -680,7 +680,9 @@ const MakineYonetimi = () => {
           if (r.tlManuel || (r.kurManuel && Number(parseTrCurrency(r.kurManuelDeger))>0)) return r; // manuel TL/kur modda dokunma
           const miktar = numberOrZero(r.miktar);
           const fob = numberOrZero(r.birimFiyatiFob);
-          const usd = miktar * fob;
+          // Elle girilmiş FOB $ (usdManuel) formülle EZİLMEZ. Müşteri: "Fob $ toplam tutarını değiştirince
+          // kaydetmiyor eski haline geri çeviriyor" — bu etki her satır değişiminde tutarı yeniden hesaplıyordu.
+          const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : miktar * fob;
           // Döviz yoksa sadece USD güncelle
           if (!r.doviz) {
             if (numberOrZero(r.toplamUsd) !== usd) { changed = true; return { ...r, toplamUsd: usd }; }
@@ -958,7 +960,7 @@ const MakineYonetimi = () => {
     // 1) Mevcut ekranı DB'ye kaydet (rowId'ler backend tarafından üretilecek)
     const payload = {
       yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
-      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
+      ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
     };
     try { await tesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
     // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
@@ -1560,7 +1562,7 @@ const MakineYonetimi = () => {
       toplamUsd: r.toplamTutarFobUsd || 0,
       toplamTl: r.toplamTutarFobTl || 0,
       kurManuel: r.kurManuel || false,
-      kurManuelDeger: r.kurManuelDeger || 0,
+      kurManuelDeger: r.kurManuelDeger || 0, usdManuel: !!r.usdManuel,
       kdvIstisnasi: r.kdvIstisnasi || '',
       // Saklanan değer HAYIR/KM/KK gibi olabiliyor; Select bakanlık kodu
           // bekliyor. Çevrilmezse ızgarada BOŞ görünür (bkz. makineFormat notu).
@@ -1978,41 +1980,54 @@ const MakineYonetimi = () => {
 
   // Madde 10: "toplu işlem - toplu tarih vs girebilelim".
   // tarih verilmezse eski davranış korunur (satırdaki tarih, yoksa bugün).
-  const handleBulkTalep = async (tarih) => {
-    if (!selectedTesvik || selectionModel.length === 0) return;
-    const list = tab === 'yerli' ? yerliRows : ithalRows;
-    const apply = async (row) => {
-      const rid = await ensureRowId(tab, row);
-      if (!rid) return;
-      const talep = { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: tarih || row?.talep?.talepTarihi || new Date() };
-      const result = await tesvikService.setMakineTalep(selectedTesvik._id, { liste: tab, rowId: rid, talep });
-      // Backend'ten gelen güncel veriyi kullan
-      if (result?.data?.makineListeleri) {
-        const updatedRow = result.data.makineListeleri[tab]?.find(r => r.rowId === rid);
-        if (updatedRow) {
-          if (tab === 'yerli') updateYerli(row.id, { rowId: rid, talep: updatedRow.talep }); 
-          else updateIthal(row.id, { rowId: rid, talep: updatedRow.talep });
-        }
-      }
-    };
-    for (const id of selectionModel) {
-      const row = list.find(r => r.id === id);
-      if (row) await apply(row);
-    }
-    // İşlem sonunda tüm veriyi yeniden yükle
-    try {
-      const fresh = await tesvikService.get(selectedTesvik._id);
-      setSelectedTesvik(fresh);
-      openToast('success', 'Talep durumları güncellendi');
-    } catch(e) {
-      console.error('Veri yenilenemedi:', e);
+  // Toplu talep/karar yanıtındaki satırları ekrana işler. Belge baştan YÜKLENMEZ: eskiden sonunda
+  // setSelectedTesvik(fresh) çağrılıyor, seçili belge etkisi revize modunu kapatıp kaydedilmemiş
+  // düzenlemeleri atıyordu (müşteri: "Toplu işlem yapınca otomatik olarak revizeyi bitiriyor").
+  const topluSonucuUygula = (result, islemler, alan) => {
+    const guncelSatirlar = result?.data?.makineListeleri?.[tab] || [];
+    for (const { row, rowId } of islemler) {
+      const guncel = guncelSatirlar.find(r => r.rowId === rowId);
+      if (!guncel) continue;
+      const degisim = { rowId, [alan]: guncel[alan] };
+      if (tab === 'yerli') updateYerli(row.id, degisim); else updateIthal(row.id, degisim);
     }
   };
 
-  // Madde 10 + hata düzeltmesi: kısmi onay diyaloğu partialQty topluyordu ama bu
-  // fonksiyon ikinci parametreyi yok sayıp window.prompt açıyordu — girilen adet
-  // çöpe gidiyordu. Artık adet ve tarih dışarıdan geliyor; ikisi de verilmezse
-  // eski davranış (prompt / bugünün tarihi) korunuyor.
+  // Müşteri: "Toplu işlem yapmak aşırı yavaş oluyor, 10 tane makineye talep tarihinin dolması bile
+  // 1dk sürüyor neredeyse, tek tek doluyor tarihler." Her satır ayrı istekti ve her yanıt belgenin
+  // tamamını dönüyordu; artık seçilen satırlar TEK istekte uygulanıyor.
+  const topluIslemleriHazirla = async (satirIcin) => {
+    const list = tab === 'yerli' ? yerliRows : ithalRows;
+    const islemler = [];
+    for (const id of selectionModel) {
+      const row = list.find(r => r.id === id);
+      if (!row) continue;
+      const rid = await ensureRowId(tab, row);
+      if (!rid) continue;
+      islemler.push({ row, rowId: rid, ...satirIcin(row) });
+    }
+    return islemler;
+  };
+
+  const handleBulkTalep = async (tarih) => {
+    if (!selectedTesvik || selectionModel.length === 0) return;
+    const islemler = await topluIslemleriHazirla((row) => ({
+      talep: { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: tarih || row?.talep?.talepTarihi || new Date() }
+    }));
+    if (islemler.length === 0) return;
+    try {
+      const result = await tesvikService.setMakineTalepToplu(selectedTesvik._id, {
+        liste: tab, islemler: islemler.map(({ rowId, talep }) => ({ rowId, talep }))
+      });
+      topluSonucuUygula(result, islemler, 'talep');
+      openToast(result?.ozet?.bulunamayan?.length ? 'warning' : 'success', result?.message || 'Talep durumları güncellendi');
+    } catch (e) {
+      openToast('error', e?.response?.data?.message || 'Toplu talep güncellenemedi');
+    }
+  };
+
+  // Kısmi onay adedi ve tarih dışarıdan (toplu diyalog) gelir; ikisi de verilmezse eski davranış
+  // (prompt / satırdaki tarih, yoksa bugün) korunur.
   const handleBulkKarar = async (type, adet, tarih) => {
     if (!selectedTesvik || selectionModel.length === 0) return;
     let onayAdet = Number(adet) || 0;
@@ -2020,36 +2035,22 @@ const MakineYonetimi = () => {
       const v = window.prompt('Kısmi onay adedi');
       onayAdet = Number(v) || 0;
     }
-    const list = tab === 'yerli' ? yerliRows : ithalRows;
-    const apply = async (row) => {
-      const rid = await ensureRowId(tab, row);
-      if (!rid) return;
-      const karar = {
+    const islemler = await topluIslemleriHazirla((row) => ({
+      karar: {
         kararDurumu: type,
         onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
         kararTarihi: tarih || row?.karar?.kararTarihi || new Date()
-      };
-      const result = await tesvikService.setMakineKarar(selectedTesvik._id, { liste: tab, rowId: rid, karar });
-      // Backend'ten gelen güncel veriyi kullan
-      if (result?.data?.makineListeleri) {
-        const updatedRow = result.data.makineListeleri[tab]?.find(r => r.rowId === rid);
-        if (updatedRow) {
-          if (tab === 'yerli') updateYerli(row.id, { rowId: rid, karar: updatedRow.karar }); 
-          else updateIthal(row.id, { rowId: rid, karar: updatedRow.karar });
-        }
       }
-    };
-    for (const id of selectionModel) {
-      const row = list.find(r => r.id === id);
-      if (row) await apply(row);
-    }
-    // İşlem sonunda tüm veriyi yeniden yükle
+    }));
+    if (islemler.length === 0) return;
     try {
-      const fresh = await tesvikService.get(selectedTesvik._id);
-      setSelectedTesvik(fresh);
-      openToast('success', 'Karar durumları güncellendi');
-    } catch(e) {
-      console.error('Veri yenilenemedi:', e);
+      const result = await tesvikService.setMakineKararToplu(selectedTesvik._id, {
+        liste: tab, islemler: islemler.map(({ rowId, karar }) => ({ rowId, karar }))
+      });
+      topluSonucuUygula(result, islemler, 'karar');
+      openToast(result?.ozet?.bulunamayan?.length ? 'warning' : 'success', result?.message || 'Karar durumları güncellendi');
+    } catch (e) {
+      openToast('error', e?.response?.data?.message || 'Toplu karar güncellenemedi');
     }
   };
 
@@ -3977,7 +3978,7 @@ const MakineYonetimi = () => {
                       openToast('info', 'Revize kaydediliyor...');
                       const payload = {
                         yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
-                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
+                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
                       };
                       // 🔧 FIX: Save + Finalize TEK API çağrısı (payload finalize'a gönderilir)
                       await tesvikService.finalizeMakineRevizyon(selectedTesvik._id, { 
