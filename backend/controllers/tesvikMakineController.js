@@ -48,7 +48,9 @@ function fail(res, err) {
     CERT_NOT_FOUND: 404, ROW_NOT_FOUND: 404, PROC_NOT_FOUND: 404, MAILLOG_NOT_FOUND: 404,
     TEMPLATE_NOT_FOUND: 404, BAD_MODEL: 400, BAD_STATUS: 400, EMPTY_BARCODE: 400,
     NO_RECIPIENT: 400, TEMPLATE_INCOMPLETE: 422, SMTP_NOT_CONFIGURED: 503,
-    UNSUPPORTED_FILE_TYPE: 415, NO_FILE: 400, BAD_RANGE: 400
+    UNSUPPORTED_FILE_TYPE: 415, NO_FILE: 400, BAD_RANGE: 400,
+    // Toplu mail kullanıcı hataları ("makine seçilmedi", "konu boş") 500 dönüp sunucu hatası gibi görünüyordu
+    BAD_INPUT: 400, EMPTY_CONTENT: 400
   };
   const httpStatus = codeMap[err && err.code] || 500;
   if (httpStatus >= 500) console.error('🚨 [tesvikMakine] hata:', err && (err.stack || err.message));
@@ -732,27 +734,55 @@ exports.bulkMailPreview = wrap(async (req, res) => {
   if (!Array.isArray(targets) || !targets.length) {
     const e = new Error('Hedef makine seçilmedi.'); e.code = 'BAD_INPUT'; throw e;
   }
-  const { topluPlaceholderVerisi } = require('../services/tesvikMakine/topluMailIcerik');
+  const {
+    topluPlaceholderVerisi, topluKonuSablonu, makineIdEksikSiralar, eksikAlanEtiketleri
+  } = require('../services/tesvikMakine/topluMailIcerik');
+  const { snapshotuCanliylaGuncelle } = require('../services/tesvikMakine/certificateResolver');
+  const topluYukleme = require('../services/tesvikMakine/topluYuklemeService');
+  const engine = require('../services/tesvikMakine/mailTemplateEngine');
 
   const surecler = await topluSurecler(targets, req.user);
   // Metin İLK sürecin bağlamıyla kuruluyor (firma/belge hepsinde aynı), ama
   // makine kimlikleri TÜM seçilenlerden birleştiriliyor.
   const onizleme = await mps.composeMail(surecler[0], templateCode, {});
-  const veri = topluPlaceholderVerisi(onizleme.data || {}, surecler);
 
-  // Şablonu birleşik veriyle yeniden render et
-  const engine = require('../services/tesvikMakine/mailTemplateEngine');
+  // Makine ID'leri süreç kopyasından değil canlı satırlardan: ID sonradan girilmiş olabilir
+  const canli = [];
+  for (const p of surecler) {
+    const { machineFields } = await mps.buildContext(p);
+    canli.push(snapshotuCanliylaGuncelle(p, machineFields));
+  }
+
+  // TEK yükleme linki; yüklenen evrak seçilen her makineye işlenir.
+  // Müşteri: "belge yükleme linki gelmiyor ... (uploadLink) olarak geliyor" — önizleme hiç link üretmiyordu.
+  let uploadLink = '';
+  if (onizleme.needsUploadLink) {
+    ({ link: uploadLink } = await topluYukleme.ensureTopluYuklemeLinki(surecler, { user: req.user }));
+  }
+  const veri = topluPlaceholderVerisi({ ...(onizleme.data || {}), uploadLink }, canli);
+
+  // Konu makine adı olmadan ("YTB 568825 Kapsamında Fatura Kesimi Hk."). Şablon mongoose belgesi
+  // olabilir; yayma (spread) alanları kopyalamaz, bu yüzden düz nesne kuruluyor.
   const tpl = await mps.resolveTemplate(templateCode);
-  const rendered = engine.renderTemplate(tpl, veri);
+  const rendered = engine.renderTemplate({
+    subjectTemplate: topluKonuSablonu(tpl.subjectTemplate),
+    bodyTemplate: tpl.bodyTemplate
+  }, veri);
+  // Tekil mailde KDV muafiyet linki gövdeye ekleniyor; toplu metinde de eksik kalmasın
+  const body = mps.kdvLinkiEkle(rendered.body, onizleme.kdvMuafiyet);
 
   res.json({
     success: true,
     data: {
       to: onizleme.to, cc: onizleme.cc,
-      subject: rendered.subject, body: rendered.body,
-      makineler: surecler.map((p) => ({ rowId: p.rowId, siraNo: p.siraNo, makineId: p.makineId })),
+      subject: rendered.subject, body,
+      makineler: canli.map((p) => ({ rowId: p.rowId, siraNo: p.siraNo, makineId: p.makineId })),
       makineIdListesi: veri.makineIdListesi,
       siraNoListesi: veri.siraNoListesi,
+      uploadLink,
+      // Doldurulamayan alanlar gönderimden ÖNCE gösterilir; gönderimde de engelleniyor
+      eksikAlanlar: eksikAlanEtiketleri(rendered.missing),
+      makineIdEksik: makineIdEksikSiralar(canli),
       smtpConfigured: mailService.isConfigured()
     }
   });
@@ -765,6 +795,15 @@ exports.bulkMailSend = wrap(async (req, res) => {
   }
   if (!String(subject || '').trim() || !String(body || '').trim()) {
     const e = new Error('Mail konusu ve metni boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
+  }
+
+  // Doldurulmamış yer tutucuyla mail gitmesin: tedarikçiye "{makineId}" yazan mail gitmesi
+  // müşterinin şikâyetiydi. Kullanıcı metni düzeltip tekrar gönderir.
+  const { cozulmemisYerTutucular, eksikAlanEtiketleri } = require('../services/tesvikMakine/topluMailIcerik');
+  const kalan = cozulmemisYerTutucular(`${subject}\n${body}`);
+  if (kalan.length) {
+    const e = new Error(`Mail metninde doldurulmamış alan var: ${kalan.map((k) => `{${k}}`).join(', ')} (${eksikAlanEtiketleri(kalan).join(', ')}). Metni düzeltip tekrar gönderin.`);
+    e.code = 'TEMPLATE_INCOMPLETE'; e.missing = kalan; throw e;
   }
 
   const surecler = await topluSurecler(targets, req.user);

@@ -347,7 +347,22 @@ export default function TesvikMakineDetail() {
                     <Alert severity="info" sx={{ py: 0.5 }}>
                       <b>Makine ID:</b> {topluMail.makineIdListesi || '—'}<br />
                       <b>Sıra No:</b> {topluMail.siraNoListesi || '—'}
+                      {topluMail.uploadLink && (
+                        <><br /><b>Yükleme linki:</b> tek link — yüklenen evrak seçilen tüm makinelere işlenir</>
+                      )}
                     </Alert>
+                    {topluMail.makineIdEksik?.length > 0 && (
+                      <Alert severity="warning" sx={{ py: 0.5 }}>
+                        Makine ID girilmemiş kalemler (sıra no): <b>{topluMail.makineIdEksik.join(', ')}</b> — makine
+                        listesinden ID girin ya da metinden çıkarın.
+                      </Alert>
+                    )}
+                    {topluMail.eksikAlanlar?.length > 0 && (
+                      <Alert severity="warning" sx={{ py: 0.5 }}>
+                        Metinde doldurulamayan alanlar: <b>{topluMail.eksikAlanlar.join(', ')}</b>. Süslü parantezli
+                        alan metinde kalırsa mail gönderilmez.
+                      </Alert>
+                    )}
                     <TextField size="small" label="Alıcı(lar)" fullWidth
                       value={topluMail.to} onChange={(e) => setTopluMail((p) => ({ ...p, to: e.target.value }))}
                       helperText="Birden fazla adres virgülle ayrılır" />

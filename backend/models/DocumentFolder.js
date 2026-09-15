@@ -1,5 +1,5 @@
 // 📁 DOCUMENT FOLDER - Belge/makine klasör kayıtları
-// provider: local (varsayılan) / drive / s3. Aynı (belge+makine) için tek klasör (idempotent).
+// provider: local (varsayılan) / drive / s3 / cloudinary. Aynı (belge+makine) için tek klasör (idempotent).
 
 const mongoose = require('mongoose');
 
@@ -9,7 +9,10 @@ const documentFolderSchema = new mongoose.Schema({
   machineProcessId: { type: mongoose.Schema.Types.ObjectId, ref: 'MachineProcess', default: null },
   rowId: { type: String, trim: true, default: null }, // null → belge-seviyesi klasör
 
-  provider: { type: String, enum: ['local', 'drive', 's3'], default: 'local' },
+  // storageService.getProvider()'ın döndürebildiği HER değer burada olmalı. 'cloudinary' yoktu:
+  // CLOUDINARY_STORAGE_ENABLED açılınca klasör kaydı "provider: `cloudinary` is not a valid enum
+  // value" hatasıyla düşüyor, toplu mail ve yükleme linki üretilemiyordu (müşteri, 15.09.2026).
+  provider: { type: String, enum: ['local', 'drive', 's3', 'cloudinary'], default: 'local' },
   folderPath: { type: String, required: true, trim: true }, // göreli yol (ör: Tesvikler/FIRMA/518097-1023736/...)
   providerFolderId: { type: String, trim: true, default: '' }, // Drive folder id / S3 prefix
   shareUrl: { type: String, trim: true, default: '' }

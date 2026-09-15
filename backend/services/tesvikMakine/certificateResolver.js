@@ -192,7 +192,24 @@ function dedupeCertificateRows(rows) {
   return Array.from(keep.values());
 }
 
+// Süreç kaydındaki makine bilgisi SÜRECİN AÇILDIĞI ANIN kopyası. Makine ID'si ETUYS'ten sonradan
+// girilir, ad düzeltilir; kopya ise eskide kalır ve mail "{makineId}" gibi boş yer tutucuyla gider.
+// Mail metni kurulurken canlı satırın DOLU alanları kopyanın önüne geçer; satır silinmişse
+// (alanlar boş gelir) kopya korunur.
+function snapshotuCanliylaGuncelle(proc, machineFields) {
+  const p = proc && typeof proc.toObject === 'function' ? proc.toObject() : { ...(proc || {}) };
+  const a = machineFields || {};
+  return {
+    ...p,
+    makineId: String(a.makineId || '').trim() || p.makineId || '',
+    siraNo: a.siraNo || p.siraNo || 0,
+    machineName: a.machineName || p.machineName || '',
+    gtipNo: a.gtipNo || p.gtipNo || ''
+  };
+}
+
 module.exports = {
+  snapshotuCanliylaGuncelle,
   modelFor,
   formatDateTR,
   loadCertificate,

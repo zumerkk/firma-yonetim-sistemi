@@ -266,7 +266,7 @@ async function changeStatus(proc, newStatus, { note = '', user = null, actionTyp
 // subjectOverride/bodyOverride: önizlemede elle düzenlenmiş konu/içerik — doluysa şablon yerine bunlar gönderilir
 async function composeMail(proc, templateCode, { uploadLink = '', toOverride, ccOverride, subjectOverride, bodyOverride } = {}) {
   const tpl = await resolveTemplate(templateCode);
-  const { cert, identity } = await buildContext(proc);
+  const { cert, identity, machineFields } = await buildContext(proc);
   const kdvMuafiyet = kdvMuafiyetService.ozet(cert.kdvMuafiyetYazisi);
   // {mailTarihi} = bu makine için SON GÖNDERİLEN mailin tarihi (müşteri isteği: hatırlatmada
   // bugünün değil, önceki talebin tarihi yazmalı). Hiç gönderilmiş mail yoksa bugüne düşer.
@@ -278,8 +278,10 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
       .lean();
     if (sonGonderilen) mailDate = sonGonderilen.sentAt || sonGonderilen.createdAt || mailDate;
   }
+  // Makine ID/adı süreç kopyasından değil canlı satırdan (bkz. resolver.snapshotuCanliylaGuncelle)
   const data = resolver.buildPlaceholderData({
-    process: proc, identity, signature: getSignature(), uploadLink, mailDate, kdvMuafiyet
+    process: resolver.snapshotuCanliylaGuncelle(proc, machineFields),
+    identity, signature: getSignature(), uploadLink, mailDate, kdvMuafiyet
   });
   const rendered = engine.renderTemplate(tpl, data);
   const audience = audienceForTemplate(templateCode);
@@ -491,8 +493,23 @@ async function stopReminders(proc, { user } = {}) {
 
 async function resumeReminders(proc, { user } = {}) {
   proc.reminderStopped = false;
+  // Açılış migrasyonu (hatirlatmaVarsayilan) elle açılan süreci bir daha kapatmasın
+  proc.reminderManuallyEnabledAt = new Date();
   await proc.save();
+  // Not metni hatirlatmaVarsayilan.ELLE_ACILDI_NOTU ile aynı kalmalı (geçmiş elle açmaları tanıyor)
   await addLog({ proc, actionType: PROCESS_ACTION.FIELDS_UPDATED, note: 'Hatırlatmalar yeniden etkinleştirildi', user });
+
+  // Hatırlatmalar kapalı başladığı için mail çoğu zaman ÖNCE gidiyor, hatırlatma sonra açılıyor.
+  // Planlama yalnızca gönderim anında yapıldığından o durumda hiç hatırlatma kurulmazdı;
+  // son asıl maile göre şimdi kur (bekleyen iş varsa ikincisini açma).
+  if (proc.lastMailAt && !status.isReminderSuppressed(proc.status)) {
+    const bekleyen = await ReminderJob.countDocuments({ machineProcessId: proc._id, status: 'pending' });
+    if (!bekleyen) {
+      const sonMail = await MailLog.findOne({ machineProcessId: proc._id, status: MAIL_STATUS.SENT, isReminder: { $ne: true } })
+        .sort({ sentAt: -1, createdAt: -1 });
+      await scheduleReminder(proc, sonMail);
+    }
+  }
   return proc;
 }
 

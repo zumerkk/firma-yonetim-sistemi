@@ -116,7 +116,21 @@ export default function PublicUpload() {
         <Row label="Firma" value={info.firmaAdi} />
         <Row label="Belge No" value={info.belgeNo} />
         <Row label="Makine" value={`${info.siraNo ? info.siraNo + '. ' : ''}${info.makineAdi}`} />
-        <Row label="Liste" value={listTypeLabel(info.listType)} />
+        {/* Toplu mail linki birden fazla makineyi kapsar: yüklenen evrak hepsine işlenir */}
+        {Array.isArray(info.makineler) && info.makineler.length > 0 ? (
+          <Box sx={{ mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Bu bağlantıyla yüklenen evrak aşağıdaki makinelerin hepsine işlenir:
+            </Typography>
+            {info.makineler.map((m) => (
+              <Typography key={`${m.siraNo}-${m.makineId}-${m.makineAdi}`} variant="body2" sx={{ fontWeight: 500, mt: 0.25 }}>
+                {m.siraNo ? `${m.siraNo}. ` : ''}{m.makineAdi || 'Makine'}{m.makineId ? ` (ID ${m.makineId})` : ''}
+              </Typography>
+            ))}
+          </Box>
+        ) : (
+          <Row label="Liste" value={listTypeLabel(info.listType)} />
+        )}
       </Box>
       <Divider sx={{ mb: 2 }} />
       <form onSubmit={submit}>

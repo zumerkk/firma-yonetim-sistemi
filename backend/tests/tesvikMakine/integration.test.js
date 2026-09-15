@@ -89,6 +89,8 @@ describe('durum geçişleri', () => {
   test('hatırlatma bastıran duruma geçince pending joblar iptal edilir', async () => {
     const p = await mps.ensureProcess(baseTarget);
     await mps.changeStatus(p, 'inquiry_sent', { user });
+    // Hatırlatmalar yeni süreçte kapalı başlıyor (müşteri isteği); bu test açık hâli sınıyor
+    await mps.resumeReminders(p, { user });
     await mps.scheduleReminder(p, null);
     expect(await ReminderJob.countDocuments({ machineProcessId: p._id, status: 'pending' })).toBe(1);
     await mps.changeStatus(p, 'cancelled', { user });

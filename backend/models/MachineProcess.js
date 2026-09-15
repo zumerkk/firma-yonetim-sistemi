@@ -65,7 +65,11 @@ const machineProcessSchema = new mongoose.Schema({
   nextReminderAt: { type: Date, index: true },
   lastReminderAt: { type: Date },
   reminderCount: { type: Number, default: 0 },
-  reminderStopped: { type: Boolean, default: false }, // Admin "Hatırlatmayı durdur"
+  // Müşteri (15.09.2026): "Hatırlatmalar da otomatik olarak kapalı gelsin biz manuel açabilelim
+  // istersek." Yeni süreç KAPALI başlar; makine detayındaki "Hatırlatmayı Aç" ile açılır.
+  reminderStopped: { type: Boolean, default: true },
+  // Elle açıldığı an — açılış migrasyonu (hatirlatmaVarsayilan) bu sürece dokunmaz
+  reminderManuallyEnabledAt: { type: Date, default: null },
 
   // 📁 Klasör & evrak
   folderId: { type: mongoose.Schema.Types.ObjectId, ref: 'DocumentFolder' },
