@@ -59,4 +59,59 @@ function topluPlaceholderVerisi(tekilVeri, processes) {
   };
 }
 
-module.exports = { makineListeleri, topluPlaceholderVerisi };
+// Toplu mailin konusunda makine adı OLMAZ — müşteri (15.09.2026): "mail konusunda makine ismi
+// yazmasın sadece 'YTB 568825 Kapsamında Fatura Kesimi Hk.' gibi kalabilir". Tek makinenin adı
+// N makinelik maili yanlış tarif ediyordu. {makineAdi} yanındaki TEK ayraçla birlikte atılır.
+function topluKonuSablonu(sablon) {
+  return String(sablon || '')
+    .replace(/\{makineAdi\}\s*[-–—:|]\s*/g, '')
+    .replace(/\s*[-–—:|]\s*\{makineAdi\}/g, '')
+    .replace(/\{makineAdi\}/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+// Makine ID'si girilmemiş kalemlerin sıra numaraları — önizlemede "hangi makinede eksik" uyarısı
+function makineIdEksikSiralar(processes) {
+  return (processes || [])
+    .filter((p) => !String(p?.makineId ?? '').trim())
+    .map((p) => Number(p?.siraNo) || 0)
+    .sort((a, b) => a - b);
+}
+
+// Şablon motorunun bildiği yer tutucular (certificateResolver.buildPlaceholderData + toplu anahtarlar).
+// Motor değeri boş olan yer tutucuyu metinde OLDUĞU GİBİ bırakıyor; gönderimden önce yakalanmazsa
+// tedarikçiye "{makineId}" yazan mail gidiyor — müşterinin şikâyeti tam olarak buydu.
+const BILINEN_YER_TUTUCULAR = [
+  'firmaAdi', 'makineAdi', 'belgeNo', 'belgeId', 'belgeTarihi', 'makineId', 'siraNo',
+  'tedarikciMail', 'tedarikciVergiNo', 'uploadLink', 'mailTarihi', 'imza',
+  'kdvMuafiyetLinki', 'kdvMuafiyetBaslangic', 'kdvMuafiyetBitis',
+  'makineIdListesi', 'siraNoListesi', 'makineAdedi'
+];
+
+const ALAN_ETIKETLERI = {
+  firmaAdi: 'Firma adı', makineAdi: 'Makine adı', belgeNo: 'Belge no', belgeId: 'Belge ID',
+  belgeTarihi: 'Belge tarihi', makineId: 'Makine ID', siraNo: 'Sıra no',
+  tedarikciMail: 'Tedarikçi maili', tedarikciVergiNo: 'Tedarikçi vergi no', uploadLink: 'Yükleme linki',
+  mailTarihi: 'Mail tarihi', imza: 'İmza', kdvMuafiyetLinki: 'KDV muafiyet yazısı linki',
+  kdvMuafiyetBaslangic: 'KDV muafiyet başlangıcı', kdvMuafiyetBitis: 'KDV muafiyet bitişi',
+  makineIdListesi: 'Makine ID listesi', siraNoListesi: 'Sıra no listesi', makineAdedi: 'Makine adedi'
+};
+
+// Metinde kalmış bilinen yer tutucular (tekrarsız). Bilinmeyen süslü parantezli metne dokunmaz.
+function cozulmemisYerTutucular(metin) {
+  const bulunan = new Set();
+  for (const [, anahtar] of String(metin || '').matchAll(/\{([A-Za-z][A-Za-z0-9_]*)\}/g)) {
+    if (BILINEN_YER_TUTUCULAR.includes(anahtar)) bulunan.add(anahtar);
+  }
+  return [...bulunan];
+}
+
+function eksikAlanEtiketleri(anahtarlar) {
+  return (anahtarlar || []).map((k) => ALAN_ETIKETLERI[k] || k);
+}
+
+module.exports = {
+  makineListeleri, topluPlaceholderVerisi, topluKonuSablonu, makineIdEksikSiralar,
+  cozulmemisYerTutucular, eksikAlanEtiketleri, BILINEN_YER_TUTUCULAR
+};

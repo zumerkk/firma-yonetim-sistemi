@@ -522,6 +522,17 @@ const startServer = async () => {
       console.error('⚠️ Fatura durumu migrasyonu hatası (kritik değil):', err.message);
     }
 
+    // 🔕 Makine hatırlatmaları varsayılan KAPALI (müşteri, 15.09.2026: "otomatik olarak kapalı gelsin
+    // biz manuel açabilelim istersek"). Elle açılmamış eski süreçlerin hatırlatması kapatılır; elle
+    // açılanlara dokunulmaz, bu yüzden her açılışta güvenle çalışır.
+    try {
+      const { hatirlatmalariVarsayilanKapat } = require('./services/tesvikMakine/hatirlatmaVarsayilan');
+      const sonuc = await hatirlatmalariVarsayilanKapat();
+      if (sonuc.kapatilan > 0) console.log(`✅ Hatırlatma varsayılanı: ${sonuc.kapatilan} süreçte otomatik hatırlatma kapatıldı`);
+    } catch (err) {
+      console.error('⚠️ Hatırlatma varsayılanı migrasyonu hatası (kritik değil):', err.message);
+    }
+
     // 🌱 İşlem türleri seed (yalnızca hiç kayıt yoksa — kullanıcı düzenlemeleri korunur)
     try {
       const { seedIslemTurleri, ornekDosyalariBagla } = require('./services/islemEvrak/seedIslemTurleri');

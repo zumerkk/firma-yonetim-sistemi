@@ -35,13 +35,18 @@ async function resolveByToken(token) {
   const belge = await araKontrol.resolveBelgeByToken(token);
   if (belge && belge.expired) return { error: [410, 'Bağlantının süresi dolmuş. Lütfen yetkiliyle iletişime geçin.'] };
   if (belge) return { belgeCtx: belge };
+  // Toplu mail linki: birden fazla makineyi kapsar (bkz. models/TopluYuklemeBaglantisi.js)
+  const topluYukleme = require('../services/tesvikMakine/topluYuklemeService');
+  const grup = await topluYukleme.resolveTopluByToken(token);
+  if (grup && grup.expired) return { error: [410, 'Bağlantının süresi dolmuş. Lütfen yetkiliyle iletişime geçin.'] };
+  if (grup) return { grupCtx: grup };
   return { error: [404, 'Bağlantı bulunamadı veya geçersiz.'] };
 }
 
 // GET /api/tesvik-evrak/:token → yükleme ekranı için sade bilgi
 exports.getInfo = async (req, res) => {
   try {
-    const { proc, belgeCtx, error } = await resolveByToken(req.params.token);
+    const { proc, belgeCtx, grupCtx, error } = await resolveByToken(req.params.token);
     if (error) return fail(res, error[0], error[1]);
     const ortak = {
       // Firmaya yalnızca ilgili türler gösterilir; yükleme doğrulaması (DOCUMENT_TYPE_KEYS)
@@ -65,6 +70,27 @@ exports.getInfo = async (req, res) => {
           siraNo: 0,
           listType: 'local',
           ...ortak
+        }
+      });
+    }
+    if (grupCtx) {
+      // Toplu mail linki: kapsanan makineler listelenir; evrak türleri liste tiplerinin birleşimi
+      // (yerli + ithal karışık seçimde hem fatura türleri hem beyanname)
+      const { topluBelgeTurleri } = require('../services/tesvikMakine/topluYuklemeService');
+      const ilk = grupCtx.processes[0];
+      return res.json({
+        success: true,
+        data: {
+          firmaAdi: ilk.firmaName || '',
+          belgeNo: ilk.documentNo || '',
+          makineAdi: `${grupCtx.processes.length} makine kalemi`,
+          siraNo: 0,
+          listType: ilk.listType,
+          makineler: grupCtx.processes.map((p) => ({
+            siraNo: p.siraNo || 0, makineAdi: p.machineName || '', makineId: p.makineId || ''
+          })),
+          ...ortak,
+          documentTypes: topluBelgeTurleri(grupCtx.processes.map((p) => p.listType))
         }
       });
     }
@@ -143,7 +169,7 @@ exports.kdvMuafiyetDownload = async (req, res) => {
 // POST /api/tesvik-evrak/:token → dosya yükle
 exports.upload = async (req, res) => {
   try {
-    const { proc, belgeCtx, error } = await resolveByToken(req.params.token);
+    const { proc, belgeCtx, grupCtx, error } = await resolveByToken(req.params.token);
     if (error) return fail(res, error[0], error[1]);
     const files = req.uploadedFiles || (req.file ? [req.file] : []);
     if (!files.length) return fail(res, 400, 'Lütfen en az bir dosya seçin.');
@@ -182,24 +208,38 @@ exports.upload = async (req, res) => {
       return res.json({ success: true, message: bMsg, count: files.length });
     }
 
-    const { identity, machineFields } = await mps.buildContext(proc);
-    const folderRel = storageService.machineFolderRel(identity, machineFields, proc.listType);
-    await storageService.ensureMachineStructure(identity, machineFields, proc.listType);
-
-    for (const file of files) {
-      const saved = await storageService.saveBuffer({
-        folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
-        originalName: file.originalname, buffer: file.buffer
-      });
-      await mps.recordUploadedDocument({
-        proc, documentType, saved, fileSize: file.size, mimeType: file.mimetype,
-        uploadedBy: null, uploadedByType, uploaderName, note, originalName: file.originalname
-      });
+    // Makine linki tek süreci, toplu mail linki birden fazla süreci kapsar; kayıt akışı her biri için aynı
+    const surecler = grupCtx ? grupCtx.processes : [proc];
+    // Önce tüm makinelerin bağlamı: bir makinenin belgesi bulunamazsa hiçbirine yazılmadan
+    // hata dönsün, yarım yükleme kalmasın
+    const hedefler = [];
+    for (const p of surecler) {
+      const { identity, machineFields } = await mps.buildContext(p);
+      hedefler.push({ p, identity, machineFields });
     }
 
-    // 🔔 Ekibe bilgilendirme maili (best-effort — yüklemeyi bloklamaz/etkilemez)
-    mps.notifyUploadReceived(proc, {
-      count: files.length, documentType, uploaderType: uploadedByType, uploaderName, note
+    for (const { p, identity, machineFields } of hedefler) {
+      const folderRel = storageService.machineFolderRel(identity, machineFields, p.listType);
+      await storageService.ensureMachineStructure(identity, machineFields, p.listType);
+      for (const file of files) {
+        const saved = await storageService.saveBuffer({
+          folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
+          originalName: file.originalname, buffer: file.buffer
+        });
+        await mps.recordUploadedDocument({
+          proc: p, documentType, saved, fileSize: file.size, mimeType: file.mimetype,
+          uploadedBy: null, uploadedByType, uploaderName, note, originalName: file.originalname
+        });
+      }
+    }
+
+    // 🔔 Ekibe bilgilendirme maili (best-effort — yüklemeyi bloklamaz/etkilemez).
+    // Toplu linkte tek bildirim gider; kapsanan makineler notta yazar.
+    const bildirimNotu = grupCtx
+      ? [`Toplu bağlantı — ${surecler.length} makine kalemi (sıra no: ${surecler.map((p) => p.siraNo).join(', ')})`, note].filter(Boolean).join('\n')
+      : note;
+    mps.notifyUploadReceived(surecler[0], {
+      count: files.length, documentType, uploaderType: uploadedByType, uploaderName, note: bildirimNotu
     }).catch((e) => console.error('🚨 [tesvikEvrak] upload bildirimi:', e && e.message));
 
     const msg = files.length > 1
