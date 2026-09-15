@@ -2,7 +2,8 @@
 // Excel şablonu 1:1 aynısı - GM ID otomatik, tüm firmalar, U$97 kodları
 // Mali hesaplamalar + ürün bilgileri + destek unsurları + özel şartlar
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { secenekEtiketi, secenekleriTemizle } from '../../utils/tesvikSecenek';
 import {
   Container,
   Paper,
@@ -714,26 +715,34 @@ const YeniTesvikForm = () => {
   }, [id, isEdit]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🔧 FIX: formData değiştiğinde satır sayılarını senkronize et (revize modunda timing sorununu çözer)
+  // Yalnız BÜYÜTÜR (dolu satır gösterilenden fazlaysa açar). Küçültmek, "Ekle" ile açılan boş satırı
+  // anında geri kapatıyor ve içi temizlenen satırdan sonrakileri gizliyordu.
   useEffect(() => {
     if (isEdit && formData.ozelSartlar && formData.ozelSartlar.length > 0) {
       const actualOzelSartCount = formData.ozelSartlar.filter(s => s && (s.kisaltma || s.notu)).length;
-      if (actualOzelSartCount > 0 && actualOzelSartCount !== ozelSartSayisi) {
-        console.log('🔄 Özel şart sayısı senkronize ediliyor:', actualOzelSartCount);
-        setOzelSartSayisi(Math.max(1, actualOzelSartCount));
+      if (actualOzelSartCount > ozelSartSayisi) {
+        setOzelSartSayisi(actualOzelSartCount);
       }
     }
     if (isEdit && formData.destekUnsurlari && formData.destekUnsurlari.length > 0) {
-      const actualDestekCount = formData.destekUnsurlari.filter(d => d && d.destekUnsuru).length;
-      if (actualDestekCount > 0 && actualDestekCount !== destekSayisi) {
-        console.log('🔄 Destek unsuru sayısı senkronize ediliyor:', actualDestekCount);
-        setDestekSayisi(Math.max(1, actualDestekCount));
+      const actualDestekCount = formData.destekUnsurlari.filter(d => d && (d.destekUnsuru || d.sartlari)).length;
+      if (actualDestekCount > destekSayisi) {
+        setDestekSayisi(actualDestekCount);
       }
     }
   }, [isEdit, formData.ozelSartlar, formData.destekUnsurlari]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Şablon listeleri formun ömrü boyunca birden çok kez yüklenir: yeni özel şart / destek seçeneği
+  // eklenince listeler tazeleniyor. Yalnız İLK yükleme formu kurar ve yükleniyor ekranı gösterir.
+  // Müşteri (15.09.2026): "ENTER'a basarsak sisteme kalıcı olarak kaydediyor ama bütün belgenin
+  // içindeki bilgileri siliyor". Sebep: tazeleme de `loading` ile tüm formu söküyor ve yeni belgede
+  // ürün / destek / özel şart / künye alanlarını şablon varsayılanlarına geri yazıyordu.
+  const ilkYuklemeRef = useRef(true);
+
   const loadInitialData = async () => {
+    const ilkYukleme = ilkYuklemeRef.current;
     try {
-      setLoading(true);
+      if (ilkYukleme) setLoading(true);
       // console.log('🔥 Loading template data from new API...');
 
       // API endpoint'i kullan - tüm veriler tek çağrıda!
@@ -838,8 +847,8 @@ const YeniTesvikForm = () => {
           nextTesvikId: data.nextTesvikId || ''
         });
 
-        // 🎯 GM ID'yi otomatik ata (edit değilse)
-        if (!isEdit && data.nextGmId) {
+        // 🎯 GM ID'yi otomatik ata (edit değilse) — yalnız İLK yüklemede; tazeleme girilen bilgiyi ezmesin
+        if (ilkYukleme && !isEdit && data.nextGmId) {
           setFormData(prev => ({
             ...prev,
             gmId: data.nextGmId,
@@ -873,7 +882,10 @@ const YeniTesvikForm = () => {
       console.error('🚨 Template data hatası:', error);
       setError('Başlangıç verileri yüklenemedi: ' + (error.response?.data?.message || error.message));
     } finally {
-      setLoading(false);
+      if (ilkYukleme) {
+        setLoading(false);
+        ilkYuklemeRef.current = false;
+      }
     }
   };
 
@@ -1167,7 +1179,8 @@ const YeniTesvikForm = () => {
               const mapped = backendData.destekUnsurlari.map((destek, idx) => ({
                 index: idx + 1,
                 destekUnsuru: destek.destekUnsuru || '',
-                sartlari: destek.sarti || '' // Backend: sarti → Frontend: sartlari
+                // Eski kayıtlarda boş şart '-' olarak yazılmıştı; formda boş görünsün
+                sartlari: (destek.sarti && destek.sarti.trim() !== '-') ? destek.sarti : '' // Backend: sarti → Frontend: sartlari
               }));
               console.log('✅ [DEBUG] Destek unsurları mapped:', mapped);
               return mapped;
@@ -1458,14 +1471,35 @@ const YeniTesvikForm = () => {
     }
   };
 
-  const removeDestekField = () => {
+  // Müşteri: "Sadece son eklediğimiz özel şarttan/destek unsurundan itibaren silebiliyoruz, mesela
+  // 9 tane var ama 2. silinmiş, 9'dan 2ye kadar silip tekrar eklememiz gerekiyor." Silme artık
+  // tıklanan satırı kaldırır; tek satır kaldıysa satırı boşaltır.
+  const removeDestekField = (silinecek) => {
     if (destekSayisi > 1) {
       setDestekSayisi(prev => prev - 1);
       setFormData(prevData => ({
         ...prevData,
-        destekUnsurlari: prevData.destekUnsurlari.slice(0, -1)
+        destekUnsurlari: prevData.destekUnsurlari
+          .filter((_, i) => i !== silinecek)
+          .map((d, i) => ({ ...d, index: i + 1 }))
+      }));
+    } else {
+      setFormData(prevData => ({
+        ...prevData,
+        destekUnsurlari: prevData.destekUnsurlari.map((d, i) => (i === silinecek ? { ...d, destekUnsuru: '', sartlari: '' } : d))
       }));
     }
+  };
+
+  // Yazılan metni forma geçirir. handleDestekChange'i çağırmaz: oradaki otomatik şart doldurma
+  // (API çağrısı) her tuşta çalışıp yazılan şartın üzerine yazardı.
+  const destekAlaniniYaz = (index, field, value) => {
+    setFormData(prevData => {
+      const liste = Array.isArray(prevData.destekUnsurlari) ? [...prevData.destekUnsurlari] : [];
+      while (liste.length <= index) liste.push({ index: liste.length + 1, destekUnsuru: '', sartlari: '' });
+      liste[index] = { ...liste[index], [field]: value };
+      return { ...prevData, destekUnsurlari: liste };
+    });
   };
 
   // 🎯 Dinamik Özel Şart Yönetimi - 1 başlangıç, limit kaldırıldı
@@ -1480,12 +1514,19 @@ const YeniTesvikForm = () => {
     }));
   };
 
-  const removeOzelSartField = () => {
+  const removeOzelSartField = (silinecek) => {
     if (ozelSartSayisi > 1) {
       setOzelSartSayisi(prev => prev - 1);
       setFormData(prevData => ({
         ...prevData,
-        ozelSartlar: prevData.ozelSartlar.slice(0, -1)
+        ozelSartlar: prevData.ozelSartlar
+          .filter((_, i) => i !== silinecek)
+          .map((s, i) => ({ ...s, index: i + 1 }))
+      }));
+    } else {
+      setFormData(prevData => ({
+        ...prevData,
+        ozelSartlar: prevData.ozelSartlar.map((s, i) => (i === silinecek ? { ...s, kisaltma: '', notu: '' } : s))
       }));
     }
   };
@@ -2255,7 +2296,8 @@ const YeniTesvikForm = () => {
           console.log('📤 [DEBUG] Destek unsurları AFTER filter:', filtered.length, 'kayıt');
           return filtered.map(destek => ({
             destekUnsuru: destek.destekUnsuru.trim(),
-            sarti: (destek.sartlari?.trim() || '-'),
+            // Şart boş bırakılabilir (müşteri: "destek unsurunun şartını boş bırakamıyoruz") — '-' yazılmaz
+            sarti: (destek.sartlari?.trim() || ''),
             aciklama: destek.aciklama?.trim() || ''
           }));
         })(),
@@ -2263,13 +2305,14 @@ const YeniTesvikForm = () => {
         // 🔧 Özel Şartlar model formatına çevir - ✅ FİXED: kisaltma zorunlu (backend required)
         ozelSartlar: (() => {
           console.log('📤 [DEBUG] formData.ozelSartlar BEFORE filter:', JSON.stringify(formData.ozelSartlar, null, 2));
+          // Kısaltması boş ama açıklaması yazılmış şart da kaydedilir; eskiden sessizce atılıyordu
           const filtered = formData.ozelSartlar?.filter(s =>
-            s && s.kisaltma && s.kisaltma.trim() !== ''
+            s && ((s.kisaltma || '').trim() !== '' || (s.notu || '').trim() !== '')
           ) || [];
           console.log('📤 [DEBUG] Özel şartlar AFTER filter:', filtered.length, 'kayıt');
           return filtered.map((sart, index) => ({
             koşulNo: index + 1,
-            koşulMetni: sart.kisaltma.trim(),
+            koşulMetni: (sart.kisaltma || '').trim(),
             aciklamaNotu: (sart.notu?.trim() || '')
           }));
         })()
@@ -3971,9 +4014,10 @@ const YeniTesvikForm = () => {
                 }}
               >
                 🎯 Destek Unsuru ({index + 1})
-                {destekSayisi > 1 && index === destekSayisi - 1 && (
+                {(destekSayisi > 1 || destek.destekUnsuru || destek.sartlari) && (
                   <IconButton
-                    onClick={removeDestekField}
+                    onClick={() => removeDestekField(index)}
+                    title="Bu destek unsurunu sil"
                     size="small"
                     sx={{
                       backgroundColor: '#ff4444',
@@ -4017,27 +4061,42 @@ const YeniTesvikForm = () => {
                       handleDestekChange(index, 'destekUnsuru', '');
                     }
                   }}
-                  options={templateData.destekUnsurlariOptions || []}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.label || option.value || '';
+                  onInputChange={(event, newInputValue, reason) => {
+                    // Müşteri: "yazı yazdığımızda kaydetmiyor" — yazılan metin ENTER'a basılmadan da forma geçsin
+                    if (reason === 'input' || reason === 'clear') {
+                      destekAlaniniYaz(index, 'destekUnsuru', newInputValue || '');
+                    }
                   }}
+                  onBlur={(event) => {
+                    // Yazılan metin artık ENTER'sız forma geçtiği için ENTER'ın yaptığı iki iş (yeni seçeneği
+                    // sisteme öğretmek, şartı otomatik doldurmak) odaktan çıkınca yapılır
+                    const yazilan = (event.target.value || '').trim();
+                    if (!yazilan) return;
+                    const listede = secenekleriTemizle(templateData.destekUnsurlariOptions).some((o) => secenekEtiketi(o) === yazilan);
+                    if (!listede && yazilan.length >= 3) addNewDestekUnsuru(yazilan);
+                    if (!destek.sartlari) handleDestekChange(index, 'destekUnsuru', yazilan);
+                  }}
+                  options={secenekleriTemizle(templateData.destekUnsurlariOptions)}
+                  getOptionLabel={secenekEtiketi}
                   renderOption={(props, option) => {
                     const { key, ...otherProps } = props;
+                    const etiket = secenekEtiketi(option);
                     return (
-                      <Box component="li" key={`destek-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                          label={option.kategori}
-                          size="small"
-                          sx={{
-                            backgroundColor: option.renk || '#6B7280',
-                            color: 'white',
-                            fontSize: '0.7rem'
-                          }}
-                        />
+                      <Box component="li" key={`destek-${props['data-option-index']}-${etiket}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {option?.kategori && (
+                          <Chip
+                            label={option.kategori}
+                            size="small"
+                            sx={{
+                              backgroundColor: option.renk || '#6B7280',
+                              color: 'white',
+                              fontSize: '0.7rem'
+                            }}
+                          />
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
-                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                          <span style={{ fontSize: '0.875rem' }}>{etiket}</span>
+                          {option?.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
                       </Box>
                     );
@@ -4088,24 +4147,39 @@ const YeniTesvikForm = () => {
                       handleDestekChange(index, 'sartlari', '');
                     }
                   }}
-                  options={templateData.destekSartlariOptions || []}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.label || option.value || '';
+                  onInputChange={(event, newInputValue, reason) => {
+                    // Yazılan şart ENTER'a basılmadan da forma geçsin; silinip boş bırakılabilsin
+                    if (reason === 'input' || reason === 'clear') {
+                      destekAlaniniYaz(index, 'sartlari', newInputValue || '');
+                    }
                   }}
+                  onBlur={(event) => {
+                    // Yeni yazılan şart, ENTER'da olduğu gibi odaktan çıkınca sisteme öğretilir
+                    const yazilan = (event.target.value || '').trim();
+                    const listede = secenekleriTemizle(templateData.destekSartlariOptions).some((o) => secenekEtiketi(o) === yazilan);
+                    if (yazilan.length >= 3 && !listede) addNewDestekSarti(yazilan);
+                  }}
+                  options={secenekleriTemizle(templateData.destekSartlariOptions)}
+                  getOptionLabel={secenekEtiketi}
                   renderOption={(props, option) => {
                     const { key, ...otherProps } = props;
+                    const etiket = secenekEtiketi(option);
+                    // Otomatik doldurmanın eklediği şartlar DÜZ METİN: nesne alanları olmadığında
+                    // boş rozetler çizilip listede boş satırlar oluşuyordu
+                    const nesne = Boolean(option) && typeof option === 'object';
                     return (
-                      <Box component="li" key={`sart-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}>
+                      <Box component="li" key={`sart-${props['data-option-index']}-${etiket}`} {...otherProps} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', py: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{option.label}</span>
-                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                          <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>{etiket}</span>
+                          {nesne && option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
-                        <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                          <Chip label={option.kategori} size="small" variant="outlined" />
-                          {option.yuzde && <Chip label={`%${option.yuzde}`} size="small" color="success" />}
-                          {option.yil && <Chip label={`${option.yil} yıl`} size="small" color="info" />}
-                        </Box>
+                        {nesne && (option.kategori || option.yuzde || option.yil) && (
+                          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                            {option.kategori && <Chip label={option.kategori} size="small" variant="outlined" />}
+                            {option.yuzde && <Chip label={`%${option.yuzde}`} size="small" color="success" />}
+                            {option.yil && <Chip label={`${option.yil} yıl`} size="small" color="info" />}
+                          </Box>
+                        )}
                       </Box>
                     );
                   }}
@@ -4237,9 +4311,10 @@ const YeniTesvikForm = () => {
                 }}
               >
                 🏷️ Özel Şart ({index + 1})
-                {ozelSartSayisi > 1 && index === ozelSartSayisi - 1 && (
+                {(ozelSartSayisi > 1 || sart.kisaltma || sart.notu) && (
                   <IconButton
-                    onClick={removeOzelSartField}
+                    onClick={() => removeOzelSartField(index)}
+                    title="Bu özel şartı sil"
                     size="small"
                     sx={{
                       backgroundColor: '#ff4444',
@@ -4295,23 +4370,23 @@ const YeniTesvikForm = () => {
                       handleOzelSartChange(index, 'kisaltma', inputValue.trim());
                     }
                   }}
-                  options={templateData.ozelSartKisaltmalari || []}
-                  getOptionLabel={(option) => {
-                    if (typeof option === 'string') return option;
-                    return option.label || option.value || '';
-                  }}
+                  options={secenekleriTemizle(templateData.ozelSartKisaltmalari)}
+                  getOptionLabel={secenekEtiketi}
                   renderOption={(props, option) => {
                     const { key, ...otherProps } = props;
+                    const etiket = secenekEtiketi(option);
                     return (
-                      <Box component="li" key={`kisaltma-${option.value || option.label}-${Math.random()}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                          label={option.kategori}
-                          size="small"
-                          sx={{ backgroundColor: option.renk || '#6B7280', color: 'white', fontSize: '0.7rem' }}
-                        />
+                      <Box component="li" key={`kisaltma-${props['data-option-index']}-${etiket}`} {...otherProps} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {option?.kategori && (
+                          <Chip
+                            label={option.kategori}
+                            size="small"
+                            sx={{ backgroundColor: option.renk || '#6B7280', color: 'white', fontSize: '0.7rem' }}
+                          />
+                        )}
                         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <span style={{ fontSize: '0.875rem' }}>{option.label}</span>
-                          {option.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
+                          <span style={{ fontSize: '0.875rem' }}>{etiket}</span>
+                          {option?.isDynamic && <Chip label="Özel" size="small" color="primary" sx={{ ml: 1 }} />}
                         </div>
                       </Box>
                     );
@@ -4375,7 +4450,7 @@ const YeniTesvikForm = () => {
                       handleOzelSartChange(index, 'notu', inputValue.trim());
                     }
                   }}
-                  options={templateData.ozelSartNotlari || []}
+                  options={secenekleriTemizle(templateData.ozelSartNotlari)}
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
                     return option.label || option.value || '';
