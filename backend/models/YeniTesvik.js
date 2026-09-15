@@ -343,11 +343,14 @@ const destekUnsurlariSchema = new mongoose.Schema({
 // ⚖️ Özel Şartlar Schema
 const ozelSartlarSchema = new mongoose.Schema({
   koşulNo: { type: Number, required: true },
+  // Kısaltma boş olabilir: yalnız açıklaması yazılmış özel şart zorunlu alan hatasıyla belgenin
+  // TAMAMININ kaydını düşürüyordu (müşteri, 15.09.2026: "özel şart ... yazı yazdığımızda kaydetmiyor")
   koşulMetni: {
     type: String,
-    required: true,
+    required: false,
     trim: true,
-    maxlength: 300
+    maxlength: 300,
+    default: ''
   },
   aciklamaNotu: {
     type: String,
