@@ -549,6 +549,39 @@ const startServer = async () => {
       console.error('⚠️ İşlem türü seed hatası (kritik değil):', err.message);
     }
 
+    // 🔤 Bozuk dosya adlarını onar (müşteri, 16.09.2026: listede "GÃ¼ncel Ä°mza SirkÃ¼leri.pdf").
+    // multer adı latin1 çözdüğü için UTF-8 baytları karaktere dönüşmüştü; onarım aynı baytları
+    // geri yazıp UTF-8 okuyor. Idempotent: yalnız bozuk iz taşıyan ve güvenle çevrilen adlar.
+    try {
+      const { dosyaAdiDuzelt } = require('./utils/dosyaAdiKodlama');
+      const IslemTalebi = require('./models/IslemTalebi');
+      let onarilan = 0;
+      const talepler = await IslemTalebi.find({}).select('yuklenenEvraklar istenenEvraklar');
+      for (const talep of talepler) {
+        let degisti = false;
+        (talep.yuklenenEvraklar || []).forEach((y) => {
+          ['dosyaAdi', 'orijinalAd'].forEach((alan) => {
+            const yeni = dosyaAdiDuzelt(y[alan]);
+            if (yeni !== y[alan]) { y[alan] = yeni; degisti = true; onarilan += 1; }
+          });
+        });
+        (talep.istenenEvraklar || []).forEach((e) => {
+          if (!e.ornekDosya) return;
+          const yeni = dosyaAdiDuzelt(e.ornekDosya.dosyaAdi);
+          if (yeni !== e.ornekDosya.dosyaAdi) { e.ornekDosya.dosyaAdi = yeni; degisti = true; onarilan += 1; }
+        });
+        // Tek bir kaydın doğrulaması düşerse kalan kayıtlar yine onarılsın
+        if (degisti) {
+          try { await talep.save(); } catch (kayitHatasi) {
+            console.error('⚠️ Dosya adı onarımı bir talepte kaydedilemedi:', kayitHatasi.message);
+          }
+        }
+      }
+      if (onarilan > 0) console.log(`✅ Dosya adı kodlaması onarıldı: ${onarilan} ad`);
+    } catch (err) {
+      console.error('⚠️ Dosya adı onarımı hatası (kritik değil):', err.message);
+    }
+
     // 🔧 Destek sınıfı verilerini düzelt (one-time migration)
     try {
       const { fixDestekSiniflari } = require('./fixDestekSiniflari');
