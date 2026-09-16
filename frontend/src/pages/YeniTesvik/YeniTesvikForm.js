@@ -14,9 +14,6 @@ import {
   Box,
   Card,
   CardContent,
-  Stepper,
-  Step,
-  StepLabel,
   FormControl,
   InputLabel,
   Select,
@@ -50,13 +47,13 @@ import {
   Engineering as EngineeringIcon,
   ContentCopy as ContentCopyIcon,
   Delete as DeleteIcon,
-  EmojiEvents as EmojiEventsIcon,
   TableView as TableViewIcon,
   ContentPaste as ContentPasteIcon,
   CloudUpload as CloudUploadIcon
 
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
+import { SekmeSeridi, renk, kenar, aralik, yazi, stil } from '../../tasarim';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import axios from '../../utils/axios';
@@ -667,12 +664,12 @@ const YeniTesvikForm = () => {
 
   // Adım isimleri - Yeniden düzenlenmiş profesyonel yapı (Künye + Yatırım Bilgileri birleşik)
   const stepLabels = [
-    '📋 KÜNYE VE YATIRIM BİLGİLERİ',
-    '📦 ÜRÜN BİLGİLERİ',
-    '💰 FİNANSAL BİLGİLER',
-    '⚖️ ÖZEL ŞARTLAR',
-    '🎯 DESTEK UNSURLARI',
-    '📈 REVİZYON GEÇMİŞİ'
+    'KÜNYE VE YATIRIM BİLGİLERİ',
+    'ÜRÜN BİLGİLERİ',
+    'FİNANSAL BİLGİLER',
+    'ÖZEL ŞARTLAR',
+    'DESTEK UNSURLARI',
+    'REVİZYON GEÇMİŞİ'
   ];
 
   // Klavye kısayolları handler
@@ -2653,7 +2650,7 @@ const YeniTesvikForm = () => {
                       borderStyle: 'dashed',
                       '&:hover': {
                         borderColor: '#0d7377',
-                        backgroundColor: '#f0f9f0'
+                        backgroundColor: '#f8f9fa'
                       }
                     }}
                   >
@@ -2861,11 +2858,11 @@ const YeniTesvikForm = () => {
           }}
         >
           <Box sx={{
-            backgroundColor: '#fef3c7',
+            backgroundColor: '#f8f9fa',
             p: 1.5,
             borderBottom: '1px solid #f59e0b'
           }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#92400e' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#202124' }}>
               Belge ile ilgili bilgiler
             </Typography>
           </Box>
@@ -3403,8 +3400,7 @@ const YeniTesvikForm = () => {
                   color: 'white',
                   fontSize: '18px'
                 }}>
-                  📦
-                </Box>
+                  </Box>
                 <Box>
                   <Typography variant="h6" sx={{
                     fontWeight: 600,
@@ -3415,7 +3411,7 @@ const YeniTesvikForm = () => {
                     US97 Ürün Yönetim Paneli
                   </Typography>
                   <Typography variant="body2" sx={{
-                    color: '#64748b',
+                    color: '#202124',
                     fontWeight: 400
                   }}>
                     Ürün Bilgileri Yönetimi
@@ -3425,16 +3421,16 @@ const YeniTesvikForm = () => {
 
               {/* Aktif Ürünler Sayacı */}
               <Box sx={{
-                backgroundColor: '#dbeafe',
+                backgroundColor: '#f8f9fa',
                 px: 2,
                 py: 1,
                 textAlign: 'center',
-                border: '1px solid #bfdbfe'
+                border: '1px solid #e2e8f0'
               }}>
-                <Typography variant="h6" sx={{ color: '#1e40af', fontWeight: 600, mb: 0 }}>
+                <Typography variant="h6" sx={{ color: '#202124', fontWeight: 600, mb: 0 }}>
                   {formData.urunBilgileri.slice(0, urunSayisi).filter(u => u.kod).length}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#3b82f6' }}>
+                <Typography variant="caption" sx={{ color: '#202124' }}>
                   Aktif Ürünler
                 </Typography>
               </Box>
@@ -3547,7 +3543,7 @@ const YeniTesvikForm = () => {
                   px: 2,
                   '&:hover': {
                     borderColor: '#dc2626',
-                    backgroundColor: '#fef2f2'
+                    backgroundColor: '#f8f9fa'
                   }
                 }}
               >
@@ -3626,7 +3622,7 @@ const YeniTesvikForm = () => {
                       <Typography variant="h6" sx={{ fontWeight: 600, color: '#1e293b' }}>
                         Ürün #{index + 1}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#64748b' }}>
+                      <Typography variant="caption" sx={{ color: '#202124' }}>
                         Durum: {urun.kod && urun.aciklama ? '✅ Tamamlandı' : '⏳ Eksik'}
                       </Typography>
                     </Box>
@@ -3638,9 +3634,9 @@ const YeniTesvikForm = () => {
                       onClick={removeUrunField}
                       sx={{
                         color: '#ef4444',
-                        backgroundColor: '#fef2f2',
+                        backgroundColor: '#f8f9fa',
                         '&:hover': {
-                          backgroundColor: '#fee2e2',
+                          backgroundColor: '#f8f9fa',
                           transform: 'scale(1.1)'
                         },
                         transition: 'all 0.2s ease'
@@ -3656,7 +3652,7 @@ const YeniTesvikForm = () => {
                   {/* 🔍 US97 CODE SEARCH */}
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
-                      🏷️ NACE Ürün Kodu
+                      NACE Ürün Kodu
                     </Typography>
                     <NaceSuperSearch
                       value={urun.kod || ''}
@@ -3677,7 +3673,7 @@ const YeniTesvikForm = () => {
                   {/* 📝 PRODUCT DESCRIPTION */}
                   <Grid item xs={12} md={6}>
                     <Typography variant="subtitle2" sx={{ color: '#374151', fontWeight: 600, mb: 1 }}>
-                      📝 Ürün Açıklaması
+                      Ürün Açıklaması
                     </Typography>
                     <TextField
                       fullWidth
@@ -3809,7 +3805,7 @@ const YeniTesvikForm = () => {
                             variant="outlined"
                             sx={{
                               '& .MuiOutlinedInput-root': {
-                                backgroundColor: '#ecfdf5',
+                                backgroundColor: '#f8f9fa',
                                 '& fieldset': { borderColor: '#10b981', borderWidth: '2px' }
                               }
                             }}
@@ -3857,7 +3853,7 @@ const YeniTesvikForm = () => {
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           {urun.kod && urun.aciklama ? (
                             <Chip
-                              label="✅ Tamamlandı"
+                              label="Tamamlandı"
                               color="success"
                               variant="filled"
                               size="small"
@@ -3921,7 +3917,7 @@ const YeniTesvikForm = () => {
                   py: 1.5,
                   fontWeight: 600
                 }}>
-                  🚫 Maksimum 10 ürün limiti
+                  Maksimum 10 ürün limiti
                 </Box>
               )}
             </Box>
@@ -3958,7 +3954,7 @@ const YeniTesvikForm = () => {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-          🎯 Destek Unsurları
+          Destek Unsurları
           <Chip
             label={`${destekSayisi}/8 Satır`}
             size="small"
@@ -4013,7 +4009,7 @@ const YeniTesvikForm = () => {
                   gap: 1
                 }}
               >
-                🎯 Destek Unsuru ({index + 1})
+                Destek Unsuru ({index + 1})
                 {(destekSayisi > 1 || destek.destekUnsuru || destek.sartlari) && (
                   <IconButton
                     onClick={() => removeDestekField(index)}
@@ -4104,7 +4100,7 @@ const YeniTesvikForm = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Destek Unsuru 🏛️"
+                      label="Destek Unsuru"
                       placeholder="Destek türü seçin veya yeni ekleyin..."
                       sx={{
                         backgroundColor: '#ffffff',
@@ -4186,7 +4182,7 @@ const YeniTesvikForm = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Şartları ⚖️"
+                      label="Şartları"
                       placeholder="Şart seçin veya yeni ekleyin..."
                       sx={{
                         backgroundColor: '#ffffff',
@@ -4224,7 +4220,7 @@ const YeniTesvikForm = () => {
                 px: 4,
                 '&:hover': {
                   borderColor: '#be185d',
-                  backgroundColor: '#fdf2f8'
+                  backgroundColor: '#f8f9fa'
                 }
               }}
             >
@@ -4240,7 +4236,7 @@ const YeniTesvikForm = () => {
       <Grid item xs={12}>
         <Box sx={{ p: 2, backgroundColor: '#f8fafc' }}>
           <Typography variant="body2" color="text.secondary">
-            💡 <strong>Aktif Satır:</strong> {destekSayisi}/8 |
+            <strong>Aktif Satır:</strong> {destekSayisi}/8 |
             <strong> Destek Doldurulmuş:</strong> {formData.destekUnsurlari.slice(0, destekSayisi).filter(d => d.destekUnsuru).length} |
             <strong> Şart Doldurulmuş:</strong> {formData.destekUnsurlari.slice(0, destekSayisi).filter(d => d.sartlari).length} |
             <strong> CSV'den Seçenek:</strong> {templateData.destekUnsurlariOptions?.length || 0} destek, {templateData.destekSartlariOptions?.length || 0} şart
@@ -4255,7 +4251,7 @@ const YeniTesvikForm = () => {
     <Grid container spacing={3}>
       <Grid item xs={12}>
         <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-          🏷️ Özel Şartlar
+          Özel Şartlar
           <Chip
             label={`${ozelSartSayisi} Satır`}
             size="small"
@@ -4310,7 +4306,7 @@ const YeniTesvikForm = () => {
                   gap: 1
                 }}
               >
-                🏷️ Özel Şart ({index + 1})
+                Özel Şart ({index + 1})
                 {(ozelSartSayisi > 1 || sart.kisaltma || sart.notu) && (
                   <IconButton
                     onClick={() => removeOzelSartField(index)}
@@ -4469,7 +4465,7 @@ const YeniTesvikForm = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Özel Şart Notu / Açıklama 📝"
+                      label="Özel Şart Notu / Açıklama"
                       placeholder="Açıklama yazın veya seçin..."
                       sx={{
                         backgroundColor: '#ffffff',
@@ -4507,7 +4503,7 @@ const YeniTesvikForm = () => {
                 px: 4,
                 '&:hover': {
                   borderColor: '#c2410c',
-                  backgroundColor: '#fff7ed'
+                  backgroundColor: '#f8f9fa'
                 }
               }}
             >
@@ -4521,7 +4517,7 @@ const YeniTesvikForm = () => {
       <Grid item xs={12}>
         <Box sx={{ p: 2, backgroundColor: '#f8fafc' }}>
           <Typography variant="body2" color="text.secondary">
-            🏷️ <strong>Aktif Satır:</strong> {ozelSartSayisi} |
+            <strong>Aktif Satır:</strong> {ozelSartSayisi} |
             <strong> Kısaltma Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.kisaltma).length} |
             <strong> Not Doldurulmuş:</strong> {formData.ozelSartlar.slice(0, ozelSartSayisi).filter(s => s.notu).length} |
             <strong> CSV'den Seçenek:</strong> {templateData.ozelSartKisaltmalari?.length || 0} kısaltma, {templateData.ozelSartNotlari?.length || 0} not
@@ -4731,7 +4727,7 @@ const YeniTesvikForm = () => {
     <Box sx={{ width: '100%' }}>
       {/* Başlık */}
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
-        💰 Finansal Bilgiler
+        Finansal Bilgiler
         <Chip label="Devlet Formatı" size="small" color="primary" variant="outlined" />
       </Typography>
 
@@ -4743,8 +4739,8 @@ const YeniTesvikForm = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
             {/* ARAZİ-ARSA BEDELİ */}
-            <Paper sx={{ p: 2, backgroundColor: '#fffbeb', border: '1px solid #fcd34d' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#92400e', borderBottom: '2px solid #f59e0b', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 Arazi-Arsa Bedeli
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -4776,15 +4772,15 @@ const YeniTesvikForm = () => {
                   <Typography variant="caption" sx={{ minWidth: 160, color: '#78716c', fontWeight: 600 }}>Arazi-Arsa Bedeli:</Typography>
                   <TextField size="small" fullWidth
                     value={formData.finansalBilgiler.araziArsaBedeli.araziArsaBedeli.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#fef3c7' } }}
+                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
             </Paper>
 
             {/* BİNA-İNŞAAT GİDERLERİ */}
-            <Paper sx={{ p: 2, backgroundColor: '#f0fdf4', border: '1px solid #86efac' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#166534', borderBottom: '2px solid #22c55e', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 Bina-İnşaat Giderleri
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -4824,7 +4820,7 @@ const YeniTesvikForm = () => {
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c', fontWeight: 600 }}>Toplam Bina İnşaat Giderleri:</Typography>
                   <TextField size="small" fullWidth
                     value={formData.finansalBilgiler.binaInsaatGiderleri.toplamBinaInsaatGideri.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#dcfce7' } }}
+                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
@@ -4833,8 +4829,8 @@ const YeniTesvikForm = () => {
 
 
             {/* DİĞER YATIRIM HARCAMALARI */}
-            <Paper sx={{ p: 2, backgroundColor: '#faf5ff', border: '1px solid #d8b4fe' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#6b21a8', borderBottom: '2px solid #a855f7', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#6b21a8', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 Diğer Yatırım Harcamaları
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -4882,22 +4878,22 @@ const YeniTesvikForm = () => {
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c', fontWeight: 600 }}>Toplam Diğer Yatırım Harcamaları:</Typography>
                   <TextField size="small" fullWidth
                     value={formData.finansalBilgiler.digerYatirimHarcamalari.toplamDigerYatirimHarcamalari.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f3e8ff' } }}
+                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
             </Paper>
 
             {/* TOPLAM SABİT YATIRIM TUTARI */}
-            <Paper sx={{ p: 2, backgroundColor: '#fef2f2', border: '2px solid #fca5a5' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#991b1b', borderBottom: '2px solid #ef4444', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #ef4444', pb: 0.5 }}>
                 TOPLAM SABİT YATIRIM TUTARI
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c', fontWeight: 700 }}>TOPLAM SABİT YATIRIM TUTARI:</Typography>
                 <TextField size="small" fullWidth
                   value={formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')}
-                  InputProps={{ readOnly: true, style: { fontWeight: 'bold', fontSize: '1rem', backgroundColor: '#fee2e2', color: '#991b1b' } }}
+                  InputProps={{ readOnly: true, style: { fontWeight: 'bold', fontSize: '1rem', backgroundColor: '#f8f9fa', color: '#202124' } }}
                 />
               </Box>
             </Paper>
@@ -4909,8 +4905,8 @@ const YeniTesvikForm = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
 
             {/* MAKİNA TEÇHİZAT GİDERLERİ */}
-            <Paper sx={{ p: 2, backgroundColor: '#eff6ff', border: '1px solid #93c5fd' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#1e40af', borderBottom: '2px solid #3b82f6', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 Makina Teçhizat Giderleri
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -4942,15 +4938,15 @@ const YeniTesvikForm = () => {
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam Makine Techizat:</Typography>
                   <TextField size="small" fullWidth
                     value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.toplamMakineTeç.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#dbeafe' } }}
+                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
             </Paper>
 
             {/* İTHAL MAKİNE ($) */}
-            <Paper sx={{ p: 2, backgroundColor: '#f0fdfa', border: '1px solid #5eead4' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#0f766e', borderBottom: '2px solid #14b8a6', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f0fdfa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#0f766e', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 İthal Makine($)
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -4982,15 +4978,15 @@ const YeniTesvikForm = () => {
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam İthal Makine($):</Typography>
                   <TextField size="small" fullWidth
                     value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.toplamIthalMakine.toLocaleString('tr-TR')}
-                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#ccfbf1' } }}
+                    InputProps={{ readOnly: true, style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
             </Paper>
 
             {/* YABANCI KAYNAKLAR */}
-            <Paper sx={{ p: 2, backgroundColor: '#fefce8', border: '1px solid #fde047' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#854d0e', borderBottom: '2px solid #eab308', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #fde047' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #eab308', pb: 0.5 }}>
                 Yabancı Kaynaklar
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -5003,15 +4999,15 @@ const YeniTesvikForm = () => {
                       handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
                       handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
                     }}
-                    InputProps={{ style: { fontWeight: 'bold', backgroundColor: '#fef9c3' } }}
+                    InputProps={{ style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>
               </Box>
             </Paper>
 
             {/* ÖZKAYNAKLAR */}
-            <Paper sx={{ p: 2, backgroundColor: '#ecfdf5', border: '1px solid #6ee7b7' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#065f46', borderBottom: '2px solid #10b981', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 Özkaynaklar
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -5025,15 +5021,15 @@ const YeniTesvikForm = () => {
             </Paper>
 
             {/* TOPLAM FİNANSMAN */}
-            <Paper sx={{ p: 2, backgroundColor: '#f0fdf4', border: '2px solid #4ade80' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#166534', borderBottom: '2px solid #22c55e', pb: 0.5 }}>
+            <Paper sx={{ p: 2, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 700, color: '#202124', borderBottom: '2px solid #e2e8f0', pb: 0.5 }}>
                 TOPLAM FİNANSMAN
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 700 }}>TOPLAM FİNANSMAN:</Typography>
                 <TextField size="small" fullWidth
                   value={formData.finansalBilgiler.finansman.toplamFinansman.toLocaleString('tr-TR')}
-                  InputProps={{ readOnly: true, style: { fontWeight: 'bold', fontSize: '1rem', backgroundColor: '#bbf7d0', color: '#166534' } }}
+                  InputProps={{ readOnly: true, style: { fontWeight: 'bold', fontSize: '1rem', backgroundColor: '#bbf7d0', color: '#202124' } }}
                 />
               </Box>
             </Paper>
@@ -5046,7 +5042,7 @@ const YeniTesvikForm = () => {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              ⚖️ Finansman Denge Kontrolü
+              Finansman Denge Kontrolü
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Toplam Sabit Yatırım = Yabancı Kaynak + Özkaynak = Toplam Finansman
@@ -5139,22 +5135,15 @@ const YeniTesvikForm = () => {
           overflow: 'visible', // 🎯 DROPDOWN İÇİN OVERFLOW VİSİBLE
           position: 'relative' // 🎯 DROPDOWN POSİTİONİNG İÇİN
         }}>
-          {/* Header */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" sx={{
-              fontWeight: 700,
-              color: '#1f2937',
-              mb: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 2
-            }}>
-              <EmojiEventsIcon sx={{ fontSize: 32, color: '#dc2626' }} />
-              {isEdit ? 'Teşvik Düzenle' : 'Yeni Teşvik Ekle'}
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Excel formunun 1:1 aynısı - Kapsamlı teşvik belgesi oluşturma sistemi
-            </Typography>
+          {/* Başlık — belge görüntüleme ekranındaki sade şeridin aynısı. Müşteri (15.09.2026):
+              "Bu belge ekleme/revize kısmını da etuys gibi/bizim sistemdeki belge görüntüleme gibi
+              görünecek şekilde düzenleyebilir miyiz?" */}
+          <Box sx={{ ...stil.panelBasligi, mb: `${aralik.grup}px` }}>
+            <Box component="span">{isEdit ? 'BELGE REVİZE' : 'YENİ BELGE'}</Box>
+            <Box sx={{ flex: 1 }} />
+            <Box component="span" sx={{ fontWeight: yazi.orta, color: renk.sessiz, textTransform: 'none' }}>
+              {[formData.gmId, formData.tesvikId, formData.yatirimciUnvan].filter(Boolean).join(' · ')}
+            </Box>
           </Box>
 
           {error && (
@@ -5169,29 +5158,26 @@ const YeniTesvikForm = () => {
             </Alert>
           )}
 
-          {/* Form */}
-          <Card>
-            <CardContent sx={{ p: 4 }}>
-              {/* Stepper */}
-              <Stepper activeStep={activeStep} alternativeLabel>
-                {/* Müşteri isteği: sekmeye tıklanınca doğrudan o adıma geçilir (sürekli Devam'a gerek yok) */}
-                {stepLabels.map((label, index) => (
-                  <Step key={index} onClick={() => setActiveStep(index)} sx={{ cursor: 'pointer' }}>
-                    <StepLabel
-                      sx={{
-                        cursor: 'pointer',
-                        '& .MuiStepLabel-label': {
-                          fontSize: '0.9rem',
-                          fontWeight: activeStep === index ? 600 : 400,
-                          '&:hover': { color: '#2563eb' }
-                        }
-                      }}
-                    >
-                      {label}
-                    </StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
+          {/* Form gövdesi — ETUYS gibi ince çerçeveli düz panel (kart gölgesi ve geniş iç boşluk yerine) */}
+          <Box sx={{
+            border: kenar.ince,
+            borderRadius: `${kenar.yaricapKucuk}px`,
+            backgroundColor: renk.yuzey,
+            p: { xs: 1.5, md: 2 },
+            // Bölüm kutuları tek tip: her bölümün kendi pastel zemini, kalın renkli kenarı ve
+            // renkli başlığı yerine belge görüntüleme ekranındaki nötr panel düzeni geçerli.
+            // (Açılır menüler portala çizildiği için bu kuraldan etkilenmez.)
+            '& .MuiPaper-root': { backgroundColor: renk.yuzey, borderColor: renk.kenar, boxShadow: 'none' },
+            '& .MuiPaper-root .MuiTypography-subtitle2': { color: renk.murekkep, borderBottomColor: renk.kenar }
+          }}>
+              {/* Bölüm sekmeleri — belge görüntüleme ekranındaki şeridin aynısı (adım göstergesi yerine).
+                  Tıklayınca doğrudan o bölüme geçilir; ← → ile de gezilir. */}
+              <SekmeSeridi
+                sekmeler={stepLabels.map((baslik, i) => ({ anahtar: String(i), baslik }))}
+                etkin={String(activeStep)}
+                onDegis={(anahtar) => setActiveStep(Number(anahtar))}
+                sx={{ mb: `${aralik.grup}px` }}
+              />
 
               {/* Step Content */}
               {renderStepContent()}
@@ -5222,12 +5208,12 @@ const YeniTesvikForm = () => {
                           fontWeight: 600,
                           px: 3,
                           '&:hover': {
-                            backgroundColor: '#f0fdf4',
+                            backgroundColor: '#f8f9fa',
                             borderColor: '#16a34a'
                           }
                         }}
                       >
-                        📊 Excel Çıktı
+                        Excel Çıktı
                       </Button>
 
 
@@ -5259,8 +5245,7 @@ const YeniTesvikForm = () => {
                   )}
                 </Box>
               </Box>
-            </CardContent>
-          </Card>
+          </Box>
         </Container>
       </Box>
 
@@ -5289,7 +5274,7 @@ const YeniTesvikForm = () => {
               <AddIcon />
             </Avatar>
             <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              🏛️ Yeni {addOptionModal.title} Ekle
+              Yeni {addOptionModal.title} Ekle
             </Typography>
           </Box>
           <IconButton
@@ -5314,7 +5299,7 @@ const YeniTesvikForm = () => {
             icon={<InfoIcon />}
           >
             <Typography variant="body2">
-              <strong>📋 Devlet Sistemi Uyumlu:</strong> Eklediğiniz seçenek tüm sistem genelinde kullanılabilir hale gelecektir.
+              <strong>Devlet Sistemi Uyumlu:</strong> Eklediğiniz seçenek tüm sistem genelinde kullanılabilir hale gelecektir.
             </Typography>
           </Alert>
 
