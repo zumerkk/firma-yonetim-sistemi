@@ -5,6 +5,12 @@
 // Kullanımı: <UstKaydirmaCubugu><DataGrid ... /></UstKaydirmaCubugu>
 // Kaydırılan asıl öğe DataGrid'in kendi .MuiDataGrid-virtualScroller'ıdır;
 // buradaki çubuk yalnızca onun aynası.
+//
+// Kap, kullanılabilir yüksekliğin TAMAMINI kaplar ve tabloyu esnetir. Müşteri (15.09.2026):
+// "Makine listesi böyle görünüyor altta boşluklar var tam ekranı kaplamıyor." Sarmalayıcı düz bir
+// blok olduğu için DataGrid'in `height: 100%`'ü çözülemiyor, tablo içerik yüksekliğinde kalıyordu:
+// yüksek ekranda altta boşluk, kısa ekranda ise son satırlar ve sayfalama kırpılıyordu
+// (ölçüm: 1280x800'de tablo kabından 186 px taşıyordu).
 
 import React, { useEffect, useRef } from 'react';
 import { Box } from '@mui/material';
@@ -103,10 +109,13 @@ const UstKaydirmaCubugu = ({ children }) => {
     }, []);
 
     return (
-        <>
+        // flex + minHeight:0 + height:100%: kap hem esnek (flex) hem de blok bir ebeveynin
+        // içinde doğru yükseklikte durur; tablo boşluk bırakmadan aşağıya kadar uzar.
+        <Box sx={{ flex: 1, minHeight: 0, height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
             <Box
                 ref={cubukRef}
                 sx={{
+                    flex: '0 0 auto',
                     height: CUBUK_YUKSEKLIGI,
                     overflowX: 'auto',
                     overflowY: 'hidden',
@@ -128,10 +137,13 @@ const UstKaydirmaCubugu = ({ children }) => {
                     height: 1 verilseydi %100 olurdu. */}
                 <Box ref={icerikRef} sx={{ height: '1px' }} />
             </Box>
-            <Box ref={sarmalayiciRef} sx={{ width: '100%', minWidth: 0 }}>
+            <Box
+                ref={sarmalayiciRef}
+                sx={{ flex: 1, minHeight: 0, width: '100%', minWidth: 0, display: 'flex', flexDirection: 'column' }}
+            >
                 {children}
             </Box>
-        </>
+        </Box>
     );
 };
 

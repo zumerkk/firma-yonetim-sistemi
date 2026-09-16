@@ -2517,7 +2517,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.talep?.talepTarihi}
           disabled={!selectedTesvik}
@@ -2537,7 +2537,7 @@ const MakineYonetimi = () => {
                 updateYerli(p.row.id, { rowId: rid, talep });          }}
         />
       ) },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.karar?.kararTarihi}
           disabled={!selectedTesvik}
@@ -2626,13 +2626,7 @@ const MakineYonetimi = () => {
             py: 0,
             '&:hover': { backgroundColor: '#e2e8f0' }
           },
-          '& .MuiDataGrid-columnHeaderTitle': { 
-            fontWeight: 700, 
-            fontSize: '0.68rem', 
-            color: '#475569',
-            textTransform: 'uppercase',
-            letterSpacing: '0.02em'
-          },
+          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: '0.68rem', color: '#5f6368' },
           '& .MuiDataGrid-cell': { 
             py: 0.5, 
             borderBottom: '1px solid #f1f5f9',
@@ -2644,33 +2638,22 @@ const MakineYonetimi = () => {
             }
           },
           '& .MuiDataGrid-row': { 
-            minHeight: '32px !important',
-            maxHeight: '32px !important',
-            transition: 'all 0.15s ease',
-            '&:nth-of-type(even)': { backgroundColor: '#fafbfc' },
-            '&:hover': { 
-              backgroundColor: '#f0f9ff',
-            },
-            '&.Mui-selected': { 
-              backgroundColor: '#eff6ff !important',
-            }
+            minHeight: '28px !important',
+            maxHeight: '28px !important',
+            '&:hover': { backgroundColor: '#f8f9fa' },
+            '&.Mui-selected': { backgroundColor: '#e8f0fe !important' }
           },
-          '& .MuiDataGrid-footerContainer': { 
-            minHeight: 40, 
-            background: '#f8fafc',
-            borderTop: '2px solid #e2e8f0',
+          '& .MuiDataGrid-footerContainer': {
+            minHeight: 32,
+            borderTop: '1px solid #e8eaed',
             '& .MuiTablePagination-root': { fontSize: '0.7rem' },
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { 
               fontSize: '0.7rem',
               color: '#64748b'
             }
           },
-          '& .MuiCheckbox-root': { 
-            p: 0.5,
-            color: '#94a3b8',
-            '&.Mui-checked': { color: '#3b82f6' }
-          },
-          '& .MuiDataGrid-cellCheckbox': { minWidth: 40, maxWidth: 40 },
+          '& .MuiCheckbox-root': { p: 0.25 },
+          '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 },
           '& .MuiDataGrid-virtualScroller': {
             '&::-webkit-scrollbar': { width: 8, height: 8 },
             '&::-webkit-scrollbar-track': { background: '#f1f5f9' },
@@ -2993,7 +2976,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.talep?.talepTarihi}
           disabled={!selectedTesvik}
@@ -3013,7 +2996,7 @@ const MakineYonetimi = () => {
                 updateIthal(p.row.id, { rowId: rid, talep });          }}
         />
       ) },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.karar?.kararTarihi}
           disabled={!selectedTesvik}
@@ -3111,57 +3094,40 @@ const MakineYonetimi = () => {
           },
           '& .MuiDataGrid-columnHeader': { 
             py: 0,
-            '&:hover': { backgroundColor: '#fef08a' }
+            '&:hover': { backgroundColor: '#e2e8f0' }
           },
-          '& .MuiDataGrid-columnHeaderTitle': { 
-            fontWeight: 700, 
-            fontSize: '0.68rem', 
-            color: '#854d0e',
-            textTransform: 'uppercase',
-            letterSpacing: '0.02em'
-          },
+          '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 600, fontSize: '0.68rem', color: '#5f6368' },
           '& .MuiDataGrid-cell': { 
             py: 0.5, 
             borderBottom: '1px solid #f1f5f9',
             fontSize: '0.72rem',
             color: '#1e293b',
             '&:focus': {
-              outline: '2px solid #f59e0b',
+              outline: '2px solid #3b82f6',
               outlineOffset: -2
             }
           },
           '& .MuiDataGrid-row': { 
-            minHeight: '32px !important',
-            maxHeight: '32px !important',
-            transition: 'all 0.15s ease',
-            '&:nth-of-type(even)': { backgroundColor: '#fffbeb' },
-            '&:hover': { 
-              backgroundColor: '#fef3c7',
-            },
-            '&.Mui-selected': { 
-              backgroundColor: '#fef3c7 !important',
-            }
+            minHeight: '28px !important',
+            maxHeight: '28px !important',
+            '&:hover': { backgroundColor: '#f8f9fa' },
+            '&.Mui-selected': { backgroundColor: '#e8f0fe !important' }
           },
-          '& .MuiDataGrid-footerContainer': { 
-            minHeight: 40, 
-            background: '#fefce8',
-            borderTop: '2px solid #fde047',
+          '& .MuiDataGrid-footerContainer': {
+            minHeight: 32,
+            borderTop: '1px solid #e8eaed',
             '& .MuiTablePagination-root': { fontSize: '0.7rem' },
             '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { 
               fontSize: '0.7rem',
-              color: '#92400e'
+              color: '#64748b'
             }
           },
-          '& .MuiCheckbox-root': { 
-            p: 0.5,
-            color: '#d97706',
-            '&.Mui-checked': { color: '#f59e0b' }
-          },
-          '& .MuiDataGrid-cellCheckbox': { minWidth: 40, maxWidth: 40 },
+          '& .MuiCheckbox-root': { p: 0.25 },
+          '& .MuiDataGrid-cellCheckbox': { minWidth: 32, maxWidth: 32 },
           '& .MuiDataGrid-virtualScroller': {
             '&::-webkit-scrollbar': { width: 8, height: 8 },
-            '&::-webkit-scrollbar-track': { background: '#fef9c3' },
-            '&::-webkit-scrollbar-thumb': { background: '#fcd34d', '&:hover': { background: '#fbbf24' } }
+            '&::-webkit-scrollbar-track': { background: '#f1f5f9' },
+            '&::-webkit-scrollbar-thumb': { background: '#cbd5e1', '&:hover': { background: '#94a3b8' } }
           }
         }}
         />

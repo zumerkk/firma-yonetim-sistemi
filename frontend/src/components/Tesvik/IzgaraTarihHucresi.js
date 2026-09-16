@@ -67,7 +67,10 @@ export default function IzgaraTarihHucresi({ deger, onKaydet, disabled = false, 
     <TextField
       type="date"
       size="small"
-      sx={sx}
+      // Hücrenin tamamını kullan: type="date" alanının kendi doğal genişliği (yazı boyutuna göre
+      // ~72 px) tarihi kırpıyordu — müşteri (15.09.2026): "tarihlerin hepsi görünmüyor, mesela
+      // '12.0-' da kesiliyor". Sütun genişliği artık ölçüyü belirliyor.
+      sx={{ width: '100%', minWidth: 0, ...sx }}
       inputRef={inputRef}
       InputLabelProps={{ shrink: true }}
       disabled={disabled}
