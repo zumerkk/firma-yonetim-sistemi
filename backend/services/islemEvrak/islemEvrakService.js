@@ -9,6 +9,7 @@ const IslemTuru = require('../../models/IslemTuru');
 const Firma = require('../../models/Firma');
 const tokenService = require('../tesvikMakine/uploadTokenService');
 const storageService = require('../tesvikMakine/storageService');
+const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 const mailService = require('../tesvikMakine/mailService');
 const engine = require('../tesvikMakine/mailTemplateEngine');
 const { DEFAULT_SIGNATURE } = require('../../constants/tesvikMakineMail');
@@ -249,7 +250,9 @@ async function dosyaKaydet(talep, file, altKlasor = 'Gelen') {
   });
   return {
     dosyaAdi: saved.fileName,
-    orijinalAd: file.originalname || saved.fileName,
+    // multer adı latin1 çözüyor; listede görünen ad onarılmış hâliyle saklanır
+    // (müşteri, 16.09.2026: "GÃ¼ncel Ä°mza SirkÃ¼leri.pdf") — utils/dosyaAdiKodlama.js
+    orijinalAd: dosyaAdiDuzelt(file.originalname) || saved.fileName,
     fileUrl: saved.fileUrl || '',
     filePath: saved.relPath || '',
     mimeType: file.mimetype || '',
@@ -276,7 +279,7 @@ async function sablonDosyaKaydet(turAd, file) {
     buffer: file.buffer
   });
   return {
-    dosyaAdi: file.originalname || saved.fileName,
+    dosyaAdi: dosyaAdiDuzelt(file.originalname) || saved.fileName,
     fileUrl: saved.fileUrl || '',
     filePath: saved.relPath || '',
     mimeType: file.mimetype || '',

@@ -30,6 +30,8 @@ let _cloudinaryConfigured = false;
 // Teşvik makine evrak depolama için Cloudinary aktif mi?
 // CLOUDINARY_STORAGE_ENABLED=true olmalı + credentials tam olmalı.
 // (dosyaTakip modülü kendi Cloudinary config'ini kullanır, bu toggle ona etki etmez)
+const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
+
 function isCloudinaryConfigured() {
   return Boolean(
     envBool(process.env.CLOUDINARY_STORAGE_ENABLED, false) &&
@@ -218,13 +220,17 @@ async function ensureMachineStructure(identity, machine, listType) {
 // 💾 Buffer'ı kaydet — Cloudinary veya local disk
 // ════════════════════════════════════════════════════════════════
 async function saveBuffer({ folderRel, documentTypeFolder = 'Diger', originalName, buffer }) {
+  // multer dosya adını latin1 çözüyor: "Güncel İmza Sirküleri.pdf" kayda "GÃ¼ncel Ä°mza
+  // SirkÃ¼leri.pdf" olarak giriyordu (müşteri ekran görüntüsü, 16.09.2026). Ad burada bir kez
+  // onarılır; hem depodaki dosya adı hem de kayda yazılan görünen ad düzgün olur.
+  const ad = dosyaAdiDuzelt(originalName);
   const provider = getProvider();
 
   if (provider === 'cloudinary') {
-    return _saveToCloudinary({ folderRel, documentTypeFolder, originalName, buffer });
+    return _saveToCloudinary({ folderRel, documentTypeFolder, originalName: ad, buffer });
   }
 
-  return _saveToLocal({ folderRel, documentTypeFolder, originalName, buffer });
+  return _saveToLocal({ folderRel, documentTypeFolder, originalName: ad, buffer });
 }
 
 // ─── Cloudinary upload ───
@@ -344,10 +350,28 @@ function isCloudinaryUrl(url) {
   return url && (url.includes('res.cloudinary.com') || url.includes('cloudinary.com'));
 }
 
-async function serveFile(doc, res) {
-  // Cloudinary dosyası → redirect
+async function serveFile(doc, res, { buluttanIndir = bulutDosyasiniIndir } = {}) {
+  const gorunenAd = dosyaAdiDuzelt(doc.originalName || doc.fileName || 'dosya');
+
+  // Bulut dosyası YÖNLENDİRİLMEZ, sunucuda indirilip akıtılır.
+  //
+  // Müşteri (16.09.2026, İşlem & Evrak → "Firmadan Gelen Evraklar"): "evrak indirmeye çalışırken
+  // böyle bir hata alıyorum" → "Dosya indirilemedi." Ölçüldü (canlı veri): o talebin 6 dosyasından
+  // 5 PDF'inin doğrudan Cloudinary adresi 401, JPEG'i 200 dönüyor. Sebep, 'auto' ile yüklenen
+  // PDF'in image türünde saklanması ve hesabın PDF teslimatını kısıtlaması — mail eklerindeki
+  // sorunun aynısı. Yetkili indirme API'si → imzalı adres → ham adres sırası bu kısıtı aşıyor.
   if (isCloudinaryUrl(doc.fileUrl)) {
-    return res.redirect(doc.fileUrl);
+    const indirilen = await buluttanIndir(doc.fileUrl, doc.mimeType);
+    if (!indirilen) {
+      return res.status(502).json({
+        success: false,
+        message: 'Dosya bulut depodan alınamadı. Tekrar deneyin; sorun sürerse dosyayı yeniden yükleyin.'
+      });
+    }
+    res.setHeader('Content-Type', doc.mimeType || indirilen.contentType || 'application/octet-stream');
+    res.setHeader('Content-Length', indirilen.buffer.length);
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(gorunenAd)}`);
+    return res.send(indirilen.buffer);
   }
 
   // Local disk dosyası
@@ -365,7 +389,7 @@ async function serveFile(doc, res) {
       message: 'Dosya sunucuda bulunamadı. Sunucu yeniden başlatıldığında eski dosyalar silinmiş olabilir.'
     });
   }
-  return res.download(abs, doc.originalName || doc.fileName);
+  return res.download(abs, gorunenAd);
 }
 
 uyarUcucuDepolama();
