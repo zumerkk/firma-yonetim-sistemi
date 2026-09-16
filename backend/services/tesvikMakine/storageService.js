@@ -233,6 +233,18 @@ async function saveBuffer({ folderRel, documentTypeFolder = 'Diger', originalNam
   return _saveToLocal({ folderRel, documentTypeFolder, originalName: ad, buffer });
 }
 
+// Cloudinary'de hangi tür? Resimler 'image' (önizleme/dönüşüm oradan geliyor), BELGELER 'raw'.
+//
+// Müşteri (16.09.2026, İşlem & Evrak): "evrak indirmeye çalışırken 'Dosya indirilemedi.' hatası".
+// Ölçüldü: 'auto' ile yüklenen PDF Cloudinary'de image türünde saklanıyor ve hesapta PDF teslimatı
+// kapalı olduğu için o adres 401 dönüyor (aynı talepteki JPEG 200 dönüyordu). Belge Takip modülü
+// baştan beri raw kullanıyor; oradaki 912 dosya sorunsuz iniyor. Ölçüt bu yüzden uzantı.
+const RESIM_UZANTILARI = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic', '.svg'];
+function cloudinaryKaynakTipi(fileName) {
+  const ext = path.extname(String(fileName || '')).toLowerCase();
+  return RESIM_UZANTILARI.includes(ext) ? 'image' : 'raw';
+}
+
 // ─── Cloudinary upload ───
 async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, buffer }) {
   ensureCloudinaryInit();
@@ -241,16 +253,21 @@ async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, 
   const ext = path.extname(fileName);
   const stem = path.basename(fileName, ext);
   const folder = cloudinaryFolder([folderRel, documentTypeFolder].join('/'));
+  const kaynakTipi = cloudinaryKaynakTipi(fileName);
 
   // Cloudinary upload (buffer → stream)
   const result = await new Promise((resolve, reject) => {
     const timestamp = Date.now();
-    const publicId = `${folder}/${stem}_${timestamp}`;
+    // raw dosyada uzantı public_id'nin parçasıdır: adres .pdf ile biter, içerik tipi ve
+    // indirilen dosyanın adı doğru olur.
+    const publicId = kaynakTipi === 'image'
+      ? `${folder}/${stem}_${timestamp}`
+      : `${folder}/${stem}_${timestamp}${ext}`;
 
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         public_id: publicId,
-        resource_type: 'auto', // jpg/pdf/docx otomatik algıla
+        resource_type: kaynakTipi,
         overwrite: false,
         folder: undefined, // public_id içinde zaten folder var
         use_filename: true,
@@ -320,7 +337,8 @@ async function deleteFile(doc) {
     if (doc.providerFileId) {
       try {
         ensureCloudinaryInit();
-        await cloudinary.uploader.destroy(doc.providerFileId, { resource_type: 'auto' });
+        // destroy 'auto' desteklemez; tür public_id'deki uzantıdan çıkarılır
+        await cloudinary.uploader.destroy(doc.providerFileId, { resource_type: cloudinaryKaynakTipi(doc.providerFileId) });
         console.log('☁️  [storageService] Cloudinary dosya silindi:', doc.providerFileId);
       } catch (err) {
         console.warn('⚠️ [storageService] Cloudinary silme hatası (devam ediliyor):', err.message);
@@ -477,5 +495,6 @@ module.exports = {
   urlOf,
   absOf,
   cloudinaryUrlCoz,
-  bulutDosyasiniIndir
+  bulutDosyasiniIndir,
+  cloudinaryKaynakTipi
 };
