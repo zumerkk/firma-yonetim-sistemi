@@ -2878,7 +2878,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.talep?.talepTarihi}
           disabled={!selectedTesvik}
@@ -2899,7 +2899,7 @@ const MakineYonetimi = () => {
           }}
         />
       ) },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> (
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.karar?.kararTarihi}
           disabled={!selectedTesvik}
@@ -3352,7 +3352,7 @@ const MakineYonetimi = () => {
           </span></Tooltip>
         </Stack>
       )} },
-      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 90, sortable: false, renderCell: (p)=> {
+      { field: 'talepTarihi', headerName: 'T.Tarih', description: 'Talep Tarihi', width: 112, sortable: false, renderCell: (p)=> {
         return (
           <IzgaraTarihHucresi
             deger={p.row.talep?.talepTarihi}
@@ -3375,7 +3375,7 @@ const MakineYonetimi = () => {
           />
         );
       } },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 90, sortable: false, renderCell: (p)=> {
+      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> {
         return (
           <IzgaraTarihHucresi
             deger={p.row.karar?.kararTarihi}
