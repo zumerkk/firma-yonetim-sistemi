@@ -6,15 +6,15 @@ import tesvikService from '../../services/tesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
 import api, { uploadPost } from '../../utils/axios';
 import currencyService from '../../services/currencyService';
-import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle, kullanilmisKoduIceAktar } from '../../utils/makineFormat';
+import { kullanilmisMi, birimEtiketi, KULLANILMIS_KODLARI, kullanilmisKoduNormalle } from '../../utils/makineFormat';
 import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
 import { BirimHucresi, GirdiHucresi, HafifDugme, HafifMetinDugme, MetinHucresi, Rozet, SecimHucresi } from '../../components/Tesvik/HafifHucreler';
-import { gerceklesmeCoz, SABLON_BASLIKLARI } from '../../utils/makineSablonu';
+import { makineSatiriCoz, iceAktarimBirlestir, excelSatirlariniOku, csvSatirlariniOku } from '../../utils/makineSablonu';
+import { makineSablonuIndir } from '../../utils/makineSablonuExcel';
 import { anlikGoruntuAl, geriAlinacaklar } from '../../utils/talepKararGeriAl';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
@@ -1027,46 +1027,17 @@ const MakineYonetimi = () => {
   const openUpload = (rowId) => { setUploadRowId(rowId); setUploadOpen(true); };
   const closeUpload = () => { setUploadOpen(false); setUploadRowId(null); };
 
-  // 📗 Boş şablon indir — müşteri: "Her şeyi excelde düzenleyebileceğimiz boş bir
-  // şablon lazım içe aktarınca aktarsın hepsini."
-  //
-  // Başlıklar makineSablonu'ndan geliyor; içe aktarmanın TANIDIĞI adların ta
-  // kendisi. İkisi ayrı yerde yazılsaydı yine bugünkü duruma düşerdik: şablon
-  // doldurulur, yüklenir, hiçbir şey gelmez.
+  // 📗 Boş şablon indir — müşteri: "Listeleri içe aktarmak için standart boş bir Excel şablonu
+  // oluşturabilir miyiz?" Düzen müşterinin mak_list_sablon.xlsx'i (YERLİ / İTHAL); başlıklar içe
+  // aktarmanın tanıdığı adların ta kendisi (utils/makineSablonu).
   const sablonIndir = async () => {
-    const wb = new ExcelJS.Workbook();
-    wb.creator = 'Firma Yönetim Sistemi';
-    for (const [ad, basliklar] of Object.entries(SABLON_BASLIKLARI)) {
-      const ws = wb.addWorksheet(ad === 'yerli' ? 'Yerli' : 'İthal');
-      ws.columns = basliklar.map((b) => ({ header: b, key: b, width: Math.max(14, Math.min(34, b.length + 4)) }));
-      const bas = ws.getRow(1);
-      bas.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      bas.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      bas.height = 26;
-      bas.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }; });
-      ws.views = [{ state: 'frozen', ySplit: 1 }];
-      ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: basliklar.length } };
+    try {
+      await makineSablonuIndir();
+      openToast('success', 'Boş şablon indirildi — doldurup "İçe Aktar" ile yükleyin');
+    } catch (e) {
+      console.error('Şablon oluşturulamadı:', e);
+      openToast('error', 'Şablon oluşturulamadı');
     }
-    // Kullanım notu ayrı sayfada: başlık satırına not yazmak içe aktarmayı bozardı
-    const bilgi = wb.addWorksheet('Nasıl Kullanılır');
-    bilgi.columns = [{ header: 'Açıklama', key: 'a', width: 110 }];
-    [
-      'Bu şablonu doldurup makine listesi ekranındaki "İçe Aktar" ile yükleyin.',
-      'Sayfa adlarını (Yerli / İthal) ve BAŞLIK SATIRINI değiştirmeyin — eşleştirme onlara göre yapılır.',
-      'Boş bıraktığınız hücreler sistemdeki mevcut değeri SİLMEZ; yalnızca dolu hücreler aktarılır.',
-      'Eşleştirme "Makine ID" ve "Sıra No" üzerinden yapılır; eşleşen satır güncellenir, eşleşmeyen yeni satır olarak eklenir.',
-      'Tarihler gg.aa.yyyy (31.05.2027) veya yyyy-aa-gg yazılabilir; Excel tarih hücresi de kabul edilir.',
-      'Tutarlarda TR biçimi kullanabilirsiniz: 1.234.567,89'
-    ].forEach((satir) => bilgi.addRow({ a: satir }));
-    bilgi.getRow(1).font = { bold: true };
-
-    const buf = await wb.xlsx.writeBuffer();
-    const url = window.URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-    const a = document.createElement('a');
-    a.href = url; a.download = 'Makine_Listesi_Sablonu.xlsx';
-    document.body.appendChild(a); a.click(); a.remove();
-    window.URL.revokeObjectURL(url);
-    openToast('success', 'Boş şablon indirildi');
   };
 
   const exportExcel = async () => {
@@ -1658,54 +1629,12 @@ const MakineYonetimi = () => {
   };
 
 
-  // 📥 İçe aktarma birleştirme (müşteri: "excel ile içe aktarınca güncellenen-yeni
-  // eklenen makineler eklenecek, diğerlerine dokunulmayacak").
-  // Eşleştirme: Makine ID (ikisinde de doluysa) → yoksa Adı ve Özelliği (normalize).
-  // Eşleşen satır: içerik dosyadan güncellenir; id/rowId/talep/karar/etuysSecili/
-  // dosyalar/silinmeTarihi KORUNUR. Dosyada olmayan mevcut satırlara dokunulmaz.
-  const mergeImportedRows = (existingRows, importedRows) => {
-    const norm = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ı/g, 'i').replace(/\s+/g, ' ').trim();
-    const list = existingRows.map(r => ({ ...r }));
-    const byMakineId = new Map(list.filter(r => r.makineId).map(r => [String(r.makineId).trim(), r]));
-    const byName = new Map(list.map(r => [norm(r.adi), r]));
-    let added = 0, updatedCount = 0;
-    let maxSira = list.reduce((m, r) => Math.max(m, Number(r.siraNo) || 0), 0);
-    // 🐛 fix: dosyada AYNI İSİMLİ birden çok makine olabilir — her mevcut satır en fazla
-    // BİR import satırıyla eşleşir (consumed); sonraki aynı isimliler yeni satır olarak
-    // eklenir. (Önceki davranış onları "güncelleme" sanıp yutuyordu → makine kaybı.)
-    const consumed = new Set();
-    for (const imp of importedRows) {
-      const idMatch = imp.makineId ? byMakineId.get(String(imp.makineId).trim()) : null;
-      const nameMatch = byName.get(norm(imp.adi));
-      const mevcut = (idMatch && !consumed.has(idMatch)) ? idMatch
-        : (nameMatch && !consumed.has(nameMatch)) ? nameMatch : null;
-      if (mevcut) {
-        consumed.add(mevcut);
-        Object.assign(mevcut, imp, {
-          id: mevcut.id,
-          rowId: mevcut.rowId,
-          siraNo: mevcut.siraNo || imp.siraNo,
-          talep: mevcut.talep,
-          karar: mevcut.karar,
-          etuysSecili: mevcut.etuysSecili,
-          dosyalar: mevcut.dosyalar || [],
-          silinmeTarihi: mevcut.silinmeTarihi || null
-        });
-        updatedCount++;
-      } else {
-        maxSira += 1;
-        // müşteri: boş listeye import'ta Excel'deki Sıra No korunur (1-2-3 diye ezilmesin)
-        list.push({ ...imp, siraNo: (existingRows.length === 0 && Number(imp.siraNo) > 0) ? Number(imp.siraNo) : maxSira });
-        added++;
-      }
-    }
-    return { list, added, updated: updatedCount, untouched: Math.max(0, existingRows.length - updatedCount) };
-  };
-
+  // 📥 Excel / CSV içe aktarma. Başlık sözlüğü, satır çözümü ve birleştirme utils/makineSablonu'nda
+  // (ikiz ekranla ortak, testli). Müşteri: "excel ile içe aktarınca güncellenen-yeni eklenen makineler
+  // eklenecek, diğerlerine dokunulmayacak". Boş hücre mevcut değeri silmez; müşterinin YERLİ/İTHAL
+  // şablonu, kendi dışa aktarımımız ve eski dosyalar aynı yoldan okunur.
   const importExcel = async (file) => {
     try {
-      const isCsv = file.name.toLowerCase().endsWith('.csv');
-
       const lookupGtipDescription = (gtipKodu) => {
         if (!gtipKodu) return '';
         const cleanKodu = gtipKodu.toString().replace(/\D/g, '');
@@ -1739,231 +1668,32 @@ const MakineYonetimi = () => {
         }
         return '';
       };
-
-      const processYerliData = (yerliData) => {
-        const yerliMapped = yerliData.map((r, idx) => {
-          const getGtipKey = (row) => {
-            const keys = Object.keys(row);
-            return keys.find(k => {
-              const clean = k.replace(/[\s\.]/g, '').toUpperCase();
-              return clean === 'GTIP' || clean === 'GTIPNO' || clean === 'GTİPNO' || clean === 'GTIPKODU' || clean === 'GTİPKODU' || clean === 'GTIPKOD' || clean === 'GTİP';
-            }) || 'GTIP No';
-          };
-          const getGtipAciklamaKey = (row) => {
-            const keys = Object.keys(row);
-            return keys.find(k => {
-               const clean = k.replace(/[\s\.]/g, '').toUpperCase();
-               return clean.includes('GTIP') && (clean.includes('AÇIKLAMA') || clean.includes('ACIKLAMA') || clean.includes('AÇK'));
-            }) || 'GTIP Açıklama';
-          };
-          const gtipKey = getGtipKey(r);
-          const gtipAciklamaKey = getGtipAciklamaKey(r);
-          const extractedGtipKodu = r[gtipKey] || r['GTIP Kodu'] || r['GTIP'] || '';
-          const extractedGtipAciklama = r[gtipAciklamaKey] || r['GTIP Aciklama'] || r['GTIP Açk.'] || lookupGtipDescription(extractedGtipKodu) || '';
-
-          const obj = { 
-            id: Math.random().toString(36).slice(2), 
-            siraNo: r['Sıra No'] || (idx + 1), 
-            makineId: r['Makine ID'] || '', 
-            gtipKodu: extractedGtipKodu, 
-            gtipAciklama: extractedGtipAciklama, 
-            adi: r['Adı ve Özelliği'] || r['Adı'] || r['Makina ve Teçhizatın Cinsi'] || '', 
-            miktar: r['Miktarı'] || r['Miktar'] || 0, 
-            birim: r['Birimi'] || r['Birim'] || '', 
-            birimAciklamasi: r['Birim Açıklaması'] || '', 
-            birimFiyatiTl: r['Birim Fiyatı(TL)(KDV HARİÇ)'] || r['Birim Fiyatı (TL)'] || r['Birim Fiyatı'] || 0, 
-            toplamTl: r['Toplam Tutar (TL)'] || r['Toplam Tutarı'] || r['Toplam Tutar'] || 0, 
-            kdvIstisnasi: r['KDV Muafiyeti Var Mı?'] || r['KDV Muafiyeti (EVET/HAYIR)'] || r['KDV İstisnası'] || 'HAYIR', 
-            makineTechizatTipi: r['Makine Teçhizat Tipi'] || 'Ana Makine', 
-            finansalKiralamaMi: r['Finansal Kiralama Mı'] || 'HAYIR', 
-            finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || r['Finansal Kiralama İzin Verilen Miktar'] || 0, 
-            finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', 
-            gerceklesenAdet: r['Gerçekleşen Adet'] || r['Fatura Gerçekleşen Miktar'] || 0, 
-            gerceklesenTutar: r['Gerçekleşen Tutar '] || r['Fatura Gerçekleşen Değer'] || 0, 
-            iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
-            iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
-            iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
-            dosyalar: []
-          };
-          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
-          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
-          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
-          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
-          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
-          const gerc = gerceklesmeCoz(r);
-          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
-          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
-          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
-          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
-          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
-            obj.talep = { ...(obj.talep || {}) };
-            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
-            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
-            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
-          }
-          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
-            obj.karar = { ...(obj.karar || {}) };
-            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
-            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
-            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
-          }
-          const errs = [];
-          if (!obj.adi) errs.push('Adı boş');
-          if (!obj.birim) errs.push('Birim boş');
-          if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
-          if (errs.length) obj._errors = errs;
-          return calcYerli(obj);
-        });
-        // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
-        setYerliRows(prev => {
-          const { list, added, updated, untouched } = mergeImportedRows(prev, yerliMapped);
-          if (yerliMapped.length > 0) openToast('success', `Yerli: ${added} yeni eklendi, ${updated} güncellendi, ${untouched} satıra dokunulmadı.`);
-          return list;
-        });
-      };
-
-      const processIthalData = (ithalData) => {
-        const ithalMapped = ithalData.map((r, idx) => {
-          const getGtipKey = (row) => {
-            const keys = Object.keys(row);
-            return keys.find(k => {
-              const clean = k.replace(/[\s\.]/g, '').toUpperCase();
-              return clean === 'GTIP' || clean === 'GTIPNO' || clean === 'GTİPNO' || clean === 'GTIPKODU' || clean === 'GTİPKODU' || clean === 'GTIPKOD' || clean === 'GTİP';
-            }) || 'GTIP No';
-          };
-          const getGtipAciklamaKey = (row) => {
-            const keys = Object.keys(row);
-            return keys.find(k => {
-               const clean = k.replace(/[\s\.]/g, '').toUpperCase();
-               return clean.includes('GTIP') && (clean.includes('AÇIKLAMA') || clean.includes('ACIKLAMA') || clean.includes('AÇK'));
-            }) || 'GTIP Açıklama';
-          };
-          const gtipKey = getGtipKey(r);
-          const gtipAciklamaKey = getGtipAciklamaKey(r);
-          const extractedGtipKodu = r[gtipKey] || r['GTIP Kodu'] || r['GTIP'] || '';
-          const extractedGtipAciklama = r[gtipAciklamaKey] || r['GTIP Aciklama'] || r['GTIP Açk.'] || lookupGtipDescription(extractedGtipKodu) || '';
-
-          const obj = { 
-            id: Math.random().toString(36).slice(2), 
-            siraNo: r['Sıra No'] || (idx + 1), 
-            makineId: r['Makine ID'] || '', 
-            gtipKodu: extractedGtipKodu, 
-            gtipAciklama: extractedGtipAciklama, 
-            adi: r['Adı ve Özelliği'] || r['Adı'] || r['Makina ve Teçhizatın Cinsi'] || '', 
-            miktar: r['Miktarı'] || r['Miktar'] || 0, 
-            birim: r['Birimi'] || r['Birim'] || '', 
-            birimAciklamasi: r['Birim Açıklaması'] || '', 
-            birimFiyatiFob: r['Mensei Doviz Tutari(Fob)'] || r['Menşei Döviz Birim Fiyatı (FOB)'] || r['Menşe Ülke Döviz Birim Fiyatı'] || 0, 
-            doviz: r['Mensei Doviz Cinsi(Fob)'] || r['Menşei Döviz Cinsi (FOB)'] || r['Döviz Cinsi'] || '', 
-            toplamUsd: r['Toplam Tutar (FOB $)'] || r['Toplam Tutar (FOB$)'] || 0, 
-            toplamTl: r['Toplam Tutar (FOB TL)'] || r['Toplam Tutar (FOBTL)'] || 0, 
-            kullanilmisKod: kullanilmisKoduIceAktar(r['KULLANILMIŞ MAKİNE'] || r['Kullanılmış Makine (Kod)'] || r['Kullanılmış Mı?']), 
-            kullanilmisAciklama: r['Kullanılmış Makine (Açıklama)'] || '', 
-            makineTechizatTipi: r['Makine Teçhizat Tipi'] || 'Ana Makine', 
-            kdvMuafiyeti: r['KDV Muafiyeti'] || 'EVET', 
-            gumrukVergisiMuafiyeti: r['Gümrük Vergisi Muafiyeti'] || 'EVET', 
-            finansalKiralamaMi: r['Finansal Kiralama Mı'] || 'HAYIR', 
-            finansalKiralamaAdet: r['Finansal Kiralama İse Adet '] || r['Finansal Kiralama İzin Verilen Miktar'] || 0, 
-            finansalKiralamaSirket: r['Finansal Kiralama İse Şirket'] || '', 
-            gerceklesenAdet: r['Gerçekleşen Adet'] || r['Gümrük Gerçekleşen Miktar'] || 0, 
-            gerceklesenTutar: r['Gerçekleşen Tutar '] || r['Gümrük Gerçekleşen Değer'] || 0, 
-            iadeDevirSatisVarMi: r['İade-Devir-Satış Var mı?'] || 'HAYIR', 
-            iadeDevirSatisAdet: r['İade-Devir-Satış adet'] || 0, 
-            iadeDevirSatisTutar: r['İade Devir Satış Tutar'] || 0, 
-            ckdSkd: r['CKD'] || 'HAYIR', 
-            aracMi: 'HAYIR', 
-            dosyalar: []
-          };
-          // 📗 Gerçekleşme tutarları + talep/karar tarihleri.
-          // Müşteri: "dışa aktardığımız dosyayı düzenleyip içe aktarınca yine
-          // getirmiyor... En önemlisi tarihler." Dışa aktarım kısaltılmış
-          // başlıklar ("Gerç. Adet") yazıyordu, buradaki eşleme ise uzun adı
-          // arıyordu; tarihler hiç okunmuyordu. Ortak sözlük ikisini de tanıyor.
-          const gerc = gerceklesmeCoz(r);
-          if (gerc.gerceklesenAdet !== undefined) obj.gerceklesenAdet = gerc.gerceklesenAdet;
-          if (gerc.gerceklesenTutar !== undefined) obj.gerceklesenTutar = gerc.gerceklesenTutar;
-          // Tarih/adet bilgileri talep-karar nesnelerine yazılır (ızgara oradan okuyor).
-          // Boş gelen alan mevcut değeri EZMEZ: kısmi doldurulmuş şablon yüklenebilsin.
-          if (gerc.talepTarihi || gerc.talepAdedi !== undefined) {
-            obj.talep = { ...(obj.talep || {}) };
-            if (gerc.talepTarihi) obj.talep.talepTarihi = gerc.talepTarihi;
-            if (gerc.talepAdedi !== undefined) obj.talep.istenenAdet = gerc.talepAdedi;
-            if (gerc.talepTarihi && !obj.talep.durum) obj.talep.durum = 'bakanliga_gonderildi';
-          }
-          if (gerc.kararTarihi || gerc.onaylananAdet !== undefined) {
-            obj.karar = { ...(obj.karar || {}) };
-            if (gerc.kararTarihi) obj.karar.kararTarihi = gerc.kararTarihi;
-            if (gerc.onaylananAdet !== undefined) obj.karar.onaylananAdet = gerc.onaylananAdet;
-            if (gerc.kararTarihi && !obj.karar.kararDurumu) obj.karar.kararDurumu = 'onay';
-          }
-          const errs = [];
-          if (!obj.adi) errs.push('Adı boş');
-          if (!obj.birim) errs.push('Birim boş');
-          if (!obj.doviz) errs.push('Döviz boş');
-          if (!numberOrZero(obj.miktar)) errs.push('Miktar 0');
-          if (errs.length) obj._errors = errs;
-          return calcIthal(obj);
-        });
-        // müşteri: içe aktarım mevcut listeyi SİLMEZ — eşleşeni günceller, yeniyi ekler, diğerlerine dokunmaz
-        setIthalRows(prev => {
-          const { list, added, updated, untouched } = mergeImportedRows(prev, ithalMapped);
-          if (ithalMapped.length > 0) openToast('success', `İthal: ${added} yeni eklendi, ${updated} güncellendi, ${untouched} satıra dokunulmadı.`);
-          return list;
-        });
-      };
-
-      if (isCsv) {
-        // Handle CSV specifically for semi-colon delimited or standard
-        const text = await file.text();
-        const lines = text.split(/\r?\n/).filter(l => l.trim());
-        if (lines.length < 2) {
-          openToast('error', 'CSV dosyası boş veya hatalı formatta.');
-          return;
-        }
-
-        // Determine delimiter (comma or semi-colon)
-        const delimiter = lines[0].includes(';') ? ';' : ',';
-        const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
-        
-        const data = lines.slice(1).map(line => {
-          const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
-          let obj = {};
-          headers.forEach((h, i) => {
-            obj[h] = values[i] || '';
-          });
-          return obj;
-        });
-
-        const upperName = file.name.toUpperCase();
-        const isIthal = upperName.includes('İTHAL') || upperName.includes('ITHAL') || 
-                        headers.some(h => h.includes('Döviz') || h.includes('Menşe') || h.includes('FOB'));
-
-        if (isIthal) {
-          processIthalData(data);
-        } else {
-          processYerliData(data);
-        }
-      } else {
-        // Default Excel processing
-        const data = await file.arrayBuffer();
-        const wb = XLSX.read(data, { type: 'array' });
-        
-        const getSheetData = (possibleNames) => {
-          const name = possibleNames.find(n => wb.SheetNames.includes(n));
-          if (name) return XLSX.utils.sheet_to_json(wb.Sheets[name], { defval: '' });
-          return [];
-        };
-
-        const yerliData = getSheetData(['Yerli', 'YERLİ LİSTE', 'YERLI LISTE', 'YERLI', 'Yerli Liste']);
-        const ithalData = getSheetData(['İthal', 'Ithal', 'İTHAL LİSTE', 'ITHAL LISTE', 'İthal Liste']);
-        
-        if (yerliData.length) processYerliData(yerliData);
-        if (ithalData.length) processIthalData(ithalData);
-        
-        if (!yerliData.length && !ithalData.length) {
-          openToast('error', 'Excel dosyasında "Yerli" veya "İthal" isimli sekmeler bulunamadı.');
-        }
+      const { yerli, ithal } = file.name.toLowerCase().endsWith('.csv')
+        ? csvSatirlariniOku(await file.text(), file.name)
+        : excelSatirlariniOku(await file.arrayBuffer());
+      if (!yerli.length && !ithal.length) {
+        openToast('error', 'Dosyada makine satırı bulunamadı. Sayfa adları "YERLİ" / "İTHAL" olmalı; boş şablonu indirip kullanabilirsiniz.');
+        return;
       }
+      const coz = (satirlar, tur) => satirlar.map((r, i) => makineSatiriCoz(r, tur, { sira: i + 1, gtipAciklamaBul: lookupGtipDescription }));
+      const ozet = [];
+      let eksikli = 0;
+      const ozetle = (ad, s) => {
+        ozet.push(`${ad}: ${s.added} yeni eklendi, ${s.updated} güncellendi, ${s.untouched} satıra dokunulmadı`);
+        eksikli += s.warned;
+      };
+      if (yerli.length) {
+        const sonuc = iceAktarimBirlestir(yerliRows, coz(yerli, 'yerli'), calcYerli);
+        setYerliRows(sonuc.list);
+        ozetle('Yerli', sonuc);
+      }
+      if (ithal.length) {
+        const sonuc = iceAktarimBirlestir(ithalRows, coz(ithal, 'ithal'), calcIthal);
+        setIthalRows(sonuc.list);
+        ozetle('İthal', sonuc);
+      }
+      if (eksikli) ozet.push(`${eksikli} yeni satırda ad/birim/miktar/döviz eksik`);
+      openToast(eksikli ? 'warning' : 'success', `${ozet.join(' · ')}.`);
     } catch (err) {
       console.error("İçe aktarma hatası:", err);
       openToast('error', 'Dosya okunurken veya dönüştürülürken bir hata oluştu');
