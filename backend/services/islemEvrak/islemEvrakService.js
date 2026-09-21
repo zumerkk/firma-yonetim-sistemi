@@ -127,29 +127,36 @@ function mailOlustur({ talep, sablon, uploadLink, firma }) {
   };
 
   const konu = engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', data);
+  const govde = sablonMetniniIsle(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
+  return { konu, govde, data };
+}
 
-  // Motor, değeri boş olan placeholder'ı bilerek yerinde bırakır ("{x}" görünür kalsın
-  // ki eksik veri fark edilsin). Ama Google Form opsiyonel: tanımlı değilse mailde
-  // "{formLink}" yazması hata gibi durur. Bu yüzden yalnız bu satırı şablondan
-  // render ÖNCESİ düşürüyoruz; diğer placeholder'ların uyarı davranışı bozulmuyor.
-  // KURAL: {formLink} form tanımlı değilse, o placeholder'ın GEÇTİĞİ SATIRIN TAMAMI
-  // düşer — böylece "Formu doldurun: {formLink}" gibi açıklamalı satırlar da temiz
-  // kaybolur. Bu yüzden {formLink} kendi satırında yazılmalı; aynı satıra {uploadLink}
-  // konursa o da düşer. (Arayüzdeki yardım metni bunu söylüyor.)
-  let sablonMetni = sablon.mailGovdesi || VARSAYILAN_GOVDE;
+/**
+ * Şablon gövdesini veriyle doldurur. Belge Takip › Firma Maili de AYNI işlevi kullanır
+ * (müşteri, 21.09.2026: "İki alanda da birebir aynı şablonun kullanılması isteniyor").
+ *
+ * Motor, değeri boş olan placeholder'ı bilerek yerinde bırakır ("{x}" görünür kalsın
+ * ki eksik veri fark edilsin). Ama Google Form opsiyonel: tanımlı değilse mailde
+ * "{formLink}" yazması hata gibi durur. Bu yüzden yalnız bu satırı şablondan
+ * render ÖNCESİ düşürüyoruz; diğer placeholder'ların uyarı davranışı bozulmuyor.
+ * KURAL: {formLink} form tanımlı değilse, o placeholder'ın GEÇTİĞİ SATIRIN TAMAMI
+ * düşer — böylece "Formu doldurun: {formLink}" gibi açıklamalı satırlar da temiz
+ * kaybolur. Bu yüzden {formLink} kendi satırında yazılmalı; aynı satıra {uploadLink}
+ * konursa o da düşer. (Arayüzdeki yardım metni bunu söylüyor.)
+ */
+function sablonMetniniIsle(sablonMetni, data = {}) {
+  let metin = String(sablonMetni || '');
   if (!data.formLink) {
-    sablonMetni = String(sablonMetni)
+    metin = metin
       .split('\n')
       .filter((satir) => !satir.includes('{formLink}'))
       .join('\n');
   }
-
-  const govde = engine
-    .render(sablonMetni, data)
+  return engine
+    .render(metin, data)
     // Düşen satırın bıraktığı çift boşluğu topla
     .replace(/\n{3,}/g, '\n\n')
     .trim();
-  return { konu, govde, data };
 }
 
 // İşlem türünde metin tanımlı değilse kullanılan iskelet
@@ -405,6 +412,8 @@ module.exports = {
   talepKlasoru,
   sablonKlasoru,
   sablonDosyaKaydet,
+  sablonMetniniIsle,
+  getSignature,
   ensureUploadLink,
   resolveByToken,
   mailOlustur,

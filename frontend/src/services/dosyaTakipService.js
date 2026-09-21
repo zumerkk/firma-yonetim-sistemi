@@ -48,6 +48,18 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 🕓 Durum geçmişindeki bir geçişin tarihini düzelt (tarih: ISO, saat dilimli)
+    durumGecmisiTarihDuzelt: async (id, gecmisId, tarih) => {
+        const { data } = await axios.patch(`${API_URL}/${id}/durum-gecmisi/${gecmisId}`, { tarih });
+        return data;
+    },
+
+    // ☑️ E-TUYS takip kutusu — yanıt yalnız { isaretli, kontrolTarihi, kontrolEdenAdi }
+    etuysTakip: async (id, isaretli) => {
+        const { data } = await axios.patch(`${API_URL}/${id}/etuys-takip`, { isaretli });
+        return data;
+    },
+
     // 🔄 Eksik tamamla → Kurum Değerlendirme'ye aktar (dosya/notları belge ekine kaydeder)
     eksikTamamla: async (id) => {
         const { data } = await axios.post(`${API_URL}/${id}/eksik-tamamla`);
@@ -63,8 +75,9 @@ const dosyaTakipService = {
     // ✉️ Firmaya mail (Belge Takip → "Firma Maili" sekmesi)
     // Taslak sunucuda hazırlanıyor: eksikler + uzman notları toplanıp önerilen
     // konu/gövde dönüyor, kullanıcı düzenleyip gönderiyor.
-    firmaMailTaslak: async (id) => {
-        const { data } = await axios.get(`${API_URL}/${id}/firma-mail-taslak`);
+    // sablon: İşlem & Evrak şablonunun kimliği ya da 'standart'; boşsa sunucu varsayılanı seçer
+    firmaMailTaslak: async (id, sablon = '') => {
+        const { data } = await axios.get(`${API_URL}/${id}/firma-mail-taslak`, { params: sablon ? { sablon } : {} });
         return data?.data;
     },
     firmaMailGonder: async (id, govde) => {

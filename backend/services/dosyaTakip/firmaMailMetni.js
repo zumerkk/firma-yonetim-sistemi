@@ -18,8 +18,10 @@ const SELAM = 'Sayın Yetkili,';
 function firmadanBeklenenler(talep) {
   const k = talep?.muraacatSonrasi?.kurumEksik || {};
   const dogrudan = k.firmadanBeklenen?.beklenenEksikler || [];
-  // "Hem firma hem bizden" grubundakiler de firmayı ilgilendiriyor
-  const ortak = k.hemFirmaHemBizden?.beklenenEksikler || [];
+  // "Hem firma hem bizden" grubundakiler de firmayı ilgilendiriyor. Şemadaki adı
+  // `herIkisindenBeklenen` — burada eskiden şemada hiç olmayan bir ad okunuyordu ve bu gruptaki
+  // eksikler firmaya giden taslağa hiç girmiyordu (21.09.2026'da fark edildi).
+  const ortak = k.herIkisindenBeklenen?.beklenenEksikler || [];
   return [...dogrudan, ...ortak]
     .map((n) => String(n?.metin || '').trim())
     .filter(Boolean);
@@ -103,6 +105,44 @@ function govdeOner(talep, { imza = '', yuklemeLinki = '' } = {}) {
   return satirlar.join('\n');
 }
 
+/**
+ * İşlem & Evrak şablonunun {evrakListesi} yerine geçecek metin: firmadan beklenen eksikler
+ * (numaralı, İşlem & Evrak'taki listeyle aynı biçim) ve altında uzman notları.
+ */
+function evrakListesiMetni(talep) {
+  const parcalar = [];
+  const eksikler = firmadanBeklenenler(talep);
+  if (eksikler.length) parcalar.push(eksikler.map((e, i) => `${i + 1}. ${e}`).join('\n'));
+  const notlar = uzmanNotlari(talep);
+  if (notlar.length) parcalar.push(['Notlar:', ...notlar.map((n) => `- ${n}`)].join('\n'));
+  // Boş liste sessizce gitmesin: maili düzenleyen kişi yazması gerektiğini görsün
+  return parcalar.length
+    ? parcalar.join('\n\n')
+    : '(Firmadan beklenen eksik kaydı yok — istenecek evrakları buraya yazın.)';
+}
+
+/**
+ * İşlem & Evrak mail şablonunu Belge Takip talebiyle doldurmak için veri.
+ *
+ * Müşteri (21.09.2026): "'İşlem & Evrak' modülündeki yeni takip mail şablonunu, doğrudan 'Belge Takip'
+ * modülündeki mail gönderme kısmına da ekleyebilir miyiz? İki alanda da birebir aynı şablonun
+ * kullanılması isteniyor." Şablon metni İşlem & Evrak'taki kayıttan okunur ve aynı işlevle
+ * (islemEvrakService.sablonMetniniIsle) doldurulur; yer tutucuların Belge Takip karşılıkları burada.
+ * Google Form bu modülde yok: {formLink} satırı İşlem & Evrak'taki kuralla düşer.
+ */
+function sablonVerisi(talep, { imza = '', yuklemeLinki = '', tarih = new Date() } = {}) {
+  return {
+    firmaAdi: String(talep?.firmaUnvan || talep?.firma?.tamUnvan || '').trim(),
+    islemAdi: String(talep?.talepTuru || '').trim(),
+    varyant: '',
+    evrakListesi: evrakListesiMetni(talep),
+    uploadLink: yuklemeLinki || '',
+    formLink: '',
+    imza: String(imza || '').trim(),
+    tarih: new Date(tarih).toLocaleDateString('tr-TR')
+  };
+}
+
 const EPOSTA_BICIMI = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const adresNormalle = (v) => String(v || '').trim().toLowerCase();
 const adresleriTemizle = (liste) =>
@@ -155,4 +195,7 @@ function alicilariOner({ firma, gecmis = [] } = {}) {
   };
 }
 
-module.exports = { konuOner, govdeOner, alicilariOner, belgeNoAl, firmadanBeklenenler, uzmanNotlari, SELAM };
+module.exports = {
+  konuOner, govdeOner, alicilariOner, belgeNoAl, firmadanBeklenenler, uzmanNotlari, sablonVerisi,
+  evrakListesiMetni, SELAM
+};

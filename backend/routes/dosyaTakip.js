@@ -77,6 +77,12 @@ router.put('/:id', dosyaTakipController.talepGuncelle);
 // 🔄 Durum Değiştir (State Machine geçişi)
 router.patch('/:id/durum', dosyaTakipController.durumDegistir);
 
+// 🕓 Durum geçmişindeki bir geçişin tarihini düzelt (geriye dönük veri girişi)
+router.patch('/:id/durum-gecmisi/:gecmisId', dosyaTakipController.durumGecmisiTarihDuzelt);
+
+// ☑️ E-TUYS takip kutusu (yalnız 2. Kurum Değerlendirme) — listeden tek tıkla
+router.patch('/:id/etuys-takip', dosyaTakipController.etuysTakipGuncelle);
+
 // 🔄 Eksik (2.2.3) tamamlandı → Kurum Değerlendirme'ye (2.2.1) aktar + dosya/notları belge dossierine kaydet
 router.post('/:id/eksik-tamamla', dosyaTakipController.eksikTamamla);
 

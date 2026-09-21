@@ -6,7 +6,7 @@ import {
     Box, Typography, Button, Chip, TextField, MenuItem, ListSubheader,
     Paper, IconButton, InputAdornment, Grid, Tooltip,
     LinearProgress, Alert, Avatar, Dialog, DialogTitle,
-    DialogContent, DialogActions
+    DialogContent, DialogActions, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
 import { DataGrid, trTR } from '@mui/x-data-grid';
 import {
@@ -24,6 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
+import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import axios from '../../utils/axios';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
@@ -77,7 +78,8 @@ const ANA_ASAMA_ETIKETLERI = {
 
 const DosyaTakipList = () => {
     const navigate = useNavigate();
-    const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil } = useDosyaTakip();
+    const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil, etuysTakipIsaretle } = useDosyaTakip();
+    const [etuysHata, setEtuysHata] = useState('');
     const [personeller, setPersoneller] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
     const [deleteDialog, setDeleteDialog] = useState({ open: false, id: null, takipId: '' });
@@ -114,6 +116,10 @@ const DosyaTakipList = () => {
     }, [searchParams, setSearchParams]);
 
     const arsivModu = searchParams.get('arsiv') === '1';
+    // 📦 Müşteri (21.09.2026): "Kapama taleplerini arşiv kısmının sol tarafına alabilir miyiz ayrı
+    // olarak? Çok işlem yapılmıyor kapama taleplerinde arşiv gibi ayrı görünsün isteniyor."
+    const kapamaModu = !arsivModu && searchParams.get('kapama') === '1';
+    const gorunum = arsivModu ? 'arsiv' : (kapamaModu ? 'kapama' : 'aktif');
     const filterAnaAsama = searchParams.get('anaAsama') || '';
     const kapsam = searchParams.get('kapsam') || '';
     const filterTalepTuru = searchParams.get('talepTuru') || '';
@@ -126,7 +132,7 @@ const DosyaTakipList = () => {
 
     // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
     // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
-    const setArsivModu = (acik) => parametreYaz({ arsiv: acik ? '1' : '', kapsam: '' });
+    const setGorunum = (g) => parametreYaz({ arsiv: g === 'arsiv' ? '1' : '', kapama: g === 'kapama' ? '1' : '', kapsam: '' });
     // Elle aşama seçmek kart kapsamını geçersiz kılar
     const setFilterAnaAsama = (deger) => parametreYaz({ anaAsama: deger, kapsam: '' });
 
@@ -205,11 +211,24 @@ const DosyaTakipList = () => {
             takipEden: filterTakipEden,
             // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
             arsiv: arsivModu ? '1' : '',
+            // kapama=1 → yalnız kapama talepleri; boş → ana liste bunları göstermez
+            kapama: kapamaModu ? '1' : '',
             // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
             kapsam
         };
         fetchTalepler(params);
-    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapsam]);
+    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam]);
+
+    // ☑️ E-TUYS takip kutusu — hata olursa tablonun üstünde görünür, kutu sunucudaki haliyle kalır
+    const etuysDegistir = useCallback(async (id, isaretli) => {
+        try {
+            await etuysTakipIsaretle(id, isaretli);
+            setEtuysHata('');
+        } catch (err) {
+            setEtuysHata(err?.response?.data?.message || 'E-TUYS takip bilgisi kaydedilemedi.');
+            throw err;
+        }
+    }, [etuysTakipIsaretle]);
 
     // Detaya giderken listenin tüm sorgusu taşınır; detaydaki "Geri" aynı filtreli
     // listeye döner. Henüz URL'e yazılmamış (400 ms'lik gecikmede bekleyen) arama
@@ -249,7 +268,9 @@ const DosyaTakipList = () => {
         sonYazilanArama.current = '';
         setSearch('');
         const sp = new URLSearchParams();
-        if (arsivModu) sp.set('arsiv', '1'); // arşiv görünümü korunur, sadece filtreler temizlenir
+        // arşiv/kapama görünümü korunur, sadece filtreler temizlenir
+        if (arsivModu) sp.set('arsiv', '1');
+        if (kapamaModu) sp.set('kapama', '1');
         setSearchParams(sp, { replace: true });
     };
 
@@ -424,28 +445,37 @@ const DosyaTakipList = () => {
             }
         },
         {
-            // müşteri: sonuçlananlara sonuçlanma / son işlem tarihi eklensin
+            // Müşteri (21.09.2026): "Sonuçlanma detaylarında 'Son İşlem Tarihi' görünmesin; sadece bizim
+            // belirlediğimiz 'Sonuç Tarihi' ve işlemi 'Sonuçlandı' statüsüne aldığımız tarihler
+            // listelensin." Sonuç tarihi (Zamanlama sekmesi / Sonuçlandı'ya geçişte damga) yoksa talebin
+            // Sonuçlandı'ya alındığı tarih durum geçmişinden gelir (sunucu: sonucaAlinmaTarihi).
+            // İkisi de yoksa boş — eskiden burada "son işlem" (updatedAt) gösteriliyordu.
             field: 'sonuclanmaTarihi',
             headerName: 'Sonuçlanma',
-            width: 130,
-            renderCell: (params) => {
-                const sonuclanma = params.value;
-                if (sonuclanma) {
-                    return (
-                        <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#059669', fontWeight: 600 }}>
-                            {new Date(sonuclanma).toLocaleDateString('tr-TR')}
-                        </Typography>
-                    );
-                }
-                // Henüz sonuçlanmadıysa son işlem tarihini göster (gri)
-                const sonIslem = params.row?.updatedAt;
-                return (
-                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {sonIslem ? `${new Date(sonIslem).toLocaleDateString('tr-TR')} (son işlem)` : '-'}
+            width: 110,
+            valueGetter: (params) => params.row?.sonuclanmaTarihi || params.row?.sonucaAlinmaTarihi || null,
+            renderCell: (params) => (
+                params.value ? (
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#059669', fontWeight: 600 }}>
+                        {new Date(params.value).toLocaleDateString('tr-TR')}
                     </Typography>
-                );
-            }
+                ) : (
+                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8' }}>-</Typography>
+                )
+            )
         },
+        // ☑️ E-TUYS takip — yalnız 2. Kurum Değerlendirme satırlarında kutu çıkar (arşivde sütun yok)
+        ...(arsivModu ? [] : [{
+            field: 'etuysTakip',
+            headerName: 'E-TUYS Takip',
+            description: 'İşaretleyince o anın tarih ve saati "son kontrol" olarak kaydedilir',
+            width: 150,
+            sortable: false,
+            filterable: false,
+            renderCell: (params) => (etuysTakipGorunur(params.row)
+                ? <EtuysTakipKutusu talep={params.row} onDegistir={etuysDegistir} kompakt />
+                : null)
+        }]),
         {
             field: 'actions',
             headerName: 'İşlemler',
@@ -490,32 +520,33 @@ const DosyaTakipList = () => {
                         </IconButton>
                         <Box>
                             <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                                {arsivModu ? 'Arşiv — Sonuçlanan Talepler' : 'Talep Listesi'}
+                                {{ aktif: 'Talep Listesi', kapama: 'Kapama Talepleri', arsiv: 'Arşiv — Sonuçlanan Talepler' }[gorunum]}
                             </Typography>
                             <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {arsivModu
-                                    ? `Toplam ${pagination?.toplam || 0} sonuçlanmış talep`
-                                    : `Toplam ${pagination?.toplam || 0} aktif talep`}
+                                {{
+                                    aktif: `Toplam ${pagination?.toplam || 0} aktif talep (kapama talepleri ayrı sekmede)`,
+                                    kapama: `Toplam ${pagination?.toplam || 0} sonuçlanmamış kapama talebi`,
+                                    arsiv: `Toplam ${pagination?.toplam || 0} sonuçlanmış talep`
+                                }[gorunum]}
                             </Typography>
                         </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-                        {/* 🗄️ Arşiv geçişi — sonuçlananlar ana listeyi kalabalıklaştırmasın */}
-                        <Button
-                            variant={arsivModu ? 'contained' : 'outlined'}
-                            startIcon={<ArchiveIcon />}
-                            // setArsivModu zaten sayfayı başa alıyor (parametreYaz
-                            // varsayılan olarak 'sayfa'yı siler); ayrıca çağrı gereksiz.
-                            onClick={() => setArsivModu(!arsivModu)}
-                            sx={{
-                                textTransform: 'none',
-                                ...(arsivModu
-                                    ? { background: '#047857' }
-                                    : { borderColor: '#cbd5e1', color: '#475569' })
-                            }}
+                    <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                        {/* 🗄️ Görünüm: sonuçlananlar (arşiv) ve kapama talepleri ana listeyi kalabalıklaştırmasın.
+                            Kapama arşivin solunda (müşteri, 21.09.2026). Görünüm değişince sayfa başa döner
+                            (parametreYaz varsayılan olarak 'sayfa'yı siler). */}
+                        <ToggleButtonGroup
+                            size="small"
+                            exclusive
+                            value={gorunum}
+                            onChange={(e, g) => g && setGorunum(g)}
+                            sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5, fontWeight: 600, color: '#475569' },
+                                '& .Mui-selected': { color: '#fff !important', background: '#047857 !important' } }}
                         >
-                            {arsivModu ? 'Aktif Talepler' : 'Arşiv'}
-                        </Button>
+                            <ToggleButton value="aktif">Aktif Talepler</ToggleButton>
+                            <ToggleButton value="kapama">Kapama Talepleri</ToggleButton>
+                            <ToggleButton value="arsiv"><ArchiveIcon sx={{ fontSize: 18, mr: 0.5 }} />Arşiv</ToggleButton>
+                        </ToggleButtonGroup>
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
@@ -531,6 +562,7 @@ const DosyaTakipList = () => {
                 </Box>
 
                 {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>{error}</Alert>}
+                {etuysHata && <Alert severity="error" onClose={() => setEtuysHata('')} sx={{ mb: 2 }}>{etuysHata}</Alert>}
 
                 {/* Filtreler */}
                 <Paper sx={{ p: 2, mb: 2, border: '1px solid #e2e8f0' }}>

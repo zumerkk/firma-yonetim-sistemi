@@ -52,7 +52,9 @@ import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import axios from '../../utils/axios';
 import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
+import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import { adresEkle, eklenebilirOneriler } from '../../utils/epostaListesi';
+import { tarihSaatGirdisi, tarihSaatIso, tarihSaatYapistir } from '../../utils/tarihSaat';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
@@ -310,6 +312,78 @@ const dosyaIndir = async (talepId, dosya) => {
     }
 };
 
+// 🕓 Durum geçmişi satırındaki tarih — düzeltilebilir.
+// Müşteri (21.09.2026): "Bu durum geçmişindeki tarihleri istediğimiz gibi revize edebilme şansımız var
+// mıdır acaba?" Veri girişi geriye dönük yapılınca geçişler giriş gününün tarihiyle düşüyordu.
+// Modül düzeyinde: ana bileşenin içinde tanımlansaydı her render'da yeniden kurulup odak kaybolurdu.
+const GecmisTarihi = ({ gecmis, onKaydet }) => {
+    const [duzenleniyor, setDuzenleniyor] = useState(false);
+    const [deger, setDeger] = useState('');
+    const [kaydediliyor, setKaydediliyor] = useState(false);
+    const iso = tarihSaatIso(deger);
+
+    const ac = () => { setDeger(tarihSaatGirdisi(gecmis.tarih)); setDuzenleniyor(true); };
+    const kaydet = async () => {
+        if (!iso || kaydediliyor) return;
+        setKaydediliyor(true);
+        try {
+            await onKaydet(gecmis._id, iso);
+            setDuzenleniyor(false);
+        } catch (_) {
+            // Sunucunun gerekçesi üst bileşende gösterilir; kutu açık kalır, düzeltilebilir
+        } finally {
+            setKaydediliyor(false);
+        }
+    };
+
+    if (duzenleniyor) {
+        return (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
+                <TextField
+                    type="datetime-local" size="small" autoFocus
+                    value={deger}
+                    onChange={(e) => setDeger(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); kaydet(); }
+                        if (e.key === 'Escape') setDuzenleniyor(false);
+                    }}
+                    // ETUYS/Excel'den "09.09.2026 09:29:05" yapıştırılabilsin (<input> bunu yutuyor)
+                    onPaste={(e) => {
+                        const yeni = tarihSaatYapistir(e.clipboardData?.getData('text'), deger);
+                        if (yeni) { e.preventDefault(); setDeger(yeni); }
+                    }}
+                    inputProps={{ max: tarihSaatGirdisi(new Date()), 'aria-label': 'Yeni tarih ve saat' }}
+                    error={!iso}
+                    sx={{ width: 230 }}
+                />
+                <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={kaydet}
+                    disabled={!iso || kaydediliyor} sx={{ textTransform: 'none', background: '#059669' }}>
+                    {kaydediliyor ? 'Kaydediliyor…' : 'Kaydet'}
+                </Button>
+                <Button size="small" onClick={() => setDuzenleniyor(false)} sx={{ textTransform: 'none' }}>Vazgeç</Button>
+            </Box>
+        );
+    }
+
+    return (
+        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}>
+            {gecmis.tarih ? new Date(gecmis.tarih).toLocaleString('tr-TR') : '-'}
+            {gecmis.ilkTarih && (
+                <Tooltip title={`Sistemin ilk kaydettiği: ${new Date(gecmis.ilkTarih).toLocaleString('tr-TR')}${gecmis.tarihDuzenleyenAdi ? ` · düzelten: ${gecmis.tarihDuzenleyenAdi}` : ''}${gecmis.tarihDuzenlemeTarihi ? ` (${new Date(gecmis.tarihDuzenlemeTarihi).toLocaleDateString('tr-TR')})` : ''}`}>
+                    <Chip label="düzeltildi" size="small" sx={{ height: 16, fontSize: '0.6rem', background: '#fef3c7', color: '#92400e' }} />
+                </Tooltip>
+            )}
+            {gecmis._id && (
+                <Tooltip title="Tarihi düzelt">
+                    <IconButton size="small" onClick={ac} aria-label="Tarihi düzelt" sx={{ p: 0.25 }}>
+                        <EditIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                </Tooltip>
+            )}
+        </Box>
+    );
+};
+
 // 📝 Yükleme öncesi açıklama dialogu
 // Müşteri: "eklenen dosyaların yanına açıklama yazılmadan kaydedilmesin, açıklama zorunlu olsun".
 // Dosya artık doğrudan yüklenmiyor; önce seçilen her dosya için açıklama isteniyor.
@@ -443,7 +517,7 @@ const DosyaTakipDetail = () => {
     // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
     // girildiyse state boştur ve normal listeye dönülür.
     const listeyeDon = () => navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
-    const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTabDurumu] = useState(() => Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme'))));
     const setActiveTab = (v) => {
@@ -625,20 +699,65 @@ const DosyaTakipDetail = () => {
         setOdemeEditing(true);
     };
 
-    // ✉️ Firma maili — taslağı sunucudan al (eksikler + uzman notları orada toplanıyor)
-    const mailTaslakYukle = async () => {
+    // ✉️ Firma maili — taslağı sunucudan al (eksikler + uzman notları orada toplanıyor).
+    // Müşteri (21.09.2026): İşlem & Evrak'taki mail şablonu burada da kullanılsın ("iki alanda da birebir
+    // aynı şablon"). Seçilen şablon bu tarayıcıda hatırlanır; sunucu şablonu her seferinde İşlem & Evrak
+    // kaydından okur, oradaki düzeltme buraya da yansır.
+    const SABLON_ANAHTARI = 'belgeTakip.firmaMailSablonu';
+    const sablonHatirla = () => { try { return localStorage.getItem(SABLON_ANAHTARI) || ''; } catch (_) { return ''; } };
+    const govdeElleDegistiRef = useRef(false);
+    const mailTaslakYukle = async (sablon = sablonHatirla()) => {
         setMailYukleniyor(true);
         try {
-            const t = await dosyaTakipService.firmaMailTaslak(id);
+            const t = await dosyaTakipService.firmaMailTaslak(id, sablon);
             // Alıcı ve CC, firmaya en son gönderilen maile göre sunucudan gelir
             // (müşteri: "bizim yazdığımız mailleri kaydedebilir")
             setMailTaslak({ ...t, cc: t?.cc || '' });
+            govdeElleDegistiRef.current = false;
             // Ödeme belgeleri gibi dosyalar varsayılan olarak İŞARETLENMEZ:
             // firmaya istemeden dekont göndermek geri alınamaz bir hata olurdu.
             setMailEkler([]);
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Taslak hazırlanamadı.', severity: 'error' });
         } finally { setMailYukleniyor(false); }
+    };
+
+    // Şablon değişince yalnız metin yenilenir; yazılan alıcı/CC/konu korunur
+    const mailSablonuDegistir = async (sablon) => {
+        if (!mailTaslak || sablon === mailTaslak.sablonId) return;
+        if (govdeElleDegistiRef.current
+            && !window.confirm('Mail metnine yaptığınız değişiklikler silinip metin seçilen şablondan yeniden oluşturulacak. Devam edilsin mi?')) return;
+        try { localStorage.setItem(SABLON_ANAHTARI, sablon); } catch (_) { /* gizli pencere vb. — hatırlanmaz */ }
+        setMailYukleniyor(true);
+        try {
+            const t = await dosyaTakipService.firmaMailTaslak(id, sablon);
+            setMailTaslak((p) => ({ ...p, govde: t.govde, sablonId: t.sablonId, sablonlar: t.sablonlar }));
+            govdeElleDegistiRef.current = false;
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Şablon uygulanamadı.', severity: 'error' });
+        } finally { setMailYukleniyor(false); }
+    };
+
+    // 🕓 Durum geçmişi tarihi düzelt
+    const gecmisTarihiKaydet = async (gecmisId, iso) => {
+        try {
+            await durumGecmisiTarihDuzelt(id, gecmisId, iso);
+            setSnackbar({ open: true, message: 'Tarih güncellendi', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Tarih güncellenemedi.', severity: 'error' });
+            throw err;
+        }
+    };
+
+    // ☑️ E-TUYS takip kutusu (yalnız 2. Kurum Değerlendirme)
+    const etuysDegistir = async (talepId, isaretli) => {
+        try {
+            await etuysTakipIsaretle(talepId, isaretli);
+            setSnackbar({ open: true, message: isaretli ? 'E-TUYS kontrolü kaydedildi' : 'E-TUYS işareti kaldırıldı', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'E-TUYS takip kaydedilemedi.', severity: 'error' });
+            throw err;
+        }
     };
 
     const firmaMailiGonder = async () => {
@@ -962,6 +1081,12 @@ const DosyaTakipDetail = () => {
                             {(seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi) && (
                                 <Chip size="small" label={`Takip: ${seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi}`}
                                     sx={{ fontSize: '0.65rem', height: 22, background: '#dbeafe', color: '#1e40af' }} />
+                            )}
+                            {/* ☑️ Müşteri (21.09.2026): listedeki E-TUYS takip kutusu dosya detayında da olsun */}
+                            {etuysTakipGorunur(seciliTalep) && (
+                                <Box sx={{ ml: 'auto', px: 1, py: 0.25, border: '1px solid #bbf7d0', background: '#fff' }}>
+                                    <EtuysTakipKutusu talep={seciliTalep} onDegistir={etuysDegistir} />
+                                </Box>
                             )}
                         </Box>
                     </Grid>
@@ -1300,8 +1425,13 @@ const DosyaTakipDetail = () => {
                                             </Box>
                                         ) : (
                                             <List sx={{ p: 0 }}>
-                                                {[...seciliTalep.durumGecmisi].reverse().map((gecmis, index) => (
-                                                    <ListItem key={index} alignItems="flex-start" sx={{ px: 0 }}>
+                                                {/* En yeni üstte. Tarihler düzeltilebildiği için sıralama dizi sırasına değil
+                                                    tarihe göre; eşit tarihte kayıt sırası korunur. */}
+                                                {seciliTalep.durumGecmisi
+                                                    .map((g, sira) => ({ g, sira }))
+                                                    .sort((a, b) => (new Date(b.g.tarih || 0) - new Date(a.g.tarih || 0)) || (b.sira - a.sira))
+                                                    .map(({ g: gecmis }, index) => (
+                                                    <ListItem key={gecmis._id || index} alignItems="flex-start" sx={{ px: 0 }}>
                                                         <ListItemAvatar>
                                                             <Avatar sx={{ width: 32, height: 32, background: '#f59e0b', fontSize: '0.75rem' }}>
                                                                 {index + 1}
@@ -1318,8 +1448,8 @@ const DosyaTakipDetail = () => {
                                                                 </Box>
                                                             }
                                                             secondary={
-                                                                <Typography variant="caption" sx={{ color: '#64748b', mt: 0.5, display: 'block' }}>
-                                                                    {gecmis.degistirenAdi || 'Sistem'} • {gecmis.tarih ? new Date(gecmis.tarih).toLocaleString('tr-TR') : '-'}
+                                                                <Typography variant="caption" component="div" sx={{ color: '#64748b', mt: 0.5, display: 'block' }}>
+                                                                    {gecmis.degistirenAdi || 'Sistem'} • <GecmisTarihi gecmis={gecmis} onKaydet={gecmisTarihiKaydet} />
                                                                     {gecmis.aciklama && <><br /><em>"{gecmis.aciklama}"</em></>}
                                                                 </Typography>
                                                             }
@@ -1596,7 +1726,7 @@ const DosyaTakipDetail = () => {
                                     <Box>
                                         {!mailTaslak ? (
                                             <Box sx={{ textAlign: 'center', py: 4 }}>
-                                                <Button variant="contained" startIcon={<MailIcon />} onClick={mailTaslakYukle}
+                                                <Button variant="contained" startIcon={<MailIcon />} onClick={() => mailTaslakYukle()}
                                                     disabled={mailYukleniyor} sx={{ textTransform: 'none' }}>
                                                     {mailYukleniyor ? 'Hazırlanıyor…' : 'Mail Taslağı Hazırla'}
                                                 </Button>
@@ -1613,6 +1743,19 @@ const DosyaTakipDetail = () => {
                                                     </Alert>
                                                 )}
                                                 <Grid container spacing={2}>
+                                                    {/* Müşteri (21.09.2026): İşlem & Evrak'taki mail şablonu burada da kullanılsın */}
+                                                    <Grid item xs={12}>
+                                                        <TextField select fullWidth size="small" label="Mail şablonu"
+                                                            value={mailTaslak.sablonId || 'standart'}
+                                                            onChange={(e) => mailSablonuDegistir(e.target.value)}
+                                                            disabled={mailYukleniyor}
+                                                            helperText="Şablonlar İşlem & Evrak › İşlem Türleri'nden gelir; {evrakListesi} yerine firmadan beklenen eksikler ve notlar yazılır.">
+                                                            {(mailTaslak.sablonlar || []).map((s) => (
+                                                                <MenuItem key={s._id} value={s._id}>İşlem & Evrak: {s.ad}</MenuItem>
+                                                            ))}
+                                                            <MenuItem value="standart">Belge Takip standart metni</MenuItem>
+                                                        </TextField>
+                                                    </Grid>
                                                     <Grid item xs={12} sm={6}>
                                                         <TextField fullWidth size="small" label="Alıcı(lar)"
                                                             placeholder="ornek@firma.com, ikinci@firma.com"
@@ -1646,7 +1789,7 @@ const DosyaTakipDetail = () => {
                                                     <Grid item xs={12}>
                                                         <TextField fullWidth multiline minRows={10} label="Mail Metni"
                                                             value={mailTaslak.govde}
-                                                            onChange={(e) => setMailTaslak((p) => ({ ...p, govde: e.target.value }))} />
+                                                            onChange={(e) => { govdeElleDegistiRef.current = true; setMailTaslak((p) => ({ ...p, govde: e.target.value })); }} />
                                                     </Grid>
                                                 </Grid>
 
