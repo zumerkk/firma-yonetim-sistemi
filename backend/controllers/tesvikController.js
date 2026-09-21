@@ -259,11 +259,14 @@ const getTesvikler = async (req, res) => {
       tarihBaslangic,
       tarihBitis,
       destekSinifi,
-      search
+      search,
+      // ⏳ 'gecen' | 'hakki_var' | 'hakki_yok' — süresi dolan belgeler (bkz. utils/belgeSureFiltresi)
+      sureDurumu
     } = req.query;
 
     // Build query
     const query = { aktif: true };
+    require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
 
     if (durum) query['durumBilgileri.genelDurum'] = durum;
     if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
@@ -2002,9 +2005,12 @@ const birlesikFirmaArama = async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 50, 100);
     const select = 'tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi yatirimBilgileri.yerinIl olusturanKullanici createdAt';
 
+    // Süre süzgeci aramayla birlikte de çalışsın (müşteri: süresi dolanları firma bazında da görebilmek)
+    const sureKosulu = require('../utils/belgeSureFiltresi').sureFiltresi(req.query.sureDurumu);
+    const sure = (sorgu) => (sureKosulu ? sorgu.and([sureKosulu]) : sorgu);
     const [eski, yeni] = await Promise.all([
-      Tesvik.searchTesvikler(q).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean(),
-      YeniTesvik.searchTesvikler(q).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean()
+      sure(Tesvik.searchTesvikler(q)).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean(),
+      sure(YeniTesvik.searchTesvikler(q)).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean()
     ]);
 
     const merged = [

@@ -312,11 +312,14 @@ const getTesvikler = async (req, res) => {
       tarihBaslangic,
       tarihBitis,
       destekSinifi,
-      search
+      search,
+      // ⏳ 'gecen' | 'hakki_var' | 'hakki_yok' — süresi dolan belgeler (bkz. utils/belgeSureFiltresi)
+      sureDurumu
     } = req.query;
 
     // Build query
     const query = { aktif: true };
+    require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
 
     if (durum) query['durumBilgileri.genelDurum'] = durum;
     if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();

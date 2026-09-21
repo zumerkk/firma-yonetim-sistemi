@@ -221,3 +221,32 @@ describe('firma maili — İşlem & Evrak şablonu', () => {
     expect(r.body.data.govde).toMatch(/SGK bilgi notu/);
   });
 });
+
+// Müşteri (21.09.2026): teşvik görüntüleme "Evrak Listesi"ne o belge numarasıyla Belge Takip'te açılan
+// işlemler ve belgeleri otomatik gelsin
+describe('belge işlemleri (teşvik → Evrak Listesi)', () => {
+  const tesvikId = new ObjectId();
+  beforeAll(async () => {
+    await DosyaTakip.collection.insertMany([
+      talep({ takipId: 'DT8', belge: tesvikId, ytbNo: '568289', dosyalar: [{ _id: new ObjectId(), dosyaAdi: 'sonuc.pdf', kategori: 'ETUYS Sonuç Görüntüsü', dosyaYolu: 'x' }] }),
+      talep({ takipId: 'DT9', ytbNo: '568289' }), // belgeye bağlanmamış, belge no ile eşleşir
+      talep({ takipId: 'DT10', ytbNo: '999999' }),
+      talep({ takipId: 'DT11', ytbNo: '568289', aktif: false })
+    ]);
+  });
+
+  test('belge bağı ya da belge no ile eşleşen aktif talepler, dosyalarıyla', async () => {
+    const r = await request(app).get('/api/dosya-takip/belge-islemleri').query({ belge: String(tesvikId), belgeNo: '568289' });
+    expect(r.status).toBe(200);
+    expect(r.body.data.map((t) => t.takipId).sort()).toEqual(['DT8', 'DT9']);
+    const dt8 = r.body.data.find((t) => t.takipId === 'DT8');
+    expect(dt8.dosyalar).toEqual([expect.objectContaining({ dosyaAdi: 'sonuc.pdf', kategori: 'ETUYS Sonuç Görüntüsü' })]);
+    expect(dt8.dosyalar[0].dosyaYolu).toBeUndefined();
+    expect(dt8.durumEtiketi).toBe('Görüşülüyor');
+  });
+
+  test('ölçüt verilmezse boş liste (bütün talepler dökülmez)', async () => {
+    const r = await request(app).get('/api/dosya-takip/belge-islemleri');
+    expect(r.body.data).toEqual([]);
+  });
+});

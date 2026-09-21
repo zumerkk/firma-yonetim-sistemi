@@ -315,6 +315,44 @@ exports.getTumTalepler = async (req, res) => {
 };
 
 // ============================================================================
+// 📎 BİR TEŞVİK BELGESİNİN BELGE TAKİP İŞLEMLERİ (teşvik görüntüleme → Evrak Listesi)
+// Müşteri (21.09.2026): "'Evrak Listesi' bölümüne, o belge numarasıyla ilgili 'Belge Takip' ekranında
+// açılan işlemlerin adı ve ilgili belgeler otomatik olarak gelirse harika olur."
+// Eşleşme (canlı ölçüm, 21.09.2026): 246 talebin 178'i belgeye doğrudan bağlı (`belge`); bağsız 40
+// talebin 26'sı belge no (ytbNo = belgeYonetimi.belgeNo) ile eşleşiyor. Üçü birlikte aranır.
+// ============================================================================
+exports.belgeIslemleri = async (req, res) => {
+    try {
+        const { belge, belgeNo, belgeId } = req.query;
+        const kosullar = [];
+        if (belge && mongoose.Types.ObjectId.isValid(belge)) kosullar.push({ belge });
+        if (String(belgeNo || '').trim()) kosullar.push({ ytbNo: String(belgeNo).trim() });
+        if (String(belgeId || '').trim()) kosullar.push({ belgeId: String(belgeId).trim() });
+        if (!kosullar.length) return res.json({ success: true, data: [] });
+
+        const talepler = await DosyaTakip.find({ aktif: true, $or: kosullar })
+            .select('takipId talepTuru durum anaAsama createdAt sonuclanmaTarihi durumGecmisi.yeniDurum durumGecmisi.tarih '
+                + 'dosyalar._id dosyalar.dosyaAdi dosyalar.dosyaTipi dosyalar.kategori dosyalar.aciklama '
+                + 'dosyalar.yuklemeTarihi dosyalar.firmaYukledi')
+            .sort({ createdAt: -1 })
+            .lean();
+
+        res.json({
+            success: true,
+            data: talepler.map(({ durumGecmisi, ...t }) => ({
+                ...t,
+                durumEtiketi: getDurumEtiketi(t.durum),
+                anaAsamaEtiketi: getAnaAsamaEtiketi(t.anaAsama),
+                sonucaAlinmaTarihi: DosyaTakip.sonucaAlinmaTarihi({ durumGecmisi })
+            }))
+        });
+    } catch (error) {
+        console.error('Belge işlemleri hatası:', error);
+        res.status(500).json({ success: false, message: 'Belge takip işlemleri yüklenemedi', error: error.message });
+    }
+};
+
+// ============================================================================
 // 🔍 TEKİL TALEP DETAYI
 // ============================================================================
 exports.getTalepById = async (req, res) => {

@@ -93,10 +93,12 @@ const TesvikList = () => {
   });
   
   // 🔍 Filter States
+  // sureDurumu: müşteri (21.09.2026) "belge bitiş tarihi geçenler" + "süre uzatım hakkı var mı, yok mu?"
   const [filters, setFilters] = useState({
     search: '',
     durum: '',
-    il: ''
+    il: '',
+    sureDurumu: ''
   });
 
   // 🎨 Durum Renk Haritası
@@ -186,7 +188,7 @@ const TesvikList = () => {
       let varsayilanSistem = 'Eski';
       if (aramaTerimi.length >= 2) {
         // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
-        response = await axios.get('/tesvik/birlesik-arama', { params: { q: aramaTerimi } });
+        response = await axios.get('/tesvik/birlesik-arama', { params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined } });
         varsayilanSistem = '';
       } else if (sistemFiltre === 'Yeni') {
         // müşteri: "Yeni" filtresi arama yokken de çalışsın (eskiden boş dönüyordu)
@@ -311,7 +313,8 @@ const TesvikList = () => {
         params: {
           durum: filters.durum,
           il: filters.il,
-          search: filters.search
+          search: filters.search,
+          sureDurumu: filters.sureDurumu || undefined
         }
       });
 
@@ -342,6 +345,19 @@ const TesvikList = () => {
   const formatDate = (date) => {
     if (!date) return '-';
     return new Date(date).toLocaleDateString('tr-TR');
+  };
+
+  // ⏳ Süre durumu (sunucudaki utils/belgeSureFiltresi ile aynı kural): bitiş tarihi bugünden önceyse
+  // süresi dolmuştur; uzatım tarihi bitişten SONRAYSA uzatım hakkı kullanılmıştır.
+  const bugunUtc = (() => {
+    const t = new Date();
+    return Date.UTC(t.getFullYear(), t.getMonth(), t.getDate());
+  })();
+  const sureBilgisi = (b = {}) => {
+    const bitis = b.belgeBitisTarihi ? new Date(b.belgeBitisTarihi).getTime() : null;
+    if (bitis === null || Number.isNaN(bitis) || bitis >= bugunUtc) return null;
+    const uzatim = b.uzatimTarihi ? new Date(b.uzatimTarihi).getTime() : null;
+    return { hakkiVar: !(uzatim !== null && uzatim > bitis) };
   };
 
   return (
@@ -521,6 +537,26 @@ const TesvikList = () => {
                     placeholder="İl adı girin..."
                   />
                 </Grid>
+
+                {/* ⏳ Müşteri (21.09.2026): "Teşvik listesine 'belge bitiş tarihi geçenler' için bir filtreleme
+                    yöntemi ... süresi dolan belgeleri listeleyip, kendi içinde 'süre uzatım hakkı var mı, yok
+                    mu?' diye filtreleyebilmek. (Süre uzatım tarihi belge bitiş tarihinden sonraysa hakkını
+                    zaten kullanmıştır, yani hakkı yoktur.)" */}
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="Süre Durumu"
+                    value={filters.sureDurumu}
+                    onChange={(e) => handleFilterChange('sureDurumu', e.target.value)}
+                    helperText={filters.sureDurumu ? 'Bitiş tarihi bugünden önce olan belgeler' : ' '}
+                  >
+                    <MenuItem value="">Tümü</MenuItem>
+                    <MenuItem value="gecen">Belge bitiş tarihi geçenler</MenuItem>
+                    <MenuItem value="hakki_var">Geçenler — süre uzatım hakkı VAR</MenuItem>
+                    <MenuItem value="hakki_yok">Geçenler — süre uzatım hakkı YOK (kullanılmış)</MenuItem>
+                  </TextField>
+                </Grid>
               </Grid>
             </CardContent>
           </Card>
@@ -657,11 +693,30 @@ const TesvikList = () => {
                           </Typography>
                         </TableCell>
 
-                        {/* 📅 Belge Bitiş Tarihi (müşteri: listede + Excel'de görünsün) */}
+                        {/* 📅 Belge Bitiş Tarihi (müşteri: listede + Excel'de görünsün).
+                            Süresi dolmuşsa kırmızı ve uzatım hakkı durumu yanında. */}
                         <TableCell>
-                          <Typography variant="body2">
-                            {formatDate(tesvik.belgeYonetimi?.belgeBitisTarihi)}
-                          </Typography>
+                          {(() => {
+                            const sure = sureBilgisi(tesvik.belgeYonetimi);
+                            return (
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.25 }}>
+                                <Typography variant="body2" sx={sure ? { color: '#dc2626', fontWeight: 600 } : undefined}>
+                                  {formatDate(tesvik.belgeYonetimi?.belgeBitisTarihi)}
+                                </Typography>
+                                {sure && (
+                                  <Chip
+                                    size="small"
+                                    label={sure.hakkiVar ? 'Uzatım hakkı var' : 'Uzatım hakkı yok'}
+                                    sx={{
+                                      height: 18, fontSize: '0.62rem', fontWeight: 700,
+                                      bgcolor: sure.hakkiVar ? '#dcfce7' : '#f1f5f9',
+                                      color: sure.hakkiVar ? '#15803d' : '#475569'
+                                    }}
+                                  />
+                                )}
+                              </Box>
+                            );
+                          })()}
                         </TableCell>
 
                         {/* 📅 Süre Uzatım Tarihi */}
