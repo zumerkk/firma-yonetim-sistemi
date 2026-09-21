@@ -44,7 +44,7 @@ describe('CariHareket - reddedilenler (okunur mesajla)', () => {
   });
 
   test('ödenen hareket belge adısız olamaz', async () => {
-    expect((await hatalar(kur({ tur: 'odenen', belgeAdi: '   ' }))).belgeAdi.message).toBe('Ödenen belge adı zorunludur');
+    expect((await hatalar(kur({ tur: 'odenen', belgeAdi: '   ' }))).belgeAdi.message).toBe('Hizmet ve yatırım ödemesinin adı zorunludur');
   });
 
   test.each([0, -5])('tutar %p reddedilir', async (tutar) => {
@@ -80,6 +80,13 @@ describe('CariHareket - normalleştirme', () => {
     await d.validate();
     expect(d.banka).toBe('');
     expect(d.faturaNo).toBe('');
+  });
+
+  // Müşteri (21.09.2026): elle yazılan ödeme adları tamamen büyük harfe çevrilsin
+  test('ödeme adı Türkçe kuralla büyük harfe çevrilir', async () => {
+    const d = kur({ tur: 'odenen', belgeAdi: 'yatırım indirimi hizmet bedeli' });
+    await d.validate();
+    expect(d.belgeAdi).toBe('YATIRIM İNDİRİMİ HİZMET BEDELİ');
   });
 
   test('yeni kayıtta talep bağı ve dosya boş', () => {

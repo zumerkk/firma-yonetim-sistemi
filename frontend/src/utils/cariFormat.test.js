@@ -66,7 +66,10 @@ describe('gösterim', () => {
 
     test('hareket başlığı türe göre', () => {
         expect(hareketBasligi({ tur: 'gelen', banka: 'Ziraat' })).toBe('Ziraat');
-        expect(hareketBasligi({ tur: 'odenen', belgeAdi: 'Belge harcı' })).toBe('Belge harcı');
+        // Müşteri (21.09.2026): elle yazılan adlar büyük harf görünsün — Türkçe kuralla
+        expect(hareketBasligi({ tur: 'odenen', belgeAdi: 'Belge harcı' })).toBe('BELGE HARCI');
+        expect(hareketBasligi({ tur: 'odenen', belgeAdi: 'yatırım indirimi' })).toBe('YATIRIM İNDİRİMİ');
+        expect(hareketBasligi({ tur: 'odenen' })).toBe('Hizmet ve yatırım ödemesi');
         expect(hareketBasligi({ tur: 'fatura', faturaNo: 'GM-15' })).toBe('Fatura No: GM-15');
         expect(hareketBasligi({ tur: 'fatura' })).toBe('Fatura');
     });

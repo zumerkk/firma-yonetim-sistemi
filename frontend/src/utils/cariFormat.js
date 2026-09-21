@@ -8,9 +8,12 @@
 export const BANKALAR = ['Enpara', 'Garanti', 'Vakıf', 'Ziraat', 'Diğer'];
 
 // Müşteri: "gelen(banka tutar)-gideni(ödenen tutar) yeşil/kırmızı"
+// "Ödenen" türünün adı müşteri isteğiyle (21.09.2026) "Hizmet ve Yatırım Ödemesi" oldu:
+// "Mevcut isimlendirme arkadaşların biraz kafasını karıştırıyor."
+export const ODENEN_BASLIK = 'Hizmet ve Yatırım Ödemeleri';
 export const HAREKET_TURU = {
     fatura: { etiket: 'Fatura', renk: '#b45309', zemin: '#fffbeb', kenar: '#fcd34d' },
-    odenen: { etiket: 'Ödenen', renk: '#dc2626', zemin: '#fef2f2', kenar: '#fca5a5' },
+    odenen: { etiket: 'Hizmet ve Yatırım Ödemesi', renk: '#dc2626', zemin: '#fef2f2', kenar: '#fca5a5' },
     gelen: { etiket: 'Gelen', renk: '#16a34a', zemin: '#f0fdf4', kenar: '#86efac' }
 };
 
@@ -88,12 +91,17 @@ export const bugun = () => {
     return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 };
 
+/** Elle yazılan ödeme adı — Türkçe kuralla büyük harf (i → İ, ı → I) */
+export const buyukHarf = (s) => String(s || '').toLocaleUpperCase('tr-TR');
+
 /** Defterdeki açıklama sütunu */
 export const hareketBasligi = (h) => {
     if (!h) return '';
     if (h.tur === 'gelen') return h.banka || 'Gelen ödeme';
     if (h.tur === 'fatura') return h.faturaNo ? `Fatura No: ${h.faturaNo}` : 'Fatura';
-    return h.belgeAdi || 'Ödenen belge';
+    // Müşteri (21.09.2026): yazılan adlar tamamen büyük harf görünsün. Sunucu yeni kayıtları
+    // büyük harfle saklıyor; bu çağrı ondan önce girilmiş kayıtları da aynı gösteriyor.
+    return buyukHarf(h.belgeAdi) || 'Hizmet ve yatırım ödemesi';
 };
 
 /** Hareketin bağlı olduğu belge takip talebi (populate edilmiş) */

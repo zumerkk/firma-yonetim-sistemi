@@ -29,7 +29,9 @@ const cariHareketSchema = new mongoose.Schema({
   // Hangi belge takip talebine ait (modülden girilenlerde boş olabilir)
   dosyaTakip: { type: mongoose.Schema.Types.ObjectId, ref: 'DosyaTakip', default: null },
 
-  // fatura: firmaya kesilen fatura · odenen: firma adına ödenen belge ("giden") · gelen: bankaya gelen ödeme
+  // fatura: firmaya kesilen fatura · odenen: hizmet ve yatırım ödemesi ("giden", eski adı "ödenen belge")
+  // · gelen: bankaya gelen ödeme. Müşteri (21.09.2026) "Kesilen Fatura" girişini kaldırttı; tür, eski
+  // kayıtlar ve bakiye formülü bozulmasın diye şemada duruyor.
   tur: {
     type: String,
     enum: { values: HAREKET_TURLERI, message: 'Geçersiz hareket türü' },
@@ -62,8 +64,11 @@ cariHareketSchema.index({ dosyaTakip: 1, tarih: 1 });
 
 // Türe bağlı zorunluluklar — enum/required tek başına ifade edemiyor
 cariHareketSchema.pre('validate', function () {
+  // Müşteri (21.09.2026): "belge isimlerini elimizle giriyoruz, sistem bu yazdıklarımızı otomatik
+  // olarak tamamen büyük harfe çevirebilir mi?" — Türkçe kuralla (i → İ, ı → I)
+  if (this.belgeAdi) this.belgeAdi = String(this.belgeAdi).toLocaleUpperCase('tr-TR');
   if (this.tur === 'odenen' && !String(this.belgeAdi || '').trim()) {
-    this.invalidate('belgeAdi', 'Ödenen belge adı zorunludur');
+    this.invalidate('belgeAdi', 'Hizmet ve yatırım ödemesinin adı zorunludur');
   }
   if (this.tur === 'gelen' && !this.banka) {
     this.invalidate('banka', 'Banka seçimi zorunludur');
