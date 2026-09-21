@@ -31,6 +31,7 @@ let _cloudinaryConfigured = false;
 // CLOUDINARY_STORAGE_ENABLED=true olmalı + credentials tam olmalı.
 // (dosyaTakip modülü kendi Cloudinary config'ini kullanır, bu toggle ona etki etmez)
 const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
+const parcaliDosya = require('../../utils/parcaliDosya');
 
 function isCloudinaryConfigured() {
   return Boolean(
@@ -219,7 +220,7 @@ async function ensureMachineStructure(identity, machine, listType) {
 // ════════════════════════════════════════════════════════════════
 // 💾 Buffer'ı kaydet — Cloudinary veya local disk
 // ════════════════════════════════════════════════════════════════
-async function saveBuffer({ folderRel, documentTypeFolder = 'Diger', originalName, buffer }) {
+async function saveBuffer({ folderRel, documentTypeFolder = 'Diger', originalName, buffer, mimeType = '' }) {
   // multer dosya adını latin1 çözüyor: "Güncel İmza Sirküleri.pdf" kayda "GÃ¼ncel Ä°mza
   // SirkÃ¼leri.pdf" olarak giriyordu (müşteri ekran görüntüsü, 16.09.2026). Ad burada bir kez
   // onarılır; hem depodaki dosya adı hem de kayda yazılan görünen ad düzgün olur.
@@ -227,7 +228,7 @@ async function saveBuffer({ folderRel, documentTypeFolder = 'Diger', originalNam
   const provider = getProvider();
 
   if (provider === 'cloudinary') {
-    return _saveToCloudinary({ folderRel, documentTypeFolder, originalName: ad, buffer });
+    return _saveToCloudinary({ folderRel, documentTypeFolder, originalName: ad, buffer, mimeType });
   }
 
   return _saveToLocal({ folderRel, documentTypeFolder, originalName: ad, buffer });
@@ -246,7 +247,7 @@ function cloudinaryKaynakTipi(fileName) {
 }
 
 // ─── Cloudinary upload ───
-async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, buffer }) {
+async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, buffer, mimeType = '' }) {
   ensureCloudinaryInit();
 
   const fileName = normalizeFileName(originalName);
@@ -254,10 +255,31 @@ async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, 
   const stem = path.basename(fileName, ext);
   const folder = cloudinaryFolder([folderRel, documentTypeFolder].join('/'));
   const kaynakTipi = cloudinaryKaynakTipi(fileName);
+  const timestamp = Date.now();
+
+  // 🧩 Cloudinary planı dosya başına 10 MiB kabul ediyor (müşteri, 21.09.2026: "File size too large.
+  // Got 20231360. Maximum is 10485760"). Sınırı aşan dosya parçalı saklanır; kayda manifest adresi girer,
+  // bulutDosyasiniIndir/deleteFile onu tanır (utils/parcaliDosya).
+  if (buffer.length > parcaliDosya.TEK_DOSYA_SINIRI) {
+    const sonuc = await parcaliDosya.bufferdanYukle(buffer, {
+      tabanPid: `${folder}/${stem}_${timestamp}${ext}`,
+      tekYukle: () => { throw new Error('beklenmeyen tek parça yükleme'); },
+      mimeType,
+      ad: originalName
+    });
+    const relPath = [folderRel, documentTypeFolder, fileName].join('/');
+    return {
+      fileName,
+      filePath: relPath,
+      relPath,
+      fileUrl: sonuc.secure_url,
+      providerFileId: sonuc.public_id,
+      provider: 'cloudinary'
+    };
+  }
 
   // Cloudinary upload (buffer → stream)
   const result = await new Promise((resolve, reject) => {
-    const timestamp = Date.now();
     // raw dosyada uzantı public_id'nin parçasıdır: adres .pdf ile biter, içerik tipi ve
     // indirilen dosyanın adı doğru olur.
     const publicId = kaynakTipi === 'image'
@@ -337,8 +359,13 @@ async function deleteFile(doc) {
     if (doc.providerFileId) {
       try {
         ensureCloudinaryInit();
-        // destroy 'auto' desteklemez; tür public_id'deki uzantıdan çıkarılır
-        await cloudinary.uploader.destroy(doc.providerFileId, { resource_type: cloudinaryKaynakTipi(doc.providerFileId) });
+        // destroy 'auto' desteklemez; tür public_id'deki uzantıdan çıkarılır.
+        // Parçalı (10 MiB üstü) dosyada parçalar da silinir.
+        if (parcaliDosya.manifestMi(doc.providerFileId)) {
+          await parcaliDosya.sil(doc.providerFileId);
+        } else {
+          await cloudinary.uploader.destroy(doc.providerFileId, { resource_type: cloudinaryKaynakTipi(doc.providerFileId) });
+        }
         console.log('☁️  [storageService] Cloudinary dosya silindi:', doc.providerFileId);
       } catch (err) {
         console.warn('⚠️ [storageService] Cloudinary silme hatası (devam ediliyor):', err.message);
@@ -444,6 +471,11 @@ function cloudinaryUrlCoz(url) {
 async function bulutDosyasiniIndir(url, mimeType = '') {
   const kimlik = cloudinaryUrlCoz(url);
   ensureCloudinaryInit();
+  // Parçalı (10 MiB üstü) dosya: adres manifesti gösteriyor, parçalar birleştirilir
+  if (parcaliDosya.manifestMi(url)) {
+    const birlesik = await parcaliDosya.indir(kimlik?.publicId, url);
+    return birlesik ? { buffer: birlesik.buffer, contentType: mimeType || birlesik.contentType } : null;
+  }
   const adaylar = [];
   if (kimlik) {
     const secenek = { resource_type: kimlik.resourceType, type: kimlik.deliveryType };

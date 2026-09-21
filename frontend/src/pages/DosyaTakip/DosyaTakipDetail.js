@@ -465,7 +465,7 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
                         <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, wordBreak: 'break-all' }}>
                             {f.name}
                             <Typography component="span" variant="caption" sx={{ color: '#94a3b8', ml: 1 }}>
-                                {(f.size / 1024).toFixed(1)} KB
+                                {f.size >= 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${(f.size / 1024).toFixed(1)} KB`}
                             </Typography>
                         </Typography>
                         <TextField
@@ -923,7 +923,7 @@ const DosyaTakipDetail = () => {
                 hatali++;
                 // Gerekçeyi yutmayalım: "Dosya açıklaması zorunludur" gibi mesajlar
                 // kullanıcıya ne yapması gerektiğini söylüyor.
-                if (!ilkHataMesaji) ilkHataMesaji = err?.response?.data?.message || '';
+                if (!ilkHataMesaji) ilkHataMesaji = err?.response?.data?.message || err?.kullaniciMesaji || '';
             }
         }
         setYukleme(null);

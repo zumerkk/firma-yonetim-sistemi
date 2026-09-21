@@ -12,7 +12,7 @@
 const path = require('path');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const parcaliDosya = require('./parcaliDosya');
 
 const IZINLI_UZANTILAR = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv', '.txt', '.zip', '.rar', '.ppt', '.pptx'];
 
@@ -27,10 +27,12 @@ const guvenliTaban = (ad) =>
         .replace(/[^A-Za-z0-9._-]+/g, '_')
         .slice(0, 80) || 'dosya';
 
-/** Tek dosyalık yükleme ara katmanı; multer/Cloudinary hatalarını JSON 400 olarak döner. */
+/**
+ * Tek dosyalık yükleme ara katmanı; multer/Cloudinary hatalarını JSON 400 olarak döner.
+ * 10 MiB'ı aşan dosya parçalı saklanır (utils/parcaliDosya — Cloudinary planının dosya sınırı).
+ */
 function tekDosyaYukleyici(klasor, alan = 'dosya') {
-    const depo = new CloudinaryStorage({
-        cloudinary,
+    const depo = parcaliDosya.depolama({
         params: (req, file) => {
             const ext = (path.extname(file.originalname || '') || '').toLowerCase();
             const taban = `${Date.now()}-${guvenliTaban(file.originalname)}`;
@@ -75,14 +77,10 @@ function dosyaBilgisi(file) {
     };
 }
 
-/** Cloudinary'den sil. Hata akışı bozmaz, yalnızca loglanır. */
+/** Cloudinary'den sil (parçalıysa parçalarıyla). Hata akışı bozmaz, yalnızca loglanır. */
 async function dosyaSil(dosya) {
     if (!dosya?.cloudinaryPublicId) return;
-    try {
-        await cloudinary.uploader.destroy(dosya.cloudinaryPublicId, { resource_type: kaynakTuru(dosya.dosyaTipi) });
-    } catch (err) {
-        console.error('Cloudinary silme hatası (devam ediliyor):', err.message);
-    }
+    await parcaliDosya.sil(dosya.cloudinaryPublicId, { resourceType: kaynakTuru(dosya.dosyaTipi) });
 }
 
 /**
@@ -91,6 +89,10 @@ async function dosyaSil(dosya) {
  * kısıtını aşar) → imzalı URL → kayıtlı yol.
  */
 async function dosyaCek(dosya) {
+    if (parcaliDosya.manifestMi(dosya?.cloudinaryPublicId)) {
+        const birlesik = await parcaliDosya.indir(dosya.cloudinaryPublicId, dosya.dosyaYolu);
+        return birlesik ? { buf: birlesik.buffer, tip: birlesik.contentType } : null;
+    }
     const adaylar = [];
     const pid = dosya?.cloudinaryPublicId;
     const rt = kaynakTuru(dosya?.dosyaTipi);

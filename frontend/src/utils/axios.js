@@ -68,6 +68,13 @@ api.interceptors.response.use(
       error.kullaniciMesaji = 'Bağlantı yavaş olduğu için işlem zaman aşımına uğradı. Lütfen tekrar deneyin.';
     }
 
+    // 📦 Çok büyük dosya: sunucunun kendi mesajı varsa o (multer sınırı), yoksa (Cloudflare'in 100 MB
+    // kapısı HTML sayfa döner) anlaşılır bir cümle — "Request failed with status code 413" değil.
+    if (error.response?.status === 413) {
+      error.kullaniciMesaji = error.response?.data?.message
+        || 'Dosya çok büyük — tek seferde en fazla 100 MB yüklenebilir. Dosyayı küçültüp ya da bölüp tekrar deneyin.';
+    }
+
     return Promise.reject(error);
   }
 );

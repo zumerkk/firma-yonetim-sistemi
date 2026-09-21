@@ -5,7 +5,7 @@ const Notification = require('../models/Notification');
 const multer = require('multer');
 const path = require('path');
 const cloudinary = require('cloudinary').v2;
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const parcaliDosya = require('../utils/parcaliDosya');
 const { turkceArama } = require('../utils/turkceArama');
 
 // ============================================================================
@@ -24,8 +24,10 @@ const guvenliTaban = (ad) =>
         .replace(/[^A-Za-z0-9._-]+/g, '_')
         .slice(0, 80) || 'dosya';
 
-const cloudinaryStorage = new CloudinaryStorage({
-    cloudinary: cloudinary,
+// 10 MiB'ı aşan dosya Cloudinary'de parçalı saklanır (utils/parcaliDosya — müşteri, 21.09.2026:
+// "File size too large. Got 20231360. Maximum is 10485760"). Altındakiler eskisi gibi tek parça;
+// multer-storage-cloudinary ile aynı parametreler, aynı public_id biçimi.
+const cloudinaryStorage = parcaliDosya.depolama({
     params: (req, file) => {
         const isImage = /^image\//.test(file.mimetype || '');
         const ext = (path.extname(file.originalname || '') || '').toLowerCase();
@@ -944,12 +946,8 @@ exports.dosyaEkle = [
             // yüklenen dosyayı temizlemezsek Cloudinary'de yetim kalır.
             const aciklama = String(req.body.aciklama || '').trim();
             if (!aciklama) {
-                const rt = /^image\//.test(req.file.mimetype || '') ? 'image' : 'raw';
-                try {
-                    await cloudinary.uploader.destroy(req.file.filename, { resource_type: rt });
-                } catch (cloudErr) {
-                    console.error('Cloudinary temizleme hatası (devam ediliyor):', cloudErr.message);
-                }
+                // Parçalı dosyada parçalar da gider (sil hata akışını bozmaz, loglar)
+                await parcaliDosya.sil(req.file.filename, { resourceType: /^image\//.test(req.file.mimetype || '') ? 'image' : 'raw' });
                 return res.status(400).json({ success: false, message: 'Dosya açıklaması zorunludur' });
             }
 
@@ -1032,6 +1030,20 @@ exports.dosyaGetir = async (req, res) => {
         const isImage = /^image\//.test(dosya.dosyaTipi || '');
         const rt = isImage ? 'image' : 'raw';
         const pid = dosya.cloudinaryPublicId;
+        const ad = encodeURIComponent(dosya.dosyaAdi || 'dosya');
+
+        // 🧩 10 MiB'tan büyük dosya parçalı saklanıyor: parçalar sırayla yanıta akıtılır (belleğe alınmaz)
+        if (parcaliDosya.manifestMi(pid)) {
+            const akti = await parcaliDosya.akit(pid, res, {
+                bilinenUrl: dosya.dosyaYolu,
+                basliklar: () => ({
+                    'Content-Type': dosya.dosyaTipi || undefined,
+                    'Content-Disposition': `${indir ? 'attachment' : 'inline'}; filename*=UTF-8''${ad}`
+                })
+            });
+            if (!akti) return res.status(502).json({ success: false, message: 'Dosya kaynaktan alınamadı. Tekrar deneyin.' });
+            return undefined;
+        }
 
         // Denenecek kaynak URL'leri (sırayla; ilk 200 dönen kullanılır)
         const adaylar = [];
@@ -1062,7 +1074,6 @@ exports.dosyaGetir = async (req, res) => {
         const buf = Buffer.from(await upstream.arrayBuffer());
         res.setHeader('Content-Type', dosya.dosyaTipi || upstream.headers.get('content-type') || 'application/octet-stream');
         res.setHeader('Content-Length', buf.length);
-        const ad = encodeURIComponent(dosya.dosyaAdi || 'dosya');
         res.setHeader('Content-Disposition', `${indir ? 'attachment' : 'inline'}; filename*=UTF-8''${ad}`);
         res.send(buf);
     } catch (error) {
@@ -1217,14 +1228,11 @@ exports.dosyaSil = async (req, res) => {
         }
 
         // Cloudinary'den sil (varsa public_id). resource_type, dosya tipinden çıkarılır
-        // (destroy 'auto' desteklemez; resim → image, diğerleri → raw)
+        // (destroy 'auto' desteklemez; resim → image, diğerleri → raw). Parçalı dosyada parçalar da gider.
         if (silinecek.cloudinaryPublicId) {
-            const rt = /^image\//.test(silinecek.dosyaTipi || '') ? 'image' : 'raw';
-            try {
-                await cloudinary.uploader.destroy(silinecek.cloudinaryPublicId, { resource_type: rt });
-            } catch (cloudErr) {
-                console.error('Cloudinary silme hatası (devam ediliyor):', cloudErr.message);
-            }
+            await parcaliDosya.sil(silinecek.cloudinaryPublicId, {
+                resourceType: /^image\//.test(silinecek.dosyaTipi || '') ? 'image' : 'raw'
+            });
         }
 
         target[lastPart] = target[lastPart].filter(d => d._id?.toString() !== dosyaId);
@@ -1431,6 +1439,10 @@ function getAnaAsamaEtiketi(asama) {
 // download API → imzalı delivery → kayıtlı URL. Cloudinary PDF teslimat kısıtı
 // yüzünden bu sıralama gerekli (bkz. dosyaGetir'deki not).
 async function ekIcinDosyaCek(dosya) {
+    // Parçalı (10 MiB üstü) dosya: parçalar birleştirilip eklenir
+    if (parcaliDosya.manifestMi(dosya.cloudinaryPublicId)) {
+        return (await parcaliDosya.indir(dosya.cloudinaryPublicId, dosya.dosyaYolu))?.buffer || null;
+    }
     const isImage = /^image\//.test(dosya.dosyaTipi || '');
     const rt = isImage ? 'image' : 'raw';
     const pid = dosya.cloudinaryPublicId;
@@ -1657,10 +1669,10 @@ exports.firmaYuklemeYap = [
                 { runValidators: true }
             );
         } catch (error) {
-            // Kayıt düştü: Cloudinary'de yetim dosya kalmasın
-            await Promise.all(dosyalar.map((f) => cloudinary.uploader
-                .destroy(f.filename, { resource_type: /^image\//.test(f.mimetype || '') ? 'image' : 'raw' })
-                .catch(() => null)));
+            // Kayıt düştü: Cloudinary'de yetim dosya (ve parça) kalmasın
+            await Promise.all(dosyalar.map((f) => parcaliDosya.sil(f.filename, {
+                resourceType: /^image\//.test(f.mimetype || '') ? 'image' : 'raw'
+            })));
             console.error('Firma yükleme kayıt hatası:', error);
             return res.status(500).json({ success: false, message: 'Dosya yüklenemedi. Lütfen tekrar deneyin.' });
         }
