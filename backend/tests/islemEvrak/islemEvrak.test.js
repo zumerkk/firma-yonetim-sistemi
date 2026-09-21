@@ -313,14 +313,26 @@ describe('Örnek taahhütname dosyaları - seed → yol çözümü → mail eki'
 });
 
 describe('Mail ekleri - örnek dosyası olan evraklar varsayılan olarak eklenir', () => {
-  // talepMailGonder'deki ek seçme mantığının birebir aynısı
+  // talepMailGonder'deki ek seçme mantığı: aday listesi servisten (ekliOrnekler), seçim süzgeci burada
+  const { ekliOrnekler } = require('../../services/islemEvrak/islemEvrakService');
   const ekleriSec = (istenenEvraklar, ekEvrakIdler) => {
     const secilen = Array.isArray(ekEvrakIdler) ? ekEvrakIdler.map(String) : null;
-    return (istenenEvraklar || [])
-      .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
+    return ekliOrnekler(istenenEvraklar)
       .filter((e) => !secilen || secilen.includes(String(e._id)))
       .map((e) => e.ornekDosya);
   };
+
+  // Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya
+  // maile ek olarak gitmeye devam ediyor. İstenmeyen evrakların örnekleri maile eklenmemeli."
+  test('"Mailde iste" işareti kalkmış evrakın örneği, seçilmiş olsa bile eklenmez', () => {
+    const t = talepKur([
+      { ad: 'Taahhütname', zorunlu: true, ornekDosya: { dosyaAdi: 'a.docx', filePath: 'x/a.docx' } },
+      { ad: 'Faaliyet Belgesi', zorunlu: false, ornekDosya: { dosyaAdi: 'b.docx', filePath: 'x/b.docx' } }
+    ]);
+    const hepsi = t.istenenEvraklar.map((e) => String(e._id));
+    expect(ekleriSec(t.istenenEvraklar, hepsi).map((e) => e.dosyaAdi)).toEqual(['a.docx']);
+    expect(ekleriSec(t.istenenEvraklar, undefined).map((e) => e.dosyaAdi)).toEqual(['a.docx']);
+  });
 
   const evrakla = () => talepKur([
     { ad: 'Taahhütname', zorunlu: true, ornekDosya: { dosyaAdi: 'a.docx', filePath: 'x/a.docx' } },
@@ -449,5 +461,77 @@ describe('Örnek dosya - kaydedilmemiş satırın indeks eşlemesi', () => {
   test('adı boş satır kaydedilemez — indeks -1 döner ve uyarı gerekir', () => {
     const evraklar = [{ ad: 'A', _id: '1' }, { ad: '   ' }];
     expect(hedefKonum(evraklar, 1).hedefIndex).toBe(-1);
+  });
+});
+
+// Müşteri (21.09.2026): "'3/35' gibi tüm listenin oranı yazıyor. Bunun yerine sadece mailde istediğimiz
+// evrakları baz alsa ve örneğin '3/6' gibi gösterse daha net olur."
+describe('maildeIstenenler - liste sayacının paydası', () => {
+  const { maildeIstenenler } = require('../../services/islemEvrak/islemEvrakService');
+  test('yalnız "Mailde iste" işaretliler sayılır; işaretsiz evrak gelse bile sayılmaz', () => {
+    const t = talepKur([
+      { ad: 'A', zorunlu: true, geldiMi: true },
+      { ad: 'B', zorunlu: true },
+      { ad: 'C', zorunlu: false, geldiMi: true },
+      { ad: 'D', zorunlu: false }
+    ]);
+    const istenen = maildeIstenenler(t.istenenEvraklar);
+    expect(istenen.map((e) => e.ad)).toEqual(['A', 'B']);
+    expect(istenen.filter((e) => e.geldiMi)).toHaveLength(1); // "1/2", eskiden "2/4"
+  });
+});
+
+// Müşteri (21.09.2026): "Yüklenen evrakları tek tek değil de toplu bir şekilde indirebilme özelliği"
+describe('topluZipYaz - firmadan gelen evraklar tek ZIP', () => {
+  const { PassThrough } = require('stream');
+  const AdmZip = require('adm-zip');
+  const { topluZipYaz } = require('../../services/islemEvrak/islemEvrakService');
+
+  const zipAl = async (talep, icerikAl) => {
+    const res = new PassThrough();
+    res.basliklar = {};
+    res.setHeader = (k, v) => { res.basliklar[k] = v; };
+    const parcalar = [];
+    res.on('data', (p) => parcalar.push(p));
+    const bitti = new Promise((ok) => res.on('end', ok));
+    const sonuc = await topluZipYaz(talep, res, { icerikAl });
+    await bitti;
+    return { sonuc, zip: new AdmZip(Buffer.concat(parcalar)), basliklar: res.basliklar };
+  };
+
+  const talep = {
+    firmaAdi: 'ÇINAR GIDA A.Ş.',
+    islemTuruAdi: 'Yeni Belge Talebi',
+    yuklenenEvraklar: [
+      { istenenEvrakAdi: 'Vergi Levhası', orijinalAd: 'vergi.pdf', fileUrl: 'u1' },
+      { istenenEvrakAdi: 'Vergi Levhası', orijinalAd: 'vergi.pdf', fileUrl: 'u2' }, // aynı ad
+      { istenenEvrakAdi: 'İmza Sirküleri', orijinalAd: 'imza.pdf', fileUrl: 'u3' },
+      { istenenEvrakAdi: '', orijinalAd: 'serbest.jpg', fileUrl: 'u4' }, // istenen evraka bağlanmamış
+      { istenenEvrakAdi: 'Kapasite Raporu', orijinalAd: 'kapasite.pdf', fileUrl: 'kayip' }
+    ]
+  };
+  const icerikAl = async (y) => (y.fileUrl === 'kayip' ? null : Buffer.from(`icerik-${y.fileUrl}`));
+
+  test('dosyalar evrak adına göre klasörlenir, aynı ad çakışmaz, içerikler doğru', async () => {
+    const { zip, sonuc, basliklar } = await zipAl(talep, icerikAl);
+    const adlar = zip.getEntries().map((e) => e.entryName).sort();
+    expect(adlar).toEqual([
+      'ALINAMAYAN_DOSYALAR.txt',
+      'Diger/serbest.jpg',
+      'Vergi Levhası/vergi (2).pdf',
+      'Vergi Levhası/vergi.pdf',
+      'İmza Sirküleri/imza.pdf'
+    ].sort());
+    expect(zip.readAsText('Vergi Levhası/vergi (2).pdf')).toBe('icerik-u2');
+    expect(sonuc.dosyaSayisi).toBe(4);
+    expect(basliklar['Content-Type']).toBe('application/zip');
+    expect(decodeURIComponent(basliklar['Content-Disposition'])).toContain('ÇINAR GIDA A.Ş. - Yeni Belge Talebi - Evraklar.zip');
+  });
+
+  // Alınamayan dosya sessizce kaybolmasın
+  test('alınamayan dosya ZIP içinde listelenir', async () => {
+    const { zip, sonuc } = await zipAl(talep, icerikAl);
+    expect(zip.readAsText('ALINAMAYAN_DOSYALAR.txt')).toContain('Kapasite Raporu/kapasite.pdf');
+    expect(sonuc.alinamayan).toEqual(['Kapasite Raporu/kapasite.pdf']);
   });
 });

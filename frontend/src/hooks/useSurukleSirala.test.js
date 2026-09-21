@@ -8,8 +8,10 @@ import { renderHook, act } from '@testing-library/react';
 import useSurukleSirala from './useSurukleSirala';
 import { tasiKonuma } from '../utils/dizi';
 
-const olay = () => ({
+// Tutamaktan başlamış bir sürüklemede satırın draggable'ı açıktır (bkz. surukleyiAc)
+const olay = (draggable = true) => ({
   preventDefault: jest.fn(),
+  currentTarget: { draggable },
   dataTransfer: { setData: jest.fn(), getData: jest.fn(() => ''), effectAllowed: '', dropEffect: '' }
 });
 
@@ -49,7 +51,54 @@ test('sürükleme görünümü yalnız ilgili satırlarda değişir', () => {
   expect(result.current.satirProps(2).style.borderTop).toBe('2px solid #2563eb');
   expect(result.current.satirProps(0)).toBe(satir0);
 
-  act(() => { result.current.satirProps(1).onDragEnd(); });
+  act(() => { result.current.satirProps(1).onDragEnd(olay()); });
   expect(result.current.satirProps(1).style.opacity).toBe(1);
   expect(result.current.satirProps(2).style.borderTop).toBe('2px solid transparent');
+});
+
+// Müşteri (21.09.2026): "Açıklama alanının içine tıklayıp metni seçmek istediğimizde metnin içinde
+// tıklama yapıp/seçip kaydıramıyoruz" — satırın tamamı draggable'dı, metin seçimi sürüklemeye dönüyordu
+describe('yalnız tutamaktan sürüklenir', () => {
+  const kur = () => renderHook(() => useSurukleSirala(['a', 'b', 'c'], jest.fn())).result;
+  const bas = (props, tutamak) => {
+    const satir = { draggable: false };
+    const hedef = { closest: (secici) => (tutamak && secici === '[data-surukle-tutamak]' ? {} : null) };
+    props.onMouseDown({ currentTarget: satir, target: hedef });
+    return satir;
+  };
+
+  test('satır varsayılan olarak sürüklenemez', () => {
+    expect(kur().current.satirProps(0).draggable).toBe(false);
+  });
+
+  test('tutamağa basınca sürüklenebilir, metin kutusuna basınca sürüklenemez', () => {
+    const props = kur().current.satirProps(0);
+    expect(bas(props, true).draggable).toBe(true);
+    expect(bas(props, false).draggable).toBe(false);
+  });
+
+  test('bırakınca sürüklenebilirlik kapanır', () => {
+    const props = kur().current.satirProps(0);
+    const satir = bas(props, true);
+    props.onMouseUp({ currentTarget: satir });
+    expect(satir.draggable).toBe(false);
+  });
+
+  test('tutamak dışından başlayan sürükleme sıralama başlatmaz', () => {
+    const result = kur();
+    act(() => { result.current.satirProps(1).onDragStart(olay(false)); });
+    expect(result.current.satirProps(1).style.opacity).toBe(1);
+  });
+
+  // Seçili metni bir kutudan diğerine sürüklemek tarayıcının işi: bırakma engellenmemeli
+  test('satır sürüklenmiyorken üzerine gelme/bırakma tarayıcıya kalır', () => {
+    const result = kur();
+    const ustunde = olay();
+    act(() => { result.current.satirProps(2).onDragOver(ustunde); });
+    expect(ustunde.preventDefault).not.toHaveBeenCalled();
+    expect(result.current.satirProps(2).style.borderTop).toBe('2px solid transparent');
+    const birak = olay();
+    act(() => { result.current.satirProps(2).onDrop(birak); });
+    expect(birak.preventDefault).not.toHaveBeenCalled();
+  });
 });

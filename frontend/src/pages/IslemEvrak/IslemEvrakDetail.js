@@ -9,8 +9,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, IconButton, Tooltip,
   Checkbox, FormControlLabel, MenuItem, Snackbar, Alert, CircularProgress, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions, Collapse
 } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import FolderZipIcon from '@mui/icons-material/FolderZip';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -91,8 +93,9 @@ const EvrakSatiri = memo(function EvrakSatiri({
     >
       {/* Müşteri: "Talebi oluşturduktan sonra talebin içinde de önem
           sırasına göre değiştirebilirsek iyi olur." */}
+      {/* Satır yalnız bu tutamaktan sürüklenir; metin kutularında seçim/kaydırma serbest (useSurukleSirala) */}
       <Tooltip title="Sürükleyip bırakarak taşıyın">
-        <DragIndicatorIcon sx={{ fontSize: 16, mt: 1.2, color: '#cbd5e1', cursor: 'grab' }} />
+        <DragIndicatorIcon data-surukle-tutamak sx={{ fontSize: 16, mt: 1.2, color: '#94a3b8', cursor: 'grab' }} />
       </Tooltip>
       <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
         {i + 1}.
@@ -201,13 +204,22 @@ const IslemEvrakDetail = () => {
     clearTimeout(otomatikZamanlayiciRef.current);
     clearTimeout(kaydedildiZamanlayiciRef.current);
   }, []);
+  // 📂 Müşteri (21.09.2026): "'İstenen Evraklar' alanını açılır-kapanır (akordiyon) menü şeklinde
+  // tasarlayabilir miyiz? Liste hep açık kalınca, mail gönderdikten sonra sayfada aşağıya inmek epey
+  // yorucu oluyor." Mail hiç gönderilmediyse açık (liste hazırlanıyor), gönderildiyse kapalı açılır.
+  const [evrakListesiAcik, setEvrakListesiAcik] = useState(true);
+  const acilisAyarlandiRef = useRef(false);
+
   // Mail metni elle düzenlendiyse evrak listesi kaydı metni şablondan yeniden üretip EZMEZ
   const mailElleDegistiRef = useRef(false);
   const [metinBayat, setMetinBayat] = useState(false);
 
   // Maile gidecek ekler: örnek dosyası olan evraklar eksi kullanıcının kaldırdıkları.
   // `mailGonder` bu değeri kullandığı için erken (talep null iken de) türetilir.
-  const ekAdaylari = (talep?.istenenEvraklar || []).filter((e) => e.ornekDosya?.dosyaAdi);
+  // Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya maile
+  // ek olarak gitmeye devam ediyor." Yalnız "Mailde iste" işaretli evrakların örnekleri aday; ekrandaki
+  // (henüz kaydı süren) işarete bakılır ki işaret kalkar kalkmaz çip de kaybolsun. Sunucu da ayrıca süzüyor.
+  const ekAdaylari = evraklar.filter((e) => e._id && e.zorunlu !== false && e.ornekDosya?.dosyaAdi);
   const gidecekEkIdler = ekAdaylari
     .map((e) => String(e._id))
     .filter((x) => !kaldirilanEkler.includes(x));
@@ -221,6 +233,11 @@ const IslemEvrakDetail = () => {
       const t = await svc.talepDetay(id);
       setTalep(t);
       setEvraklar(listeyiAnahtarla(t.istenenEvraklar));
+      // İlk açılışta bir kez karar verilir; "Yenile" kullanıcının açıp kapattığını ezmez
+      if (!acilisAyarlandiRef.current) {
+        acilisAyarlandiRef.current = true;
+        setEvrakListesiAcik(!(t.mailGonderimSayisi > 0));
+      }
       setKaydedilmemis(false);
       const tt = await svc.turDetay(t.islemTuru).catch(() => null);
       setTur(tt);
@@ -246,6 +263,7 @@ const IslemEvrakDetail = () => {
   const evrakEkle = useCallback(() => {
     setEvraklar((p) => [...p, anahtarla({ ad: '', aciklama: '', zorunlu: true })]);
     setKaydedilmemis(true);
+    setEvrakListesiAcik(true); // kapalı listeye satır eklenip görünmez kalmasın
   }, []);
   const evrakSil = useCallback((i) => {
     setEvraklar((p) => p.filter((_, j) => j !== i));
@@ -534,6 +552,32 @@ const IslemEvrakDetail = () => {
     } finally { setBusy(''); }
   };
 
+  // 📦 Müşteri (21.09.2026): "Yüklenen evrakları tek tek değil de toplu bir şekilde indirebilme özelliği
+  // ekleyebilirsek çok işimize yarar." Sunucu hepsini evrak adına göre klasörlü tek ZIP yapıyor.
+  const topluIndir = async () => {
+    setBusy('toplu-indir');
+    try {
+      const res = await svc.topluIndir(id);
+      const baslik = res.headers?.['content-disposition'] || '';
+      const eslesme = baslik.match(/filename\*=UTF-8''([^;]+)/i);
+      let ad = `${talep?.firmaAdi || 'Firma'} - Evraklar.zip`;
+      try { if (eslesme) ad = decodeURIComponent(eslesme[1]); } catch (_) { /* kodlanmamış ad */ }
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/zip' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = ad;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
+      notify('Evraklar ZIP olarak indirildi');
+    } catch (e) {
+      let mesaj = 'Evraklar indirilemedi.';
+      try { mesaj = JSON.parse(await e?.response?.data?.text())?.message || mesaj; } catch (x) { /* düz metin */ }
+      notify(mesaj, 'error');
+    } finally { setBusy(''); }
+  };
+
   const yuklenenSil = async (dosyaId) => {
     if (!window.confirm('Bu dosyayı silmek istediğinize emin misiniz?')) return;
     try {
@@ -587,16 +631,34 @@ const IslemEvrakDetail = () => {
           <Tooltip title="Yenile"><IconButton onClick={yukle}><RefreshIcon /></IconButton></Tooltip>
         </Paper>
 
-        {/* 1) İstenen evraklar */}
+        {/* 1) İstenen evraklar — açılır/kapanır (müşteri, 21.09.2026) */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>1. İstenen Evraklar ({evraklar.length})</Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: evrakListesiAcik ? 1 : 0 }} flexWrap="wrap" useFlexGap spacing={1}>
+            <Box
+              role="button"
+              tabIndex={0}
+              aria-expanded={evrakListesiAcik}
+              onClick={() => setEvrakListesiAcik((a) => !a)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEvrakListesiAcik((a) => !a); } }}
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer', userSelect: 'none', minWidth: 0 }}
+            >
+              <ExpandMoreIcon sx={{ transition: 'transform .2s', transform: evrakListesiAcik ? 'rotate(0deg)' : 'rotate(-90deg)', color: '#64748b' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>1. İstenen Evraklar ({evraklar.length})</Typography>
+              {/* Kapalıyken de özet görünsün: kaçı mailde isteniyor, kaçı geldi */}
+              <Typography variant="caption" color="text.secondary" noWrap>
+                · mailde istenen {evraklar.filter((e) => e.zorunlu !== false).length}
+                {' '}· gelen {evraklar.filter((e) => e.zorunlu !== false && e.geldiMi).length}
+                {!evrakListesiAcik ? ' — açmak için tıklayın' : ''}
+              </Typography>
+            </Box>
             <Stack direction="row" spacing={1}>
               <Button size="small" startIcon={<AddIcon />} onClick={evrakEkle}>Satır Ekle</Button>
               <Button size="small" variant="contained" startIcon={<SaveIcon />}
                 onClick={() => evraklariKaydet()} disabled={busy === 'evrak'}>Kaydet</Button>
             </Stack>
           </Stack>
+
+          <Collapse in={evrakListesiAcik} timeout="auto" unmountOnExit={false}>
 
           {/* 📎 Toplu örnek yükleme — satır satır "Örnek" düğmesine basmak yerine
               hepsini bir kerede bırak, sistem dosya adına göre satırlara dağıtsın */}
@@ -648,6 +710,7 @@ const IslemEvrakDetail = () => {
               <Typography variant="body2" color="text.secondary">Henüz evrak eklenmedi. "Satır Ekle" ile başlayın.</Typography>
             )}
           </Stack>
+          </Collapse>
         </Paper>
 
         {/* 2) Mail */}
@@ -742,9 +805,18 @@ const IslemEvrakDetail = () => {
 
         {/* 3) Gelen evraklar */}
         <Paper sx={{ p: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-            3. Firmadan Gelen Evraklar ({(talep.yuklenenEvraklar || []).length})
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap spacing={1}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+              3. Firmadan Gelen Evraklar ({(talep.yuklenenEvraklar || []).length})
+            </Typography>
+            {(talep.yuklenenEvraklar || []).length > 0 && (
+              <Button size="small" variant="outlined" onClick={topluIndir} disabled={busy === 'toplu-indir'}
+                startIcon={busy === 'toplu-indir' ? <CircularProgress size={14} /> : <FolderZipIcon />}
+                sx={{ textTransform: 'none' }}>
+                {busy === 'toplu-indir' ? 'Hazırlanıyor…' : 'Tümünü İndir (ZIP)'}
+              </Button>
+            )}
+          </Stack>
           {(talep.yuklenenEvraklar || []).length === 0 && (
             <Typography variant="body2" color="text.secondary">
               Henüz yükleme yok. Firma maildeki bağlantıdan dosya yükleyince burada listelenir.

@@ -208,7 +208,10 @@ const IslemEvrakList = () => {
                       {t.islemTuruAdi}{t.varyantAd ? ` · ${t.varyantAd}` : ''}
                     </Typography>
                   </Box>
-                  <Tooltip title="İstenen evrak / gelen">
+                  {/* Müşteri (21.09.2026): "'3/35' gibi tüm listenin oranı yazıyor ... sadece mailde
+                      istediğimiz evrakları baz alsa ve örneğin '3/6' gibi gösterse daha net olur." */}
+                  <Tooltip title={`Mailde istenen ${t.istenenSayisi} evraktan ${t.gelenSayisi} tanesi geldi`
+                    + (t.tanimliEvrakSayisi > t.istenenSayisi ? ` (listede toplam ${t.tanimliEvrakSayisi} evrak tanımlı)` : '')}>
                     <Chip size="small" variant="outlined" label={`${t.gelenSayisi}/${t.istenenSayisi} evrak`} />
                   </Tooltip>
                   {t.sonMailTarihi && (

@@ -104,7 +104,7 @@ const EvrakListesiEditoru = ({
               Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor.
               Satırın tamamı sürüklenebilir; oklar klavye/ince ayar için duruyor. */}
           <Tooltip title="Sürükleyip bırakarak taşıyın">
-            <DragIndicatorIcon sx={{ fontSize: 16, mt: 1.2, color: '#cbd5e1', cursor: 'grab' }} />
+            <DragIndicatorIcon data-surukle-tutamak sx={{ fontSize: 16, mt: 1.2, color: '#94a3b8', cursor: 'grab' }} />
           </Tooltip>
           <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
             {i + 1}.

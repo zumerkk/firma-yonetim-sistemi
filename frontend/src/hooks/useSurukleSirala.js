@@ -15,6 +15,12 @@
 // görünmesi"). Satırlar React.memo ile sarıldı; memo'nun işe yaraması için `satirProps(i)`
 // aynı satıra AYNI nesneyi döndürmeli. Bu yüzden liste, geri çağrı ve hedef ref'te duruyor;
 // bir satırın nesnesi yalnız o satırın sürükleme görünümü değişince yeniden üretiliyor.
+//
+// Tutamak (21.09.2026): müşteri "Açıklama alanının içine tıklayıp metni seçmek istediğimizde metnin
+// içinde tıklama yapıp/seçip kaydıramıyoruz" dedi. Sebep satırın TAMAMININ draggable olmasıydı:
+// tarayıcı metin kutusunda fareyle seçmeye başlanan hareketi satır sürüklemesi sanıyordu. Satır artık
+// yalnız `data-surukle-tutamak` taşıyan öğeden (⋮⋮ ikonu) tutulunca sürüklenebilir oluyor; metin
+// kutularında seçme, imleci taşıma ve kaydırma normal çalışıyor. Bırakma hedefi yine satırın tamamı.
 
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { tasiKonuma } from '../utils/dizi';
@@ -28,6 +34,12 @@ import { tasiKonuma } from '../utils/dizi';
  *   const { satirProps, surukleniyor, hedef } = useSurukleSirala(evraklar, onChange);
  *   <Box {...satirProps(i)}>…</Box>
  */
+// Sürükleme yalnız tutamaktan başlar: fare basıldığı anda satırın draggable'ı açılır/kapanır.
+// React'e prop olarak verilseydi her basışta satır yeniden çizilirdi (memo'lu satırlar için pahalı).
+const tutamaktanMi = (e) => !!e.target?.closest?.('[data-surukle-tutamak]');
+const surukleyiAc = (e) => { e.currentTarget.draggable = tutamaktanMi(e); };
+const surukleyiKapat = (e) => { e.currentTarget.draggable = false; };
+
 export default function useSurukleSirala(liste, onChange) {
   const [surukleniyor, setSurukleniyor] = useState(null);
   const [hedef, setHedef] = useState(null);
@@ -60,8 +72,12 @@ export default function useSurukleSirala(liste, onChange) {
     if (kayitli && kayitli.anahtar === anahtar) return kayitli.props;
 
     const props = {
-      draggable: true,
+      draggable: false,
+      onMouseDown: surukleyiAc,
+      onMouseUp: surukleyiKapat,
       onDragStart: (e) => {
+        // Tutamak dışından başlayan sürükleme (ör. seçili metni sürüklemek) sıralama değildir
+        if (!e.currentTarget.draggable) return;
         kaynakRef.current = index;
         setSurukleniyor(index);
         // Firefox sürüklemeyi başlatmak için veri yazılmasını şart koşuyor
@@ -69,6 +85,8 @@ export default function useSurukleSirala(liste, onChange) {
         e.dataTransfer.effectAllowed = 'move';
       },
       onDragOver: (e) => {
+        // Bir satır sürüklenmiyorsa (metin/dosya sürükleniyor) hedef çizgisi çıkmasın
+        if (kaynakRef.current === null) return;
         // preventDefault olmadan tarayıcı bırakmaya izin vermez
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
@@ -78,19 +96,24 @@ export default function useSurukleSirala(liste, onChange) {
         }
       },
       onDrop: (e) => {
+        // Satır sürüklenmiyorsa (ör. metin kutusuna yazı/dosya bırakıldı) tarayıcıya bırak
+        if (kaynakRef.current === null) return;
         e.preventDefault();
-        const kaynak = kaynakRef.current ?? Number(e.dataTransfer.getData('text/plain'));
+        const kaynak = kaynakRef.current;
         if (Number.isInteger(kaynak) && kaynak !== index) {
           onChangeRef.current(tasiKonuma(listeRef.current, kaynak, index));
         }
         bitir();
       },
-      onDragEnd: bitir,
-      // Görsel geri bildirim: sürüklenen satır soluk, hedef satır çizgili
+      onDragEnd: (e) => {
+        surukleyiKapat(e);
+        bitir();
+      },
+      // Görsel geri bildirim: sürüklenen satır soluk, hedef satır çizgili.
+      // "grab" imleci yalnız tutamakta (satırın tamamında metin kutularını yanıltıyordu).
       style: {
         opacity: soluk ? 0.4 : 1,
-        borderTop: hedefCizgisi ? '2px solid #2563eb' : '2px solid transparent',
-        cursor: 'grab'
+        borderTop: hedefCizgisi ? '2px solid #2563eb' : '2px solid transparent'
       }
     };
     onbellekRef.current.set(index, { anahtar, props });
