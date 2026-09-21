@@ -21,7 +21,7 @@ const activitySchema = new mongoose.Schema({
   category: {
     type: String,
     required: [true, 'Kategori zorunludur'],
-    enum: ['firma', 'user', 'system', 'auth', 'tesvik'], // 🔧 tesvik eklendi
+    enum: ['firma', 'user', 'system', 'auth', 'tesvik', 'dosyaTakip'], // 🔧 tesvik eklendi; dosyaTakip = Belge Takip
     default: 'firma',
     index: true
   },
@@ -55,7 +55,7 @@ const activitySchema = new mongoose.Schema({
     type: {
       type: String,
       required: true,
-      enum: ['firma', 'user', 'system', 'tesvik'], // 🔧 tesvik eklendi
+      enum: ['firma', 'user', 'system', 'tesvik', 'dosyaTakip'], // 🔧 tesvik eklendi; dosyaTakip = Belge Takip
       default: 'firma'
     },
     id: {

@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const DosyaTakip = require('../models/DosyaTakip');
-const Activity = require('../models/Activity');
+const { aktiviteKaydet } = require('../utils/aktiviteKaydi');
 const Notification = require('../models/Notification');
 const multer = require('multer');
 const path = require('path');
@@ -84,6 +84,14 @@ const TALEP_POPULATE = [
 
 // Kaydedilmiş bir doc'u ortak populate ile yeniden yükle (frontend her zaman dolu veri alsın)
 const populateTalep = (id) => DosyaTakip.findById(id).populate(TALEP_POPULATE);
+
+// Talep işlemini "Son İşlemler"e Belge Takip kategorisiyle yazar. En-iyi-çaba:
+// kayıt yazılamazsa istek yine başarılı döner (bkz. utils/aktiviteKaydi).
+const talepAktivitesi = (req, talep, kayit) => aktiviteKaydet(req, {
+    ...kayit,
+    category: 'dosyaTakip',
+    targetResource: { type: 'dosyaTakip', id: talep._id, name: talep.firmaUnvan, firmaId: talep.firmaId }
+});
 
 // ============================================================================
 // 📊 DASHBOARD İSTATİSTİKLERİ
@@ -359,18 +367,11 @@ exports.yeniTalepOlustur = async (req, res) => {
         await talep.save();
 
         // Activity log
-        try {
-            await Activity.create({
-                user: req.user._id,
-                action: 'create',
-                entityType: 'dosyaTakip',
-                entityId: talep._id,
-                description: `${req.user.adSoyad} yeni talep oluşturdu: ${talep.takipId} - ${talep.talepTuru}`,
-                details: { takipId: talep.takipId, talepTuru: talep.talepTuru, firma: talep.firmaUnvan }
-            });
-        } catch (actErr) {
-            console.error('Activity log hatası:', actErr);
-        }
+        await talepAktivitesi(req, talep, {
+            action: 'create',
+            title: 'Belge Takip Talebi Oluşturuldu',
+            description: `${req.user.adSoyad} yeni talep oluşturdu: ${talep.takipId} - ${talep.talepTuru}`
+        });
 
         res.status(201).json({ success: true, data: talep, message: 'Talep başarıyla oluşturuldu' });
     } catch (error) {
@@ -435,18 +436,11 @@ exports.talepGuncelle = async (req, res) => {
         await talep.save();
 
         // Activity log
-        try {
-            await Activity.create({
-                user: req.user._id,
-                action: 'update',
-                entityType: 'dosyaTakip',
-                entityId: talep._id,
-                description: `${req.user.adSoyad} talebi güncelledi: ${talep.takipId}`,
-                details: { takipId: talep.takipId }
-            });
-        } catch (actErr) {
-            console.error('Activity log hatası:', actErr);
-        }
+        await talepAktivitesi(req, talep, {
+            action: 'update',
+            title: 'Belge Takip Talebi Güncellendi',
+            description: `${req.user.adSoyad} talebi güncelledi: ${talep.takipId}`
+        });
 
         res.json({ success: true, data: await populateTalep(talep._id), message: 'Talep başarıyla güncellendi' });
     } catch (error) {
@@ -531,22 +525,14 @@ exports.durumDegistir = async (req, res) => {
         await talep.save();
 
         // Activity log
-        try {
-            await Activity.create({
-                user: req.user._id,
-                action: 'update',
-                entityType: 'dosyaTakip',
-                entityId: talep._id,
-                description: `${req.user.adSoyad} talep durumunu değiştirdi: ${talep.takipId} → ${getDurumEtiketi(yeniDurum)}`,
-                details: {
-                    takipId: talep.takipId,
-                    oncekiDurum: getDurumEtiketi(oncekiDurum),
-                    yeniDurum: getDurumEtiketi(yeniDurum)
-                }
-            });
-        } catch (actErr) {
-            console.error('Activity log hatası:', actErr);
-        }
+        await talepAktivitesi(req, talep, {
+            action: 'update',
+            title: 'Belge Takip Durumu Değiştirildi',
+            description: `${req.user.adSoyad} talep durumunu değiştirdi: ${talep.takipId} → ${getDurumEtiketi(yeniDurum)}`,
+            changes: {
+                fields: [{ field: 'durum', oldValue: getDurumEtiketi(oncekiDurum), newValue: getDurumEtiketi(yeniDurum) }]
+            }
+        });
 
         res.json({
             success: true,
@@ -1178,18 +1164,11 @@ exports.talepSil = async (req, res) => {
         }
 
         // Activity log
-        try {
-            await Activity.create({
-                user: req.user._id,
-                action: 'delete',
-                entityType: 'dosyaTakip',
-                entityId: talep._id,
-                description: `${req.user.adSoyad} talebi sildi: ${talep.takipId}`,
-                details: { takipId: talep.takipId }
-            });
-        } catch (actErr) {
-            console.error('Activity log hatası:', actErr);
-        }
+        await talepAktivitesi(req, talep, {
+            action: 'delete',
+            title: 'Belge Takip Talebi Silindi',
+            description: `${req.user.adSoyad} talebi sildi: ${talep.takipId}`
+        });
 
         res.json({ success: true, message: 'Talep başarıyla silindi' });
     } catch (error) {
