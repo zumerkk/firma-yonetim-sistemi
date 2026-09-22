@@ -29,6 +29,7 @@ const ParsedMinistryMail = require('../models/ParsedMinistryMail');
 const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
 const { evraklariGrupla, ayniYuklemeninKopyalari } = require('../services/tesvikMakine/ortakYukleme');
+const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
 
 // fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
 // Kullanıcıya "tekrar deneyin" demek DISKTE_YOK durumunda yanıltıcı: dosya
@@ -792,8 +793,11 @@ exports.bulkMailPreview = wrap(async (req, res) => {
     subjectTemplate: topluKonuSablonu(tpl.subjectTemplate),
     bodyTemplate: tpl.bodyTemplate
   }, veri);
-  // Tekil mailde KDV muafiyet linki gövdeye ekleniyor; toplu metinde de eksik kalmasın
-  const body = mps.kdvLinkiEkle(rendered.body, onizleme.kdvMuafiyet);
+  // Tekil mailde KDV muafiyet linki gövdeye ekleniyor; toplu metinde de eksik kalmasın.
+  // İthal makinelerde / beyanname talebinde eklenmez (müşteri: "KDV Muafiyet yazısı linkine de gerek yok")
+  const body = mps.kdvLinkiUygun(templateCode, surecler)
+    ? mps.kdvLinkiEkle(rendered.body, onizleme.kdvMuafiyet)
+    : rendered.body;
 
   res.json({
     success: true,
@@ -812,8 +816,15 @@ exports.bulkMailPreview = wrap(async (req, res) => {
   });
 });
 
+// Ek dosyalı gönderim multipart gelir (müşteri: "Ek yükleyebilirsek yeter" — beyanname listesi); o
+// durumda hedefler JSON metni olarak gelir
 exports.bulkMailSend = wrap(async (req, res) => {
-  const { targets = [], templateCode, to, cc, subject, body } = req.body || {};
+  const govde = req.body || {};
+  let { targets = [] } = govde;
+  if (typeof targets === 'string') {
+    try { targets = JSON.parse(targets); } catch (_) { targets = []; }
+  }
+  const { templateCode, to, cc, subject, body } = govde;
   if (!Array.isArray(targets) || !targets.length) {
     const e = new Error('Hedef makine seçilmedi.'); e.code = 'BAD_INPUT'; throw e;
   }
@@ -842,7 +853,9 @@ exports.bulkMailSend = wrap(async (req, res) => {
     subjectOverride: subject,
     bodyOverride: body,
     // Son mail tarihi + zaman çizelgesi seçilen HER makineye (eskiden yalnız ilkinde görünüyordu)
-    kapsananSurecler: surecler.slice(1)
+    kapsananSurecler: surecler.slice(1),
+    // multer Türkçe adı latin1 çözüyor ("GÃ¼mrÃ¼k…") — ek adı alıcıya düzgün gitsin
+    ekler: (req.uploadedFiles || []).map((f) => ({ filename: dosyaAdiDuzelt(f.originalname), content: f.buffer }))
   });
 
   res.json({

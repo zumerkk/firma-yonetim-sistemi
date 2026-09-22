@@ -36,22 +36,23 @@ const DEFAULT_TEMPLATES = [
     name: 'İthalatçıdan Gümrük Beyannamesi Talebi',
     // Müşteri: "İthal makineler için Beyanname isteyeceğiz aynı yerli listedeki
     // faturalar gibi ithal liste için Beyanname isteme sistemi yapabilir miyiz?"
-    // Yerli listedeki fatura talebinin ithal karşılığı: orada fatura taslağı
-    // isteniyor, burada gümrük beyannamesi.
-    version: 1,
-    subjectTemplate: '{makineAdi} - YTB {belgeNo} Kapsamında Gümrük Beyannamesi Hk.',
+    // v2 (müşteri, 22.09.2026): "Maili böyle düzenleyebiliriz, toplu mail atacağız yerli makineler gibi
+    //    tek tek beyanname seçip göndermeyeceğiz genelde. Ek yükleyebilirsek yeter. KDV Muafiyet yazısı
+    //    linkine de gerek yok" — metin müşterinin verdiği; beyanname listesi maile EK olarak konur (toplu
+    //    mail penceresinden), KDV linki bu şablona eklenmez (kdvLinkiUygun). Yükleme linki kaldı: gelen
+    //    beyannameler makinelere işlensin; önizlemede silinebilir.
+    version: 2,
+    subjectTemplate: 'YTB {belgeNo} Kapsamında İthal Makine Gümrük Beyannameleri ve Yevmiye Fişleri Hk.',
     bodyTemplate: [
-      'Merhabalar,',
+      'Sayın İlgili,',
       '',
-      'İşbu firmanın {belgeTarihi} tarihli ve {belgeNo} no’lu Yatırım Teşvik Belgesi kapsamında',
-      'ithal edilen {makineId} makine ID numaralı {siraNo}. kaleme ait GÜMRÜK BEYANNAMESİNİN',
-      'tarafımıza iletilmesi gerekmektedir.',
+      'Ekte ithal makinelere ilişkin beyanname listesi paylaşılmıştır. Gümrük sisteminden tarafımızca yalnızca beyanname numaraları görüntülenebildiğinden, ilgili beyannamelerin temin edilerek tarafımıza iletilmesi gerekmektedir.',
       '',
-      'Beyannameyi aşağıdaki bağlantı üzerinden yükleyebilirsiniz:',
+      'Beyannameleri ve yevmiye fişlerini aşağıdaki bağlantıdan yükleyebilirsiniz:',
       '',
       '{uploadLink}',
       '',
-      'İyi çalışmalar dileriz.',
+      'İyi çalışmalar.',
       '',
       '{imza}'
     ].join('\n')
@@ -163,6 +164,8 @@ const DOCUMENT_TYPES = Object.freeze([
   { key: 'fatura_onayli', label: 'Onaylı Fatura', folder: 'Fatura_Onayli' },
   // Ithal makineler: gumruk beyannamesi. Yerli listedeki fatura akisinin karsiligi.
   { key: 'beyanname', label: "Gümrük Beyannamesi", folder: 'Beyanname' },
+  // Müşteri (22.09.2026): "İthal Makine Gümrük Beyannameleri ve Yevmiye Fişleri" istenecek
+  { key: 'yevmiye_fisi', label: 'Yevmiye Fişi', folder: 'Yevmiye_Fisi' },
   { key: 'sevk_teslimat', label: 'Sevk / Teslimat Belgesi', folder: 'Sevk_Teslimat' },
   { key: 'diger', label: 'Diğer', folder: 'Diger' }
 ]);
@@ -179,7 +182,7 @@ const PUBLIC_DOCUMENT_TYPES = Object.freeze(
 
 // İthal makinelerde firmadan istenen belge FATURA DEĞİL beyannamedir.
 // (müşteri: "İthal makineler için Beyanname isteyeceğiz")
-const PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT = Object.freeze(['beyanname']);
+const PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT = Object.freeze(['beyanname', 'yevmiye_fisi']);
 const PUBLIC_DOCUMENT_TYPES_IMPORT = Object.freeze(
   DOCUMENT_TYPES.filter((d) => PUBLIC_DOCUMENT_TYPE_KEYS_IMPORT.includes(d.key))
 );

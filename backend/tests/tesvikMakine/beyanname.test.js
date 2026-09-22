@@ -32,8 +32,9 @@ describe('Gümrük Beyannamesi belge türü', () => {
 
 describe('publicDocumentTypes - firmaya sunulan türler liste tipine göre', () => {
   // Asıl ayrım: ithalde fatura değil beyanname isteniyor
-  test('ithal makinede yalnızca beyanname sunulur', () => {
-    expect(publicDocumentTypes('import').map((d) => d.key)).toEqual(['beyanname']);
+  // Müşteri (22.09.2026): "İthal Makine Gümrük Beyannameleri ve Yevmiye Fişleri" isteniyor
+  test('ithal makinede beyanname ve yevmiye fişi sunulur (fatura değil)', () => {
+    expect(publicDocumentTypes('import').map((d) => d.key)).toEqual(['beyanname', 'yevmiye_fisi']);
   });
 
   test('yerli makinede fatura türleri sunulur', () => {
@@ -47,8 +48,9 @@ describe('publicDocumentTypes - firmaya sunulan türler liste tipine göre', () 
     expect(publicDocumentTypes(null)).toBe(PUBLIC_DOCUMENT_TYPES);
   });
 
-  test('ithal listesi beyanname dışında bir şey içermiyor', () => {
-    expect(PUBLIC_DOCUMENT_TYPES_IMPORT).toHaveLength(1);
+  test('ithal listesinde fatura türü yok', () => {
+    expect(PUBLIC_DOCUMENT_TYPES_IMPORT.map((d) => d.key)).not.toContain('fatura_taslak');
+    expect(PUBLIC_DOCUMENT_TYPES_IMPORT.map((d) => d.key)).not.toContain('fatura_onayli');
   });
 
   // Yükleme doğrulaması TÜM türleri kabul etmeye devam etmeli: eski linkler
@@ -73,11 +75,19 @@ describe('Beyanname talep maili şablonu', () => {
     expect(tpl().bodyTemplate).toContain('{uploadLink}');
   });
 
-  test('makine kimliği ve belge bilgisi yer tutucuları var', () => {
+  // v2 (müşteri, 22.09.2026): toplu gönderiliyor, beyanname listesi maile EK olarak konuyor — metin
+  // makine makine ID saymıyor; müşterinin verdiği metin
+  test('müşterinin verdiği metin (ek liste, yevmiye fişi)', () => {
     const g = tpl().bodyTemplate;
-    expect(g).toContain('{makineId}');
-    expect(g).toContain('{siraNo}');
-    expect(g).toContain('{belgeNo}');
+    expect(g).toContain('Ekte ithal makinelere ilişkin beyanname listesi paylaşılmıştır.');
+    expect(g).toContain('yalnızca beyanname numaraları görüntülenebildiğinden');
+    expect(tpl().subjectTemplate).toContain('Gümrük Beyannameleri ve Yevmiye Fişleri');
+    expect(tpl().version).toBeGreaterThanOrEqual(2);
+  });
+
+  // "KDV Muafiyet yazısı linkine de gerek yok"
+  test('KDV muafiyet linki yer tutucusu yok', () => {
+    expect(tpl().bodyTemplate).not.toContain('{kdvMuafiyetLinki}');
   });
 
   test('konu belge numarasını taşıyor', () => {
