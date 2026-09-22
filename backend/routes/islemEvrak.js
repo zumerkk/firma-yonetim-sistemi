@@ -41,6 +41,8 @@ router.post('/talepler/:id/link', editor, ctrl.talepLinkUret);
 router.post('/talepler/:id/evrak/:evrakId/ornek', editor, uploadMultiple('dosyalar'), ctrl.talepOrnekDosyaYukle);
 // İndirme: hem firmanın yüklediği evrak hem örnek/şablon dosya (görüntüleme yetkisi yeterli)
 router.get('/talepler/:id/dosya/:dosyaId/indir', ctrl.talepDosyaIndir);
+// Firmadan gelen evrakların hepsi tek ZIP (müşteri, 21.09.2026: "toplu bir şekilde indirebilme")
+router.get('/talepler/:id/toplu-indir', ctrl.talepTopluIndir);
 router.delete('/talepler/:id/yuklenen/:dosyaId', editor, ctrl.talepYuklenenSil);
 
 module.exports = router;

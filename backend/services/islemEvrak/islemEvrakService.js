@@ -103,11 +103,25 @@ function formLinkiUret(sablon, talep, firma) {
   return `${onek}usp=pp_url&${parcalar.join('&')}`;
 }
 
+// "Mailde iste" işaretli evraklar. İşareti kaldırılan evrak firmadan İSTENMİYOR demektir: maile yazılmaz,
+// örneği eklenmez, listedeki "gelen/istenen" sayacına girmez.
+function maildeIstenenler(evraklar) {
+  return (evraklar || []).filter((e) => e && e.zorunlu !== false);
+}
+
+// Maile eklenebilecek örnek dosyalar: yalnız mailde istenen evrakların örnekleri.
+// Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya maile
+// ek olarak gitmeye devam ediyor. İstenmeyen evrakların örnekleri maile eklenmemeli."
+function ekliOrnekler(evraklar) {
+  return maildeIstenenler(evraklar)
+    .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath));
+}
+
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
 function mailOlustur({ talep, sablon, uploadLink, firma }) {
   // Müşteri: "tikleri kaldırınca mailde otomatik silinsin, (opsiyonel) yazmak yerine."
   // İşareti kaldırılan evrak firmadan İSTENMİYOR demektir; maile hiç yazılmaz.
-  const secililer = (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false);
+  const secililer = maildeIstenenler(talep.istenenEvraklar);
   const evrakListesi = secililer.length
     ? secililer
       .map((e, i) => `${i + 1}. ${e.ad}${e.aciklama ? ` — ${e.aciklama}` : ''}`)
@@ -219,6 +233,66 @@ async function ekleriHazirla(ekler = [], {
     if (e.fileUrl) attachments.push({ filename: ad, path: e.fileUrl });
   }
   return { attachments, atlananEkler };
+}
+
+// 📦 Firmanın yüklediği evrakları ZIP olarak akıt (müşteri, 21.09.2026: "toplu indirebilme").
+// Dosyalar istenen evrak adına göre klasörlenir; aynı ad çakışırsa "(2)" eklenir. Alınamayan dosya
+// ZIP'i düşürmez: ALINAMAYAN_DOSYALAR.txt'ye yazılır. Buluttan indirme sırayla yapılır (bellek bir
+// dosyayla sınırlı kalsın diye paralel değil).
+const zipAdiTemizle = (ad, yedek) => {
+  const temiz = String(ad || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return temiz || yedek;
+};
+
+async function zipDosyaIcerigi(y, { buluttanIndir = storageService.bulutDosyasiniIndir } = {}) {
+  if (storageService.isCloudinaryUrl(y.fileUrl)) {
+    const r = await buluttanIndir(y.fileUrl, y.mimeType);
+    return r?.buffer || null;
+  }
+  if (!y.filePath) return null;
+  const yerel = path.isAbsolute(y.filePath) ? y.filePath : path.join(storageService.BASE_DIR, y.filePath);
+  if (!path.resolve(yerel).startsWith(path.resolve(storageService.BASE_DIR)) || !fs.existsSync(yerel)) return null;
+  return fs.promises.readFile(yerel);
+}
+
+async function topluZipYaz(talep, res, { icerikAl = zipDosyaIcerigi } = {}) {
+  const archiver = require('archiver');
+  const zipAdi = `${zipAdiTemizle(talep.firmaAdi, 'Firma')} - ${zipAdiTemizle(talep.islemTuruAdi, 'Islem')} - Evraklar.zip`;
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(zipAdi)}`);
+
+  const zip = archiver('zip', { zlib: { level: 6 } });
+  zip.on('warning', (e) => console.warn('⚠️ [islemEvrak] zip uyarısı:', e && e.message));
+  zip.on('error', (e) => { console.error('🚨 [islemEvrak] zip hatası:', e && e.message); res.destroy(e); });
+  zip.pipe(res);
+
+  const kullanilan = new Set();
+  const alinamayan = [];
+  for (const y of talep.yuklenenEvraklar || []) {
+    const gorunenAd = dosyaAdiDuzelt(y.orijinalAd || y.dosyaAdi || 'dosya');
+    const klasor = zipAdiTemizle(y.istenenEvrakAdi, 'Diger');
+    let ad = `${klasor}/${zipAdiTemizle(gorunenAd, 'dosya')}`;
+    for (let n = 2; kullanilan.has(ad.toLocaleLowerCase('tr')); n += 1) {
+      const nokta = gorunenAd.lastIndexOf('.');
+      const govde = nokta > 0 ? gorunenAd.slice(0, nokta) : gorunenAd;
+      const uzanti = nokta > 0 ? gorunenAd.slice(nokta) : '';
+      ad = `${klasor}/${zipAdiTemizle(`${govde} (${n})${uzanti}`, 'dosya')}`;
+    }
+    kullanilan.add(ad.toLocaleLowerCase('tr'));
+
+    let icerik = null;
+    try { icerik = await icerikAl(y); } catch (e) { console.warn('⚠️ [islemEvrak] zip dosyası alınamadı:', e && e.message); }
+    if (icerik) zip.append(icerik, { name: ad, date: y.yuklemeTarihi ? new Date(y.yuklemeTarihi) : new Date() });
+    else alinamayan.push(ad);
+  }
+  if (alinamayan.length) {
+    zip.append(
+      `Aşağıdaki dosyalar depodan alınamadı. Talep ekranından tek tek açmayı deneyin; açılmıyorsa firmadan yeniden isteyin.\n\n${alinamayan.join('\n')}\n`,
+      { name: 'ALINAMAYAN_DOSYALAR.txt' }
+    );
+  }
+  await zip.finalize();
+  return { dosyaSayisi: (talep.yuklenenEvraklar || []).length - alinamayan.length, alinamayan };
 }
 
 // 📤 Talebi mail olarak gönder (konu/gövde dışarıdan düzenlenmiş gelebilir)
@@ -414,6 +488,10 @@ module.exports = {
   sablonDosyaKaydet,
   sablonMetniniIsle,
   getSignature,
+  maildeIstenenler,
+  ekliOrnekler,
+  topluZipYaz,
+  zipDosyaIcerigi,
   ensureUploadLink,
   resolveByToken,
   mailOlustur,

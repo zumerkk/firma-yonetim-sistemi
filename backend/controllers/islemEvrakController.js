@@ -186,13 +186,20 @@ exports.talepListe = wrap(async (req, res) => {
     IslemTalebi.countDocuments(filtre)
   ]);
 
-  // Liste için özet: kaç evrak istendi / kaçı geldi
-  const data = kayitlar.map((t) => ({
-    ...t,
-    istenenSayisi: (t.istenenEvraklar || []).length,
-    gelenSayisi: (t.istenenEvraklar || []).filter((e) => e.geldiMi).length,
-    yuklenenSayisi: (t.yuklenenEvraklar || []).length
-  }));
+  // Liste için özet: kaç evrak istendi / kaçı geldi.
+  // Müşteri (21.09.2026): "'3/35' gibi tüm listenin oranı yazıyor. Bunun yerine sadece mailde
+  // istediğimiz evrakları baz alsa ve örneğin '3/6' gibi gösterse daha net olur." Payda yalnız
+  // "Mailde iste" işaretli evraklar; pay da onların içinden gelenler.
+  const data = kayitlar.map((t) => {
+    const istenenler = svc.maildeIstenenler(t.istenenEvraklar);
+    return {
+      ...t,
+      istenenSayisi: istenenler.length,
+      gelenSayisi: istenenler.filter((e) => e.geldiMi).length,
+      tanimliEvrakSayisi: (t.istenenEvraklar || []).length,
+      yuklenenSayisi: (t.yuklenenEvraklar || []).length
+    };
+  });
   res.json({ success: true, data, pagination: { sayfa: sayfaNo, limit: adet, toplam } });
 });
 
@@ -289,9 +296,8 @@ exports.talepMailOnizle = wrap(async (req, res) => {
       cc: talep.mailCc || [],
       uploadLink,
       smtpConfigured: mailService.isConfigured(),
-      // Maile eklenebilecek örnek dosyalar
-      ornekDosyalar: (talep.istenenEvraklar || [])
-        .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
+      // Maile eklenebilecek örnek dosyalar — yalnız mailde istenen evrakların (bkz. talepMailGonder)
+      ornekDosyalar: svc.ekliOrnekler(talep.istenenEvraklar)
         .map((e) => ({ evrakId: e._id, ...e.ornekDosya.toObject?.() || e.ornekDosya }))
     }
   });
@@ -303,10 +309,12 @@ exports.talepMailGonder = wrap(async (req, res) => {
   const parseList = (v) => (Array.isArray(v) ? v : String(v || '').split(/[;,\s]+/))
     .map((s) => String(s).trim()).filter((s) => s.includes('@'));
 
-  // Ekler: yalnızca seçilen istenen-evrakların örnek dosyaları (yollar kayıttan okunur)
+  // Ekler: yalnızca seçilen istenen-evrakların örnek dosyaları (yollar kayıttan okunur).
+  // Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya
+  // maile ek olarak gitmeye devam ediyor. İstenmeyen evrakların örnekleri maile eklenmemeli."
+  // "Mailde iste" işareti kalkmış evrakın örneği, arayüz ne gönderirse göndersin eklenmez.
   const secilen = Array.isArray(ekEvrakIdler) ? ekEvrakIdler.map(String) : null;
-  const ekler = (talep.istenenEvraklar || [])
-    .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
+  const ekler = svc.ekliOrnekler(talep.istenenEvraklar)
     .filter((e) => !secilen || secilen.includes(String(e._id)))
     .map((e) => e.ornekDosya);
 
@@ -366,6 +374,17 @@ exports.talepDosyaIndir = wrap(async (req, res) => {
   }
 
   const e = new Error('Dosya bulunamadı.'); e.code = 'BAD_INPUT'; throw e;
+});
+
+// 📦 Firmanın yüklediği evrakların tamamı tek ZIP
+// Müşteri (21.09.2026): "Yüklenen evrakları tek tek değil de toplu bir şekilde indirebilme özelliği
+// ekleyebilirsek çok işimize yarar." Dosyalar istenen evrak adına göre klasörlenir. Alınamayan dosya
+// ZIP'i düşürmez: adı ALINAMAYAN_DOSYALAR.txt içine yazılır (kullanıcı eksik olduğunu görsün).
+exports.talepTopluIndir = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const dosyalar = talep.yuklenenEvraklar || [];
+  if (!dosyalar.length) { const e = new Error('İndirilecek evrak yok.'); e.code = 'BAD_INPUT'; throw e; }
+  await svc.topluZipYaz(talep, res);
 });
 
 exports.talepYuklenenSil = wrap(async (req, res) => {
