@@ -71,6 +71,11 @@ function templateNeedsUploadLink(tpl) {
 }
 
 // Audit log yaz
+// Bir sürecin mailleri: kendi mailleri + kapsandığı toplu mailler (bkz. MailLog.kapsananSurecIds)
+function surecMailFiltresi(procId) {
+  return { $or: [{ machineProcessId: procId }, { kapsananSurecIds: procId }] };
+}
+
 async function addLog({ proc, actionType, oldStatus = '', newStatus = '', note = '', meta = {}, user = null, performedByLabel = '' }) {
   return MachineProcessLog.create({
     machineProcessId: proc._id,
@@ -272,7 +277,7 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
   // bugünün değil, önceki talebin tarihi yazmalı). Hiç gönderilmiş mail yoksa bugüne düşer.
   let mailDate = new Date();
   if (`${tpl.subjectTemplate || ''} ${tpl.bodyTemplate || ''}`.includes('{mailTarihi}')) {
-    const sonGonderilen = await MailLog.findOne({ machineProcessId: proc._id, status: MAIL_STATUS.SENT })
+    const sonGonderilen = await MailLog.findOne({ ...surecMailFiltresi(proc._id), status: MAIL_STATUS.SENT })
       .sort({ sentAt: -1, createdAt: -1 })
       .select('sentAt createdAt')
       .lean();
@@ -362,7 +367,12 @@ async function createDraftMail(proc, templateCode, { user, uploadLink } = {}) {
 }
 
 // Asıl gönderim. Doğrulama başarısızsa fırlatır (eksik placeholder/alıcı).
-async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null } = {}) {
+// kapsananSurecler: toplu mailde ilk süreç dışındaki makineler. Mail TEK gider ve tek log tutulur; ama
+// son mail tarihi ve zaman çizelgesi kaydı hepsine yazılır (eskiden yalnız ilk makinede görünüyordu).
+async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null, kapsananSurecler = [] } = {}) {
+  const digerleri = (kapsananSurecler || []).filter((p) => p && String(p._id) !== String(proc._id));
+  const toplu = digerleri.length > 0;
+  const topluNotu = toplu ? ` (toplu mail — ${digerleri.length + 1} makine, tek mail)` : '';
   const tpl = await resolveTemplate(templateCode);
   let uploadLink = '';
   if (templateNeedsUploadLink(tpl)) uploadLink = await ensureUploadLink(proc, { user });
@@ -383,6 +393,7 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
     templateCode, toEmails: composed.to, ccEmails: composed.cc,
     subject: composed.subject, body: composed.body,
     status: MAIL_STATUS.DRAFT, isReminder, reminderJobId: null,
+    kapsananSurecIds: toplu ? [proc._id, ...digerleri.map((p) => p._id)] : [],
     createdByUserId: user ? user._id : null
   });
 
@@ -393,11 +404,13 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
     log.sentAt = new Date();
     await log.save();
 
-    // Süreç bookkeeping
-    proc.lastMailAt = log.sentAt;
-    proc.lastMailTemplateCode = templateCode;
-    await proc.save();
-    await addLog({ proc, actionType: PROCESS_ACTION.MAIL_SENT, note: `Mail gönderildi: ${templateCode}`, meta: { mailLogId: log._id, templateCode, isReminder }, user });
+    // Süreç bookkeeping — toplu mailde kapsanan her makineye
+    for (const p of [proc, ...digerleri]) {
+      p.lastMailAt = log.sentAt;
+      p.lastMailTemplateCode = templateCode;
+      await p.save();
+      await addLog({ proc: p, actionType: PROCESS_ACTION.MAIL_SENT, note: `Mail gönderildi: ${templateCode}${topluNotu}`, meta: { mailLogId: log._id, templateCode, isReminder, toplu }, user });
+    }
 
     // Asıl mailse hatırlatma planla
     if (!isReminder) await scheduleReminder(proc, log);
@@ -406,7 +419,9 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
     log.status = MAIL_STATUS.FAILED;
     log.errorMessage = error.message || 'Gönderim hatası';
     await log.save();
-    await addLog({ proc, actionType: PROCESS_ACTION.MAIL_FAILED, note: log.errorMessage, meta: { mailLogId: log._id, templateCode }, user });
+    for (const p of [proc, ...digerleri]) {
+      await addLog({ proc: p, actionType: PROCESS_ACTION.MAIL_FAILED, note: `${log.errorMessage}${topluNotu}`, meta: { mailLogId: log._id, templateCode, toplu }, user });
+    }
     const e = new Error(error.message || 'Mail gönderilemedi');
     e.code = error.code || 'SMTP_SEND_FAILED'; e.mailLogId = log._id; throw e;
   }
@@ -505,7 +520,7 @@ async function resumeReminders(proc, { user } = {}) {
   if (proc.lastMailAt && !status.isReminderSuppressed(proc.status)) {
     const bekleyen = await ReminderJob.countDocuments({ machineProcessId: proc._id, status: 'pending' });
     if (!bekleyen) {
-      const sonMail = await MailLog.findOne({ machineProcessId: proc._id, status: MAIL_STATUS.SENT, isReminder: { $ne: true } })
+      const sonMail = await MailLog.findOne({ ...surecMailFiltresi(proc._id), status: MAIL_STATUS.SENT, isReminder: { $ne: true } })
         .sort({ sentAt: -1, createdAt: -1 });
       await scheduleReminder(proc, sonMail);
     }
@@ -610,7 +625,7 @@ async function notifyUploadReceived(proc, { count = 1, documentType = '', upload
 }
 
 // Yüklenen evrakı kaydet (admin veya public). storageService.saveBuffer çıktısı (saved) + boyut/mime ile çağrılır.
-async function recordUploadedDocument({ proc, documentType = 'diger', saved, fileSize = 0, mimeType = '', uploadedBy = null, uploadedByType = 'admin', uploaderName = '', note = '', originalName = '' }) {
+async function recordUploadedDocument({ proc, documentType = 'diger', saved, fileSize = 0, mimeType = '', uploadedBy = null, uploadedByType = 'admin', uploaderName = '', note = '', originalName = '', ortakYuklemeId = null }) {
   const folder = proc.folderId ? await DocumentFolder.findById(proc.folderId) : await ensureFolders(proc);
   const doc = await UploadedDocument.create({
     tesvikModel: proc.tesvikModel, tesvikId: proc.tesvikId, machineProcessId: proc._id, rowId: proc.rowId,
@@ -619,7 +634,8 @@ async function recordUploadedDocument({ proc, documentType = 'diger', saved, fil
     fileName: saved.fileName, originalName: originalName || saved.fileName,
     fileUrl: saved.fileUrl, filePath: saved.relPath, providerFileId: saved.providerFileId || '',
     fileSize: fileSize || 0, mimeType: mimeType || '',
-    uploadedBy, uploadedByType, uploaderName, note, seenByAdmin: uploadedByType === 'admin'
+    uploadedBy, uploadedByType, uploaderName, note, seenByAdmin: uploadedByType === 'admin',
+    ortakYuklemeId: ortakYuklemeId || null
   });
   proc.documentCount = (proc.documentCount || 0) + 1;
   await proc.save();
@@ -673,5 +689,6 @@ module.exports = {
   composeMail, previewMail, createDraftMail, sendProcessMail, resendMail, kdvLinkiEkle,
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
-  ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline
+  ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline,
+  surecMailFiltresi
 };

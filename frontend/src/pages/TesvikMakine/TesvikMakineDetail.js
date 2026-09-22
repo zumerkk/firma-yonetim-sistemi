@@ -72,6 +72,28 @@ export default function TesvikMakineDetail() {
 
   const refreshAll = () => { setDocs(null); setMails(null); setReminders(null); setTimeline(null); loadCore(); };
 
+  // Müşteri (21.09.2026): toplu mailden sonra "hepsinde evrak sayısı 0 görünüyor". Canlıda sayaçlar doğru
+  // (17.09: mailden 34 sn sonra linke yüklenen dosyalar her makinede sayılmış); ama yükleme başka sekmede
+  // yapıldığından bu sayfa eski sayıyı gösteriyordu. Sekmeye dönünce makine tablosu ve açık sekme tazelenir.
+  useEffect(() => {
+    let son = Date.now();
+    const tazele = () => {
+      if (document.visibilityState !== 'visible' || Date.now() - son < 3000) return;
+      son = Date.now();
+      svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || [])).catch(() => {});
+      if (tab === 4) svc.getCertDocuments(tesvikModel, tesvikId).then(setDocs).catch(() => {});
+      else setDocs(null);
+      if (tab === 5) svc.getCertMails(tesvikModel, tesvikId).then(setMails).catch(() => {});
+      else setMails(null);
+    };
+    document.addEventListener('visibilitychange', tazele);
+    window.addEventListener('focus', tazele);
+    return () => {
+      document.removeEventListener('visibilitychange', tazele);
+      window.removeEventListener('focus', tazele);
+    };
+  }, [tesvikModel, tesvikId, tab]);
+
   // 🔀 Liste tipi seçimi.
   //
   // Bu modül başlangıçta yalnız YERLİ makineler için açılmıştı (#5 — ithal gizlendi).
@@ -392,7 +414,21 @@ export default function TesvikMakineDetail() {
             <DataGrid rows={docs || []} loading={docs === null} getRowId={(r) => r._id}
               columns={[
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
-                { field: 'machine', headerName: 'Makine', width: 200, valueGetter: (p) => p.row.machineName ? `${p.row.machineSiraNo ? p.row.machineSiraNo + '. ' : ''}${p.row.machineName}` : '-' },
+                {
+                  // Toplu linkten gelen dosya her makineye kaydedilir ama TEK ortak satır görünür (müşteri isteği)
+                  field: 'machine', headerName: 'Makine', width: 250,
+                  valueGetter: (p) => (p.row.ortak
+                    ? `${p.row.makineler.length} makine (sıra ${p.row.makineler.map((m) => m.siraNo).join(', ')})`
+                    : (p.row.machineName ? `${p.row.machineSiraNo ? p.row.machineSiraNo + '. ' : ''}${p.row.machineName}` : '-')),
+                  renderCell: (p) => (p.row.ortak ? (
+                    <Tooltip title={<Box sx={{ whiteSpace: 'pre-line' }}>{p.row.makineler.map((m) => `${m.siraNo}. ${m.machineName}`).join('\n')}</Box>}>
+                      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                        <Chip size="small" color="info" label="Ortak" sx={{ height: 20 }} />
+                        <Typography variant="body2" noWrap>{p.value}</Typography>
+                      </Stack>
+                    </Tooltip>
+                  ) : p.value)
+                },
                 { field: 'originalName', headerName: 'Dosya', flex: 1, minWidth: 180 },
                 { field: 'documentType', headerName: 'Tür', width: 150, valueGetter: (p) => docTypeLabel(p.row.documentType) },
                 { field: 'uploadedByType', headerName: 'Yükleyen', width: 100, valueGetter: (p) => uploaderLabel(p.row.uploadedByType) },
@@ -408,8 +444,17 @@ export default function TesvikMakineDetail() {
                         }
                       }}>İndir</Button>
                       <Button size="small" color="error" onClick={async () => {
-                        if (!window.confirm(`"${p.row.originalName || p.row.fileName}" silinsin mi?`)) return;
-                        try { await svc.deleteDocument(p.row._id); notify('Evrak silindi'); setDocs(null); svc.getCertDocuments(tesvikModel, tesvikId).then(setDocs); }
+                        const ad = p.row.originalName || p.row.fileName;
+                        const ortak = !!p.row.ortak;
+                        const soru = ortak
+                          ? `"${ad}" ${p.row.makineler.length} makineye ortak yüklendi. Bütün makinelerden silinsin mi?`
+                          : `"${ad}" silinsin mi?`;
+                        if (!window.confirm(soru)) return;
+                        try {
+                          await svc.deleteDocument(p.row._id, { ortak });
+                          notify('Evrak silindi'); setDocs(null); svc.getCertDocuments(tesvikModel, tesvikId).then(setDocs);
+                          svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || [])).catch(() => {});
+                        }
                         catch (e) { notify(e?.response?.data?.message || 'Silinemedi', 'error'); }
                       }}>Sil</Button>
                     </Stack>
@@ -425,6 +470,8 @@ export default function TesvikMakineDetail() {
             <DataGrid rows={mails || []} loading={mails === null} getRowId={(r) => r._id}
               columns={[
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
+                // Toplu mail tek kayıt; kapsadığı makineler burada yazar
+                { field: 'makine', headerName: 'Makine', width: 230, valueGetter: (p) => p.row.makine || '-' },
                 { field: 'subject', headerName: 'Konu', flex: 1, minWidth: 220 },
                 { field: 'toEmails', headerName: 'Kime', width: 200, valueGetter: (p) => (p.row.toEmails || []).join(', ') },
                 { field: 'templateCode', headerName: 'Şablon', width: 200, valueGetter: (p) => templateLabel(p.row.templateCode) },
