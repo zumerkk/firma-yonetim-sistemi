@@ -28,6 +28,7 @@ const ministryParser = require('../services/tesvikMakine/ministryMailParser');
 const ParsedMinistryMail = require('../models/ParsedMinistryMail');
 const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
+const { evraklariGrupla, ayniYuklemeninKopyalari } = require('../services/tesvikMakine/ortakYukleme');
 
 // fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
 // Kullanıcıya "tekrar deneyin" demek DISKTE_YOK durumunda yanıltıcı: dosya
@@ -257,21 +258,33 @@ exports.getCertificateMachines = wrap(async (req, res) => {
 exports.getCertificateMails = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   const mails = await MailLog.find({ tesvikModel, tesvikId }).sort({ createdAt: -1 }).limit(500).lean();
-  res.json({ success: true, data: mails });
+  // Hangi makine(ler) için gittiği: toplu mail tek kayıt ama birden çok makineyi kapsar
+  const surecIdleri = new Set();
+  for (const m of mails) {
+    if (m.machineProcessId) surecIdleri.add(String(m.machineProcessId));
+    for (const id of m.kapsananSurecIds || []) surecIdleri.add(String(id));
+  }
+  const surecler = await MachineProcess.find({ _id: { $in: [...surecIdleri] } }).select('siraNo machineName').lean();
+  const surecMap = new Map(surecler.map((p) => [String(p._id), p]));
+  const data = mails.map((m) => {
+    const kapsam = (m.kapsananSurecIds || []).map((id) => surecMap.get(String(id))).filter(Boolean)
+      .sort((a, b) => (Number(a.siraNo) || 0) - (Number(b.siraNo) || 0));
+    const tek = surecMap.get(String(m.machineProcessId));
+    const makine = kapsam.length > 1
+      ? `Toplu · ${kapsam.length} makine (sıra ${kapsam.map((p) => p.siraNo).join(', ')})`
+      : (tek ? `${tek.siraNo ? `${tek.siraNo}. ` : ''}${tek.machineName || ''}` : '');
+    return { ...m, makine };
+  });
+  res.json({ success: true, data });
 });
 
 exports.getCertificateDocuments = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   const docs = await UploadedDocument.find({ tesvikModel, tesvikId })
     .populate('machineProcessId', 'machineName siraNo listType') // #3: hangi makineye ait olduğu görünsün
-    .sort({ createdAt: -1 }).limit(500).lean();
-  // Makine bilgisini düz alanlara taşı (frontend kolonu için)
-  const data = docs.map((d) => ({
-    ...d,
-    machineName: d.machineProcessId?.machineName || '',
-    machineSiraNo: d.machineProcessId?.siraNo || null,
-    machineListType: d.machineProcessId?.listType || ''
-  }));
+    .sort({ createdAt: -1 }).limit(1000).lean();
+  // Makine bilgisi düz alanlarda (frontend kolonu için); toplu linkten gelen kopyalar tek "ortak" satır
+  const data = evraklariGrupla(docs);
   res.json({ success: true, data });
 });
 
@@ -361,7 +374,7 @@ exports.getProcess = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
   const [timeline, mails, docs, reminders, folder] = await Promise.all([
     mps.getTimeline(proc),
-    MailLog.find({ machineProcessId: proc._id }).sort({ createdAt: -1 }).limit(200).lean(),
+    MailLog.find(mps.surecMailFiltresi(proc._id)).sort({ createdAt: -1 }).limit(200).lean(),
     UploadedDocument.find({ machineProcessId: proc._id }).sort({ createdAt: -1 }).limit(200).lean(),
     ReminderJob.find({ machineProcessId: proc._id }).sort({ dueAt: -1 }).limit(50).lean(),
     proc.folderId ? DocumentFolder.findById(proc.folderId).lean() : Promise.resolve(null)
@@ -544,9 +557,7 @@ exports.downloadDocument = wrap(async (req, res) => {
   return storageService.serveFile(doc, res);
 });
 
-exports.deleteDocument = wrap(async (req, res) => {
-  const doc = await UploadedDocument.findById(req.params.id);
-  if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
+async function evrakKaydiniSil(doc, user) {
   // Depolama sağlayıcıdan sil (Cloudinary veya local disk)
   try {
     await storageService.deleteFile(doc);
@@ -561,11 +572,24 @@ exports.deleteDocument = wrap(async (req, res) => {
       await mps.addLog({
         proc, actionType: 'fields_updated',
         note: `Evrak silindi: ${doc.originalName || doc.fileName}`,
-        meta: { deletedDocumentId: doc._id, documentType: doc.documentType }, user: req.user
+        meta: { deletedDocumentId: doc._id, documentType: doc.documentType }, user
       });
     }
   }
-  res.json({ success: true });
+}
+
+// ?ortak=1 → toplu linkten gelen yüklemenin bütün makinelerdeki kopyaları (ekranda tek satır görünüyor)
+exports.deleteDocument = wrap(async (req, res) => {
+  const doc = await UploadedDocument.findById(req.params.id);
+  if (!doc) { const e = new Error('Evrak kaydı bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
+  let silinecekler = [doc];
+  if (req.query.ortak === '1') {
+    const belgeEvraklari = await UploadedDocument.find({ tesvikModel: doc.tesvikModel, tesvikId: doc.tesvikId }).lean();
+    const idler = ayniYuklemeninKopyalari(belgeEvraklari, doc._id);
+    silinecekler = await UploadedDocument.find({ _id: { $in: idler } });
+  }
+  for (const d of silinecekler) await evrakKaydiniSil(d, req.user);
+  res.json({ success: true, silinen: silinecekler.length });
 });
 
 // ───────── TOPLU İŞLEM ─────────
@@ -816,7 +840,9 @@ exports.bulkMailSend = wrap(async (req, res) => {
     toOverride: to,
     ccOverride: cc,
     subjectOverride: subject,
-    bodyOverride: body
+    bodyOverride: body,
+    // Son mail tarihi + zaman çizelgesi seçilen HER makineye (eskiden yalnız ilkinde görünüyordu)
+    kapsananSurecler: surecler.slice(1)
   });
 
   res.json({

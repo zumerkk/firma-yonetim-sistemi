@@ -10,6 +10,10 @@ const mailLogSchema = new mongoose.Schema({
   tesvikId: { type: mongoose.Schema.Types.ObjectId, index: true },
   machineProcessId: { type: mongoose.Schema.Types.ObjectId, ref: 'MachineProcess', index: true },
   rowId: { type: String, trim: true },
+  // Toplu mail TEK mail olarak gider ve tek kayıt tutulur (N kayıt "N mail gitti" izlenimi verirdi);
+  // kapsanan bütün makineler (ilki dahil) burada — her makinenin mail geçmişinde görünsün diye.
+  // Müşteri (21.09.2026): "toplu mail gönderirken 'son mail' kısmı sadece ilk seçtiğimiz kayıtta çıkıyor"
+  kapsananSurecIds: { type: [mongoose.Schema.Types.ObjectId], ref: 'MachineProcess', default: [], index: true },
 
   templateCode: { type: String, trim: true, index: true },
   toEmails: { type: [String], default: [] },

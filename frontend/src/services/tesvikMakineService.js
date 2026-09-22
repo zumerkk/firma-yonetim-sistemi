@@ -38,7 +38,8 @@ const tesvikMakineService = {
 
   // Evrak indir (auth'lu blob) & sil
   downloadDocument: (id) => api.get(`${base}/document/${id}/download`, { responseType: 'blob' }),
-  deleteDocument: (id) => api.delete(`${base}/document/${id}`).then((r) => r.data),
+  // ortak: toplu linkten gelen yüklemenin bütün makinelerdeki kopyaları birlikte silinir
+  deleteDocument: (id, { ortak = false } = {}) => api.delete(`${base}/document/${id}`, { params: ortak ? { ortak: 1 } : undefined }).then((r) => r.data),
 
   // Toplu işlem & raporlar
   bulk: (body) => api.post(`${base}/bulk`, body).then(d),

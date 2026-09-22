@@ -27,7 +27,13 @@ const uploadedDocumentSchema = new mongoose.Schema({
   note: { type: String, trim: true, default: '' },
 
   // Admin panelde "yeni evrak" bildirimi için
-  seenByAdmin: { type: Boolean, default: false }
+  seenByAdmin: { type: Boolean, default: false },
+
+  // 🔗 Toplu linkten gelen yükleme: dosya kapsanan HER makinenin klasörüne ayrı kaydedilir (makine
+  // klasörü eksiksiz kalsın), ama aynı yüklemenin kopyaları bu kimliği paylaşır ve ekranda TEK
+  // "ortak yükleme" olarak gösterilir. Müşteri (21.09.2026): "Toplu link üzerinden dosya yükleyince
+  // bütün makineler için ayrı ayrı yüklenmiş gibi görünüyor ... tek/ortak bir yükleme gibi gösterme"
+  ortakYuklemeId: { type: String, default: null, index: true }
 }, {
   timestamps: true,
   collection: 'uploadeddocuments'

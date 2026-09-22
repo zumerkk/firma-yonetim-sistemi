@@ -1,6 +1,7 @@
 // 🌐 TEŞVİK EVRAK UPLOAD CONTROLLER - Public (token tabanlı, AUTH YOK)
 // Müşteri/tedarikçi yalnızca kendi makine klasörüne dosya yükler. Hassas veri (mail, vergi no) sızdırılmaz.
 
+const crypto = require('crypto');
 const MachineProcess = require('../models/MachineProcess');
 const tokenService = require('../services/tesvikMakine/uploadTokenService');
 const storageService = require('../services/tesvikMakine/storageService');
@@ -218,17 +219,21 @@ exports.upload = async (req, res) => {
       hedefler.push({ p, identity, machineFields });
     }
 
+    // Toplu linkte aynı dosyanın makine kopyaları bir kimlik paylaşır: ekranda TEK ortak yükleme görünür
+    // (bkz. services/tesvikMakine/ortakYukleme.js). Makine klasörleri yine eksiksiz dolar.
+    const ortakKimlikler = files.map(() => (surecler.length > 1 ? crypto.randomUUID() : null));
     for (const { p, identity, machineFields } of hedefler) {
       const folderRel = storageService.machineFolderRel(identity, machineFields, p.listType);
       await storageService.ensureMachineStructure(identity, machineFields, p.listType);
-      for (const file of files) {
+      for (const [i, file] of files.entries()) {
         const saved = await storageService.saveBuffer({
           folderRel, documentTypeFolder: getDocumentTypeFolder(documentType),
           originalName: file.originalname, buffer: file.buffer
         });
         await mps.recordUploadedDocument({
           proc: p, documentType, saved, fileSize: file.size, mimeType: file.mimetype,
-          uploadedBy: null, uploadedByType, uploaderName, note, originalName: file.originalname
+          uploadedBy: null, uploadedByType, uploaderName, note, originalName: file.originalname,
+          ortakYuklemeId: ortakKimlikler[i]
         });
       }
     }
