@@ -5,7 +5,7 @@
 // olarak firmanın carisine yazılır; Cari Hesaplar modülünde de görünür.
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
     Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, LinearProgress, Typography
 } from '@mui/material';
@@ -18,6 +18,7 @@ import { HAREKET_TURU, hareketBasligi, paraYaz, tarihYaz } from '../../utils/car
 
 export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const [defter, setDefter] = useState({ hareketler: [], ozet: null });
     const [yukleniyor, setYukleniyor] = useState(true);
     const [hata, setHata] = useState('');
@@ -51,7 +52,7 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
         try {
             await cariService.hareketEkle({ ...alanlar, dosyaTakip: talepId }, dosya);
             await yukle();
-            mesaj(alanlar.tur === 'gelen' ? 'Gelen ödeme eklendi' : 'Ödenen belge eklendi');
+            mesaj(alanlar.tur === 'gelen' ? 'Gelen ödeme eklendi' : 'Hizmet ve yatırım ödemesi eklendi');
             return true;
         } catch (err) {
             mesaj(err?.response?.data?.message || 'Kaydedilemedi.', 'error');
@@ -102,13 +103,23 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
                 <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Ödeme Hareketleri</Typography>
                     <Typography variant="caption" sx={{ color: '#64748b' }}>
-                        Firma adına ödenenler kırmızı, bankaya gelenler yeşil. Kayıtlar firmanın carisine de işlenir.
+                        Hizmet ve yatırım ödemeleri kırmızı, bankaya gelenler yeşil. Kayıtlar firmanın carisine de işlenir.
                     </Typography>
                 </Box>
                 {firmaId && (
                     <Button
                         size="small" variant="outlined" startIcon={<CariIcon />}
-                        onClick={() => navigate(`/cari-takip?firma=${firmaId}`)}
+                        // Müşteri (21.09.2026): cari hesaptaki "Geri" bu talebin Ödemeler sekmesine dönsün.
+                        // Detay sayfasının kendi durumu (listeye dönüş filtresi) da taşınır.
+                        onClick={() => navigate(`/cari-takip?firma=${firmaId}`, {
+                            state: {
+                                geriDon: {
+                                    yol: `${location.pathname}?sekme=odemeler`,
+                                    state: location.state,
+                                    etiket: 'Belge Takip › Ödemeler'
+                                }
+                            }
+                        })}
                         sx={{ textTransform: 'none' }}
                     >
                         Firmanın Cari Hesabı
@@ -139,7 +150,7 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
 
             <Dialog open={!!duzenlenen} onClose={() => setDuzenlenen(null)} fullWidth maxWidth="xs">
                 <DialogTitle sx={{ color: HAREKET_TURU[duzenlenen?.tur]?.renk }}>
-                    {duzenlenen?.tur === 'gelen' ? 'Gelen Ödemeyi Düzenle' : 'Ödenen Belgeyi Düzenle'}
+                    {duzenlenen?.tur === 'gelen' ? 'Gelen Ödemeyi Düzenle' : 'Hizmet ve Yatırım Ödemesini Düzenle'}
                 </DialogTitle>
                 <DialogContent sx={{ pt: '8px !important' }}>
                     {duzenlenen && (

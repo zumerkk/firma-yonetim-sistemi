@@ -8,14 +8,19 @@
 // Excel'deki sütunlar üç hareket türüne karşılık geliyor: FATURA (no/tarih/tutar),
 // MAKBUZ/DEKONT (firma adına ödenen), ÖDEME GELEN; ALACAK/BORÇ BAKİYESİ satır satır
 // hesaplanıyor. Belge Takip › Ödemeler sekmesinden girilenler de burada (aynı defter).
+//
+// Müşteri (21.09.2026): "Kesilen Fatura alanını kaldırabiliriz, diğer ikisi işimizi görüyor" —
+// giriş kutusu kaldırıldı; özet kartı ve sütun yalnız eski bir fatura kaydı varsa görünür
+// (canlıda hiç yok, ama olursa bakiyeyi açıklayan satır gizlenmesin). "Ödenen Belge" adı
+// "Hizmet ve Yatırım Ödemeleri" oldu.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import {
     Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton,
     InputAdornment, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead,
-    TableRow, TextField, Typography
+    TableRow, TextField, Tooltip, Typography
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon, Close as CloseIcon, FileDownload as ExcelIcon, Search as SearchIcon
@@ -27,12 +32,12 @@ import CariHareketFormu from '../../components/Cari/CariHareketFormu';
 import CariDefterTablosu from '../../components/Cari/CariDefterTablosu';
 import { hareketDosyasiAc } from '../../components/Cari/cariDosya';
 import {
-    HAREKET_TURU, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
+    HAREKET_TURU, ODENEN_BASLIK, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
 } from '../../utils/cariFormat';
 
 const OZET_KARTLARI = [
-    { anahtar: 'toplamFatura', etiket: 'Kesilen Fatura', renk: HAREKET_TURU.fatura.renk },
-    { anahtar: 'toplamOdenen', etiket: 'Firma Adına Ödenen', renk: HAREKET_TURU.odenen.renk },
+    { anahtar: 'toplamFatura', etiket: 'Kesilen Fatura', renk: HAREKET_TURU.fatura.renk, yalnizVarsa: true },
+    { anahtar: 'toplamOdenen', etiket: ODENEN_BASLIK, renk: HAREKET_TURU.odenen.renk },
     { anahtar: 'toplamGelen', etiket: 'Gelen Ödeme', renk: HAREKET_TURU.gelen.renk }
 ];
 
@@ -59,13 +64,16 @@ function OzetKarti({ etiket, tutar, renk, alt }) {
 
 // Excel çıktısı — müşterinin kendi tablosuna yakın sütunlar
 function excelAktar(defter) {
+    // Fatura türü yalnız eski kayıtlarda olabilir; yoksa sütunu da boş gelmesin
+    const faturaVar = defter.hareketler.some((h) => h.tur === 'fatura');
+    const BORC = faturaVar ? 'BORÇ (FATURA + HİZMET VE YATIRIM ÖD.)' : 'BORÇ (HİZMET VE YATIRIM ÖDEMELERİ)';
     const satirlar = defter.hareketler.map((h) => ({
         'TARİH': tarihYaz(h.tarih),
         'TÜR': HAREKET_TURU[h.tur]?.etiket || h.tur,
-        'FATURA NO': h.tur === 'fatura' ? h.faturaNo || '' : '',
-        'BELGE / BANKA': h.tur === 'odenen' ? h.belgeAdi : (h.tur === 'gelen' ? h.banka : ''),
+        ...(faturaVar ? { 'FATURA NO': h.tur === 'fatura' ? h.faturaNo || '' : '' } : {}),
+        'ÖDEME / BANKA': h.tur === 'odenen' ? hareketBasligi(h) : (h.tur === 'gelen' ? h.banka : ''),
         'TALEP': talepEtiketi(h.dosyaTakip),
-        'BORÇ (FATURA + ÖDENEN)': h.tur === 'gelen' ? '' : h.tutar,
+        [BORC]: h.tur === 'gelen' ? '' : h.tutar,
         'ALACAK (GELEN ÖDEME)': h.tur === 'gelen' ? h.tutar : '',
         'ALACAK / BORÇ BAKİYESİ': h.bakiye,
         'NOT': h.aciklama || ''
@@ -74,17 +82,18 @@ function excelAktar(defter) {
     satirlar.push({});
     satirlar.push({
         'TARİH': 'TOPLAM',
-        'BORÇ (FATURA + ÖDENEN)': (o.toplamFatura || 0) + (o.toplamOdenen || 0),
+        [BORC]: (o.toplamFatura || 0) + (o.toplamOdenen || 0),
         'ALACAK (GELEN ÖDEME)': o.toplamGelen || 0,
         'ALACAK / BORÇ BAKİYESİ': o.bakiye || 0
     });
 
     const ws = XLSX.utils.json_to_sheet(satirlar);
-    ws['!cols'] = [12, 10, 16, 32, 36, 22, 22, 24, 30].map((wch) => ({ wch }));
+    ws['!cols'] = [12, 24, ...(faturaVar ? [16] : []), 32, 36, 26, 22, 24, 30].map((wch) => ({ wch }));
     // Tutar sütunları sayı olarak kalsın ama binlik ayraçla görünsün
     const aralik = XLSX.utils.decode_range(ws['!ref']);
+    const kayma = faturaVar ? 1 : 0;
     for (let r = 1; r <= aralik.e.r; r += 1) {
-        [5, 6, 7].forEach((c) => {
+        [4 + kayma, 5 + kayma, 6 + kayma].forEach((c) => {
             const hucre = ws[XLSX.utils.encode_cell({ r, c })];
             if (hucre && hucre.t === 'n') hucre.z = '#,##0.00';
         });
@@ -99,8 +108,14 @@ function excelAktar(defter) {
 
 export default function CariTakip() {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
     const firmaParam = searchParams.get('firma') || '';
+    // Müşteri (21.09.2026): "Ödemeler kısmından firmanın cari hesabına geçip 'Geri' tuşuna basınca
+    // sistem bizi alakasız bir şekilde 'Cari Takip' sekmesine atıyor ... geldiğimiz yere, yani firmanın
+    // Belge Takip kısmındaki 'Ödemeler' ekranına geri döndürsün." Talepten gelinince dönüş adresi
+    // navigasyon durumunda taşınır (TalepCariPaneli); firma değiştirilse de korunur.
+    const geriDon = location.state?.geriDon || null;
 
     const [ozetler, setOzetler] = useState([]);
     const [ozetYukleniyor, setOzetYukleniyor] = useState(true);
@@ -183,7 +198,13 @@ export default function CariTakip() {
         };
     }, [firmaArama]);
 
-    const firmaSec = (firmaId) => setSearchParams(firmaId ? { firma: firmaId } : {});
+    // Durum taşınır: talepten gelinip başka firmaya geçilse de "Geri" talebe dönsün
+    const firmaSec = (firmaId) => setSearchParams(firmaId ? { firma: firmaId } : {}, { state: location.state });
+    const geri = () => {
+        if (geriDon?.yol) navigate(geriDon.yol, { state: geriDon.state });
+        else if (firmaParam) firmaSec('');
+        else navigate('/dosya-takip/liste');
+    };
 
     const yenile = () => Promise.all([defteriYukle(firmaParam), ozetleriYukle()]);
 
@@ -245,6 +266,9 @@ export default function CariTakip() {
         () => suzulmus.reduce((t, f) => t + Math.round((Number(f.bakiye) || 0) * 100), 0) / 100,
         [suzulmus]
     );
+    // "Kesilen Fatura" sütunu yalnız eski bir fatura kaydı varsa (bkz. dosya başı)
+    const faturaSutunu = useMemo(() => ozetler.some((f) => Number(f.toplamFatura) > 0), [ozetler]);
+    const ozetKartlari = OZET_KARTLARI.filter((k) => !k.yalnizVarsa || Number(defter?.ozet?.[k.anahtar]) > 0);
 
     return (
         <LayoutWrapper>
@@ -252,17 +276,15 @@ export default function CariTakip() {
                 {/* Başlık + firma arama */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0 }}>
-                        <IconButton
-                            onClick={() => (firmaParam ? firmaSec('') : navigate('/dosya-takip/liste'))}
-                            sx={{ border: '1px solid #e2e8f0' }}
-                            aria-label="Geri"
-                        >
-                            <ArrowBackIcon />
-                        </IconButton>
+                        <Tooltip title={geriDon?.etiket ? `${geriDon.etiket} ekranına dön` : 'Geri'}>
+                            <IconButton onClick={geri} sx={{ border: '1px solid #e2e8f0' }} aria-label="Geri">
+                                <ArrowBackIcon />
+                            </IconButton>
+                        </Tooltip>
                         <Box sx={{ minWidth: 0 }}>
                             <Typography variant="h5" sx={{ fontWeight: 700, color: '#1e293b' }}>Cari Hesaplar / Ödeme Takip</Typography>
                             <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                Kesilen faturalar, firma adına ödenen belgeler ve gelen ödemeler — firma bazlı bakiye
+                                Hizmet ve yatırım ödemeleri ile gelen ödemeler — firma bazlı bakiye
                             </Typography>
                         </Box>
                     </Box>
@@ -322,8 +344,8 @@ export default function CariTakip() {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={baslikSx}>Firma</TableCell>
-                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Kesilen Fatura</TableCell>
-                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Ödenen</TableCell>
+                                        {faturaSutunu && <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Kesilen Fatura</TableCell>}
+                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>{ODENEN_BASLIK}</TableCell>
                                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Gelen</TableCell>
                                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Bakiye</TableCell>
                                         <TableCell sx={baslikSx}>Son Hareket</TableCell>
@@ -332,9 +354,9 @@ export default function CariTakip() {
                                 <TableBody>
                                     {!ozetYukleniyor && suzulmus.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={6} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
+                                            <TableCell colSpan={faturaSutunu ? 6 : 5} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
                                                 {ozetler.length === 0
-                                                    ? 'Henüz cari hareket yok. Yukarıdan firma seçip ilk faturayı veya ödemeyi girebilirsiniz; Belge Takip › Ödemeler sekmesinden girilenler de burada listelenir.'
+                                                    ? 'Henüz cari hareket yok. Yukarıdan firma seçip ilk ödemeyi girebilirsiniz; Belge Takip › Ödemeler sekmesinden girilenler de burada listelenir.'
                                                     : 'Aramaya uyan firma yok.'}
                                             </TableCell>
                                         </TableRow>
@@ -342,7 +364,7 @@ export default function CariTakip() {
                                     {suzulmus.map((f) => (
                                         <TableRow key={f.firma} hover onClick={() => firmaSec(f.firma)} sx={{ cursor: 'pointer' }}>
                                             <TableCell sx={{ fontWeight: 500 }}>{f.firmaUnvan || '—'}</TableCell>
-                                            <TableCell sx={tutarSx}>{paraYaz(f.toplamFatura)}</TableCell>
+                                            {faturaSutunu && <TableCell sx={tutarSx}>{paraYaz(f.toplamFatura)}</TableCell>}
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.odenen.renk }}>{paraYaz(f.toplamOdenen)}</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.gelen.renk }}>{paraYaz(f.toplamGelen)}</TableCell>
                                             <TableCell sx={{ ...tutarSx, fontWeight: 700, color: bakiyeRengi(f.bakiye) }}>{paraYaz(f.bakiye)}</TableCell>
@@ -351,7 +373,7 @@ export default function CariTakip() {
                                     ))}
                                     {suzulmus.length > 1 && (
                                         <TableRow sx={{ background: '#f8fafc', '& td': { fontWeight: 700, borderBottom: 0 } }}>
-                                            <TableCell colSpan={4} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
+                                            <TableCell colSpan={faturaSutunu ? 4 : 3} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: bakiyeRengi(toplamBakiye) }}>{paraYaz(toplamBakiye)}</TableCell>
                                             <TableCell />
                                         </TableRow>
@@ -390,12 +412,12 @@ export default function CariTakip() {
                                 </Box>
                             </Box>
                             <Grid container spacing={1.5}>
-                                {OZET_KARTLARI.map((k) => (
-                                    <Grid item xs={6} md={3} key={k.anahtar}>
+                                {ozetKartlari.map((k) => (
+                                    <Grid item xs={6} md={12 / (ozetKartlari.length + 1)} key={k.anahtar}>
                                         <OzetKarti etiket={k.etiket} tutar={defter.ozet?.[k.anahtar]} renk={k.renk} />
                                     </Grid>
                                 ))}
-                                <Grid item xs={6} md={3}>
+                                <Grid item xs={6} md={12 / (ozetKartlari.length + 1)}>
                                     <OzetKarti
                                         etiket="Bakiye"
                                         tutar={defter.ozet?.bakiye}
@@ -407,8 +429,8 @@ export default function CariTakip() {
                         </Paper>
 
                         <Grid container spacing={2} sx={{ mb: 2 }}>
-                            {['fatura', 'odenen', 'gelen'].map((tur) => (
-                                <Grid item xs={12} md={4} key={tur}>
+                            {['odenen', 'gelen'].map((tur) => (
+                                <Grid item xs={12} md={6} key={tur}>
                                     <CariHareketFormu tur={tur} onKaydet={ekle} talepler={defter.talepler} notAlani />
                                 </Grid>
                             ))}

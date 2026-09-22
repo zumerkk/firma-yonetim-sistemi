@@ -13,7 +13,7 @@ describe('CariHareketFormu', () => {
         const onKaydet = jest.fn();
         render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} />);
         fireEvent.click(ekleDugmesi());
-        expect(await screen.findByText('Ödenen belgeyi yazın')).toBeInTheDocument();
+        expect(await screen.findByText('Ödemenin adını yazın')).toBeInTheDocument();
         expect(screen.getByText('Tutar girin')).toBeInTheDocument();
         expect(onKaydet).not.toHaveBeenCalled();
     });
@@ -30,7 +30,7 @@ describe('CariHareketFormu', () => {
     test('anlaşılamayan tutar kaydedilmez', async () => {
         const onKaydet = jest.fn();
         render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} />);
-        fireEvent.change(screen.getByLabelText('Ödenen Belge'), { target: { value: 'Harç' } });
+        fireEvent.change(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri'), { target: { value: 'Harç' } });
         fireEvent.change(screen.getByLabelText('Tutar'), { target: { value: '1234.567' } });
         fireEvent.click(ekleDugmesi());
         expect(await screen.findByText('Tutar anlaşılamadı (örn. 24.000,50)')).toBeInTheDocument();
@@ -40,16 +40,17 @@ describe('CariHareketFormu', () => {
     test('geçerli kayıt sayı tutarla gönderilir, form sıradakine hazırlanır', async () => {
         const onKaydet = jest.fn().mockResolvedValue(true);
         render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} />);
-        fireEvent.change(screen.getByLabelText('Ödenen Belge'), { target: { value: 'Belge harcı makbuzu' } });
+        fireEvent.change(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri'), { target: { value: 'Belge harcı makbuzu' } });
         fireEvent.change(screen.getByLabelText('Tarih'), { target: { value: '2026-09-15' } });
         fireEvent.change(screen.getByLabelText('Tutar'), { target: { value: '1.500' } });
         fireEvent.click(ekleDugmesi());
 
         await waitFor(() => expect(onKaydet).toHaveBeenCalledWith(
-            { tur: 'odenen', tarih: '2026-09-15', tutar: 1500, belgeAdi: 'Belge harcı makbuzu' },
+            // Müşteri (21.09.2026): elle yazılan ad büyük harfe çevrilerek kaydedilir
+            { tur: 'odenen', tarih: '2026-09-15', tutar: 1500, belgeAdi: 'BELGE HARCI MAKBUZU' },
             null
         ));
-        await waitFor(() => expect(screen.getByLabelText('Ödenen Belge')).toHaveValue(''));
+        await waitFor(() => expect(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri')).toHaveValue(''));
         expect(screen.getByLabelText('Tutar')).toHaveValue('');
         // Aynı gün art arda giriş yapılabilsin diye tarih korunur
         expect(screen.getByLabelText('Tarih')).toHaveValue('2026-09-15');
@@ -58,12 +59,12 @@ describe('CariHareketFormu', () => {
     test('kayıt başarısızsa girilenler silinmez', async () => {
         const onKaydet = jest.fn().mockResolvedValue(false);
         render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} />);
-        fireEvent.change(screen.getByLabelText('Ödenen Belge'), { target: { value: 'Harç' } });
+        fireEvent.change(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri'), { target: { value: 'Harç' } });
         fireEvent.change(screen.getByLabelText('Tutar'), { target: { value: '100' } });
         fireEvent.click(ekleDugmesi());
         await waitFor(() => expect(onKaydet).toHaveBeenCalled());
         await waitFor(() => expect(ekleDugmesi()).not.toBeDisabled());
-        expect(screen.getByLabelText('Ödenen Belge')).toHaveValue('Harç');
+        expect(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri')).toHaveValue('Harç');
     });
 
     test('gelen ödemede banka zorunlu, belge yükleme yok', async () => {
@@ -88,7 +89,7 @@ describe('CariHareketFormu', () => {
                 }}
             />
         );
-        expect(screen.getByLabelText('Ödenen Belge')).toHaveValue('Harç');
+        expect(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri')).toHaveValue('Harç');
         expect(screen.getByLabelText('Tarih')).toHaveValue('2026-09-01');
         expect(screen.getByLabelText('Tutar')).toHaveValue('2.500,00');
         expect(screen.getByText('dekont.pdf')).toBeInTheDocument();

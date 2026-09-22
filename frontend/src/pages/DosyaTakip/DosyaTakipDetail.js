@@ -43,7 +43,7 @@ import {
     Add as AddIcon,
     ContentCopy as ContentCopyIcon
 } from '@mui/icons-material';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import dosyaTakipService from '../../services/dosyaTakipService';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
@@ -430,16 +430,27 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
     );
 };
 
+// Sekmeler adres çubuğunda adıyla tutulur (?sekme=odemeler). Müşteri (21.09.2026): Ödemeler'den
+// firmanın cari hesabına geçip "Geri"ye basınca Ödemeler ekranına dönülsün — sekme yalnız bileşen
+// durumunda kalsaydı dönüşte hep "Notlar" açılırdı. Sıra Tabs'taki sırayla AYNI olmalı.
+const SEKME_ADLARI = ['notlar', 'dosyalar', 'gecmis', 'atamalar', 'zamanlama', 'odemeler', 'mail'];
+
 const DosyaTakipDetail = () => {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
     const { id } = useParams();
     // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
     // girildiyse state boştur ve normal listeye dönülür.
     const listeyeDon = () => navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
     const { seciliTalep, fetchTalep, durumDegistir, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTabDurumu] = useState(() => Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme'))));
+    const setActiveTab = (v) => {
+        setActiveTabDurumu(v);
+        // Durum (listeye dönüş filtresi) korunarak adres güncellenir; geçmişe yeni kayıt eklenmez
+        setSearchParams(v ? { sekme: SEKME_ADLARI[v] } : {}, { replace: true, state: location.state });
+    };
     const [notText, setNotText] = useState('');
     const [notAlan, setNotAlan] = useState('genelNotlar');
     // 🔔 Not eklenirken bildirim gönderilecek personeller (müşteri talebi)

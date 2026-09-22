@@ -19,7 +19,8 @@ describe('CariDefterTablosu', () => {
     test('talep görünümü: gelen "Gelen", ödenen "Giden" sütununda, fark altta', () => {
         render(<CariDefterTablosu hareketler={hareketler} ozet={ozet} gorunum="talep" />);
 
-        const odenen = hucreler(satir('Belge harcı'));
+        // Elle yazılan ad büyük harf görünür (müşteri, 21.09.2026)
+        const odenen = hucreler(satir('BELGE HARCI'));
         expect(odenen[0]).toBe('01.09.2026');
         expect(odenen[3]).toBe('');
         expect(odenen[4]).toBe('2.500,00 ₺');

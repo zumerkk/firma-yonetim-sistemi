@@ -2,17 +2,22 @@
 //
 // Müşteri: "2 sütun olarak SOL tarafta, Ödenen Belge (biz yazabilelim içine), Tarih, Tutar,
 // Belge Yükleme. SAĞ tarafta, Banka (Enpara, Garanti, Vakıf, Ziraat, Diğer - seçmeli),
-// Tarih, Tutar". Cari modülünde üçüncü tür olarak kesilen fatura da giriliyor.
-// Aynı form düzenleme dialogunda başlangıç değerleriyle kullanılıyor.
+// Tarih, Tutar". Aynı form düzenleme dialogunda başlangıç değerleriyle kullanılıyor.
+//
+// Müşteri (21.09.2026): "Ödenen Belge" adı "Hizmet ve Yatırım Ödemeleri" oldu; yazılan adlar
+// tamamen büyük harfe çevriliyor; "Kesilen Fatura" girişi kaldırıldı (tür yalnız eski kayıtları
+// düzenlemek için destekleniyor).
 
 import React, { useMemo, useRef, useState } from 'react';
 import { Box, Button, CircularProgress, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { Add as AddIcon, AttachFile as AttachFileIcon, Save as SaveIcon } from '@mui/icons-material';
-import { BANKALAR, HAREKET_TURU, bugun, isoGun, talepEtiketi, tutarCoz, tutarYaz } from '../../utils/cariFormat';
+import {
+    BANKALAR, HAREKET_TURU, ODENEN_BASLIK, bugun, buyukHarf, isoGun, talepEtiketi, tutarCoz, tutarYaz
+} from '../../utils/cariFormat';
 import { createDatePasteHandler } from '../../utils/dateUtils';
 
 const BASLIKLAR = {
-    odenen: 'Giden — Ödenen Belge',
+    odenen: `Giden — ${ODENEN_BASLIK}`,
     gelen: 'Gelen — Banka',
     fatura: 'Kesilen Fatura'
 };
@@ -70,7 +75,7 @@ export default function CariHareketFormu({
 
     const dogrula = () => {
         const h = {};
-        if (tur === 'odenen' && !form.belgeAdi.trim()) h.belgeAdi = 'Ödenen belgeyi yazın';
+        if (tur === 'odenen' && !form.belgeAdi.trim()) h.belgeAdi = 'Ödemenin adını yazın';
         if (tur === 'gelen' && !form.banka) h.banka = 'Banka seçin';
         if (!form.tarih) h.tarih = 'Tarih girin';
         const tutar = tutarCoz(form.tutar);
@@ -87,7 +92,7 @@ export default function CariHareketFormu({
         if (tutar === null) return;
 
         const alanlar = { tur, tarih: form.tarih, tutar };
-        if (tur === 'odenen') alanlar.belgeAdi = form.belgeAdi.trim();
+        if (tur === 'odenen') alanlar.belgeAdi = buyukHarf(form.belgeAdi.trim());
         if (tur === 'gelen') alanlar.banka = form.banka;
         if (tur === 'fatura') alanlar.faturaNo = form.faturaNo.trim();
         if (notAlani) alanlar.aciklama = form.aciklama.trim();
@@ -110,11 +115,14 @@ export default function CariHareketFormu({
     const alanlar = (
         <Box component="form" onSubmit={gonder} noValidate sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {tur === 'odenen' && (
+                // Yazarken büyük harf görünür (CSS, lang="tr" ile i → İ); değer kayıtta çevrilir.
+                // Her tuşta değeri değiştirmek, metnin ortasına yazarken imleci sona atardı.
                 <TextField
-                    size="small" fullWidth label="Ödenen Belge" placeholder="Örn. Belge harcı makbuzu"
+                    size="small" fullWidth label={ODENEN_BASLIK} placeholder="Örn. BELGE HARCI MAKBUZU"
                     value={form.belgeAdi} onChange={yaz('belgeAdi')}
+                    onBlur={() => setForm((p) => ({ ...p, belgeAdi: buyukHarf(p.belgeAdi) }))}
                     error={!!hatalar.belgeAdi} helperText={hatalar.belgeAdi}
-                    inputProps={{ maxLength: 300 }}
+                    inputProps={{ maxLength: 300, lang: 'tr', style: { textTransform: 'uppercase' } }}
                 />
             )}
             {tur === 'gelen' && (
