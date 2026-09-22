@@ -266,10 +266,12 @@ router.get('/:id/revizyon-excel-export', authenticate, checkPermission('raporGor
 // Query params: durum, il, firma, tarihBaslangic, tarihBitis
 router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule'), async (req, res) => {
   try {
-    const { durum, il, firma, tarihBaslangic, tarihBitis, search } = req.query;
+    const { durum, il, firma, tarihBaslangic, tarihBitis, search, sureDurumu } = req.query;
     
     // Filtreleme kriterlerini oluştur
     let filter = { aktif: true };
+    // ⏳ Listede seçili "süresi dolanlar" süzgeci Excel'e de uygulanır
+    require('../utils/belgeSureFiltresi').sureFiltresiEkle(filter, sureDurumu);
     
     // 🔧 FIX: durum alanı modelde durumBilgileri.genelDurum (durum diye alan yok —
     // bu yüzden Excel'de her şey "taslak" görünüyordu)

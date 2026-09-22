@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { birimEtiketi, kullanilmisEtiketi } from "./makineFormat";
+import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from "./makineFormat";
 import { disaAktarimAdi, etiketNormalle } from "./disaAktarimAdi";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
@@ -441,6 +441,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 20 }, // Birim Fiyatı (TL)
       { width: 20 }, // Toplam Tutar (TL)
       { width: 15 }, // KDV İstisnası
+      { width: 16 }, // Finansal Kiralama (müşteri, 21.09.2026 — PDF ile aynı)
       { width: 16 }  // Onay Tarihi
     ];
     yerliSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
@@ -449,7 +450,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     // Sayfa ADI PDF'e taşınmıyor; bu yüzden başlık sayfanın İÇİNE yazılıyor.
     yerliSheet.addRow([`YERLİ MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ""}`]);
     const yBaslik = yerliSheet.lastRow;
-    yerliSheet.mergeCells(`A${yBaslik.number}:I${yBaslik.number}`);
+    // Sütun sayısı 10 (Finansal Kiralama eklendi) → başlık birleştirmesi J'ye kadar
+    yerliSheet.mergeCells(`A${yBaslik.number}:J${yBaslik.number}`);
     yBaslik.getCell(1).font = { bold: true, size: 14 };
     yBaslik.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     yBaslik.height = 24;
@@ -457,7 +459,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
 
     const hRow = yerliSheet.addRow([
       "Sıra No", "Makine ID", "Adı ve Özelliği", "Miktar", "Birim",
-      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası", "Onay Tarihi"
+      "Birim Fiyatı (TL)", "Toplam Tutar (TL)", "KDV İstisnası", "Finansal Kiralama", "Onay Tarihi"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
     // Uzun listeler birden fazla sayfaya taşıyor; başlık her sayfada tekrarlansın
@@ -473,6 +475,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         tl(m.birimFiyatiTl),
         tl(m.toplamTutariTl || m.toplamTl),
         m.kdvIstisnasi || "-",
+        finansalKiralamaEtiketi(m.finansalKiralamaMi),
         onayTarihi(m)
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
@@ -495,14 +498,15 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
       { width: 18 }, // Kullanılmış Makine
       { width: 22 }, // Gümrük Vergisi İstisnası
       { width: 15 }, // KDV İstisnası
+      { width: 16 }, // Finansal Kiralama
       { width: 16 }  // Onay Tarihi
     ];
     ithalSheet.pageSetup = { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } };
 
     ithalSheet.addRow([`İTHAL MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ""}`]);
     const iBaslik = ithalSheet.lastRow;
-    // Sütun sayısı 12 → 13 oldu (Onay Tarihi), başlık birleştirmesi de M'ye uzatıldı
-    ithalSheet.mergeCells(`A${iBaslik.number}:M${iBaslik.number}`);
+    // Sütun sayısı 14 (Onay Tarihi, Finansal Kiralama eklendi) → başlık birleştirmesi N'ye kadar
+    ithalSheet.mergeCells(`A${iBaslik.number}:N${iBaslik.number}`);
     iBaslik.getCell(1).font = { bold: true, size: 14 };
     iBaslik.getCell(1).alignment = { horizontal: "center", vertical: "middle" };
     iBaslik.height = 24;
@@ -511,7 +515,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     const hRow = ithalSheet.addRow([
       "Sıra No", "GTİP Kodu", "Adı ve Özelliği", "Miktar", "Birim",
       "Birim Fiyatı", "Döviz", "Toplam Tutar (USD)", "Toplam Tutar (TL)",
-      "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası", "Onay Tarihi"
+      "Kullanılmış Makine", "Gümrük Vergisi İstisnası", "KDV İstisnası", "Finansal Kiralama", "Onay Tarihi"
     ]);
     hRow.eachCell(c => { c.font = { bold: true }; c.fill = LABEL_FILL; c.border = BORDER; });
     ithalSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
@@ -530,6 +534,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
         kullanilmisDurum(m),
         evetHayir(m.gumrukVergisiMuafiyeti),
         evetHayir(m.kdvMuafiyeti),
+        finansalKiralamaEtiketi(m.finansalKiralamaMi),
         onayTarihi(m)
       ]);
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });

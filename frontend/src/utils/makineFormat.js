@@ -177,3 +177,14 @@ export const kullanilmisEtiketi = (kod, aciklama) => {
   if (k && !/^\d+$/.test(k)) return k;
   return a || 'Kullanılmış Makine';
 };
+
+// Müşteri (21.09.2026): müşteri görünümü PDF'inde "'KDV İstisnası' sütununun sağına 'Finansal Kiralama'
+// adında yeni bir sütun ... Sistemdeki F.K. verisini çeksin; karşılığı 'Evet' ise 'Yapıldı', 'Hayır' ise
+// 'Yapılmadı' olarak yazsın." Alan makine satırında finansalKiralamaMi (EVET/HAYIR/boş). Excel çıktısı da
+// aynı sütunu taşıyor (iki çıktı hizalı tutuluyor).
+export const finansalKiralamaEtiketi = (v) => {
+    const d = String(v || '').trim().toLocaleUpperCase('tr-TR');
+    if (d === 'EVET') return 'Yapıldı';
+    if (d === 'HAYIR') return 'Yapılmadı';
+    return '-';
+};

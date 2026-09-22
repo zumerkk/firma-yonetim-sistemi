@@ -34,6 +34,7 @@ import { oncelikliYatirimTuruEtiketi } from '../../data/oncelikliYatirimData';
 // uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
 // ekran ekran ve geri alınabilir ilerliyor.
 import { renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
+import BelgeTakipIslemleri from '../../components/Tesvik/BelgeTakipIslemleri';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
 // sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
@@ -46,7 +47,8 @@ const BOLUMLER = [
   { anahtar: 'finansal', baslik: 'Finansal Bilgiler' },
   { anahtar: 'sart',     baslik: 'Özel Şartlar' },
   { anahtar: 'destek',   baslik: 'Destek Unsurları' },
-  { anahtar: 'proje',    baslik: 'Proje Tanıtımı' },
+  // "Proje Tanıtımı" müşteri isteğiyle kaldırıldı (21.09.2026: "Teşvik görüntüleme ekranındaki 'Proje
+  // Tanımı' kısmını tamamen kaldırabiliriz") — içi hep "bilgi bulunmuyor" diyordu.
   { anahtar: 'evrak',    baslik: 'Evrak Listesi' }
 ];
 
@@ -1383,13 +1385,6 @@ const YeniTesvikDetail = () => {
                   </Box>
                 )}
 
-                {/* 9 · Proje Tanıtımı — akordeonken gizliydi, sekmede görünür */}
-                {aktifBolum === 'proje' && (
-                  <Box>
-                <Typography variant="body2" sx={{ color: '#94a3b8' }}>Proje tanıtım bilgisi bulunmuyor.</Typography>
-                  </Box>
-                )}
-
                 {/* 10 · Evrak Listesi — akordeonken gizliydi, sekmede görünür */}
                 {aktifBolum === 'evrak' && (
                   <Box>
@@ -1403,6 +1398,12 @@ const YeniTesvikDetail = () => {
                         { anahtar: 'tip', baslik: 'Evrak Tipi', genislik: '35%' },
                         { anahtar: 'aciklama', baslik: 'Açıklama' }
                       ]}
+                    />
+                    {/* Müşteri (21.09.2026): bu belge numarasıyla Belge Takip'te açılan işlemler ve belgeleri */}
+                    <BelgeTakipIslemleri
+                      belgeRef={tesvik._id}
+                      belgeNo={tesvik.belgeYonetimi?.belgeNo}
+                      belgeId={tesvik.belgeYonetimi?.belgeId}
                     />
                   </Box>
                 )}

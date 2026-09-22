@@ -27,6 +27,10 @@ router.delete('/oneriler', dosyaTakipController.oneriSil);
 // 📋 Tüm Talepleri Listele (sayfalı + filtreleme)
 router.get('/', dosyaTakipController.getTumTalepler);
 
+// 📎 Bir teşvik belgesinin Belge Takip işlemleri + belgeleri (teşvik görüntüleme → Evrak Listesi)
+// /:id'den ÖNCE tanımlı olmalı
+router.get('/belge-islemleri', dosyaTakipController.belgeIslemleri);
+
 // 👥 Personel Listesi (atama dropdown için - admin gerektirmez)
 router.get('/personel-listesi', async (req, res) => {
     try {

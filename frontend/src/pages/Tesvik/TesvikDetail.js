@@ -33,6 +33,7 @@ import { oncelikliYatirimTuruEtiketi } from '../../data/oncelikliYatirimData';
 // 🎛️ Tasarım sistemi (madde 6). Bu ekran ETUYS temasıyla sarmalanıyor.
 // Yeni teşvik detay sayfasıyla AYNI yapı — iki sayfa bir daha ayrışmasın.
 import { renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
+import BelgeTakipIslemleri from '../../components/Tesvik/BelgeTakipIslemleri';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN (bkz. etuys/README.md)
 const BOLUMLER = [
@@ -44,7 +45,8 @@ const BOLUMLER = [
   { anahtar: 'finansal', baslik: 'Finansal Bilgiler' },
   { anahtar: 'sart',     baslik: 'Özel Şartlar' },
   { anahtar: 'destek',   baslik: 'Destek Unsurları' },
-  { anahtar: 'proje',    baslik: 'Proje Tanıtımı' },
+  // "Proje Tanıtımı" müşteri isteğiyle kaldırıldı (21.09.2026: "Teşvik görüntüleme ekranındaki 'Proje
+  // Tanımı' kısmını tamamen kaldırabiliriz") — içi hep "bilgi bulunmuyor" diyordu.
   { anahtar: 'evrak',    baslik: 'Evrak Listesi' }
 ];
 
@@ -1337,12 +1339,6 @@ const TesvikDetail = () => {
                   </Box>
                 )}
 
-                {aktifBolum === 'proje' && (
-                  <Box>
-                <Typography variant="body2" sx={{ color: '#94a3b8' }}>Proje tanıtım bilgisi bulunmuyor.</Typography>
-                  </Box>
-                )}
-
                 {aktifBolum === 'evrak' && (
                   <Box>
                 <VeriTablosu
@@ -1355,6 +1351,12 @@ const TesvikDetail = () => {
                         { anahtar: 'tip', baslik: 'Evrak Tipi', genislik: '35%' },
                         { anahtar: 'aciklama', baslik: 'Açıklama' }
                       ]}
+                    />
+                    {/* Müşteri (21.09.2026): bu belge numarasıyla Belge Takip'te açılan işlemler ve belgeleri */}
+                    <BelgeTakipIslemleri
+                      belgeRef={tesvik._id}
+                      belgeNo={tesvik.belgeYonetimi?.belgeNo}
+                      belgeId={tesvik.belgeYonetimi?.belgeId}
                     />
                   </Box>
                 )}

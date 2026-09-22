@@ -14,7 +14,7 @@
 
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { birimEtiketi, kullanilmisEtiketi } from './makineFormat';
+import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from './makineFormat';
 import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
 import { oncelikliYatirimTuruEtiketi } from '../data/oncelikliYatirimData';
 
@@ -325,14 +325,15 @@ export const exportTesvikToPdf = async (tesvik) => {
     // Müşteri: "yerli makinelerde GTİP sütununa gerek yok, gizleyebiliriz."
     // Yerine onay tarihi geldi; sütun sayısı değişmediği için sayfa düzeni bozulmuyor.
     tablo(
-      ['Sıra', 'Makine ID', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı (TL)', 'Toplam (TL)', 'KDV İstisnası', 'Onay Tarihi'],
+      ['Sıra', 'Makine ID', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı (TL)', 'Toplam (TL)', 'KDV İstisnası', 'Finansal Kiralama', 'Onay Tarihi'],
       yerli.map((m) => [
         str(m.siraNo), str(m.makineId), str(m.adiVeOzelligi),
         num(m.miktar), birimEtiketi(m.birim, m.birimAciklamasi) || '-',
         tl(m.birimFiyatiTl), tl(m.toplamTutariTl || m.toplamTl), str(m.kdvIstisnasi),
+        finansalKiralamaEtiketi(m.finansalKiralamaMi),
         onayTarihi(m)
       ]),
-      { columnStyles: { 2: { cellWidth: 220 } } }
+      { columnStyles: { 2: { cellWidth: 200 } } }
     );
   }
 
@@ -342,16 +343,17 @@ export const exportTesvikToPdf = async (tesvik) => {
     y = 44;
     baslik(`İTHAL MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ''}`, 14);
     tablo(
-      ['Sıra', 'GTİP', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı', 'Döviz', 'Toplam ($)', 'Toplam (TL)', 'Kullanılmış', 'Gümrük İstisnası', 'KDV İstisnası', 'Onay Tarihi'],
+      ['Sıra', 'GTİP', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı', 'Döviz', 'Toplam ($)', 'Toplam (TL)', 'Kullanılmış', 'Gümrük İstisnası', 'KDV İstisnası', 'Finansal Kiralama', 'Onay Tarihi'],
       ithal.map((m) => [
         str(m.siraNo), str(m.gtipKodu), str(m.adiVeOzelligi), num(m.miktar),
         birimEtiketi(m.birim, m.birimAciklamasi) || '-', num(m.birimFiyatiFob), str(m.gumrukDovizKodu),
         usd(m.toplamTutarFobUsd || m.toplamUsd), tl(m.toplamTutarFobTl || m.toplamTl),
         kullanilmisEtiketi(m.kullanilmisMakine, m.kullanilmisMakineAciklama),
         evetHayir(m.gumrukVergisiMuafiyeti), evetHayir(m.kdvMuafiyeti),
+        finansalKiralamaEtiketi(m.finansalKiralamaMi),
         onayTarihi(m)
       ]),
-      { columnStyles: { 2: { cellWidth: 180 } }, styles: { font: 'Roboto', fontSize: 6.5, cellPadding: 2.5, overflow: 'linebreak' } }
+      { columnStyles: { 2: { cellWidth: 165 } }, styles: { font: 'Roboto', fontSize: 6.5, cellPadding: 2.5, overflow: 'linebreak' } }
     );
   }
 
