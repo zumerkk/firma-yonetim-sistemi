@@ -15,7 +15,7 @@ const debounce = (fn, wait = 250) => {
 // `kod` alanı ya sayısal kod ("142") ya da doğrudan metin ("ADET(UNIT)"); eskiden
 // `aciklama || kod` yazıldığı için ekranda ham "142" görünüyordu (müşteri şikayeti).
 // Birim ve kullanılmış-makine için bakanlık tablosundan çözüyoruz.
-const etiketCoz = (type, kod, aciklama) => {
+export const etiketCoz = (type, kod, aciklama) => {
   if (type === 'unit') return birimEtiketi(kod, aciklama);
   if (type === 'used') return kullanilmisEtiketi(kod, aciklama);
   return String(aciklama || kod || '').trim();
@@ -24,8 +24,15 @@ const etiketCoz = (type, kod, aciklama) => {
 // type: 'unit' | 'currency' | 'used' | 'machineType'
 // labelMode: 'code' (varsayılan, "KOD - Açıklama") | 'name' (isim öncelikli — müşteri isteği:
 //            hücrede "142" veya "3" gibi kod değil, "ADET(UNIT)" gibi isim görünsün; kod tooltip'te kalır)
-const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder, display = 'input', labelMode = 'code' }) => {
-  const [isOpen, setIsOpen] = useState(false);
+// yalnizPencere + acikBasla + onKapat: seçici kutusu çizilmez, pencere hemen açılır ve kapanınca onKapat
+// çağrılır. Makine listesi hücreleri bunu kullanıyor: her hücrede bu bileşeni hazır tutmak (6 durum +
+// açılışta localStorage okuyan etkiler) 50+ makinelik listelerde ızgarayı yavaşlatıyordu (21.09.2026).
+const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', placeholder, display = 'input', labelMode = 'code', yalnizPencere = false, acikBasla = false, onKapat }) => {
+  const [isOpen, setIsOpenDurumu] = useState(!!acikBasla);
+  const setIsOpen = (acik) => {
+    setIsOpenDurumu(acik);
+    if (!acik && onKapat) onKapat();
+  };
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState([]);
@@ -119,7 +126,7 @@ const UnitCurrencySearch = ({ type = 'unit', value, onChange, size = 'small', pl
 
   return (
     <>
-      {renderPicker()}
+      {!yalnizPencere && renderPicker()}
 
       <Dialog open={isOpen} onClose={() => setIsOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{type === 'unit' ? 'Birim Kodu Seç' : type === 'currency' ? 'Döviz Kodu Seç' : type === 'machineType' ? 'Makine Teçhizat Tipi Seç' : 'Kullanılmış Makine Seç'}</DialogTitle>

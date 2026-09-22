@@ -20,7 +20,6 @@
 // yapılıyor. Yapıştırma da aynı yerde çözülüyor.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { TextField } from '@mui/material';
 import { createDatePasteHandler } from '../../utils/dateUtils';
 
 // ISO/Date → <input type="date"> biçimi (yyyy-mm-dd).
@@ -41,7 +40,8 @@ export const tarihiGirdiyeCevir = (deger) => {
  * @param {function}    onKaydet   async (isoTarih) => void — yalnız DEĞİŞİKLİK varsa çağrılır
  * @param {boolean}     disabled
  */
-export default function IzgaraTarihHucresi({ deger, onKaydet, disabled = false, sx }) {
+// `sx` eski çağıranlar için kabul edilir ama kullanılmaz (yerel input); ince ayar gerekiyorsa `stil`
+export default function IzgaraTarihHucresi({ deger, onKaydet, disabled = false, sx, stil }) { // eslint-disable-line no-unused-vars
   const dis = tarihiGirdiyeCevir(deger);
   const [yerel, setYerel] = useState(dis);
   // Son kaydedilen değer: gereksiz ağ isteği atmamak için kıyas noktası
@@ -63,16 +63,13 @@ export default function IzgaraTarihHucresi({ deger, onKaydet, disabled = false, 
     await onKaydet(yeni);
   };
 
+  // Yerel <input type="date"> — MUI TextField DEĞİL. Müşteri (21.09.2026): "Makine listesi biraz yavaş
+  // çalışıyor; özellikle 50'den fazla makinesi olan firmalarda". Her satırda iki tarih hücresi var ve
+  // TextField (FormControl + InputBase + çentikli çerçeve) ızgaranın her çiziminde yeniden kuruluyordu.
   return (
-    <TextField
+    <input
       type="date"
-      size="small"
-      // Hücrenin tamamını kullan: type="date" alanının kendi doğal genişliği (yazı boyutuna göre
-      // ~72 px) tarihi kırpıyordu — müşteri (15.09.2026): "tarihlerin hepsi görünmüyor, mesela
-      // '12.0-' da kesiliyor". Sütun genişliği artık ölçüyü belirliyor.
-      sx={{ width: '100%', minWidth: 0, ...sx }}
-      inputRef={inputRef}
-      InputLabelProps={{ shrink: true }}
+      ref={inputRef}
       disabled={disabled}
       value={yerel}
       // Yazarken yalnız yerel state — sunucuya gitmiyoruz
@@ -80,13 +77,20 @@ export default function IzgaraTarihHucresi({ deger, onKaydet, disabled = false, 
       // Alandan çıkınca tek sefer yaz
       onBlur={() => kaydet(yerel)}
       onKeyDown={(e) => {
+        // Ok/boşluk tuşları DataGrid'e gitmesin (hücre değiştirme / satır seçme); tarih alanında kalsın
+        if (e.key !== 'Tab') e.stopPropagation();
         if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
         // Esc: yazılanı iptal et, son kaydedilene dön
         if (e.key === 'Escape') { setYerel(sonKaydedilen.current); e.target.blur(); }
       }}
-      inputProps={{
-        // "31.05.2027" gibi metin yapıştırılabilsin; type="date" bunu tek başına yutar
-        onPaste: createDatePasteHandler((iso) => { setYerel(iso); kaydet(iso); })
+      // "31.05.2027" gibi metin yapıştırılabilsin; type="date" bunu tek başına yutar
+      onPaste={createDatePasteHandler((iso) => { setYerel(iso); kaydet(iso); })}
+      // Hücrenin tamamını kullan: tarihin doğal genişliği onu kırpıyordu — müşteri (15.09.2026): "tarihlerin
+      // hepsi görünmüyor, mesela '12.0-' da kesiliyor". Sütun genişliği (112 px) ölçüyü belirliyor.
+      style={{
+        width: '100%', minWidth: 0, height: 22, boxSizing: 'border-box', padding: '0 2px', fontSize: '0.62rem',
+        fontFamily: 'inherit', color: disabled ? '#94a3b8' : '#202124', background: disabled ? 'transparent' : '#fff',
+        border: '1px solid #cbd5e1', borderRadius: 3, outline: 'none', ...stil
       }}
     />
   );
