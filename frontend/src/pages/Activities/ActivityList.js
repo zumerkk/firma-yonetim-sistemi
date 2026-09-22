@@ -171,6 +171,7 @@ const ActivityList = () => {
       'firma': 'Firma',
       'user': 'Kullanıcı',
       'tesvik': 'Teşvik',
+      'dosyaTakip': 'Belge Takip',
       'auth': 'Kimlik Doğrulama',
       'certificate': 'Belge'
     };
