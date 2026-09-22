@@ -5,8 +5,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Tabs, Tab, Typography, Grid, Button, TextField, MenuItem, Stack, Chip,
   IconButton, Tooltip, Snackbar, Alert, CircularProgress, Menu, Divider,
-  Dialog, DialogTitle, DialogContent, DialogActions
+  Dialog, DialogTitle, DialogContent, DialogActions, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { DataGrid } from '@mui/x-data-grid';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -109,6 +110,10 @@ export default function TesvikMakineDetail() {
     () => machines.filter((m) => m.listType === listeTipi),
     [machines, listeTipi]
   );
+  // Yerli / İthal Liste sekmeleri seçimden bağımsız (eskiden Yerli Liste sekmesi de listeTipi'ne bağlıydı:
+  // Makine Talepleri'nde İthal seçiliyken "Yerli Liste" ithal makineleri gösteriyordu)
+  const yerliMakineler = useMemo(() => machines.filter((m) => m.listType === 'local'), [machines]);
+  const ithalMakineler = useMemo(() => machines.filter((m) => m.listType === 'import'), [machines]);
 
   // Makine tablosu filtreleme (yerli üzerinden)
   const now = Date.now();
@@ -122,7 +127,8 @@ export default function TesvikMakineDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localMachines, q, fStatus, fQuick]);
 
-  // Yerli Liste düzenlenebilir fatura alanları kaydı (#4)
+  // Yerli / İthal Liste düzenlenebilir alanları kaydı (#4). İthalde aynı alanlar beyanname için kullanılır
+  // (gümrük gerçekleşen değer/adet, beyanname no/tarihi) ve ana listedeki gerçekleşme alanlarına yazılır.
   const handleYerliRowUpdate = async (newRow) => {
     let processId = newRow.process?._id;
     if (!processId) {
@@ -137,7 +143,7 @@ export default function TesvikMakineDetail() {
       invoiceNo: newRow.invoiceNo || '',
       invoiceDate: newRow.invoiceDate || null
     });
-    notify('Fatura bilgisi kaydedildi');
+    notify(newRow.listType === 'import' ? 'Beyanname bilgisi kaydedildi' : 'Fatura bilgisi kaydedildi');
     svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || []));
     return newRow;
   };
@@ -170,6 +176,9 @@ export default function TesvikMakineDetail() {
   // Toplu mail onizleme diyalogu (tek ortak mail)
   const [topluMail, setTopluMail] = useState(null);
   const [topluMailBusy, setTopluMailBusy] = useState(false);
+  // Maile eklenecek dosyalar (müşteri: "Ek yükleyebilirsek yeter" — gümrükten alınan beyanname listesi)
+  const [topluEkler, setTopluEkler] = useState([]);
+  const topluMailKapat = () => { setTopluMail(null); setTopluEkler([]); };
   const selectedTargets = () => selection.map((rid) => { const r = machines.find((m) => m.rowId === rid); return { tesvikModel, tesvikId, listType: r.listType, rowId: r.rowId }; });
 
   const runBulk = async (action, payload = {}) => {
@@ -207,8 +216,8 @@ export default function TesvikMakineDetail() {
         templateCode: bulkTemplate,
         to: topluMail.to, cc: topluMail.cc,
         subject: topluMail.subject, body: topluMail.body
-      });
-      setTopluMail(null);
+      }, topluEkler);
+      topluMailKapat();
       notify(r?.message || 'Mail gönderildi');
       refreshAll();
     } catch (e) {
@@ -236,10 +245,12 @@ export default function TesvikMakineDetail() {
         </Stack>
 
         <Paper sx={{ mb: 2 }}>
-          {/* İthal Liste tab'ı kaldırıldı (#5). value'lar sabit tutuldu ki içerik index'leri kaymasın. */}
+          {/* İthal Liste bir dönem kaldırılmıştı (#5). Müşteri (22.09.2026): "ithal makineler görünmüyor ama
+              sadece yerli makineler görünüyor" — geri geldi (beyanname akışı 11.09'dan beri var). */}
           <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
             <Tab label="Belge Künyesi" value={0} />
             <Tab label={`Yerli Liste (${cert?.totals?.localCount || 0})`} value={1} />
+            <Tab label={`İthal Liste (${cert?.totals?.importCount || 0})`} value={2} />
             <Tab label="Makine Talepleri" value={3} />
             <Tab label="Evraklar" value={4} />
             <Tab label="Mail Geçmişi" value={5} />
@@ -273,7 +284,7 @@ export default function TesvikMakineDetail() {
             </Typography>
             <Box sx={{ height: 540 }}>
               <DataGrid
-                rows={localMachines}
+                rows={yerliMakineler}
                 getRowId={(r) => r.rowId}
                 processRowUpdate={handleYerliRowUpdate}
                 onProcessRowUpdateError={(e) => notify(e?.response?.data?.message || 'Kaydedilemedi', 'error')}
@@ -296,6 +307,40 @@ export default function TesvikMakineDetail() {
           </Paper>
         )}
 
+        {/* 2 İthal Liste — beyanname bilgileri (yerli listedeki fatura alanlarının karşılığı) */}
+        {tab === 2 && (
+          <Paper sx={{ p: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
+              Sarı kolonlardaki beyanname bilgilerini hücreye çift tıklayıp düzenleyebilirsiniz (Enter ile kaydedilir).
+              Beyanname talebi için Makine Talepleri › İthal (Beyanname) › Toplu İşlem.
+            </Typography>
+            <Box sx={{ height: 540 }}>
+              <DataGrid
+                rows={ithalMakineler}
+                getRowId={(r) => r.rowId}
+                processRowUpdate={handleYerliRowUpdate}
+                onProcessRowUpdateError={(e) => notify(e?.response?.data?.message || 'Kaydedilemedi', 'error')}
+                columns={[
+                  { field: 'siraNo', headerName: 'Sıra', width: 64 },
+                  { field: 'gtipNo', headerName: 'GTİP', width: 130 },
+                  { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
+                  { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
+                  { field: 'totalPrice', headerName: 'FOB Toplam', width: 140, valueGetter: (p) => formatMoney(p.row.totalPrice, 'USD') },
+                  { field: 'status', headerName: 'Durum', width: 190, renderCell: (p) => <StatusChip badge={p.row.statusBadge} /> },
+                  { field: 'invoiceRealizedValue', headerName: 'Gümrük Gerçekleşen Değer', width: 190, editable: true, type: 'number', cellClassName: 'fatura-cell' },
+                  { field: 'invoiceRealizedQty', headerName: 'Gümrük Gerçekleşen Adet', width: 180, editable: true, type: 'number', cellClassName: 'fatura-cell' },
+                  { field: 'invoiceNo', headerName: 'Beyanname No', width: 160, editable: true, cellClassName: 'fatura-cell' },
+                  { field: 'invoiceDate', headerName: 'Beyanname Tarihi', width: 150, editable: true, type: 'date', cellClassName: 'fatura-cell', valueGetter: (p) => p.row.invoiceDate ? new Date(p.row.invoiceDate) : null }
+                ]}
+                density="compact" disableRowSelectionOnClick
+                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+                sx={{ '& .fatura-cell': { backgroundColor: '#fffbeb' } }}
+                localeText={{ noRowsLabel: 'Bu belgede ithal makine yok' }}
+              />
+            </Box>
+          </Paper>
+        )}
+
         {/* 3 Makine Talepleri */}
         {tab === 3 && (
           <Paper sx={{ p: 2 }}>
@@ -304,12 +349,17 @@ export default function TesvikMakineDetail() {
                   ithal makineler artık bu modülde de görünüyor. Seçim değişince
                   seçili satırlar temizleniyor: iki listeden karışık seçimle toplu
                   işlem yapmak yanlış belgeyi istemeye yol açardı. */}
-              <TextField select size="small" label="Liste" value={listeTipi}
-                onChange={(e) => { setListeTipi(e.target.value); setSelection([]); }}
-                sx={{ minWidth: 130 }}>
-                <MenuItem value="local">Yerli (Fatura)</MenuItem>
-                <MenuItem value="import">İthal (Beyanname)</MenuItem>
-              </TextField>
+              {/* Müşteri (22.09.2026): "ithal makineler görünmüyor" — açılır seçim gözden kaçıyordu; iki liste
+                  sayılarıyla yan yana. İthal seçilince toplu mail şablonu Beyanname Talebi olur. */}
+              <ToggleButtonGroup exclusive size="small" value={listeTipi}
+                onChange={(e, v) => {
+                  if (!v) return;
+                  setListeTipi(v); setSelection([]);
+                  setBulkTemplate(v === 'import' ? 'supplier_beyanname_request' : '');
+                }}>
+                <ToggleButton value="local" sx={{ textTransform: 'none', px: 1.5 }}>Yerli (Fatura) · {yerliMakineler.length}</ToggleButton>
+                <ToggleButton value="import" sx={{ textTransform: 'none', px: 1.5 }}>İthal (Beyanname) · {ithalMakineler.length}</ToggleButton>
+              </ToggleButtonGroup>
               <TextField size="small" label="Ara" value={q} onChange={(e) => setQ(e.target.value)} sx={{ minWidth: 180 }} />
               <TextField select size="small" label="Durum" value={fStatus} onChange={(e) => setFStatus(e.target.value)} sx={{ minWidth: 180 }}>
                 <MenuItem value="">Tümü</MenuItem>
@@ -356,7 +406,7 @@ export default function TesvikMakineDetail() {
             </Menu>
 
             {/* 📧 Toplu mail önizleme — TEK ortak mail */}
-            <Dialog open={!!topluMail} onClose={() => setTopluMail(null)} maxWidth="md" fullWidth>
+            <Dialog open={!!topluMail} onClose={topluMailKapat} maxWidth="md" fullWidth>
               <DialogTitle sx={{ fontWeight: 700 }}>
                 Toplu Mail — {topluMail?.makineler?.length || 0} makine kalemi tek mailde
               </DialogTitle>
@@ -394,11 +444,32 @@ export default function TesvikMakineDetail() {
                       value={topluMail.subject} onChange={(e) => setTopluMail((p) => ({ ...p, subject: e.target.value }))} />
                     <TextField label="Mail Metni" fullWidth multiline minRows={10}
                       value={topluMail.body} onChange={(e) => setTopluMail((p) => ({ ...p, body: e.target.value }))} />
+                    <Box>
+                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                        <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
+                          Ek Dosya Ekle
+                          <input hidden multiple type="file" accept=".pdf,.xls,.xlsx,.doc,.docx,.jpg,.jpeg,.png,.xml"
+                            onChange={(e) => {
+                              const yeni = Array.from(e.target.files || []);
+                              if (e.target) e.target.value = '';
+                              setTopluEkler((p) => [...p, ...yeni]);
+                            }} />
+                        </Button>
+                        {topluEkler.map((f, i) => (
+                          <Chip key={`${f.name}-${i}`} size="small" icon={<AttachFileIcon />}
+                            label={`${f.name} · ${Math.max(1, Math.round(f.size / 1024))} KB`}
+                            onDelete={() => setTopluEkler((p) => p.filter((_, j) => j !== i))} />
+                        ))}
+                      </Stack>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        Beyanname listesi gibi dosyalar maile ek olarak gider (PDF, Excel, Word, görsel).
+                      </Typography>
+                    </Box>
                   </Stack>
                 )}
               </DialogContent>
               <DialogActions sx={{ px: 3, pb: 2 }}>
-                <Button onClick={() => setTopluMail(null)}>Vazgeç</Button>
+                <Button onClick={topluMailKapat}>Vazgeç</Button>
                 <Button variant="contained" disabled={topluMailBusy || !topluMail?.smtpConfigured}
                   onClick={topluMailGonder}>
                   {topluMailBusy ? 'Gönderiliyor…' : 'Tek Mail Gönder'}
@@ -472,6 +543,7 @@ export default function TesvikMakineDetail() {
                 { field: 'createdAt', headerName: 'Tarih', width: 150, valueGetter: (p) => formatDate(p.row.createdAt, true) },
                 // Toplu mail tek kayıt; kapsadığı makineler burada yazar
                 { field: 'makine', headerName: 'Makine', width: 230, valueGetter: (p) => p.row.makine || '-' },
+                { field: 'ekDosyaAdlari', headerName: 'Ekler', width: 160, valueGetter: (p) => (p.row.ekDosyaAdlari || []).join(', ') },
                 { field: 'subject', headerName: 'Konu', flex: 1, minWidth: 220 },
                 { field: 'toEmails', headerName: 'Kime', width: 200, valueGetter: (p) => (p.row.toEmails || []).join(', ') },
                 { field: 'templateCode', headerName: 'Şablon', width: 200, valueGetter: (p) => templateLabel(p.row.templateCode) },

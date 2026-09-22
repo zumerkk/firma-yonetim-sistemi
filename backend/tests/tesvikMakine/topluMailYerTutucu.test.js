@@ -100,7 +100,7 @@ describe('toplu yükleme linki yardımcıları', () => {
 
   test('yerli seçimde fatura türleri, karışık seçimde beyanname de sunulur', () => {
     expect(topluBelgeTurleri(['local', 'local']).map((t) => t.key)).toEqual(['fatura_taslak', 'fatura_onayli']);
-    expect(topluBelgeTurleri(['local', 'import']).map((t) => t.key)).toEqual(['fatura_taslak', 'fatura_onayli', 'beyanname']);
+    expect(topluBelgeTurleri(['local', 'import']).map((t) => t.key)).toEqual(['fatura_taslak', 'fatura_onayli', 'beyanname', 'yevmiye_fisi']);
     expect(topluBelgeTurleri([]).map((t) => t.key)).toEqual(['fatura_taslak', 'fatura_onayli']);
   });
 });

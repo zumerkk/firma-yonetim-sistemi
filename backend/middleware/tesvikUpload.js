@@ -1,16 +1,20 @@
 // 📎 TEŞVİK EVRAK UPLOAD MIDDLEWARE - multer (memory) + tür/boyut kontrolü
-// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, DOCX. Maks boyut: MAX_UPLOAD_MB (varsayılan 100).
+// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, XLS, DOCX, DOC, XML. Maks boyut: MAX_UPLOAD_MB (varsayılan 100).
+// XLS/DOC (22.09.2026): gümrük sisteminden alınan beyanname listesi eski Excel biçiminde geliyor
+// (müşterinin örneği "Gümrük Beyannameler.xls"); toplu beyanname mailine ek olarak konuyor.
 
 const multer = require('multer');
 const path = require('path');
 
-const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.docx', '.xml'];
+const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.xls', '.docx', '.doc', '.xml'];
 const ALLOWED_MIME = new Set([
   'application/pdf',
   'image/jpeg',
   'image/png',
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'application/vnd.ms-excel', // xls
+  'application/msword', // doc
   'application/xml', 'text/xml', // xml (e-fatura XML)
   'application/octet-stream' // bazı tarayıcılar xlsx/docx/xml'i böyle gönderir → uzantı ile doğrulanır
 ]);

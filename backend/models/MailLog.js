@@ -14,6 +14,8 @@ const mailLogSchema = new mongoose.Schema({
   // kapsanan bütün makineler (ilki dahil) burada — her makinenin mail geçmişinde görünsün diye.
   // Müşteri (21.09.2026): "toplu mail gönderirken 'son mail' kısmı sadece ilk seçtiğimiz kayıtta çıkıyor"
   kapsananSurecIds: { type: [mongoose.Schema.Types.ObjectId], ref: 'MachineProcess', default: [], index: true },
+  // Maile eklenen dosyaların adları (ör. gümrükten alınan beyanname listesi); dosyanın kendisi saklanmaz
+  ekDosyaAdlari: { type: [String], default: [] },
 
   templateCode: { type: String, trim: true, index: true },
   toEmails: { type: [String], default: [] },

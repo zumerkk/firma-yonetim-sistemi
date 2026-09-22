@@ -301,7 +301,7 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
   // bilerek sildiyse gönderimde geri gelmemeli.
   const body = (typeof bodyOverride === 'string' && bodyOverride.trim())
     ? bodyOverride
-    : kdvLinkiEkle(rendered.body, kdvMuafiyet);
+    : (kdvLinkiUygun(templateCode, [proc]) ? kdvLinkiEkle(rendered.body, kdvMuafiyet) : rendered.body);
   return {
     template: tpl, audience, subject, body, to, cc,
     // Toplu mailde ayni veri makine listeleriyle zenginlestirilip yeniden
@@ -311,6 +311,13 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
     missing: rendered.missing, ok: rendered.ok && to.length > 0,
     needsUploadLink: templateNeedsUploadLink(tpl), kdvMuafiyet
   };
+}
+
+// KDV muafiyet yazısı yerli alımların (fatura) belgesidir. İthal makinelerde (gümrükte) ve beyanname
+// talebinde gerekmez — müşteri (22.09.2026): "KDV Muafiyet yazısı linkine de gerek yok".
+function kdvLinkiUygun(templateCode, surecler = []) {
+  if (templateCode === MAIL_TEMPLATE_CODE.SUPPLIER_BEYANNAME_REQUEST) return false;
+  return !(surecler || []).some((p) => p && p.listType === 'import');
 }
 
 // 🧾 KDV muafiyet yazısı indirme linkini mail gövdesine ekler.
@@ -369,7 +376,8 @@ async function createDraftMail(proc, templateCode, { user, uploadLink } = {}) {
 // Asıl gönderim. Doğrulama başarısızsa fırlatır (eksik placeholder/alıcı).
 // kapsananSurecler: toplu mailde ilk süreç dışındaki makineler. Mail TEK gider ve tek log tutulur; ama
 // son mail tarihi ve zaman çizelgesi kaydı hepsine yazılır (eskiden yalnız ilk makinede görünüyordu).
-async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null, kapsananSurecler = [] } = {}) {
+// ekler: nodemailer ekleri [{ filename, content }] — toplu mail penceresinden yüklenen dosyalar
+async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null, kapsananSurecler = [], ekler = [] } = {}) {
   const digerleri = (kapsananSurecler || []).filter((p) => p && String(p._id) !== String(proc._id));
   const toplu = digerleri.length > 0;
   const topluNotu = toplu ? ` (toplu mail — ${digerleri.length + 1} makine, tek mail)` : '';
@@ -394,11 +402,12 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
     subject: composed.subject, body: composed.body,
     status: MAIL_STATUS.DRAFT, isReminder, reminderJobId: null,
     kapsananSurecIds: toplu ? [proc._id, ...digerleri.map((p) => p._id)] : [],
+    ekDosyaAdlari: (ekler || []).map((e) => e.filename).filter(Boolean),
     createdByUserId: user ? user._id : null
   });
 
   try {
-    const res = await mailService.sendMail({ to: composed.to, cc: composed.cc, subject: composed.subject, text: composed.body });
+    const res = await mailService.sendMail({ to: composed.to, cc: composed.cc, subject: composed.subject, text: composed.body, attachments: ekler || [] });
     log.status = MAIL_STATUS.SENT;
     log.smtpMessageId = res.messageId || '';
     log.sentAt = new Date();
@@ -690,5 +699,5 @@ module.exports = {
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
   ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline,
-  surecMailFiltresi
+  surecMailFiltresi, kdvLinkiUygun
 };

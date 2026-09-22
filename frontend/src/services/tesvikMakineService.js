@@ -45,7 +45,15 @@ const tesvikMakineService = {
   bulk: (body) => api.post(`${base}/bulk`, body).then(d),
   // Toplu mail: once onizle (tek ortak metin), sonra TEK mail gonder
   bulkMailPreview: (body) => api.post(`${base}/bulk/mail/preview`, body).then(d),
-  bulkMailSend: (body) => api.post(`${base}/bulk/mail/send`, body).then((r) => r.data),
+  // Ek dosya varsa multipart (müşteri: "Ek yükleyebilirsek yeter" — gümrükten alınan beyanname listesi)
+  bulkMailSend: (body, ekler = [], onProgress) => {
+    if (!ekler.length) return api.post(`${base}/bulk/mail/send`, body).then((r) => r.data);
+    const fd = new FormData();
+    fd.append('targets', JSON.stringify(body.targets || []));
+    ['templateCode', 'to', 'cc', 'subject', 'body'].forEach((k) => { if (body[k] != null) fd.append(k, body[k]); });
+    ekler.forEach((f) => fd.append('ekler', f));
+    return uploadPost(`${base}/bulk/mail/send`, fd, { onProgress }).then((r) => r.data);
+  },
   reports: (type) => api.get(`${base}/reports/${type}`).then(d),
 
   // Şablon & SMTP & hatırlatma (admin)

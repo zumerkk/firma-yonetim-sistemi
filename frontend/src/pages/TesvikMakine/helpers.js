@@ -46,14 +46,17 @@ export const REMINDER_STATUS_TR = { pending: 'Bekliyor', sent: 'Gönderildi', sk
 export const UPLOADER_TR = { admin: 'Personel', customer: 'Müşteri', supplier: 'Tedarikçi' };
 export const DOC_TYPE_TR = {
   kdv_muafiyet: 'KDV Muafiyet Yazısı', proforma_teklif: 'Proforma / Teklif', fatura_taslak: 'Fatura Taslağı',
-  fatura_onayli: 'Onaylı Fatura', sevk_teslimat: 'Sevk / Teslimat', diger: 'Diğer'
+  fatura_onayli: 'Onaylı Fatura', sevk_teslimat: 'Sevk / Teslimat', diger: 'Diğer',
+  beyanname: 'Gümrük Beyannamesi', yevmiye_fisi: 'Yevmiye Fişi'
 };
 export const TEMPLATE_TR = {
   supplier_verification_invoice_instruction: 'Tedarikçi Doğrulama / Fatura Yönergesi',
   customer_document_request: 'Müşteri Evrak Talebi',
   supplier_info_request: 'Tedarikçi Bilgi / GTİP Talebi',
   reminder_no_response: 'Hatırlatma (Cevapsız)',
-  invoice_draft_approved: 'Fatura Taslağı Onayı'
+  invoice_draft_approved: 'Fatura Taslağı Onayı',
+  supplier_beyanname_request: 'Gümrük Beyannamesi Talebi',
+  ara_kontrol_fatura_talebi: 'Ara Kontrol — Fatura Talebi'
 };
 const ACTION_TR = {
   created: 'Süreç başlatıldı', status_change: 'Durum değişti', mail_draft: 'Mail taslağı oluşturuldu',

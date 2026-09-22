@@ -46,7 +46,7 @@ router.post('/bulk', editor, ctrl.bulk);
 // 📧 Toplu mail: birden fazla makine TEK ortak mailde
 // Once onizle (sablon dolu + alicilar onerili), kullanici duzenler, sonra tek mail gider.
 router.post('/bulk/mail/preview', editor, ctrl.bulkMailPreview);
-router.post('/bulk/mail/send', editor, ctrl.bulkMailSend);
+router.post('/bulk/mail/send', editor, uploadMultiple('ekler'), ctrl.bulkMailSend);
 
 // Mail yeniden gönder
 router.post('/mail/:mailLogId/resend', editor, ctrl.resendMail);
