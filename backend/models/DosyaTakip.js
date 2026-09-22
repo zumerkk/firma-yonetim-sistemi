@@ -146,6 +146,23 @@ const DOSYA_TURU_ESLESTIRME = {
 // Talebin "Sonuçlandı" durumuna geçebilmesi için zorunlu dosya türü
 const SONUC_ZORUNLU_DOSYA_TURU = 'ETUYS Sonuç Görüntüsü';
 
+// 📦 KAPAMA TALEPLERİ — müşteri (21.09.2026): "Kapama taleplerini arşiv kısmının sol tarafına
+// alabilir miyiz ayrı olarak? Çok işlem yapılmıyor kapama taleplerinde arşiv gibi ayrı görünsün."
+// Canlıda (21.09.2026) aktif 112 talebin 65'i "Belge Kapatma Revize Talebi" idi; ana listeyi
+// kalabalıklaştıran bunlar. "Kapalı Belge ..." türleri kapanmış belge üzerindeki işlemler, kapama
+// talebi değil — bilerek dışarıda.
+const KAPAMA_TALEP_TURLERI = [
+  'Belge Kapatma Revize Talebi',
+  'Resen Belge Kapatma Revize Talebi',
+  'Resen Belge Kapatma Talebi'
+];
+
+// Talebi "sonuçlandı" sayan durumlar: sonuclanmaTarihi bunlara ilk geçişte damgalanır
+const SONUC_DURUMLARI = ['2.3.5_SONUCLANDI', '2.3.6_BELGEYE_YANSITILDI'];
+
+// E-TUYS takip kutusu yalnız bu aşamalarda (MURACAAT_SONRASI: migrasyon öncesi eski ad)
+const ETUYS_TAKIP_ASAMALARI = ['KURUM_DEGERLENDIRME', 'MURACAAT_SONRASI'];
+
 // 📄 Belge Durumları (belgeden gelir/seçilir — müşteri talebi)
 const BELGE_DURUMLARI = [
   'TASLAK',
@@ -308,6 +325,19 @@ const dosyaTakipSchema = new mongoose.Schema({
   durumAciklamasiTarihi: { type: Date }, // müşteri: notun yanında ne zaman yazıldığı görünsün
   // müşteri: sonuçlananlarda sonuçlanma / son işlem tarihi listede görünsün
   sonuclanmaTarihi: { type: Date },
+
+  // --- E-TUYS TAKİP (müşteri, 21.09.2026) ---
+  // "Dosyanın içine girmeden, sağ taraftaki sekmeden bu kutuyu işaretlediğimizde o anın tarih ve
+  // saatini sisteme kaydetsin - Son işlem tarihi/Son kontrol tarihi gibi. Farklı kullanıcılar da
+  // aynı alan üzerinden işaretleme/güncelleme yapabilsin ... Bu onay kutusu sadece '2. Kurum
+  // Değerlendirme' aşamasındaki taleplerde görünsün."
+  // İşaret kaldırılınca son kontrol tarihi SİLİNMEZ: en son ne zaman bakıldığı bilgisi kaybolmasın.
+  etuysTakip: {
+    isaretli: { type: Boolean, default: false },
+    kontrolTarihi: { type: Date },
+    kontrolEden: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    kontrolEdenAdi: { type: String, trim: true }
+  },
   durumRengi: {
     type: String,
     enum: ['mavi', 'sari', 'turuncu', 'kirmizi', 'yesil', 'gri', 'mor'],
@@ -421,7 +451,14 @@ const dosyaTakipSchema = new mongoose.Schema({
     degistiren: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     degistirenAdi: String,
     aciklama: String,
-    tarih: { type: Date, default: Date.now }
+    tarih: { type: Date, default: Date.now },
+    // Müşteri (21.09.2026): "Bu durum geçmişindeki tarihleri istediğimiz gibi revize edebilme şansımız
+    // var mıdır?" — geriye dönük veri girişinde değişiklik bugünün tarihiyle düşüyordu. Tarih
+    // düzeltilebilir; sistemin ilk yazdığı zaman ve düzelten kişi iz olarak saklanır.
+    ilkTarih: Date,
+    tarihDuzenleyen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    tarihDuzenleyenAdi: String,
+    tarihDuzenlemeTarihi: Date
   }],
 
   // Oluşturan / Güncelleyen
@@ -493,6 +530,23 @@ dosyaTakipSchema.index({ 'muraacatSonrasi.takibiYapanPersonel': 1 });
 // Firmanın açtığı yükleme sayfası talebi bu alanla bulur (herkese açık uç koleksiyon taramasın)
 dosyaTakipSchema.index({ 'firmaYukleme.token': 1 }, { sparse: true });
 dosyaTakipSchema.index({ firmaUnvan: 'text', takipId: 'text', ytbNo: 'text' });
+
+/**
+ * Talebin "Sonuçlandı"ya (ya da "Belgeye Yansıtıldı"ya) alındığı EN SON tarih — durum geçmişinden.
+ * Liste "Sonuçlanma" sütununda, sonuclanmaTarihi boşsa kullanılır (müşteri, 21.09.2026: "Son İşlem
+ * Tarihi görünmesin; sadece bizim belirlediğimiz Sonuç Tarihi ve işlemi Sonuçlandı statüsüne
+ * aldığımız tarihler listelensin").
+ */
+dosyaTakipSchema.statics.sonucaAlinmaTarihi = function (talep) {
+  const gecmis = Array.isArray(talep?.durumGecmisi) ? talep.durumGecmisi : [];
+  let son = null;
+  for (const g of gecmis) {
+    if (!g || !SONUC_DURUMLARI.includes(g.yeniDurum) || !g.tarih) continue;
+    const t = new Date(g.tarih);
+    if (!Number.isNaN(t.getTime()) && (!son || t > son)) son = t;
+  }
+  return son;
+};
 
 // ============================================================================
 // OTOMATİK TAKİP ID ÜRETİMİ (DT20260001 formatı)
@@ -575,6 +629,9 @@ dosyaTakipSchema.statics.DOSYA_TURU_ESLESTIRME = DOSYA_TURU_ESLESTIRME;
 // yoksa o talep yeni enum'a takılıp hiç kaydedilemez.
 dosyaTakipSchema.statics.FATURA_DURUMU_ESLESTIRME = { odendi: 'kesildi', odenmedi: 'kesilmedi', kismi_odendi: 'avans' };
 dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
+dosyaTakipSchema.statics.KAPAMA_TALEP_TURLERI = KAPAMA_TALEP_TURLERI;
+dosyaTakipSchema.statics.SONUC_DURUMLARI = SONUC_DURUMLARI;
+dosyaTakipSchema.statics.ETUYS_TAKIP_ASAMALARI = ETUYS_TAKIP_ASAMALARI;
 dosyaTakipSchema.statics.BELGE_DURUMLARI = BELGE_DURUMLARI;
 
 // Durum → Ana Aşama eşleştirmesi (müşteri: 4 ana aşama — Kurum Eksik ayrı aşama)

@@ -170,6 +170,9 @@ exports.getTumTalepler = async (req, res) => {
             baslangicTarihi = '',
             bitisTarihi = '',
             arsiv = '',
+            // 📦 kapama=1 → yalnız kapama talepleri (müşteri, 21.09.2026: "arşiv gibi ayrı görünsün").
+            // Ana liste bunları göstermez; arşiv ise sonuçlanan HER talebi (kapama dahil) gösterir.
+            kapama = '',
             // 📊 Dashboard kartlarından gelen kapsam (müşteri: "kartlara tıklayınca
             // müracaatları önümüze getirsin"). Kart sayıları arşivdekileri de kapsadığı
             // için varsayılan arşiv gizlemesi bu iki kartta devre dışı bırakılır:
@@ -193,6 +196,7 @@ exports.getTumTalepler = async (req, res) => {
         // aksi halde → bunlar ana listeden gizlenir
         const ARSIV_ASAMALARI = ['KURUM_SONUCLANMA', 'TAMAMLANDI'];
         const arsivModu = String(arsiv) === '1' || String(arsiv) === 'true';
+        const kapamaModu = String(kapama) === '1' || String(kapama) === 'true';
 
         // Filtreler
         // 🔍 Müşteri: "arama kısmında büyük küçük harf ayrımı var, sistem otomatik
@@ -226,7 +230,13 @@ exports.getTumTalepler = async (req, res) => {
         } else {
             filter.anaAsama = { $nin: ARSIV_ASAMALARI };
         }
+        // Talep türü seçildiyse o kazanır (ana listede kapama türü seçen boş liste görmesin);
+        // yoksa kapama görünümü yalnız kapama taleplerini, ana liste de onlar HARİÇ kalanları gösterir.
+        // Dashboard kartlarından gelen kapsam (tumu/aktif) kart sayısıyla tutsun diye türe bakmaz.
+        const KAPAMA = DosyaTakip.KAPAMA_TALEP_TURLERI;
         if (talepTuru) filter.talepTuru = talepTuru;
+        else if (kapamaModu) filter.talepTuru = { $in: KAPAMA };
+        else if (!arsivModu && !kapsam) filter.talepTuru = { $nin: KAPAMA };
         // 💳 Ödeme süzgeçleri. 'bos' özel değeri "henüz işaretlenmemiş" demek —
         // asıl ihtiyaç bu: hangi taleplerin ödeme durumu hiç girilmemiş görebilmek.
         // Eski kayıtlarda alan hiç bulunmadığı için $in ile null/eksik de kapsanıyor.
@@ -281,7 +291,9 @@ exports.getTumTalepler = async (req, res) => {
         const enriched = talepler.map(t => ({
             ...t,
             durumEtiketi: getDurumEtiketi(t.durum),
-            anaAsamaEtiketi: getAnaAsamaEtiketi(t.anaAsama)
+            anaAsamaEtiketi: getAnaAsamaEtiketi(t.anaAsama),
+            // "Sonuçlanma" sütunu: sonuclanmaTarihi yoksa talebin Sonuçlandı'ya alındığı tarih
+            sonucaAlinmaTarihi: DosyaTakip.sonucaAlinmaTarihi(t)
         }));
 
         res.json({
@@ -519,7 +531,7 @@ exports.durumDegistir = async (req, res) => {
         talep.durum = yeniDurum;
         talep.anaAsama = yeniAnaAsama;
         // müşteri: sonuçlananlarda sonuçlanma tarihi görünsün (4. aşamaya ilk geçişte damgalanır)
-        if (yeniDurum === '2.3.5_SONUCLANDI' || yeniDurum === '2.3.6_BELGEYE_YANSITILDI') {
+        if (DosyaTakip.SONUC_DURUMLARI.includes(yeniDurum)) {
             if (!talep.sonuclanmaTarihi) talep.sonuclanmaTarihi = new Date();
         }
         talep.durumRengi = yeniRenk;
@@ -556,6 +568,72 @@ exports.durumDegistir = async (req, res) => {
     } catch (error) {
         console.error('Durum değiştirme hatası:', error);
         res.status(500).json({ success: false, message: 'Durum değiştirilirken hata oluştu', error: error.message });
+    }
+};
+
+// ============================================================================
+// 🕓 DURUM GEÇMİŞİ TARİHİNİ DÜZELT
+// Müşteri (21.09.2026): "Bu durum geçmişindeki tarihleri istediğimiz gibi revize edebilme şansımız
+// var mıdır acaba?" Veri girişi geriye dönük yapıldığında her geçiş bugünün tarihiyle düşüyor.
+// Kuralları saf fonksiyonda (services/dosyaTakip/durumGecmisi.js); burada yalnız okuma/yazma var.
+// ============================================================================
+exports.durumGecmisiTarihDuzelt = async (req, res) => {
+    try {
+        const { gecmisTarihiDuzelt } = require('../services/dosyaTakip/durumGecmisi');
+        const talep = await DosyaTakip.findById(req.params.id);
+        if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+
+        const sonuc = gecmisTarihiDuzelt(talep, req.params.gecmisId, req.body?.tarih, {
+            kullanici: req.user, sonucDurumlari: DosyaTakip.SONUC_DURUMLARI
+        });
+        if (sonuc.hata) return res.status(sonuc.durumKodu || 400).json({ success: false, message: sonuc.hata });
+
+        // İz kaydı geçmiş satırının kendisinde (ilkTarih, tarihDuzenleyenAdi, tarihDuzenlemeTarihi)
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Tarih güncellendi' });
+    } catch (error) {
+        console.error('Durum geçmişi tarih düzeltme hatası:', error);
+        res.status(500).json({ success: false, message: 'Tarih güncellenemedi', error: error.message });
+    }
+};
+
+// ============================================================================
+// ☑️ E-TUYS TAKİP KUTUSU
+// Müşteri (21.09.2026): "Dosyanın içine girmeden, sağ taraftaki sekmeden bu kutuyu işaretlediğimizde
+// o anın tarih ve saatini sisteme kaydetsin ... Farklı kullanıcılar da aynı alan üzerinden
+// işaretleme/güncelleme yapabilsin ... sadece '2. Kurum Değerlendirme' aşamasındaki taleplerde."
+// Liste ekranından tek tıkla çağrıldığı için yanıt küçük: yalnız etuysTakip döner.
+// ============================================================================
+exports.etuysTakipGuncelle = async (req, res) => {
+    try {
+        const talep = await DosyaTakip.findById(req.params.id).select('takipId anaAsama etuysTakip');
+        if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+        if (!DosyaTakip.ETUYS_TAKIP_ASAMALARI.includes(talep.anaAsama)) {
+            return res.status(400).json({
+                success: false,
+                message: 'E-TUYS takibi yalnız "2. Kurum Değerlendirme" aşamasındaki taleplerde işaretlenebilir.'
+            });
+        }
+        const isaretli = req.body?.isaretli === true || req.body?.isaretli === 'true';
+        const guncelleme = { 'etuysTakip.isaretli': isaretli };
+        // İşaretlemek "şimdi kontrol edildi" demek; kaldırmak son kontrol bilgisini silmez
+        if (isaretli) {
+            guncelleme['etuysTakip.kontrolTarihi'] = new Date();
+            guncelleme['etuysTakip.kontrolEden'] = req.user._id;
+            guncelleme['etuysTakip.kontrolEdenAdi'] = req.user.adSoyad;
+        }
+        // updatedAt'e dokunmadan yazılır: kutu "son işlem" sayılmasın, listedeki sıralama oynamasın
+        const guncel = await DosyaTakip.findByIdAndUpdate(
+            talep._id, { $set: guncelleme }, { new: true, timestamps: false }
+        ).select('etuysTakip').lean();
+
+        res.json({ success: true, data: guncel.etuysTakip });
+    } catch (error) {
+        console.error('E-TUYS takip hatası:', error);
+        res.status(500).json({ success: false, message: 'E-TUYS takip bilgisi kaydedilemedi', error: error.message });
     }
 };
 
@@ -1372,10 +1450,32 @@ async function ekIcinDosyaCek(dosya) {
     return null;
 }
 
+// 📨 Firma mailinde kullanılabilecek İşlem & Evrak şablonları.
+// Müşteri (21.09.2026): "'İşlem & Evrak' modülündeki yeni takip mail şablonunu, doğrudan 'Belge Takip'
+// modülündeki mail gönderme kısmına da ekleyebilir miyiz? İki alanda da birebir aynı şablonun
+// kullanılması isteniyor." Şablon kopyalanmaz, her taslakta İşlem & Evrak'taki kayıttan okunur:
+// orada yapılan düzeltme buraya da yansır. Seçim yoksa evrak listesi içeren en son güncellenen şablon
+// (canlıda "Yeni Belge Talebi") kullanılır; "standart" eski Belge Takip metnidir.
+async function firmaMailSablonuSec(istenen) {
+    const IslemTuru = require('../models/IslemTuru');
+    const turler = await IslemTuru.find({ aktif: true, mailGovdesi: { $nin: ['', null] } })
+        .select('ad mailGovdesi updatedAt')
+        .sort({ updatedAt: -1 })
+        .lean();
+    let sablon = null;
+    if (istenen !== 'standart') {
+        if (istenen) sablon = turler.find((t) => String(t._id) === String(istenen)) || null;
+        // Tarayıcının hatırladığı şablon sonradan silinmiş/pasifleşmiş olabilir: varsayılana düş
+        if (!sablon) sablon = turler.find((t) => String(t.mailGovdesi).includes('{evrakListesi}')) || null;
+    }
+    return { sablon, secenekler: turler.map((t) => ({ _id: String(t._id), ad: t.ad })) };
+}
+
 // Önerilen konu/gövde — kullanıcı düzenlemeden önce gördüğü taslak
 exports.firmaMailTaslak = async (req, res) => {
     try {
-        const { konuOner, govdeOner, alicilariOner } = require('../services/dosyaTakip/firmaMailMetni');
+        const { konuOner, govdeOner, alicilariOner, sablonVerisi } = require('../services/dosyaTakip/firmaMailMetni');
+        const { sablonMetniniIsle, getSignature } = require('../services/islemEvrak/islemEvrakService');
         const { yuklemeLinkiHazirla } = require('../services/dosyaTakip/firmaYukleme');
         const talep = await DosyaTakip.findById(req.params.id).populate('firma', 'firmaEmail tamUnvan yetkiliKisiler');
         if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
@@ -1393,6 +1493,11 @@ exports.firmaMailTaslak = async (req, res) => {
             : [];
         const { alici, cc, oneriler } = alicilariOner({ firma: talep.firma, gecmis });
         const yuklemeLinki = await yuklemeLinkiHazirla(DosyaTakip, talep);
+        const { sablon, secenekler } = await firmaMailSablonuSec(String(req.query.sablon || '').trim());
+        // Şablonlu metin İşlem & Evrak'taki imzayla aynı imzayı kullanır (birebir aynı mail)
+        const govde = sablon
+            ? sablonMetniniIsle(sablon.mailGovdesi, sablonVerisi(talep, { imza: getSignature(), yuklemeLinki }))
+            : govdeOner(talep, { imza, yuklemeLinki });
 
         res.json({
             success: true,
@@ -1401,8 +1506,11 @@ exports.firmaMailTaslak = async (req, res) => {
                 cc,
                 adresOnerileri: oneriler,
                 yuklemeLinki,
+                // Konu Belge Takip'e özgü kalır: müşterinin 15.09 isteği (belge no + talep türü)
                 konu: konuOner(talep),
-                govde: govdeOner(talep, { imza, yuklemeLinki }),
+                govde,
+                sablonId: sablon ? String(sablon._id) : 'standart',
+                sablonlar: secenekler,
                 // Ek olarak seçilebilecek dosyalar (talebin kendi dosyaları)
                 dosyalar: (talep.dosyalar || []).map((d) => ({
                     _id: d._id, dosyaAdi: d.dosyaAdi, kategori: d.kategori, aciklama: d.aciklama

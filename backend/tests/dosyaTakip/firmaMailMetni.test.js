@@ -6,7 +6,8 @@
 // Metin kullanıcıya ÖNERİ olarak geliyor ve düzenlenebiliyor; yine de yanlış
 // toplanırsa firmaya yanlış eksik listesi gider. Toplama kuralları burada sabit.
 
-const { konuOner, govdeOner, alicilariOner, firmadanBeklenenler, uzmanNotlari } = require('../../services/dosyaTakip/firmaMailMetni');
+const { konuOner, govdeOner, alicilariOner, firmadanBeklenenler, uzmanNotlari, sablonVerisi } = require('../../services/dosyaTakip/firmaMailMetni');
+const { sablonMetniniIsle } = require('../../services/islemEvrak/islemEvrakService');
 
 const not = (metin, tarih) => ({ metin, tarih: tarih || new Date('2026-01-01') });
 
@@ -28,7 +29,7 @@ describe('firmadanBeklenenler - yalnızca firmayı ilgilendirenler', () => {
     const t = talepKur({
       muraacatSonrasi: { kurumEksik: {
         firmadanBeklenen: { beklenenEksikler: [not('Vergi levhası')] },
-        hemFirmaHemBizden: { beklenenEksikler: [not('Kapasite raporu')] }
+        herIkisindenBeklenen: { beklenenEksikler: [not('Kapasite raporu')] }
       } }
     });
     expect(firmadanBeklenenler(t)).toEqual(['Vergi levhası', 'Kapasite raporu']);
@@ -192,5 +193,70 @@ describe('alicilariOner', () => {
   test('hiç adres yoksa boş döner (çökmez)', () => {
     expect(alicilariOner({})).toEqual({ alici: '', cc: '', oneriler: [] });
     expect(alicilariOner({ firma: null, gecmis: [null] })).toEqual({ alici: '', cc: '', oneriler: [] });
+  });
+});
+
+// Müşteri (21.09.2026): "'İşlem & Evrak' modülündeki yeni takip mail şablonunu, doğrudan 'Belge Takip'
+// modülündeki mail gönderme kısmına da ekleyebilir miyiz? İki alanda da birebir aynı şablonun
+// kullanılması isteniyor."
+describe('İşlem & Evrak şablonuyla firma maili', () => {
+  // Canlıdaki "Yeni Belge Talebi" şablonunun metni (21.09.2026)
+  const SABLON = [
+    'Sayın {firmaAdi} Yetkilisi,',
+    '',
+    'Teşvik Belgesi için istediğimiz evraklar aşağıdaki gibidir. ',
+    '',
+    '{evrakListesi}',
+    '',
+    '',
+    'Hazırlanan evrakların taramalarını aşağıdaki bağlantı üzerinden(farklı zamanlarda yükleme yapabilirsiniz) tarafımıza iletmenizi rica ederiz:',
+    '',
+    '{uploadLink}',
+    '',
+    'İyi çalışmalar dileriz.',
+    '',
+    '{imza}'
+  ].join('\n');
+
+  const talep = talepKur({
+    talepTuru: 'Belge Başvuru Talebi',
+    muraacatSonrasi: { kurumEksik: { firmadanBeklenen: { beklenenEksikler: [not('Vergi levhası'), not('Kapasite raporu')] } } },
+    muraacatOncesi: { gorusmeNotlari: [not('Makine listesi Excel olarak gönderilmeli')] }
+  });
+
+  test('yer tutucular Belge Takip talebiyle dolar, boş yer tutucu kalmaz', () => {
+    const govde = sablonMetniniIsle(SABLON, sablonVerisi(talep, { imza: 'GM Planlama', yuklemeLinki: 'https://gmplansis.com/belge-yukle/abc' }));
+    expect(govde).toBe([
+      'Sayın TEST FİRMA A.Ş. Yetkilisi,',
+      '',
+      'Teşvik Belgesi için istediğimiz evraklar aşağıdaki gibidir. ',
+      '',
+      '1. Vergi levhası',
+      '2. Kapasite raporu',
+      '',
+      'Notlar:',
+      '- Makine listesi Excel olarak gönderilmeli',
+      '',
+      'Hazırlanan evrakların taramalarını aşağıdaki bağlantı üzerinden(farklı zamanlarda yükleme yapabilirsiniz) tarafımıza iletmenizi rica ederiz:',
+      '',
+      'https://gmplansis.com/belge-yukle/abc',
+      '',
+      'İyi çalışmalar dileriz.',
+      '',
+      'GM Planlama'
+    ].join('\n'));
+    expect(govde).not.toMatch(/\{[a-zA-Z]+\}/);
+  });
+
+  // Bu modülde Google Form yok: satır İşlem & Evrak'taki kuralla düşmeli, "{formLink}" yazmamalı
+  test('form satırı düşer', () => {
+    const govde = sablonMetniniIsle(`Merhaba\nForm: {formLink}\n{evrakListesi}`, sablonVerisi(talep));
+    expect(govde).not.toContain('formLink');
+    expect(govde).not.toContain('Form:');
+  });
+
+  test('eksik ve not yoksa yazılması gerektiği görünür', () => {
+    const govde = sablonMetniniIsle('{evrakListesi}', sablonVerisi(talepKur()));
+    expect(govde).toMatch(/eksik kaydı yok/);
   });
 });
