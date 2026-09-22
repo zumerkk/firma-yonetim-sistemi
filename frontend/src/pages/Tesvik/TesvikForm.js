@@ -16,7 +16,6 @@ import {
   CardContent,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
   Chip,
   // Table,           // Commented out - unused import
@@ -62,6 +61,8 @@ import destekSartService from '../../services/destekSartService'; // 🎯 Destek
 
 // 🏙️ İl İlçe Seçici Import - Yatırım Yeri İl/İlçe seçimi için hala kullanılıyor
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
+// Kayıtlı değer seçeneklerle yazım farkıyla uyuşmasa da görünsün (müşteri: "revizede seçili kısımlar görünmüyor")
+import KayitliSecim from '../../components/common/KayitliSecim';
 // 🔄 Revizyon Timeline Import
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
@@ -291,46 +292,46 @@ const TesvikForm = () => {
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>CKD/SKD Mi?</InputLabel>
-                    <Select label="CKD/SKD Mi?" value={row.ckdSkdMi || ''}
+                    <KayitliSecim label="CKD/SKD Mi?" value={row.ckdSkdMi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'ckdSkdMi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>ARAÇ MI?</InputLabel>
-                    <Select label="ARAÇ MI?" value={row.aracMi || ''}
+                    <KayitliSecim label="ARAÇ MI?" value={row.aracMi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'aracMi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 {/* 🆕 G.V İstisnası ve KDV İstisnası alanları - İthal için eklendi */}
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>G.V İstisnası mı?</InputLabel>
-                    <Select label="G.V İstisnası mı?" value={row.gumrukVergisiMuafiyeti || ''}
+                    <KayitliSecim label="G.V İstisnası mı?" value={row.gumrukVergisiMuafiyeti || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'gumrukVergisiMuafiyeti', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>KDV İstisnası mı?</InputLabel>
-                    <Select label="KDV İstisnası mı?" value={row.kdvMuafiyeti || ''}
+                    <KayitliSecim label="KDV İstisnası mı?" value={row.kdvMuafiyeti || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'kdvMuafiyeti', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
               </>
@@ -365,12 +366,12 @@ const TesvikForm = () => {
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>KDV İstisnası</InputLabel>
-                    <Select label="KDV İstisnası" value={row.kdvIstisnasi || ''}
+                    <KayitliSecim label="KDV İstisnası" value={row.kdvIstisnasi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'kdvIstisnasi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
               </>
@@ -833,20 +834,10 @@ const TesvikForm = () => {
     if (!value) return '';
     if (typeof value !== 'string') return value;
 
-    // Problematik değerler listesi
-    const problematicValues = [
-      '2012/3305',
-      'hazirlaniyor',
-      'undefined',
-      'null',
-      '1',
-      'SİGORTA BAŞLAMA',
-      'Var (Yerli ve İthal Liste - Tamamı)',
-      'ÇOK ÖZEL',
-      'BEYANNAMESIZ',
-      'BEYANNAMELI',
-      'YANLIŞ'
-    ];
+    // Yalnız ANLAMSIZ nöbetçi değerler temizlenir. Eskiden gerçek değerler de ('2012/3305' karar sayısı,
+    // 'BEYANNAMELI', 'SİGORTA BAŞLAMA' …) bu listedeydi: form onları boş gösteriyor, kaydedince de boş
+    // yazıyordu — sessiz veri kaybı. Seçeneklerle uyuşmayan değerler artık KayitliSecim ile görünüyor.
+    const problematicValues = ['undefined', 'null'];
 
     // Trim edilmiş değeri kontrol et
     const trimmedValue = value.trim();
@@ -2888,7 +2879,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-oncelikliYatirim-belge-label">
                   Öncelikli Yatırım mı?
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-oncelikliYatirim-belge"
                   name="oncelikliYatirim"
                   labelId="tesvikForm-oncelikliYatirim-belge-label"
@@ -2924,7 +2915,7 @@ const TesvikForm = () => {
                       <Typography>Hayır</Typography>
                     </Box>
                   </MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -2936,7 +2927,7 @@ const TesvikForm = () => {
                   <InputLabel id="tesvikForm-oncelikliYatirimTuru-belge-label">
                     Öncelikli Yatırım Türü
                   </InputLabel>
-                  <Select
+                  <KayitliSecim
                     id="tesvikForm-oncelikliYatirimTuru-belge"
                     name="oncelikliYatirimTuru"
                     labelId="tesvikForm-oncelikliYatirimTuru-belge-label"
@@ -2976,7 +2967,7 @@ const TesvikForm = () => {
                           </MenuItem>
                         ))
                     ]).flat()}
-                  </Select>
+                  </KayitliSecim>
                 </FormControl>
               </Grid>
             )}
@@ -2985,7 +2976,7 @@ const TesvikForm = () => {
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel>DAYANDIĞI KANUN ⚖️</InputLabel>
-                <Select
+                <KayitliSecim
                   value={formData.belgeYonetimi.dayandigiKanun}
                   onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
                   label="DAYANDIĞI KANUN"
@@ -3000,7 +2991,7 @@ const TesvikForm = () => {
                       {kanun.label}
                     </MenuItem>
                   ))}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3087,7 +3078,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-yatirimKonusu-label">
                   YATIRIM KONUI (NACE Kodu Seçiniz)
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-yatirimKonusu"
                   name="yatirimKonusu"
                   labelId="tesvikForm-yatirimKonusu-label"
@@ -3132,7 +3123,7 @@ const TesvikForm = () => {
                         </MenuItem>
                       ))
                   ]).flat()}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3142,7 +3133,7 @@ const TesvikForm = () => {
                 <Box sx={{ position: 'relative' }}>
                   <FormControl fullWidth>
                     <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>J-CNS({index + 1})</InputLabel>
-                    <Select
+                    <KayitliSecim
                       id={`tesvikForm-cins${index + 1}`}
                       name={`cins${index + 1}`}
                       labelId={`tesvikForm-cins${index + 1}-label`}
@@ -3160,7 +3151,7 @@ const TesvikForm = () => {
                           {tip.label}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
 
                   {/* Remove butonu - sadece birden fazla alan varsa göster */}
@@ -3261,7 +3252,7 @@ const TesvikForm = () => {
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-destekSinifi-label" htmlFor="tesvikForm-destekSinifi">DESTEK SINIFI 🎯</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-destekSinifi"
                   name="destekSinifi"
                   labelId="tesvikForm-destekSinifi-label"
@@ -3279,7 +3270,7 @@ const TesvikForm = () => {
                       {sinif.label}
                     </MenuItem>
                   ))}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3289,7 +3280,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkeziMi-label">Cazibe Merkezi Mi?</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-cazibeMerkeziMi"
                   name="cazibeMerkeziMi"
                   labelId="tesvikForm-cazibeMerkeziMi-label"
@@ -3305,7 +3296,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3313,7 +3304,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-savunmaSanayiProjesi-label">Savunma Sanayi Projesi Mi?</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-savunmaSanayiProjesi"
                   name="savunmaSanayiProjesi"
                   labelId="tesvikForm-savunmaSanayiProjesi-label"
@@ -3329,7 +3320,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3357,7 +3348,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkezi2018-label">Cazibe Merkezi (2018/11201)</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-cazibeMerkezi2018"
                   name="cazibeMerkezi2018"
                   labelId="tesvikForm-cazibeMerkezi2018-label"
@@ -3373,7 +3364,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3381,7 +3372,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkeziDeprem-label">Cazibe Merkezi Deprem Nedeni</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-cazibeMerkeziDeprem"
                   name="cazibeMerkeziDeprem"
                   labelId="tesvikForm-cazibeMerkeziDeprem-label"
@@ -3397,7 +3388,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3405,7 +3396,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-hamleMi-label">HAMLE MI?</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-hamleMi"
                   name="hamleMi"
                   labelId="tesvikForm-hamleMi-label"
@@ -3421,7 +3412,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3429,7 +3420,7 @@ const TesvikForm = () => {
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-vergiIndirimsizDestek-label">Vergi İndirimsiz Destek Talebi</InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-vergiIndirimsizDestek"
                   name="vergiIndirimsizDestek"
                   labelId="tesvikForm-vergiIndirimsizDestek-label"
@@ -3445,7 +3436,7 @@ const TesvikForm = () => {
                   <MenuItem value="">Seçiniz...</MenuItem>
                   <MenuItem value="evet">EVET</MenuItem>
                   <MenuItem value="hayir">HAYIR</MenuItem>
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3576,7 +3567,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-osbMudurluk-label">
                   OSB İSE MÜDÜRLÜK (411 OSB)
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-osbMudurluk"
                   name="osbMudurluk"
                   labelId="tesvikForm-osbMudurluk-label"
@@ -3617,7 +3608,7 @@ const TesvikForm = () => {
                         </MenuItem>
                       ))
                   ]).flat()}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3627,7 +3618,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-bolgesi-label">
                   BÖLGESİ
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-bolgesi"
                   name="bolgesi"
                   labelId="tesvikForm-bolgesi-label"
@@ -3652,7 +3643,7 @@ const TesvikForm = () => {
                       </Box>
                     </MenuItem>
                   ))}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3661,7 +3652,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-ilceBazliBolge-label">
                   İlçe Bazlı Bölge
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-ilceBazliBolge"
                   name="ilceBazliBolge"
                   labelId="tesvikForm-ilceBazliBolge-label"
@@ -3686,7 +3677,7 @@ const TesvikForm = () => {
                       </Box>
                     </MenuItem>
                   ))}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -3695,7 +3686,7 @@ const TesvikForm = () => {
                 <InputLabel id="tesvikForm-serbestBolge-label">
                   SERBEST BÖLGE (19 Müdürlük)
                 </InputLabel>
-                <Select
+                <KayitliSecim
                   id="tesvikForm-serbestBolge"
                   name="serbestBolge"
                   labelId="tesvikForm-serbestBolge-label"
@@ -3736,7 +3727,7 @@ const TesvikForm = () => {
                         </MenuItem>
                       ))
                   ]).flat()}
-                </Select>
+                </KayitliSecim>
               </FormControl>
             </Grid>
 
@@ -4379,7 +4370,7 @@ const TesvikForm = () => {
                       Kapasite Birimi
                     </Typography>
                     <FormControl fullWidth>
-                      <Select
+                      <KayitliSecim
                         value={urun.kapasite_birimi || ''}
                         onChange={(e) => handleUrunChange(index, 'kapasite_birimi', e.target.value)}
                         displayEmpty
@@ -4409,7 +4400,7 @@ const TesvikForm = () => {
                             {birim}
                           </MenuItem>
                         ))}
-                      </Select>
+                      </KayitliSecim>
                     </FormControl>
                   </Grid>
 

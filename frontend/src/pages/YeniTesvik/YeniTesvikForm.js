@@ -16,7 +16,6 @@ import {
   CardContent,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
   Chip,
   // Table,           // Commented out - unused import
@@ -61,6 +60,8 @@ import destekSartService from '../../services/destekSartService'; // 🎯 Destek
 
 // 🏙️ İl İlçe Seçici Import - Yatırım Yeri İl/İlçe seçimi için hala kullanılıyor
 import EnhancedCitySelector from '../../components/EnhancedCitySelector.tsx';
+// Kayıtlı değer seçeneklerle yazım farkıyla uyuşmasa da görünsün (müşteri: "revizede seçili kısımlar görünmüyor")
+import KayitliSecim, { kayitliSecenekler } from '../../components/common/KayitliSecim';
 // 🔄 Revizyon Timeline Import
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
@@ -280,45 +281,45 @@ const YeniTesvikForm = () => {
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>CKD/SKD Mi?</InputLabel>
-                    <Select label="CKD/SKD Mi?" value={row.ckdSkdMi || ''}
+                    <KayitliSecim label="CKD/SKD Mi?" value={row.ckdSkdMi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'ckdSkdMi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>ARAÇ MI?</InputLabel>
-                    <Select label="ARAÇ MI?" value={row.aracMi || ''}
+                    <KayitliSecim label="ARAÇ MI?" value={row.aracMi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'aracMi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>KDV İstisnası</InputLabel>
-                    <Select label="KDV İstisnası" value={row.kdvMuafiyeti || ''}
+                    <KayitliSecim label="KDV İstisnası" value={row.kdvMuafiyeti || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'kdvMuafiyeti', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>GV İstisnası</InputLabel>
-                    <Select label="GV İstisnası" value={row.gumrukVergisiMuafiyeti || ''}
+                    <KayitliSecim label="GV İstisnası" value={row.gumrukVergisiMuafiyeti || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'gumrukVergisiMuafiyeti', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
               </>
@@ -352,12 +353,12 @@ const YeniTesvikForm = () => {
                 <Grid item xs={6} md={2}>
                   <FormControl fullWidth>
                     <InputLabel>KDV İstisnası</InputLabel>
-                    <Select label="KDV İstisnası" value={row.kdvIstisnasi || ''}
+                    <KayitliSecim label="KDV İstisnası" value={row.kdvIstisnasi || ''}
                       onChange={(e) => updateMakineField(tip, idx, 'kdvIstisnasi', e.target.value)}>
                       <MenuItem value="">Seçilmedi</MenuItem>
                       <MenuItem value="EVET">EVET</MenuItem>
                       <MenuItem value="HAYIR">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Grid>
               </>
@@ -950,20 +951,10 @@ const YeniTesvikForm = () => {
     if (!value) return '';
     if (typeof value !== 'string') return value;
 
-    // Problematik değerler listesi
-    const problematicValues = [
-      '2012/3305',
-      'hazirlaniyor',
-      'undefined',
-      'null',
-      '1',
-      'SİGORTA BAŞLAMA',
-      'Var (Yerli ve İthal Liste - Tamamı)',
-      'ÇOK ÖZEL',
-      'BEYANNAMESIZ',
-      'BEYANNAMELI',
-      'YANLIŞ'
-    ];
+    // Yalnız ANLAMSIZ nöbetçi değerler temizlenir. Eskiden gerçek değerler de ('2012/3305' karar sayısı,
+    // 'BEYANNAMELI', 'SİGORTA BAŞLAMA' …) bu listedeydi: form onları boş gösteriyor, kaydedince de boş
+    // yazıyordu — sessiz veri kaybı. Seçeneklerle uyuşmayan değerler artık KayitliSecim ile görünüyor.
+    const problematicValues = ['undefined', 'null'];
 
     // Trim edilmiş değeri kontrol et
     const trimmedValue = value.trim();
@@ -2525,10 +2516,12 @@ const YeniTesvikForm = () => {
                     onChange={(e) => handleFieldChange('kunyeBilgileri.sermayeTuru', e.target.value)}
                     sx={{ backgroundColor: '#fff' }}
                   >
-                    <MenuItem value="">Seçiniz...</MenuItem>
-                    <MenuItem value="Tamamı Yerli Firma">Tamamı Yerli Firma</MenuItem>
-                    <MenuItem value="Tamamı Yabancı Firma">Tamamı Yabancı Firma</MenuItem>
-                    <MenuItem value="Karma">Karma</MenuItem>
+                    {kayitliSecenekler(formData.kunyeBilgileri?.sermayeTuru || '', [
+                      <MenuItem key="bos" value="">Seçiniz...</MenuItem>,
+                      <MenuItem key="yerli" value="Tamamı Yerli Firma">Tamamı Yerli Firma</MenuItem>,
+                      <MenuItem key="yabanci" value="Tamamı Yabancı Firma">Tamamı Yabancı Firma</MenuItem>,
+                      <MenuItem key="karma" value="Karma">Karma</MenuItem>
+                    ])}
                   </TextField>
                 </Box>
               </Grid>
@@ -2540,7 +2533,7 @@ const YeniTesvikForm = () => {
                     Yatırımın Konusu (Nace):
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.yatirimKonusu}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2551,7 +2544,7 @@ const YeniTesvikForm = () => {
                           {item.kod} - {item.tanim.substring(0, 60)}{item.tanim.length > 60 && '...'}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2563,13 +2556,13 @@ const YeniTesvikForm = () => {
                     Kararname Tarih/Sayı:
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.belgeYonetimi.dayandigiKanun}
                       onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
                     >
                       <MenuItem value="29.05.2025 -2025/9903">29/5/2025 tarih ve 2025/9903 sayılı</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2666,7 +2659,7 @@ const YeniTesvikForm = () => {
                     Osb Adı:
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri2.ossBelgeMudavimi || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri2.ossBelgeMudavimi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2677,7 +2670,7 @@ const YeniTesvikForm = () => {
                           {osb.osb} ({osb.il})
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2689,7 +2682,7 @@ const YeniTesvikForm = () => {
                     SB Adı:
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri2.serbsetBolge || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri2.serbsetBolge', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2700,7 +2693,7 @@ const YeniTesvikForm = () => {
                           {bolge.bolge}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2712,7 +2705,7 @@ const YeniTesvikForm = () => {
                     İl Bazlı Bölgesi:
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri2.ilBazliBolge || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri2.ilBazliBolge', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2721,7 +2714,7 @@ const YeniTesvikForm = () => {
                       {[1, 2, 3, 4, 5, 6].map((bolge) => (
                         <MenuItem key={bolge} value={`${bolge}. Bölge`}>{bolge}. Bölge</MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2733,7 +2726,7 @@ const YeniTesvikForm = () => {
                     İlçe Bazlı Bölgesi (01.01.2021 ve sonrası):
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri2.ilceBazliBolge || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri2.ilceBazliBolge', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -2742,7 +2735,7 @@ const YeniTesvikForm = () => {
                       {[1, 2, 3, 4, 5, 6].map((bolge) => (
                         <MenuItem key={bolge} value={`${bolge}. Bölge`}>{bolge}. Bölge</MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -2807,7 +2800,7 @@ const YeniTesvikForm = () => {
                       Cins({index + 1}):
                     </Typography>
                     <FormControl fullWidth size="small">
-                      <Select
+                      <KayitliSecim
                         value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
                         onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
                         sx={{ backgroundColor: '#fff' }}
@@ -2817,7 +2810,7 @@ const YeniTesvikForm = () => {
                             {tip.label}
                           </MenuItem>
                         ))}
-                      </Select>
+                      </KayitliSecim>
                     </FormControl>
                     {cinsSayisi > 1 && index === cinsSayisi - 1 && (
                       <IconButton onClick={removeCinsField} size="small" sx={{ color: '#ef4444' }}>
@@ -3010,7 +3003,7 @@ const YeniTesvikForm = () => {
                     Mücbir Uzatma mı?:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.belgeYonetimi.mucbirUzatma || ''}
                       onChange={(e) => {
                         const v = e.target.value;
@@ -3022,7 +3015,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3088,7 +3081,7 @@ const YeniTesvikForm = () => {
                     OECD (Orta-Yüksek):
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.oecdKategori || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.oecdKategori', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3098,7 +3091,7 @@ const YeniTesvikForm = () => {
                           {kat.label || kat.aciklama}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3110,7 +3103,7 @@ const YeniTesvikForm = () => {
                     Destekleme Sınıfı:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.destekSinifi}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3120,7 +3113,7 @@ const YeniTesvikForm = () => {
                           {String(sinif.label || sinif.value || '').replace(/_/g, ' ')}
                         </MenuItem>
                       ))}
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3132,7 +3125,7 @@ const YeniTesvikForm = () => {
                     Öncelikli Yatırım:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.belgeYonetimi.oncelikliYatirim || ''}
                       onChange={(e) => {
                         handleFieldChange('belgeYonetimi.oncelikliYatirim', e.target.value);
@@ -3145,7 +3138,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayır">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3157,7 +3150,7 @@ const YeniTesvikForm = () => {
                     Büyük Ölçekli:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.buyukOlcekli || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.buyukOlcekli', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3165,7 +3158,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3177,7 +3170,7 @@ const YeniTesvikForm = () => {
                     Cazibe Merkezi Mi:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.cazibeMerkeziMi}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziMi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3185,7 +3178,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3227,7 +3220,7 @@ const YeniTesvikForm = () => {
                     Belge Müracaat Talep Tipi:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.kunyeBilgileri?.talepSonuc || ''}
                       onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3236,7 +3229,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="Taslak">TASLAK</MenuItem>
                       <MenuItem value="Talep">TALEP</MenuItem>
                       <MenuItem value="Sonuç">YATIRIM TEŞVİK BELGESİ</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3263,7 +3256,7 @@ const YeniTesvikForm = () => {
                     Cazibe Merkezi Mi? (2018/11201):
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.cazibeMerkezi2018}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkezi2018', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3271,7 +3264,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3283,7 +3276,7 @@ const YeniTesvikForm = () => {
                     Cazibe Merkezi Deprem Nedeni:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.cazibeMerkeziDeprem}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.cazibeMerkeziDeprem', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3291,7 +3284,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3303,7 +3296,7 @@ const YeniTesvikForm = () => {
                     HAMLE MI?:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.hamleMi}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.hamleMi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3311,7 +3304,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3323,7 +3316,7 @@ const YeniTesvikForm = () => {
                     Vergi İndirimsiz Destek Talebi:
                   </Typography>
                   <FormControl size="small" sx={{ flex: 1, minWidth: 100 }}>
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.vergiIndirimsizDestekTalebi || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.vergiIndirimsizDestekTalebi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3331,7 +3324,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3343,7 +3336,7 @@ const YeniTesvikForm = () => {
                     Savunma Sanayi Projesi Mi?:
                   </Typography>
                   <FormControl fullWidth size="small">
-                    <Select
+                    <KayitliSecim
                       value={formData.yatirimBilgileri1.savunmaSanayiProjesi}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.savunmaSanayiProjesi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
@@ -3351,7 +3344,7 @@ const YeniTesvikForm = () => {
                       <MenuItem value="">Seçiniz...</MenuItem>
                       <MenuItem value="evet">EVET</MenuItem>
                       <MenuItem value="hayir">HAYIR</MenuItem>
-                    </Select>
+                    </KayitliSecim>
                   </FormControl>
                 </Box>
               </Grid>
@@ -3821,7 +3814,7 @@ const YeniTesvikForm = () => {
                             Birim:
                           </Typography>
                           <FormControl size="small" sx={{ minWidth: 100 }}>
-                            <Select
+                            <KayitliSecim
                               value={urun.kapasite_birimi || ''}
                               onChange={(e) => handleUrunChange(index, 'kapasite_birimi', e.target.value)}
                               displayEmpty
@@ -3842,7 +3835,7 @@ const YeniTesvikForm = () => {
                                   {birim}
                                 </MenuItem>
                               ))}
-                            </Select>
+                            </KayitliSecim>
                           </FormControl>
                         </Box>
 

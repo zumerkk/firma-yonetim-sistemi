@@ -26,6 +26,7 @@ import {
   searchDistricts,
   TURKEY_CITIES_WITH_CODES
 } from '../data/cityDataComplete';
+import { esleAnahtari, eslesenIlce } from '../utils/secenekEsle';
 
 // Utility functions
 const getCityRegion = (cityName) => {
@@ -205,7 +206,8 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
         
         <Autocomplete
           id="city-selector"
-          value={selectedCity ? cityOptions.find(city => city.ad === selectedCity) || null : null}
+          // Kayıtlı il "NİĞDE" / "ISTANBUL" gibi büyük harfli olabilir — yazım farkı gözetilmez
+          value={selectedCity ? cityOptions.find(city => esleAnahtari(city.ad) === esleAnahtari(selectedCity)) || null : null}
           onChange={handleCityChange}
           options={cityOptions}
           getOptionLabel={(option) => option?.ad || ''}
@@ -317,7 +319,8 @@ const EnhancedCitySelector: React.FC<EnhancedCitySelectorProps> = ({
         
         <Autocomplete
           id="district-selector"
-          value={selectedDistrict ? districtOptions.find(district => district.ad === selectedDistrict) || null : null}
+          // Kayıtlı ilçe "NILÜFER" ya da merkez ilçe için "MERKEZ" (listede "Niğde Merkez") olabilir
+          value={selectedDistrict ? (districtOptions[eslesenIlce(selectedDistrict, districtOptions, selectedCity)] || null) : null}
           onChange={handleDistrictChange}
           options={districtOptions}
           getOptionLabel={(option) => option.ad || ''}

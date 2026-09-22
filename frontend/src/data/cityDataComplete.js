@@ -2,6 +2,14 @@
 // CSV verilerinden çıkarılan gerçek il-ilçe kodları ve isimleri
 
 import extractedData from './extracted-city-data.json';
+import { esleAnahtari, eslesenIlce } from '../utils/secenekEsle';
+
+// Belgelerde il/ilçe E-TUYS'tan büyük harfle geliyor ("NİĞDE", "NILÜFER"); veride "Niğde", "Nilüfer".
+// Düz toLowerCase Türkçe İ'yi "i̇" yapıyor ("NİĞDE" ≠ "Niğde") — karşılaştırma ortak anahtarla.
+const ilBul = (cityName) => {
+  const k = esleAnahtari(cityName);
+  return k ? extractedData.iller.find((il) => esleAnahtari(il.ad) === k) : undefined;
+};
 
 // İl kodları ve isimleri
 export const TURKEY_CITIES_WITH_CODES = extractedData.iller.map(il => ({
@@ -40,9 +48,7 @@ extractedData.iller.forEach(il => {
 
 // İl kodu ile ilçeleri getirme
 export const getDistrictsByCity = (cityName) => {
-  const city = extractedData.iller.find(il => 
-    il.ad.toLowerCase() === cityName.toLowerCase()
-  );
+  const city = ilBul(cityName);
   return city ? city.ilceler : [];
 };
 
@@ -54,9 +60,7 @@ export const getDistrictsByCityCode = (cityCode) => {
 
 // İl adı ile il kodunu getirme
 export const getCityCode = (cityName) => {
-  const city = extractedData.iller.find(il => 
-    il.ad.toLowerCase() === cityName.toLowerCase()
-  );
+  const city = ilBul(cityName);
   return city ? city.kod : null;
 };
 
@@ -77,15 +81,10 @@ export const getDistrictName = (districtCode) => {
 
 // İlçe adı ile ilçe kodunu getirme
 export const getDistrictCode = (cityName, districtName) => {
-  const city = extractedData.iller.find(il => 
-    il.ad.toLowerCase() === cityName.toLowerCase()
-  );
+  const city = ilBul(cityName);
   if (!city) return null;
-  
-  const district = city.ilceler.find(ilce => 
-    ilce.ad.toLowerCase() === districtName.toLowerCase()
-  );
-  return district ? district.kod : null;
+  const i = eslesenIlce(districtName, city.ilceler, city.ad);
+  return i >= 0 ? city.ilceler[i].kod : null;
 };
 
 // Arama fonksiyonları
