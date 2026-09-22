@@ -29,22 +29,28 @@ jest.mock('../../services/tesvikMakine/mailService', () => ({
   sendMail: jest.fn()
 }));
 
-jest.mock('multer-storage-cloudinary', () => ({
-  CloudinaryStorage: class {
-    _handleFile(req, file, cb) {
-      let boyut = 0;
-      file.stream.on('data', (parca) => { boyut += parca.length; });
-      file.stream.on('error', cb);
-      file.stream.on('end', () => cb(null, {
-        path: `https://res.cloudinary.com/test/raw/upload/v1/dosya-takip/${boyut}-dosya`,
-        filename: `dosya-takip/${boyut}-dosya`,
-        size: boyut
-      }));
-    }
-
-    _removeFile(req, file, cb) { cb(null); }
-  }
-}));
+// Yükleme utils/parcaliDosya motorundan geçiyor; ağa çıkmasın diye Cloudinary'nin kendisi taklit
+jest.mock('cloudinary', () => {
+  const v2 = {
+    config: () => {},
+    uploader: {
+      upload_stream: (secenek, cb) => ({
+        end: (buffer) => {
+          const pid = secenek.folder ? `${secenek.folder}/${secenek.public_id}` : secenek.public_id;
+          setImmediate(() => cb(null, {
+            public_id: pid,
+            secure_url: `https://res.cloudinary.com/test/raw/upload/v1/${pid}`,
+            bytes: buffer.length
+          }));
+        }
+      }),
+      destroy: async () => ({ result: 'ok' })
+    },
+    utils: { private_download_url: () => '' },
+    url: () => ''
+  };
+  return { v2 };
+});
 
 const dosyaTakipRoutes = require('../../routes/dosyaTakip');
 const belgeTakipYuklemeRoutes = require('../../routes/belgeTakipYukleme');

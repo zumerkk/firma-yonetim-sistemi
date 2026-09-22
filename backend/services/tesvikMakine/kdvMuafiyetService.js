@@ -243,6 +243,12 @@ async function fetchBuffer(kdv) {
   }
 
   ensureCloudinary();
+  // Parçalı (10 MiB üstü) yazı: manifesti gösteriyor, parçalar birleştirilir (utils/parcaliDosya)
+  if (require('../../utils/parcaliDosya').manifestMi(kdv.providerFileId)) {
+    const birlesik = await require('../../utils/parcaliDosya').indir(kdv.providerFileId, kdv.dosyaUrl);
+    if (birlesik) return { buffer: birlesik.buffer, contentType: kdv.mimeType || birlesik.contentType };
+    return { hata: 'ERISILEMEDI', detay: 'parcali-dosya' };
+  }
   const isImage = /^image\//.test(kdv.mimeType || '');
   const rt = isImage ? 'image' : 'raw';
   const adaylar = [];
