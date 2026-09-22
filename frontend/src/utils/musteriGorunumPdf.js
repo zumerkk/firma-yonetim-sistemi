@@ -68,6 +68,12 @@ const evetHayir = (v) => {
   return '-';
 };
 
+// Dolu olmayan alanlar tabloya hiç yazılmaz (bilgiTablosu falsy satırları eler)
+const doluysa = (etiket, deger, bicim = str) => {
+  const v = bicim(deger);
+  return (!v || v === '-') ? null : [etiket, v];
+};
+
 const RENK = { baslik: [30, 58, 138], satirBaslik: [241, 245, 249], cizgi: [203, 213, 225] };
 
 export const exportTesvikToPdf = async (tesvik) => {
@@ -187,9 +193,12 @@ export const exportTesvikToPdf = async (tesvik) => {
   const yatirimCinsi = [yb.sCinsi1, yb.tCinsi2, yb.uCinsi3, yb.vCinsi4].filter(Boolean).join(', ') || yb.yatirimCinsi;
   bolum('2. Yatırım Bilgileri'); y += 6;
   bilgiTablosu([
+    ['Yatırımın Konusu (US97/NACE)', str(yb.yatirimKonusu)],
+    doluysa('Sermaye Türü', kunye.sermayeTuru),
     ['Yatırımın Yeri', [yb.yerinIl, yb.yerinIlce].filter(Boolean).join(' / ') || '-'],
     ['Yatırım Adresi', str(adres)],
     ['OSB Adı', str(yb.osbIseMudurluk)],
+    doluysa('Serbest Bölge', yb.serbsetBolge),
     ['Bölge (İl / İlçe bazlı)', [yb.ilBazliBolge, yb.ilceBazliBolge].filter(Boolean).join(' / ') || '-'],
     ['Yatırım Cinsi', str(etiketNormalle(yatirimCinsi))],
     ['Destek Sınıfı', str(etiketNormalle(yb.destekSinifi))],
@@ -203,6 +212,7 @@ export const exportTesvikToPdf = async (tesvik) => {
   // ── 3. Belge ────────────────────────────────────────────────────────────
   bolum('3. Belge Bilgileri'); y += 6;
   bilgiTablosu([
+    doluysa('Belge ID', by.belgeId),
     ['Belge No', str(by.belgeNo || tesvik.belgeNo || tesvik.gmId)],
     ['Belge Tarihi', tarih(by.belgeTarihi || kunye.kararTarihi)],
     ['Dayandığı Kanun', str(by.dayandigiKanun || kunye.kararSayisi)],
@@ -210,9 +220,22 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['Müracaat Tarihi', tarih(by.belgeMuracaatTarihi || kunye.basvuruTarihi)],
     ['Belge Başlama / Bitiş', `${tarih(by.belgeBaslamaTarihi || kunye.baslamaTarihi)} — ${tarih(by.belgeBitisTarihi || kunye.bitisTarihi)}`],
     ['Süre Uzatım Tarihi', tarih(by.uzatimTarihi)],
+    doluysa('Kapanma Tarihi', by.kapanmaTarihi, tarih),
+    doluysa('Ekspertiz Tarihi', by.ekspertizTarihi, tarih),
+    doluysa('Belge Müracaat Talep Tipi', by.belgeMuracaatTalepTipi || kunye.talepSonuc, etiketNormalle),
     ['Öncelikli Yatırım', str(by.oncelikliYatirim)],
     // müşteri: "pdf görünümünde öncelikli yatırım türü görünmüyor"
-    ['Öncelikli Yatırım Türü', str(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru))]
+    ['Öncelikli Yatırım Türü', str(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru))],
+    // müşteri (22.09): "Mümkünse görünen bilgileri PDF çıktısına da ekleyelim" —
+    // formda görünen ama çıktıda hiç olmayan E-TUYS alanları (yalnız dolu olanlar yazılır)
+    doluysa('Büyük Ölçekli', yb.buyukOlcekli, evetHayir),
+    doluysa('Cazibe Merkezi Mi', yb.cazibeMerkeziMi, evetHayir),
+    doluysa('Savunma Sanayi Projesi Mi', yb.savunmaSanayiProjesi, evetHayir),
+    doluysa('Enerji Üretim Kaynağı', yb.enerjiUretimKaynagi, etiketNormalle),
+    doluysa('Cazibe Merkezi (2018/11201)', yb.cazibeMerkezi2018, evetHayir),
+    doluysa('Cazibe Merkezi Deprem Nedeni', yb.cazibeMerkeziDeprem, evetHayir),
+    doluysa('HAMLE Mi?', yb.hamleMi, evetHayir),
+    doluysa('Vergi İndirimsiz Destek Talebi', yb.vergiIndirimsizDestek || yb.vergiIndirimsizDestekTalebi, evetHayir)
   ]);
 
   // ── 4. Ürünler ──────────────────────────────────────────────────────────

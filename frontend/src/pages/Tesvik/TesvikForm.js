@@ -2319,46 +2319,6 @@ const TesvikForm = () => {
           <Grid container spacing={3}>
 
             {/* GM ID */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-gmId"
-                name="gmId"
-                fullWidth
-                label="GM ID 🆔"
-                value={formData.gmId}
-                InputProps={{
-                  readOnly: true,
-                  style: { backgroundColor: '#e5f3ff', fontWeight: 600 }
-                }}
-                helperText="Otomatik atanan GM ID (Değiştirilemez)"
-              />
-            </Grid>
-
-            {/* TALEP/SONUÇ */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-talepSonuc"
-                name="talepSonuc"
-                fullWidth
-                label="TALEP/SONUÇ"
-                value={formData.kunyeBilgileri?.talepSonuc || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.talepSonuc', e.target.value)}
-                placeholder="Talep sonucu giriniz..."
-              />
-            </Grid>
-
-            {/* REVIZE ID */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-revizeId"
-                name="revizeId"
-                fullWidth
-                label="REVIZE ID"
-                value={formData.kunyeBilgileri?.revizeId || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.revizeId', e.target.value)}
-                placeholder="Revize ID giriniz..."
-              />
-            </Grid>
 
             {/* FIRMA ID */}
             <Grid item xs={12} md={6}>
@@ -2499,27 +2459,6 @@ const TesvikForm = () => {
                 onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
                 required
                 helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
-              />
-            </Grid>
-
-            {/* SGK SİCİL NO - YENİ ALAN */}
-            <Grid item xs={12}>
-              <TextField
-                id="tesvikForm-sgkSicilNo"
-                name="sgkSicilNo"
-                fullWidth
-                label="SGK SİCİL NO"
-                value={formData.kunyeBilgileri?.sgkSicilNo || ''}
-                onChange={(e) => handleFieldChange('kunyeBilgileri.sgkSicilNo', e.target.value)}
-                placeholder="SGK sicil numarasını giriniz..."
-                helperText="İsteğe bağlı - Sosyal Güvenlik Kurumu sicil numarası"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { bordercolor: '#202124' },
-                    '&.Mui-focused': { bordercolor: '#202124' }
-                  }
-                }}
               />
             </Grid>
           </Grid>
@@ -2690,44 +2629,6 @@ const TesvikForm = () => {
               />
             </Grid>
 
-            {/* 📋 BELGE MÜRACAAT TALEP TİPİ */}
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                freeSolo
-                id="tesvikForm-belgeMuracaatTalepTipi"
-                options={[
-                  'YATIRIM TEŞVİK BELGESİ',
-                  'YATIRIM TEŞVİK BELGESİ REVİZE',
-                  'SÜRE UZATIMI',
-                  'TAMAMLAMA VİZESİ',
-                  'İPTAL TALEBİ'
-                ]}
-                value={formData.belgeYonetimi.belgeMuracaatTalepTipi || ''}
-                onChange={(event, newValue) => {
-                  handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newValue || '');
-                }}
-                onInputChange={(event, newInputValue, reason) => {
-                  if (reason === 'input') {
-                    handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newInputValue);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Belge Müracaat Talep Tipi"
-                    placeholder="Seçin veya manuel yazın..."
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: '#ffffff',
-                        '&:hover': { borderColor: '#16a085' },
-                        '&.Mui-focused': { borderColor: '#16a085' }
-                      }
-                    }}
-                  />
-                )}
-              />
-            </Grid>
-
             {/* BELGE BAŞLAMA TARIHI */}
             <Grid item xs={12} md={6}>
               <Box sx={{ position: 'relative' }}>
@@ -2813,7 +2714,7 @@ const TesvikForm = () => {
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
-                  label="SÜRE UZATIM TARIHI ⏰"
+                  label="SÜRE UZATIM TARIHI"
                   type="date"
                   value={formData.belgeYonetimi.uzatimTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
@@ -2871,6 +2772,77 @@ const TesvikForm = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#ffffff' } }}
               />
+            </Grid>
+
+            {/* OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
+            {/* 🌍 OECD (Orta-Yüksek) - Dropdown + Manuel Giriş */}
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                freeSolo
+                id="tesvikForm-oecdKategori"
+                options={[
+                  // 📋 loecd-Tablo 1.csv'den gelen OECD kodları
+                  '24 Kimyasal Madde',
+                  '29 B.Y.S. Makine ve Teçhizat',
+                  '31 B.Y.S. Elektrikli Makine Ve Cihazlar',
+                  '34 Motorlu Kara Taşıtları',
+                  '352 Demiryolu ve Tramvay Lokomotifleri ile Vagonlarının',
+                  '359 B.Y.S. Ulaşım Araçları',
+                  // Backend'den gelen ek kategoriler
+                  ...(templateData.oecdKategorileri || []).map(kat => kat?.label || kat?.aciklama || kat)
+                ].filter((v, i, a) => v && a.indexOf(v) === i)} // Duplicate'ları temizle
+                value={formData.yatirimBilgileri1.oecdKategori || ''}
+                onChange={(event, newValue) => {
+                  handleFieldChange('yatirimBilgileri1.oecdKategori', newValue || '');
+                }}
+                onInputChange={(event, newInputValue, reason) => {
+                  // Manuel yazım durumunda da kaydet
+                  if (reason === 'input') {
+                    handleFieldChange('yatirimBilgileri1.oecdKategori', newInputValue);
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="OECD (Orta-Yüksek)"
+                    placeholder="Seçin veya manuel yazın..."
+                    sx={{
+                      backgroundColor: '#ffffff',
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
+                      }
+                    }}
+                  />
+                )}
+                sx={{ width: '100%' }}
+              />
+            </Grid>
+
+            {/* 🎯 DESTEK SINIFI Dropdown */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel id="tesvikForm-destekSinifi-label" htmlFor="tesvikForm-destekSinifi">DESTEK SINIFI</InputLabel>
+                <KayitliSecim
+                  id="tesvikForm-destekSinifi"
+                  name="destekSinifi"
+                  labelId="tesvikForm-destekSinifi-label"
+                  value={formData.yatirimBilgileri1.destekSinifi}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
+                  label="DESTEK SINIFI"
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
+                  }}
+                >
+                  {templateData.destekSiniflari?.map((sinif) => (
+                    <MenuItem key={sinif.value} value={sinif.value}>
+                      {sinif.label}
+                    </MenuItem>
+                  ))}
+                </KayitliSecim>
+              </FormControl>
             </Grid>
 
             {/* 🏆 ÖNCELİKLİ YATIRIM ALANLARI */}
@@ -2972,308 +2944,6 @@ const TesvikForm = () => {
               </Grid>
             )}
 
-            {/* DAYANDIĞI KANUN */}
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>DAYANDIĞI KANUN ⚖️</InputLabel>
-                <KayitliSecim
-                  value={formData.belgeYonetimi.dayandigiKanun}
-                  onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
-                  label="DAYANDIĞI KANUN"
-                  sx={{
-                    backgroundColor: '#ffffff',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' }
-                  }}
-                >
-                  {templateData.dayandigiKanunlar?.map((kanun) => (
-                    <MenuItem key={kanun.value} value={kanun.value}>
-                      {kanun.label}
-                    </MenuItem>
-                  ))}
-                </KayitliSecim>
-              </FormControl>
-            </Grid>
-
-            {/* BELGE DURUMU kaldırıldı */}
-          </Grid>
-        </Paper>
-      </Grid>
-
-      {/* Excel Template Info Banner */}
-      <Grid item xs={12}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            background: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <Typography
-              variant="body1"
-              sx={{
-                color: '#475569',
-                fontWeight: 500,
-                textAlign: 'center'
-              }}
-            >
-              Bu form T.C. resmi standartlarına uygun olarak tasarlanmıştır.
-              Tüm alanlar mevzuat gereksinimlerine göre düzenlenmiştir.
-            </Typography>
-          </Box>
-        </Paper>
-      </Grid>
-    </Grid>
-  );
-
-  // 🏢 2. YATIRIM İLE İLGİLİ BİLGİLER - Excel Şablonuna Uygun Tablo Formatı
-  const renderYatirimBilgileri = () => (
-    <Grid container spacing={4}>
-      {/* Excel Ana Başlık - YATIRIM İLE İLGİLİ BİLGİLER */}
-      <Grid item xs={12}>
-        <Paper
-          elevation={4}
-          sx={{
-            p: 4,
-            backgroundColor: '#e8f5e8',
-            border: '3px solid #16a085',
-            position: 'relative',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: '6px',
-              backgroundColor: '#16a085',
-              borderRadius: '3px 3px 0 0'
-            }
-          }}
-        >
-          <Typography
-            variant="h4"
-            sx={{
-              mb: 4,
-              fontWeight: 700,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#16a085',
-              textShadow: '0 2px 4px rgba(22,160,133,0.3)',
-              fontSize: { xs: '1.5rem', md: '2rem' }
-            }}
-          >
-            <EngineeringIcon sx={{ mr: 2, fontSize: { xs: 32, md: 40 } }} />
-            Yatırım Konusu Seçiniz
-          </Typography>
-
-          {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
-          <Grid container spacing={3}>
-
-            {/* ROW 1: YATIRIM KONUI - 290 NACE Kodu Dropdown */}
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel id="tesvikForm-yatirimKonusu-label">
-                  YATIRIM KONUI (NACE Kodu Seçiniz)
-                </InputLabel>
-                <KayitliSecim
-                  id="tesvikForm-yatirimKonusu"
-                  name="yatirimKonusu"
-                  labelId="tesvikForm-yatirimKonusu-label"
-                  value={formData.yatirimBilgileri1.yatirimKonusu}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
-                  label="YATIRIM KONUI (NACE Kodu Seçiniz)"
-                  sx={{
-                    backgroundColor: '#ffffff',
-                    fontWeight: 500,
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>NACE kodunu seçiniz...</em>
-                  </MenuItem>
-                  {yatirimKonusuKategorileri.map((kategori) => [
-                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
-                      fontWeight: 'bold',
-                      color: '#16a085',
-                      fontSize: '0.9rem',
-                      backgroundColor: '#f8f9fa',
-                      textTransform: 'uppercase'
-                    }}>
-                      {kategori}
-                    </MenuItem>,
-                    ...yatirimKonusuKodlari
-                      .filter(item => item.kategori === kategori)
-                      .map((item) => (
-                        <MenuItem key={item.kod} value={item.kod} sx={{ pl: 3 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb' }}>
-                              {item.kod} - {item.aciklama.substring(0, 60)}
-                              {item.aciklama.length > 60 && '...'}
-                            </Typography>
-                            {item.aciklama.length > 60 && (
-                              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                                {item.aciklama.substring(60)}
-                              </Typography>
-                            )}
-                          </Box>
-                        </MenuItem>
-                      ))
-                  ]).flat()}
-                </KayitliSecim>
-              </FormControl>
-            </Grid>
-
-            {/* ROW 2: DİNAMİK J-CNS ALANLARI - Başlangıç 1, Max 4 */}
-            {Array.from({ length: cinsSayisi }, (_, index) => (
-              <Grid item xs={12} sm={6} md={3} key={`cins-${index + 1}`}>
-                <Box sx={{ position: 'relative' }}>
-                  <FormControl fullWidth>
-                    <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>J-CNS({index + 1})</InputLabel>
-                    <KayitliSecim
-                      id={`tesvikForm-cins${index + 1}`}
-                      name={`cins${index + 1}`}
-                      labelId={`tesvikForm-cins${index + 1}-label`}
-                      value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
-                      onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
-                      label={`J-CNS(${index + 1})`}
-                      sx={{
-                        backgroundColor: '#ffffff',
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
-                      }}
-                    >
-                      {templateData.yatirimTipleri?.map((tip, tipIndex) => (
-                        <MenuItem key={`cins${index + 1}-${tip.value}-${tipIndex}`} value={tip.value}>
-                          {tip.label}
-                        </MenuItem>
-                      ))}
-                    </KayitliSecim>
-                  </FormControl>
-
-                  {/* Remove butonu - sadece birden fazla alan varsa göster */}
-                  {cinsSayisi > 1 && index === cinsSayisi - 1 && (
-                    <IconButton
-                      onClick={removeCinsField}
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        top: -8,
-                        right: -8,
-                        backgroundColor: '#ff4444',
-                        color: 'white',
-                        width: 24,
-                        height: 24,
-                        '&:hover': {
-                          backgroundColor: '#cc0000'
-                        }
-                      }}
-                    >
-                      <RemoveIcon sx={{ fontSize: 16 }} />
-                    </IconButton>
-                  )}
-                </Box>
-              </Grid>
-            ))}
-
-            {/* Add J-CNS butonu - sadece max sayıya ulaşılmamışsa göster */}
-            {cinsSayisi < 4 && (
-              <Grid item xs={12} sm={6} md={3}>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  onClick={addCinsField}
-                  startIcon={<AddIcon />}
-                  sx={{
-                    height: 56, // Select alanıyla aynı yükseklik
-                    borderColor: '#16a085',
-                    color: '#16a085',
-                    borderStyle: 'dashed',
-                    '&:hover': {
-                      borderColor: '#0d7377',
-                      backgroundColor: '#f8f9fa'
-                    }
-                  }}
-                >
-                  J-CNS Ekle ({cinsSayisi}/4)
-                </Button>
-              </Grid>
-            )}
-
-            {/* ROW 3: OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
-            {/* 🌍 OECD (Orta-Yüksek) - Dropdown + Manuel Giriş */}
-            <Grid item xs={12} md={6}>
-              <Autocomplete
-                freeSolo
-                id="tesvikForm-oecdKategori"
-                options={[
-                  // 📋 loecd-Tablo 1.csv'den gelen OECD kodları
-                  '24 Kimyasal Madde',
-                  '29 B.Y.S. Makine ve Teçhizat',
-                  '31 B.Y.S. Elektrikli Makine Ve Cihazlar',
-                  '34 Motorlu Kara Taşıtları',
-                  '352 Demiryolu ve Tramvay Lokomotifleri ile Vagonlarının',
-                  '359 B.Y.S. Ulaşım Araçları',
-                  // Backend'den gelen ek kategoriler
-                  ...(templateData.oecdKategorileri || []).map(kat => kat?.label || kat?.aciklama || kat)
-                ].filter((v, i, a) => v && a.indexOf(v) === i)} // Duplicate'ları temizle
-                value={formData.yatirimBilgileri1.oecdKategori || ''}
-                onChange={(event, newValue) => {
-                  handleFieldChange('yatirimBilgileri1.oecdKategori', newValue || '');
-                }}
-                onInputChange={(event, newInputValue, reason) => {
-                  // Manuel yazım durumunda da kaydet
-                  if (reason === 'input') {
-                    handleFieldChange('yatirimBilgileri1.oecdKategori', newInputValue);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="OECD (Orta-Yüksek)"
-                    placeholder="Seçin veya manuel yazın..."
-                    sx={{
-                      backgroundColor: '#ffffff',
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
-                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
-                      }
-                    }}
-                  />
-                )}
-                sx={{ width: '100%' }}
-              />
-            </Grid>
-
-            {/* 🎯 DESTEK SINIFI Dropdown */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel id="tesvikForm-destekSinifi-label" htmlFor="tesvikForm-destekSinifi">DESTEK SINIFI 🎯</InputLabel>
-                <KayitliSecim
-                  id="tesvikForm-destekSinifi"
-                  name="destekSinifi"
-                  labelId="tesvikForm-destekSinifi-label"
-                  value={formData.yatirimBilgileri1.destekSinifi}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri1.destekSinifi', e.target.value)}
-                  label="DESTEK SINIFI"
-                  sx={{
-                    backgroundColor: '#ffffff',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
-                  }}
-                >
-                  {templateData.destekSiniflari?.map((sinif) => (
-                    <MenuItem key={sinif.value} value={sinif.value}>
-                      {sinif.label}
-                    </MenuItem>
-                  ))}
-                </KayitliSecim>
-              </FormControl>
-            </Grid>
-
             {/* ✨ YENİ PROFESYONEL ALANLAR - Resimden Eklenenler */}
 
             {/* ROW 3.1: CAZİBE MERKEZİ Mİ? */}
@@ -3322,6 +2992,83 @@ const TesvikForm = () => {
                   <MenuItem value="hayir">HAYIR</MenuItem>
                 </KayitliSecim>
               </FormControl>
+            </Grid>
+
+            {/* ADA, PARSEL - YENİ ALANLAR */}
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                id="tesvikForm-ada"
+                name="ada"
+                fullWidth
+                label="ADA"
+                value={formData.yatirimBilgileri2.ada || ''}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.ada', e.target.value)}
+                placeholder="Ada numarası..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#ffffff',
+                    '&:hover': { borderColor: '#16a085' },
+                    '&.Mui-focused': { borderColor: '#16a085' }
+                  }
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                id="tesvikForm-parsel"
+                name="parsel"
+                fullWidth
+                label="PARSEL"
+                value={formData.yatirimBilgileri2.parsel || ''}
+                onChange={(e) => handleFieldChange('yatirimBilgileri2.parsel', e.target.value)}
+                placeholder="Parsel numarası..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: '#ffffff',
+                    '&:hover': { borderColor: '#16a085' },
+                    '&.Mui-focused': { borderColor: '#16a085' }
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* 📋 BELGE MÜRACAAT TALEP TİPİ */}
+            <Grid item xs={12} md={6}>
+              <Autocomplete
+                freeSolo
+                id="tesvikForm-belgeMuracaatTalepTipi"
+                options={[
+                  'YATIRIM TEŞVİK BELGESİ',
+                  'YATIRIM TEŞVİK BELGESİ REVİZE',
+                  'SÜRE UZATIMI',
+                  'TAMAMLAMA VİZESİ',
+                  'İPTAL TALEBİ'
+                ]}
+                value={formData.belgeYonetimi.belgeMuracaatTalepTipi || ''}
+                onChange={(event, newValue) => {
+                  handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newValue || '');
+                }}
+                onInputChange={(event, newInputValue, reason) => {
+                  if (reason === 'input') {
+                    handleFieldChange('belgeYonetimi.belgeMuracaatTalepTipi', newInputValue);
+                  }
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Belge Müracaat Talep Tipi"
+                    placeholder="Seçin veya manuel yazın..."
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: '#ffffff',
+                        '&:hover': { borderColor: '#16a085' },
+                        '&.Mui-focused': { borderColor: '#16a085' }
+                      }
+                    }}
+                  />
+                )}
+              />
             </Grid>
 
             {/* ROW 3.3: ENERJİ ÜRETİM KAYNAĞI */}
@@ -3440,7 +3187,238 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            {/* ROW 4: YER İL, YER İLÇE - Otomatik Seçim */}
+            {/* BELGE DURUMU kaldırıldı */}
+          </Grid>
+        </Paper>
+      </Grid>
+
+      {/* Excel Template Info Banner */}
+      <Grid item xs={12}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            background: '#f1f5f9',
+            border: '1px solid #cbd5e1',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                color: '#475569',
+                fontWeight: 500,
+                textAlign: 'center'
+              }}
+            >
+              Bu form T.C. resmi standartlarına uygun olarak tasarlanmıştır.
+              Tüm alanlar mevzuat gereksinimlerine göre düzenlenmiştir.
+            </Typography>
+          </Box>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+
+  // 🏢 2. YATIRIM İLE İLGİLİ BİLGİLER - Excel Şablonuna Uygun Tablo Formatı
+  const renderYatirimBilgileri = () => (
+    <Grid container spacing={4}>
+      {/* Excel Ana Başlık - YATIRIM İLE İLGİLİ BİLGİLER */}
+      <Grid item xs={12}>
+        <Paper
+          elevation={4}
+          sx={{
+            p: 4,
+            backgroundColor: '#e8f5e8',
+            border: '3px solid #16a085',
+            position: 'relative',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: '6px',
+              backgroundColor: '#16a085',
+              borderRadius: '3px 3px 0 0'
+            }
+          }}
+        >
+          <Typography
+            variant="h4"
+            sx={{
+              mb: 4,
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#16a085',
+              textShadow: '0 2px 4px rgba(22,160,133,0.3)',
+              fontSize: { xs: '1.5rem', md: '2rem' }
+            }}
+          >
+            <EngineeringIcon sx={{ mr: 2, fontSize: { xs: 32, md: 40 } }} />
+            Yatırım Konusu Seçiniz
+          </Typography>
+
+          {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
+          <Grid container spacing={3}>
+
+            {/* ROW 1: YATIRIM KONUI - 290 NACE Kodu Dropdown */}
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel id="tesvikForm-yatirimKonusu-label">
+                  YATIRIMIN KONUSU (US97/NACE)
+                </InputLabel>
+                <KayitliSecim
+                  id="tesvikForm-yatirimKonusu"
+                  name="yatirimKonusu"
+                  labelId="tesvikForm-yatirimKonusu-label"
+                  value={formData.yatirimBilgileri1.yatirimKonusu}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.yatirimKonusu', e.target.value)}
+                  label="YATIRIMIN KONUSU (US97/NACE)"
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    fontWeight: 500,
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#16a085' }
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>NACE kodunu seçiniz...</em>
+                  </MenuItem>
+                  {yatirimKonusuKategorileri.map((kategori) => [
+                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
+                      fontWeight: 'bold',
+                      color: '#16a085',
+                      fontSize: '0.9rem',
+                      backgroundColor: '#f8f9fa',
+                      textTransform: 'uppercase'
+                    }}>
+                      {kategori}
+                    </MenuItem>,
+                    ...yatirimKonusuKodlari
+                      .filter(item => item.kategori === kategori)
+                      .map((item) => (
+                        <MenuItem key={item.kod} value={item.kod} sx={{ pl: 3 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#2563eb' }}>
+                              {item.kod} - {item.aciklama.substring(0, 60)}
+                              {item.aciklama.length > 60 && '...'}
+                            </Typography>
+                            {item.aciklama.length > 60 && (
+                              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                {item.aciklama.substring(60)}
+                              </Typography>
+                            )}
+                          </Box>
+                        </MenuItem>
+                      ))
+                  ]).flat()}
+                </KayitliSecim>
+              </FormControl>
+            </Grid>
+
+            {/* DİNAMİK J-CNS ALANLARI - Başlangıç 1, Max 4 */}
+            {Array.from({ length: cinsSayisi }, (_, index) => (
+              <Grid item xs={12} sm={6} md={3} key={`cins-${index + 1}`}>
+                <Box sx={{ position: 'relative' }}>
+                  <FormControl fullWidth>
+                    <InputLabel id={`tesvikForm-cins${index + 1}-label`} htmlFor={`tesvikForm-cins${index + 1}`}>J-CNS({index + 1})</InputLabel>
+                    <KayitliSecim
+                      id={`tesvikForm-cins${index + 1}`}
+                      name={`cins${index + 1}`}
+                      labelId={`tesvikForm-cins${index + 1}-label`}
+                      value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
+                      onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
+                      label={`J-CNS(${index + 1})`}
+                      sx={{
+                        backgroundColor: '#ffffff',
+                        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' },
+                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#2563eb' }
+                      }}
+                    >
+                      {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                        <MenuItem key={`cins${index + 1}-${tip.value}-${tipIndex}`} value={tip.value}>
+                          {tip.label}
+                        </MenuItem>
+                      ))}
+                    </KayitliSecim>
+                  </FormControl>
+
+                  {/* Remove butonu - sadece birden fazla alan varsa göster */}
+                  {cinsSayisi > 1 && index === cinsSayisi - 1 && (
+                    <IconButton
+                      onClick={removeCinsField}
+                      size="small"
+                      sx={{
+                        position: 'absolute',
+                        top: -8,
+                        right: -8,
+                        backgroundColor: '#ff4444',
+                        color: 'white',
+                        width: 24,
+                        height: 24,
+                        '&:hover': {
+                          backgroundColor: '#cc0000'
+                        }
+                      }}
+                    >
+                      <RemoveIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  )}
+                </Box>
+              </Grid>
+            ))}
+
+            {/* Add J-CNS butonu - sadece max sayıya ulaşılmamışsa göster */}
+            {cinsSayisi < 4 && (
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={addCinsField}
+                  startIcon={<AddIcon />}
+                  sx={{
+                    height: 56, // Select alanıyla aynı yükseklik
+                    borderColor: '#16a085',
+                    color: '#16a085',
+                    borderStyle: 'dashed',
+                    '&:hover': {
+                      borderColor: '#0d7377',
+                      backgroundColor: '#f8f9fa'
+                    }
+                  }}
+                >
+                  J-CNS Ekle ({cinsSayisi}/4)
+                </Button>
+              </Grid>
+            )}
+
+            {/* DAYANDIĞI KANUN */}
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>DAYANDIĞI KANUN</InputLabel>
+                <KayitliSecim
+                  value={formData.belgeYonetimi.dayandigiKanun}
+                  onChange={(e) => handleFieldChange('belgeYonetimi.dayandigiKanun', e.target.value)}
+                  label="DAYANDIĞI KANUN"
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' }
+                  }}
+                >
+                  {templateData.dayandigiKanunlar?.map((kanun) => (
+                    <MenuItem key={kanun.value} value={kanun.value}>
+                      {kanun.label}
+                    </MenuItem>
+                  ))}
+                </KayitliSecim>
+              </FormControl>
+            </Grid>
+
+            {/* YER İL, YER İLÇE - Otomatik Seçim */}
             <Grid item xs={12} sm={12} md={6}>
               <EnhancedCitySelector
                 selectedCity={formData.yatirimBilgileri2.yerinIl}
@@ -3452,46 +3430,7 @@ const TesvikForm = () => {
               />
             </Grid>
 
-            {/* ROW 5: ADA, PARSEL - YENİ ALANLAR */}
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-ada"
-                name="ada"
-                fullWidth
-                label="ADA"
-                value={formData.yatirimBilgileri2.ada || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri2.ada', e.target.value)}
-                placeholder="Ada numarası..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} sm={6} md={3}>
-              <TextField
-                id="tesvikForm-parsel"
-                name="parsel"
-                fullWidth
-                label="PARSEL"
-                value={formData.yatirimBilgileri2.parsel || ''}
-                onChange={(e) => handleFieldChange('yatirimBilgileri2.parsel', e.target.value)}
-                placeholder="Parsel numarası..."
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    backgroundColor: '#ffffff',
-                    '&:hover': { borderColor: '#16a085' },
-                    '&.Mui-focused': { borderColor: '#16a085' }
-                  }
-                }}
-              />
-            </Grid>
-
-            {/* ROW 6: DİNAMİK YATIRIM ADRESİ ALANLARI - Başlangıç 1, Max 3 */}
+            {/* DİNAMİK YATIRIM ADRESİ ALANLARI - Başlangıç 1, Max 3 */}
             {Array.from({ length: adresSayisi }, (_, index) => (
               <Grid item xs={12} md={4} key={`adres-${index + 1}`}>
                 <Box sx={{ position: 'relative' }}>
@@ -3499,7 +3438,7 @@ const TesvikForm = () => {
                     id={`tesvikForm-yatirimAdresi${index + 1}`}
                     name={`yatirimAdresi${index + 1}`}
                     fullWidth
-                    label={`YATIRIM ADRESİ(${index + 1}) 📍`}
+                    label={`YATIRIM ADRESİ(${index + 1})`}
                     value={formData.yatirimBilgileri2[`yatirimAdresi${index + 1}`] || ''}
                     onChange={(e) => handleFieldChange(`yatirimBilgileri2.yatirimAdresi${index + 1}`, e.target.value)}
                     placeholder={`${index === 0 ? 'Ana' : index === 1 ? 'Ek' : 'Detay'} adres bilgisi...`}
@@ -3561,7 +3500,7 @@ const TesvikForm = () => {
               </Grid>
             )}
 
-            {/* ROW 7: OSB İSE MÜDÜRLÜK - 411 OSB'den Seçim */}
+            {/* OSB İSE MÜDÜRLÜK - 411 OSB'den Seçim */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-osbMudurluk-label">
@@ -3612,7 +3551,57 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            {/* ROW 8: BÖLGESİ VE İLÇE BAZLI BÖLGE - 1-6 Bölge Seçimi */}
+            <Grid item xs={12} sm={6} md={4}>
+              <FormControl fullWidth>
+                <InputLabel id="tesvikForm-serbestBolge-label">
+                  SERBEST BÖLGE (19 Müdürlük)
+                </InputLabel>
+                <KayitliSecim
+                  id="tesvikForm-serbestBolge"
+                  name="serbestBolge"
+                  labelId="tesvikForm-serbestBolge-label"
+                  value={formData.yatirimBilgileri2.serbsetBolge || ''}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri2.serbsetBolge', e.target.value)}
+                  label="SERBEST BÖLGE (19 Müdürlük)"
+                  sx={{
+                    backgroundColor: '#ffffff',
+                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' }
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>Serbest bölge seçiniz...</em>
+                  </MenuItem>
+                  {serbestBolgeKategorileri.map((kategori) => [
+                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
+                      fontWeight: 'bold',
+                      color: '#8e44ad',
+                      fontSize: '0.9rem',
+                      backgroundColor: '#f8f4fd',
+                      textTransform: 'uppercase'
+                    }}>
+                      {kategori}
+                    </MenuItem>,
+                    ...serbestBolgeler
+                      .filter(item => item.kategori === kategori)
+                      .map((bolge) => (
+                        <MenuItem key={bolge.id} value={bolge.bolge} sx={{ pl: 3 }}>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500, color: '#6c3483' }}>
+                              {bolge.bolge}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                              {bolge.il} • {bolge.kategori}
+                            </Typography>
+                          </Box>
+                        </MenuItem>
+                      ))
+                  ]).flat()}
+                </KayitliSecim>
+              </FormControl>
+            </Grid>
+
+            {/* BÖLGESİ VE İLÇE BAZLI BÖLGE - 1-6 Bölge Seçimi */}
             <Grid item xs={12} sm={6} md={4}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-bolgesi-label">
@@ -3681,57 +3670,7 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={4}>
-              <FormControl fullWidth>
-                <InputLabel id="tesvikForm-serbestBolge-label">
-                  SERBEST BÖLGE (19 Müdürlük)
-                </InputLabel>
-                <KayitliSecim
-                  id="tesvikForm-serbestBolge"
-                  name="serbestBolge"
-                  labelId="tesvikForm-serbestBolge-label"
-                  value={formData.yatirimBilgileri2.serbsetBolge || ''}
-                  onChange={(e) => handleFieldChange('yatirimBilgileri2.serbsetBolge', e.target.value)}
-                  label="SERBEST BÖLGE (19 Müdürlük)"
-                  sx={{
-                    backgroundColor: '#ffffff',
-                    '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#8e44ad' }
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>Serbest bölge seçiniz...</em>
-                  </MenuItem>
-                  {serbestBolgeKategorileri.map((kategori) => [
-                    <MenuItem key={`kategori-${kategori}`} disabled sx={{
-                      fontWeight: 'bold',
-                      color: '#8e44ad',
-                      fontSize: '0.9rem',
-                      backgroundColor: '#f8f4fd',
-                      textTransform: 'uppercase'
-                    }}>
-                      {kategori}
-                    </MenuItem>,
-                    ...serbestBolgeler
-                      .filter(item => item.kategori === kategori)
-                      .map((bolge) => (
-                        <MenuItem key={bolge.id} value={bolge.bolge} sx={{ pl: 3 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                            <Typography variant="body2" sx={{ fontWeight: 500, color: '#6c3483' }}>
-                              {bolge.bolge}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                              {bolge.il} • {bolge.kategori}
-                            </Typography>
-                          </Box>
-                        </MenuItem>
-                      ))
-                  ]).flat()}
-                </KayitliSecim>
-              </FormControl>
-            </Grid>
-
-            {/* ROW 9: İSTİHDAM - MEVCUT KİŞİ, İLAVE KİŞİ (Excel'den entegre) */}
+            {/* İSTİHDAM - MEVCUT KİŞİ, İLAVE KİŞİ (Excel'den entegre) */}
             <Grid item xs={12}>
               <Paper
                 elevation={2}
@@ -5370,25 +5309,6 @@ const TesvikForm = () => {
         </Box>
       </Grid>
 
-      {/* 1. TOPLAM SABİT YATIRIM TUTARI TL */}
-      <Grid item xs={12}>
-        <Paper sx={{ p: 3, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#202124' }}>
-            TOPLAM SABİT YATIRIM TUTARI TL
-          </Typography>
-          <TextField
-            fullWidth
-            label="Toplam Sabit Yatırım Tutarı (TL)"
-            value={formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')}
-            InputProps={{
-              readOnly: true,
-              style: { fontSize: '1.2rem', fontWeight: 'bold', color: '#202124' }
-            }}
-            sx={{ backgroundColor: '#f8f9fa' }}
-          />
-        </Paper>
-      </Grid>
-
       {/* 2. ARAZI ARSA BEDELİ */}
       <Grid item xs={12}>
         <Paper sx={{ p: 3, backgroundColor: '#fef3f2' }}>
@@ -5507,80 +5427,113 @@ const TesvikForm = () => {
         </Paper>
       </Grid>
 
-      {/* 4. FİNANSMAN TL */}
+      {/* 6. DİĞER YATIRIM HARCAMALARI TL */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 3, backgroundColor: '#f8f9fa' }}>
+        <Paper sx={{ p: 3, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#202124' }}>
-            FİNANSMAN TL
+            DİĞER YATIRIM HARCAMALARI (TL)
           </Typography>
 
           <Grid container spacing={2}>
-            {/* 🔧 YABANCI KAYNAKLAR - Direkt Giriş */}
-            <Grid item xs={12}>
-              <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>YABANCI KAYNAKLAR - Detaylı Breakdown</Typography>
-
-              {/* Toplam Yabancı Kaynak - Direkt Giriş */}
-              <Box sx={{ mt: 0 }}>
-                <TextField
-                  fullWidth
-                  label="TOPLAM YABANCI KAYNAK"
-                  type="text"
-                  value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
-                  onChange={(e) => {
-                    const value = parseNumber(e.target.value);
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
-                    // Bank Kredisi de aynı değeri alsın (backend uyumluluğu için)
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
-                  }}
-                  InputProps={{
-                    endAdornment: '₺',
-                    style: { fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }
-                  }}
-                  sx={{ backgroundColor: '#f8f9fa' }}
-                />
-              </Box>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>ÖZKAYNAKLAR (Otomatik Hesaplanan)</Typography>
+            <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
-                label="Özkaynaklar (= Sabit Yatırım - Yabancı Kaynak)"
+                label="Yardımcı İşl. Mak. Teç. Gid."
                 type="text"
-                value={formatNumber(formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar)}
-                InputProps={{
-                  readOnly: true,
-                  endAdornment: '₺',
-                  style: {
-                    fontWeight: 'bold',
-                    color: '#059669',
-                    backgroundColor: '#f8f9fa'
-                  }
-                }}
-                helperText="Devlet Sistemi: Otomatik hesaplanan (manuel değiştirilemez)"
-                sx={{
-                  backgroundColor: '#f8f9fa',
-                  '& .MuiInputBase-root': {
-                    backgroundColor: '#f8f9fa'
-                  }
-                }}
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
+                name="yardimciIslMakTecGid"
+                data-section="digerYatirimHarcamalari"
+                data-field="yardimciIslMakTeçGid"
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
-            <Grid item xs={12} md={4}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>TOPLAM FİNANSMAN</Typography>
+            <Grid item xs={12} md={2}>
               <TextField
                 fullWidth
-                label="Toplam Finansman (= Toplam Sabit Yatırım)"
-                value={formData.finansalBilgiler.finansman.toplamFinansman.toLocaleString('tr-TR')}
+                label="İthalat ve Güm.Giderleri"
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri)}
+                name="ithalatVeGumGiderleri"
+                data-section="digerYatirimHarcamalari"
+                data-field="ithalatVeGumGiderleri"
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="Taşıma ve Sigorta G."
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            {/* 🆕 Montaj Giderleri */}
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="Montaj Giderleri"
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="Etüd ve Proje Giderleri"
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="Diğer Giderleri"
+                type="text"
+                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri)}
+                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseNumber(e.target.value))}
+                InputProps={{ endAdornment: '₺' }}
+              />
+            </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                fullWidth
+                label="TOPLAM DİĞER YATIRIM HARCAMALARI"
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.toplamDigerYatirimHarcamalari.toLocaleString('tr-TR')}
                 InputProps={{
                   readOnly: true,
-                  endAdornment: '₺',
-                  style: { fontWeight: 'bold', color: '#16a34a' }
+                  style: { fontWeight: 'bold', color: '#be185d' }
                 }}
-                helperText="Devlet Sistemi: Her zaman toplam sabit yatırım ile eşit"
                 sx={{ backgroundColor: '#f8f9fa' }}
               />
             </Grid>
           </Grid>
+        </Paper>
+      </Grid>
+
+      {/* 1. TOPLAM SABİT YATIRIM TUTARI TL */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 3, backgroundColor: '#f8f9fa', border: '1px solid #e2e8f0' }}>
+          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#202124' }}>
+            TOPLAM SABİT YATIRIM TUTARI TL
+          </Typography>
+          <TextField
+            fullWidth
+            label="Toplam Sabit Yatırım Tutarı (TL)"
+            value={formData.finansalBilgiler.toplamSabitYatirimTutari.toLocaleString('tr-TR')}
+            InputProps={{
+              readOnly: true,
+              style: { fontSize: '1.2rem', fontWeight: 'bold', color: '#202124' }
+            }}
+            sx={{ backgroundColor: '#f8f9fa' }}
+          />
         </Paper>
       </Grid>
 
@@ -5684,90 +5637,76 @@ const TesvikForm = () => {
         </Paper>
       </Grid>
 
-      {/* 6. DİĞER YATIRIM HARCAMALARI TL */}
+      {/* 4. FİNANSMAN TL */}
       <Grid item xs={12}>
-        <Paper sx={{ p: 3, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+        <Paper sx={{ p: 3, backgroundColor: '#f8f9fa' }}>
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: '#202124' }}>
-            DİĞER YATIRIM HARCAMALARI (TL)
+            FİNANSMAN TL
           </Typography>
 
           <Grid container spacing={2}>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="Yardımcı İşl. Mak. Teç. Gid."
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
-                name="yardimciIslMakTecGid"
-                data-section="digerYatirimHarcamalari"
-                data-field="yardimciIslMakTeçGid"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
+            {/* 🔧 YABANCI KAYNAKLAR - Direkt Giriş */}
+            <Grid item xs={12}>
+              <Typography variant="body2" sx={{ mb: 2, fontWeight: 600, color: '#16a34a' }}>YABANCI KAYNAKLAR - Detaylı Breakdown</Typography>
+
+              {/* Toplam Yabancı Kaynak - Direkt Giriş */}
+              <Box sx={{ mt: 0 }}>
+                <TextField
+                  fullWidth
+                  label="TOPLAM YABANCI KAYNAK"
+                  type="text"
+                  value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
+                  onChange={(e) => {
+                    const value = parseNumber(e.target.value);
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
+                    // Bank Kredisi de aynı değeri alsın (backend uyumluluğu için)
+                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
+                  }}
+                  InputProps={{
+                    endAdornment: '₺',
+                    style: { fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }
+                  }}
+                  sx={{ backgroundColor: '#f8f9fa' }}
+                />
+              </Box>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={4}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>ÖZKAYNAKLAR (Otomatik Hesaplanan)</Typography>
               <TextField
                 fullWidth
-                label="İthalat ve Güm.Giderleri"
+                label="Özkaynaklar (= Sabit Yatırım - Yabancı Kaynak)"
                 type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri)}
-                name="ithalatVeGumGiderleri"
-                data-section="digerYatirimHarcamalari"
-                data-field="ithalatVeGumGiderleri"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="Taşıma ve Sigorta G."
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            {/* 🆕 Montaj Giderleri */}
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="Montaj Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="Etüd ve Proje Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="Diğer Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseNumber(e.target.value))}
-                InputProps={{ endAdornment: '₺' }}
-              />
-            </Grid>
-            <Grid item xs={12} md={2}>
-              <TextField
-                fullWidth
-                label="TOPLAM DİĞER YATIRIM HARCAMALARI"
-                value={formData.finansalBilgiler.digerYatirimHarcamalari.toplamDigerYatirimHarcamalari.toLocaleString('tr-TR')}
+                value={formatNumber(formData.finansalBilgiler.finansman.ozkaynaklar.ozkaynaklar)}
                 InputProps={{
                   readOnly: true,
-                  style: { fontWeight: 'bold', color: '#be185d' }
+                  endAdornment: '₺',
+                  style: {
+                    fontWeight: 'bold',
+                    color: '#059669',
+                    backgroundColor: '#f8f9fa'
+                  }
                 }}
+                helperText="Devlet Sistemi: Otomatik hesaplanan (manuel değiştirilemez)"
+                sx={{
+                  backgroundColor: '#f8f9fa',
+                  '& .MuiInputBase-root': {
+                    backgroundColor: '#f8f9fa'
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>TOPLAM FİNANSMAN</Typography>
+              <TextField
+                fullWidth
+                label="Toplam Finansman (= Toplam Sabit Yatırım)"
+                value={formData.finansalBilgiler.finansman.toplamFinansman.toLocaleString('tr-TR')}
+                InputProps={{
+                  readOnly: true,
+                  endAdornment: '₺',
+                  style: { fontWeight: 'bold', color: '#16a34a' }
+                }}
+                helperText="Devlet Sistemi: Her zaman toplam sabit yatırım ile eşit"
                 sx={{ backgroundColor: '#f8f9fa' }}
               />
             </Grid>

@@ -2462,23 +2462,6 @@ const YeniTesvikForm = () => {
                   </Box>
                 </Box>
               </Grid>
-
-              {/* SGK Sicil No */}
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 80 }}>
-                    SGK Sicil No:
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    value={formData.kunyeBilgileri?.sgkSicilNo || ''}
-                    onChange={(e) => handleFieldChange('kunyeBilgileri.sgkSicilNo', e.target.value)}
-                    placeholder="SGK sicil no..."
-                    sx={{ backgroundColor: '#fff' }}
-                  />
-                </Box>
-              </Grid>
             </Grid>
           </Box>
         </Paper>
@@ -2548,6 +2531,48 @@ const YeniTesvikForm = () => {
                   </FormControl>
                 </Box>
               </Grid>
+
+              {/* CİNS Alanları */}
+              {Array.from({ length: cinsSayisi }, (_, index) => (
+                <Grid item xs={12} md={6} key={`cins-${index + 1}`}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 70 }}>
+                      Cins({index + 1}):
+                    </Typography>
+                    <FormControl fullWidth size="small">
+                      <KayitliSecim
+                        value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
+                        onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
+                        sx={{ backgroundColor: '#fff' }}
+                      >
+                        {templateData.yatirimTipleri?.map((tip, tipIndex) => (
+                          <MenuItem key={`cins${index + 1}-${tip.value}-${tipIndex}`} value={tip.value}>
+                            {tip.label}
+                          </MenuItem>
+                        ))}
+                      </KayitliSecim>
+                    </FormControl>
+                    {cinsSayisi > 1 && index === cinsSayisi - 1 && (
+                      <IconButton onClick={removeCinsField} size="small" sx={{ color: '#ef4444' }}>
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
+                </Grid>
+              ))}
+              {cinsSayisi < 4 && (
+                <Grid item xs={12} md={6}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={addCinsField}
+                    startIcon={<AddIcon />}
+                    sx={{ borderStyle: 'dashed' }}
+                  >
+                    CİNS Ekle ({cinsSayisi}/4)
+                  </Button>
+                </Grid>
+              )}
 
               {/* Kararname Tarih/Sayı */}
               <Grid item xs={12}>
@@ -2791,48 +2816,6 @@ const YeniTesvikForm = () => {
                   />
                 </Box>
               </Grid>
-
-              {/* CİNS Alanları */}
-              {Array.from({ length: cinsSayisi }, (_, index) => (
-                <Grid item xs={12} md={6} key={`cins-${index + 1}`}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 70 }}>
-                      Cins({index + 1}):
-                    </Typography>
-                    <FormControl fullWidth size="small">
-                      <KayitliSecim
-                        value={formData.yatirimBilgileri1[`cins${index + 1}`] || ''}
-                        onChange={(e) => handleFieldChange(`yatirimBilgileri1.cins${index + 1}`, e.target.value)}
-                        sx={{ backgroundColor: '#fff' }}
-                      >
-                        {templateData.yatirimTipleri?.map((tip, tipIndex) => (
-                          <MenuItem key={`cins${index + 1}-${tip.value}-${tipIndex}`} value={tip.value}>
-                            {tip.label}
-                          </MenuItem>
-                        ))}
-                      </KayitliSecim>
-                    </FormControl>
-                    {cinsSayisi > 1 && index === cinsSayisi - 1 && (
-                      <IconButton onClick={removeCinsField} size="small" sx={{ color: '#ef4444' }}>
-                        <RemoveIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                </Grid>
-              ))}
-              {cinsSayisi < 4 && (
-                <Grid item xs={12} md={6}>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={addCinsField}
-                    startIcon={<AddIcon />}
-                    sx={{ borderStyle: 'dashed' }}
-                  >
-                    CİNS Ekle ({cinsSayisi}/4)
-                  </Button>
-                </Grid>
-              )}
             </Grid>
           </Box>
         </Paper>
@@ -3183,6 +3166,26 @@ const YeniTesvikForm = () => {
                 </Box>
               </Grid>
 
+              {/* Savunma Sanayi Projesi */}
+              <Grid item xs={12} md={6}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 150, fontSize: '0.75rem' }}>
+                    Savunma Sanayi Projesi Mi?:
+                  </Typography>
+                  <FormControl fullWidth size="small">
+                    <KayitliSecim
+                      value={formData.yatirimBilgileri1.savunmaSanayiProjesi}
+                      onChange={(e) => handleFieldChange('yatirimBilgileri1.savunmaSanayiProjesi', e.target.value)}
+                      sx={{ backgroundColor: '#fff' }}
+                    >
+                      <MenuItem value="">Seçiniz...</MenuItem>
+                      <MenuItem value="evet">EVET</MenuItem>
+                      <MenuItem value="hayir">HAYIR</MenuItem>
+                    </KayitliSecim>
+                  </FormControl>
+                </Box>
+              </Grid>
+
               {/* Ada */}
               <Grid item xs={12} sm={6}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -3319,26 +3322,6 @@ const YeniTesvikForm = () => {
                     <KayitliSecim
                       value={formData.yatirimBilgileri1.vergiIndirimsizDestekTalebi || ''}
                       onChange={(e) => handleFieldChange('yatirimBilgileri1.vergiIndirimsizDestekTalebi', e.target.value)}
-                      sx={{ backgroundColor: '#fff' }}
-                    >
-                      <MenuItem value="">Seçiniz...</MenuItem>
-                      <MenuItem value="evet">EVET</MenuItem>
-                      <MenuItem value="hayir">HAYIR</MenuItem>
-                    </KayitliSecim>
-                  </FormControl>
-                </Box>
-              </Grid>
-
-              {/* Savunma Sanayi Projesi */}
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 150, fontSize: '0.75rem' }}>
-                    Savunma Sanayi Projesi Mi?:
-                  </Typography>
-                  <FormControl fullWidth size="small">
-                    <KayitliSecim
-                      value={formData.yatirimBilgileri1.savunmaSanayiProjesi}
-                      onChange={(e) => handleFieldChange('yatirimBilgileri1.savunmaSanayiProjesi', e.target.value)}
                       sx={{ backgroundColor: '#fff' }}
                     >
                       <MenuItem value="">Seçiniz...</MenuItem>
