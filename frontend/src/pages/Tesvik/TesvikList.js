@@ -600,10 +600,13 @@ const TesvikList = () => {
                       <TableRow 
                         key={tesvik._id} 
                         hover 
-                        sx={{ '&:hover': { backgroundColor: '#f8fafc' } }}
+                        // müşteri: "işlemin üstüne tıklayınca açılsın" — küçük ekranlarda düğme aramak zor
+                        onClick={() => navigate(tesvik.sistem === 'Yeni' ? `/yeni-tesvik/${tesvik._id}` : `/tesvik/${tesvik._id}`)}
+                        sx={{ cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}
                       >
                         <TableCell>
-                          <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {/* düğmeler satır tıklamasını tetiklemesin */}
+                          <Box sx={{ display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                             <Tooltip title="Görüntüle">
                               <IconButton
                                 size="small"

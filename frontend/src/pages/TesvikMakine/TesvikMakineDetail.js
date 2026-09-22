@@ -163,7 +163,7 @@ export default function TesvikMakineDetail() {
     { field: 'documentCount', headerName: 'Evrak', width: 80, valueGetter: (p) => p.row.documentCount || 0 },
     {
       field: 'actions', headerName: 'İşlem', width: 130, sortable: false, filterable: false,
-      renderCell: (p) => <Button size="small" variant="contained" startIcon={<BuildCircleIcon />} onClick={() => openModal(p.row)}>İşlem</Button>
+      renderCell: (p) => <Button size="small" variant="contained" startIcon={<BuildCircleIcon />} onClick={(e) => { e.stopPropagation(); openModal(p.row); }}>İşlem</Button>
     }
   ];
 
@@ -376,6 +376,9 @@ export default function TesvikMakineDetail() {
               <DataGrid
                 rows={filteredRows} columns={machineColumns} getRowId={(r) => r.rowId}
                 checkboxSelection disableRowSelectionOnClick density="compact"
+                // müşteri: satırın üstüne tıklayınca da işlem penceresi açılsın
+                onRowClick={(p) => openModal(p.row)}
+                sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
                 rowSelectionModel={selection} onRowSelectionModelChange={setSelection}
                 initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
               />

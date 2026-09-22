@@ -704,7 +704,8 @@ const FirmaList = () => {
       width: 160,
       sortable: false,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
+        // düğmeler satır tıklamasını tetiklemesin
+        <Box sx={{ display: 'flex', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
           <Tooltip title="Görüntüle">
             <IconButton
               size="small"
@@ -1060,6 +1061,8 @@ const FirmaList = () => {
               loading={loading || localLoading}
               checkboxSelection
               disableRowSelectionOnClick
+              // müşteri: "firmanın üstüne tıklayınca açılsın" — kutucuklar toplu dışa aktarım için kalıyor
+              onRowClick={(params) => navigate(`/firmalar/${params.row._id}`)}
               onRowSelectionModelChange={setSelectedRows}
               slots={{ toolbar: CustomToolbar }}
               sx={{
@@ -1078,6 +1081,7 @@ const FirmaList = () => {
                   fontSize: '0.8rem',
                   fontWeight: 600
                 },
+                '& .MuiDataGrid-row': { cursor: 'pointer' },
                 '& .MuiDataGrid-row:hover': {
                   backgroundColor: '#f8fafc'
                 },
