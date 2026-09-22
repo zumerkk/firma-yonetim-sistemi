@@ -430,7 +430,42 @@ function secimUygula(evraklar, cevaplar = [], secilenIndeksler = null) {
 //
 // Verilmezse (undefined/null) ESKİ davranış: koşul süzgecinden geçen her evrak
 // listeye girer. Böylece bu alanı göndermeyen eski çağrılar aynen çalışır.
-async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = [], secilenIndeksler = null, user }) {
+// Firmaya en son gönderilen mailin alıcıları (Belge Takip firma mailleri + İşlem & Evrak talepleri),
+// yoksa firma e-postası + yetkili kişilerin e-postaları. Belge Takip'in firma mailiyle AYNI kural
+// (dosyaTakip/firmaMailMetni.alicilariOner). Eskiden yalnız firma e-postası ve yetkili kişilerde hiç
+// olmayan `email` alanı okunuyordu: adresi yalnız yetkili kişilerde duran firmalarda "Kime" boş geliyordu.
+async function varsayilanAlicilar(firma) {
+  const DosyaTakip = require('../../models/DosyaTakip');
+  const { alicilariOner } = require('../dosyaTakip/firmaMailMetni');
+  const [belgeTakipMailleri, evrakTalepleri] = await Promise.all([
+    DosyaTakip.find({ firma: firma._id, 'firmaMailleri.0': { $exists: true } })
+      .select('firmaMailleri.alicilar firmaMailleri.cc firmaMailleri.tarih').lean(),
+    IslemTalebi.find({ firma: firma._id, mailGonderimSayisi: { $gt: 0 } })
+      .select('mailAlicilar mailCc sonMailTarihi').lean()
+  ]);
+  const gecmis = [
+    ...belgeTakipMailleri.flatMap((t) => t.firmaMailleri || []),
+    ...evrakTalepleri.map((t) => ({ alicilar: t.mailAlicilar, cc: t.mailCc, tarih: t.sonMailTarihi }))
+  ];
+  const { alici, cc } = alicilariOner({ firma, gecmis });
+  const liste = (v) => String(v || '').split(',').map((x) => x.trim()).filter(Boolean);
+  return { alicilar: liste(alici), cc: liste(cc) };
+}
+
+async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = [], secilenIndeksler = null, dosyaTakipId = null, user }) {
+  // 📎 Belge Takip'ten açılan evrak talebi: firma, Belge Takip talebinin firmasıdır
+  let dosyaTakip = null;
+  if (dosyaTakipId) {
+    const DosyaTakip = require('../../models/DosyaTakip');
+    dosyaTakip = await DosyaTakip.findById(dosyaTakipId).select('firma').lean().catch(() => null);
+    if (!dosyaTakip) { const e = new Error('Belge Takip talebi bulunamadı.'); e.code = 'TALEP_NOT_FOUND'; throw e; }
+    if (!dosyaTakip.firma) { const e = new Error('Bu Belge Takip talebine bağlı firma yok.'); e.code = 'BAD_INPUT'; throw e; }
+    if (firmaId && String(firmaId) !== String(dosyaTakip.firma)) {
+      const e = new Error('Evrak talebinin firması Belge Takip talebinin firmasıyla aynı olmalı.'); e.code = 'BAD_INPUT'; throw e;
+    }
+    firmaId = dosyaTakip.firma;
+  }
+
   const [firma, tur] = await Promise.all([
     Firma.findById(firmaId).select('tamUnvan firmaEmail yetkiliKisiler').lean(),
     IslemTuru.findById(islemTuruId)
@@ -439,7 +474,8 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
   if (!tur) { const e = new Error('İşlem türü bulunamadı.'); e.code = 'TUR_NOT_FOUND'; throw e; }
 
   const sablon = tur.varyantCoz(varyantKod);
-  const alici = firma.firmaEmail || (firma.yetkiliKisiler || []).map((y) => y.email).find(Boolean) || '';
+  const { alicilar, cc } = await varsayilanAlicilar(firma);
+  const alici = alicilar[0] || '';
   // Cevapları soru metniyle birlikte sakla: şablon sonradan değişse de talepte
   // hangi soruya ne cevap verildiği okunabilir kalsın
   const cevapKayitlari = (cevaplar || [])
@@ -471,7 +507,9 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
       isteyenAdi: user ? user.adSoyad : '',
       istenmeTarihi: new Date()
     })),
-    mailAlicilar: alici ? [alici] : [],
+    mailAlicilar: alicilar,
+    mailCc: cc,
+    dosyaTakip: dosyaTakip ? dosyaTakip._id : null,
     olusturanKullanici: user ? user._id : undefined,
     olusturanAdi: user ? user.adSoyad : '',
     durum: 'taslak'
