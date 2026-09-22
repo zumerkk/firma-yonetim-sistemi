@@ -1,6 +1,7 @@
 // 🧩 İŞLEM VE EVRAK YÖNETİMİ CONTROLLER
 // Admin/danışman tarafı: işlem türü tanımları + firma bazlı evrak talepleri.
 
+const mongoose = require('mongoose');
 const IslemTuru = require('../models/IslemTuru');
 const IslemTalebi = require('../models/IslemTalebi');
 const Firma = require('../models/Firma');
@@ -169,11 +170,16 @@ exports.turOrnekDosyaIndir = wrap(async (req, res) => {
 // ───────── TALEPLER ─────────
 
 exports.talepListe = wrap(async (req, res) => {
-  const { q, durum, islemTuru, firma, sayfa = 1, limit = 50 } = req.query;
+  const { q, durum, islemTuru, firma, dosyaTakip, sayfa = 1, limit = 50 } = req.query;
   const filtre = { aktif: true };
   if (durum) filtre.durum = durum;
   if (islemTuru) filtre.islemTuru = islemTuru;
   if (firma) filtre.firma = firma;
+  // Belge Takip › Firma Maili sekmesi: o talepten açılan evrak talepleri
+  if (dosyaTakip) {
+    if (!mongoose.isValidObjectId(dosyaTakip)) return res.json({ success: true, data: [], pagination: { sayfa: 1, limit: 0, toplam: 0 } });
+    filtre.dosyaTakip = dosyaTakip;
+  }
   if (q && q.trim()) {
     const rx = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filtre.$or = [{ firmaAdi: rx }, { islemTuruAdi: rx }];
@@ -206,16 +212,21 @@ exports.talepListe = wrap(async (req, res) => {
 exports.talepDetay = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const uploadLink = talep.uploadToken ? require('../services/tesvikMakine/uploadTokenService').buildUploadLink(talep.uploadToken) : '';
-  res.json({ success: true, data: { ...talep.toObject(), uploadLink, smtpConfigured: mailService.isConfigured() } });
+  // Belge Takip'ten açıldıysa hangi talepten (başlıkta gösterilir, oraya dönülebilir)
+  const dosyaTakipOzet = talep.dosyaTakip
+    ? await require('../models/DosyaTakip').findById(talep.dosyaTakip).select('takipId talepTuru ytbNo').lean()
+    : null;
+  res.json({ success: true, data: { ...talep.toObject(), uploadLink, smtpConfigured: mailService.isConfigured(), dosyaTakipOzet } });
 });
 
 exports.talepOlustur = wrap(async (req, res) => {
-  const { firmaId, islemTuruId, varyantKod, cevaplar, secilenIndeksler } = req.body || {};
+  const { firmaId, islemTuruId, varyantKod, cevaplar, secilenIndeksler, dosyaTakipId } = req.body || {};
   const talep = await svc.talepOlustur({
     firmaId,
     islemTuruId,
     varyantKod,
     cevaplar,
+    dosyaTakipId: dosyaTakipId || null,
     // Dizi değilse servise null gider = "seçim yapılmadı", eski davranış korunur
     secilenIndeksler: Array.isArray(secilenIndeksler) ? secilenIndeksler : null,
     user: req.user

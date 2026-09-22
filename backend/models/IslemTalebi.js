@@ -58,6 +58,13 @@ const islemTalebiSchema = new mongoose.Schema({
   varyantKod: { type: String, trim: true, default: '' },   // 'sahis' | 'sirket' | ''
   varyantAd: { type: String, trim: true, default: '' },
 
+  // 📎 Belge Takip'ten açılan evrak talebi. Müşteri (22.09.2026): "İşlem & Evrak modülündeki yeni belge
+  // takibi mail kısmını, doğrudan Belge Takip modülündeki mail gönderme kısmına da ekleyebilir miyiz bu
+  // 'mailde iste-evrak talebi' kısmı da dahil (pop-up gibi olabilir) ... İki alanda da birebir aynı olsun."
+  // Talep yine İşlem & Evrak talebidir (aynı ekran, aynı mail, aynı yükleme linki); yalnız hangi Belge Takip
+  // talebinden açıldığı tutulur ki Belge Takip'in Firma Maili sekmesinde listelensin.
+  dosyaTakip: { type: mongoose.Schema.Types.ObjectId, ref: 'DosyaTakip', default: null, index: true },
+
   istenenEvraklar: { type: [talepEvrakSchema], default: [] },
   yuklenenEvraklar: { type: [yuklenenEvrakSchema], default: [] },
 

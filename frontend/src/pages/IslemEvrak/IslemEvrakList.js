@@ -6,8 +6,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, IconButton, Tooltip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Autocomplete, MenuItem,
-  Snackbar, Alert, LinearProgress, Radio, RadioGroup, FormControlLabel, FormLabel, FormControl
+  MenuItem, Snackbar, Alert, LinearProgress
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -17,26 +16,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import DescriptionIcon from '@mui/icons-material/Description';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
-import api from '../../utils/axios';
-
-// 🔀 Koşul süzgeci — backend'deki islemEvrakService.kosullaSuz ile AYNI kural.
-// Burada yalnızca ÖNİZLEME için kullanılıyor; kaydı her zaman backend süzüyor.
-// İkisi ayrışırsa kullanıcı yanlış sayı görür, veri bozulmaz.
-const kosulUygun = (e, cevaplar) => {
-  const soruId = String(e.kosulSoruId || '').trim();
-  if (!soruId) return true;
-  const beklenen = String(e.kosulDeger || '').toUpperCase();
-  if (!beklenen) return true;
-  return String(cevaplar[soruId] || '').toUpperCase() === beklenen;
-};
-
-const DURUM_ETIKET = {
-  taslak: { label: 'Taslak', color: '#64748b', bg: '#f1f5f9' },
-  mail_gonderildi: { label: 'Mail Gönderildi', color: '#1d4ed8', bg: '#dbeafe' },
-  kismi_geldi: { label: 'Kısmi Geldi', color: '#b45309', bg: '#fef3c7' },
-  tamamlandi: { label: 'Tamamlandı', color: '#047857', bg: '#d1fae5' },
-  iptal: { label: 'İptal', color: '#b91c1c', bg: '#fee2e2' }
-};
+import YeniEvrakTalebiDialog from '../../components/IslemEvrak/YeniEvrakTalebiDialog';
+import { TALEP_DURUMLARI as DURUM_ETIKET } from '../../components/IslemEvrak/talepDurumlari';
 
 const IslemEvrakList = () => {
   const navigate = useNavigate();
@@ -46,15 +27,8 @@ const IslemEvrakList = () => {
   const [durumFiltre, setDurumFiltre] = useState('');
   const [snack, setSnack] = useState(null);
 
-  // Yeni talep diyaloğu
+  // Yeni talep penceresi (Belge Takip › Firma Maili ile ortak bileşen)
   const [dialogAcik, setDialogAcik] = useState(false);
-  const [turler, setTurler] = useState([]);
-  const [firmalar, setFirmalar] = useState([]);
-  const [firmaArama, setFirmaArama] = useState('');
-  const [seciliFirma, setSeciliFirma] = useState(null);
-  const [seciliTur, setSeciliTur] = useState('');
-  const [seciliVaryant, setSeciliVaryant] = useState('');
-  const [kaydediyor, setKaydediyor] = useState(false);
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
@@ -71,62 +45,6 @@ const IslemEvrakList = () => {
     const t = setTimeout(yukle, 300);
     return () => clearTimeout(t);
   }, [yukle]);
-
-  useEffect(() => {
-    svc.turler().then((d) => setTurler(d || [])).catch(() => setTurler([]));
-  }, []);
-
-  // Firma araması (diyalog için)
-  useEffect(() => {
-    if (!dialogAcik) return;
-    const t = setTimeout(async () => {
-      try {
-        const r = await api.get('/firma', { params: { arama: firmaArama || undefined, limit: 50 } });
-        setFirmalar(r.data?.data?.firmalar || r.data?.data || []);
-      } catch { setFirmalar([]); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [firmaArama, dialogAcik]);
-
-  const secilenTur = turler.find((t) => t._id === seciliTur);
-  // 🔀 Sihirbaz cevapları: { soruId: 'EVET' | 'HAYIR' }
-  const [cevaplar, setCevaplar] = useState({});
-  const sorular = secilenTur?.sorular || [];
-  const tumSorularCevaplandi = sorular.every((s) => cevaplar[s.id]);
-
-  // Seçilen varyantın (yoksa türün) evrak listesi — yalnızca ÖNİZLEME sayısı için.
-  // Talebe hangi evrakların gireceğine backend karar veriyor (IslemTuru.varyantCoz).
-  const adayEvraklar = (() => {
-    const v = (secilenTur?.varyantlar || []).find((x) => x.kod === seciliVaryant);
-    const liste = (v && v.istenenEvraklar?.length) ? v.istenenEvraklar : (secilenTur?.istenenEvraklar || []);
-    return liste;
-  })();
-
-  // Koşul süzgecinden geçen evraklar — diyalogda yalnızca SAYISI gösteriliyor.
-  // Hangilerinin isteneceği talep detayındaki "1. İstenen Evraklar" bölümünde
-  // seçiliyor (müşteri: "talebi oluşturunca açılan kısma sekme gibi yapsak").
-  const uygunEvraklar = adayEvraklar
-    .map((e, i) => ({ e, i }))
-    .filter(({ e }) => kosulUygun(e, cevaplar));
-
-  const talepBaslat = async () => {
-    if (!seciliFirma || !seciliTur) return notify('Firma ve işlem türü seçin', 'warning');
-    setKaydediyor(true);
-    try {
-      const talep = await svc.talepOlustur({
-        firmaId: seciliFirma._id,
-        islemTuruId: seciliTur,
-        varyantKod: seciliVaryant || undefined,
-        // secilenIndeksler GÖNDERİLMİYOR: koşul süzgecinden geçen her evrak talebe
-        // gelsin, ayıklama detay ekranında yapılsın. Backend bu alanı opsiyonel
-        // tutuyor (verilmezse eski davranış), o yüzden orada bir değişiklik gerekmedi.
-        cevaplar: sorular.map((s) => ({ soruId: s.id, deger: cevaplar[s.id] })).filter((c) => c.deger)
-      });
-      setDialogAcik(false);
-      setSeciliFirma(null); setSeciliTur(''); setSeciliVaryant(''); setCevaplar({});
-      navigate(`/islem-evrak/${talep._id}`);
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setKaydediyor(false); }
-  };
 
   const sil = async (t) => {
     if (!window.confirm(`"${t.firmaAdi} — ${t.islemTuruAdi}" talebini kaldırmak istediğinize emin misiniz?`)) return;
@@ -208,6 +126,12 @@ const IslemEvrakList = () => {
                       {t.islemTuruAdi}{t.varyantAd ? ` · ${t.varyantAd}` : ''}
                     </Typography>
                   </Box>
+                  {/* Belge Takip › Firma Maili'nden açılan talep */}
+                  {t.dosyaTakip && (
+                    <Tooltip title="Belge Takip'ten açıldı — orada Firma Maili sekmesinde de görünür">
+                      <Chip size="small" variant="outlined" color="primary" label="Belge Takip" />
+                    </Tooltip>
+                  )}
                   {/* Müşteri (21.09.2026): "'3/35' gibi tüm listenin oranı yazıyor ... sadece mailde
                       istediğimiz evrakları baz alsa ve örneğin '3/6' gibi gösterse daha net olur." */}
                   <Tooltip title={`Mailde istenen ${t.istenenSayisi} evraktan ${t.gelenSayisi} tanesi geldi`
@@ -237,98 +161,11 @@ const IslemEvrakList = () => {
       </Box>
 
       {/* Yeni talep: firma + işlem türü (+ varyant) */}
-      <Dialog open={dialogAcik} onClose={() => setDialogAcik(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Yeni Evrak Talebi</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={2} sx={{ mt: 0.5 }}>
-            <Autocomplete
-              options={firmalar}
-              value={seciliFirma}
-              onChange={(e, v) => setSeciliFirma(v)}
-              onInputChange={(e, v, reason) => { if (reason === 'input') setFirmaArama(v); }}
-              getOptionLabel={(f) => f.tamUnvan || ''}
-              isOptionEqualToValue={(a, b) => a._id === b._id}
-              filterOptions={(x) => x}
-              renderInput={(params) => <TextField {...params} label="Firma" size="small" placeholder="Firma ara..." />}
-            />
-            <TextField
-              select size="small" label="İşlem Türü" value={seciliTur}
-              onChange={(e) => {
-                setSeciliTur(e.target.value); setSeciliVaryant(''); setCevaplar({});
-              }}
-            >
-              {turler.map((t) => <MenuItem key={t._id} value={t._id}>{t.ad}</MenuItem>)}
-            </TextField>
-            {secilenTur?.varyantlar?.length > 0 && (
-              <TextField
-                select size="small" label="Tür (Şahıs / Şirket)" value={seciliVaryant}
-                onChange={(e) => { setSeciliVaryant(e.target.value); }}
-                helperText="Seçime göre istenen evraklar ve mail metni değişir"
-              >
-                {secilenTur.varyantlar.map((v) => <MenuItem key={v.kod} value={v.kod}>{v.ad}</MenuItem>)}
-              </TextField>
-            )}
-
-            {/* 🔀 Koşullu sorular — yalnızca şablonda soru tanımlıysa çıkar.
-                Soru yoksa bu bölüm hiç render edilmez ve akış bugünkü gibi kalır. */}
-            {sorular.length > 0 && (
-              <Box sx={{ border: '1px solid #e2e8f0', p: 1.5, background: '#f8fafc' }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 1 }}>
-                  Yatırım Bilgileri ({sorular.filter((q) => cevaplar[q.id]).length}/{sorular.length} cevaplandı)
-                </Typography>
-                <Stack spacing={1.5}>
-                  {sorular.map((soru) => (
-                    <FormControl key={soru.id}>
-                      <FormLabel sx={{ fontSize: '0.8rem', color: '#334155', '&.Mui-focused': { color: '#334155' } }}>
-                        {soru.metin}
-                      </FormLabel>
-                      <RadioGroup
-                        row
-                        value={cevaplar[soru.id] || ''}
-                        onChange={(e) => setCevaplar((o) => ({ ...o, [soru.id]: e.target.value }))}
-                      >
-                        <FormControlLabel value="EVET" control={<Radio size="small" />}
-                          label={<Typography variant="body2">Evet</Typography>} />
-                        <FormControlLabel value="HAYIR" control={<Radio size="small" />}
-                          label={<Typography variant="body2">Hayır</Typography>} />
-                      </RadioGroup>
-                    </FormControl>
-                  ))}
-                </Stack>
-                <Alert severity={tumSorularCevaplandi ? 'success' : 'info'} sx={{ mt: 1.5, py: 0.5 }}>
-                  {tumSorularCevaplandi
-                    ? `Bu cevaplara göre ${uygunEvraklar.length} evrak uygun (toplam ${adayEvraklar.length} tanımlı).`
-                    : 'Tüm soruları cevaplayın; istenecek evrak listesi cevaplara göre belirlenecek.'}
-                </Alert>
-              </Box>
-            )}
-
-            {/* ℹ️ Evrak seçimi TALEP DETAYINDA yapılıyor.
-                Müşteri (11 Eylül 2026): "Bu kısmı buraya değil de talebi oluşturunca
-                açılan kısma sekme gibi yapsak daha iyi olur."
-                Detay ekranındaki "1. İstenen Evraklar" bölümü bu işi zaten daha iyi
-                yapıyor: açıklamalar tam görünüyor, satır eklenip silinebiliyor,
-                sıralama değiştirilebiliyor ve örnek dosyalar orada. Bu diyaloğu
-                kalabalıklaştırmak yerine kaç evrak geleceğini söyleyip oraya yönlendiriyoruz. */}
-            {seciliTur && tumSorularCevaplandi && uygunEvraklar.length > 0 && (
-              <Alert severity="info" sx={{ py: 0.5 }}>
-                <b>{uygunEvraklar.length} evrak</b> bu talebe eklenecek. Hangilerinin
-                isteneceğini ve sıralamayı, talep açıldıktan sonra
-                “1. İstenen Evraklar” bölümünden düzenleyebilirsiniz.
-              </Alert>
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogAcik(false)}>Vazgeç</Button>
-          <Button variant="contained" onClick={talepBaslat}
-            disabled={kaydediyor || !seciliFirma || !seciliTur || !tumSorularCevaplandi}>
-            {sorular.length > 0 && !tumSorularCevaplandi
-              ? `${sorular.length - sorular.filter((q) => cevaplar[q.id]).length} soru kaldı`
-              : 'Talebi Oluştur'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <YeniEvrakTalebiDialog
+        open={dialogAcik}
+        onClose={() => setDialogAcik(false)}
+        onOlustu={(talep) => { setDialogAcik(false); navigate(`/islem-evrak/${talep._id}`); }}
+      />
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         {snack ? <Alert severity={snack.severity} onClose={() => setSnack(null)}>{snack.message}</Alert> : null}

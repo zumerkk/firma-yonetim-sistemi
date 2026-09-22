@@ -49,6 +49,7 @@ import dosyaTakipService from '../../services/dosyaTakipService';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
+import BelgeTakipEvrakTalepleri from '../../components/IslemEvrak/BelgeTakipEvrakTalepleri';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
 import axios from '../../utils/axios';
 import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
@@ -1724,6 +1725,16 @@ const DosyaTakipDetail = () => {
                                     notları toplayıp taslak öneriyor, kullanıcı düzenleyip yolluyor. */}
                                 {activeTab === 6 && (
                                     <Box>
+                                        {/* 📎 Müşteri (22.09.2026): İşlem & Evrak'taki evrak talebi ("mailde iste" dahil) burada
+                                            da, birebir aynı ekranla — dar alana sığmadığı için pencerede açılıyor */}
+                                        <BelgeTakipEvrakTalepleri
+                                            dosyaTakipId={id}
+                                            firma={seciliTalep?.firma?._id ? seciliTalep.firma : null}
+                                            onMesaj={(message, severity) => setSnackbar({ open: true, message, severity })}
+                                        />
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                                            Firma Maili (eksikler ve notlar)
+                                        </Typography>
                                         {!mailTaslak ? (
                                             <Box sx={{ textAlign: 'center', py: 4 }}>
                                                 <Button variant="contained" startIcon={<MailIcon />} onClick={() => mailTaslakYukle()}
