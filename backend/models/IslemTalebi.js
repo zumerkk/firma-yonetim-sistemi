@@ -81,6 +81,7 @@ const islemTalebiSchema = new mongoose.Schema({
 
   // Mail (düzenlenebilir; gönderim öncesi son hali saklanır)
   mailKonusu: { type: String, trim: true, default: '' },
+  talepMetni: { type: String, default: '', maxlength: 3000 },
   mailGovdesi: { type: String, default: '' },
   mailAlicilar: { type: [String], default: [] },
   mailCc: { type: [String], default: [] },

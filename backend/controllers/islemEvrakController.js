@@ -238,7 +238,7 @@ exports.talepOlustur = wrap(async (req, res) => {
 exports.talepGuncelle = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const { istenenEvraklar, notlar, mailAlicilar, mailCc, varyantKod, varyantAd,
-    mailKonusu, mailGovdesi } = req.body || {};
+    mailKonusu, mailGovdesi, talepMetni } = req.body || {};
 
   if (Array.isArray(istenenEvraklar)) {
     // Yeni eklenen satırlara "kim istedi" damgası vur
@@ -248,6 +248,10 @@ exports.talepGuncelle = wrap(async (req, res) => {
       isteyenAdi: e.isteyenAdi || req.user?.adSoyad || '',
       istenmeTarihi: e.istenmeTarihi || new Date()
     }));
+  }
+  if (talepMetni !== undefined) {
+    if (typeof talepMetni !== 'string' || talepMetni.length > 3000) { const e = new Error('Talep metni en fazla 3000 karakter olabilir.'); e.code = 'BAD_INPUT'; throw e; }
+    talep.talepMetni = talepMetni;
   }
   if (typeof notlar === 'string') talep.notlar = notlar;
   if (Array.isArray(mailAlicilar)) talep.mailAlicilar = mailAlicilar;
@@ -297,7 +301,8 @@ exports.talepMailOnizle = wrap(async (req, res) => {
   // Google Form bağlantısı firmaya göre ön-doldurulacağı için firma kaydı da lazım
   // (talep yalnızca ad/e-posta snapshot'ı taşıyor; vergi no firmadan geliyor).
   const firma = await Firma.findById(talep.firma).select('tamUnvan vergiNoTC firmaEmail').lean();
-  const { konu, govde } = svc.mailOlustur({ talep, sablon, uploadLink, firma });
+  const dosyaTakip = talep.dosyaTakip ? await require('../models/DosyaTakip').findById(talep.dosyaTakip).select('ytbNo takipId').lean() : null;
+  const { konu, govde } = svc.mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip });
   res.json({
     success: true,
     data: {

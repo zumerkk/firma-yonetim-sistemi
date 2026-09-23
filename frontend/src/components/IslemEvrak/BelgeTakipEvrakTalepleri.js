@@ -20,7 +20,7 @@ import AssignmentIcon from '@mui/icons-material/AssignmentOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import svc from '../../services/islemEvrakService';
 import IslemEvrakTalepPaneli from './IslemEvrakTalepPaneli';
-import YeniEvrakTalebiDialog from './YeniEvrakTalebiDialog';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { talepDurumu } from './talepDurumlari';
 
 const tarih = (d) => (d ? new Date(d).toLocaleDateString('tr-TR') : '');
@@ -35,7 +35,7 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
   const darEkran = useMediaQuery(tema.breakpoints.down('md'));
   const [talepler, setTalepler] = useState(null); // null = yükleniyor
   const [acikTalepId, setAcikTalepId] = useState(null);
-  const [yeniAcik, setYeniAcik] = useState(false);
+  const [islemSuruyor, setIslemSuruyor] = useState(false);
   // Üst bileşen her çizimde yeni fonksiyon verebilir; bağımlılık olursa liste durmadan yeniden yüklenirdi
   const onMesajRef = useRef(onMesaj);
   onMesajRef.current = onMesaj;
@@ -52,6 +52,24 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
 
   useEffect(() => { if (dosyaTakipId) yukle(); }, [dosyaTakipId, yukle]);
 
+  const yeniTalep = async () => {
+    if (islemSuruyor) return;
+    setIslemSuruyor(true);
+    try {
+      const talep = await svc.talepOlustur({ firmaId: firma._id, dosyaTakipId });
+      await yukle();
+      setAcikTalepId(talep._id);
+    } catch (e) { onMesajRef.current?.(e?.response?.data?.message || 'Talep oluşturulamadı', 'error'); }
+    finally { setIslemSuruyor(false); }
+  };
+  const talepSil = async (t) => {
+    if (!window.confirm('Bu evrak talebi listeden kaldırılacak ve yükleme bağlantısı kapanacak. Devam edilsin mi?')) return;
+    setIslemSuruyor(true);
+    try { await svc.talepSil(t._id); await yukle(); }
+    catch (e) { onMesajRef.current?.(e?.response?.data?.message || 'Talep silinemedi', 'error'); }
+    finally { setIslemSuruyor(false); }
+  };
+
   const pencereyiKapat = () => { setAcikTalepId(null); yukle(); };
   const acikTalep = (talepler || []).find((t) => t._id === acikTalepId);
 
@@ -64,8 +82,8 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
         </Typography>
         <Tooltip title={firma ? '' : 'Bu talebe bağlı firma yok'}>
           <span>
-            <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!firma}
-              onClick={() => setYeniAcik(true)} sx={{ textTransform: 'none' }}>
+            <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!firma || islemSuruyor}
+              onClick={yeniTalep} sx={{ textTransform: 'none' }}>
               Yeni Evrak Talebi
             </Button>
           </span>
@@ -104,19 +122,14 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
               <Tooltip title={`Mailde istenen ${t.istenenSayisi} evraktan ${t.gelenSayisi} tanesi geldi`}>
                 <Chip size="small" variant="outlined" label={`${t.gelenSayisi}/${t.istenenSayisi} evrak`} />
               </Tooltip>
+              <IconButton size="small" color="error" aria-label="Talebi sil" disabled={islemSuruyor}
+                onKeyDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); talepSil(t); }}><DeleteOutlineIcon /></IconButton>
               <Button size="small" endIcon={<OpenInNewIcon sx={{ fontSize: 16 }} />} sx={{ textTransform: 'none' }}>Aç</Button>
             </Box>
           );
         })}
       </Stack>
-
-      <YeniEvrakTalebiDialog
-        open={yeniAcik}
-        onClose={() => setYeniAcik(false)}
-        sabitFirma={firma}
-        dosyaTakipId={dosyaTakipId}
-        onOlustu={(talep) => { setYeniAcik(false); yukle(); setAcikTalepId(talep._id); }}
-      />
 
       {/* Talep ekranı — İşlem & Evrak sayfasıyla aynı bileşen */}
       <Dialog open={!!acikTalepId} onClose={pencereyiKapat} maxWidth="lg" fullWidth fullScreen={darEkran} scroll="paper">

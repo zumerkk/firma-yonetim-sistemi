@@ -118,7 +118,7 @@ function ekliOrnekler(evraklar) {
 }
 
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
-function mailOlustur({ talep, sablon, uploadLink, firma }) {
+function mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip }) {
   // Müşteri: "tikleri kaldırınca mailde otomatik silinsin, (opsiyonel) yazmak yerine."
   // İşareti kaldırılan evrak firmadan İSTENMİYOR demektir; maile hiç yazılmaz.
   const secililer = maildeIstenenler(talep.istenenEvraklar);
@@ -141,7 +141,20 @@ function mailOlustur({ talep, sablon, uploadLink, firma }) {
   };
 
   const konu = engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', data);
-  const govde = sablonMetniniIsle(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
+  if (talep.dosyaTakip) {
+    const referans = [dosyaTakip?.ytbNo, dosyaTakip?.takipId].filter(Boolean).join(' / ');
+    const govde = [
+      `Sayın ${talep.firmaAdi || ''} Yetkilisi,`,
+      `Teşvik Belgesi${referans ? ` ${referans}` : ''} Talebi ile ilgili olarak talep edilen evraklar aşağıdaki gibidir.`,
+      talep.talepMetni || '',
+      'Hazırlanan evrakların taramalarını aşağıdaki bağlantı üzerinden (farklı zamanlarda yükleme yapabilirsiniz) tarafımıza iletmenizi rica ederiz:',
+      uploadLink || '', evrakListesi, 'İyi çalışmalar dileriz.',
+      'Genel Müşavirlik ve İşletmecilik Ltd. Şti.\nGM Planlama Yatırım Danışmanlık San. ve Tic. Ltd. Şti.'
+    ].filter(Boolean).join('\n\n');
+    return { konu, govde, data };
+  }
+  const sablonGovdesi = sablonMetniniIsle(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
+  const govde = talep.talepMetni ? `${talep.talepMetni}\n\n${sablonGovdesi}` : sablonGovdesi;
   return { konu, govde, data };
 }
 
@@ -464,6 +477,12 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
       const e = new Error('Evrak talebinin firması Belge Takip talebinin firmasıyla aynı olmalı.'); e.code = 'BAD_INPUT'; throw e;
     }
     firmaId = dosyaTakip.firma;
+  }
+
+  if (dosyaTakipId && !islemTuruId) {
+    const varsayilan = await IslemTuru.findOne({ aktif: true, ad: 'Yeni Belge Talebi' });
+    if (!varsayilan) { const e = new Error('Yeni Belge Talebi şablonu bulunamadı. İşlem türlerinden bu şablonu tanımlayın.'); e.code = 'BAD_INPUT'; throw e; }
+    islemTuruId = varsayilan._id;
   }
 
   const [firma, tur] = await Promise.all([

@@ -183,6 +183,9 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const navigate = useNavigate();
 
   const [talep, setTalep] = useState(null);
+  const [talepMetni, setTalepMetni] = useState('');
+  const [mailAcik, setMailAcik] = useState(false);
+  const [metinDegisti, setMetinDegisti] = useState(false);
   const [tur, setTur] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -254,7 +257,9 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
       setKaydedilmemis(false);
       const tt = await svc.turDetay(t.islemTuru).catch(() => null);
       setTur(tt);
-      const m = await svc.mailOnizle(id);
+      setTalepMetni(t.talepMetni || '');
+      setMetinDegisti(false);
+      const m = { to: t.mailAlicilar, cc: t.mailCc, uploadLink: t.uploadLink, smtpConfigured: t.smtpConfigured };
       setMail({
         to: (m.to || []).join(', '),
         cc: (m.cc || []).join(', '),
@@ -305,6 +310,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // Kaydedilmiş taslak YOKSA metni şablondan tazeleriz; VARSA kullanıcının yazdığına
   // dokunmayız — bunun yerine ekranda "taslak güncel değil" uyarısı gösterilir.
   const mailMetniniTazele = async (guncelTalep, { zorla = false } = {}) => {
+    if (!mailAcik) { setMetinBayat(true); return; }
     if (guncelTalep?.mailGovdesi) return; // kullanıcı taslağı var, ezme
     // Kaydedilmemiş elle düzenleme de ezilmez; ekranda "Metni yenile" seçeneği çıkar
     if (mailElleDegistiRef.current && !zorla) { setMetinBayat(true); return; }
@@ -375,6 +381,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
       const g = await svc.varyantUygula(id, kod);
       setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
       notify(`${g.varyantAd || 'Varsayılan'} şablonu uygulandı`);
+      setMetinBayat(true);
+      if (!mailAcik) return;
       const m = await svc.mailOnizle(id);
       setMail((p) => ({ ...p, subject: m.subject, body: m.body }));
       mailElleDegistiRef.current = false;
@@ -487,6 +495,31 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // Panodan yapıştırarak da örnek eklenebilsin (ekran görüntüsü/kopyalanan dosya)
   usePanoDosyaYapistir((dosyalar) => topluDosyaSecildi(dosyalar), { aktif: !loading && !busy });
 
+  const taslagiHazirla = async () => {
+    if (kayitSuruyorRef.current || busy) return;
+    if (!kaydedilmemis && !metinDegisti && !metinBayat && mail.body) { setMailAcik(true); return; }
+    const yenidenOlustur = metinDegisti || kaydedilmemis || metinBayat;
+    if (yenidenOlustur && (talep.mailGovdesi || mailElleDegistiRef.current) && !window.confirm('Talep metni veya evraklar değişti. Mail taslağındaki düzenlemeler yerine güncel bilgilerle yeni taslak oluşturulsun mu?')) return;
+    clearTimeout(otomatikZamanlayiciRef.current);
+    setBusy('hazirla');
+    try {
+      const g = await svc.talepGuncelle(id, {
+        istenenEvraklar: gonderilecekSatirlar(evraklarRef.current.filter((e) => String(e.ad || '').trim())),
+        talepMetni,
+        ...(yenidenOlustur ? { mailGovdesi: '', mailKonusu: '' } : {})
+      });
+      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
+      setMetinDegisti(false);
+      setMail((p) => ({ ...p, body: '', subject: '' }));
+      const m = await svc.mailOnizle(id);
+      setMail({ ...m, to: (m.to || []).join(', '), cc: (m.cc || []).join(', ') });
+      mailElleDegistiRef.current = false;
+      setMetinBayat(false);
+      setMailAcik(true);
+    } catch (e) { notify(errMsg(e), 'error'); }
+    finally { setBusy(''); }
+  };
+
   // ── Mail taslağı (gm modüller: "Maili istediğimiz gibi düzenleyip/kaydedip/silebilelim")
   const virgullu = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
@@ -536,11 +569,13 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
-  const linkKopyala = () => {
-    if (mail.uploadLink) {
-      navigator.clipboard?.writeText(mail.uploadLink);
+  const linkKopyala = async () => {
+    try {
+      const link = mail.uploadLink || (await svc.linkUret(id)).uploadLink;
+      await navigator.clipboard.writeText(link);
+      setMail((p) => ({ ...p, uploadLink: link }));
       notify('Yükleme linki kopyalandı');
-    }
+    } catch (e) { notify(errMsg(e), 'error'); }
   };
 
   // 📥 Dosyayı blob olarak indir. Göreli fileUrl'i href vermek frontend origin'ine
@@ -726,6 +761,16 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           </Collapse>
         </Paper>
 
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <TextField label="Talep metni" fullWidth multiline minRows={5} value={talepMetni}
+            inputProps={{ maxLength: 3000 }} helperText={`${talepMetni.length}/3000 karakter`}
+            onChange={(e) => { setTalepMetni(e.target.value); setMetinDegisti(true); }} />
+          <Button variant="contained" sx={{ mt: 2 }} onClick={taslagiHazirla}
+            disabled={!!busy || otomatikKayit === 'kaydediliyor'}>Mail Taslağı Hazırla</Button>
+        </Paper>
+        <Dialog fullScreen open={mailAcik} onClose={() => setMailAcik(false)}>
+          <DialogTitle><Button startIcon={<ArrowBackIcon />} onClick={() => setMailAcik(false)}>Evraklara dön</Button> Mail Taslağı</DialogTitle>
+          <DialogContent>
         {/* 2) Mail */}
         <Paper sx={{ p: 2, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>2. Mail Gönderimi</Typography>
@@ -815,6 +860,9 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             </Stack>
           </Stack>
         </Paper>
+
+          </DialogContent>
+        </Dialog>
 
         {/* 3) Gelen evraklar */}
         <Paper sx={{ p: 2 }}>

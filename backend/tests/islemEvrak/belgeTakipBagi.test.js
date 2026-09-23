@@ -52,6 +52,9 @@ beforeAll(async () => {
   app.post('/talepler', ctrl.talepOlustur);
   app.get('/talepler', ctrl.talepListe);
   app.get('/talepler/:id', ctrl.talepDetay);
+  app.patch('/talepler/:id', ctrl.talepGuncelle);
+  app.delete('/talepler/:id', ctrl.talepSil);
+  app.get('/talepler/:id/mail-onizle', ctrl.talepMailOnizle);
 });
 
 afterAll(async () => {
@@ -129,5 +132,48 @@ describe('İşlem & Evrak varsayılan alıcıları', () => {
     });
     const r = await olustur({ firmaId: String(firmaB) });
     expect(r.body.data.mailAlicilar).toEqual(['yeni@baska.com']);
+  });
+});
+
+
+describe('Adımlı evrak maili', () => {
+  test('işlem türü seçmeden doğrudan şablonla oluşturur', async () => {
+    const r = await request(app).post('/talepler').send({ dosyaTakipId: String(dtBagli) });
+    expect(r.status).toBe(200);
+    expect(r.body.data.islemTuru).toBe(String(tur._id));
+    expect(r.body.data.mailGovdesi).toBe('');
+    expect(r.body.data.istenenEvraklar).toHaveLength(3);
+  });
+
+  test('3000 karakter saklanır, sınır aşımı reddedilir; taslak referans ve seçili evrakları içerir', async () => {
+    const r = await olustur({ dosyaTakipId: String(dtBagli) });
+    const url = `/talepler/${r.body.data._id}`;
+    const metin = 'Ö'.repeat(3000);
+    expect((await request(app).patch(url).send({ talepMetni: metin })).status).toBe(200);
+    expect((await request(app).patch(url).send({ talepMetni: metin + 'X' })).status).toBe(400);
+    const taslak = await request(app).get(`${url}/mail-onizle`);
+    expect(taslak.status).toBe(200);
+    const body = taslak.body.data.body;
+    expect(body).toContain('Sayın GLOBTEKS TEKSTİL A.Ş. Yetkilisi');
+    expect(body).toContain('568289 / DT2026301');
+    expect(body).toContain(metin);
+    expect(body).toContain('Vergi Levhası');
+    expect(body).not.toContain('Kapasite Raporu');
+    expect(body.indexOf(metin)).toBeLessThan(body.indexOf(taslak.body.data.uploadLink));
+    expect(body.indexOf(taslak.body.data.uploadLink)).toBeLessThan(body.indexOf('Vergi Levhası'));
+    expect((await request(app).get(url)).body.data.talepMetni).toBe(metin);
+  });
+
+  test('talebi silmek listeden kaldırır ve public bağlantıyı kapatır', async () => {
+    const r = await olustur({ dosyaTakipId: String(dtBagli) });
+    const url = `/talepler/${r.body.data._id}`;
+    await request(app).get(`${url}/mail-onizle`);
+    const t = await IslemTalebi.findById(r.body.data._id);
+    expect(t.uploadToken).toBeTruthy();
+    expect((await request(app).delete(url)).status).toBe(200);
+    expect((await request(app).get('/talepler')).body.data).toHaveLength(0);
+    const svc = require('../../services/islemEvrak/islemEvrakService');
+    expect(await svc.resolveByToken(t.uploadToken)).toBeNull();
+    expect(await IslemTalebi.findById(t._id)).not.toBeNull();
   });
 });
