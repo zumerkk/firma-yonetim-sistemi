@@ -2,6 +2,7 @@
 // Excel şablonu 1:1 aynısı - GM ID otomatik, tüm firmalar, U$97 kodları
 // Mali hesaplamalar + ürün bilgileri + destek unsurları + özel şartlar
 
+import { parseDateText } from '../../utils/dateUtils';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { secenekEtiketi, secenekleriTemizle } from '../../utils/tesvikSecenek';
 import {
@@ -904,46 +905,8 @@ const YeniTesvikForm = () => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text').trim();
 
-    // Çeşitli tarih formatlarını dene
-    let parsedDate = null;
-
-    // Format: dd.mm.yyyy veya dd/mm/yyyy
-    const dmyMatch = pastedText.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
-    if (dmyMatch) {
-      const [, day, month, year] = dmyMatch;
-      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
-
-    // Format: yyyy-mm-dd
-    const ymdMatch = pastedText.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-    if (!parsedDate && ymdMatch) {
-      const [, year, month, day] = ymdMatch;
-      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
-
-    // Format: mm/dd/yyyy
-    const mdyMatch = pastedText.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (!parsedDate && mdyMatch) {
-      const [, month, day, year] = mdyMatch;
-      parsedDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    }
-
-    // ISO Format: yyyy-mm-ddTHH:mm:ss
-    if (!parsedDate) {
-      const isoDate = new Date(pastedText);
-      if (!isNaN(isoDate.getTime())) {
-        parsedDate = isoDate;
-      }
-    }
-
-    if (parsedDate && !isNaN(parsedDate.getTime())) {
-      // yyyy-MM-dd formatına çevir
-      const formattedDate = parsedDate.toISOString().split('T')[0];
-      handleFieldChange(fieldPath, formattedDate);
-    } else {
-      // Geçersiz format - ham metni dene
-      console.warn('Geçersiz tarih formatı:', pastedText);
-    }
+    const formattedDate = parseDateText(pastedText);
+    if (formattedDate) handleFieldChange(fieldPath, formattedDate);
   };
 
   // 🔧 Problematik Değer Temizleme Utility

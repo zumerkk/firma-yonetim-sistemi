@@ -5,7 +5,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  Box, Paper, Typography, Stack, Button, TextField, Chip, Alert, MenuItem,
+  Box, Paper, Typography, Stack, Button, TextField, Chip, Alert,
   CircularProgress, Divider
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -23,12 +23,14 @@ const IslemEvrakPublicUpload = () => {
   const [yukleniyor, setYukleniyor] = useState(false);
   const [sonuc, setSonuc] = useState('');
   const [seciliEvrak, setSeciliEvrak] = useState('');
+  const [nedenler, setNedenler] = useState({});
+  const [nedenAcik, setNedenAcik] = useState({});
   const [yukleyenAdi, setYukleyenAdi] = useState('');
   // Firma tarafı en çok burada bekliyor: belirsiz bar yerine gerçek yüzde gösterilir
   const [yukleme, setYukleme] = useState(null);
 
-  const yukle = useCallback(async () => {
-    setLoading(true);
+  const yukle = useCallback(async (sessiz = false) => {
+    if (!sessiz) setLoading(true);
     try {
       setBilgi(await svc.publicBilgi(token));
       setHata('');
@@ -40,19 +42,19 @@ const IslemEvrakPublicUpload = () => {
   useEffect(() => { yukle(); }, [yukle]);
 
   // Dosya seçimi ve panodan yapıştırma aynı yükleme yolunu kullanır
-  const dosyalariYukle = async (files) => {
+  const dosyalariYukle = async (files, evrakId = seciliEvrak) => {
     if (!files.length) return;
-    setYukleniyor(true); setSonuc('');
+    setYukleniyor(true); setSonuc(''); setHata('');
     const toplamBayt = files.reduce((s, f) => s + (f.size || 0), 0);
     setYukleme({ fileName: files.length > 1 ? `${files.length} dosya` : files[0].name, pct: 0, loaded: 0, total: toplamBayt });
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append('dosyalar', f));
-      if (seciliEvrak) fd.append('istenenEvrakId', seciliEvrak);
+      if (evrakId) fd.append('istenenEvrakId', evrakId);
       if (yukleyenAdi.trim()) fd.append('yukleyenAdi', yukleyenAdi.trim());
       const r = await svc.publicYukle(token, fd, (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       setSonuc(r.message || 'Dosyanız yüklendi.');
-      await yukle(); // durum işaretleri tazelensin
+      await yukle(true); // durum işaretleri tazelensin
     } catch (err) {
       setSonuc('');
       setHata(err?.kullaniciMesaji || err?.response?.data?.message || 'Dosya yüklenemedi. Lütfen tekrar deneyin.');
@@ -62,13 +64,27 @@ const IslemEvrakPublicUpload = () => {
     }
   };
 
-  const dosyaSec = async (e) => {
-    await dosyalariYukle(Array.from(e.target.files || []));
-    if (e.target) e.target.value = '';
+  const dosyaSec = async (e, evrakId) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    setSeciliEvrak(evrakId);
+    await dosyalariYukle(files, evrakId);
+  };
+
+  const nedenKaydet = async (evrakId) => {
+    setYukleniyor(true); setHata(''); setSonuc('');
+    try {
+      const r = await svc.publicNedenKaydet(token, { istenenEvrakId: evrakId, neden: nedenler[evrakId] || '' });
+      setSonuc(r.message);
+      await yukle(true);
+      setNedenAcik(prev => ({ ...prev, [evrakId]: false }));
+    } catch (err) {
+      setHata(err?.response?.data?.message || 'Neden kaydedilemedi.');
+    } finally { setYukleniyor(false); }
   };
 
   // 📋 Panodan yapıştırma (müşteri: kopyalanan görseli direkt yapıştırma)
-  usePanoDosyaYapistir(dosyalariYukle, { aktif: !yukleniyor });
+  usePanoDosyaYapistir(dosyalariYukle, { aktif: !yukleniyor && !!seciliEvrak });
 
   if (loading) {
     return <Box sx={{ p: 6, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
@@ -98,52 +114,48 @@ const IslemEvrakPublicUpload = () => {
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>İstenen Evraklar</Typography>
         <Stack spacing={1}>
           {(bilgi.istenenEvraklar || []).map((e) => (
-            <Box key={e.id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {e.geldiMi
-                ? <CheckCircleIcon sx={{ color: '#059669', fontSize: 20 }} />
-                : <RadioButtonUncheckedIcon sx={{ color: '#cbd5e1', fontSize: 20 }} />}
-              <Box sx={{ flex: 1 }}>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {e.ad} {!e.zorunlu && <Chip label="opsiyonel" size="small" sx={{ height: 16, fontSize: '0.6rem', ml: 0.5 }} />}
-                </Typography>
-                {e.aciklama && <Typography variant="caption" color="text.secondary">{e.aciklama}</Typography>}
-              </Box>
-              {e.geldiMi && <Chip label="Yüklendi" size="small" color="success" />}
+            <Box key={e.id} sx={{ borderBottom: '1px solid #e2e8f0', py: 1.5 }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+                {e.geldiMi
+                  ? <CheckCircleIcon sx={{ color: '#059669', fontSize: 20 }} />
+                  : <RadioButtonUncheckedIcon sx={{ color: '#cbd5e1', fontSize: 20 }} />}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{e.ad}</Typography>
+                  {e.aciklama && <Typography variant="caption" color="text.secondary">{e.aciklama}</Typography>}
+                  {e.yuklenememeNedeni && <Typography variant="body2" sx={{ mt: 0.5 }}>Yüklenememe nedeni: {e.yuklenememeNedeni}</Typography>}
+                </Box>
+                {e.geldiMi && <Chip label={e.yuklenememeNedeni ? 'Neden bildirildi' : 'Yüklendi'} size="small" color="success" />}
+                <Button component="label" variant="contained" size="small" startIcon={<CloudUploadIcon />} disabled={yukleniyor}
+                  onClick={() => setSeciliEvrak(e.id)}>
+                  Dosya yükle
+                  <input hidden type="file" multiple aria-label={`${e.ad} yükle`} onChange={(event) => dosyaSec(event, e.id)} />
+                </Button>
+                <Button size="small" disabled={yukleniyor} onClick={() => {
+                  setNedenAcik(prev => ({ ...prev, [e.id]: !prev[e.id] }));
+                  setNedenler(prev => ({ ...prev, [e.id]: prev[e.id] ?? e.yuklenememeNedeni ?? '' }));
+                }}>Yükleyemiyorum</Button>
+              </Stack>
+              {nedenAcik[e.id] && <Stack spacing={1} sx={{ mt: 1 }}>
+                <TextField multiline minRows={2} size="small" label={`${e.ad} yüklenememe nedeni`}
+                  value={nedenler[e.id] || ''} inputProps={{ maxLength: 2000 }} disabled={yukleniyor}
+                  onChange={event => { const value = event.target.value; setNedenler(prev => ({ ...prev, [e.id]: value })); }} />
+                <Button variant="outlined" disabled={yukleniyor || !nedenler[e.id]?.trim()} onClick={() => nedenKaydet(e.id)}>Nedeni kaydet</Button>
+              </Stack>}
             </Box>
           ))}
         </Stack>
       </Paper>
 
       <Paper sx={{ p: 3 }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>Dosya Yükle</Typography>
         <Stack spacing={2}>
-          <TextField
-            select size="small" label="Hangi evrak? (opsiyonel)" value={seciliEvrak}
-            onChange={(e) => setSeciliEvrak(e.target.value)}
-            helperText="Seçerseniz dosya o evrakla eşleştirilir"
-          >
-            <MenuItem value="">Belirtmeden yükle</MenuItem>
-            {(bilgi.istenenEvraklar || []).map((e) => (
-              <MenuItem key={e.id} value={e.id}>{e.ad}</MenuItem>
-            ))}
-          </TextField>
-
-          <TextField
-            size="small" label="Adınız (opsiyonel)" value={yukleyenAdi}
-            onChange={(e) => setYukleyenAdi(e.target.value)}
-          />
-
-          <Button component="label" variant="contained" startIcon={<CloudUploadIcon />} disabled={yukleniyor} size="large">
-            {yukleniyor ? 'Yükleniyor...' : 'Dosya Seç ve Yükle'}
-            <input hidden type="file" multiple onChange={dosyaSec} />
-          </Button>
-
+          <TextField size="small" label="Adınız (opsiyonel)" value={yukleyenAdi}
+            onChange={(e) => setYukleyenAdi(e.target.value)} />
           <UploadProgress active={yukleniyor} {...(yukleme || {})} />
           {sonuc && <Alert severity="success">{sonuc}</Alert>}
-          {hata && bilgi && <Alert severity="error" onClose={() => setHata('')}>{hata}</Alert>}
-
+          {hata && <Alert severity="error" onClose={() => setHata('')}>{hata}</Alert>}
           <Typography variant="caption" color="text.secondary">
-            Birden fazla dosya seçebilirsiniz — kopyaladığınız görseli Ctrl/⌘+V ile yapıştırabilirsiniz. Dosya başına en fazla {bilgi.maxUploadMB} MB.
+            Her evrakın yanındaki düğmeden birden fazla dosya seçebilirsiniz. Dosya başına en fazla {bilgi.maxUploadMB} MB.
+            Yükleyemediğiniz evrak için neden belirtmeniz yanıt olarak kabul edilir.
           </Typography>
         </Stack>
       </Paper>

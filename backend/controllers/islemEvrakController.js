@@ -242,8 +242,12 @@ exports.talepGuncelle = wrap(async (req, res) => {
 
   if (Array.isArray(istenenEvraklar)) {
     // Yeni eklenen satırlara "kim istedi" damgası vur
+    const mevcutEvraklar = new Map(talep.istenenEvraklar.map(e => [String(e._id), e]));
     talep.istenenEvraklar = istenenEvraklar.map((e) => ({
       ...e,
+      // Firmadan gelen yanıtı eski bir düzenleme ekranının kaydıyla silme.
+      yuklenememeNedeni: mevcutEvraklar.get(String(e._id))?.yuklenememeNedeni || '',
+      nedenBildirimTarihi: mevcutEvraklar.get(String(e._id))?.nedenBildirimTarihi,
       isteyenKullanici: e.isteyenKullanici || req.user?._id,
       isteyenAdi: e.isteyenAdi || req.user?.adSoyad || '',
       istenmeTarihi: e.istenmeTarihi || new Date()
@@ -282,11 +286,23 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
   talep.varyantAd = sablon.ad || '';
   // Varyant değişince liste yeniden kurulur; talepteki cevaplarla AYNI süzgeçten geçer,
   // yoksa sihirbazda elenen 55 kalem varyant değiştirir değiştirmez geri gelirdi.
-  talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => ({
-    ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
-    ornekDosya: e.ornekDosya || undefined,
-    isteyenKullanici: req.user?._id, isteyenAdi: req.user?.adSoyad || '', istenmeTarihi: new Date()
-  }));
+  //
+  // Müşteri (23.09.2026): "gelen evrakların kaybolmaması gerekiyor."
+  // Aynı adla devam eden satırın KİMLİĞİ korunur: firmanın yüklediği dosyalar
+  // `yuklenenEvraklar[].istenenEvrakId` ile bu kimliğe bağlı — yeni kimlik üretilirse
+  // gelen evrak eşleşmesini kaybediyor ve satır "gelmedi" görünüyordu.
+  const oncekiler = new Map((talep.istenenEvraklar || []).map((e) => [svc.evrakAnahtari(e.ad), e]));
+  talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => {
+    const onceki = oncekiler.get(svc.evrakAnahtari(e.ad));
+    return {
+      ...(onceki ? { _id: onceki._id, geldiMi: onceki.geldiMi, gelisTarihi: onceki.gelisTarihi, yuklenememeNedeni: onceki.yuklenememeNedeni, nedenBildirimTarihi: onceki.nedenBildirimTarihi } : {}),
+      ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
+      ornekDosya: e.ornekDosya || undefined,
+      isteyenKullanici: onceki?.isteyenKullanici || req.user?._id,
+      isteyenAdi: onceki?.isteyenAdi || req.user?.adSoyad || '',
+      istenmeTarihi: onceki?.istenmeTarihi || new Date()
+    };
+  });
   talep.durumTazele();
   await talep.save();
   res.json({ success: true, data: talep, message: `${sablon.ad || 'Varsayılan'} şablonu uygulandı` });
@@ -447,7 +463,7 @@ exports.publicBilgi = async (req, res) => {
         // Maile yazılmayan evrak firmaya da gösterilmez: aksi halde firma, mailde
         // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
         istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
-          id: e._id, ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, geldiMi: e.geldiMi,
+          id: e._id, ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, geldiMi: e.geldiMi, yuklenememeNedeni: e.yuklenememeNedeni || '',
           ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
         })),
         maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
@@ -473,6 +489,9 @@ exports.publicYukle = async (req, res) => {
     const yukleyenAdi = ((req.body && req.body.yukleyenAdi) || '').toString().slice(0, 120);
     const hedefEvrak = evrakId ? talep.istenenEvraklar.id(evrakId) : null;
 
+    if (evrakId && (!hedefEvrak || hedefEvrak.zorunlu === false)) {
+      return res.status(400).json({ success: false, message: 'İstenen evrak bulunamadı.' });
+    }
     for (const file of files) {
       const kayit = await svc.dosyaKaydet(talep, file, 'Gelen');
       talep.yuklenenEvraklar.push({
@@ -516,5 +535,28 @@ exports.publicYukle = async (req, res) => {
     if (err && err.code === 'UNSUPPORTED_FILE_TYPE') return res.status(415).json({ success: false, message: err.message });
     console.error('🚨 [islemEvrak] publicYukle:', err && (err.stack || err.message));
     res.status(500).json({ success: false, message: 'Dosya yüklenemedi. Lütfen tekrar deneyin.' });
+  }
+};
+
+// Dosya temin edilemiyorsa firma gerekçesini aynı evraka kaydeder.
+exports.publicNedenKaydet = async (req, res) => {
+  try {
+    const sonuc = await svc.resolveByToken(req.params.token);
+    if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
+    if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş.' });
+    const { talep } = sonuc;
+    const neden = req.body?.neden;
+    if (typeof neden !== 'string' || !neden.trim() || neden.trim().length > 2000) {
+      return res.status(400).json({ success: false, message: 'Lütfen 1–2000 karakter arasında bir neden yazın.' });
+    }
+    const evrak = talep.istenenEvraklar.find(e => String(e._id) === String(req.body?.istenenEvrakId));
+    if (!evrak || evrak.zorunlu === false) return res.status(400).json({ success: false, message: 'İstenen evrak bulunamadı.' });
+    evrak.yuklenememeNedeni = neden.trim();
+    evrak.nedenBildirimTarihi = new Date();
+    talep.durumTazele();
+    await talep.save();
+    return res.json({ success: true, message: 'Neden kaydedildi. Evrak yanıtlandı olarak işaretlendi.' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: 'Neden kaydedilemedi. Lütfen tekrar deneyin.' });
   }
 };

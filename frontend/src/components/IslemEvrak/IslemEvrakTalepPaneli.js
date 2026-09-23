@@ -108,7 +108,7 @@ const EvrakSatiri = memo(function EvrakSatiri({
       <Typography variant="caption" sx={{ mt: 1.2, minWidth: 18, textAlign: 'right', color: '#94a3b8', fontWeight: 700 }}>
         {i + 1}.
       </Typography>
-      <Tooltip title={e.geldiMi ? 'Firmadan geldi' : 'Bekleniyor'}>
+      <Tooltip title={e.yuklenememeNedeni ? `Yüklenememe nedeni: ${e.yuklenememeNedeni}` : (e.geldiMi ? 'Firmadan geldi' : 'Bekleniyor')}>
         {e.geldiMi
           ? <CheckCircleIcon sx={{ color: '#059669', mt: 1 }} />
           : <RadioButtonUncheckedIcon sx={{ color: '#cbd5e1', mt: 1 }} />}
@@ -123,6 +123,7 @@ const EvrakSatiri = memo(function EvrakSatiri({
         onChange={(ev) => onDegistir(i, 'aciklama', ev.target.value)}
         sx={{ flex: 1.4, minWidth: 220 }}
       />
+      {e.yuklenememeNedeni && <Alert severity="info" sx={{ width: '100%' }}>Firmanın yükleyememe nedeni: {e.yuklenememeNedeni}</Alert>}
       {/* Müşteri (15.09.2026): "mailde iste diyince otomatik kaydedebilir" — işaret arka planda kaydedilir */}
       <Tooltip title="İşaret kaldırılırsa bu evrak mailde listelenmez ve firma portalinde de görünmez. Değişiklik otomatik kaydedilir.">
         <FormControlLabel

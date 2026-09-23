@@ -53,6 +53,14 @@ async function ensureUploadLink(talep, { days } = {}) {
   return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
 }
 
+// Evrak adı karşılaştırma anahtarı: büyük/küçük harf, boşluk ve noktalama farkını yok sayar
+// ("İmza Sirküleri" ≡ "imza sirkuleri"). Varyant/şablon değişiminde aynı evrakı tanımak için.
+const evrakAnahtari = (ad) => String(ad || '')
+  .toLocaleUpperCase('tr-TR')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^A-Z0-9]/g, '');
+
 // 🔎 Public yükleme: token → talep
 async function resolveByToken(token) {
   if (!token) return null;
@@ -550,6 +558,7 @@ module.exports = {
   topluZipYaz,
   zipDosyaIcerigi,
   ensureUploadLink,
+  evrakAnahtari,
   resolveByToken,
   mailOlustur,
   formLinkiUret,

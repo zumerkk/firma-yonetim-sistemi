@@ -1,0 +1,34 @@
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import Upload from './IslemEvrakPublicUpload';
+import svc from '../../services/islemEvrakService';
+jest.mock('../../services/islemEvrakService', () => ({ __esModule: true, default: { publicBilgi: jest.fn(), publicYukle: jest.fn(), publicNedenKaydet: jest.fn() } }));
+const bilgi = { firmaAdi: 'Test Firma', islemAdi: 'Yeni Belge', maxUploadMB: 100, istenenEvraklar: [{ id: 'a', ad: 'Vergi Levhası' }, { id: 'b', ad: 'İmza Sirküleri' }] };
+const ac = () => render(<MemoryRouter initialEntries={['/evrak/token1']}><Routes><Route path="/evrak/:token" element={<Upload />} /></Routes></MemoryRouter>);
+beforeEach(() => { jest.clearAllMocks(); svc.publicBilgi.mockResolvedValue(bilgi); });
+test('satırdaki dosya doğrudan o evrakla gönderilir', async () => {
+  svc.publicYukle.mockResolvedValue({ message: 'Dosyanız yüklendi.' });
+  ac();
+  const input = await screen.findByLabelText('İmza Sirküleri yükle');
+  const file = new File(['icerik'], 'imza.pdf', { type: 'application/pdf' });
+  fireEvent.change(input, { target: { files: [file] } });
+  await waitFor(() => expect(svc.publicYukle).toHaveBeenCalled());
+  const [token, form] = svc.publicYukle.mock.calls[0];
+  expect(token).toBe('token1');
+  expect(form.get('istenenEvrakId')).toBe('b');
+  expect(form.get('dosyalar').name).toBe('imza.pdf');
+  await screen.findByText('Dosyanız yüklendi.');
+});
+test('neden girildiğinde sunucuya kaydedilir ve durum yenilenir', async () => {
+  svc.publicNedenKaydet.mockResolvedValue({ message: 'Neden kaydedildi.' });
+  ac();
+  const buttons = await screen.findAllByRole('button', { name: 'Yükleyemiyorum' });
+  fireEvent.click(buttons[0]);
+  fireEvent.change(screen.getByLabelText('Vergi Levhası yüklenememe nedeni'), { target: { value: 'Belge henüz düzenlenmedi' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Nedeni kaydet' }));
+  await waitFor(() => expect(svc.publicNedenKaydet).toHaveBeenCalledWith('token1', { istenenEvrakId: 'a', neden: 'Belge henüz düzenlenmedi' }));
+  await screen.findByText('Neden kaydedildi.');
+  expect(svc.publicBilgi).toHaveBeenCalledTimes(2);
+});

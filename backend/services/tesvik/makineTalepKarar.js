@@ -25,14 +25,18 @@ const istekHatasi = (mesaj) => {
 /** rowId ile, bulunamazsa eşleşme alanlarıyla (gtip, ad, miktar, birim) satır indeksi; yoksa -1 */
 function satirIndeksiBul(satirlar, { rowId, match } = {}) {
   const arr = Array.isArray(satirlar) ? satirlar : [];
-  let idx = rowId ? arr.findIndex((r) => r.rowId === rowId) : -1;
-  if (idx === -1 && match) {
-    idx = arr.findIndex((r) =>
-      (match.gtipKodu ? String(r.gtipKodu || '') === String(match.gtipKodu || '') : true) &&
-      (match.adiVeOzelligi ? String(r.adiVeOzelligi || '') === String(match.adiVeOzelligi || '') : true) &&
-      (match.miktar != null ? Number(r.miktar || 0) === Number(match.miktar || 0) : true) &&
-      (match.birim ? String(r.birim || '') === String(match.birim || '') : true)
+  let idx = rowId ? arr.findIndex((r) => String(r.rowId || '') === String(rowId)) : -1;
+  if (idx === -1 && match && Object.values(match).some(v => v !== '' && v != null)) {
+    const candidates = arr.map((r, i) => ({ r, i })).filter(({ r }) =>
+      (match.siraNo != null ? Number(r.siraNo) === Number(match.siraNo) : true) &&
+      (match.makineId ? String(r.makineId || '') === String(match.makineId) : true) &&
+      (match.gtipKodu ? String(r.gtipKodu || '') === String(match.gtipKodu) : true) &&
+      (match.adiVeOzelligi ? String(r.adiVeOzelligi || '') === String(match.adiVeOzelligi) : true) &&
+      (match.miktar != null ? Number(r.miktar || 0) === Number(match.miktar) : true) &&
+      (match.birim ? String(r.birim || '') === String(match.birim) : true)
     );
+    // Belirsiz eşleşmede ilk satırı değiştirmek veri kaybına yol açar.
+    if (candidates.length === 1) idx = candidates[0].i;
   }
   return idx;
 }

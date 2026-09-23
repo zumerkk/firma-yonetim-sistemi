@@ -1,3 +1,4 @@
+import { muracaatTalepTipi } from './muracaatTalepTipi';
 // 📄 Müşteri Görünümü — PDF
 //
 // Müşteri: "müşteri görünümü Excel var ya, bir de ona müşteri görünümü PDF
@@ -222,7 +223,7 @@ export const exportTesvikToPdf = async (tesvik) => {
     ['Süre Uzatım Tarihi', tarih(by.uzatimTarihi)],
     doluysa('Kapanma Tarihi', by.kapanmaTarihi, tarih),
     doluysa('Ekspertiz Tarihi', by.ekspertizTarihi, tarih),
-    doluysa('Belge Müracaat Talep Tipi', by.belgeMuracaatTalepTipi || kunye.talepSonuc, etiketNormalle),
+    doluysa('Belge Müracaat Talep Tipi', muracaatTalepTipi(tesvik), etiketNormalle),
     ['Öncelikli Yatırım', str(by.oncelikliYatirim)],
     // müşteri: "pdf görünümünde öncelikli yatırım türü görünmüyor"
     ['Öncelikli Yatırım Türü', str(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru))],

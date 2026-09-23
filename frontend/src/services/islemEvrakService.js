@@ -42,6 +42,7 @@ const islemEvrakService = {
     api.get(`${base}/talepler/${id}/toplu-indir`, { responseType: 'blob', timeout: 10 * 60 * 1000 }),
 
   // Public (token — auth gerektirmez)
+  publicNedenKaydet: (token, body) => api.post(`${base}/public/${token}/neden`, body).then(r => r.data),
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
   publicYukle: (token, formData, onProgress) =>
     uploadPost(`${base}/public/${token}`, formData, { onProgress }).then((r) => r.data)

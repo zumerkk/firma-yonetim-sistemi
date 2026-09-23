@@ -28,6 +28,8 @@ const talepEvrakSchema = new mongoose.Schema({
   isteyenAdi: { type: String, trim: true, default: '' },
   istenmeTarihi: { type: Date, default: Date.now },
   // Firma bu evrakı yükledi mi? (yüklenen dosyalar ayrı dizide, burada özet durum)
+  yuklenememeNedeni: { type: String, trim: true, maxlength: 2000, default: '' },
+  nedenBildirimTarihi: { type: Date },
   geldiMi: { type: Boolean, default: false },
   gelisTarihi: { type: Date }
 }, { _id: true });
@@ -113,7 +115,7 @@ islemTalebiSchema.statics.DURUMLAR = DURUMLAR;
 islemTalebiSchema.methods.durumTazele = function () {
   const istenen = this.istenenEvraklar || [];
   for (const ev of istenen) {
-    const geldi = (this.yuklenenEvraklar || []).some(
+    const geldi = !!ev.yuklenememeNedeni?.trim() || (this.yuklenenEvraklar || []).some(
       (y) => String(y.istenenEvrakId || '') === String(ev._id)
     );
     if (geldi && !ev.geldiMi) { ev.geldiMi = true; ev.gelisTarihi = new Date(); }
@@ -127,7 +129,7 @@ islemTalebiSchema.methods.durumTazele = function () {
   const gelenSayisi = hedef.filter((e) => e.geldiMi).length;
 
   if (hedef.length && gelenSayisi === hedef.length) this.durum = 'tamamlandi';
-  else if ((this.yuklenenEvraklar || []).length) this.durum = 'kismi_geldi';
+  else if (gelenSayisi || (this.yuklenenEvraklar || []).length) this.durum = 'kismi_geldi';
   else if (this.mailGonderimSayisi > 0) this.durum = 'mail_gonderildi';
   else this.durum = 'taslak';
   return this;

@@ -1,3 +1,4 @@
+import { createDatePasteHandler } from '../../utils/dateUtils';
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox, LinearProgress, ToggleButton, ToggleButtonGroup, Collapse } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
@@ -1168,7 +1169,7 @@ const MakineYonetimi = () => {
       yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
       ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
     };
-    try { await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload); } catch {}
+    await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload);
     // 2) DB'den güncel listeyi çek ve ilgili satırı yakala
     const data = await yeniTesvikService.get(selectedTesvik._id);
     const list = (liste==='yerli' ? (data?.makineListeleri?.yerli||[]) : (data?.makineListeleri?.ithal||[]));
@@ -1974,9 +1975,9 @@ const MakineYonetimi = () => {
   const topluSonucuUygula = (result, islemler, alan) => {
     const guncelSatirlar = result?.data?.makineListeleri?.[tab] || [];
     for (const { row, rowId } of islemler) {
-      const guncel = guncelSatirlar.find(r => r.rowId === rowId);
+      const guncel = guncelSatirlar.find(r => r.rowId === rowId) || guncelSatirlar.find(r => result?.ozet?.guncellenen?.includes(r.rowId) && Number(r.siraNo) === Number(row.siraNo) && r.adiVeOzelligi === row.adi);
       if (!guncel) continue;
-      const degisim = { rowId, [alan]: guncel[alan] };
+      const degisim = { rowId: guncel.rowId, [alan]: guncel[alan] };
       if (tab === 'yerli') updateYerli(row.id, degisim); else updateIthal(row.id, degisim);
     }
   };
@@ -1986,26 +1987,35 @@ const MakineYonetimi = () => {
   // tamamını dönüyordu; artık seçilen satırlar TEK istekte uygulanıyor.
   const topluIslemleriHazirla = async (satirIcin) => {
     const list = tab === 'yerli' ? yerliRows : ithalRows;
-    const islemler = [];
-    for (const id of selectionModel) {
-      const row = list.find(r => r.id === id);
-      if (!row) continue;
-      const rid = await ensureRowId(tab, row);
-      if (!rid) continue;
-      islemler.push({ row, rowId: rid, ...satirIcin(row) });
+    const selected = list.filter(row => selectionModel.includes(row.id));
+    let savedRows = null;
+    if (selected.some(row => !row.rowId)) {
+      // Kimliği olmayan bütün satırları bir kez kaydet; her satırda yeniden
+      // kaydetmek önceki satırın yeni kimliğini geçersiz kılıyordu.
+      await ensureRowId(tab, selected.find(row => !row.rowId));
+      const fresh = await yeniTesvikService.get(selectedTesvik._id);
+      savedRows = fresh?.makineListeleri?.[tab] || [];
+      const setRows = tab === 'yerli' ? setYerliRows : setIthalRows;
+      setRows(rows => rows.map((row, index) => ({ ...row, rowId: savedRows[index]?.rowId || row.rowId })));
     }
-    return islemler;
+    return selected.map(row => ({
+      row,
+      rowId: savedRows ? savedRows[list.indexOf(row)]?.rowId : row.rowId,
+      match: { siraNo: row.siraNo, makineId: row.makineId, gtipKodu: row.gtipKodu,
+        adiVeOzelligi: row.adi, miktar: row.miktar, birim: row.birim },
+      ...satirIcin(row)
+    }));
   };
 
   const handleBulkTalep = async (tarih) => {
     if (!selectedTesvik || selectionModel.length === 0) return;
-    const islemler = await topluIslemleriHazirla((row) => ({
-      talep: { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: tarih || row?.talep?.talepTarihi || new Date() }
-    }));
-    if (islemler.length === 0) return;
     try {
+      const islemler = await topluIslemleriHazirla((row) => ({
+        talep: { durum: 'bakanliga_gonderildi', istenenAdet: Number(row.miktar) || 0, talepTarihi: tarih || row?.talep?.talepTarihi || new Date() }
+      }));
+      if (islemler.length === 0) return;
       const result = await yeniTesvikService.setMakineTalepToplu(selectedTesvik._id, {
-        liste: tab, islemler: islemler.map(({ rowId, talep }) => ({ rowId, talep }))
+        liste: tab, islemler: islemler.map(({ rowId, match, talep }) => ({ rowId, match, talep }))
       });
       topluSonucuUygula(result, islemler, 'talep');
       openToast(result?.ozet?.bulunamayan?.length ? 'warning' : 'success', result?.message || 'Talep durumları güncellendi');
@@ -2023,17 +2033,17 @@ const MakineYonetimi = () => {
       const v = window.prompt('Kısmi onay adedi');
       onayAdet = Number(v) || 0;
     }
-    const islemler = await topluIslemleriHazirla((row) => ({
-      karar: {
-        kararDurumu: type,
-        onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
-        kararTarihi: tarih || row?.karar?.kararTarihi || new Date()
-      }
-    }));
-    if (islemler.length === 0) return;
     try {
+      const islemler = await topluIslemleriHazirla((row) => ({
+        karar: {
+          kararDurumu: type,
+          onaylananAdet: type === 'kismi_onay' ? onayAdet : (type === 'onay' ? Number(row.miktar) || 0 : 0),
+          kararTarihi: tarih || row?.karar?.kararTarihi || new Date()
+        }
+      }));
+      if (islemler.length === 0) return;
       const result = await yeniTesvikService.setMakineKararToplu(selectedTesvik._id, {
-        liste: tab, islemler: islemler.map(({ rowId, karar }) => ({ rowId, karar }))
+        liste: tab, islemler: islemler.map(({ rowId, match, karar }) => ({ rowId, match, karar }))
       });
       topluSonucuUygula(result, islemler, 'karar');
       openToast(result?.ozet?.bulunamayan?.length ? 'warning' : 'success', result?.message || 'Karar durumları güncellendi');
@@ -2204,7 +2214,7 @@ const MakineYonetimi = () => {
                 updateYerli(p.row.id, { rowId: rid, talep });          }}
         />
       ) },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> (
+      { field: 'kararTarihi', headerName: 'Sonuç Tarihi', description: 'Sonuç Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.karar?.kararTarihi}
           disabled={!selectedTesvik}
@@ -2530,7 +2540,7 @@ const MakineYonetimi = () => {
                 updateIthal(p.row.id, { rowId: rid, talep });          }}
         />
       ) },
-      { field: 'kararTarihi', headerName: 'K.Tarih', description: 'Karar Tarihi', width: 112, sortable: false, renderCell: (p)=> (
+      { field: 'kararTarihi', headerName: 'Sonuç Tarihi', description: 'Sonuç Tarihi', width: 112, sortable: false, renderCell: (p)=> (
         <IzgaraTarihHucresi
           deger={p.row.karar?.kararTarihi}
           disabled={!selectedTesvik}
@@ -2727,7 +2737,7 @@ const MakineYonetimi = () => {
       { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
       { key: 'talepTarihi', label: 'T.Tar', w: 65, type: 'date', getValue: (row) => row.talep?.talepTarihi, onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), talepTarihi: val } }) },
       { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
-      { key: 'kararTarihi', label: 'K.Tar', w: 65, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
+      { key: 'kararTarihi', label: 'Sonuç Tar.', w: 90, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
       { key: 'silinmeTarihi', label: 'S.Tar', w: 65, type: 'date' },
     ];
     
@@ -2766,7 +2776,7 @@ const MakineYonetimi = () => {
       { key: 'talepDurum', label: 'Talep', w: 55, options: talepDurumOptions, optionLabels: talepDurumLabels, getValue: (row) => row.talep?.durum || '', onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), durum: val } }) },
       { key: 'talepTarihi', label: 'T.Tar', w: 60, type: 'date', getValue: (row) => row.talep?.talepTarihi, onUpdate: (rowId, val) => updater(rowId, { talep: { ...(rows.find(r=>r.id===rowId)?.talep || {}), talepTarihi: val } }) },
       { key: 'kararDurum', label: 'Karar', w: 50, options: kararDurumOptions, optionLabels: kararDurumLabels, getValue: (row) => row.karar?.kararDurumu || '', onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararDurumu: val } }) },
-      { key: 'kararTarihi', label: 'K.Tar', w: 60, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
+      { key: 'kararTarihi', label: 'Sonuç Tar.', w: 90, type: 'date', getValue: (row) => row.karar?.kararTarihi, onUpdate: (rowId, val) => updater(rowId, { karar: { ...(rows.find(r=>r.id===rowId)?.karar || {}), kararTarihi: val } }) },
       { key: 'silinmeTarihi', label: 'S.Tar', w: 60, type: 'date' },
     ];
     
@@ -4168,6 +4178,7 @@ const MakineYonetimi = () => {
             <TextField
               type="date" size="small" label="Tarih" fullWidth
               InputLabelProps={{ shrink: true }}
+              onPaste={createDatePasteHandler(setTopluTarih)}
               value={topluTarih} onChange={(e)=> setTopluTarih(e.target.value)}
             />
             {topluIslem === 'kismi_onay' && (

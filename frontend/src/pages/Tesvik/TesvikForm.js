@@ -2,6 +2,7 @@
 // Excel şablonu 1:1 aynısı - GM ID otomatik, tüm firmalar, U$97 kodları
 // Mali hesaplamalar + ürün bilgileri + destek unsurları + özel şartlar
 
+import { createDatePasteHandler } from '../../utils/dateUtils';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { secenekEtiketi, secenekleriTemizle } from '../../utils/tesvikSecenek';
 import {
@@ -677,8 +678,7 @@ const TesvikForm = () => {
 
   // Adım isimleri - Yeniden düzenlenmiş profesyonel yapı
   const stepLabels = [
-    'KÜNYE BİLGİLERİ',
-    'YATIRIM İLE İLGİLİ BİLGİLER',
+    'KÜNYE VE YATIRIM BİLGİLERİ',
     'ÜRÜN BİLGİLERİ',
     'FİNANSAL BİLGİLER',
     'ÖZEL ŞARTLAR',
@@ -2288,7 +2288,7 @@ const TesvikForm = () => {
 
   // 🆔 1. KÜNYE BİLGİLERİ - Excel Şablonuna Uygun Professional Layout
   const renderKunyeBilgileri = () => (
-    <Grid container spacing={4}>
+    <Grid container spacing={2}>
       {/* YATIRIMCI BİLGİLERİ Bölümü - Excel Sol Taraf */}
       <Grid item xs={12} lg={6}>
         <Paper
@@ -2297,7 +2297,7 @@ const TesvikForm = () => {
             p: 4,
             backgroundColor: '#f8fafc',
             border: '2px solid #e2e8f0',
-            height: '100%'
+            mb: 2
           }}
         >
           <Typography
@@ -2316,37 +2316,7 @@ const TesvikForm = () => {
             YATIRIMCI BİLGİLERİ
           </Typography>
 
-          <Grid container spacing={3}>
-
-            {/* GM ID */}
-
-            {/* FIRMA ID */}
-            <Grid item xs={12} md={6}>
-              <TextField
-                id="tesvikForm-firmaId"
-                name="firmaId"
-                fullWidth
-                label="FIRMA ID"
-                value={formData.firma || ''}
-                InputProps={{
-                  readOnly: true,
-                  style: { backgroundColor: '#f8f9fa' }
-                }}
-                helperText="Firma seçiminden otomatik doldurulur"
-              />
-            </Grid>
-
-            {/* YATIRIMCI UNVAN */}
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="YATIRIMCI UNVAN"
-                value={formData.yatirimciUnvan}
-                onChange={(e) => handleFieldChange('yatirimciUnvan', e.target.value)}
-                required
-                helperText="Firma seçiminde otomatik doldurulur, isteğe bağlı değiştirilebilir"
-              />
-            </Grid>
+          <Grid container spacing={2}>
 
             <Grid item xs={12}>
               <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
@@ -2463,6 +2433,7 @@ const TesvikForm = () => {
             </Grid>
           </Grid>
         </Paper>
+        {renderYatirimBilgileri()}
       </Grid>
 
       {/* BELGE BİLGİLERİ Bölümü - Excel Sağ Taraf */}
@@ -2473,7 +2444,7 @@ const TesvikForm = () => {
             p: 4,
             backgroundColor: '#f8f9fa',
             border: '1px solid #e2e8f0',
-            height: '100%'
+            mb: 2
           }}
         >
           <Typography
@@ -2492,7 +2463,7 @@ const TesvikForm = () => {
             BELGE BİLGİLERİ
           </Typography>
 
-          <Grid container spacing={3}>
+          <Grid container spacing={2}>
             {/* BELGE ID */}
             <Grid item xs={12}>
               <TextField
@@ -2531,12 +2502,13 @@ const TesvikForm = () => {
             </Grid>
 
             {/* BELGE TARIHI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
                   label="BELGE TARIHI"
                   type="date"
+                  onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.belgeTarihi', value))}
                   value={formData.belgeYonetimi.belgeTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeTarihi', e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -2572,12 +2544,13 @@ const TesvikForm = () => {
             </Grid>
 
             {/* BELGE MÜRACAAT TARIHI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
                   label="BELGE MÜRACAAT TARIHI"
                   type="date"
+                  onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', value))}
                   value={formData.belgeYonetimi.belgeMuracaatTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeMuracaatTarihi', e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -2612,7 +2585,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* MÜRACAAT SAYISI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="MÜRACAAT SAYISI"
@@ -2630,12 +2603,13 @@ const TesvikForm = () => {
             </Grid>
 
             {/* BELGE BAŞLAMA TARIHI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
                   label="BELGE BAŞLAMA TARIHI"
                   type="date"
+                  onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', value))}
                   value={formData.belgeYonetimi.belgeBaslamaTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeBaslamaTarihi', e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -2670,12 +2644,13 @@ const TesvikForm = () => {
             </Grid>
 
             {/* BELGE BITIŞ TARIHI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
                   label="BELGE BITIŞ TARIHI"
                   type="date"
+                  onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', value))}
                   value={formData.belgeYonetimi.belgeBitisTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.belgeBitisTarihi', e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -2710,12 +2685,13 @@ const TesvikForm = () => {
             </Grid>
 
             {/* SÜRE UZATIM TARIHI */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Box sx={{ position: 'relative' }}>
                 <TextField
                   fullWidth
                   label="SÜRE UZATIM TARIHI"
                   type="date"
+                  onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.uzatimTarihi', value))}
                   value={formData.belgeYonetimi.uzatimTarihi}
                   onChange={(e) => handleFieldChange('belgeYonetimi.uzatimTarihi', e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -2751,23 +2727,25 @@ const TesvikForm = () => {
 
             {/* 📅 KAPANMA / EKSPERTİZ TARİHİ
                 müşteri: "belge kapandıktan sonra revize ile buraları dolduracağız" */}
-            <Grid item xs={12} sm={6} md={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="KAPANMA TARİHİ"
                 type="date"
-                value={formData.belgeYonetimi.kapanmaTarihi}
+                onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.kapanmaTarihi', value))}
+                  value={formData.belgeYonetimi.kapanmaTarihi}
                 onChange={(e) => handleFieldChange('belgeYonetimi.kapanmaTarihi', e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#ffffff' } }}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="EKSPERTİZ TARİHİ"
                 type="date"
-                value={formData.belgeYonetimi.ekspertizTarihi}
+                onPaste={createDatePasteHandler((value) => handleFieldChange('belgeYonetimi.ekspertizTarihi', value))}
+                  value={formData.belgeYonetimi.ekspertizTarihi}
                 onChange={(e) => handleFieldChange('belgeYonetimi.ekspertizTarihi', e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#ffffff' } }}
@@ -2776,7 +2754,7 @@ const TesvikForm = () => {
 
             {/* OECD KATEGORİ + DESTEK SINIFI (Yan Yana) */}
             {/* 🌍 OECD (Orta-Yüksek) - Dropdown + Manuel Giriş */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Autocomplete
                 freeSolo
                 id="tesvikForm-oecdKategori"
@@ -2820,7 +2798,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* 🎯 DESTEK SINIFI Dropdown */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-destekSinifi-label" htmlFor="tesvikForm-destekSinifi">DESTEK SINIFI</InputLabel>
                 <KayitliSecim
@@ -2846,7 +2824,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* 🏆 ÖNCELİKLİ YATIRIM ALANLARI */}
-            <Grid item xs={12} sm={6} md={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-oncelikliYatirim-belge-label">
                   Öncelikli Yatırım mı?
@@ -2894,7 +2872,7 @@ const TesvikForm = () => {
             {/* 🏆 ÖNCELİKLİ YATIRIM TÜRÜ DROPDOWN - Sadece "evet" seçilirse görünür */}
             {console.log('🔍 Conditional check (BELGE) - oncelikliYatirim:', formData.belgeYonetimi.oncelikliYatirim, 'equals evet?', formData.belgeYonetimi.oncelikliYatirim === 'evet')}
             {formData.belgeYonetimi.oncelikliYatirim === 'evet' && (
-              <Grid item xs={12} sm={6} md={6}>
+              <Grid item xs={12}>
                 <FormControl fullWidth>
                   <InputLabel id="tesvikForm-oncelikliYatirimTuru-belge-label">
                     Öncelikli Yatırım Türü
@@ -2947,7 +2925,7 @@ const TesvikForm = () => {
             {/* ✨ YENİ PROFESYONEL ALANLAR - Resimden Eklenenler */}
 
             {/* ROW 3.1: CAZİBE MERKEZİ Mİ? */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkeziMi-label">Cazibe Merkezi Mi?</InputLabel>
                 <KayitliSecim
@@ -2971,7 +2949,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.2: SAVUNMA SANAYİ PROJESİ Mİ? */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-savunmaSanayiProjesi-label">Savunma Sanayi Projesi Mi?</InputLabel>
                 <KayitliSecim
@@ -2995,7 +2973,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ADA, PARSEL - YENİ ALANLAR */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <TextField
                 id="tesvikForm-ada"
                 name="ada"
@@ -3014,7 +2992,7 @@ const TesvikForm = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <TextField
                 id="tesvikForm-parsel"
                 name="parsel"
@@ -3034,7 +3012,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* 📋 BELGE MÜRACAAT TALEP TİPİ */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <Autocomplete
                 freeSolo
                 id="tesvikForm-belgeMuracaatTalepTipi"
@@ -3072,7 +3050,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.3: ENERJİ ÜRETİM KAYNAĞI */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <TextField
                 id="tesvikForm-enerjiUretimKaynagi"
                 name="enerjiUretimKaynagi"
@@ -3092,7 +3070,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.4: CAZİBE MERKEZİ (2018/11201) */}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkezi2018-label">Cazibe Merkezi (2018/11201)</InputLabel>
                 <KayitliSecim
@@ -3116,7 +3094,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.5: CAZİBE MERKEZİ DEPREM NEDENİ */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-cazibeMerkeziDeprem-label">Cazibe Merkezi Deprem Nedeni</InputLabel>
                 <KayitliSecim
@@ -3140,7 +3118,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.6: HAMLE Mİ? */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-hamleMi-label">HAMLE MI?</InputLabel>
                 <KayitliSecim
@@ -3164,7 +3142,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* ROW 3.7: VERGİ İNDİRİMSİZ DESTEK TALEBİ */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-vergiIndirimsizDestek-label">Vergi İndirimsiz Destek Talebi</InputLabel>
                 <KayitliSecim
@@ -3192,39 +3170,12 @@ const TesvikForm = () => {
         </Paper>
       </Grid>
 
-      {/* Excel Template Info Banner */}
-      <Grid item xs={12}>
-        <Paper
-          elevation={0}
-          sx={{
-            p: 2,
-            background: '#f1f5f9',
-            border: '1px solid #cbd5e1',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <Typography
-              variant="body1"
-              sx={{
-                color: '#475569',
-                fontWeight: 500,
-                textAlign: 'center'
-              }}
-            >
-              Bu form T.C. resmi standartlarına uygun olarak tasarlanmıştır.
-              Tüm alanlar mevzuat gereksinimlerine göre düzenlenmiştir.
-            </Typography>
-          </Box>
-        </Paper>
-      </Grid>
+
     </Grid>
   );
 
   // 🏢 2. YATIRIM İLE İLGİLİ BİLGİLER - Excel Şablonuna Uygun Tablo Formatı
   const renderYatirimBilgileri = () => (
-    <Grid container spacing={4}>
-      {/* Excel Ana Başlık - YATIRIM İLE İLGİLİ BİLGİLER */}
-      <Grid item xs={12}>
         <Paper
           elevation={4}
           sx={{
@@ -3258,7 +3209,7 @@ const TesvikForm = () => {
             }}
           >
             <EngineeringIcon sx={{ mr: 2, fontSize: { xs: 32, md: 40 } }} />
-            Yatırım Konusu Seçiniz
+            Yatırım ile ilgili bilgiler
           </Typography>
 
           {/* Excel Tablo Formatı - Kompakt ve Professional Tek Tablo */}
@@ -3373,7 +3324,7 @@ const TesvikForm = () => {
 
             {/* Add J-CNS butonu - sadece max sayıya ulaşılmamışsa göster */}
             {cinsSayisi < 4 && (
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -3419,7 +3370,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* YER İL, YER İLÇE - Otomatik Seçim */}
-            <Grid item xs={12} sm={12} md={6}>
+            <Grid item xs={12}>
               <EnhancedCitySelector
                 selectedCity={formData.yatirimBilgileri2.yerinIl}
                 selectedDistrict={formData.yatirimBilgileri2.yerinIlce}
@@ -3478,7 +3429,7 @@ const TesvikForm = () => {
 
             {/* Add Adres butonu - sadece max sayıya ulaşılmamışsa göster */}
             {adresSayisi < 3 && (
-              <Grid item xs={12} md={4}>
+              <Grid item xs={12}>
                 <Button
                   fullWidth
                   variant="outlined"
@@ -3501,7 +3452,7 @@ const TesvikForm = () => {
             )}
 
             {/* OSB İSE MÜDÜRLÜK - 411 OSB'den Seçim */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-osbMudurluk-label">
                   OSB İSE MÜDÜRLÜK (411 OSB)
@@ -3551,7 +3502,7 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-serbestBolge-label">
                   SERBEST BÖLGE (19 Müdürlük)
@@ -3602,7 +3553,7 @@ const TesvikForm = () => {
             </Grid>
 
             {/* BÖLGESİ VE İLÇE BAZLI BÖLGE - 1-6 Bölge Seçimi */}
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-bolgesi-label">
                   BÖLGESİ
@@ -3636,7 +3587,7 @@ const TesvikForm = () => {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} sm={6} md={4}>
+            <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel id="tesvikForm-ilceBazliBolge-label">
                   İlçe Bazlı Bölge
@@ -3695,7 +3646,7 @@ const TesvikForm = () => {
                 </Typography>
 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} sm={6} md={4}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       label="MEVCUT KİŞİ"
@@ -3736,7 +3687,7 @@ const TesvikForm = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6} md={4}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       label="İLAVE KİŞİ"
@@ -3777,7 +3728,7 @@ const TesvikForm = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6} md={4}>
+                  <Grid item xs={12}>
                     <TextField
                       fullWidth
                       label="TOPLAM KİŞİ"
@@ -3801,41 +3752,10 @@ const TesvikForm = () => {
                 </Grid>
               </Paper>
             </Grid>
-
           </Grid>
         </Paper>
-      </Grid>
-
-      {/* Excel Template Info Banner */}
-      <Grid item xs={12}>
-        <Paper
-          elevation={1}
-          sx={{
-            p: 3,
-            backgroundColor: '#e8f5e8',
-            border: '1px solid #e2e8f0',
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-            <Typography
-              variant="body1"
-              sx={{
-                color: '#16a085',
-                fontWeight: 500,
-                textAlign: 'center'
-              }}
-            >
-              <strong>Excel Şablonu Uyumlu:</strong> Bu bölüm Excel tablosundaki
-              "YATIRIM İLE İLGİLİ BİLGİLER" kısmına tam uyumludur.
-              İstihdam bilgileri de dahil tüm alanlar eksiksiz eklenmiştir.
-            </Typography>
-          </Box>
-        </Paper>
-      </Grid>
-    </Grid>
   );
 
-  // 📦 4. ÜRÜN BİLGİLERİ (US97 Kodları) - MINIMAL CORPORATE DESIGN
   const renderUrunBilgileri = () => (
     <Grid container spacing={2}>
       <Grid item xs={12}>
@@ -5869,14 +5789,12 @@ const TesvikForm = () => {
 
   const renderStepContent = () => {
     switch (activeStep) {
-      case 0: return renderKunyeBilgileri(); // Künye + Belge Bilgileri birleşik
-      case 1: return renderYatirimBilgileri(); // Yatırım + İstihdam Bilgileri birleşik
-      case 2: return renderUrunBilgileri();
-      // Makine Listesi adımı kaldırıldı (müşteri: kullanılmıyor — Makine Yönetimi ekranı kullanılıyor)
-      case 3: return renderFinansalBilgiler();
-      case 4: return renderOzelSartlar();
-      case 5: return renderDestekUnsurlari();
-      case 6: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
+      case 0: return renderKunyeBilgileri();
+      case 1: return renderUrunBilgileri();
+      case 2: return renderFinansalBilgiler();
+      case 3: return renderOzelSartlar();
+      case 4: return renderDestekUnsurlari();
+      case 5: return isEdit && formData.tesvikId ? <RevisionTimeline tesvikId={formData.tesvikId} /> : <Typography>Revizyon geçmişi sadece kaydedilmiş teşvikler için görüntülenebilir.</Typography>;
       default: return renderKunyeBilgileri();
     }
   };
@@ -5976,7 +5894,10 @@ const TesvikForm = () => {
             // Bölüm kutuları tek tip: her bölümün kendi pastel zemini, kalın renkli kenarı ve
             // renkli başlığı yerine belge görüntüleme ekranındaki nötr panel düzeni geçerli.
             // (Açılır menüler portala çizildiği için bu kuraldan etkilenmez.)
-            '& .MuiPaper-root': { backgroundColor: renk.yuzey, borderColor: renk.kenar, boxShadow: 'none' },
+            '& .MuiPaper-root': { backgroundColor: renk.yuzey, border: '1px solid #cbd5e1', boxShadow: 'none', p: 2, borderRadius: 1 },
+            '& .MuiPaper-root::before': { display: 'none' },
+            '& .MuiPaper-root > .MuiTypography-h4, & .MuiPaper-root > .MuiTypography-h5, & .MuiPaper-root > .MuiTypography-h6': { fontSize: '1rem', textShadow: 'none', justifyContent: 'flex-start', color: '#334155', background: '#f1f5f9', p: 1.5, mb: 2, borderBottom: '1px solid #cbd5e1' },
+            '& .MuiInputBase-input': { py: 1 },
             '& .MuiPaper-root .MuiTypography-subtitle2': { color: renk.murekkep, borderBottomColor: renk.kenar }
           }}>
               {/* Bölüm sekmeleri — belge görüntüleme ekranındaki şeridin aynısı (adım göstergesi yerine).

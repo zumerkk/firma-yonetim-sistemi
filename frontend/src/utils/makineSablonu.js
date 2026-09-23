@@ -126,7 +126,7 @@ export const GERCEKLESME_SUTUNLARI = [
     adlar: ['Talep Tarihi', 'TALEP TARİH', 'Müracaat Tar.', 'Müracaat Tarihi', 'T.Tarih', 'Talep Tar.']
   },
   {
-    alan: 'kararTarihi', tip: 'tarih', baslik: 'Karar Tarihi',
+    alan: 'kararTarihi', tip: 'tarih', baslik: 'Sonuç Tarihi',
     adlar: ['Karar Tarihi', 'SONUÇ TARİH', 'Sonuç Tarihi', 'Onay Tarihi', 'K.Tarih', 'Karar Tar.']
   },
   {

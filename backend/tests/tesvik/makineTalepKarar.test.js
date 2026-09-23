@@ -113,3 +113,19 @@ describe('topluUygula — seçilen satırlar tek kayıtta', () => {
     expect(ozetMesaji('karar', { guncellenen: ['a'], bulunamayan: ['z'] })).toBe('1 makinenin karar durumu güncellendi · 1 satır bulunamadı');
   });
 });
+
+describe('eski kimlikli makinelerde toplu tarih', () => {
+  test('20 satırı sıra ve makine bilgileriyle bulur; mevcut tarih kaybolmaz', () => {
+    const rows = Array.from({ length: 20 }, (_, i) => ({ rowId: `new-${i}`, siraNo: i + 1, adiVeOzelligi: 'Pres', miktar: 1, karar: { kararTarihi: '2026-06-25' } }));
+    const belge = belgeKur(rows);
+    const ozet = topluUygula(belge, { liste: 'yerli', alan: 'karar', islemler: rows.map((r, i) => ({ rowId: `old-${i}`, match: { siraNo: r.siraNo, adiVeOzelligi: 'Pres', miktar: 1 }, karar: { kararDurumu: 'onay', kararTarihi: '2026-06-25' } })) });
+    expect(ozet.guncellenen).toHaveLength(20);
+    expect(ozet.bulunamayan).toEqual([]);
+    expect(rows.every(r => r.karar.kararTarihi === '2026-06-25')).toBe(true);
+  });
+  test('boş veya birden fazla satırla eşleşen koşul yanlış makineyi değiştirmez', () => {
+    const rows = [{ adiVeOzelligi: 'Pres' }, { adiVeOzelligi: 'Pres' }];
+    expect(satirIndeksiBul(rows, { match: {} })).toBe(-1);
+    expect(satirIndeksiBul(rows, { match: { adiVeOzelligi: 'Pres' } })).toBe(-1);
+  });
+});

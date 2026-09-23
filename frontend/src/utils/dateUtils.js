@@ -47,7 +47,7 @@ function isValidDate(year, month, day) {
     if (m < 1 || m > 12) return false;
     if (d < 1 || d > 31) return false;
     if (y < 1900 || y > 2100) return false;
-    return true;
+    return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
 
 /**

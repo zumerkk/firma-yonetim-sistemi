@@ -11,6 +11,7 @@ const editor = authorize('admin', 'kullanici');
 
 // ── Public (AUTH YOK) — auth middleware'inden ÖNCE tanımlanmalı
 router.get('/public/:token', ctrl.publicBilgi);
+router.post('/public/:token/neden', ctrl.publicNedenKaydet);
 router.post('/public/:token', uploadMultiple('dosyalar'), ctrl.publicYukle);
 
 // ── Bundan sonrası giriş gerektirir

@@ -38,7 +38,10 @@ export const SABLON_KURALLARI = [
   'Tutarları sayı olarak yazın (1.234.567,89 biçimi de olur). TOPLAM TUTARI boş bırakılırsa Miktar × Birim Fiyatı hesaplanır; yazılırsa yazdığınız korunur.',
   'İTHAL\'de TOPLAM TUTAR $ ve TOPLAM TUTAR TL E-TUYS\'taki gibi yazılırsa korunur; boş bırakılırsa sistem kurla hesaplar.',
   'Tarihleri gg.aa.yyyy yazın (31.05.2027). TALEP TARİH yazılan makinenin talebi "Bakanlığa gönderildi", SONUÇ TARİH yazılanın kararı "Onay" olarak işaretlenir; sistemde zaten bir durum varsa o korunur.',
-  'Başlık hücrelerinin üzerine gelince o sütunun açıklaması görünür.'
+  'Başlık hücrelerinin üzerine gelince o sütunun açıklaması görünür.',
+  'Yapay zekâ ile doldurma: Bu boş şablonu, E-TUYS Excel dosyasını ve aynı belgeye ait ekran görüntülerini birlikte gönderin. Aşağıdaki yönergeyi kullanın.',
+  'Yönerge: Ekli şablonun YERLİ / İTHAL sayfa adlarını ve sütun başlıklarını değiştirmeden doldur. Makine ID, GTIP NO, FİNANSAL KİRALAMA, TALEP TARİH ve SONUÇ TARİH bilgilerini ilgili ekran görüntülerinden eşleştir. Aynı makineyi birden fazla satıra ekleme. Kimlikler ve GTİP numaraları metin olarak kalsın; baştaki sıfırları koru. Tarihleri gg.aa.yyyy yaz. Miktar, birim, para birimi ve tutarları ayrı sütunlara yaz. Okunmayan veya çelişkili hücreleri boş bırak, tahmin etme. Eksik alanları ve hangi görüntüden alındıklarını sohbet yanıtında belirt; veri sayfalarına açıklama satırı ekleme. Sonucu gerçek .xlsx dosyası olarak ver.',
+  'İçe aktardıktan sonra kaydetmeden önce makine kimliklerini, tarihleri, tutarları ve satır sayısını kaynakla karşılaştırın. Belirsiz eşleşmeler varsa önce Excel dosyasını düzeltin.'
 ];
 
 const sutunHarfi = (n) => {
