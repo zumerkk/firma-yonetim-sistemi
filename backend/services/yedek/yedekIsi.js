@@ -37,9 +37,17 @@ async function veritabaniniYedekle({ klasorId, baslatan, gunluk, istemci = drive
   const arsiv = yeniArsiv();
   arsiv.on('warning', (u) => gunluk(`  ⚠️ arşiv uyarısı: ${u.message}`));
   // Yükleme ile yazma AYNI ANDA yürür: arşiv üretildikçe Drive'a akar, ara dosya yok.
-  const yuklemeSozu = istemci.dosyaYukle({ ad, mimeType: 'application/zip', akis: arsiv, klasorId });
+  //
+  // Hata yakalayıcı HEMEN bağlanır: yükleme (ör. kota/ağ hatası) arşiv daha yazılırken
+  // reddedilirse, sözün sahipsiz kalması Node 15+ ile SÜRECİ DÜŞÜRÜR. Gece işinin backend'i
+  // öldürmesi kabul edilemez; hatayı saklayıp arşiv bittikten sonra anlamlı biçimde fırlatıyoruz.
+  let yuklemeHatasi = null;
+  const yuklemeSozu = istemci
+    .dosyaYukle({ ad, mimeType: 'application/zip', akis: arsiv, klasorId })
+    .catch((hata) => { yuklemeHatasi = hata; return null; });
   const ustveri = await arsiveYaz(arsiv, { yedekAlan: baslatan, gunluk });
   const dosya = await yuklemeSozu;
+  if (yuklemeHatasi) throw yuklemeHatasi;
   return {
     dosyaAdi: ad,
     driveId: dosya?.id || '',
