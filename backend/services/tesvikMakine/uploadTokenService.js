@@ -28,13 +28,16 @@ function generateToken(belgeNo) {
   return prefix ? `${prefix}-${code}` : code;
 }
 
-// Token zaten istenen yeni/okunaklı biçimde mi?
-// Değilse (eski 43 karakterli token ya da güncel belge no öneki eksik) yenilenmeli.
-function isPreferredToken(token, belgeNo) {
-  if (!token) return false;
-  const prefix = sanitizeBelgeNo(belgeNo);
-  if (prefix) return new RegExp('^' + prefix + '-[A-Za-z0-9]{10}$').test(token);
-  return /^[A-Za-z0-9]{10}$/.test(token);
+// Elde geçerli bir token varsa KORUNUR — yenisi üretilmez.
+//
+// Müşteri (23.09.2026): "İçerikte bazı değişiklikler yapacağız … dosya takip sistemindeki
+// linklerin ve gelen evrakların kaybolmaması gerekiyor."
+// Eskiden token "okunaklı biçimde değilse" (belge no öneki tutmuyorsa) yenileniyordu.
+// Belge no revizede değişebildiği ve işlem türü adı düzenlenebildiği için bu, FİRMAYA
+// ÇOKTAN GİTMİŞ linkleri sessizce öldürüyordu: firma eski linkte "Bağlantı geçersiz" görüyordu.
+// Önek artık yalnız YENİ token üretirken okunaklılık için kullanılır.
+function korunmaliMi(token, expiresAt) {
+  return Boolean(token) && !isExpired(expiresAt);
 }
 
 // days verilmezse env'e, o da yoksa null'a (süresiz) düşer
@@ -75,6 +78,6 @@ function buildUploadLink(token, routePrefix = VARSAYILAN_ROUTE) {
 }
 
 module.exports = {
-  generateToken, isPreferredToken, sanitizeBelgeNo, computeExpiry, isExpired,
+  generateToken, korunmaliMi, sanitizeBelgeNo, computeExpiry, isExpired,
   buildUploadLink, VARSAYILAN_ROUTE
 };

@@ -123,12 +123,15 @@ describe('uploadTokenService - güvenlik', () => {
     expect(tokenSvc.generateToken('TES 2026/19')).toMatch(/^TES202619-[A-Za-z0-9]{10}$/);
   });
 
-  test('isPreferredToken: eski uzun token / önek eksik → yenilenmeli, yeni biçim → korunur', () => {
-    const eski = 'MsDYUfnn12bUdJxJDo_BmwpDqgi89E47JOknlUOJRQ0';
-    expect(tokenSvc.isPreferredToken(eski, '568825')).toBe(false); // eski → yenile
-    expect(tokenSvc.isPreferredToken('568825-L7tl3LF1cx', '568825')).toBe(true); // doğru biçim → koru
-    expect(tokenSvc.isPreferredToken('zqzhVWyaGu', '568825')).toBe(false); // önek eksik → yenile
-    expect(tokenSvc.isPreferredToken('zqzhVWyaGu', '')).toBe(true); // belge no yok → kod-only koru
+  // Müşteri (23.09.2026): "linklerin ve gelen evrakların kaybolmaması gerekiyor."
+  test('korunmaliMi: süresi dolmamış her token korunur — biçimi ne olursa olsun', () => {
+    const eski = 'MsDYUfnn12bUdJxJDo_BmwpDqgi89E47JOknlUOJRQ0'; // eski 43 karakterli token
+    expect(tokenSvc.korunmaliMi(eski, null)).toBe(true);           // süresiz → yaşamalı
+    expect(tokenSvc.korunmaliMi('568825-L7tl3LF1cx', null)).toBe(true);
+    expect(tokenSvc.korunmaliMi('zqzhVWyaGu', null)).toBe(true);   // önek yok ama geçerli
+    expect(tokenSvc.korunmaliMi('', null)).toBe(false);            // token yok → üret
+    expect(tokenSvc.korunmaliMi('abc', new Date(Date.now() - 1000))).toBe(false); // süresi dolmuş
+    expect(tokenSvc.korunmaliMi('abc', new Date(Date.now() + 60000))).toBe(true);
   });
 
   test('computeExpiry: 0/boş → süresiz (null), pozitif → ileri tarih', () => {

@@ -26,7 +26,7 @@ async function ensureTopluYuklemeLinki(processes, { user = null, days } = {}) {
 
   const anahtar = kapsamAnahtari(liste);
   const mevcut = await TopluYuklemeBaglantisi.findOne({ kapsamAnahtari: anahtar }).sort({ createdAt: -1 });
-  if (mevcut && !tokenService.isExpired(mevcut.expiresAt) && tokenService.isPreferredToken(mevcut.token, ilk.documentNo)) {
+  if (mevcut && tokenService.korunmaliMi(mevcut.token, mevcut.expiresAt)) {
     return { token: mevcut.token, link: tokenService.buildUploadLink(mevcut.token) };
   }
 

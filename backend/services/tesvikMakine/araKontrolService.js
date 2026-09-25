@@ -45,8 +45,7 @@ async function ensureBelgeUploadLink(tesvikModel, tesvikId, { days } = {}) {
   if (!doc) { const e = new Error('Teşvik belgesi bulunamadı.'); e.code = 'CERT_NOT_FOUND'; throw e; }
   const belgeNo = doc.belgeYonetimi?.belgeNo || '';
   const mevcut = doc.araKontrol?.uploadToken || '';
-  const gecerli = mevcut && !tokenService.isExpired(doc.araKontrol?.uploadTokenExpiresAt);
-  if (gecerli && tokenService.isPreferredToken(mevcut, belgeNo)) {
+  if (tokenService.korunmaliMi(mevcut, doc.araKontrol?.uploadTokenExpiresAt)) {
     return tokenService.buildUploadLink(mevcut);
   }
   const token = tokenService.generateToken(belgeNo);

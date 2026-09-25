@@ -43,8 +43,8 @@ const PUBLIC_ROUTE = '/evrak';
 
 async function ensureUploadLink(talep, { days } = {}) {
   const onek = storageService.normalizeSegment(talep.islemTuruAdi || 'islem').slice(0, 12);
-  const gecerli = talep.uploadToken && !tokenService.isExpired(talep.uploadTokenExpiresAt);
-  if (gecerli && tokenService.isPreferredToken(talep.uploadToken, onek)) {
+  // Geçerli token aynen kullanılır: işlem türü adı sonradan düzenlense de gitmiş link yaşamalı.
+  if (tokenService.korunmaliMi(talep.uploadToken, talep.uploadTokenExpiresAt)) {
     return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
   }
   talep.uploadToken = tokenService.generateToken(onek);
@@ -52,6 +52,14 @@ async function ensureUploadLink(talep, { days } = {}) {
   await talep.save();
   return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
 }
+
+// Evrak adı karşılaştırma anahtarı: büyük/küçük harf, boşluk ve noktalama farkını yok sayar
+// ("İmza Sirküleri" ≡ "imza sirkuleri"). Varyant/şablon değişiminde aynı evrakı tanımak için.
+const evrakAnahtari = (ad) => String(ad || '')
+  .toLocaleUpperCase('tr-TR')
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/[^A-Z0-9]/g, '');
 
 // 🔎 Public yükleme: token → talep
 async function resolveByToken(token) {
@@ -531,6 +539,7 @@ module.exports = {
   topluZipYaz,
   zipDosyaIcerigi,
   ensureUploadLink,
+  evrakAnahtari,
   resolveByToken,
   mailOlustur,
   formLinkiUret,

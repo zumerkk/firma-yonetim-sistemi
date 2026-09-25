@@ -278,11 +278,23 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
   talep.varyantAd = sablon.ad || '';
   // Varyant değişince liste yeniden kurulur; talepteki cevaplarla AYNI süzgeçten geçer,
   // yoksa sihirbazda elenen 55 kalem varyant değiştirir değiştirmez geri gelirdi.
-  talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => ({
-    ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
-    ornekDosya: e.ornekDosya || undefined,
-    isteyenKullanici: req.user?._id, isteyenAdi: req.user?.adSoyad || '', istenmeTarihi: new Date()
-  }));
+  //
+  // Müşteri (23.09.2026): "gelen evrakların kaybolmaması gerekiyor."
+  // Aynı adla devam eden satırın KİMLİĞİ korunur: firmanın yüklediği dosyalar
+  // `yuklenenEvraklar[].istenenEvrakId` ile bu kimliğe bağlı — yeni kimlik üretilirse
+  // gelen evrak eşleşmesini kaybediyor ve satır "gelmedi" görünüyordu.
+  const oncekiler = new Map((talep.istenenEvraklar || []).map((e) => [svc.evrakAnahtari(e.ad), e]));
+  talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => {
+    const onceki = oncekiler.get(svc.evrakAnahtari(e.ad));
+    return {
+      ...(onceki ? { _id: onceki._id, geldiMi: onceki.geldiMi, gelisTarihi: onceki.gelisTarihi } : {}),
+      ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
+      ornekDosya: e.ornekDosya || undefined,
+      isteyenKullanici: onceki?.isteyenKullanici || req.user?._id,
+      isteyenAdi: onceki?.isteyenAdi || req.user?.adSoyad || '',
+      istenmeTarihi: onceki?.istenmeTarihi || new Date()
+    };
+  });
   talep.durumTazele();
   await talep.save();
   res.json({ success: true, data: talep, message: `${sablon.ad || 'Varsayılan'} şablonu uygulandı` });
