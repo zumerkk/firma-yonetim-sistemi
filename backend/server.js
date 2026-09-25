@@ -390,6 +390,35 @@ const setupCronJobs = () => {
     }
   });
 
+  // 🌙 Otomatik yedek — her gece 03:30'da veritabanı + evraklar Google Drive'a
+  //    (müşteri 25.09.2026: "verilerimizin yedeklenmesi ile ilgili nasıl tedbir alabiliriz")
+  //    Yapılandırılmamışsa çalışmaz; kurulum için docs/yedekleme.md
+  // Yapılandırılmamış yedek SESSİZ kalmasın: açılışta bir kez yüksek sesle söyle.
+  // (Depolama bayrağı olayının aynısı: kimse fark etmeden aylarca yedeksiz kalınabiliyor.)
+  {
+    const driveIstemcisi = require('./services/yedek/driveIstemcisi');
+    if (!driveIstemcisi.yapilandirildiMi() && process.env.NODE_ENV === 'production') {
+      console.warn('\n⚠️  OTOMATİK YEDEK KAPALI — gece yedeği çalışmayacak.');
+      console.warn('   Eksik: ' + [
+        !process.env.YEDEK_DRIVE_KLASOR_ID && 'YEDEK_DRIVE_KLASOR_ID',
+        !(process.env.GOOGLE_OAUTH_REFRESH_TOKEN || process.env.GOOGLE_SERVICE_ACCOUNT_JSON) && 'GOOGLE_OAUTH_* ya da GOOGLE_SERVICE_ACCOUNT_JSON'
+      ].filter(Boolean).join(', '));
+      console.warn('   Kurulum: docs/yedekleme.md\n');
+    } else if (driveIstemcisi.yapilandirildiMi()) {
+      console.log(`🌙 Otomatik yedek AÇIK (${driveIstemcisi.kimlikYolu()}) — her gece 03:30, Drive'a`);
+    }
+  }
+
+  cron.schedule('30 3 * * *', async () => {
+    const driveIstemcisi = require('./services/yedek/driveIstemcisi');
+    if (!driveIstemcisi.yapilandirildiMi()) return;
+    try {
+      await require('./services/yedek/yedekIsi').calistir({ tur: 'otomatik' });
+    } catch (error) {
+      console.error('🚨 Otomatik yedek hatası:', error.message);
+    }
+  }, { timezone: 'Europe/Istanbul' });
+
   // ⏰ Teşvik Makine Hatırlatma Cron - Her gün 08:00'de vadesi gelmiş hatırlatmaları işler
   //    (7 gün cevap/durum/dosya yoksa tedarikçi/müşteriye hatırlatma maili gönderir)
   cron.schedule('0 8 * * *', async () => {

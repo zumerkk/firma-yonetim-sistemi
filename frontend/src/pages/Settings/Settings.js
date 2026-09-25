@@ -62,6 +62,7 @@ const Settings = () => {
   // 💾 Backup State
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupInfo, setBackupInfo] = useState(null);
+  const [yedekDurumu, setYedekDurumu] = useState(null);
   const [backupProgress, setBackupProgress] = useState(0);
   
   const [settings, setSettings] = useState({
@@ -121,6 +122,17 @@ const Settings = () => {
       setInitialLoading(false);
     }
   }, [showSnackbar]);
+
+  // 🌙 Otomatik (gece) yedeğin durumu
+  // Sessizce durmuş bir yedek, hiç yedek olmamasından beterdir: kimse fark etmez.
+  const yedekDurumunuYukle = useCallback(async () => {
+    try {
+      const y = await api.get('/backup/durum');
+      if (y.data.success) setYedekDurumu(y.data.data);
+    } catch (error) {
+      console.log('Yedek durumu okunamadı (admin değilse normal):', error.message);
+    }
+  }, []);
 
   // 💾 Backup info yükle
   const loadBackupInfo = useCallback(async () => {
@@ -208,7 +220,8 @@ const Settings = () => {
   useEffect(() => {
     loadSettings();
     loadBackupInfo();
-  }, [loadSettings, loadBackupInfo]);
+    yedekDurumunuYukle();
+  }, [loadSettings, loadBackupInfo, yedekDurumunuYukle]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -529,21 +542,6 @@ const Settings = () => {
                       />
                     </Grid>
                     
-                    <Grid item xs={12} sm={6}>
-                      <FormControl fullWidth>
-                        <InputLabel>Yedekleme Sıklığı</InputLabel>
-                        <Select
-                          value={settings.data.backupFrequency}
-                          label="Yedekleme Sıklığı"
-                          onChange={(e) => handleSettingChange('data', 'backupFrequency', e.target.value)}
-                          disabled={loading}
-                        >
-                          <MenuItem value="daily">Günlük</MenuItem>
-                          <MenuItem value="weekly">Haftalık</MenuItem>
-                          <MenuItem value="monthly">Aylık</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </Grid>
                     
                     <Grid item xs={12} sm={6}>
                       <TextField
@@ -792,6 +790,25 @@ const Settings = () => {
                   <Typography variant="caption" sx={{ display: 'block', mt: 2, color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>
                     Firmalar • Eski Teşvik Belgeleri • Yeni Teşvik Belgeleri • Makine Listeleri • Dosya Takip • Tüm Referans Tabloları
                   </Typography>
+
+                  {/* 🌙 Gece yedeğinin durumu — yedek sessizce durursa burada görünür */}
+                  {yedekDurumu && (
+                    <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid rgba(255,255,255,0.12)' }}>
+                      {!yedekDurumu.yapilandirildi ? (
+                        <Typography variant="caption" sx={{ display: 'block', color: '#fbbf24', textAlign: 'center' }}>
+                          ⚠️ Otomatik gece yedeği kapalı — kurulum için docs/yedekleme.md
+                        </Typography>
+                      ) : (
+                        <Typography variant="caption" sx={{ display: 'block', color: 'rgba(255,255,255,0.65)', textAlign: 'center' }}>
+                          🌙 Otomatik yedek açık ·{' '}
+                          {yedekDurumu.sonBasariliTarih
+                            ? `son başarılı: ${new Date(yedekDurumu.sonBasariliTarih).toLocaleString('tr-TR')}`
+                            : 'henüz çalışmadı'}
+                          {yedekDurumu.yedekliEvrakSayisi ? ` · ${yedekDurumu.yedekliEvrakSayisi} evrak kopyalandı` : ''}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
                 </CardContent>
               </Card>
             </Grid>
