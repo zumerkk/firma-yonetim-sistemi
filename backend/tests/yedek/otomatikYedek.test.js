@@ -193,6 +193,20 @@ describe('saklama ve çalışma kaydı', () => {
     expect(kayit.bitti).toBeTruthy();
   });
 
+  test('yükleme arşiv yazılırken patlarsa süreç düşmez, gerçek hata yüzeye çıkar', async () => {
+    // Node 15+ ile sahipsiz reddedilen söz süreci öldürür: gece işi backend'i düşürmemeli.
+    const sahipsiz = [];
+    const dinleyici = (e) => sahipsiz.push(e);
+    process.on('unhandledRejection', dinleyici);
+    try {
+      const istemci = { ...sahteDrive(), dosyaYukle: async () => { throw new Error('Drive 403: kota'); } };
+      await expect(yedekIsi.veritabaniniYedekle({ klasorId: 'vt', baslatan: 'T', gunluk: sessiz, istemci }))
+        .rejects.toThrow('Drive 403: kota');
+      await new Promise((r) => setImmediate(r));
+      expect(sahipsiz).toHaveLength(0);
+    } finally { process.removeListener('unhandledRejection', dinleyici); }
+  });
+
   test('yapılandırılmamışsa anlaşılır hata verir', async () => {
     const istemci = sahteDrive({ yapilandirildi: false });
     await expect(yedekIsi.calistir({ istemci, gunluk: sessiz })).rejects.toThrow(/yapılandırılmamış/i);
