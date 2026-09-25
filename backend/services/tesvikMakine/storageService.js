@@ -34,8 +34,13 @@ const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 const parcaliDosya = require('../../utils/parcaliDosya');
 
 function isCloudinaryConfigured() {
+  // Bayrak AYARLI DEĞİLSE: üretimde kimlik bilgileri tamsa bulut varsayılandır.
+  // 8 Eylül 2026'da bayrak yokken evraklar sessizce Render'ın UÇUCU diskine yazılmış ve her
+  // yeniden başlatmada silinmişti (canlıda 7 makine evrakı + 1 KDV yazısı bu şekilde kayıp).
+  // Yerelde varsayılan hâlâ diskte kalmak; bayrağı açıkça 'false' yapmak bulutu yine kapatır.
+  const varsayilan = process.env.NODE_ENV === 'production';
   return Boolean(
-    envBool(process.env.CLOUDINARY_STORAGE_ENABLED, false) &&
+    envBool(process.env.CLOUDINARY_STORAGE_ENABLED, varsayilan) &&
     process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_API_KEY &&
     process.env.CLOUDINARY_API_SECRET

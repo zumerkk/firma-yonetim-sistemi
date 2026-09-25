@@ -43,8 +43,8 @@ const PUBLIC_ROUTE = '/evrak';
 
 async function ensureUploadLink(talep, { days } = {}) {
   const onek = storageService.normalizeSegment(talep.islemTuruAdi || 'islem').slice(0, 12);
-  const gecerli = talep.uploadToken && !tokenService.isExpired(talep.uploadTokenExpiresAt);
-  if (gecerli && tokenService.isPreferredToken(talep.uploadToken, onek)) {
+  // Geçerli token aynen kullanılır: işlem türü adı sonradan düzenlense de gitmiş link yaşamalı.
+  if (tokenService.korunmaliMi(talep.uploadToken, talep.uploadTokenExpiresAt)) {
     return tokenService.buildUploadLink(talep.uploadToken, PUBLIC_ROUTE);
   }
   talep.uploadToken = tokenService.generateToken(onek);

@@ -591,10 +591,8 @@ async function ensureUploadLink(proc, { days, user } = {}) {
     belgeNo = doc?.belgeYonetimi?.belgeNo || '';
   } catch (_) { /* belge no alınamazsa sadece kısa kod kullanılır */ }
 
-  // Geçerli + zaten istenen biçimdeyse aynen kullan; değilse (eski uzun token ya da
-  // belge no öneki eksikse) okunaklı yeni biçime YÜKSELT.
-  const gecerli = proc.uploadToken && !tokenService.isExpired(proc.uploadTokenExpiresAt);
-  if (gecerli && tokenService.isPreferredToken(proc.uploadToken, belgeNo)) {
+  // Geçerli token aynen kullanılır: belge no revizede değişse bile firmaya gitmiş link yaşamalı.
+  if (tokenService.korunmaliMi(proc.uploadToken, proc.uploadTokenExpiresAt)) {
     return tokenService.buildUploadLink(proc.uploadToken);
   }
 

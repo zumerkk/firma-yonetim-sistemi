@@ -5195,8 +5195,16 @@ module.exports = {
       const nz = (v) => Number.isFinite(Number(v)) ? Number(v) : 0;
       const str = (v) => (v ?? '').toString();
 
+      // 🔗 Satır kimliğini koru: rowId'siz gelen satır, aynı MAKİNE ID'li eski satırın kimliğini alır.
+      // Yoksa (Excel'den yeniden içe aktarma, düzeltilmiş liste) Ekipman Takip süreci — yüklenen
+      // evraklar, mail geçmişi, hatırlatmalar — yetim kalıyor. Müşteri (23.09.2026): "geriye dönük
+      // veri kaybı yaşamayalım."
+      const { rowIdleriKoru } = require('../utils/rowIdKoru');
+      const yerliGelen = rowIdleriKoru(yerli, tesvik.makineListeleri?.yerli).satirlar;
+      const ithalGelen = rowIdleriKoru(ithal, tesvik.makineListeleri?.ithal).satirlar;
+
       // Map Yerli
-      const yerliMapped = (Array.isArray(yerli) ? yerli : []).map((r, idx) => ({
+      const yerliMapped = yerliGelen.map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
         makineId: str(r.makineId || ''),
@@ -5235,7 +5243,7 @@ module.exports = {
       }));
 
       // Map İthal
-      const ithalMapped = (Array.isArray(ithal) ? ithal : []).map((r, idx) => ({
+      const ithalMapped = ithalGelen.map((r, idx) => ({
         rowId: str(r.rowId) || undefined,
         siraNo: Number.isFinite(Number(r.siraNo)) ? Number(r.siraNo) : (idx + 1),
         makineId: str(r.makineId || ''),
@@ -5388,8 +5396,11 @@ module.exports = {
           karar: r.karar ? { kararDurumu: r.karar.kararDurumu, onaylananAdet: nz(r.karar.onaylananAdet), kararTarihi: r.karar.kararTarihi ? new Date(r.karar.kararTarihi) : undefined } : undefined
         }));
 
-        const yerliMapped = Array.isArray(yerli) ? mapYerli(yerli) : undefined;
-        const ithalMapped = Array.isArray(ithal) ? mapIthal(ithal) : undefined;
+        // Revize finalinde de satır kimliği korunur (bkz. utils/rowIdKoru)
+        const { rowIdleriKoru } = require('../utils/rowIdKoru');
+        const mevcutListeler = await Tesvik.findById(id).select('makineListeleri').lean();
+        const yerliMapped = Array.isArray(yerli) ? mapYerli(rowIdleriKoru(yerli, mevcutListeler?.makineListeleri?.yerli).satirlar) : undefined;
+        const ithalMapped = Array.isArray(ithal) ? mapIthal(rowIdleriKoru(ithal, mevcutListeler?.makineListeleri?.ithal).satirlar) : undefined;
 
         // TEK atomic op: save + snapshot push
         const snapshot = {
