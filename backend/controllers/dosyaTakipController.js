@@ -166,6 +166,59 @@ exports.getDashboardIstatistikleri = async (req, res) => {
 // ============================================================================
 // 📋 TÜM TALEPLERİ LİSTELE
 // ============================================================================
+/**
+ * 🏠 Kişisel özet — "benim işlerim"
+ * GET /api/dosya-takip/benim
+ *
+ * Müşteri (29.09.2026): "Dashboard'ı personelin kendine özel arayüzü haline getirmeyi düşünüyoruz;
+ * dashboarda/ana sayfaya girince, mevcut kendi açtığı talepler, belgelerden mail geldiyse mailler
+ * vs tarzı bir arayüz."
+ *
+ * Üç liste döner: takibi bende olan açık talepler, benim açtığım açık talepler ve bana ait
+ * taleplere firmadan GELEN son dosyalar. Sayfanın yükünü artırmamak için hepsi kısa tutulur.
+ */
+exports.benimIslerim = async (req, res) => {
+    try {
+        const kullaniciId = req.user._id;
+        const KAPALI = DosyaTakip.DURUM_KODLARI
+            ? DosyaTakip.DURUM_KODLARI.filter((d) => d.startsWith('2.3') && d !== '2.3.2_SONUC_BEKLETILECEK')
+            : [];
+        const acikSuzgec = { aktif: { $ne: false }, durum: { $nin: KAPALI } };
+        const alanlar = 'takipId firmaUnvan talepTuru ytbNo durum durumRengi anaAsama createdAt updatedAt';
+
+        const [takibimde, actiklarim, sonYuklemeler] = await Promise.all([
+            DosyaTakip.find({ ...acikSuzgec, 'muraacatSonrasi.takibiYapanPersonel': kullaniciId })
+                .select(alanlar).sort({ updatedAt: -1 }).limit(10).lean(),
+            DosyaTakip.find({ ...acikSuzgec, olusturanKullanici: kullaniciId })
+                .select(alanlar).sort({ createdAt: -1 }).limit(10).lean(),
+            // Firmadan gelen dosyalar: bana ait taleplerde, en yeni 10 tanesi
+            DosyaTakip.aggregate([
+                { $match: { $or: [
+                    { 'muraacatSonrasi.takibiYapanPersonel': kullaniciId },
+                    { olusturanKullanici: kullaniciId }
+                ] } },
+                { $unwind: '$dosyalar' },
+                { $match: { 'dosyalar.firmaYukledi': true } },
+                { $sort: { 'dosyalar.yuklemeTarihi': -1 } },
+                { $limit: 10 },
+                { $project: {
+                    _id: 1, takipId: 1, firmaUnvan: 1, ytbNo: 1,
+                    dosyaAdi: '$dosyalar.dosyaAdi', tarih: '$dosyalar.yuklemeTarihi',
+                    yukleyenAdi: '$dosyalar.yukleyenAdi'
+                } }
+            ])
+        ]);
+
+        res.json({
+            success: true,
+            data: { takibimde, actiklarim, sonYuklemeler }
+        });
+    } catch (error) {
+        console.error('🚨 benimIslerim hatası:', error);
+        res.status(500).json({ success: false, message: 'Kişisel özet alınamadı' });
+    }
+};
+
 exports.getTumTalepler = async (req, res) => {
     try {
         const {

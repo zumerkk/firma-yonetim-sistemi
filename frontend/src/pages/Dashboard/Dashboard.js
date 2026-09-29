@@ -31,7 +31,7 @@ import activityService from '../../services/activityService';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import SmartUpload from '../../components/Dashboard/SmartUpload';
-import ScreenshotImport from '../../components/Dashboard/ScreenshotImport';
+import BenimIslerim from '../../components/Dashboard/BenimIslerim';
 import {
   renk, yazi, aralik,
   Panel, SayiKutusu, VeriTablosu, DurumRozeti
@@ -323,7 +323,12 @@ const Dashboard = () => {
       {loading && <LinearProgress sx={{ mb: 1, height: 2 }} />}
 
       <SmartUpload />
-      <ScreenshotImport />
+
+      {/* 🏠 Kişisel özet — müşteri (29.09.2026): "dashboarda/ana sayfaya girince, mevcut kendi açtığı
+          talepler, belgelerden mail geldiyse mailler vs tarzı bir arayüz düşünüyoruz."
+          "Ekran görüntüsünden belge oluştur kısmını da sol taraftaki akıllı excel yüklemenin içine
+          alabiliriz zaten bir tek ben kullanıyorum" → o modül /import sayfasına taşındı. */}
+      <BenimIslerim />
 
       {/* Kritik durumlar — gradyanlı kart yerine kırmızı kenarlı panel */}
       {criticalAlerts.length > 0 && (

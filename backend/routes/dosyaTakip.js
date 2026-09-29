@@ -25,6 +25,8 @@ router.get('/oneriler', dosyaTakipController.getOneriler);
 router.delete('/oneriler', dosyaTakipController.oneriSil);
 
 // 📋 Tüm Talepleri Listele (sayfalı + filtreleme)
+// 🏠 Kişisel özet (Dashboard) — kendi taleplerim ve firmadan gelenler
+router.get('/benim', dosyaTakipController.benimIslerim);
 router.get('/', dosyaTakipController.getTumTalepler);
 
 // 📎 Bir teşvik belgesinin Belge Takip işlemleri + belgeleri (teşvik görüntüleme → Evrak Listesi)
