@@ -9,6 +9,7 @@ import {
   CircularProgress, Divider
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import UploadProgress from '../../components/common/UploadProgress';
@@ -61,6 +62,23 @@ const IslemEvrakPublicUpload = () => {
     } finally {
       setYukleniyor(false);
       setYukleme(null);
+    }
+  };
+
+  // Maildeki ek ile aynı dosya: tarayıcıda indir
+  const ornekIndir = async (evrak) => {
+    try {
+      const yanit = await svc.publicOrnekIndir(token, evrak.id);
+      const adres = URL.createObjectURL(new Blob([yanit.data]));
+      const bag = document.createElement('a');
+      bag.href = adres;
+      bag.download = evrak.ornekDosyaAdi || `${evrak.ad}.pdf`;
+      document.body.appendChild(bag);
+      bag.click();
+      bag.remove();
+      URL.revokeObjectURL(adres);
+    } catch (_) {
+      setHata('Örnek dosya indirilemedi. Lütfen yetkiliyle iletişime geçin.');
     }
   };
 
@@ -125,6 +143,15 @@ const IslemEvrakPublicUpload = () => {
                   {e.yuklenememeNedeni && <Typography variant="body2" sx={{ mt: 0.5 }}>Yüklenememe nedeni: {e.yuklenememeNedeni}</Typography>}
                 </Box>
                 {e.geldiMi && <Chip label={e.yuklenememeNedeni ? 'Neden bildirildi' : 'Yüklendi'} size="small" color="success" />}
+                {/* Müşteri (29.09.2026): "Bu belge yükleme linkinde mailde gönderdiğimiz ekleri de
+                    gösterme/gönderme şansımız var mı? Bazen mail gönderilmiyor, linki whatsapptan
+                    yolluyoruz." — maile eklenen örnek dosya burada da indirilebilir. */}
+                {e.ornekDosyaVar && (
+                  <Button size="small" startIcon={<DownloadIcon />} disabled={yukleniyor}
+                    onClick={() => ornekIndir(e)}>
+                    Örnek indir
+                  </Button>
+                )}
                 <Button component="label" variant="contained" size="small" startIcon={<CloudUploadIcon />} disabled={yukleniyor}
                   onClick={() => setSeciliEvrak(e.id)}>
                   Dosya yükle

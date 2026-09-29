@@ -75,6 +75,7 @@ router.delete('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, ctrl.
 router.post('/process', editor, ctrl.ensureProcess);
 router.get('/process/:id', ctrl.getProcess);
 router.patch('/process/:id/fields', editor, ctrl.updateProcessFields);
+router.patch('/process/:id/faturalar', editor, ctrl.updateProcessFaturalar);
 router.patch('/process/:id/status', editor, ctrl.updateProcessStatus);
 router.post('/process/:id/barcode', editor, ctrl.setBarcode);
 router.post('/process/:id/mail/preview', editor, ctrl.previewMail);

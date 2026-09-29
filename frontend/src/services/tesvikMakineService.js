@@ -24,6 +24,8 @@ const tesvikMakineService = {
   ensureProcess: (body) => api.post(`${base}/process`, body).then(d),
   getProcess: (id) => api.get(`${base}/process/${id}`).then(d),
   updateFields: (id, body) => api.patch(`${base}/process/${id}/fields`, body).then(d),
+  // Çoklu fatura kalemi — toplamlar makine ana listesine yansır
+  faturalariKaydet: (id, faturalar) => api.patch(`${base}/process/${id}/faturalar`, { faturalar }).then(d),
   updateStatus: (id, body) => api.patch(`${base}/process/${id}/status`, body).then((r) => r.data),
   setBarcode: (id, body) => api.post(`${base}/process/${id}/barcode`, body).then(d),
   previewMail: (id, body) => api.post(`${base}/process/${id}/mail/preview`, body).then(d),

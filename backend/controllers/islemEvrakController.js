@@ -465,7 +465,8 @@ exports.publicBilgi = async (req, res) => {
         // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
         istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
           id: e._id, ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, geldiMi: e.geldiMi, yuklenememeNedeni: e.yuklenememeNedeni || '',
-          ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath))
+          ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath)),
+          ornekDosyaAdi: (e.ornekDosya && e.ornekDosya.dosyaAdi) || ''
         })),
         maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
       }
@@ -473,6 +474,40 @@ exports.publicBilgi = async (req, res) => {
   } catch (err) {
     console.error('🚨 [islemEvrak] publicBilgi:', err && err.message);
     res.status(500).json({ success: false, message: 'Bilgi alınamadı.' });
+  }
+};
+
+/**
+ * 📎 Firmaya gönderdiğimiz örnek/şablon dosyayı yükleme sayfasından indir (token ile, AUTH YOK)
+ * GET /api/islem-evrak/public/:token/ornek/:evrakId
+ *
+ * Müşteri (29.09.2026): "Bu belge yükleme linkinde mailde gönderdiğimiz ekleri de gösterme/gönderme
+ * şansımız var mı acaba? Bazen mail gönderilmiyor yükleme linkini whatsapptan vs. yolluyoruz da o
+ * linkte kompakt olarak ekler de görünse çok iyi olur."
+ * Maile eklenen dosyalar zaten istenen evrak satırlarındaki örnek dosyalardır; aynı dosya burada da
+ * verilir. Mailde İSTENMEYEN (zorunlu=false) satırın örneği paylaşılmaz — mail eki kuralıyla aynı.
+ */
+exports.publicOrnekIndir = async (req, res) => {
+  try {
+    const sonuc = await svc.resolveByToken(req.params.token);
+    if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
+    if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş.' });
+
+    const evrak = sonuc.talep.istenenEvraklar.id(req.params.evrakId);
+    if (!evrak || evrak.zorunlu === false) {
+      return res.status(404).json({ success: false, message: 'Örnek dosya bulunamadı.' });
+    }
+    const ornek = evrak.ornekDosya;
+    if (!ornek || !(ornek.fileUrl || ornek.filePath)) {
+      return res.status(404).json({ success: false, message: 'Bu evrak için örnek dosya yok.' });
+    }
+    return storageService.serveFile({
+      fileUrl: ornek.fileUrl, filePath: ornek.filePath,
+      originalName: ornek.dosyaAdi, fileName: ornek.dosyaAdi
+    }, res);
+  } catch (err) {
+    console.error('🚨 [islemEvrak] publicOrnekIndir:', err && err.message);
+    res.status(500).json({ success: false, message: 'Örnek dosya indirilemedi.' });
   }
 };
 
