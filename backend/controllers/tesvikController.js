@@ -213,18 +213,9 @@ const createTesvik = async (req, res) => {
       }
     });
 
-    // Bildirim oluştur
-    await Notification.createNotification({
-      title: 'Yeni Teşvik Oluşturuldu',
-      message: `${tesvik.tesvikId} numaralı teşvik başarıyla oluşturuldu`,
-      type: 'success',
-      category: 'tesvik',
-      userId: req.user._id,
-      relatedEntity: {
-        entityType: 'tesvik',
-        entityId: tesvik._id
-      }
-    });
+    // Bildirim KALDIRILDI (müşteri, 29.09.2026): "yeni teşvik oluşturuldu - teşvik durum
+    // güncellendi vs tarzda bildirimleri kapatabiliriz herkesten." Kullanıcı zaten işlemi
+    // kendi yapıyor; kendi eylemini haber veren bildirim zil sesini değersizleştiriyordu.
     // Populate işlemi
     await tesvik.populate('firma', 'tamUnvan firmaId vergiNoTC');
     await tesvik.populate('olusturanKullanici', 'adSoyad email');
@@ -293,9 +284,15 @@ const getTesvikler = async (req, res) => {
       ];
     }
 
-    // Sort object
+    // Sıralanabilir alanlar — istekten gelen anahtar doğrudan Mongo sort'una konmaz.
+    // Müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını, tarihe göre
+    // sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" → artan sıra = en yakın tarih üstte.
+    const SIRALANABILIR = new Set([
+      'createdAt', 'updatedAt', 'tesvikId', 'yatirimciUnvan',
+      'belgeYonetimi.belgeTarihi', 'belgeYonetimi.belgeBitisTarihi', 'belgeYonetimi.uzatimTarihi'
+    ]);
     const sortObj = {};
-    sortObj[siraBy] = siraSekli === 'desc' ? -1 : 1;
+    sortObj[SIRALANABILIR.has(siraBy) ? siraBy : 'createdAt'] = siraSekli === 'desc' ? -1 : 1;
 
     const skip = (parseInt(sayfa) - 1) * parseInt(limit);
 
@@ -1051,18 +1048,9 @@ const updateTesvikDurum = async (req, res) => {
       }
     });
 
-    // Bildirim oluştur
-    await Notification.createNotification({
-      title: 'Teşvik Durum Güncellendi',
-      message: `${tesvik.tesvikId} durumu: ${yeniDurum}`,
-      type: yeniDurum === 'onaylandi' ? 'success' : yeniDurum === 'reddedildi' ? 'error' : 'info',
-      category: 'tesvik',
-      userId: req.user._id,
-      relatedEntity: {
-        entityType: 'tesvik',
-        entityId: tesvik._id
-      }
-    });
+    // Bildirim KALDIRILDI (müşteri, 29.09.2026): "yeni teşvik oluşturuldu - teşvik durum
+    // güncellendi vs tarzda bildirimleri kapatabiliriz herkesten." Kullanıcı zaten işlemi
+    // kendi yapıyor; kendi eylemini haber veren bildirim zil sesini değersizleştiriyordu.
 
     res.json({
       success: true,

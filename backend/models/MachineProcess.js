@@ -49,11 +49,28 @@ const machineProcessSchema = new mongoose.Schema({
   autoSendEnabled: { type: Boolean, default: false }, // Kod girilince otomatik mail gönder
   dueDate: { type: Date }, // Beklenen dönüş / son tarih
 
-  // 🧾 Fatura gerçekleşme bilgileri (müşteri talebi #4 — Yerli Liste'de düzenlenebilir)
-  invoiceRealizedValue: { type: Number, default: 0 }, // Fatura gerçekleşen değer
-  invoiceRealizedQty: { type: Number, default: 0 },   // Fatura gerçekleşen adet
-  invoiceNo: { type: String, trim: true, default: '' }, // Fatura no
-  invoiceDate: { type: Date },                          // Fatura tarihi
+  // 🧾 Fatura kalemleri (müşteri, 29.09.2026): "her fatura için 'Fatura Tarih - Fatura No -
+  // Kalem Tutarı' alt kısma birden fazla kalem veya fatura girilebilecek şekilde giriş satırları
+  // açılacak (manuel satır ekleme çıkarma yapabilelim), oraya girilen veriler makine ana listesinde
+  // toplam miktar ve toplam tutar kısmına yansısın."
+  // Aşağıdaki invoice* alanları artık bu kalemlerin TOPLAMIDIR (faturaToplamlariniHesapla).
+  // Tek kalemli eski kayıtlar bozulmasın diye alanlar duruyor: ihracat, ızgara ve ana liste
+  // senkronu hep onları okur.
+  faturalar: {
+    type: [new mongoose.Schema({
+      tarih: { type: Date },
+      no: { type: String, trim: true, default: '', maxlength: 100 },
+      tutar: { type: Number, default: 0 },
+      adet: { type: Number, default: 0 }
+    }, { _id: true })],
+    default: []
+  },
+
+  // 🧾 Fatura gerçekleşme TOPLAMLARI (müşteri talebi #4 — Yerli Liste'de düzenlenebilir)
+  invoiceRealizedValue: { type: Number, default: 0 }, // Fatura gerçekleşen değer (kalemlerin toplamı)
+  invoiceRealizedQty: { type: Number, default: 0 },   // Fatura gerçekleşen adet (kalemlerin toplamı)
+  invoiceNo: { type: String, trim: true, default: '' }, // Fatura no (tek kalemse onun no'su)
+  invoiceDate: { type: Date },                          // Fatura tarihi (en erken kalem)
 
   // 🚦 Süreç durumu
   status: { type: String, enum: STATUS_VALUES, default: MACHINE_STATUS.NOT_STARTED, index: true },

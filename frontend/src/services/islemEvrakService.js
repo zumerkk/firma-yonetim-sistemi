@@ -44,6 +44,9 @@ const islemEvrakService = {
   // Public (token — auth gerektirmez)
   publicNedenKaydet: (token, body) => api.post(`${base}/public/${token}/neden`, body).then(r => r.data),
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
+  // Maile eklediğimiz örnek/şablon dosya — firma yükleme sayfasından da indirebilsin
+  publicOrnekIndir: (token, evrakId) =>
+    api.get(`${base}/public/${token}/ornek/${evrakId}`, { responseType: 'blob' }),
   publicYukle: (token, formData, onProgress) =>
     uploadPost(`${base}/public/${token}`, formData, { onProgress }).then((r) => r.data)
 };

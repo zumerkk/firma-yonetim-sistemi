@@ -383,6 +383,29 @@ exports.getProcess = wrap(async (req, res) => {
   res.json({ success: true, data: { process: proc, statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder } });
 });
 
+/**
+ * 🧾 Fatura kalemlerini kaydet
+ * PATCH /api/tesvik-makine/process/:id/faturalar   body: { faturalar: [{ tarih, no, tutar, adet }] }
+ *
+ * Müşteri (29.09.2026): "İşleme tıklayınca her fatura için 'Fatura Tarih - Fatura No - Kalem Tutarı'
+ * alt kısma birden fazla kalem veya fatura girilebilecek şekilde giriş satırları açılacak."
+ */
+exports.updateProcessFaturalar = wrap(async (req, res) => {
+  const proc = await loadProc(req.params.id);
+  await mps.faturalariGuncelle(proc, req.body?.faturalar, req.user);
+  res.json({
+    success: true,
+    message: `${proc.faturalar.length} fatura kalemi kaydedildi`,
+    data: {
+      faturalar: proc.faturalar,
+      invoiceRealizedValue: proc.invoiceRealizedValue,
+      invoiceRealizedQty: proc.invoiceRealizedQty,
+      invoiceNo: proc.invoiceNo,
+      invoiceDate: proc.invoiceDate
+    }
+  });
+});
+
 exports.updateProcessFields = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
   const updated = await mps.updateFields(proc, req.body || {}, req.user);

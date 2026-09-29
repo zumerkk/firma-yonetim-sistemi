@@ -123,7 +123,6 @@ const EvrakSatiri = memo(function EvrakSatiri({
         onChange={(ev) => onDegistir(i, 'aciklama', ev.target.value)}
         sx={{ flex: 1.4, minWidth: 220 }}
       />
-      {e.yuklenememeNedeni && <Alert severity="info" sx={{ width: '100%' }}>Firmanın yükleyememe nedeni: {e.yuklenememeNedeni}</Alert>}
       {/* Müşteri (15.09.2026): "mailde iste diyince otomatik kaydedebilir" — işaret arka planda kaydedilir */}
       <Tooltip title="İşaret kaldırılırsa bu evrak mailde listelenmez ve firma portalinde de görünmez. Değişiklik otomatik kaydedilir.">
         <FormControlLabel
@@ -184,6 +183,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const navigate = useNavigate();
 
   const [talep, setTalep] = useState(null);
+  // Firmanın "yükleyemiyorum" notu bıraktığı evraklar — gelen evraklar bölümünde listelenir
+  const nedenler = (talep?.istenenEvraklar || []).filter((e) => e.yuklenememeNedeni);
   const [talepMetni, setTalepMetni] = useState('');
   const [mailAcik, setMailAcik] = useState(false);
   const [metinDegisti, setMetinDegisti] = useState(false);
@@ -869,7 +870,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
         <Paper sx={{ p: 2 }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap spacing={1}>
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-              3. Firmadan Gelen Evraklar ({(talep.yuklenenEvraklar || []).length})
+              3. Firmadan Gelen Evraklar ({(talep.yuklenenEvraklar || []).length + nedenler.length})
             </Typography>
             {(talep.yuklenenEvraklar || []).length > 0 && (
               <Button size="small" variant="outlined" onClick={topluIndir} disabled={busy === 'toplu-indir'}
@@ -879,12 +880,25 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               </Button>
             )}
           </Stack>
-          {(talep.yuklenenEvraklar || []).length === 0 && (
+          {(talep.yuklenenEvraklar || []).length === 0 && nedenler.length === 0 && (
             <Typography variant="body2" color="text.secondary">
               Henüz yükleme yok. Firma maildeki bağlantıdan dosya yükleyince burada listelenir.
             </Typography>
           )}
           <Stack spacing={1}>
+            {/* Müşteri (29.09.2026): "Yükleyemiyorum notu gönderince istenen evraklar içinde
+                görünmek yerine, firmadan gelen evraklar kısmında görünme şansı var mı acaba?" */}
+            {nedenler.map((e) => (
+              <Box key={`neden-${e._id}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', pb: 0.75 }}>
+                <Chip size="small" variant="outlined" color="warning" label={e.ad} />
+                <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                  {e.nedenBildirimTarihi ? new Date(e.nedenBildirimTarihi).toLocaleString('tr-TR') : '—'}
+                </Typography>
+                <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }}>
+                  Yükleyemedi: {e.yuklenememeNedeni}
+                </Typography>
+              </Box>
+            ))}
             {(talep.yuklenenEvraklar || []).map((y) => (
               <Box key={y._id} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', pb: 0.75 }}>
                 {y.istenenEvrakAdi && <Chip size="small" variant="outlined" label={y.istenenEvrakAdi} />}

@@ -168,6 +168,7 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
       customerEmails: p ? p.customerEmails : [],
       barcode: p ? p.barcode : '',
       // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
+      faturalar: p ? (p.faturalar || []) : [],
       invoiceRealizedValue: p ? p.invoiceRealizedValue : 0,
       invoiceRealizedQty: p ? p.invoiceRealizedQty : 0,
       invoiceNo: p ? p.invoiceNo : '',
@@ -209,6 +210,56 @@ async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar
   } catch (err) {
     console.warn('⚠️ [tesvikMakine] fatura→master sync atlandı:', err && err.message);
   }
+}
+
+/**
+ * 🧾 Fatura kalemlerinden toplamları hesaplar ve sürece yazar.
+ *
+ * Müşteri (29.09.2026): kalemler "makine ana listesinde toplam miktar ve toplam tutar kısmına
+ * yansısın". Tek kalemli eski akış bozulmasın diye invoice* alanları TOPLAM olarak tutulur;
+ * ızgaralar, Excel/PDF çıktıları ve ana liste senkronu değişmeden çalışır.
+ *
+ * @param {object} proc  MachineProcess belgesi (yerinde güncellenir)
+ * @param {Array} kalemler  [{ tarih, no, tutar, adet }]
+ */
+function faturaToplamlariniHesapla(proc, kalemler) {
+  const sayi = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
+  const temiz = (Array.isArray(kalemler) ? kalemler : [])
+    .map((k) => ({
+      tarih: k.tarih ? new Date(k.tarih) : undefined,
+      no: String(k.no || '').trim().slice(0, 100),
+      tutar: sayi(k.tutar),
+      adet: sayi(k.adet)
+    }))
+    // Tamamen boş satır kaydedilmez (kullanıcı satır ekleyip vazgeçebiliyor)
+    .filter((k) => k.no || k.tutar || k.adet || k.tarih);
+
+  proc.faturalar = temiz;
+  proc.invoiceRealizedValue = temiz.reduce((t, k) => t + k.tutar, 0);
+  proc.invoiceRealizedQty = temiz.reduce((t, k) => t + k.adet, 0);
+  // Özet alanlar: tek kalemde o kalemin no'su, çoklu kalemde virgülle ilk üçü
+  const nolar = temiz.map((k) => k.no).filter(Boolean);
+  proc.invoiceNo = nolar.length <= 3 ? nolar.join(', ') : `${nolar.slice(0, 3).join(', ')} +${nolar.length - 3}`;
+  const tarihler = temiz.map((k) => k.tarih).filter(Boolean).sort((a, b) => a - b);
+  proc.invoiceDate = tarihler[0];
+  return proc;
+}
+
+/** Fatura kalemlerini kaydet: toplamları hesapla, ana listeye yansıt, kayda geç */
+async function faturalariGuncelle(proc, kalemler, user) {
+  faturaToplamlariniHesapla(proc, kalemler);
+  proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
+  await proc.save();
+  await syncInvoiceToMasterList(proc, {
+    gerceklesenAdet: proc.invoiceRealizedQty || 0,
+    gerceklesenTutar: proc.invoiceRealizedValue || 0
+  });
+  await addLog({
+    proc, actionType: PROCESS_ACTION.FIELDS_UPDATED,
+    note: `Fatura kalemleri güncellendi (${proc.faturalar.length} kalem)`,
+    meta: { kalem: proc.faturalar.length, toplam: proc.invoiceRealizedValue }, user
+  });
+  return proc;
 }
 
 async function updateFields(proc, fields = {}, user) {
@@ -688,6 +739,8 @@ async function getTimeline(proc) {
 }
 
 module.exports = {
+  faturaToplamlariniHesapla,
+  faturalariGuncelle,
   // helpers
   reminderDays, getSignature, autoSendDefault, parseEmails, audienceForTemplate, buildContext, addLog,
   // core

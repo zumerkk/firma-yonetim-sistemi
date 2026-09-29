@@ -20,6 +20,9 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import UploadProgress from '../../components/common/UploadProgress';
 import FolderIcon from '@mui/icons-material/CreateNewFolder';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import TutarAlani from '../../components/common/TutarAlani';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import svc from '../../services/tesvikMakineService';
 import { StatusChip, formatDate, formatMoney, listTypeLabel, actionLabel } from './helpers';
@@ -44,6 +47,22 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
   const [preview, setPreview] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState('');
+  // 🧾 Fatura kalemleri — yerel düzenleme listesi (React anahtarı satır silinince kaymasın)
+  const [faturalar, setFaturalar] = useState([]);
+  const faturaAnahtar = useRef(0);
+  const faturaSatiri = (f = {}) => ({
+    _anahtar: `f${(faturaAnahtar.current += 1)}`,
+    tarih: f.tarih ? String(f.tarih).slice(0, 10) : '',
+    no: f.no || '', tutar: Number(f.tutar) || 0, adet: Number(f.adet) || 0
+  });
+  const faturaEkle = () => setFaturalar((o) => [...o, faturaSatiri()]);
+  const faturaSil = (i) => setFaturalar((o) => o.filter((_, x) => x !== i));
+  const faturaDegistir = (i, alan, deger) => setFaturalar((o) =>
+    o.map((f, x) => (x === i ? { ...f, [alan]: alan === 'adet' ? Number(deger) || 0 : deger } : f)));
+  const faturaToplam = faturalar.reduce(
+    (t, f) => ({ tutar: t.tutar + (Number(f.tutar) || 0), adet: t.adet + (Number(f.adet) || 0) }),
+    { tutar: 0, adet: 0 }
+  );
   const [yukleme, setYukleme] = useState(null); // evrak yükleme göstergesi
   const [snack, setSnack] = useState(null);
   const fileRef = useRef(null);
@@ -76,6 +95,7 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
         setTimeline(full.timeline || []);
         setFolderInfo(full.folder || null);
         setProc(full.process); hydrate(full.process);
+        setFaturalar((full.process.faturalar || []).map(faturaSatiri));
       })
       .catch((e) => notify(errMsg(e), 'error'))
       .finally(() => setLoading(false));
@@ -87,6 +107,17 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
 
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setSwitch = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
+
+  const faturalariKaydet = async () => {
+    setBusy('fatura');
+    try {
+      const sonuc = await svc.faturalariKaydet(proc._id, faturalar.map(({ _anahtar, ...f }) => f));
+      setFaturalar((sonuc.faturalar || []).map(faturaSatiri));
+      setProc((p) => ({ ...p, ...sonuc }));
+      notify(`Faturalar kaydedildi — toplam ${formatMoney(sonuc.invoiceRealizedValue, proc.currency)}`, 'success');
+      onChanged && onChanged();
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
 
   const doSave = async () => {
     setBusy('save');
@@ -237,6 +268,42 @@ export default function MakineDetailModal({ open, onClose, target, meta, onChang
             <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
               <Button variant="contained" onClick={doSave} disabled={busy === 'save'} startIcon={<SaveIcon />}>Kaydet</Button>
               <Button variant="outlined" onClick={doStatus} disabled={busy === 'status'}>Durumu Güncelle</Button>
+            </Stack>
+
+            {/* 🧾 Fatura kalemleri — müşteri (29.09.2026): "her fatura için Fatura Tarih - Fatura No -
+                Kalem Tutarı alt kısma birden fazla kalem girilebilecek şekilde giriş satırları
+                açılacak (manuel satır ekleme çıkarma yapabilelim)". Toplamlar makine ana
+                listesindeki gerçekleşen adet/tutara yansır. */}
+            <SectionTitle>Fatura Kalemleri</SectionTitle>
+            <Stack spacing={1}>
+              {faturalar.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  Henüz fatura girilmedi. "Satır Ekle" ile fatura tarihi, numarası ve tutarını girin.
+                </Typography>
+              )}
+              {faturalar.map((f, i) => (
+                <Stack key={f._anahtar} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
+                  <TextField size="small" type="date" label="Fatura Tarihi" InputLabelProps={{ shrink: true }}
+                    value={f.tarih || ''} onChange={(e) => faturaDegistir(i, 'tarih', e.target.value)} sx={{ minWidth: 165 }} />
+                  <TextField size="small" label="Fatura No" value={f.no || ''}
+                    onChange={(e) => faturaDegistir(i, 'no', e.target.value)} sx={{ flex: 1, minWidth: 140 }} />
+                  <TutarAlani size="small" label="Kalem Tutarı" value={f.tutar}
+                    onChange={(v) => faturaDegistir(i, 'tutar', v)} sx={{ minWidth: 160 }} />
+                  <TextField size="small" type="number" label="Adet" value={f.adet ?? ''}
+                    onChange={(e) => faturaDegistir(i, 'adet', e.target.value)} sx={{ width: 90 }} />
+                  <Tooltip title="Satırı sil">
+                    <IconButton size="small" color="error" onClick={() => faturaSil(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
+                  </Tooltip>
+                </Stack>
+              ))}
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Button size="small" startIcon={<AddIcon />} onClick={faturaEkle}>Satır Ekle</Button>
+                <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={faturalariKaydet}
+                  disabled={busy === 'fatura'}>Faturaları Kaydet</Button>
+                <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700 }}>
+                  Toplam: {formatMoney(faturaToplam.tutar, proc.currency)} · {faturaToplam.adet} adet
+                </Typography>
+              </Stack>
             </Stack>
 
             {/* Mail */}

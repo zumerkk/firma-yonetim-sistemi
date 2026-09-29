@@ -19,6 +19,7 @@ import { makineSatiriCoz, iceAktarimBirlestir, excelSatirlariniOku, csvSatirlari
 import { makineSablonuIndir } from '../../utils/makineSablonuExcel';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
+import MakineDetailModal from '../TesvikMakine/MakineDetailModal';
 
 // Makine listesi seçim hücrelerinin seçenekleri (HafifHucreler.SecimHucresi). Modül düzeyinde: memo'lu hücre
 // her çizimde yeni dizi görmesin. Etiketler eski MUI Select menüleriyle aynı.
@@ -233,6 +234,17 @@ const MakineYonetimi = () => {
   const location = useLocation(); // 📍 Nereden gelindi takibi
   const [tab, setTab] = useState('yerli');
   const [selectedTesvik, setSelectedTesvik] = useState(null);
+  // 🔧 Makineye çift tıklayınca Ekipman Takip'teki İŞLEM penceresi açılır.
+  // Müşteri (29.09.2026): "Makine listesinde ilgili makineye çift tıklayınca ekipman takipde ilgili
+  // firmanın ilgili belgesinin ilgili satırı aşağıya gelsin" + "modüler bir şekilde makine
+  // listesinden çift tıkla açıp bu işlemleri (fatura girişi) yapabilelim."
+  // Ekipman Takip ile AYNI bileşen kullanılır; iki ayrı ekran bakımı olmasın.
+  const [surecHedefi, setSurecHedefi] = useState(null);
+  const surecAc = (satir, listType) => {
+    if (!selectedTesvik?._id || !satir?.rowId) return;
+    setSurecHedefi({ tesvikModel: 'YeniTesvik', tesvikId: selectedTesvik._id, listType, rowId: satir.rowId, machine: satir });
+  };
+
   const [tesvikOptions, setTesvikOptions] = useState([]);
   const [loadingTesvik, setLoadingTesvik] = useState(false);
   // 🔧 FIX: Başlangıçta boş başla, teşvik seçildiğinde localStorage'dan yükle
@@ -2256,6 +2268,7 @@ const MakineYonetimi = () => {
         pageSizeOptions={[10, 25, 50, 100, 200, 500]}
         onPaginationModelChange={sayfaBoyutuKaydet}
         disableRowSelectionOnClick 
+        onRowDoubleClick={(p) => surecAc(p.row, 'local')}
         rowHeight={28} 
         columnHeaderHeight={28}
         checkboxSelection
@@ -2582,6 +2595,7 @@ const MakineYonetimi = () => {
         pageSizeOptions={[10, 25, 50, 100, 200, 500]}
         onPaginationModelChange={sayfaBoyutuKaydet}
         disableRowSelectionOnClick 
+        onRowDoubleClick={(p) => surecAc(p.row, 'import')}
         rowHeight={28} 
         columnHeaderHeight={28}
         checkboxSelection
@@ -4905,6 +4919,14 @@ const MakineYonetimi = () => {
           <Button onClick={() => setHelpOpen(false)} variant="contained" sx={{ background: theme.gradient }}>Anladım</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Ekipman Takip İşlem penceresi — makineye çift tıklayınca açılır (fatura kalemleri dahil) */}
+      <MakineDetailModal
+        open={!!surecHedefi}
+        target={surecHedefi}
+        onClose={() => setSurecHedefi(null)}
+        onChanged={() => { if (selectedTesvik?._id) loadMakineData(selectedTesvik._id); }}
+      />
     </Box>
   );
 };

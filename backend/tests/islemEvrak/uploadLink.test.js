@@ -80,3 +80,48 @@ describe('islemEvrakService - link üretimi bu modülün sayfasına gider', () =
     expect(link).toBe(`https://gmplansis.com/evrak/${mevcutToken}`);
   });
 });
+
+// 📎 Maildeki ekler yükleme sayfasından da indirilebilmeli
+// Müşteri (29.09.2026): "Bazen mail gönderilmiyor yükleme linkini whatsapptan vs. yolluyoruz da
+// o linkte kompakt olarak ekler de görünse çok iyi olur."
+describe('public örnek dosya indirme', () => {
+  const ctrl = require('../../controllers/islemEvrakController');
+  const svc = require('../../services/islemEvrak/islemEvrakService');
+  const storageService = require('../../services/tesvikMakine/storageService');
+
+  const yanit = () => {
+    const r = { kod: 200 };
+    r.status = (k) => { r.kod = k; return r; };
+    r.json = (g) => { r.govde = g; return r; };
+    return r;
+  };
+  afterEach(() => jest.restoreAllMocks());
+
+  const talepTaklidi = (evrak) => ({
+    istenenEvraklar: { id: (x) => (String(x) === 'e1' ? evrak : null) }
+  });
+
+  test('örnek dosya varsa akıtılır', async () => {
+    const evrak = { _id: 'e1', ad: 'Vergi Levhası', zorunlu: true, ornekDosya: { fileUrl: 'https://res.cloudinary.com/x/v.pdf', dosyaAdi: 'ornek.pdf' } };
+    jest.spyOn(svc, 'resolveByToken').mockResolvedValue({ talep: talepTaklidi(evrak) });
+    const servis = jest.spyOn(storageService, 'serveFile').mockResolvedValue(undefined);
+    const r = yanit();
+    await ctrl.publicOrnekIndir({ params: { token: 't', evrakId: 'e1' } }, r);
+    expect(servis).toHaveBeenCalledWith(expect.objectContaining({ fileUrl: 'https://res.cloudinary.com/x/v.pdf' }), r);
+  });
+
+  test('mailde istenmeyen evrakın örneği paylaşılmaz (mail eki kuralıyla aynı)', async () => {
+    const evrak = { _id: 'e1', ad: 'Kapasite', zorunlu: false, ornekDosya: { fileUrl: 'https://x/k.pdf' } };
+    jest.spyOn(svc, 'resolveByToken').mockResolvedValue({ talep: talepTaklidi(evrak) });
+    const r = yanit();
+    await ctrl.publicOrnekIndir({ params: { token: 't', evrakId: 'e1' } }, r);
+    expect(r.kod).toBe(404);
+  });
+
+  test('süresi dolmuş bağlantı 410 döner', async () => {
+    jest.spyOn(svc, 'resolveByToken').mockResolvedValue({ expired: true });
+    const r = yanit();
+    await ctrl.publicOrnekIndir({ params: { token: 't', evrakId: 'e1' } }, r);
+    expect(r.kod).toBe(410);
+  });
+});

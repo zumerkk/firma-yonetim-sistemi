@@ -16,6 +16,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   Chip,
   IconButton,
@@ -100,6 +101,14 @@ const TesvikList = () => {
     il: '',
     sureDurumu: ''
   });
+
+  // 📅 Tarih sıralaması — müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını,
+  // tarihe göre sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" (artan = en yakın üstte)
+  const [siralama, setSiralama] = useState({ alan: 'createdAt', yon: 'desc' });
+  const siralamayaGec = (alan) => {
+    // useEffect sıralama değişince listeyi ilk sayfadan yeniden yükler
+    setSiralama((o) => ({ alan, yon: o.alan === alan && o.yon === 'asc' ? 'desc' : 'asc' }));
+  };
 
   // 🎨 Durum Renk Haritası
   const getDurumColor = (durum) => {
@@ -192,14 +201,14 @@ const TesvikList = () => {
         varsayilanSistem = '';
       } else if (sistemFiltre === 'Yeni') {
         // müşteri: "Yeni" filtresi arama yokken de çalışsın (eskiden boş dönüyordu)
-        const params = new URLSearchParams({ sayfa: page, limit: 20, ...filters });
+        const params = new URLSearchParams({ sayfa: page, limit: 20, ...filters, siraBy: siralama.alan, siraSekli: siralama.yon });
         response = await axios.get(`/yeni-tesvik?${params}`);
         varsayilanSistem = 'Yeni';
       } else {
         const params = new URLSearchParams({
           sayfa: page,
           limit: 20,
-          ...filters
+          ...filters, siraBy: siralama.alan, siraSekli: siralama.yon
         });
         response = await axios.get(`/tesvik?${params}`);
       }
@@ -221,7 +230,7 @@ const TesvikList = () => {
 
   useEffect(() => {
     loadTesvikler();
-  }, [filters, sistemFiltre]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters, sistemFiltre, siralama]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🗑️ SİLME FONKSİYONLARI
   const handleDeleteClick = (tesvik) => {
@@ -578,8 +587,24 @@ const TesvikList = () => {
                     <TableCell>Yatırımcı Ünvanı</TableCell>
                     <TableCell>Durum</TableCell>
                     <TableCell>İl</TableCell>
-                    <TableCell>Belge Bitiş Tarihi</TableCell>
-                    <TableCell>Süre Uzatım Tarihi</TableCell>
+                    <TableCell sortDirection={siralama.alan === 'belgeYonetimi.belgeBitisTarihi' ? siralama.yon : false}>
+                      <TableSortLabel
+                        active={siralama.alan === 'belgeYonetimi.belgeBitisTarihi'}
+                        direction={siralama.alan === 'belgeYonetimi.belgeBitisTarihi' ? siralama.yon : 'asc'}
+                        onClick={() => siralamayaGec('belgeYonetimi.belgeBitisTarihi')}
+                      >
+                        Belge Bitiş Tarihi
+                      </TableSortLabel>
+                    </TableCell>
+                    <TableCell sortDirection={siralama.alan === 'belgeYonetimi.uzatimTarihi' ? siralama.yon : false}>
+                      <TableSortLabel
+                        active={siralama.alan === 'belgeYonetimi.uzatimTarihi'}
+                        direction={siralama.alan === 'belgeYonetimi.uzatimTarihi' ? siralama.yon : 'asc'}
+                        onClick={() => siralamayaGec('belgeYonetimi.uzatimTarihi')}
+                      >
+                        Süre Uzatım Tarihi
+                      </TableSortLabel>
+                    </TableCell>
                     <TableCell>Oluşturan</TableCell>
                     <TableCell>Oluşturma Tarihi</TableCell>
                   </TableRow>

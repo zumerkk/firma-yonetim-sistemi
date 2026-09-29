@@ -61,6 +61,43 @@ const evrakAnahtari = (ad) => String(ad || '')
   .replace(/[\u0300-\u036f]/g, '')
   .replace(/[^A-Z0-9]/g, '');
 
+/**
+ * 🔔 Firmadan evrak gelince kime haber verilecek?
+ *
+ * Müşteri (29.09.2026): "Takibi yapan'a düşürtebilir miyiz? Takibi yapan atanmamışsa,
+ * maili kim gönderdi ise ona düşsün." Eskiden tek bir ortak adrese (UPLOAD_NOTIFY_EMAIL,
+ * bilgi@gmplanlama.com) gidiyordu; kimse sahiplenmiyordu.
+ *
+ * Sıra: Belge Takip'teki takibi yapan → maili gönderen → talebi açan → (hiçbiri yoksa) ortak adres.
+ * @returns {Promise<{ kullaniciIdleri: string[], adresler: string[] }>}
+ */
+async function yuklemeBildirimAlicilari(talep) {
+  const DosyaTakip = require('../../models/DosyaTakip');
+  const User = require('../../models/User');
+  const kimlik = (v) => (v ? String(v._id || v) : '');
+  let hedefId = '';
+
+  if (talep.dosyaTakip) {
+    const takip = await DosyaTakip.findById(talep.dosyaTakip)
+      .select('muraacatSonrasi.takibiYapanPersonel').lean();
+    hedefId = kimlik(takip?.muraacatSonrasi?.takibiYapanPersonel);
+  }
+  if (!hedefId) hedefId = kimlik(talep.sonMailGonderen);
+  if (!hedefId) hedefId = kimlik(talep.olusturanKullanici);
+
+  const kullaniciIdleri = hedefId ? [hedefId] : [];
+  let adresler = [];
+  if (hedefId) {
+    const kisi = await User.findById(hedefId).select('email').lean();
+    if (kisi?.email) adresler = [kisi.email];
+  }
+  if (!adresler.length) {
+    const ortak = process.env.UPLOAD_NOTIFY_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
+    if (ortak) adresler = [ortak];
+  }
+  return { kullaniciIdleri, adresler };
+}
+
 // 🔎 Public yükleme: token → talep
 async function resolveByToken(token) {
   if (!token) return null;
@@ -337,6 +374,7 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
   talep.sonMailTarihi = new Date();
   talep.mailGonderimSayisi = (talep.mailGonderimSayisi || 0) + 1;
   talep.sonGuncelleyen = user ? user._id : talep.sonGuncelleyen;
+  talep.sonMailGonderen = user ? user._id : talep.sonMailGonderen;
   talep.durumTazele();
   await talep.save();
   return { sent: true, ekSayisi: attachments.length, atlananEkler };
@@ -559,6 +597,7 @@ module.exports = {
   zipDosyaIcerigi,
   ensureUploadLink,
   evrakAnahtari,
+  yuklemeBildirimAlicilari,
   resolveByToken,
   mailOlustur,
   formLinkiUret,

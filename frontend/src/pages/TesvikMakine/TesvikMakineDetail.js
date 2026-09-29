@@ -164,6 +164,27 @@ export default function TesvikMakineDetail() {
     {
       field: 'actions', headerName: 'İşlem', width: 130, sortable: false, filterable: false,
       renderCell: (p) => <Button size="small" variant="contained" startIcon={<BuildCircleIcon />} onClick={(e) => { e.stopPropagation(); openModal(p.row); }}>İşlem</Button>
+    },
+    // 🧾 Fatura bilgisi İşlem'in SAĞINDA — müşteri (29.09.2026): "Bu fatura girme kısmını Makine
+    // Taleplerinde İşlem kısmının sağ tarafına taşıyabilir miyiz?" Kalem girişi İşlem penceresinde;
+    // burada özet durur ve tıklayınca aynı pencere açılır.
+    {
+      field: 'faturaNo', headerName: 'Fatura No', width: 150,
+      valueGetter: (p) => p.row.invoiceNo || '-'
+    },
+    {
+      field: 'faturaTarihi', headerName: 'Fatura Tarihi', width: 120,
+      valueGetter: (p) => formatDate(p.row.invoiceDate)
+    },
+    {
+      field: 'faturaTutari', headerName: 'Fatura Tutarı', width: 150,
+      valueGetter: (p) => (p.row.invoiceRealizedValue
+        ? `${formatMoney(p.row.invoiceRealizedValue, p.row.currency)}${(p.row.faturalar || []).length > 1 ? ` (${p.row.faturalar.length} kalem)` : ''}`
+        : '-')
+    },
+    {
+      field: 'faturaAdet', headerName: 'Fatura Adet', width: 110,
+      valueGetter: (p) => p.row.invoiceRealizedQty || 0
     }
   ];
 
