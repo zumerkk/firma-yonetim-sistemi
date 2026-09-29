@@ -9,7 +9,7 @@ const mps = require('../services/tesvikMakine/machineProcessService');
 const araKontrol = require('../services/tesvikMakine/araKontrolService');
 const resolver = require('../services/tesvikMakine/certificateResolver');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
-const { PUBLIC_DOCUMENT_TYPES, publicDocumentTypes, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder } = require('../constants/tesvikMakineMail');
+const { PUBLIC_DOCUMENT_TYPES, publicDocumentTypes, DOCUMENT_TYPE_KEYS, getDocumentTypeFolder, PROCESS_ACTION } = require('../constants/tesvikMakineMail');
 const { ALLOWED_EXT } = require('../middleware/tesvikUpload');
 
 // fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
@@ -109,6 +109,77 @@ exports.getInfo = async (req, res) => {
   } catch (err) {
     console.error('🚨 [tesvikEvrak] getInfo:', err && err.message);
     return fail(res, 500, 'Bilgi alınamadı.');
+  }
+};
+
+/**
+ * 🧾 Firmanın fatura bilgisi bildirmesi (public, token ile)
+ * POST /api/tesvik-evrak/:token/faturalar
+ * body: { faturalar: [{ siraNo, tarih, no, tutar, adet }], bildiren }
+ *
+ * Müşteri (29.09.2026): "firmaların onaylı faturalarını doldurmak için bu fatura listesine özel bir
+ * yükleme linki düşünüyoruz. Linki açınca 'Fatura Tarih - Fatura No - Kalem Tutarı' … Bu doldurdukları
+ * bilgiler de otomatik olarak uygun sıra numarasındaki makineye yansısın (ekipman takip için)."
+ *
+ * Firmanın girdiği kalemler MEVCUTLARIN ÜSTÜNE EKLENİR — personelin girdiği kalemleri silmez.
+ * Eşleşme SIRA NO üzerinden ve yalnız bu linkin kapsadığı makineler içinde yapılır.
+ */
+exports.faturaBildir = async (req, res) => {
+  try {
+    const { proc, grupCtx, belgeCtx, error } = await resolveByToken(req.params.token);
+    if (error) return fail(res, error[0], error[1]);
+    if (belgeCtx) return fail(res, 400, 'Bu bağlantı fatura bildirimi için kullanılamaz.');
+
+    const gelenler = Array.isArray(req.body?.faturalar) ? req.body.faturalar : [];
+    if (!gelenler.length) return fail(res, 400, 'Lütfen en az bir fatura satırı girin.');
+
+    // Link kapsamındaki süreçler: tekil makine linki ya da toplu link
+    const kapsam = grupCtx ? grupCtx.processes : [proc];
+    const sirayaGore = new Map();
+    for (const p of kapsam) sirayaGore.set(String(p.siraNo || ''), p);
+    const tekMakine = kapsam.length === 1 ? kapsam[0] : null;
+
+    const bildiren = String(req.body?.bildiren || '').trim().slice(0, 120);
+    const sonuc = { islenen: 0, atlanan: 0 };
+    const guncellenen = new Map();
+
+    for (const satir of gelenler) {
+      const hedef = tekMakine || sirayaGore.get(String(satir.siraNo || ''));
+      if (!hedef) { sonuc.atlanan += 1; continue; }
+      const kalem = {
+        tarih: satir.tarih || undefined,
+        no: String(satir.no || '').trim().slice(0, 100),
+        tutar: Number(satir.tutar) || 0,
+        adet: Number(satir.adet) || 0
+      };
+      if (!kalem.no && !kalem.tutar && !kalem.adet && !kalem.tarih) { sonuc.atlanan += 1; continue; }
+      const liste = guncellenen.get(String(hedef._id)) || { proc: hedef, kalemler: [...(hedef.faturalar || [])] };
+      liste.kalemler.push(kalem);
+      guncellenen.set(String(hedef._id), liste);
+      sonuc.islenen += 1;
+    }
+
+    for (const { proc: p, kalemler } of guncellenen.values()) {
+      const taze = await MachineProcess.findById(p._id);
+      if (!taze) continue;
+      await mps.faturalariGuncelle(taze, kalemler, null);
+      await mps.addLog({
+        proc: taze,
+        actionType: PROCESS_ACTION.FIELDS_UPDATED,
+        note: `Firma fatura bildirdi${bildiren ? ` (${bildiren})` : ''}: ${kalemler.length} kalem`,
+        performedByLabel: bildiren ? `Firma — ${bildiren}` : 'Firma (yükleme bağlantısı)'
+      });
+    }
+
+    if (!sonuc.islenen) return fail(res, 400, 'Girilen sıra numaraları bu bağlantıdaki makinelerle eşleşmedi.');
+    return res.json({
+      success: true,
+      message: `${sonuc.islenen} fatura satırı iletildi. Teşekkür ederiz.`,
+      data: sonuc
+    });
+  } catch (err) {
+    console.error('🚨 [tesvikEvrak] faturaBildir:', err && err.message);
+    return fail(res, 500, 'Fatura bilgisi iletilemedi. Lütfen tekrar deneyin.');
   }
 };
 

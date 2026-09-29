@@ -15,6 +15,7 @@ router.get('/kdv-muafiyet/:token/download', ctrl.kdvMuafiyetDownload);
 router.get('/:token', ctrl.getInfo);
 
 // Dosya yükle (çoklu)
+router.post('/:token/faturalar', ctrl.faturaBildir);
 router.post('/:token', uploadMultiple('files'), ctrl.upload);
 
 module.exports = router;

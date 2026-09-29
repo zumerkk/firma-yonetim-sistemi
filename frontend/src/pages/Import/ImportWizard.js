@@ -30,6 +30,7 @@ import {
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import ingestService from '../../services/ingestService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
+import ScreenshotImport from '../../components/Dashboard/ScreenshotImport';
 
 const styles = {
   pageContainer: {
@@ -210,6 +211,11 @@ const ImportWizard = () => {
             Dosya seçimi → Önizleme → Commit akışı (ingest servisleri).
           </Typography>
         </Box>
+
+        {/* 📸 Ekran görüntüsünden belge oluşturma — müşteri (29.09.2026): "Ekran görüntüsünden belge
+            oluştur kısmını da sol taraftaki akıllı excel yüklemenin içine alabiliriz zaten bir tek
+            ben kullanıyorum." Ana sayfadan buraya taşındı. */}
+        <ScreenshotImport />
 
         <Paper sx={styles.card}>
           {(previewLoading || commitLoading) && <LinearProgress />}
