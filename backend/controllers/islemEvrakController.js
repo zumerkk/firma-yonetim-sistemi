@@ -3,6 +3,7 @@
 
 const mongoose = require('mongoose');
 const IslemTuru = require('../models/IslemTuru');
+const Notification = require('../models/Notification');
 const IslemTalebi = require('../models/IslemTalebi');
 const Firma = require('../models/Firma');
 const svc = require('../services/islemEvrak/islemEvrakService');
@@ -504,26 +505,34 @@ exports.publicYukle = async (req, res) => {
     talep.durumTazele();
     await talep.save();
 
-    // 🔔 Ekibe bilgilendirme (best-effort)
+    // 🔔 Sorumluya bilgilendirme — mail + sistem bildirimi (best-effort: firma bundan etkilenmez)
+    //
+    // Müşteri (29.09.2026): "belge yüklendi diye mail bilgi@gmplanlama.com'a düşüyor ya, onu takibi
+    // yapan'a düşürtebilir miyiz? Takibi yapan atanmamışsa, maili kim gönderdi ise ona düşsün." —
+    // ve bildirimler sekmesi için: "bildirim olarak da düşebilir mi?"
     try {
-      if (mailService.isConfigured()) {
-        const to = process.env.UPLOAD_NOTIFY_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;
-        if (to) {
-          await mailService.sendMail({
-            to,
-            subject: `Yeni evrak yüklendi — ${talep.firmaAdi} (${talep.islemTuruAdi})`,
-            text: [
-              'İşlem ve Evrak Yönetimi bağlantısı üzerinden yeni evrak yüklendi:',
-              '',
-              `Firma : ${talep.firmaAdi}`,
-              `İşlem : ${talep.islemTuruAdi}${talep.varyantAd ? ` (${talep.varyantAd})` : ''}`,
-              `Evrak : ${hedefEvrak ? hedefEvrak.ad : 'Belirtilmedi'}`,
-              `Adet  : ${files.length}`,
-              yukleyenAdi ? `Yükleyen: ${yukleyenAdi}` : ''
-            ].filter(Boolean).join('\n')
-          });
-        }
+      const { kullaniciIdleri, adresler } = await svc.yuklemeBildirimAlicilari(talep);
+      const satirlar = [
+        `Firma : ${talep.firmaAdi}`,
+        `İşlem : ${talep.islemTuruAdi}${talep.varyantAd ? ` (${talep.varyantAd})` : ''}`,
+        `Evrak : ${hedefEvrak ? hedefEvrak.ad : 'Belirtilmedi'}`,
+        `Adet  : ${files.length}`,
+        yukleyenAdi ? `Yükleyen: ${yukleyenAdi}` : ''
+      ].filter(Boolean);
+
+      if (mailService.isConfigured() && adresler.length) {
+        await mailService.sendMail({
+          to: adresler.join(', '),
+          subject: `Gmplansis Belge Takip Bildirimi — ${talep.firmaAdi} evrak yükledi`,
+          text: ['İşlem ve Evrak bağlantısı üzerinden yeni evrak yüklendi:', '', ...satirlar].join('\n')
+        });
       }
+      await Promise.all(kullaniciIdleri.map((uid) => Notification.createNotification({
+        title: `Firmadan evrak geldi — ${talep.firmaAdi}`.slice(0, 100),
+        message: satirlar.join(' · ').slice(0, 500),
+        type: 'info', category: 'general', priority: 'medium', userId: uid,
+        actionButton: { text: 'Talebi Aç', url: `/islem-evrak/${talep._id}`, action: 'navigate' }
+      })));
     } catch (e) { console.error('🚨 [islemEvrak] yükleme bildirimi:', e && e.message); }
 
     res.json({

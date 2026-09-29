@@ -88,6 +88,10 @@ const islemTalebiSchema = new mongoose.Schema({
   mailAlicilar: { type: [String], default: [] },
   mailCc: { type: [String], default: [] },
   sonMailTarihi: { type: Date },
+  // Firmadan evrak gelince haber bu kişiye gider (takibi yapan atanmamışsa).
+  // Müşteri (29.09.2026): "belge yüklendi diye mail bilgi@gmplanlama.com'a düşüyor ya, onu
+  // takibi yapan'a düşürtebilir miyiz? Takibi yapan atanmamışsa, maili kim gönderdi ise ona düşsün."
+  sonMailGonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   mailGonderimSayisi: { type: Number, default: 0 },
 
   // Firmanın evrak yükleyeceği public bağlantı

@@ -505,10 +505,19 @@ dosyaTakipSchema.statics.acikMukerrerBul = function ({ firma, talepTuru, ytbNo, 
   const belgeNo = String(ytbNo || belgeId || '').trim();
   if (!firma || !talepTuru || !belgeNo) return null;   // kural uygulanamaz
 
+  // Sonuçlanmış talep "açık" sayılmaz.
+  // Müşteri (29.09.2026): "'daha önce sonuçlanan ve belgeye yansıtılan talep için açık talep var'
+  // diyor. Bu aynı talep uyarısına, sonuçlanma kısmına alınmış talepleri dahil etmeyelim."
+  // "Sonuçlanma" (2.3.x) aşamasındaki her şey kapalıdır — tek istisna bilerek park edilmiş
+  // "Sonuç Bekletilecek". Canlı ölçüm (29.09.2026): 302 talebin 156'sı bu durumda, yani uyarı
+  // neredeyse her yeni kayıtta boşuna çıkıyordu.
+  const KAPALI_DURUMLAR = DURUM_KODLARI.filter((d) => d.startsWith('2.3') && d !== '2.3.2_SONUC_BEKLETILECEK');
+
   const sorgu = {
     firma,
     talepTuru,
     anaAsama: { $ne: 'TAMAMLANDI' },
+    durum: { $nin: KAPALI_DURUMLAR },
     $or: [{ ytbNo: belgeNo }, { belgeId: belgeNo }]
   };
   if (haricId) sorgu._id = { $ne: haricId };           // güncellemede kendini sayma
