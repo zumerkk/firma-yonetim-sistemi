@@ -3,9 +3,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box, Paper, Typography, TextField, MenuItem, Button, Alert, CircularProgress, Stack, Divider, Chip
+  Box, Paper, Typography, TextField, MenuItem, Button, Alert, CircularProgress, Stack, Divider, Chip, IconButton
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import TutarAlani from '../../components/common/TutarAlani';
+import api from '../../utils/axios';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/tesvikMakineService';
@@ -39,6 +43,32 @@ export default function PublicUpload() {
   // Firma tarafı burada bekliyor: belirsiz spinner yerine gerçek yüzde
   const [yukleme, setYukleme] = useState(null);
   const [submitError, setSubmitError] = useState('');
+
+  // 🧾 Fatura bildirimi — müşteri (29.09.2026): "firmaların onaylı faturalarını doldurmak için bu
+  // fatura listesine özel bir yükleme linki … 'Fatura Tarih - Fatura No - Kalem Tutarı' … Bu
+  // doldurdukları bilgiler de otomatik olarak uygun sıra numarasındaki makineye yansısın."
+  const [faturalar, setFaturalar] = useState([]);
+  const [faturaDurum, setFaturaDurum] = useState('');
+  const [faturaHata, setFaturaHata] = useState('');
+  const [faturaGonderiliyor, setFaturaGonderiliyor] = useState(false);
+  const anahtarRef = useRef(0);
+  const yeniFatura = (siraNo = '') => ({ _a: `k${(anahtarRef.current += 1)}`, siraNo, tarih: '', no: '', tutar: 0, adet: 0 });
+  const faturaDegistir = (i, alan, deger) => setFaturalar((o) => o.map((f, x) => (x === i ? { ...f, [alan]: deger } : f)));
+
+  const faturaGonder = async () => {
+    setFaturaGonderiliyor(true); setFaturaHata(''); setFaturaDurum('');
+    try {
+      const govde = faturalar
+        .filter((f) => f.no || f.tutar || f.adet || f.tarih)
+        .map(({ _a, ...f }) => ({ ...f, siraNo: Number(f.siraNo) || undefined }));
+      if (!govde.length) { setFaturaHata('Lütfen en az bir fatura satırı doldurun.'); return; }
+      const yanit = await api.post(`/tesvik-evrak/${token}/faturalar`, { faturalar: govde, bildiren: uploaderName });
+      setFaturaDurum(yanit.data?.message || 'Fatura bilgileri iletildi.');
+      setFaturalar([]);
+    } catch (e) {
+      setFaturaHata(e?.response?.data?.message || 'Fatura bilgisi iletilemedi. Lütfen tekrar deneyin.');
+    } finally { setFaturaGonderiliyor(false); }
+  };
   const fileRef = useRef(null);
 
   useEffect(() => {
@@ -133,6 +163,60 @@ export default function PublicUpload() {
         )}
       </Box>
       <Divider sx={{ mb: 2 }} />
+
+      {/* 🧾 Fatura bilgisi — makine kapsamı olan bağlantılarda */}
+      {(Array.isArray(info.makineler) ? info.makineler.length > 0 : !!info.siraNo) && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Fatura Bilgisi (opsiyonel)</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Kestiğiniz faturaları buraya girebilirsiniz; bilgiler ilgili sıra numaralı makineye işlenir.
+          </Typography>
+          <Stack spacing={1}>
+            {faturalar.map((f, i) => (
+              <Stack key={f._a} direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                {Array.isArray(info.makineler) && info.makineler.length > 0 && (
+                  <TextField select size="small" label="Makine (sıra no)" value={f.siraNo}
+                    onChange={(e) => faturaDegistir(i, 'siraNo', e.target.value)} sx={{ minWidth: 200 }}>
+                    {info.makineler.map((m) => (
+                      <MenuItem key={`${m.siraNo}-${m.makineId}`} value={m.siraNo}>
+                        {m.siraNo}. {m.makineAdi || 'Makine'}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+                <TextField size="small" type="date" label="Fatura Tarihi" InputLabelProps={{ shrink: true }}
+                  value={f.tarih} onChange={(e) => faturaDegistir(i, 'tarih', e.target.value)} sx={{ minWidth: 160 }} />
+                <TextField size="small" label="Fatura No" value={f.no}
+                  onChange={(e) => faturaDegistir(i, 'no', e.target.value)} sx={{ flex: 1, minWidth: 130 }} />
+                <TutarAlani size="small" label="Kalem Tutarı" value={f.tutar}
+                  onChange={(v) => faturaDegistir(i, 'tutar', v)} sx={{ minWidth: 150 }} />
+                <TextField size="small" type="number" label="Adet" value={f.adet || ''}
+                  onChange={(e) => faturaDegistir(i, 'adet', Number(e.target.value) || 0)} sx={{ width: 90 }} />
+                <IconButton size="small" color="error" aria-label="Satırı sil"
+                  onClick={() => setFaturalar((o) => o.filter((_, x) => x !== i))}>
+                  <DeleteOutlineIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ))}
+            <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+              <Button size="small" startIcon={<AddIcon />}
+                onClick={() => setFaturalar((o) => [...o, yeniFatura(Array.isArray(info.makineler) && info.makineler.length ? info.makineler[0].siraNo : info.siraNo)])}>
+                Fatura Satırı Ekle
+              </Button>
+              {faturalar.length > 0 && (
+                <Button size="small" variant="contained" onClick={faturaGonder} disabled={faturaGonderiliyor}
+                  startIcon={faturaGonderiliyor ? <CircularProgress size={14} /> : null}>
+                  Fatura Bilgisini Gönder
+                </Button>
+              )}
+            </Stack>
+            {faturaDurum && <Alert severity="success">{faturaDurum}</Alert>}
+            {faturaHata && <Alert severity="error">{faturaHata}</Alert>}
+          </Stack>
+          <Divider sx={{ mt: 2 }} />
+        </Box>
+      )}
+
       <form onSubmit={submit}>
         <Stack spacing={2}>
           <TextField select fullWidth label="Evrak Türü" value={docType} onChange={(e) => setDocType(e.target.value)} required>
