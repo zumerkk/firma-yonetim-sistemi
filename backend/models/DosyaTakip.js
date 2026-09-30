@@ -180,7 +180,11 @@ const tarihliNotSchema = new mongoose.Schema({
   metin: { type: String, required: true },
   tarih: { type: Date, default: Date.now },
   yazan: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  yazanAdi: { type: String }
+  yazanAdi: { type: String },
+  // Müşteri (30.09.2026): "Bildirim gönderince kime gönderdiğimiz görünmüyor ama bu en son kısmı
+  // Genel not - tarih - >> bildirim gönderdiğimiz kişi gibi yapabilir miyiz."
+  // Not bildirim olarak gönderildiyse alıcıların adı burada saklanır ve kartta gösterilir.
+  bildirilenler: { type: [String], default: [] }
 }, { _id: true, timestamps: false });
 
 // ============================================================================

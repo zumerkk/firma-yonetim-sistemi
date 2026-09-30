@@ -679,6 +679,34 @@ exports.durumGecmisiTarihDuzelt = async (req, res) => {
     }
 };
 
+/**
+ * 🗑️ Durum geçmişi satırını sil
+ * DELETE /api/dosya-takip/:id/durum-gecmisi/:gecmisId
+ *
+ * Müşteri (30.09.2026): "Birde Durum geçmişlerini silebilme ekleyebilir miyiz."
+ * Yanlış/deneme durum değişiklikleri geçmişi kirletiyordu. Talebin GÜNCEL durumu buradan
+ * değişmez — yalnız geçmiş satırı kaldırılır; durum değiştirmek için normal akış kullanılır.
+ */
+exports.durumGecmisiSil = async (req, res) => {
+    try {
+        const talep = await DosyaTakip.findById(req.params.id);
+        if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
+
+        const kayit = (talep.durumGecmisi || []).id(req.params.gecmisId);
+        if (!kayit) return res.status(404).json({ success: false, message: 'Geçmiş kaydı bulunamadı' });
+
+        kayit.deleteOne();
+        talep.sonGuncelleyen = req.user._id;
+        talep.sonGuncelleyenAdi = req.user.adSoyad;
+        await talep.save();
+
+        res.json({ success: true, data: await populateTalep(talep._id), message: 'Geçmiş kaydı silindi' });
+    } catch (error) {
+        console.error('Durum geçmişi silme hatası:', error);
+        res.status(500).json({ success: false, message: 'Geçmiş kaydı silinemedi', error: error.message });
+    }
+};
+
 // ============================================================================
 // ☑️ E-TUYS TAKİP KUTUSU
 // Müşteri (21.09.2026): "Dosyanın içine girmeden, sağ taraftaki sekmeden bu kutuyu işaretlediğimizde
@@ -893,11 +921,23 @@ exports.notEkle = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
         }
 
+        // 🔔 Bildirim alıcıları — adları NOTA da yazılır.
+        // Müşteri (30.09.2026): "Bildirim gönderince kime gönderdiğimiz görünmüyor ama bu en son
+        // kısmı Genel not - tarih - >> bildirim gönderdiğimiz kişi gibi yapabilir miyiz."
+        const hedefler = (Array.isArray(bildirimKullanicilar) ? bildirimKullanicilar : [])
+            .map((x) => String(x))
+            .filter((x, i, arr) => x && arr.indexOf(x) === i && x !== String(req.user._id)); // kendine bildirim yok
+        const Kullanici = require('../models/User');
+        const alicilar = hedefler.length
+            ? await Kullanici.find({ _id: { $in: hedefler } }).select('email adSoyad').lean()
+            : [];
+
         const yeniNot = {
             metin,
             tarih: new Date(),
             yazan: req.user._id,
-            yazanAdi: req.user.adSoyad
+            yazanAdi: req.user.adSoyad,
+            bildirilenler: alicilar.map((k) => k.adSoyad).filter(Boolean)
         };
 
         // Nested alanlar için güvenli erişim
@@ -931,10 +971,6 @@ exports.notEkle = async (req, res) => {
         // Best-effort: bildirim hatası not eklemeyi bozmaz.
         let bildirimSayisi = 0;
         try {
-            const hedefler = (Array.isArray(bildirimKullanicilar) ? bildirimKullanicilar : [])
-                .map((x) => String(x))
-                .filter((x, i, arr) => x && arr.indexOf(x) === i && x !== String(req.user._id)); // kendine bildirim yok
-
             if (hedefler.length) {
                 const firmaAdi = talep.firmaUnvan || 'Firma';
                 const tarihStr = new Date().toLocaleString('tr-TR');
@@ -956,9 +992,7 @@ exports.notEkle = async (req, res) => {
                 try {
                     const mailService = require('../services/tesvikMakine/mailService');
                     if (mailService.isConfigured()) {
-                        const User = require('../models/User');
-                        const kisiler = await User.find({ _id: { $in: hedefler } }).select('email adSoyad').lean();
-                        const adresler = kisiler.map((k) => k.email).filter(Boolean);
+                        const adresler = alicilar.map((k) => k.email).filter(Boolean);
                         if (adresler.length) {
                             const govde = [
                                 'Gmplansis Belge Takip sisteminde adınıza bir not paylaşıldı:',

@@ -128,6 +128,13 @@ export const DosyaTakipProvider = ({ children }) => {
         return result;
     }, []);
 
+    // 🗑️ Durum geçmişi satırı silme (müşteri, 30.09.2026)
+    const durumGecmisiSil = useCallback(async (id, gecmisId) => {
+        const result = await dosyaTakipService.durumGecmisiSil(id, gecmisId);
+        if (result.success) setSeciliTalep(result.data);
+        return result;
+    }, []);
+
     // ☑️ E-TUYS takip kutusu — listeden tek tıkla. Liste yeniden yüklenmez (tablo "yükleniyor"a düşüp
     // satırlar zıplamasın); yalnız ilgili satır ve açık detay yamalanır.
     const etuysTakipIsaretle = useCallback(async (id, isaretli) => {
@@ -257,6 +264,7 @@ export const DosyaTakipProvider = ({ children }) => {
         talepGuncelle,
         durumDegistir,
         durumGecmisiTarihDuzelt,
+        durumGecmisiSil,
         etuysTakipIsaretle,
         eksikTamamla,
         personelMailDusur,

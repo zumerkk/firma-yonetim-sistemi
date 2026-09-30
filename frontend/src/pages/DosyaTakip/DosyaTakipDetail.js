@@ -518,7 +518,7 @@ const DosyaTakipDetail = () => {
     // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
     // girildiyse state boştur ve normal listeye dönülür.
     const listeyeDon = () => navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
-    const { seciliTalep, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, durumGecmisiSil, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTabDurumu] = useState(() => Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme'))));
     const setActiveTab = (v) => {
@@ -747,6 +747,18 @@ const DosyaTakipDetail = () => {
         } catch (err) {
             setSnackbar({ open: true, message: err?.response?.data?.message || 'Tarih güncellenemedi.', severity: 'error' });
             throw err;
+        }
+    };
+
+    // 🗑️ Durum geçmişi satırı sil — müşteri (30.09.2026): "Durum geçmişlerini silebilme
+    // ekleyebilir miyiz." Yanlış/deneme kayıtlar geçmişi kirletiyordu.
+    const gecmisSil = async (gecmisId) => {
+        if (!window.confirm('Bu durum geçmişi kaydı silinsin mi? Talebin güncel durumu değişmez.')) return;
+        try {
+            await durumGecmisiSil(id, gecmisId);
+            setSnackbar({ open: true, message: 'Geçmiş kaydı silindi', severity: 'success' });
+        } catch (err) {
+            setSnackbar({ open: true, message: err?.response?.data?.message || 'Geçmiş kaydı silinemedi.', severity: 'error' });
         }
     };
 
@@ -1432,7 +1444,15 @@ const DosyaTakipDetail = () => {
                                                     .map((g, sira) => ({ g, sira }))
                                                     .sort((a, b) => (new Date(b.g.tarih || 0) - new Date(a.g.tarih || 0)) || (b.sira - a.sira))
                                                     .map(({ g: gecmis }, index) => (
-                                                    <ListItem key={gecmis._id || index} alignItems="flex-start" sx={{ px: 0 }}>
+                                                    <ListItem key={gecmis._id || index} alignItems="flex-start" sx={{ px: 0 }}
+                                                        secondaryAction={gecmis._id && (
+                                                            <Tooltip title="Bu geçmiş kaydını sil">
+                                                                <IconButton size="small" onClick={() => gecmisSil(gecmis._id)}
+                                                                    sx={{ color: '#ef4444', '&:hover': { background: '#fef2f2' } }}>
+                                                                    <DeleteIcon sx={{ fontSize: 16 }} />
+                                                                </IconButton>
+                                                            </Tooltip>
+                                                        )}>
                                                         <ListItemAvatar>
                                                             <Avatar sx={{ width: 32, height: 32, background: '#f59e0b', fontSize: '0.75rem' }}>
                                                                 {index + 1}
@@ -2092,6 +2112,13 @@ function renderNotlar(talep, onNotSil) {
                                 <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: '0.65rem' }}>
                                     {not.tarih ? new Date(not.tarih).toLocaleString('tr-TR') : '-'}
                                 </Typography>
+                                {/* Müşteri (30.09.2026): "Bildirim gönderince kime gönderdiğimiz görünmüyor
+                                    ... Genel not - tarih - >> bildirim gönderdiğimiz kişi gibi yapabilir miyiz" */}
+                                {(not.bildirilenler || []).length > 0 && (
+                                    <Typography variant="caption" sx={{ color: '#2563eb', fontSize: '0.65rem', fontWeight: 600 }}>
+                                        » {not.bildirilenler.join(', ')}
+                                    </Typography>
+                                )}
                             </Box>
                         }
                         secondary={

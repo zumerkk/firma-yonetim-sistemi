@@ -36,7 +36,20 @@ const emptyForm = {
 
 function joinEmails(v) { return Array.isArray(v) ? v.join(', ') : (v || ''); }
 
-export default function MakineDetailModal({ open, onClose, target, meta, onChanged }) {
+export default function MakineDetailModal({ open, onClose, target, meta: metaProp, onChanged }) {
+  // Müşteri (30.09.2026): "makine işlemi sekmesinde süreç ayarları-mail şablonu-evrak türü vs boş
+  // görünüyor makine listesinden girince". Sebep: durum/şablon/evrak türü listeleri `meta`
+  // özelliğiyle DIŞARIDAN geliyordu; Ekipman Takip veriyordu, makine listesi ekranı vermiyordu.
+  // Pencere artık verilmediyse kendisi çekiyor — her açan ekranda dolu geliyor.
+  const [metaYerel, setMetaYerel] = useState(null);
+  const meta = metaProp || metaYerel;
+  useEffect(() => {
+    if (!open || metaProp || metaYerel) return;
+    let iptal = false;
+    svc.meta().then((m) => { if (!iptal) setMetaYerel(m); }).catch(() => {});
+    return () => { iptal = true; };
+  }, [open, metaProp, metaYerel]);
+
   const [loading, setLoading] = useState(false);
   const [proc, setProc] = useState(null);
   const [form, setForm] = useState(emptyForm);
