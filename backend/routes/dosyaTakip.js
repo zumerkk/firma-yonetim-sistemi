@@ -85,6 +85,8 @@ router.patch('/:id/durum', dosyaTakipController.durumDegistir);
 
 // 🕓 Durum geçmişindeki bir geçişin tarihini düzelt (geriye dönük veri girişi)
 router.patch('/:id/durum-gecmisi/:gecmisId', dosyaTakipController.durumGecmisiTarihDuzelt);
+// 🗑️ Yanlış/deneme durum kaydını geçmişten kaldır (talebin güncel durumu değişmez)
+router.delete('/:id/durum-gecmisi/:gecmisId', dosyaTakipController.durumGecmisiSil);
 
 // ☑️ E-TUYS takip kutusu (yalnız 2. Kurum Değerlendirme) — listeden tek tıkla
 router.patch('/:id/etuys-takip', dosyaTakipController.etuysTakipGuncelle);

@@ -20,6 +20,7 @@ import { makineSablonuIndir } from '../../utils/makineSablonuExcel';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 import MakineDetailModal from '../TesvikMakine/MakineDetailModal';
+import EkipmanSatiri from '../../components/Tesvik/EkipmanSatiri';
 
 // Makine listesi seçim hücrelerinin seçenekleri (HafifHucreler.SecimHucresi). Modül düzeyinde: memo'lu hücre
 // her çizimde yeni dizi görmesin. Etiketler eski MUI Select menüleriyle aynı.
@@ -239,10 +240,11 @@ const MakineYonetimi = () => {
   // firmanın ilgili belgesinin ilgili satırı aşağıya gelsin" + "modüler bir şekilde makine
   // listesinden çift tıkla açıp bu işlemleri (fatura girişi) yapabilelim."
   // Ekipman Takip ile AYNI bileşen kullanılır; iki ayrı ekran bakımı olmasın.
-  const [surecHedefi, setSurecHedefi] = useState(null);
+  const [surecHedefi, setSurecHedefi] = useState(null);   // İşlem penceresi
+  const [surecSatiri, setSurecSatiri] = useState(null);   // listenin altında beliren Ekipman Takip satırı
   const surecAc = (satir, listType) => {
     if (!selectedTesvik?._id || !satir?.rowId) return;
-    setSurecHedefi({ tesvikModel: 'YeniTesvik', tesvikId: selectedTesvik._id, listType, rowId: satir.rowId, machine: satir });
+    setSurecSatiri({ tesvikModel: 'YeniTesvik', tesvikId: selectedTesvik._id, listType, rowId: satir.rowId, machine: satir });
   };
 
   const [tesvikOptions, setTesvikOptions] = useState([]);
@@ -4920,7 +4922,16 @@ const MakineYonetimi = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Ekipman Takip İşlem penceresi — makineye çift tıklayınca açılır (fatura kalemleri dahil) */}
+      {/* Çift tıklanan makinenin Ekipman Takip satırı; İşlem düğmesi süreç penceresini açar */}
+      {surecSatiri && (
+        <EkipmanSatiri
+          {...surecSatiri}
+          onKapat={() => setSurecSatiri(null)}
+          onIslem={() => setSurecHedefi(surecSatiri)}
+        />
+      )}
+
+      {/* Ekipman Takip İşlem penceresi (fatura kalemleri dahil) */}
       <MakineDetailModal
         open={!!surecHedefi}
         target={surecHedefi}

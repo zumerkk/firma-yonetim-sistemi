@@ -167,16 +167,20 @@ export default function PublicUpload() {
       {/* 🧾 Fatura bilgisi — makine kapsamı olan bağlantılarda */}
       {(Array.isArray(info.makineler) ? info.makineler.length > 0 : !!info.siraNo) && (
         <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Fatura Bilgisi (opsiyonel)</Typography>
+          {/* Müşteri (30.09.2026): "Fatura Bilgisinden (opsiyonel) yazısını kaldıralım, gören
+              firmalar kesin yazmaz; satır ama yine opsiyonel kalsın işlem olarak." Başlıkta
+              yazmıyor ama alan zorunlu değil: boş bırakılırsa yalnız dosya yüklenir. */}
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Fatura Bilgisi</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
             Kestiğiniz faturaları buraya girebilirsiniz; bilgiler ilgili sıra numaralı makineye işlenir.
           </Typography>
           <Stack spacing={1}>
             {faturalar.map((f, i) => (
-              <Stack key={f._a} direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Stack key={f._a} direction="row" spacing={1} flexWrap="wrap" useFlexGap
+                sx={{ border: '1px solid #e2e8f0', borderRadius: 1, p: 1 }}>
                 {Array.isArray(info.makineler) && info.makineler.length > 0 && (
                   <TextField select size="small" label="Makine (sıra no)" value={f.siraNo}
-                    onChange={(e) => faturaDegistir(i, 'siraNo', e.target.value)} sx={{ minWidth: 200 }}>
+                    onChange={(e) => faturaDegistir(i, 'siraNo', e.target.value)} sx={{ flex: '1 1 100%' }}>
                     {info.makineler.map((m) => (
                       <MenuItem key={`${m.siraNo}-${m.makineId}`} value={m.siraNo}>
                         {m.siraNo}. {m.makineAdi || 'Makine'}
@@ -185,13 +189,13 @@ export default function PublicUpload() {
                   </TextField>
                 )}
                 <TextField size="small" type="date" label="Fatura Tarihi" InputLabelProps={{ shrink: true }}
-                  value={f.tarih} onChange={(e) => faturaDegistir(i, 'tarih', e.target.value)} sx={{ minWidth: 160 }} />
+                  value={f.tarih} onChange={(e) => faturaDegistir(i, 'tarih', e.target.value)} sx={{ flex: '1 1 46%', minWidth: 150 }} />
                 <TextField size="small" label="Fatura No" value={f.no}
-                  onChange={(e) => faturaDegistir(i, 'no', e.target.value)} sx={{ flex: 1, minWidth: 130 }} />
+                  onChange={(e) => faturaDegistir(i, 'no', e.target.value)} sx={{ flex: '1 1 46%', minWidth: 130 }} />
                 <TutarAlani size="small" label="Kalem Tutarı" value={f.tutar}
-                  onChange={(v) => faturaDegistir(i, 'tutar', v)} sx={{ minWidth: 150 }} />
+                  onChange={(v) => faturaDegistir(i, 'tutar', v)} sx={{ flex: '1 1 46%', minWidth: 140 }} />
                 <TextField size="small" type="number" label="Adet" value={f.adet || ''}
-                  onChange={(e) => faturaDegistir(i, 'adet', Number(e.target.value) || 0)} sx={{ width: 90 }} />
+                  onChange={(e) => faturaDegistir(i, 'adet', Number(e.target.value) || 0)} sx={{ flex: '0 0 80px' }} />
                 <IconButton size="small" color="error" aria-label="Satırı sil"
                   onClick={() => setFaturalar((o) => o.filter((_, x) => x !== i))}>
                   <DeleteOutlineIcon fontSize="small" />

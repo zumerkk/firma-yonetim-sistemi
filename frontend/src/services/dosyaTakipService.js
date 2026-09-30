@@ -54,6 +54,12 @@ const dosyaTakipService = {
         return data;
     },
 
+    // 🗑️ Yanlış/deneme durum kaydını geçmişten kaldır (talebin güncel durumu değişmez)
+    durumGecmisiSil: async (id, gecmisId) => {
+        const { data } = await axios.delete(`${API_URL}/${id}/durum-gecmisi/${gecmisId}`);
+        return data;
+    },
+
     // ☑️ E-TUYS takip kutusu — yanıt yalnız { isaretli, kontrolTarihi, kontrolEdenAdi }
     etuysTakip: async (id, isaretli) => {
         const { data } = await axios.patch(`${API_URL}/${id}/etuys-takip`, { isaretli });
