@@ -327,9 +327,9 @@ export const exportTesvikToPdf = async (tesvik, secenek = {}) => {
   for (let i = 1; i <= toplam; i++) {
     doc.setPage(i);
     doc.setFont('Roboto', 'normal'); doc.setFontSize(8); doc.setTextColor(120);
-    const g = doc.internal.pageSize.getWidth();
     const h = doc.internal.pageSize.getHeight();
-    doc.text(`Sayfa ${i} / ${toplam}`, g - 40, h - 18, { align: 'right' });
+    // Sol altta: sağ alt köşe oluşturma damgasına ayrıldı (ikisi üst üste biniyordu)
+    doc.text(`Sayfa ${i} / ${toplam}`, 40, h - 14);
   }
 
   // Müşteri: dosya "İSMİ-BELGE NO-SON REVİZE TARİHİ" olarak insin.
