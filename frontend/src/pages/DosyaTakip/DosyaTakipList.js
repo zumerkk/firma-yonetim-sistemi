@@ -24,6 +24,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
+import useSutunSirasi from '../../hooks/useSutunSirasi';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import axios from '../../utils/axios';
 
@@ -506,6 +507,10 @@ const DosyaTakipList = () => {
         }
     ];
 
+    // müşteri: "şu kısmı tutup sürüklenebilir yapabilir miyiz. mesela kontrol panelini öne
+    // almak istiyorum" — başlıklar sürükle-bırak; sıra bu tarayıcıda hatırlanır
+    const { sutunlar, sifirla: sutunSirasiniSifirla, ozelSira } = useSutunSirasi('dosyaTakip.sutunSirasi', columns);
+
     return (
     // 📋 ETUYS teması — DataGrid'in görünümü buradan geliyor.
     // Grid'in KENDİSİ değişmedi: sıralama, filtreleme, sütun boyutlandırma ve
@@ -684,6 +689,13 @@ const DosyaTakipList = () => {
                                         Temizle
                                     </Button>
                                 )}
+                                {ozelSira && (
+                                    <Tooltip title="Sütunları varsayılan sıraya döndür">
+                                        <Button size="small" onClick={sutunSirasiniSifirla} sx={{ minWidth: 'auto', whiteSpace: 'nowrap', color: '#64748b' }}>
+                                            Sütun sırası
+                                        </Button>
+                                    </Tooltip>
+                                )}
                             </Box>
                         </Grid>
                     </Grid>
@@ -700,7 +712,7 @@ const DosyaTakipList = () => {
                     <UstKaydirmaCubugu>
                         <DataGrid
                             rows={talepler}
-                            columns={columns}
+                            columns={sutunlar}
                             getRowId={(row) => row._id}
                             loading={loading}
                             paginationMode="server"
