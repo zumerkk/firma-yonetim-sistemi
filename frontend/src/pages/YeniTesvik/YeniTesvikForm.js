@@ -67,6 +67,7 @@ import KayitliSecim, { kayitliSecenekler } from '../../components/common/Kayitli
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
 import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
+import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerHarcamalar';
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
 import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
@@ -520,6 +521,7 @@ const YeniTesvikForm = () => {
       cins4: '',
       destekSinifi: '',
       // 🎯 YENİ PROFESYONEL ALANLAR - Resimden eklenenler
+      buyukOlcekli: '', // Büyük Ölçekli (Evet/Hayır)
       cazibeMerkeziMi: '', // Cazibe Merkezi Mi? (Evet/Hayır)
       savunmaSanayiProjesi: '', // Savunma Sanayi Projesi Mi? (Evet/Hayır)
       enerjiUretimKaynagi: '', // Enerji Üretim Kaynağı (metin)
@@ -621,7 +623,8 @@ const YeniTesvikForm = () => {
       digerYatirimHarcamalari: {
         yardimciIslMakTeçGid: '',        // Yardımcı İşl. Mak. Teç. Gid.
         ithalatVeGumGiderleri: '',       // İthalat ve Güm.Giderleri
-        tasimaVeSigortaGiderleri: '',    // Taşıma ve Sigorta G.(Monta) Giderleri
+        tasimaVeSigortaGiderleri: '',    // Taşıma ve Sigorta G.
+        montajGiderleri: '',             // Montaj Giderleri (EW) — eskiden yardımcı alanına yazılıyordu
         etudVeProjeGiderleri: '',        // Etüd ve Proje Giderleri
         digerGiderleri: '',              // Diğer Giderleri
         toplamDigerYatirimHarcamalari: '' // TOPLAM DİĞER YATIRIM HARCAMALARI
@@ -1014,20 +1017,15 @@ const YeniTesvikForm = () => {
               }
             },
 
-            digerYatirimHarcamalari: {
-              yardimciIslMakTeçGid: backendData.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0,
-              ithalatVeGumGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0,
-              tasimaVeSigortaGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0,
-              etudVeProjeGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0,
-              digerGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0,
-              toplamDigerYatirimHarcamalari: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0
-            }
+            // ET..EY eşlemesi utils/digerHarcamalar.js'te (E-TUYS sırası, içe aktarmalarla aynı)
+            digerYatirimHarcamalari: digerHarcamalariForma(backendData.maliHesaplamalar?.yatirimHesaplamalari)
           },
 
           // Yatırım bilgilerini böl (backend'deki yatirimBilgileri → frontend'deki 2 bölüm)
           yatirimBilgileri1: {
             yatirimKonusu: backendData.yatirimBilgileri?.yatirimKonusu || '',
             // 🎯 YENİ PROFESYONEL ALANLAR - Backend'den frontend'e mapping
+            buyukOlcekli: backendData.yatirimBilgileri?.buyukOlcekli || '',
             cazibeMerkeziMi: backendData.yatirimBilgileri?.cazibeMerkeziMi || '',
             savunmaSanayiProjesi: backendData.yatirimBilgileri?.savunmaSanayiProjesi || '',
             enerjiUretimKaynagi: backendData.yatirimBilgileri?.enerjiUretimKaynagi || '',
@@ -2112,6 +2110,7 @@ const YeniTesvikForm = () => {
           // Bölüm 1 alanları
           yatirimKonusu: formData.yatirimBilgileri1?.yatirimKonusu || '',
           // 🎯 YENİ PROFESYONEL ALANLAR - Backend mapping
+          buyukOlcekli: formData.yatirimBilgileri1?.buyukOlcekli || '',
           cazibeMerkeziMi: formData.yatirimBilgileri1?.cazibeMerkeziMi || '',
           savunmaSanayiProjesi: formData.yatirimBilgileri1?.savunmaSanayiProjesi || '',
           enerjiUretimKaynagi: formData.yatirimBilgileri1?.enerjiUretimKaynagi || '',
@@ -2189,14 +2188,7 @@ const YeniTesvikForm = () => {
           },
 
           // Yatırım Hesaplamaları (Diğer Yatırım Harcamaları)
-          yatirimHesaplamalari: {
-            eu: formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid || 0,
-            ev: formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri || 0,
-            ew: formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri || 0,
-            ex: formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri || 0,
-            ey: formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri || 0,
-            ez: formData.finansalBilgiler?.digerYatirimHarcamalari?.toplamDigerYatirimHarcamalari || 0
-          },
+          yatirimHesaplamalari: digerHarcamalariKayda(formData.finansalBilgiler?.digerYatirimHarcamalari),
 
           // Finansman
           finansman: {
@@ -4530,9 +4522,11 @@ const YeniTesvikForm = () => {
     const yardimciIsl = toNumber(finansal.digerYatirimHarcamalari?.yardimciIslMakTeçGid);
     const ithalatGum = toNumber(finansal.digerYatirimHarcamalari?.ithalatVeGumGiderleri);
     const tasimaSignorta = toNumber(finansal.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri);
+    const montajGid = toNumber(finansal.digerYatirimHarcamalari?.montajGiderleri);
     const etudProje = toNumber(finansal.digerYatirimHarcamalari?.etudVeProjeGiderleri);
     const digerGider = toNumber(finansal.digerYatirimHarcamalari?.digerGiderleri);
-    const toplamDiger = yardimciIsl + ithalatGum + tasimaSignorta + etudProje + digerGider;
+    // Yardımcı işletme kutusu bu formda yok ama içe aktarılan değer toplamdan düşmesin
+    const toplamDiger = yardimciIsl + ithalatGum + tasimaSignorta + montajGid + etudProje + digerGider;
 
     // 6. TOPLAM SABİT YATIRIM TUTARI = Arazi + Bina + Makine(TL) + Diğer
     const toplamSabitYatirim = araziTotal + toplamBina + toplamMakineTL + toplamDiger;
@@ -4654,6 +4648,7 @@ const YeniTesvikForm = () => {
     formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri,
+    formData.finansalBilgiler?.digerYatirimHarcamalari?.montajGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri,
     formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri
     // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
@@ -4773,6 +4768,16 @@ const YeniTesvikForm = () => {
                 Diğer Yatırım Harcamaları
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Bu kutu yoktu: içe aktarılan yardımcı işletme tutarı (ET) toplama girip
+                    ekranda hiçbir yerde görünmüyordu. Eski belge formu ve belge görünümüyle aynı sıra. */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Yardımcı işletme mak. teç. giderleri:</Typography>
+                  <TextField size="small" fullWidth type="text"
+                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
+                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid')}
+                    sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
+                  />
+                </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>İthalat ve gümrükleme giderleri:</Typography>
                   <TextField size="small" fullWidth type="text"
@@ -4792,8 +4797,8 @@ const YeniTesvikForm = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Montaj giderleri:</Typography>
                   <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid')}
+                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
+                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.montajGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>

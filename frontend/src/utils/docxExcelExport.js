@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from "./makineFormat";
 import { disaAktarimAdi, etiketNormalle } from "./disaAktarimAdi";
+import { kunyeBolumleri } from "./belgeKunye";
+import { finansalBolumleri } from "./belgeFinansal";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
 const tl = (val) => {
@@ -66,7 +68,8 @@ const onayTarihi = (m) => {
   return fmtDate(d);
 };
 
-export const exportTesvikToExcel = async (tesvik, isEski = false) => {
+// secenek: { oecdGoster, konuGoster } — belge görünümü ve PDF ile aynı künye tanımı (utils/belgeKunye.js)
+export const exportTesvikToExcel = async (tesvik, isEski = false, secenek = {}) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Teşvik Belgesi");
 
@@ -166,86 +169,49 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 }
   };
 
-  // ── 1. YATIRIMCI İLE İLGİLİ BİLGİLER ─────────────────────────────────────
+  // ── 1-3. KÜNYE — belge görünümü ve müşteri PDF'i ile aynı tanım ──────────
+  // Müşteri (01.10.2026): "Genel belge görünümünü 1-1 aynı bilgiler görünecek şekilde ...
+  // bütün sekmeler için". Satırlar E-TUYS künyesindeki sırayla, ikişer ikişer yerleşir;
+  // uzun değerler (firma adı, adres) tek satıra yayılır.
+  const kunyeT = kunyeBolumleri(tesvik, { tur: isEski ? "eski" : "yeni", ...secenek });
+  const kunyeYaz = (satirlar) => {
+    let bekleyen = null;
+    satirlar.forEach((r) => {
+      if (r.uzun) { addWideRow(r.etiket, r.deger); return; }
+      if (!bekleyen) { bekleyen = r; return; }
+      addDataRow(bekleyen.etiket, bekleyen.deger, r.etiket, r.deger);
+      bekleyen = null;
+    });
+    if (bekleyen) addDataRow(bekleyen.etiket, bekleyen.deger, "", "");
+  };
+
   addHeaderRow("1. YATIRIMCI İLE İLGİLİ BİLGİLER");
-  addDataRow("Yatırımcı Ünvanı", tesvik.firmaBilgileri?.unvan || tesvik.firma?.tamUnvan, "Vergi Dairesi", tesvik.firmaBilgileri?.vergiDairesi || tesvik.firma?.vergiDairesi);
-  addDataRow("Vergi No", tesvik.firmaBilgileri?.vergiNo || tesvik.firma?.vergiNo, "SGK Sicil No", tesvik.kunyeBilgileri?.sgkSicilNo);
+  kunyeYaz([
+    ...kunyeT.yatirimci,
+    { etiket: "Vergi Dairesi", deger: str(tesvik.firmaBilgileri?.vergiDairesi || tesvik.firma?.vergiDairesi) },
+    { etiket: "Vergi No", deger: str(tesvik.firmaBilgileri?.vergiNo || tesvik.firma?.vergiNo) }
+  ]);
   worksheet.addRow([]);
 
-  // ── 2. YATIRIM İLE İLGİLİ BİLGİLER ──────────────────────────────────────
   addHeaderRow("2. YATIRIM İLE İLGİLİ BİLGİLER");
-  addDataRow("Yatırımın Yeri (İl)", tesvik.yatirimBilgileri?.yerinIl, "Yatırımın Yeri (İlçe)", tesvik.yatirimBilgileri?.yerinIlce);
-  addWideRow("Yatırım Adresi", [tesvik.yatirimBilgileri?.yatirimAdresi1, tesvik.yatirimBilgileri?.yatirimAdresi2, tesvik.yatirimBilgileri?.yatirimAdresi3].filter(Boolean).join(" "));
-  addDataRow("OSB Adı", tesvik.yatirimBilgileri?.osbIseMudurluk, "Serbest Bölge Adı", tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge);
-  addDataRow("İl Bazlı Bölgesi", tesvik.yatirimBilgileri?.ilBazliBolge, "İlçe Bazlı Bölgesi", tesvik.yatirimBilgileri?.ilceBazliBolge);
-  addDataRow("Mevcut İstihdam", tesvik.istihdam?.mevcutKisi, "İlave İstihdam", tesvik.istihdam?.ilaveKisi);
+  kunyeYaz(kunyeT.yatirim);
   worksheet.addRow([]);
 
-  // ── 3. BELGE İLE İLGİLİ BİLGİLER ─────────────────────────────────────────
-  // (UI'daki "Belge Bilgileri" Accordion'u ile birebir aynı alanlar - tesvik.belgeYonetimi.*)
   addHeaderRow("3. BELGE İLE İLGİLİ BİLGİLER");
-  const by = tesvik.belgeYonetimi || {};
-  const kunye = tesvik.kunyeBilgileri || {};
-
-  addDataRow("Belge ID", by.belgeId || tesvik._id, "Belge NO", by.belgeNo || tesvik.belgeNo || tesvik.gmId);
-  addDataRow(
-    "Belge Tarihi",
-    fmtDate(by.belgeTarihi || kunye.kararTarihi),
-    "Dayandığı Kanun",
-    // kunye.dayandigiKanun şemada yok — künyedeki karar sayısı gerçek yedek alan
-    by.dayandigiKanun || kunye.kararSayisi
-  );
-  addDataRow(
-    "Müracaat No",
-    by.belgeMuracaatNo || kunye.dosyaNo,
-    "Müracaat Talep Tipi",
-    by.belgeMuracaatTalepTipi
-  );
-  addWideRow(
-    "Müracaat Tarihi",
-    fmtDate(by.belgeMuracaatTarihi || kunye.basvuruTarihi)
-  );
-  addDataRow(
-    "Belge Başlama Tarihi",
-    fmtDate(by.belgeBaslamaTarihi || kunye.baslamaTarihi),
-    "Belge Bitiş Tarihi",
-    fmtDate(by.belgeBitisTarihi || kunye.bitisTarihi)
-  );
-  addDataRow(
-    "Süre Uzatım Tarihi",
-    fmtDate(by.uzatimTarihi),
-    "Mücbir Uzama Tarihi",
-    fmtDate(by.mucbirUzumaTarihi)
-  );
-  // müşteri: belge kapandıktan sonra revize ile doldurulan alanlar — UI'daki accordion ile birebir kalsın
-  addDataRow(
-    "Kapanma Tarihi",
-    fmtDate(by.kapanmaTarihi),
-    "Ekspertiz Tarihi",
-    fmtDate(by.ekspertizTarihi)
-  );
-  addDataRow(
-    "Öncelikli Yatırım",
-    by.oncelikliYatirim,
-    "Öncelikli Yatırım Türü",
-    by.oncelikliYatirimTuru
-  );
-
-  const yatirimCinsi = [
-    tesvik.yatirimBilgileri?.sCinsi1,
-    tesvik.yatirimBilgileri?.tCinsi2,
-    tesvik.yatirimBilgileri?.uCinsi3,
-    tesvik.yatirimBilgileri?.vCinsi4,
-  ].filter(Boolean).join(", ") || tesvik.yatirimBilgileri?.yatirimCinsi;
-  addDataRow("Yatırım Cinsi", etiketNormalle(yatirimCinsi), "Destek Sınıfı", etiketNormalle(tesvik.yatirimBilgileri?.destekSinifi));
-  // Müşteri: "yada OECD ise OECD'si gibi" — ETUYS çıktısında ayrı satır olarak
-  // duruyor, bizim çıktımızda hiç yoktu.
-  addDataRow("OECD Kategorisi", etiketNormalle(tesvik.yatirimBilgileri?.oecdKategori), "", "");
-  addDataRow("Ada", tesvik.yatirimBilgileri?.ada, "Parsel", tesvik.yatirimBilgileri?.parsel);
+  kunyeYaz(kunyeT.belge);
   worksheet.addRow([]);
 
-  // ── 4. ÜRÜN BİLGİLERİ ─────────────────────────────────────────────────────
-  addHeaderRow("4. ÜRÜN BİLGİLERİ");
+  // ── 4. YATIRIM CİNSİ (E-TUYS'te ayrı sekme) ────────────────────────────────
+  addHeaderRow("4. YATIRIM CİNSİ");
+  const yb = tesvik.yatirimBilgileri || {};
+  const cinsler = [yb.sCinsi1, yb.tCinsi2, yb.uCinsi3, yb.vCinsi4].filter(Boolean);
+  if (!cinsler.length && yb.yatirimCinsi) cinsler.push(yb.yatirimCinsi);
+  if (cinsler.length) cinsler.forEach((c, i) => addWideRow(`Yatırım Cinsi ${i + 1}`, etiketNormalle(c)));
+  else addWideRow("Yatırım Cinsi", "-");
+  worksheet.addRow([]);
+
+  // ── 5. ÜRÜN BİLGİLERİ ─────────────────────────────────────────────────────
+  addHeaderRow("5. ÜRÜN BİLGİLERİ");
   // Tablo başlığı: 6 sütun (A: Kod, B: Ad, C: Mevcut, D: İlave + alttaki sıra ile Toplam, Birim)
   // Genişletilmiş 6 sütunlu görünüm için ekstra satır kullanıyoruz.
   // Sütun yapısı: A | B | C | D
@@ -300,89 +266,26 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   }
   worksheet.addRow([]);
 
-  // ── 5. FİNANSAL BİLGİLER (UI'daki "Finansal Bilgiler" Accordion'u ile birebir) ──
-  addHeaderRow("5. FİNANSAL BİLGİLER");
-  const mali = tesvik.maliHesaplamalar || {};
-
-  const araziArsa = Number(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn || 0);
-  const binaInsaat = Number(mali.binaInsaatGideri?.toplamBinaGideri || 0);
-  const anaBina = Number(mali.binaInsaatGideri?.anaBinaGideri || 0);
-  const yardimciBina = Number(mali.binaInsaatGideri?.yardimciBinaGideri || 0);
-  const idareBina = 0;
-
-  const ithalMak = Number(mali.makinaTechizat?.ithalMakina || 0);
-  const yerliMak = Number(mali.makinaTechizat?.yerliMakina || 0);
-  const toplamMak = Number(mali.makinaTechizat?.toplamMakina || 0);
-  const yeniMakUsd = Number(mali.makinaTechizat?.yeniMakine || 0);
-  const kullMakUsd = Number(mali.makinaTechizat?.kullanimisMakina || 0);
-  const topMakUsd = yeniMakUsd + kullMakUsd;
-
-  const yardimciIsletmeMakGider = 0;
-  const ithalatGider = Number(mali.yatirimHesaplamalari?.ev || 0);
-  const tasimaGider = Number(mali.yatirimHesaplamalari?.ew || 0);
-  const montajGider = Number(mali.yatirimHesaplamalari?.et || 0);
-  const etudGider = Number(mali.yatirimHesaplamalari?.ex || 0);
-  const digerGider = Number(mali.yatirimHesaplamalari?.ey || 0);
-  const toplamDigerHarcama =
-    yardimciIsletmeMakGider + ithalatGider + tasimaGider + montajGider + etudGider + digerGider;
-
-  let topSabit = Number(mali.toplamSabitYatirim || 0);
-  if (!topSabit) topSabit = araziArsa + binaInsaat + toplamMak + toplamDigerHarcama;
-
-  const yabanci = Number(mali.finansman?.yabanciKaynak || 0);
-  const ozkaynak = Number(mali.finansman?.ozKaynak || 0);
-  const topFin = Number(mali.finansman?.toplamFinansman || yabanci + ozkaynak);
-
-  // 5.1 Arazi-Arsa Gideri
-  addSubHeaderRow("5.1 Arazi-Arsa Gideri");
-  addKirilimRow("Açıklama", str(mali.maliyetlenen?.aciklama));
-  addKirilimRow("Metrekaresi (m²)", num(mali.maliyetlenen?.sl));
-  addKirilimRow("Birim Fiyatı", tl(mali.maliyetlenen?.sm));
-  addKirilimRow("Arazi-Arsa Bedeli (TOPLAM)", tl(araziArsa), { bold: true, fill: TOTAL_FILL });
-
-  // 5.2 Bina-İnşaat Gideri
-  addSubHeaderRow("5.2 Bina-İnşaat Gideri");
-  addKirilimRow("Açıklama", str(mali.binaInsaatGideri?.aciklama));
-  addKirilimRow("Ana bina ve tesisleri", tl(anaBina));
-  addKirilimRow("Yardımcı işletmeler bina ve tesisleri", tl(yardimciBina));
-  addKirilimRow("İdare binaları", tl(idareBina));
-  addKirilimRow("Toplam Bina-İnşaat Giderleri", tl(binaInsaat), { bold: true, fill: TOTAL_FILL });
-
-  // 5.3 Diğer Yatırım Harcamaları
-  addSubHeaderRow("5.3 Diğer Yatırım Harcamaları");
-  addKirilimRow("Yardımcı işletme makine teçhizat giderleri", tl(yardimciIsletmeMakGider));
-  addKirilimRow("İthalat ve gümrükleme giderleri", tl(ithalatGider));
-  addKirilimRow("Taşıma ve sigorta giderleri", tl(tasimaGider));
-  addKirilimRow("Montaj giderleri", tl(montajGider));
-  addKirilimRow("Etüd ve proje giderleri", tl(etudGider));
-  addKirilimRow("Diğer giderler", tl(digerGider));
-  addKirilimRow("Toplam Diğer Yatırım Harcamaları", tl(toplamDigerHarcama), { bold: true, fill: TOTAL_FILL });
-
-  // 5.4 Toplam Sabit Yatırım Tutarı
-  addKirilimRow("TOPLAM SABİT YATIRIM TUTARI", tl(topSabit), { bold: true, fill: TOTAL_FILL });
-
-  // 5.5 Makina ve Teçhizat Giderleri
-  addSubHeaderRow("5.5 Makina ve Teçhizat Giderleri");
-  addKirilimRow("İthal", tl(ithalMak));
-  addKirilimRow("Yerli", tl(yerliMak));
-  addKirilimRow("Toplam Makine Teçhizat", tl(toplamMak), { bold: true, fill: TOTAL_FILL });
-
-  // 5.6 İthal Makine (USD)
-  addSubHeaderRow("5.6 İthal Makine ($)");
-  addKirilimRow("Yeni Makine", usd(yeniMakUsd));
-  addKirilimRow("Kullanılmış Makine", usd(kullMakUsd));
-  addKirilimRow("Toplam İthal Makine ($)", usd(topMakUsd), { bold: true, fill: TOTAL_FILL });
-
-  // 5.7 Finansman
-  addSubHeaderRow("5.7 Finansman");
-  addKirilimRow("Yabancı Kaynak", tl(yabanci));
-  addKirilimRow("Öz Kaynak", tl(ozkaynak));
-  addKirilimRow("TOPLAM FİNANSMAN", tl(topFin), { bold: true, fill: TOTAL_FILL });
+  // ── 6. FİNANSAL BİLGİLER — belge görünümü ve PDF ile aynı tanım (utils/belgeFinansal.js) ──
+  // Diğer harcama kalemleri artık doğru sütunlardan okunuyor (bkz. utils/digerHarcamalar.js);
+  // eskiden bir kutu kayıktı ve ithal makine $ tutarı yanlış alan adıyla hep 0 geliyordu.
+  addHeaderRow("6. FİNANSAL BİLGİLER");
+  const finansalBicim = (r) => {
+    if (r.tur === "metin") return str(String(r.deger ?? "").trim());
+    if (r.tur === "usd") return usd(r.deger || 0);
+    if (r.tur === "adet") return num(r.deger || 0);
+    return tl(r.deger || 0);
+  };
+  const { sol: finSol, sag: finSag } = finansalBolumleri(tesvik);
+  [...finSol, ...finSag].forEach((g, i) => {
+    addSubHeaderRow(`6.${i + 1} ${g.baslik}`);
+    g.satirlar.forEach((r) => addKirilimRow(r.etiket, finansalBicim(r), r.hesap ? { bold: true, fill: TOTAL_FILL } : {}));
+  });
 
   worksheet.addRow([]);
 
-  // ── 6. ÖZEL ŞARTLAR ───────────────────────────────────────────────────────
-  addHeaderRow("6. ÖZEL ŞARTLAR");
+  // ── 7. ÖZEL ŞARTLAR ───────────────────────────────────────────────────────
+  addHeaderRow("7. ÖZEL ŞARTLAR");
   const sartHeader = worksheet.addRow(["Şart Adı / Kısaltma", "Açıklama", "", "", "", ""]);
   worksheet.mergeCells(`B${sartHeader.number}:F${sartHeader.number}`);
   sartHeader.getCell(1).font = { bold: true }; sartHeader.getCell(1).fill = LABEL_FILL;
@@ -405,8 +308,8 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
   }
   worksheet.addRow([]);
 
-  // ── 7. DESTEK UNSURLARI ───────────────────────────────────────────────────
-  addHeaderRow("7. DESTEK UNSURLARI");
+  // ── 8. DESTEK UNSURLARI ───────────────────────────────────────────────────
+  addHeaderRow("8. DESTEK UNSURLARI");
   const destekHeader = worksheet.addRow(["Destek Adı", "Şartı", "Açıklama", "", "", ""]);
   worksheet.mergeCells(`C${destekHeader.number}:F${destekHeader.number}`);
   destekHeader.eachCell((cell) => { cell.font = { bold: true }; cell.fill = LABEL_FILL; cell.border = BORDER; cell.alignment = { horizontal: "center", vertical: "middle" }; });
@@ -426,7 +329,7 @@ export const exportTesvikToExcel = async (tesvik, isEski = false) => {
     applyBorder(row);
   }
 
-  // ── 8. MAKİNE LİSTELERİ ───────────────────────────────────────────────────
+  // ── 9. MAKİNE LİSTELERİ ───────────────────────────────────────────────────
   const yerliList = tesvik.makineListeleri?.yerli || [];
   if (yerliList.length > 0) {
     const yerliSheet = workbook.addWorksheet("Yerli Makine Listesi");

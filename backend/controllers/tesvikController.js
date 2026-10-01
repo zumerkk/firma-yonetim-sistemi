@@ -4221,29 +4221,33 @@ const buildCsvDataRow = async (tesvik, revizyon = null, revizyonNo = 0) => {
     }
 
     // FİNANSAL BİLGLER (25 sütun) - Schema'ya uygun düzeltmeler
-    row.push(''); // Arazi-Arsa Bedeli Açıklama (schema'da yok)
-    row.push(0); // Metrekaresi (schema'da yok)
-    row.push(0); // Birim Fiyatı TL (schema'da yok)
+    // Bu sütunlar "schema'da yok" sanılıp sabit 0/boş basılıyordu; alanlar şemada var.
+    // Diğer yatırım harcamaları E-TUYS sırasıyla ET..EY (frontend/src/utils/digerHarcamalar.js).
+    const mali = tesvik.maliHesaplamalar || {};
+    const yh = mali.yatirimHesaplamalari || {};
+    row.push(mali.maliyetlenen?.aciklama || ''); // Arazi-Arsa Bedeli Açıklama
+    row.push(mali.maliyetlenen?.sl || 0); // Metrekaresi
+    row.push(mali.maliyetlenen?.sm || 0); // Birim Fiyatı TL
     row.push(tesvik.maliHesaplamalar?.araciArsaBedeli || 0); // Schema'da 'araciArsaBedeli'
-    row.push(''); // Bina İnşaat Gideri Açıklama (schema'da yok)
+    row.push(mali.binaInsaatGideri?.aciklama || ''); // Bina İnşaat Gideri Açıklama
     row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.anaBinaGideri || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.yardimciBinaGideri || 0); // Schema'da nested
-    row.push(0); // İdare Binaları (schema'da yok)
+    row.push(0); // İdare Binaları (formda yardımcı binalarla tek kutu — ayrı tutulmuyor)
     row.push(tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0); // Schema'da nested
-    row.push(0); // Yardımcı İşl. Mak. Teç. Gid. (schema'da yok)
-    row.push(0); // İthalat ve Güm.Giderleri (schema'da yok)
-    row.push(0); // Taşıma ve Sigorta Giderleri (schema'da yok)
-    row.push(0); // Montaj Giderleri (schema'da yok)
-    row.push(0); // Etüd ve Proje Giderleri (schema'da yok)
-    row.push(0); // Diğer Giderleri (schema'da yok)
+    row.push(yh.et || 0); // Yardımcı İşl. Mak. Teç. Gid.
+    row.push(yh.eu || 0); // İthalat ve Güm.Giderleri
+    row.push(yh.ev || 0); // Taşıma ve Sigorta Giderleri
+    row.push(yh.ew || 0); // Montaj Giderleri
+    row.push(yh.ex || 0); // Etüd ve Proje Giderleri
+    row.push(yh.ey || 0); // Diğer Giderleri
     row.push(tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0); // Schema'da 'ez' = TOPLAM
     row.push(tesvik.maliHesaplamalar?.toplamSabitYatirim || 0); // Schema'da mevcut
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.toplamMakina || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0); // Schema'da nested
-    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakine || 0); // Schema'da nested
-    row.push(0); // TOPLAM İTHAL MAKİNE ($) (schema'da yok)
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.kullanimisMakina || 0); // şemadaki ad: kullanimisMakina
+    row.push(tesvik.maliHesaplamalar?.makinaTechizat?.toplamYeniMakina || 0); // TOPLAM İTHAL MAKİNE ($)
     row.push(tesvik.maliHesaplamalar?.finansman?.yabanciKaynak || tesvik.maliHesaplamalar?.finansman?.yabanciKaynaklar?.bankKredisi || 0); // Banka Kredisi
     row.push(tesvik.maliHesaplamalar?.finansman?.ozKaynak || 0); // Schema'da nested
     row.push(tesvik.maliHesaplamalar?.finansman?.toplamFinansman || 0); // Schema'da nested
@@ -6550,12 +6554,13 @@ module.exports = {
         ['Bina İnşaat Giderleri:', tesvik.maliHesaplamalar?.binaInsaatGideri?.toplamBinaGideri || 0],
         ['Yerli Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.yerliMakina || 0],
         ['İthal Makine (TL):', tesvik.maliHesaplamalar?.makinaTechizat?.ithalMakina || 0],
-        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakine || 0],
+        ['İthal Makine (USD):', tesvik.maliHesaplamalar?.makinaTechizat?.toplamYeniMakina || tesvik.maliHesaplamalar?.makinaTechizat?.yeniMakina || 0],
         ['--- DİĞER YATIRIM HARCAMALARI ---', ''],
-        ['Yardımcı İşletme Makine Teçhizat Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0],
-        ['İthalat ve Gümrükleme Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0],
-        ['Taşıma ve Sigorta Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0],
-        ['Montaj Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.et || 0],
+        // E-TUYS sırası ET..EY — içe aktarmalarla aynı (frontend/src/utils/digerHarcamalar.js)
+        ['Yardımcı İşletme Makine Teçhizat Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.et || 0],
+        ['İthalat ve Gümrükleme Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0],
+        ['Taşıma ve Sigorta Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0],
+        ['Montaj Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0],
         ['Etüd ve Proje Giderleri:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0],
         ['Diğer Giderler:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0],
         ['Toplam Diğer Yatırım Harcamaları:', tesvik.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0]

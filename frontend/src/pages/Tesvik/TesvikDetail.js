@@ -26,13 +26,12 @@ import KdvMuafiyetYazisi from '../../components/Tesvik/KdvMuafiyetYazisi';
 import api from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
-import { useOecdEtiket, kararnameGoster } from '../../utils/belgeGosterim';
-import { destekSinifiGoster } from '../../utils/disaAktarimAdi';
-import { oncelikliYatirimTuruEtiketi } from '../../data/oncelikliYatirimData';
+import { useOecdEtiket } from '../../utils/belgeGosterim';
+import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 
 // 🎛️ Tasarım sistemi (madde 6). Bu ekran ETUYS temasıyla sarmalanıyor.
 // Yeni teşvik detay sayfasıyla AYNI yapı — iki sayfa bir daha ayrışmasın.
-import { renk, SekmeSeridi, VeriTablosu, AlanSatiri, BolumBasligi } from '../../tasarim';
+import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import BelgeTakipIslemleri from '../../components/Tesvik/BelgeTakipIslemleri';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN (bkz. etuys/README.md)
@@ -63,7 +62,7 @@ const TesvikDetail = () => {
       // Dinamik import: jspdf + autotable ~120 KB. Statik alınırsa herkesin
       // ana paketine giriyordu; PDF nadiren istendiği için tıklayınca inmesi yeterli.
       const { exportTesvikToPdf } = await import('../../utils/musteriGorunumPdf');
-      await exportTesvikToPdf(tesvik);
+      await exportTesvikToPdf(tesvik, { tur: 'eski', oecdGoster });
     } catch (hata) {
       console.error('PDF oluşturulamadı:', hata);
       window.alert('PDF oluşturulamadı. Sayfayı yenileyip tekrar deneyin.');
@@ -818,7 +817,7 @@ const TesvikDetail = () => {
               variant="contained"
               size="small"
               startIcon={<FileDownloadIcon />}
-              onClick={() => exportTesvikToExcel(tesvik, true)}
+              onClick={() => exportTesvikToExcel(tesvik, true, { oecdGoster })}
               sx={{
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
@@ -1124,63 +1123,8 @@ const TesvikDetail = () => {
               <Box sx={{ border: `1px solid ${renk.cizgi}`, borderTop: 'none', backgroundColor: renk.yuzey, p: 1.75 }}>
 
                 {aktifBolum === 'kunye' && (
-                  <Box>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: '0 28px' }}>
-                    {/* ETUYS künyesi iki sütun: solda yatırım, sağda belge bilgileri */}
-                    <Box>
-                      <BolumBasligi>Yatırım ile ilgili bilgiler</BolumBasligi>
-                      <AlanSatiri etiket="Destekleme Sınıfı">{destekSinifiGoster(tesvik.yatirimBilgileri?.destekSinifi) || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Sermaye Türü">{tesvik.firma?.yabanciSermayeli ? 'Yabancı Sermayeli' : 'Tamamı Yerli'}</AlanSatiri>
-                      <AlanSatiri etiket="Yatırımın Konusu(US97)">{tesvik.yatirimBilgileri?.yatirimKonusu || '-'}</AlanSatiri>
-                      {/* müşteri: "Belge ile bilgilerde OECD (Orta-Yüksek) görünmüyor" — eski belge detayında satır hiç yoktu */}
-                      <AlanSatiri etiket="OECD (Orta-Yüksek)">{oecdGoster(tesvik.yatirimBilgileri?.oecdKategori)}</AlanSatiri>
-                      {/* müşteri: "Kararname Tarih/Sayı kısmı da boş görünüyor" — okunan yol (kunyeBilgileri.dayandigiKanun)
-                      şemada yok, değer belgeYonetimi.dayandigiKanun'a yazılıyor */}
-                      <AlanSatiri etiket="Kararname Tarih/Sayı">{kararnameGoster(tesvik)}</AlanSatiri>
-                      <AlanSatiri etiket="İli">{tesvik.yatirimBilgileri?.yerinIl || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="İlçesi">{tesvik.yatirimBilgileri?.yerinIlce || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Adres 1" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi1 || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Adres 2 (varsa)" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi2 || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Adres 3 (varsa)" uzun>{tesvik.yatirimBilgileri?.yatirimAdresi3 || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="OSB Adı">{tesvik.yatirimBilgileri?.osbIseMudurluk || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Serbest Bölge Adı">{tesvik.yatirimBilgileri?.serbsetBolge || tesvik.yatirimBilgileri?.serbestBolge || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="İl Bazlı Bölgesi">{tesvik.yatirimBilgileri?.ilBazliBolge || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="İlçe Bazlı Bölgesi">{tesvik.yatirimBilgileri?.ilceBazliBolge || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Mevcut İstihdam">{tesvik.istihdam?.mevcutKisi || '0'}</AlanSatiri>
-                      <AlanSatiri etiket="İlave İstihdam">{tesvik.istihdam?.ilaveKisi || '0'}</AlanSatiri>
-                    </Box>
-                    <Box>
-                      <BolumBasligi>Belge ile ilgili bilgiler</BolumBasligi>
-                      <AlanSatiri etiket="Belge ID">{tesvik.belgeYonetimi?.belgeId || tesvik._id || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Belge NO">{tesvik.belgeYonetimi?.belgeNo || tesvik.belgeNo || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Belge Tarihi">{tesvik.belgeYonetimi?.belgeTarihi ? new Date(tesvik.belgeYonetimi.belgeTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.kararTarihi ? new Date(tesvik.kunyeBilgileri.kararTarihi).toLocaleDateString('tr-TR') : '-')}</AlanSatiri>
-                      <AlanSatiri etiket="Dayandığı Kanun">{tesvik.belgeYonetimi?.dayandigiKanun || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Müracaat No">{tesvik.belgeYonetimi?.belgeMuracaatNo || tesvik.kunyeBilgileri?.dosyaNo || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Müracaat Talep Tipi">{tesvik.belgeYonetimi?.belgeMuracaatTalepTipi || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Müracaat Tarihi">{tesvik.belgeYonetimi?.belgeMuracaatTarihi ? new Date(tesvik.belgeYonetimi.belgeMuracaatTarihi).toLocaleDateString('tr-TR') : (tesvik.kunyeBilgileri?.basvuruTarihi ? new Date(tesvik.kunyeBilgileri.basvuruTarihi).toLocaleDateString('tr-TR') : '-')}</AlanSatiri>
-                      <AlanSatiri etiket="Belge Başlama Tarihi">{tesvik.belgeYonetimi?.belgeBaslamaTarihi ? new Date(tesvik.belgeYonetimi.belgeBaslamaTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Belge Bitiş Tarihi">{tesvik.belgeYonetimi?.belgeBitisTarihi ? new Date(tesvik.belgeYonetimi.belgeBitisTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Süre Uzatım Tarihi">{tesvik.belgeYonetimi?.uzatimTarihi ? new Date(tesvik.belgeYonetimi.uzatimTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Mücbir Uzama Tarihi">{tesvik.belgeYonetimi?.mucbirUzumaTarihi ? new Date(tesvik.belgeYonetimi.mucbirUzumaTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      {/* müşteri: belge kapandıktan sonra revize ile doldurulacak (fotoğrafa/screenshot'a dahil değil) */}
-                      <AlanSatiri etiket="Kapanma Tarihi">{tesvik.belgeYonetimi?.kapanmaTarihi ? new Date(tesvik.belgeYonetimi.kapanmaTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Ekspertiz Tarihi">{tesvik.belgeYonetimi?.ekspertizTarihi ? new Date(tesvik.belgeYonetimi.ekspertizTarihi).toLocaleDateString('tr-TR') : '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Öncelikli Yatırım">{tesvik.belgeYonetimi?.oncelikliYatirim || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Öncelikli Yatırım Türü">{oncelikliYatirimTuruEtiketi(tesvik.belgeYonetimi?.oncelikliYatirimTuru) || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Yatırım Cinsi">
-                        
-                        {[
-                        tesvik.yatirimBilgileri?.sCinsi1,
-                        tesvik.yatirimBilgileri?.tCinsi2,
-                        tesvik.yatirimBilgileri?.uCinsi3,
-                        tesvik.yatirimBilgileri?.vCinsi4
-                        ].filter(Boolean).join(', ') || tesvik.yatirimBilgileri?.yatirimCinsi || '-'}
-                      </AlanSatiri>
-                      <AlanSatiri etiket="Ada">{tesvik.yatirimBilgileri?.ada || '-'}</AlanSatiri>
-                      <AlanSatiri etiket="Parsel">{tesvik.yatirimBilgileri?.parsel || '-'}</AlanSatiri>
-                    </Box>
-                  </Box>
-                  </Box>
+                  // E-TUYS künyesinin birebir alanları — tanım utils/belgeKunye.js (PDF de oradan)
+                  <KunyePaneli tesvik={tesvik} tur="eski" oecdGoster={oecdGoster} />
                 )}
 
                 {aktifBolum === 'cins' && (
@@ -1231,80 +1175,7 @@ const TesvikDetail = () => {
                   </Box>
                 )}
 
-                {aktifBolum === 'finansal' && (() => {
-              const mali = tesvik.maliHesaplamalar || {};
-              const araziArsa = Number(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn || 0);
-              const binaInsaat = Number(mali.binaInsaatGideri?.toplamBinaGideri || 0);
-              const ithalMak = Number(mali.makinaTechizat?.ithalMakina || 0);
-              const yerliMak = Number(mali.makinaTechizat?.yerliMakina || 0);
-              const toplamMak = Number(mali.makinaTechizat?.toplamMakina || 0);
-              const yeniMakUsd = Number(mali.makinaTechizat?.yeniMakine || 0);
-              const kullMakUsd = Number(mali.makinaTechizat?.kullanimisMakina || 0);
-              const topMakUsd = yeniMakUsd + kullMakUsd;
-              
-              // ESKİ BELGE - 6 Kalem
-              const yardimciIsletmeMakGider = 0; // Şemada ayrı bir alan yok, genelde 0
-              const ithalatGider = Number(mali.yatirimHesaplamalari?.ev || 0); 
-              const tasimaGider = Number(mali.yatirimHesaplamalari?.ew || 0);  
-              const montajGider = Number(mali.yatirimHesaplamalari?.et || 0);  
-              const etudGider = Number(mali.yatirimHesaplamalari?.ex || 0);    
-              const digerGider = Number(mali.yatirimHesaplamalari?.ey || 0);   
-              const toplamDigerHarcama = yardimciIsletmeMakGider + ithalatGider + tasimaGider + montajGider + etudGider + digerGider;
-              
-              let topSabit = Number(mali.toplamSabitYatirim || 0);
-              if (!topSabit) topSabit = araziArsa + binaInsaat + toplamMak + toplamDigerHarcama;
-
-              const yabanci = Number(mali.finansman?.yabanciKaynak || 0);
-              const ozkaynak = Number(mali.finansman?.ozKaynak || 0);
-              const topFin = Number(mali.finansman?.toplamFinansman || 0);
-
-                  return (
-                    <Box>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: '0 28px' }}>
-                      {/* ETUYS düzeni: solda arazi/bina/diğer + toplam sabit yatırım,
-                          sağda makine/finansman. Grup sırası ETUYS ile aynı. */}
-                      <Box>
-                        <BolumBasligi>Arazi-Arsa Gideri</BolumBasligi>
-                        <AlanSatiri etiket="Arazi-Arsa Bedeli Açıklama">{mali.maliyetlenen?.aciklama || '-'}</AlanSatiri>
-                        <AlanSatiri etiket="Metrekaresi" sayi>{Number(mali.maliyetlenen?.sl || 0).toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Birim Fiyatı" sayi>₺{Number(mali.maliyetlenen?.sm || 0).toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Arazi Arsa Bedeli" sayi hesap>₺{araziArsa.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>Bina İnşaat Gideri</BolumBasligi>
-                        <AlanSatiri etiket="Bina-İnşaat Giderleri Açıklama">{mali.binaInsaatGideri?.aciklama || '-'}</AlanSatiri>
-                        <AlanSatiri etiket="Ana bina ve tesisleri" sayi>₺{Number(mali.binaInsaatGideri?.anaBinaGideri || 0).toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Yardımcı işletmeler bina ve tesisleri" sayi>₺{Number(mali.binaInsaatGideri?.yardimciBinaGideri || 0).toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="İdare binaları" sayi>₺0</AlanSatiri>
-                        <AlanSatiri etiket="Toplam Bina İnşaat Giderleri" sayi hesap>₺{binaInsaat.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>Diğer Yatırım Harcamaları</BolumBasligi>
-                        <AlanSatiri etiket="Yardımcı işletme makine teçhizat giderleri" sayi>₺{yardimciIsletmeMakGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="İthalat ve gümrükleme giderleri" sayi>₺{ithalatGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Taşıma ve sigorta giderleri" sayi>₺{tasimaGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Montaj giderleri" sayi>₺{montajGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Etüd ve proje giderleri" sayi>₺{etudGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Diğer giderler" sayi>₺{digerGider.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Toplam Diğer Yatırım Harcamaları" sayi hesap>₺{toplamDigerHarcama.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="TOPLAM SABİT YATIRIM TUTARI" sayi hesap>₺{topSabit.toLocaleString('tr-TR')}</AlanSatiri>
-                      </Box>
-                      <Box>
-                        <BolumBasligi>Makina ve Teçhizat Giderleri</BolumBasligi>
-                        <AlanSatiri etiket="İthal" sayi>₺{ithalMak.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Yerli" sayi>₺{yerliMak.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Toplam Makine Teçhizat" sayi hesap>₺{toplamMak.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>İthal Makine ($)</BolumBasligi>
-                        <AlanSatiri etiket="Yeni Makine" sayi>${yeniMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Kullanılmış Makine" sayi>${kullMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
-                        <AlanSatiri etiket="Top. İthal. Mak. ($)" sayi hesap>${topMakUsd.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>Yabancı Kaynaklar</BolumBasligi>
-                        <AlanSatiri etiket="Top. Yabancı Kaynak" sayi>₺{yabanci.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>Özkaynaklar</BolumBasligi>
-                        <AlanSatiri etiket="Özkaynaklar" sayi>₺{ozkaynak.toLocaleString('tr-TR')}</AlanSatiri>
-                        <BolumBasligi>TOPLAM FİNANSMAN</BolumBasligi>
-                        <AlanSatiri etiket="Toplam Finansman" sayi hesap>₺{topFin.toLocaleString('tr-TR')}</AlanSatiri>
-                      </Box>
-                    </Box>
-                    </Box>
-                  );
-                })()}
+                {aktifBolum === 'finansal' && <FinansalPaneli tesvik={tesvik} />}
 
                 {aktifBolum === 'sart' && (
                   <Box>

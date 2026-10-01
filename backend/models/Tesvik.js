@@ -460,6 +460,14 @@ const tesvikSchema = new mongoose.Schema({
       maxlength: 200
     },
     // 🎯 YENİ PROFESYONEL ALANLAR - Resimden eklenenler
+    // E-TUYS künyesindeki "Büyük Ölçekli" — yeni belge formunda kutusu vardı ama şemada
+    // olmadığı için kayıt sessizce düşüyordu (01.10.2026)
+    buyukOlcekli: {
+      type: String,
+      enum: ['evet', 'hayir', ''],
+      default: '',
+      trim: true
+    },
     cazibeMerkeziMi: {
       type: String,
       enum: ['evet', 'hayir', ''],

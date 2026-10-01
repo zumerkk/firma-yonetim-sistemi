@@ -1,4 +1,3 @@
-import { muracaatTalepTipi } from './muracaatTalepTipi';
 // 📄 Müşteri Görünümü — PDF
 //
 // Müşteri: "müşteri görünümü Excel var ya, bir de ona müşteri görünümü PDF
@@ -17,7 +16,8 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from './makineFormat';
 import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
-import { oncelikliYatirimTuruEtiketi } from '../data/oncelikliYatirimData';
+import { kunyeBolumleri } from './belgeKunye';
+import { finansalBolumleri } from './belgeFinansal';
 
 const FONT_YOLLARI = {
   normal: `${process.env.PUBLIC_URL || ''}/fonts/Roboto-Regular.ttf`,
@@ -75,9 +75,10 @@ const doluysa = (etiket, deger, bicim = str) => {
   return (!v || v === '-') ? null : [etiket, v];
 };
 
-const RENK = { baslik: [30, 58, 138], satirBaslik: [241, 245, 249], cizgi: [203, 213, 225] };
+const RENK = { baslik: [30, 58, 138], satirBaslik: [241, 245, 249], grupBaslik: [226, 232, 240], cizgi: [203, 213, 225] };
 
-export const exportTesvikToPdf = async (tesvik) => {
+// secenek: { tur: 'eski' | 'yeni', oecdGoster, konuGoster } — belge görünümüyle aynı (utils/belgeKunye.js)
+export const exportTesvikToPdf = async (tesvik, secenek = {}) => {
   const { normal, bold } = await fontlariYukle();
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
@@ -122,25 +123,6 @@ export const exportTesvikToPdf = async (tesvik) => {
     y = doc.lastAutoTable.finalY + 18;
   };
 
-  // Etiketli serbest metin paragrafı.
-  // Uzun açıklamalar (ör. Bina-İnşaat) iki sütunlu bilgi tablosuna sığmıyor;
-  // autoTable ile tek hücrelik bir blok basıyoruz ki sayfa sonu taşmasını
-  // kütüphane kendisi yönetsin — elle satır bölmek sayfa kırılımını bozardı.
-  const paragraf = (etiket, metin) => {
-    autoTable(doc, {
-      startY: y,
-      margin: { left: 40, right: 40 },
-      body: [[etiket, metin]],
-      theme: 'grid',
-      styles: { font: 'Roboto', fontSize: 8.5, cellPadding: 4, lineColor: RENK.cizgi, lineWidth: 0.5, overflow: 'linebreak' },
-      columnStyles: {
-        0: { cellWidth: 150, fontStyle: 'bold', fillColor: RENK.satirBaslik },
-        1: { cellWidth: 'auto' }
-      }
-    });
-    y = doc.lastAutoTable.finalY + 18;
-  };
-
   const tablo = (kolonlar, satirlar, opts = {}) => {
     autoTable(doc, {
       startY: y,
@@ -176,77 +158,46 @@ export const exportTesvikToPdf = async (tesvik) => {
 
   const fb = tesvik.firmaBilgileri || {};
   const yb = tesvik.yatirimBilgileri || {};
-  const by = tesvik.belgeYonetimi || {};
-  const kunye = tesvik.kunyeBilgileri || {};
-  const mali = tesvik.maliHesaplamalar || {};
 
-  // ── 1. Yatırımcı ────────────────────────────────────────────────────────
-  bolum('1. Yatırımcı Bilgileri'); y += 6;
+  // ── 1-3. Künye ─────────────────────────────────────────────────────────
+  // Müşteri (01.10.2026): "PDF Müşteri görünümü çıktısını da bütün bilgiler görünecek şekilde
+  // düzenleyelim." Alanlar belge görünümüyle aynı tanımdan (E-TUYS künyesi birebir); boş olan
+  // satır da yazılır — önceki sürüm boş alanları atlıyordu, "cazibe merkezi görünmüyor" buydu.
+  const kunyeT = kunyeBolumleri(tesvik, secenek);
+  const cift = (liste) => liste.map((r) => [r.etiket, r.deger]);
+
+  bolum('1. Yatırımcı ile ilgili bilgiler'); y += 6;
   bilgiTablosu([
-    ['Yatırımcı Ünvanı', str(fb.unvan || tesvik.firma?.tamUnvan)],
-    ['Vergi Dairesi', str(fb.vergiDairesi || tesvik.firma?.vergiDairesi)],
-    ['Vergi No', str(fb.vergiNo || tesvik.firma?.vergiNo)],
-    ['SGK Sicil No', str(kunye.sgkSicilNo)]
+    ...cift(kunyeT.yatirimci),
+    // E-TUYS künyesinde yok ama firmaya giden çıktıda isteniyordu
+    doluysa('Vergi Dairesi', fb.vergiDairesi || tesvik.firma?.vergiDairesi),
+    doluysa('Vergi No', fb.vergiNo || tesvik.firma?.vergiNo)
   ]);
 
-  // ── 2. Yatırım ──────────────────────────────────────────────────────────
-  const adres = [yb.yatirimAdresi1, yb.yatirimAdresi2, yb.yatirimAdresi3].filter(Boolean).join(' ');
-  const yatirimCinsi = [yb.sCinsi1, yb.tCinsi2, yb.uCinsi3, yb.vCinsi4].filter(Boolean).join(', ') || yb.yatirimCinsi;
-  bolum('2. Yatırım Bilgileri'); y += 6;
-  bilgiTablosu([
-    ['Yatırımın Konusu (US97/NACE)', str(yb.yatirimKonusu)],
-    doluysa('Sermaye Türü', kunye.sermayeTuru),
-    ['Yatırımın Yeri', [yb.yerinIl, yb.yerinIlce].filter(Boolean).join(' / ') || '-'],
-    ['Yatırım Adresi', str(adres)],
-    ['OSB Adı', str(yb.osbIseMudurluk)],
-    doluysa('Serbest Bölge', yb.serbsetBolge),
-    ['Bölge (İl / İlçe bazlı)', [yb.ilBazliBolge, yb.ilceBazliBolge].filter(Boolean).join(' / ') || '-'],
-    ['Yatırım Cinsi', str(etiketNormalle(yatirimCinsi))],
-    ['Destek Sınıfı', str(etiketNormalle(yb.destekSinifi))],
-    // Müşteri: "Mesela Bina-inşaat açıklamaları vs görünmüyor yada OECD ise OECD'si gibi"
-    // ETUYS çıktısında "OECD (Orta-Yüksek)" ayrı bir satır olarak duruyor; bizde hiç yoktu.
-    ['OECD Kategorisi', str(etiketNormalle(yb.oecdKategori))],
-    ['İstihdam (Mevcut / İlave)', `${num(tesvik.istihdam?.mevcutKisi)} / ${num(tesvik.istihdam?.ilaveKisi)}`],
-    ['Ada / Parsel', [yb.ada, yb.parsel].filter(Boolean).join(' / ') || '-']
-  ]);
+  bolum('2. Yatırım ile ilgili bilgiler'); y += 6;
+  bilgiTablosu(cift(kunyeT.yatirim));
 
-  // ── 3. Belge ────────────────────────────────────────────────────────────
-  bolum('3. Belge Bilgileri'); y += 6;
-  bilgiTablosu([
-    doluysa('Belge ID', by.belgeId),
-    ['Belge No', str(by.belgeNo || tesvik.belgeNo || tesvik.gmId)],
-    ['Belge Tarihi', tarih(by.belgeTarihi || kunye.kararTarihi)],
-    ['Dayandığı Kanun', str(by.dayandigiKanun || kunye.kararSayisi)],
-    ['Müracaat No', str(by.belgeMuracaatNo || kunye.dosyaNo)],
-    ['Müracaat Tarihi', tarih(by.belgeMuracaatTarihi || kunye.basvuruTarihi)],
-    ['Belge Başlama / Bitiş', `${tarih(by.belgeBaslamaTarihi || kunye.baslamaTarihi)} — ${tarih(by.belgeBitisTarihi || kunye.bitisTarihi)}`],
-    ['Süre Uzatım Tarihi', tarih(by.uzatimTarihi)],
-    doluysa('Kapanma Tarihi', by.kapanmaTarihi, tarih),
-    doluysa('Ekspertiz Tarihi', by.ekspertizTarihi, tarih),
-    doluysa('Belge Müracaat Talep Tipi', muracaatTalepTipi(tesvik), etiketNormalle),
-    ['Öncelikli Yatırım', str(by.oncelikliYatirim)],
-    // müşteri: "pdf görünümünde öncelikli yatırım türü görünmüyor"
-    ['Öncelikli Yatırım Türü', str(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru))],
-    // müşteri (22.09): "Mümkünse görünen bilgileri PDF çıktısına da ekleyelim" —
-    // formda görünen ama çıktıda hiç olmayan E-TUYS alanları (yalnız dolu olanlar yazılır)
-    doluysa('Büyük Ölçekli', yb.buyukOlcekli, evetHayir),
-    doluysa('Cazibe Merkezi Mi', yb.cazibeMerkeziMi, evetHayir),
-    doluysa('Savunma Sanayi Projesi Mi', yb.savunmaSanayiProjesi, evetHayir),
-    doluysa('Enerji Üretim Kaynağı', yb.enerjiUretimKaynagi, etiketNormalle),
-    doluysa('Cazibe Merkezi (2018/11201)', yb.cazibeMerkezi2018, evetHayir),
-    doluysa('Cazibe Merkezi Deprem Nedeni', yb.cazibeMerkeziDeprem, evetHayir),
-    doluysa('HAMLE Mi?', yb.hamleMi, evetHayir),
-    doluysa('Vergi İndirimsiz Destek Talebi', yb.vergiIndirimsizDestek || yb.vergiIndirimsizDestekTalebi, evetHayir)
-  ]);
+  bolum('3. Belge ile ilgili bilgiler'); y += 6;
+  bilgiTablosu(cift(kunyeT.belge));
 
-  // ── 4. Ürünler ──────────────────────────────────────────────────────────
+  // ── 4. Yatırım Cinsi (E-TUYS'te ayrı sekme) ─────────────────────────────
+  const cinsler = [yb.sCinsi1, yb.tCinsi2, yb.uCinsi3, yb.vCinsi4].filter(Boolean);
+  if (!cinsler.length && yb.yatirimCinsi) cinsler.push(yb.yatirimCinsi);
+  bolum('4. Yatırım Cinsi'); y += 6;
+  if (cinsler.length) {
+    bilgiTablosu(cinsler.map((c, i) => [`Yatırım Cinsi ${i + 1}`, etiketNormalle(c)]));
+  } else {
+    bosSatir('Yatırım cinsi tanımlanmamış.');
+  }
+
+  // ── 5. Ürünler ──────────────────────────────────────────────────────────
   // Tamamen boş satırlar atlanır: müşterinin ilk çıktısında "-" dolu satırlar vardı
   const urunler = (tesvik.urunler || []).filter((u) => {
     const kod = u.u97Kodu || u.us97Kodu || u.naceKodu || u.kodu;
     const ad = u.urunAdi || u.cinsi || u.adi || u.urunCinsi;
     return kod || ad || u.mevcutKapasite || u.ilaveKapasite;
   });
-  bolum('4. Ürün Bilgileri'); y += 6;
+  bolum('5. Ürün Bilgileri'); y += 6;
   if (urunler.length) {
     tablo(
       ['Kod', 'Ürün Adı / Cinsi', 'Mevcut', 'İlave', 'Toplam', 'Birim'],
@@ -268,45 +219,35 @@ export const exportTesvikToPdf = async (tesvik) => {
     bosSatir('Ürün bilgisi girilmemiş.');
   }
 
-  // ── 5. Finansal ─────────────────────────────────────────────────────────
-  const sayi = (v) => Number(v || 0);
-  const araziArsa = sayi(mali.araciArsaBedeli || mali.araziArsaBedeli || mali.maliyetlenen?.sn);
-  const binaInsaat = sayi(mali.binaInsaatGideri?.toplamBinaGideri);
-  const toplamMak = sayi(mali.makinaTechizat?.toplamMakina);
-  const digerToplam = ['ev', 'ew', 'et', 'ex', 'ey'].reduce((t, k) => t + sayi(mali.yatirimHesaplamalari?.[k]), 0);
-  const topSabit = sayi(mali.toplamSabitYatirim) || (araziArsa + binaInsaat + toplamMak + digerToplam);
-  const yabanci = sayi(mali.finansman?.yabanciKaynak);
-  const ozkaynak = sayi(mali.finansman?.ozKaynak);
+  // ── 6. Finansal ────────────────────────────────────────────────────────
+  // Önceki sürüm yalnız 8 özet satır basıyordu (diğer harcamalar tek toplam, ithal $ hiç yok).
+  // Artık belge görünümündeki bütün kalemler, E-TUYS grup sırasıyla.
+  const finansalBicim = (r) => {
+    if (r.tur === 'metin') return str(String(r.deger ?? '').trim());
+    if (r.tur === 'usd') return usd(r.deger || 0);
+    if (r.tur === 'adet') return num(r.deger || 0);
+    return tl(r.deger || 0);
+  };
+  const finansalTablo = (gruplar) => {
+    const govde = [];
+    gruplar.forEach((g) => {
+      govde.push([{ content: g.baslik, colSpan: 2, styles: { fontStyle: 'bold', fillColor: RENK.grupBaslik } }]);
+      g.satirlar.forEach((r) => govde.push([
+        r.etiket,
+        { content: finansalBicim(r), styles: { halign: r.tur === 'metin' ? 'left' : 'right', fontStyle: r.hesap ? 'bold' : 'normal' } }
+      ]));
+    });
+    bilgiTablosu(govde);
+  };
+  const { sol: finSol, sag: finSag } = finansalBolumleri(tesvik);
+  bolum('6. Finansal Bilgiler'); y += 6;
+  finansalTablo(finSol);
+  finansalTablo(finSag);
 
-  bolum('5. Finansal Bilgiler'); y += 6;
-  bilgiTablosu([
-    ['Arazi-Arsa Gideri', tl(araziArsa)],
-    ['Bina-İnşaat Gideri', tl(binaInsaat)],
-    ['Makine Teçhizat (İthal)', tl(mali.makinaTechizat?.ithalMakina)],
-    ['Makine Teçhizat (Yerli)', tl(mali.makinaTechizat?.yerliMakina)],
-    ['Makine Teçhizat (Toplam)', tl(toplamMak)],
-    ['Diğer Yatırım Harcamaları', tl(digerToplam)],
-    ['TOPLAM SABİT YATIRIM', tl(topSabit)],
-    ['Finansman (Yabancı / Öz kaynak)', `${tl(yabanci)} / ${tl(ozkaynak)}`]
-  ]);
-
-  // 🏗️ Bina-İnşaat açıklaması — müşteri: "Mesela Bina-inşaat açıklamaları vs
-  // görünmüyor". ETUYS çıktısında bu metin ("MEVCUT ARSAMIZA YAPILACAK OLAN BU
-  // YATIRIM KONUSU İLE İLGİLİ ... FABRİKA BİNASI İNŞA...") gideri açıklıyor;
-  // yalnız tutarı göstermek bilgiyi eksik bırakıyordu.
-  //
-  // Tabloya sığmıyor: 2000 karaktere kadar serbest metin. Tutar satırlarının
-  // altına ayrı bir paragraf olarak basılıyor ve YALNIZCA doluysa yer kaplıyor.
-  const binaAciklama = String(mali.binaInsaatGideri?.aciklama || '').trim();
-  if (binaAciklama) {
-    y += 2;
-    paragraf('Bina-İnşaat Açıklaması', binaAciklama);
-  }
-
-  // ── 6. Özel şartlar ─────────────────────────────────────────────────────
+  // ── 7. Özel şartlar ─────────────────────────────────────────────────────
   const sartlar = (tesvik.ozelSartlar || []).filter((sa) =>
     (sa?.koşulMetni || sa?.kisaltma || '').trim() || (sa?.aciklamaNotu || sa?.sart || sa?.metin || sa?.aciklama || '').trim());
-  bolum('6. Özel Şartlar'); y += 6;
+  bolum('7. Özel Şartlar'); y += 6;
   if (sartlar.length) {
     tablo(
       ['Şart', 'Açıklama'],
@@ -320,10 +261,10 @@ export const exportTesvikToPdf = async (tesvik) => {
     bosSatir('Özel şart bulunmuyor.');
   }
 
-  // ── 7. Destek unsurları ─────────────────────────────────────────────────
+  // ── 8. Destek unsurları ─────────────────────────────────────────────────
   const destekler = (tesvik.destekUnsurlari || []).filter((d) =>
     (d.destekUnsuru || d.adi || d.destekAdi || '').trim());
-  bolum('7. Destek Unsurları'); y += 6;
+  bolum('8. Destek Unsurları'); y += 6;
   if (destekler.length) {
     tablo(
       ['Destek Adı', 'Şartı', 'Açıklama'],
