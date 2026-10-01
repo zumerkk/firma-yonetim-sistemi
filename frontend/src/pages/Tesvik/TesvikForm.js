@@ -53,7 +53,7 @@ import {
   CloudUpload as CloudUploadIcon
 
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { SekmeSeridi, renk, kenar, aralik, yazi, stil } from '../../tasarim';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
@@ -68,6 +68,7 @@ import KayitliSecim from '../../components/common/KayitliSecim';
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
 import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
+import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerHarcamalar';
 // 🏭 Yatırım Konusu NACE Kodları Import
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
@@ -89,6 +90,11 @@ const TesvikForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+  // "Revize Et" penceresinde seçilen sebep + not. Revizyon artık pencerede değil, bu form
+  // kaydedilince yazılıyor; vazgeçilirse hiçbir kayıt oluşmuyor (müşteri 01.10.2026).
+  const revizyonBaslatma = useLocation().state?.revizyonBaslatma || null;
+  // Kayıttan sonra sayfa 2 sn açık kalıyor; ikinci "Kaydet" aynı revizyonu tekrar yazmasın
+  const revizyonYazildiRef = useRef(false);
 
   // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
   // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
@@ -534,6 +540,7 @@ const TesvikForm = () => {
       cins4: '',
       destekSinifi: '',
       // 🎯 YENİ PROFESYONEL ALANLAR - Resimden eklenenler
+      buyukOlcekli: '', // Büyük Ölçekli (Evet/Hayır) — E-TUYS künyesinde öncelikli yatırımın altında
       cazibeMerkeziMi: '', // Cazibe Merkezi Mi? (Evet/Hayır)
       savunmaSanayiProjesi: '', // Savunma Sanayi Projesi Mi? (Evet/Hayır)
       enerjiUretimKaynagi: '', // Enerji Üretim Kaynağı (metin)
@@ -935,21 +942,15 @@ const TesvikForm = () => {
               }
             },
 
-            digerYatirimHarcamalari: {
-              yardimciIslMakTeçGid: backendData.maliHesaplamalar?.yatirimHesaplamalari?.eu || 0,
-              ithalatVeGumGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ev || 0,
-              tasimaVeSigortaGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ew || 0,
-              montajGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.et || 0, // 🆕 Montaj Giderleri
-              etudVeProjeGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ex || 0,
-              digerGiderleri: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ey || 0,
-              toplamDigerYatirimHarcamalari: backendData.maliHesaplamalar?.yatirimHesaplamalari?.ez || 0
-            }
+            // ET..EY eşlemesi utils/digerHarcamalar.js'te (E-TUYS sırası, içe aktarmalarla aynı)
+            digerYatirimHarcamalari: digerHarcamalariForma(backendData.maliHesaplamalar?.yatirimHesaplamalari)
           },
 
           // Yatırım bilgilerini böl (backend'deki yatirimBilgileri → frontend'deki 2 bölüm)
           yatirimBilgileri1: {
             yatirimKonusu: backendData.yatirimBilgileri?.yatirimKonusu || '',
             // 🎯 YENİ PROFESYONEL ALANLAR - Backend'den frontend'e mapping
+            buyukOlcekli: backendData.yatirimBilgileri?.buyukOlcekli || '',
             cazibeMerkeziMi: backendData.yatirimBilgileri?.cazibeMerkeziMi || '',
             savunmaSanayiProjesi: backendData.yatirimBilgileri?.savunmaSanayiProjesi || '',
             enerjiUretimKaynagi: backendData.yatirimBilgileri?.enerjiUretimKaynagi || '',
@@ -2055,6 +2056,7 @@ const TesvikForm = () => {
           // Bölüm 1 alanları
           yatirimKonusu: formData.yatirimBilgileri1?.yatirimKonusu || '',
           // 🎯 YENİ PROFESYONEL ALANLAR - Backend mapping
+          buyukOlcekli: formData.yatirimBilgileri1?.buyukOlcekli || '',
           cazibeMerkeziMi: formData.yatirimBilgileri1?.cazibeMerkeziMi || '',
           savunmaSanayiProjesi: formData.yatirimBilgileri1?.savunmaSanayiProjesi || '',
           enerjiUretimKaynagi: formData.yatirimBilgileri1?.enerjiUretimKaynagi || '',
@@ -2132,15 +2134,7 @@ const TesvikForm = () => {
           },
 
           // Yatırım Hesaplamaları (Diğer Yatırım Harcamaları)
-          yatirimHesaplamalari: {
-            eu: formData.finansalBilgiler?.digerYatirimHarcamalari?.yardimciIslMakTeçGid || 0,
-            ev: formData.finansalBilgiler?.digerYatirimHarcamalari?.ithalatVeGumGiderleri || 0,
-            ew: formData.finansalBilgiler?.digerYatirimHarcamalari?.tasimaVeSigortaGiderleri || 0,
-            et: formData.finansalBilgiler?.digerYatirimHarcamalari?.montajGiderleri || 0, // 🆕 Montaj Giderleri
-            ex: formData.finansalBilgiler?.digerYatirimHarcamalari?.etudVeProjeGiderleri || 0,
-            ey: formData.finansalBilgiler?.digerYatirimHarcamalari?.digerGiderleri || 0,
-            ez: formData.finansalBilgiler?.digerYatirimHarcamalari?.toplamDigerYatirimHarcamalari || 0
-          },
+          yatirimHesaplamalari: digerHarcamalariKayda(formData.finansalBilgiler?.digerYatirimHarcamalari),
 
           // Finansman
           finansman: {
@@ -2252,7 +2246,11 @@ const TesvikForm = () => {
       const url = isEdit ? `/tesvik/${id}` : '/tesvik';
       const method = isEdit ? 'put' : 'post';
 
+      const revizyonGonder = isEdit && revizyonBaslatma && !revizyonYazildiRef.current;
+      if (revizyonGonder) mappedData.revizyonBaslatma = revizyonBaslatma;
+
       const response = await axios[method](url, mappedData);
+      if (revizyonGonder && response.data?.success) revizyonYazildiRef.current = true;
 
       if (response.data.success) {
         setSuccess(isEdit ? 'Teşvik başarıyla güncellendi' : 'Teşvik başarıyla oluşturuldu');
@@ -2923,6 +2921,26 @@ const TesvikForm = () => {
             )}
 
             {/* ✨ YENİ PROFESYONEL ALANLAR - Resimden Eklenenler */}
+
+            {/* BÜYÜK ÖLÇEKLİ — E-TUYS sırası: Öncelikli Yatırım → Büyük Ölçekli → Cazibe Merkezi */}
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel id="tesvikForm-buyukOlcekli-label">Büyük Ölçekli</InputLabel>
+                <KayitliSecim
+                  id="tesvikForm-buyukOlcekli"
+                  name="buyukOlcekli"
+                  labelId="tesvikForm-buyukOlcekli-label"
+                  value={formData.yatirimBilgileri1.buyukOlcekli || ''}
+                  onChange={(e) => handleFieldChange('yatirimBilgileri1.buyukOlcekli', e.target.value)}
+                  label="Büyük Ölçekli"
+                  sx={{ backgroundColor: '#ffffff' }}
+                >
+                  <MenuItem value="">Seçiniz...</MenuItem>
+                  <MenuItem value="evet">EVET</MenuItem>
+                  <MenuItem value="hayir">HAYIR</MenuItem>
+                </KayitliSecim>
+              </FormControl>
+            </Grid>
 
             {/* ROW 3.1: CAZİBE MERKEZİ Mİ? */}
             <Grid item xs={12}>
@@ -5872,6 +5890,14 @@ const TesvikForm = () => {
               {[formData.gmId, formData.tesvikId, formData.yatirimciUnvan].filter(Boolean).join(' · ')}
             </Box>
           </Box>
+
+          {isEdit && revizyonBaslatma && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>{revizyonBaslatma.revizyonSebebi}</strong>
+              {revizyonBaslatma.kullaniciNotu ? ` — ${revizyonBaslatma.kullaniciNotu}` : ''}
+              {' · '}Kaydettiğinizde revizyon geçmişine işlenir; kaydetmeden çıkarsanız revizyon oluşmaz.
+            </Alert>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>

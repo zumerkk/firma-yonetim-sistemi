@@ -462,6 +462,8 @@ function buildBelgeData(merged, firmaDoc, userId, parseDate) {
       // 🔧 FIX (müşteri: "OECD (Orta-Yüksek) görünmüyor, ekran görüntüsü de almıyor"):
       // AI çıktısında oecdKategori vardı ama kayda yazılmıyordu.
       oecdKategori: merged.oecdKategori || '',
+      // AI "Büyük Ölçekli"yi okuyordu ama alan şemada olmadığı için yazılmıyordu
+      buyukOlcekli: merged.buyukOlcekli ? normalizeEvetHayir(merged.buyukOlcekli) : '', // E-TUYS'te çoğu belgede boş
       cazibeMerkeziMi: normalizeEvetHayir(merged.cazibeMerkezliMi),
       savunmaSanayiProjesi: normalizeEvetHayir(merged.savunmaSanayiProjesi),
       hamleMi: normalizeEvetHayir(merged.hamleMi),
