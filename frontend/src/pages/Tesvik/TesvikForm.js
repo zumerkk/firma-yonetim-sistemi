@@ -53,7 +53,7 @@ import {
   CloudUpload as CloudUploadIcon
 
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { SekmeSeridi, renk, kenar, aralik, yazi, stil } from '../../tasarim';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
@@ -90,6 +90,11 @@ const TesvikForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
+  // "Revize Et" penceresinde seçilen sebep + not. Revizyon artık pencerede değil, bu form
+  // kaydedilince yazılıyor; vazgeçilirse hiçbir kayıt oluşmuyor (müşteri 01.10.2026).
+  const revizyonBaslatma = useLocation().state?.revizyonBaslatma || null;
+  // Kayıttan sonra sayfa 2 sn açık kalıyor; ikinci "Kaydet" aynı revizyonu tekrar yazmasın
+  const revizyonYazildiRef = useRef(false);
 
   // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
   // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
@@ -2241,7 +2246,11 @@ const TesvikForm = () => {
       const url = isEdit ? `/tesvik/${id}` : '/tesvik';
       const method = isEdit ? 'put' : 'post';
 
+      const revizyonGonder = isEdit && revizyonBaslatma && !revizyonYazildiRef.current;
+      if (revizyonGonder) mappedData.revizyonBaslatma = revizyonBaslatma;
+
       const response = await axios[method](url, mappedData);
+      if (revizyonGonder && response.data?.success) revizyonYazildiRef.current = true;
 
       if (response.data.success) {
         setSuccess(isEdit ? 'Teşvik başarıyla güncellendi' : 'Teşvik başarıyla oluşturuldu');
@@ -5881,6 +5890,14 @@ const TesvikForm = () => {
               {[formData.gmId, formData.tesvikId, formData.yatirimciUnvan].filter(Boolean).join(' · ')}
             </Box>
           </Box>
+
+          {isEdit && revizyonBaslatma && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <strong>{revizyonBaslatma.revizyonSebebi}</strong>
+              {revizyonBaslatma.kullaniciNotu ? ` — ${revizyonBaslatma.kullaniciNotu}` : ''}
+              {' · '}Kaydettiğinizde revizyon geçmişine işlenir; kaydetmeden çıkarsanız revizyon oluşmaz.
+            </Alert>
+          )}
 
           {error && (
             <Alert severity="error" sx={{ mb: 3 }}>

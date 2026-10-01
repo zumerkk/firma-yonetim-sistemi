@@ -105,8 +105,6 @@ const YeniTesvikDetail = () => {
       .catch(() => {});
     return () => { iptal = true; };
   }, []);
-  const [afterRevisionAction, setAfterRevisionAction] = useState(null); // 'goEdit' | null
-  const [savingRevision, setSavingRevision] = useState(false);
   const [selectedActivity, setSelectedActivity] = useState(null);
 
   // Form states
@@ -376,30 +374,19 @@ const YeniTesvikDetail = () => {
     }
   };
 
-  const handleRevizyonEkle = async () => {
-    try {
-      if (!revizyonForm.revizyonSebebi) return;
-      setSavingRevision(true);
-      // API: Revizyon ekleme
-      const res = await api.post(`/yeni-tesvik/${tesvik._id}/revizyon`, {
-        revizyonSebebi: revizyonForm.revizyonSebebi,
-        kullaniciNotu: revizyonForm.kullaniciNotu || ''
-      });
-      if (res?.data?.success) {
-        setRevizyonModalOpen(false);
-        setRevizyonForm({ revizyonSebebi: '', kullaniciNotu: '' });
-        await loadData();
-        if (afterRevisionAction === 'goEdit') {
-          setAfterRevisionAction(null);
-          navigate(`/yeni-tesvik/${id}/duzenle`);
-        }
-      }
-    } catch (error) {
-      console.error('Revizyon ekle hatası:', error);
-      alert(`Revizyon eklenemedi: ${error.response?.data?.message || error.message}`);
-    } finally {
-      setSavingRevision(false);
-    }
+  // Müşteri (01.10.2026): "Revizyon başlatıp, revizeyi kaydetmeden/vazgeçip çıkınca bile revizyon
+  // geçmişinde görünüyor." Bu düğme revizyonu hemen POST /yeni-tesvik/:id/revizyon ile yazıyordu; formdan
+  // vazgeçilince kayıt kalıyordu. Artık hiçbir şey yazmıyor: sebep + not düzenleme formuna taşınıyor,
+  // revizyon yalnızca form KAYDEDİLİNCE o istekle birlikte yazılıyor (bkz. updateTesvik).
+  const handleRevizyonEkle = () => {
+    if (!revizyonForm.revizyonSebebi) return;
+    const revizyonBaslatma = {
+      revizyonSebebi: revizyonForm.revizyonSebebi,
+      kullaniciNotu: revizyonForm.kullaniciNotu || ''
+    };
+    setRevizyonModalOpen(false);
+    setRevizyonForm({ revizyonSebebi: '', kullaniciNotu: '' });
+    navigate(`/yeni-tesvik/${id}/duzenle`, { state: { revizyonBaslatma } });
   };
 
   // 🎯 Belge durumu değiştir (müşteri: 'belge durumunu değiştirme yeri')
@@ -459,7 +446,6 @@ const YeniTesvikDetail = () => {
       const params = new URLSearchParams(window.location.search);
       if (params.get('revizyon') === '1') {
         setRevizyonModalOpen(true);
-        setAfterRevisionAction('goEdit'); // ✅ Revizyon kaydedildikten sonra düzenleme sayfasına git
       }
     } catch (e) { }
   }, []);
@@ -749,7 +735,7 @@ const YeniTesvikDetail = () => {
                 variant="contained"
                 size="small"
                 startIcon={<EditIcon />}
-                onClick={() => { setAfterRevisionAction('goEdit'); setRevizyonModalOpen(true); }}
+                onClick={() => setRevizyonModalOpen(true)}
                 sx={{
                   background: 'rgba(255,255,255,0.2)',
                   border: '1px solid rgba(255,255,255,0.3)',
@@ -1685,7 +1671,7 @@ const YeniTesvikDetail = () => {
           <Grid container spacing={1.5}>
             <Grid item xs={12}>
               <Alert severity="info" sx={{ mb: 1 }}>
-                Bu revizyon teşvik belgesinin geçmişine kaydedilecek.
+                Düzenleme ekranında kaydettiğinizde revizyon geçmişine işlenir. Vazgeçerseniz kayıt oluşmaz.
               </Alert>
             </Grid>
 
@@ -1724,9 +1710,9 @@ const YeniTesvikDetail = () => {
           <Button
             onClick={handleRevizyonEkle}
             variant="contained"
-            disabled={!revizyonForm.revizyonSebebi || savingRevision}
+            disabled={!revizyonForm.revizyonSebebi}
           >
-            {savingRevision ? 'Kaydediliyor...' : 'Devam Et'}
+            Devam Et
           </Button>
         </DialogActions>
       </Dialog>

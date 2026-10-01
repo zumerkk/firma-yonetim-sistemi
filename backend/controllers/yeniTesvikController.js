@@ -519,6 +519,14 @@ const updateTesvik = async (req, res) => {
     const eskiVeri = JSON.parse(JSON.stringify(tesvik.toSafeJSON()));
     console.log('📚 Eski veri kaydedildi:', Object.keys(eskiVeri).length, 'alan');
 
+    // "Revize Et" penceresinde seçilen sebep + not (bkz. aşağıda revizyon yazımı)
+    const revizyonBaslatma = (updateData.revizyonBaslatma && String(updateData.revizyonBaslatma.revizyonSebebi || '').trim())
+      ? {
+        revizyonSebebi: String(updateData.revizyonBaslatma.revizyonSebebi).trim(),
+        kullaniciNotu: String(updateData.revizyonBaslatma.kullaniciNotu || '').trim()
+      }
+      : null;
+
     // Güncelleme verisini filtrele
     const filteredUpdateData = Object.fromEntries(
       Object.entries(updateData).filter(([key, value]) => {
@@ -526,6 +534,7 @@ const updateTesvik = async (req, res) => {
           return false;
         }
         if (key === 'guncellemeNotu') return false; // Skip update note
+        if (key === 'revizyonBaslatma') return false; // belge alanı değil, aşağıda revizyona yazılır
         return value !== null && value !== undefined;
       })
     );
@@ -645,8 +654,44 @@ const updateTesvik = async (req, res) => {
     const degisikenAlanlar = await detectDetailedChanges(eskiVeri, yeniVeri);
     console.log('🎯 Tespit edilen değişiklikler:', degisikenAlanlar.length, 'alan');
 
-    // 📋 Değişiklik varsa otomatik revizyon ekle
-    if (degisikenAlanlar.length > 0) {
+    // 🔧 FIX (müşteri 01.10.2026: "Revizyon başlatıp, revizeyi kaydetmeden/vazgeçip çıkınca bile
+    // revizyon geçmişinde görünüyor"): "Revize Et" penceresi revizyonu düzenleme ekranı daha
+    // açılmadan POST /:id/revizyon ile yazıyordu; formdan vazgeçilince kayıt geçmişte kalıyordu.
+    // Artık sebep + not bu istekle geliyor ve revizyon YALNIZCA form kaydedilince yazılıyor.
+    // Alan değişmemiş olsa da yazılır: kullanıcı ör. "Sonuç Revize"yi notuyla bilerek kaydetti.
+    if (revizyonBaslatma) {
+      tesvik.revizyonlar.push({
+        revizyonNo: tesvik.revizyonlar.length + 1,
+        revizyonTarihi: new Date(),
+        revizyonSebebi: revizyonBaslatma.revizyonSebebi,
+        degisikenAlanlar,
+        yapanKullanici: req.user._id,
+        yapanKullaniciDetay: {
+          id: req.user._id,
+          adSoyad: req.user.adSoyad,
+          email: req.user.email,
+          rol: req.user.rol
+        },
+        yeniDurum: tesvik.durumBilgileri?.genelDurum,
+        kullaniciNotu: revizyonBaslatma.kullaniciNotu || updateData.guncellemeNotu || '',
+        veriSnapshot: {
+          oncesi: eskiVeri,
+          sonrasi: yeniVeri,
+          degisikenAlanSayisi: degisikenAlanlar.length
+        },
+        durumOncesi: eskiVeri.durumBilgileri?.genelDurum,
+        durumSonrasi: tesvik.durumBilgileri?.genelDurum
+      });
+      await tesvik.save();
+      // Sebep ("Sonuç Revize" vb.) durumu belirliyor — eski akışta revizyon ekleme ucu bunu yapıyordu
+      try {
+        await autoSyncDurumFromRevisions(tesvik);
+      } catch (e) {
+        console.log('⚠️ Auto-sync (revizyon başlatma) pas geçildi:', e.message);
+      }
+      console.log(`✅ Revizyon eklendi (${revizyonBaslatma.revizyonSebebi}) - Revizyon No:`, tesvik.revizyonlar.length);
+    } else if (degisikenAlanlar.length > 0) {
+      // 📋 Değişiklik varsa otomatik revizyon ekle
       const revizyonData = {
         revizyonSebebi: 'Otomatik Güncelleme',
         degisikenAlanlar: degisikenAlanlar,
