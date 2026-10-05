@@ -535,6 +535,13 @@ const updateTesvik = async (req, res) => {
         }
         if (key === 'guncellemeNotu') return false; // Skip update note
         if (key === 'revizyonBaslatma') return false; // belge alanı değil, aşağıda revizyona yazılır
+        // Makine listesi bu uçtan YAZILMAZ. Müşteri (05.10.2026): "Belgede revize işlemi yapınca makine
+        // listesi kendi kendine değişiyor, fiyatlar, tarihler vs ya sıfırlanıyor ya ilk eklediğimiz hale
+        // dönüyor." Belge formu makineleri göstermiyor ama yeni belge formu açılışta okuduğu listenin
+        // eksik bir kopyasını (satır kimliği, talep/karar, kur, finansal kiralama yok; tutar tam sayıya
+        // kırpılmış) her kayıtta geri gönderiyordu. Makineler yalnız Makine Listesi uçlarından
+        // (rowIdleriKoru ile) değişir; eski sürüm önyüz açık kalmış olsa bile burada düşer.
+        if (key === 'makineListeleri') return false;
         return value !== null && value !== undefined;
       })
     );
@@ -544,84 +551,6 @@ const updateTesvik = async (req, res) => {
     // Ürünler güncelleniyorsa normalize et ve mükerrerleri birleştir
     if (Array.isArray(filteredUpdateData.urunler)) {
       tesvik.urunler = normalizeAndMergeUrunler(filteredUpdateData.urunler);
-    }
-    // Güncellemede makine listelerini normalize et
-    if (filteredUpdateData.makineListeleri) {
-      const normalizeYerli = (arr = []) => arr
-        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map((r, idx) => ({
-          rowId: r.rowId || undefined,
-          siraNo: Number(r.siraNo) || (idx + 1),
-          makineId: (r.makineId || '').toString().trim(),
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimAciklamasi: (r.birimAciklamasi || '').trim(),
-          birimFiyatiTl: Number(r.birimFiyatiTl) || 0,
-          toplamTutariTl: Number(r.toplamTutariTl) || 0,
-          kdvIstisnasi: (r.kdvIstisnasi || '').toUpperCase(),
-          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
-          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
-          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
-          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
-          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
-          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
-          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
-          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
-          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
-          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
-          talep: r.talep || undefined,
-          karar: r.karar || undefined,
-          etuysSecili: !!r.etuysSecili
-        }));
-      const normalizeIthal = (arr = []) => arr
-        .filter(r => r && (r.gtipKodu || r.adiVeOzelligi))
-        .map((r, idx) => ({
-          rowId: r.rowId || undefined,
-          siraNo: Number(r.siraNo) || (idx + 1),
-          makineId: (r.makineId || '').toString().trim(),
-          gtipKodu: (r.gtipKodu || '').trim(),
-          gtipAciklamasi: (r.gtipAciklamasi || '').trim(),
-          adiVeOzelligi: (r.adiVeOzelligi || '').trim(),
-          miktar: Number(r.miktar) || 0,
-          birim: (r.birim || '').trim(),
-          birimAciklamasi: (r.birimAciklamasi || '').trim(),
-          birimFiyatiFob: Number(r.birimFiyatiFob) || 0,
-          gumrukDovizKodu: (r.gumrukDovizKodu || '').trim().toUpperCase(),
-          toplamTutarFobUsd: Number(r.toplamTutarFobUsd) || 0,
-          toplamTutarFobTl: Number(r.toplamTutarFobTl) || 0,
-          kurManuel: !!r.kurManuel,
-          kurManuelDeger: Number(r.kurManuelDeger) || 0,
-          // Elle girilmiş FOB $ bayrağı düşerse yeniden açılışta tutar formülle ezilir
-          usdManuel: !!r.usdManuel,
-          kullanilmisMakine: (r.kullanilmisMakine || '').toString().trim(),
-          kullanilmisMakineAciklama: (r.kullanilmisMakineAciklama || '').trim(),
-          ckdSkdMi: ((r.ckdSkdMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.ckdSkdMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          aracMi: ((r.aracMi || '').toUpperCase() === 'EVET') ? 'EVET' : ((r.aracMi || '').toUpperCase() === 'HAYIR' ? 'HAYIR' : ''),
-          makineTechizatTipi: (r.makineTechizatTipi || '').trim(),
-          kdvMuafiyeti: (r.kdvMuafiyeti || '').toUpperCase(),
-          gumrukVergisiMuafiyeti: (r.gumrukVergisiMuafiyeti || '').toUpperCase(),
-          finansalKiralamaMi: (r.finansalKiralamaMi || '').toUpperCase(),
-          finansalKiralamaAdet: Number(r.finansalKiralamaAdet) || 0,
-          finansalKiralamaSirket: (r.finansalKiralamaSirket || '').trim(),
-          gerceklesenAdet: Number(r.gerceklesenAdet) || 0,
-          gerceklesenTutar: Number(r.gerceklesenTutar) || 0,
-          iadeDevirSatisVarMi: (r.iadeDevirSatisVarMi || '').toUpperCase(),
-          iadeDevirSatisAdet: Number(r.iadeDevirSatisAdet) || 0,
-          iadeDevirSatisTutar: Number(r.iadeDevirSatisTutar) || 0,
-          silinmeTarihi: r.silinmeTarihi ? new Date(r.silinmeTarihi) : null,
-          talep: r.talep || undefined,
-          karar: r.karar || undefined,
-          etuysSecili: !!r.etuysSecili
-        }));
-      tesvik.makineListeleri = {
-        yerli: normalizeYerli(filteredUpdateData.makineListeleri.yerli),
-        ithal: normalizeIthal(filteredUpdateData.makineListeleri.ithal)
-      };
-      // 🔧 FIX: markModified gerekli - Mongoose subdocument array'lerde derin değişiklikleri algılayamaz
-      tesvik.markModified('makineListeleri');
     }
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = updateData.guncellemeNotu || `Güncelleme yapıldı - ${new Date().toLocaleString('tr-TR')}`;

@@ -2203,38 +2203,6 @@ const YeniTesvikForm = () => {
           }
         },
 
-        // 🛠️ Makine Listeleri (frontend → backend mapping)
-        makineListeleri: {
-          yerli: ((formData.makineListeleri && formData.makineListeleri.yerli) || []).map(r => ({
-            makineId: r.makineId || '',
-            gtipKodu: r.gtipKodu || '',
-            gtipAciklamasi: r.gtipAciklamasi || '',
-            adiVeOzelligi: r.adiVeOzelligi || '',
-            miktar: parseInt(r.miktar) || 0,
-            birim: r.birim || '',
-            birimFiyatiTl: parseInt(r.birimFiyatiTl) || 0,
-            toplamTutariTl: parseInt(r.toplamTutariTl) || 0,
-            kdvIstisnasi: r.kdvIstisnasi || ''
-          })),
-          ithal: ((formData.makineListeleri && formData.makineListeleri.ithal) || []).map(r => ({
-            makineId: r.makineId || '',
-            gtipKodu: r.gtipKodu || '',
-            gtipAciklamasi: r.gtipAciklamasi || '',
-            adiVeOzelligi: r.adiVeOzelligi || '',
-            miktar: parseInt(r.miktar) || 0,
-            birim: r.birim || '',
-            birimFiyatiFob: parseInt(r.birimFiyatiFob) || 0,
-            gumrukDovizKodu: r.gumrukDovizKodu || '',
-            toplamTutarFobUsd: parseInt(r.toplamTutarFobUsd) || 0,
-            toplamTutarFobTl: parseInt(r.toplamTutarFobTl) || 0,
-            kullanilmisMakine: r.kullanilmisMakine || '',
-            ckdSkdMi: r.ckdSkdMi || '',
-            aracMi: r.aracMi || '',
-            kdvMuafiyeti: r.kdvMuafiyeti || '',
-            gumrukVergisiMuafiyeti: r.gumrukVergisiMuafiyeti || ''
-          }))
-        },
-
         // 🔧 Destek Unsurları model formatına çevir - ✅ FİXED: En az destekUnsuru dolu olmalı
         destekUnsurlari: (() => {
           console.log('📤 [DEBUG] formData.destekUnsurlari BEFORE filter:', JSON.stringify(formData.destekUnsurlari, null, 2));
@@ -2266,6 +2234,10 @@ const YeniTesvikForm = () => {
         })()
       };
 
+      // Makine listesi bu formdan GÖNDERİLMEZ (ekranda yok; ...formData yayılımıyla gelen kopya
+      // satır kimliği, talep/karar, kur ve finansal kiralama taşımıyordu, revizede listeyi bozuyordu).
+      // Makineler Makine Listesi ekranından yönetilir; sunucu da bu alanı PUT'ta yok sayıyor.
+      delete mappedData.makineListeleri;
       // Frontend-specific alanları kaldır
       delete mappedData.yatirimBilgileri1;
       delete mappedData.yatirimBilgileri2;
