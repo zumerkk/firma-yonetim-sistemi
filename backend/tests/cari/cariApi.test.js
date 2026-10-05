@@ -161,6 +161,35 @@ describe('Cari hesaplar modülü (firma bazlı)', () => {
     ]);
   });
 
+  // Müşteri (05.10.2026): "hareketi olan firmalar değil de Belge Takip'deki bütün firmalar gelsin
+  // aktif-arşiv ikisi de" + fatura durumu
+  test('hareketi olmayan ama Belge Takip\'te talebi olan firma da listede, fatura durumuyla', async () => {
+    const firmaC = new ObjectId();
+    await Firma.collection.insertOne({ _id: firmaC, firmaId: 'A000003', tamUnvan: 'DENİZ TEKSTİL A.Ş.' });
+    await DosyaTakip.collection.insertMany([
+      // arşivdeki (sonuçlanmış) talep de sayılır
+      { takipId: 'DT2026901', firma: firmaC, firmaUnvan: 'DENİZ TEKSTİL A.Ş.', talepTuru: 'Belge Başvuru Talebi',
+        aktif: true, anaAsama: 'KURUM_SONUCLANMA', odeme: { faturaDurumu: 'kesildi' }, createdAt: new Date() },
+      { takipId: 'DT2026902', firma: firmaC, firmaUnvan: 'DENİZ TEKSTİL A.Ş.', talepTuru: 'Belge Revize Talebi',
+        aktif: true, anaAsama: 'MURACAAT_ONCESI', odeme: { faturaDurumu: 'avans' }, createdAt: new Date() },
+      // silinmiş talep sayılmaz
+      { takipId: 'DT2026903', firma: firmaC, firmaUnvan: 'DENİZ TEKSTİL A.Ş.', talepTuru: 'Belge Revize Talebi',
+        aktif: false, odeme: { faturaDurumu: 'kesilmedi' }, createdAt: new Date() }
+    ]);
+    try {
+      const r = await request(app).get('/api/cari/firmalar');
+      expect(r.status).toBe(200);
+      const deniz = r.body.data.find((f) => f.firmaUnvan === 'DENİZ TEKSTİL A.Ş.');
+      expect(deniz).toMatchObject({ bakiye: 0, toplamOdenen: 0, talepSayisi: 2,
+        faturaDurumlari: { kesildi: 1, avans: 1, kesilmedi: 0, bos: 0 } });
+      // hareketi olmayan ÇINAR da talebi (DT2026999) sayesinde listede
+      expect(r.body.data.find((f) => f.firmaUnvan === 'ÇINAR GIDA A.Ş.')).toMatchObject({ talepSayisi: 1, bakiye: 0 });
+    } finally {
+      await DosyaTakip.collection.deleteMany({ firma: firmaC });
+      await Firma.collection.deleteOne({ _id: firmaC });
+    }
+  });
+
   test('düzeltme: tutar ve talep bağı değişir, tür değişmez', async () => {
     const { body } = await ekle({ firma: String(firmaA), tur: 'gelen', banka: 'Garanti', tarih: '2026-02-01', tutar: 100 });
     const r = await request(app).put(`/api/cari/${body.data._id}`)
