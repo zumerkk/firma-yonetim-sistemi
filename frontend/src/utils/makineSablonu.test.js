@@ -11,8 +11,9 @@
 import {
   gerceklesmeCoz, sayiCoz, tarihCoz, SABLON_BASLIKLARI, SABLON_SUTUNLARI, GERCEKLESME_SUTUNLARI,
   basligiNormallestir, baslikAlani, makineSatiriCoz, iceAktarimBirlestir, sayfaBul, dizilerdenSatirlar,
-  csvSatirlariniOku, evetHayirCoz, birimCoz, dovizCoz, kullanilmisCoz
+  csvSatirlariniOku, excelSatirlariniOku, evetHayirCoz, birimCoz, dovizCoz, kullanilmisCoz
 } from './makineSablonu';
+import * as XLSX from 'xlsx';
 
 describe('sayiCoz - TR biçimli tutarlar', () => {
   test('TR binlik/ondalık', () => {
@@ -394,6 +395,27 @@ describe('dosya okuma', () => {
       { 'SIRA NO': 1, 'ADI VE ÖZELLİĞİ': 'Torna', 'MİKTARI': 2 },
       { 'SIRA NO': 2, 'ADI VE ÖZELLİĞİ': 'Freze', 'MİKTARI': 1 }
     ]);
+  });
+
+  // Müşteri (05.10.2026): yapay zekâya doldurtulan Excel "uyumsuz format" diye kabul edilmemiş
+  test('yapay zekânın ürettiği dosya: sayfa adı tutmasa da başlıklardan yerli/ithal ayrılır', () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([['Not: E-TUYS görüntülerinden dolduruldu']]), 'Açıklama');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ['SIRA NO', 'MAKİNE ID', 'GTIP NO', 'ADI VE ÖZELLİĞİ', 'MİKTARI', 'BİRİM FİYATI'], [1, '4743905', '847989970000', 'Torna', 2, 1000]
+    ]), 'Sayfa1');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+      ['SIRA NO', 'GTIP NO', 'ADI VE ÖZELLİĞİ', 'MİKTARI', 'MENŞEİ ÜLKE DÖVİZ BİRİM FİYATI', 'DÖVİZ CİNSİ'], [1, '842240000019', 'Paketleme', 1, 165000, 'EUR']
+    ]), 'Sayfa2');
+    const icerik = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+    const { yerli, ithal } = excelSatirlariniOku(icerik);
+    expect(yerli.map((r) => r['ADI VE ÖZELLİĞİ'])).toEqual(['Torna']);
+    expect(ithal.map((r) => r['DÖVİZ CİNSİ'])).toEqual(['EUR']);
+  });
+
+  test('"Makine Listesi - İthal" gibi adlar da bulunur; yardım sayfaları atlanır', () => {
+    expect(sayfaBul(['Makine Listesi - Yerli', 'Makine Listesi - İthal'], 'ithal')).toBe('Makine Listesi - İthal');
+    expect(sayfaBul(['Nasıl Kullanılır', 'Listeler'], 'yerli')).toBeNull();
   });
 
   test('CSV: tür başlıklardan anlaşılır', () => {

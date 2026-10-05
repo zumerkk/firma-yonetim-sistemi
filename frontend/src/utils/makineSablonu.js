@@ -389,11 +389,17 @@ export const SABLON_SAYFA_ADLARI = { yerli: 'YERLİ', ithal: 'İTHAL' };
 
 // ── Excel/CSV okuma ──────────────────────────────────────────────────────────
 
-/** "YERLİ", "Yerli", "YERLI LISTE" … — E-TUYS görüntü sayfaları ("ETUYS Y. MAK. ÖRN. GÖRÜNTÜ") eşleşmez */
+// Makine satırı taşımayan sayfalar: şablonun yardım/liste sayfaları ve E-TUYS görüntü sayfaları
+const YARDIMCI_SAYFA = (n) => n.startsWith('NASILKULLANILIR') || n === 'LISTELER' || (n.includes('ETUYS') && n.includes('GORUNTU'));
+
+/**
+ * "YERLİ", "Yerli", "YERLI LISTE", "Makine Listesi - Yerli" … — E-TUYS görüntü sayfaları
+ * ("ETUYS Y. MAK. ÖRN. GÖRÜNTÜ") eşleşmez. Önce tam ad, sonra baştan, en son ad içinde arar.
+ */
 export function sayfaBul(sayfaAdlari, tur) {
   const kok = tur === 'ithal' ? 'ITHAL' : 'YERLI';
-  const adlar = (sayfaAdlari || []).map((ad) => ({ ad, n: basligiNormallestir(ad) }));
-  const bulunan = adlar.find((s) => s.n === kok) || adlar.find((s) => s.n.startsWith(kok));
+  const adlar = (sayfaAdlari || []).map((ad) => ({ ad, n: basligiNormallestir(ad) })).filter((s) => !YARDIMCI_SAYFA(s.n));
+  const bulunan = adlar.find((s) => s.n === kok) || adlar.find((s) => s.n.startsWith(kok)) || adlar.find((s) => s.n.includes(kok));
   return bulunan ? bulunan.ad : null;
 }
 
@@ -434,7 +440,7 @@ const sayfaDizileri = (ws) => XLSX.utils.sheet_to_json(ws, { header: 1, defval: 
 
 /**
  * .xlsx/.xls içeriğini okur → { yerli: satır[], ithal: satır[] }.
- * Sayfa adları "YERLİ"/"İTHAL" (ve eski adlar); ikisi de yoksa tek sayfa başlıklarına göre yorumlanır.
+ * Sayfa adları "YERLİ"/"İTHAL" (ve eski adlar); adı tutmayan sayfalar başlıklarına göre yorumlanır.
  */
 export function excelSatirlariniOku(icerik) {
   const wb = XLSX.read(icerik, { type: 'array' });
@@ -444,11 +450,21 @@ export function excelSatirlariniOku(icerik) {
     yerli: yerliAd ? dizilerdenSatirlar(sayfaDizileri(wb.Sheets[yerliAd]), 'yerli') : [],
     ithal: ithalAd ? dizilerdenSatirlar(sayfaDizileri(wb.Sheets[ithalAd]), 'ithal') : []
   };
-  if (!yerliAd && !ithalAd && wb.SheetNames.length) {
-    const diziler = sayfaDizileri(wb.Sheets[wb.SheetNames[0]]);
-    const ithalSatirlari = dizilerdenSatirlar(diziler, 'ithal');
-    if (turTahminEt(Object.keys(ithalSatirlari[0] || {})) === 'ithal') sonuc.ithal = ithalSatirlari;
-    else sonuc.yerli = dizilerdenSatirlar(diziler, 'yerli');
+  // Adı tutmayan sayfalar başlıklarına göre yorumlanır. Müşteri (05.10.2026): yapay zekâya doldurtulan
+  // Excel'i "sistem kabul etmemiş uyumsuz format diye" — üretilen dosyalarda sayfalar "Sayfa1/Sayfa2"
+  // gibi adlanabiliyor; eskiden bu durumda yalnız ilk sayfa okunuyordu.
+  if (!yerliAd || !ithalAd) {
+    for (const ad of wb.SheetNames) {
+      if (ad === yerliAd || ad === ithalAd || YARDIMCI_SAYFA(basligiNormallestir(ad))) continue;
+      const diziler = sayfaDizileri(wb.Sheets[ad]);
+      const ithalSatirlari = dizilerdenSatirlar(diziler, 'ithal');
+      if (!ithalSatirlari.length) continue;
+      const basliklar = Object.keys(ithalSatirlari[0]);
+      const tur = turTahminEt(basliklar);
+      if (basliklar.filter((b) => baslikAlani(b, tur)).length < 2) continue; // makine tablosu değil
+      if (sonuc[tur].length || (tur === 'yerli' ? yerliAd : ithalAd)) continue; // o tür zaten bulundu
+      sonuc[tur] = tur === 'ithal' ? ithalSatirlari : dizilerdenSatirlar(diziler, 'yerli');
+    }
   }
   return sonuc;
 }
