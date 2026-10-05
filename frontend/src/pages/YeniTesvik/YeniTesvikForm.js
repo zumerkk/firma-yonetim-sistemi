@@ -71,6 +71,7 @@ import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerH
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
 import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
+import FinansalTutarAlani from '../../components/Tesvik/FinansalTutarAlani';
 // 🏭 Yatırım Konusu OECD 4 Haneli Kodları artık API'den çekiliyor (templateData.yatirimKonusuKodlari)
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -4644,6 +4645,9 @@ const YeniTesvikForm = () => {
       <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
         Finansal Bilgiler
         <Chip label="Devlet Formatı" size="small" color="primary" variant="outlined" />
+        <Typography component="span" variant="caption" sx={{ color: '#64748b', fontWeight: 400 }}>
+          Kuruşlu tutarlar yukarı yuvarlanır (76.588.704,44 → 76.588.705)
+        </Typography>
       </Typography>
 
       {/* İKİ KOLONLU ANA YAPI */}
@@ -4669,17 +4673,17 @@ const YeniTesvikForm = () => {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 160, color: '#78716c' }}>Metrekaresi:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.metrekaresi)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.araziArsaBedeli.metrekaresi}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 160, color: '#78716c' }}>Birim Fiyatı:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4709,25 +4713,25 @@ const YeniTesvikForm = () => {
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Ana bina ve tesisleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Yardımcı iş. bina ve tesisleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>İdare binaları:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4753,49 +4757,49 @@ const YeniTesvikForm = () => {
                     ekranda hiçbir yerde görünmüyordu. Eski belge formu ve belge görünümüyle aynı sıra. */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Yardımcı işletme mak. teç. giderleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>İthalat ve gümrükleme giderleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Taşıma ve sigorta giderleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Montaj giderleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.montajGiderleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.montajGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Etüd ve proje giderleri:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 180, color: '#78716c' }}>Diğer giderler:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri)}
-                    onChange={(e) => handleNumberChange(e, 'finansalBilgiler.digerYatirimHarcamalari.digerGiderleri')}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri}
+                    onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.digerYatirimHarcamalari.digerGiderleri')}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4837,25 +4841,17 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>İthal:</Typography>
-                  <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal).toLocaleString('tr-TR')}
-                    onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', raw ? parseInt(raw, 10) : 0);
-                    }}
-                    inputProps={{ inputMode: 'numeric' }}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal} sifirGizle
+                    onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', v === '' ? 0 : v)}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yerli:</Typography>
-                  <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli).toLocaleString('tr-TR')}
-                    onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', raw ? parseInt(raw, 10) : 0);
-                    }}
-                    inputProps={{ inputMode: 'numeric' }}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli} sifirGizle
+                    onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', v === '' ? 0 : v)}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4877,25 +4873,17 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Yeni Makine:</Typography>
-                  <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine).toLocaleString('tr-TR')}
-                    onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', raw ? parseInt(raw, 10) : 0);
-                    }}
-                    inputProps={{ inputMode: 'numeric' }}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine} sifirGizle
+                    onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', v === '' ? 0 : v)}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c' }}>Kullanılmış Makine:</Typography>
-                  <TextField size="small" fullWidth
-                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine).toLocaleString('tr-TR')}
-                    onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', raw ? parseInt(raw, 10) : 0);
-                    }}
-                    inputProps={{ inputMode: 'numeric' }}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine} sifirGizle
+                    onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', v === '' ? 0 : v)}
                     sx={{ '& .MuiOutlinedInput-root': { backgroundColor: '#fff' } }}
                   />
                 </Box>
@@ -4917,13 +4905,9 @@ const YeniTesvikForm = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" sx={{ minWidth: 140, color: '#78716c', fontWeight: 600 }}>Toplam Yabancı Kaynak:</Typography>
-                  <TextField size="small" fullWidth type="text"
-                    value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
-                    onChange={(e) => {
-                      const value = parseNumber(e.target.value);
-                      handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
-                      handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
-                    }}
+                  <FinansalTutarAlani size="small" fullWidth
+                    value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                    onDegis={(v) => { handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', v); handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', v); }}
                     InputProps={{ style: { fontWeight: 'bold', backgroundColor: '#f8f9fa' } }}
                   />
                 </Box>

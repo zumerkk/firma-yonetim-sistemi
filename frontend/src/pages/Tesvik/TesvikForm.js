@@ -73,6 +73,7 @@ import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerH
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
 import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
+import FinansalTutarAlani from '../../components/Tesvik/FinansalTutarAlani';
 import { yatirimKonusuKodlari, yatirimKonusuKategorileri } from '../../data/yatirimKonusuData';
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -5162,32 +5163,6 @@ const TesvikForm = () => {
     // ⚠️ calculateFinansalTotals ve formData.finansalBilgiler KASITLI olarak eksik bırakıldı - infinite loop'u önlemek için
   ]);
 
-  // 💰 Helper fonksiyon - Sıfır değerlerini temizlemek için - ENHANCED!
-  const handleNumberFieldFocus = (e) => {
-    // Kullanıcı tıklayınca 0 ise tamamen temizle (tip number olduğu için sadece value='')
-    if (e.target.value === '0' || e.target.value === 0 || e.target.value === '0.00') {
-      e.target.value = '';
-      // Field'ı boşalttığımızı state'e de yansıt (blur beklemeden) → pasif toplam ve validasyonlar canlı çalışsın
-      const nameAttr = e.target.getAttribute('name');
-      const dataSection = e.target.getAttribute('data-section');
-      const dataField = e.target.getAttribute('data-field');
-      if (dataSection && dataField) {
-        // Finansal alanlara özel: 0 yerine boş anlık state yaz
-        handleFinansalChange(dataSection, dataField, '');
-      } else if (nameAttr) {
-        // Genel sayı alanları için destek (varsa)
-        setFormData(prev => ({ ...prev, [nameAttr]: '' }));
-      }
-    }
-  };
-
-  const handleNumberFieldBlur = (e, changeHandler) => {
-    // Boşsa sıfır yap
-    if (e.target.value === '' || e.target.value === null) {
-      changeHandler(0);
-    }
-  };
-
   // 💰 5. FİNANSAL BİLGİLER - Excel Benzeri Kapsamlı Tablo
   const renderFinansalBilgiler = () => (
     <Grid container spacing={3}>
@@ -5203,6 +5178,7 @@ const TesvikForm = () => {
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Excel formundaki detaylı finansal hesaplamalar - Otomatik toplam hesaplama ve real-time validation sistemi aktif 🧮
+          {' '}Kuruşlu tutarlar yukarı yuvarlanır (76.588.704,44 → 76.588.705).
         </Typography>
       </Grid>
 
@@ -5266,22 +5242,20 @@ const TesvikForm = () => {
               />
             </Grid>
             <Grid item xs={12} md={3}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Metrekaresi"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.metrekaresi)}
-                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
+                value={formData.finansalBilgiler.araziArsaBedeli.metrekaresi}
+                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
                 InputProps={{ endAdornment: 'm²' }}
               />
             </Grid>
             <Grid item xs={12} md={3}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Birim Fiyatı TL"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl)}
-                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
+                value={formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl}
+                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
                 InputProps={{ endAdornment: '₺/m²' }}
               />
             </Grid>
@@ -5320,32 +5294,29 @@ const TesvikForm = () => {
               />
             </Grid>
             <Grid item xs={12} md={2.5}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Ana Bina ve Tesisleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri)}
-                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
+                value={formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri}
+                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2.5}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Yardımcı İş. Bina ve İcare Binaları"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari)}
-                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
+                value={formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari}
+                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Yeraltı Ana Galerileri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri)}
-                onChange={(e) => handleNumberChange(e, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
+                value={formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri}
+                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5374,69 +5345,63 @@ const TesvikForm = () => {
 
           <Grid container spacing={2}>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Yardımcı İşl. Mak. Teç. Gid."
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid)}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.yardimciIslMakTeçGid}
                 name="yardimciIslMakTecGid"
                 data-section="digerYatirimHarcamalari"
                 data-field="yardimciIslMakTeçGid"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', parseNumber(e.target.value))}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'yardimciIslMakTeçGid', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="İthalat ve Güm.Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri)}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.ithalatVeGumGiderleri}
                 name="ithalatVeGumGiderleri"
                 data-section="digerYatirimHarcamalari"
                 data-field="ithalatVeGumGiderleri"
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', parseNumber(e.target.value))}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'ithalatVeGumGiderleri', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Taşıma ve Sigorta G."
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', parseNumber(e.target.value))}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.tasimaVeSigortaGiderleri}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'tasimaVeSigortaGiderleri', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             {/* 🆕 Montaj Giderleri */}
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Montaj Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', parseNumber(e.target.value))}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.montajGiderleri}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'montajGiderleri', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Etüd ve Proje Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', parseNumber(e.target.value))}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.etudVeProjeGiderleri}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'etudVeProjeGiderleri', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={2}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Diğer Giderleri"
-                type="text"
-                value={formatNumber(formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri)}
-                onChange={(e) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', parseNumber(e.target.value))}
+                value={formData.finansalBilgiler.digerYatirimHarcamalari.digerGiderleri}
+                onDegis={(v) => handleFinansalChange('digerYatirimHarcamalari', 'digerGiderleri', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5486,32 +5451,26 @@ const TesvikForm = () => {
           <Typography variant="subtitle1" sx={{ mb: 2, fontWeight: 600 }}>MAKİNE TEÇHİZAT GİDERLERİ (TL)</Typography>
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid item xs={12} md={3}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="İthal"
-                value={formatNumber(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal)}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.ithal}
                 name="makineTlIthal"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.ithal"
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', parseNumber(e.target.value))}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', val))}
-                inputProps={{ inputMode: 'numeric' }}
+                onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.ithal', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
             <Grid item xs={12} md={3}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Yerli"
-                value={formatNumber(formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli)}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.tl.yerli}
                 name="makineTlYerli"
                 data-section="makineTeçhizatGiderleri"
                 data-field="tl.yerli"
-                onChange={(e) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', parseNumber(e.target.value))}
-                onFocus={handleNumberFieldFocus}
-                onBlur={(e) => handleNumberFieldBlur(e, (val) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', val))}
-                inputProps={{ inputMode: 'numeric' }}
+                onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'tl.yerli', v)}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5534,28 +5493,20 @@ const TesvikForm = () => {
           <Grid container spacing={2}>
             {/* Kullanıcı talebi: İthal Makine alanı kaldırıldı - toplam sadece Yeni + Kullanılmış */}
             <Grid item xs={12} md={2.5}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Yeni Makine"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine).toLocaleString('tr-TR')}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', raw ? parseInt(raw, 10) : 0);
-                }}
-                inputProps={{ inputMode: 'numeric' }}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.yeniMakine} sifirGizle
+                onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.yeniMakine', v === '' ? 0 : v)}
                 InputProps={{ endAdornment: '$' }}
               />
             </Grid>
             <Grid item xs={12} md={2.5}>
-              <TextField
+              <FinansalTutarAlani
                 fullWidth
                 label="Kullanılmış Makine"
-                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine === 0 ? '' : Number(formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine).toLocaleString('tr-TR')}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9]/g, '');
-                  handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', raw ? parseInt(raw, 10) : 0);
-                }}
-                inputProps={{ inputMode: 'numeric' }}
+                value={formData.finansalBilgiler.makineTeçhizatGiderleri.dolar.kullanilmisMakine} sifirGizle
+                onDegis={(v) => handleFinansalChange('makineTeçhizatGiderleri', 'dolar.kullanilmisMakine', v === '' ? 0 : v)}
                 InputProps={{ endAdornment: '$' }}
               />
             </Grid>
@@ -5589,17 +5540,11 @@ const TesvikForm = () => {
 
               {/* Toplam Yabancı Kaynak - Direkt Giriş */}
               <Box sx={{ mt: 0 }}>
-                <TextField
+                <FinansalTutarAlani
                   fullWidth
                   label="TOPLAM YABANCI KAYNAK"
-                  type="text"
-                  value={formatNumber(formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak)}
-                  onChange={(e) => {
-                    const value = parseNumber(e.target.value);
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', value);
-                    // Bank Kredisi de aynı değeri alsın (backend uyumluluğu için)
-                    handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', value);
-                  }}
+                  value={formData.finansalBilgiler.finansman.yabanciKaynaklar.toplamYabanciKaynak}
+                  onDegis={(v) => { handleFinansalChange('finansman', 'yabanciKaynaklar.toplamYabanciKaynak', v); handleFinansalChange('finansman', 'yabanciKaynaklar.bankKredisi', v); }}
                   InputProps={{
                     endAdornment: '₺',
                     style: { fontWeight: 'bold', color: '#16a34a', fontSize: '1.1rem' }
