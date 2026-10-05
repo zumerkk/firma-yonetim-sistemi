@@ -7,6 +7,7 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const parcaliDosya = require('../utils/parcaliDosya');
 const { turkceArama } = require('../utils/turkceArama');
+const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
 
 // ============================================================================
 // ☁️ CLOUDINARY AYARLARI
@@ -344,19 +345,42 @@ exports.getTumTalepler = async (req, res) => {
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
+        const listeAlanlari = (sorgu) => sorgu
+            .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
+            .populate('olusturanKullanici', 'adSoyad')
+            .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
+            .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
+            .lean();
 
-        const [talepler, toplam] = await Promise.all([
-            DosyaTakip.find(filter)
-                .sort(sort)
-                .skip(skip)
-                .limit(parseInt(limit))
-                .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
-                .populate('olusturanKullanici', 'adSoyad')
-                .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
-                .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
-                .lean(),
-            DosyaTakip.countDocuments(filter)
-        ]);
+        // ↕️ Sütun başlığından sıralama (siralama=alan:asc|desc) süzülmüş kümenin TAMAMINDA yapılır;
+        // gerekçe: services/dosyaTakip/listeSiralama.js. İstenmemişse eski yol (en yeni üstte).
+        const siralama = siralamaCoz(req.query.siralama);
+        let talepler;
+        let toplam;
+        if (siralama) {
+            const tanim = SIRALANABILIR[siralama.alan];
+            const hafif = await DosyaTakip.find(filter).select(`_id createdAt ${tanim.secim}`).lean();
+            let kisiAdi = () => '';
+            if (siralama.alan === 'muraacatHazirlayan' || siralama.alan === 'takibiYapan') {
+                const kullanicilar = await require('../models/User').find({}).select('adSoyad').lean();
+                const adlar = new Map(kullanicilar.map((u) => [String(u._id), u.adSoyad]));
+                kisiAdi = (id) => (id ? adlar.get(String(id)) || '' : '');
+            }
+            const sirali = talepleriSirala(hafif, siralama, {
+                kisiAdi,
+                sonucaAlinmaTarihi: (t) => DosyaTakip.sonucaAlinmaTarihi(t)
+            });
+            toplam = sirali.length;
+            const kimlikler = sirali.slice(skip, skip + parseInt(limit)).map((t) => t._id);
+            const sayfadakiler = await listeAlanlari(DosyaTakip.find({ _id: { $in: kimlikler } }));
+            const harita = new Map(sayfadakiler.map((t) => [String(t._id), t]));
+            talepler = kimlikler.map((id) => harita.get(String(id))).filter(Boolean);
+        } else {
+            [talepler, toplam] = await Promise.all([
+                listeAlanlari(DosyaTakip.find(filter).sort(sort).skip(skip).limit(parseInt(limit))),
+                DosyaTakip.countDocuments(filter)
+            ]);
+        }
 
         // Virtual alanları elle ekle (lean() virtual döndürmez)
         const enriched = talepler.map(t => ({

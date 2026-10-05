@@ -8,7 +8,7 @@ import {
     LinearProgress, Alert, Avatar, Dialog, DialogTitle,
     DialogContent, DialogActions, ToggleButton, ToggleButtonGroup
 } from '@mui/material';
-import { DataGrid, trTR } from '@mui/x-data-grid';
+import { DataGrid, GridPreferencePanelsValue, trTR, useGridApiRef } from '@mui/x-data-grid';
 import {
     Add as AddIcon,
     Search as SearchIcon,
@@ -18,7 +18,8 @@ import {
     Delete as DeleteIcon,
     ArrowBack as ArrowBackIcon,
     Clear as ClearIcon,
-    Inventory2 as ArchiveIcon
+    Inventory2 as ArchiveIcon,
+    ViewColumn as ViewColumnIcon
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
@@ -26,6 +27,7 @@ import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import useSutunSirasi from '../../hooks/useSutunSirasi';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
+import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import axios from '../../utils/axios';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
@@ -76,6 +78,10 @@ const ANA_ASAMA_ETIKETLERI = {
     'KURUM_SONUCLANMA': { label: '4. Sonuçlanma', color: '#059669' },
     'TAMAMLANDI': { label: 'Tamamlandı', color: '#22c55e' }
 };
+
+// Görünür sütun tercihi (tarayıcıda). Kayıtta olmayan sütun varsayılanı izler.
+const GORUNUR_SUTUN_ANAHTARI = 'dosyaTakip.gorunurSutunlar';
+const VARSAYILAN_GIZLI_SUTUNLAR = { createdAt: false };
 
 const DosyaTakipList = () => {
     const navigate = useNavigate();
@@ -130,6 +136,10 @@ const DosyaTakipList = () => {
     const aramaTerimi = searchParams.get('q') || '';
     const sayfa = Math.max(0, (parseInt(searchParams.get('sayfa'), 10) || 1) - 1);
     const sayfaBoyutu = parseInt(searchParams.get('limit'), 10) || 50;
+    // ↕️ Başlığa tıklayınca sıralama SUNUCUDA, süzülmüş kümenin tamamında yapılır (sirala=alan:asc|desc).
+    // Müşteri (05.10.2026): "Fatura Durumunu da ekleyebilir miyiz sıralayabilelim yine durumuna göre" —
+    // tarayıcı sıralaması yalnız ekrandaki 50 satırı diziyordu. Boşsa eskisi gibi en yeni üstte.
+    const siralamaParam = searchParams.get('sirala') || '';
 
     // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
     // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
@@ -159,6 +169,30 @@ const DosyaTakipList = () => {
             setSearch(aramaTerimi);
         }
     }, [aramaTerimi]);
+
+    const sortModel = useMemo(() => {
+        const [field, sort] = siralamaParam.split(':');
+        return field ? [{ field, sort: sort === 'desc' ? 'desc' : 'asc' }] : [];
+    }, [siralamaParam]);
+    const setSortModel = (model) => {
+        const m = Array.isArray(model) ? model[0] : null;
+        parametreYaz({ sirala: m?.sort ? `${m.field}:${m.sort}` : '' });
+    };
+
+    // 👁️ Görünür sütunlar — müşteri (05.10.2026): "Oluşturma tarihi de otomatik gizli gelsin istersek
+    // açalım." Seçim bu tarayıcıda hatırlanır (sütun sırası gibi); "Sütunlar" düğmesi paneli açar.
+    const gridApiRef = useGridApiRef();
+    const [gorunurSutunlar, setGorunurSutunlar] = useState(() => {
+        try {
+            const kayit = JSON.parse(window.localStorage.getItem(GORUNUR_SUTUN_ANAHTARI) || 'null');
+            if (kayit && typeof kayit === 'object' && !Array.isArray(kayit)) return { ...VARSAYILAN_GIZLI_SUTUNLAR, ...kayit };
+        } catch { /* depolama kapalı */ }
+        return VARSAYILAN_GIZLI_SUTUNLAR;
+    });
+    const gorunurSutunlariDegistir = (model) => {
+        setGorunurSutunlar(model);
+        try { window.localStorage.setItem(GORUNUR_SUTUN_ANAHTARI, JSON.stringify(model)); } catch { /* yalnız oturumda kalır */ }
+    };
 
     // DataGrid nesne bekliyor; loadData bağımlılıklarında ise ilkel değerler kullanılır
     // (her render'da yeni nesne referansı sonsuz fetch döngüsü açardı).
@@ -215,10 +249,11 @@ const DosyaTakipList = () => {
             // kapama=1 → yalnız kapama talepleri; boş → ana liste bunları göstermez
             kapama: kapamaModu ? '1' : '',
             // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
-            kapsam
+            kapsam,
+            siralama: siralamaParam
         };
         fetchTalepler(params);
-    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam]);
+    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam, siralamaParam]);
 
     // ☑️ E-TUYS takip kutusu — hata olursa tablonun üstünde görünür, kutu sunucudaki haliyle kalır
     const etuysDegistir = useCallback(async (id, isaretli) => {
@@ -272,6 +307,7 @@ const DosyaTakipList = () => {
         // arşiv/kapama görünümü korunur, sadece filtreler temizlenir
         if (arsivModu) sp.set('arsiv', '1');
         if (kapamaModu) sp.set('kapama', '1');
+        if (siralamaParam) sp.set('sirala', siralamaParam); // sıralama süzgeç değil, korunur
         setSearchParams(sp, { replace: true });
     };
 
@@ -431,7 +467,6 @@ const DosyaTakipList = () => {
             field: 'resmiMuracaatEksikSonGun',
             headerName: 'Resmi Müracaat Eksik Son Gün',
             width: 165,
-            sortable: false, // nested alan; sunucu tarafı sıralama bu yolu desteklemiyor
             valueGetter: (params) => params.row?.zamanlama?.resmiMuracaatEksikSonGun || null,
             renderCell: (params) => {
                 if (!params.value) return <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8' }}>-</Typography>;
@@ -464,6 +499,15 @@ const DosyaTakipList = () => {
                     <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: '#94a3b8' }}>-</Typography>
                 )
             )
+        },
+        {
+            // Müşteri (05.10.2026): "Belge takip sütunlarına Fatura Durumunu da ekleyebilir miyiz
+            // sıralayabilelim yine durumuna göre." Değer talebin Ödemeler sekmesinden gelir.
+            field: 'faturaDurumu',
+            headerName: 'Fatura Durumu',
+            width: 120,
+            valueGetter: (params) => params.row?.odeme?.faturaDurumu || '',
+            renderCell: (params) => <FaturaDurumuEtiketi durum={params.value} />
         },
         // ☑️ E-TUYS takip — yalnız 2. Kurum Değerlendirme satırlarında kutu çıkar (arşivde sütun yok)
         ...(arsivModu ? [] : [{
@@ -689,6 +733,12 @@ const DosyaTakipList = () => {
                                         Temizle
                                     </Button>
                                 )}
+                                <Tooltip title="Görünen sütunları seç (ör. Oluşturma Tarihi)">
+                                    <Button size="small" onClick={() => gridApiRef.current?.showPreferences(GridPreferencePanelsValue.columns)}
+                                        startIcon={<ViewColumnIcon />} sx={{ minWidth: 'auto', whiteSpace: 'nowrap', color: '#64748b', textTransform: 'none' }}>
+                                        Sütunlar
+                                    </Button>
+                                </Tooltip>
                                 {ozelSira && (
                                     <Tooltip title="Sütunları varsayılan sıraya döndür">
                                         <Button size="small" onClick={sutunSirasiniSifirla} sx={{ minWidth: 'auto', whiteSpace: 'nowrap', color: '#64748b' }}>
@@ -711,8 +761,14 @@ const DosyaTakipList = () => {
                     {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
                     <UstKaydirmaCubugu>
                         <DataGrid
+                            apiRef={gridApiRef}
                             rows={talepler}
                             columns={sutunlar}
+                            sortingMode="server"
+                            sortModel={sortModel}
+                            onSortModelChange={setSortModel}
+                            columnVisibilityModel={gorunurSutunlar}
+                            onColumnVisibilityModelChange={gorunurSutunlariDegistir}
                             getRowId={(row) => row._id}
                             loading={loading}
                             paginationMode="server"
