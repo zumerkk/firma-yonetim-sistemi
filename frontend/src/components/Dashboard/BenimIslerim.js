@@ -7,6 +7,10 @@
  *
  * Üç sütun: takibi bende olan açık talepler, benim açtığım açık talepler ve bu taleplere
  * firmadan gelen son dosyalar. Hepsi tıklanabilir — satıra tıklayınca talep açılır.
+ *
+ * Müşteri (05.10.2026): "Burada talepleri vs. aşağıya kaydırmalı liste yapma şansımız var mı sadece
+ * 10 adet görünüyor." Sunucu artık hepsini gönderiyor; her sütun ~10 satır yüksekliğinde sabit kalıp
+ * kendi içinde kayıyor, sayaç toplamı gösteriyor.
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -27,7 +31,8 @@ function Liste({ baslik, ikon, kayitlar, bos, satirCiz, onAc, yukleniyor }) {
         <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{baslik}</Typography>
         <Chip size="small" label={kayitlar.length} sx={{ ml: 'auto', height: 20 }} />
       </Stack>
-      <Box sx={{ p: 1 }}>
+      {/* ~10 satır görünür, fazlası sütunun içinde kayar (sayfa uzamaz) */}
+      <Box sx={{ p: 1, maxHeight: 440, overflowY: 'auto', overscrollBehavior: 'contain' }}>
         {yukleniyor && [1, 2, 3].map((i) => <Skeleton key={i} height={28} />)}
         {!yukleniyor && kayitlar.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ p: 1 }}>{bos}</Typography>

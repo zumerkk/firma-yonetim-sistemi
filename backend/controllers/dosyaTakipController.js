@@ -175,8 +175,16 @@ exports.getDashboardIstatistikleri = async (req, res) => {
  * vs tarzı bir arayüz."
  *
  * Üç liste döner: takibi bende olan açık talepler, benim açtığım açık talepler ve bana ait
- * taleplere firmadan GELEN son dosyalar. Sayfanın yükünü artırmamak için hepsi kısa tutulur.
+ * taleplere firmadan GELEN son dosyalar.
+ *
+ * Müşteri (05.10.2026): "Burada talepleri vs. aşağıya kaydırmalı liste yapma şansımız var mı sadece
+ * 10 adet görünüyor." Açık talepler artık sınırsız (bir kişinin açık talebi canlıda en fazla birkaç
+ * düzine; yalnız 9 alan seçiliyor), firmadan gelenler son 100 dosya. Kaydırma ön yüzde.
  */
+// Güvenlik sınırları — ekranda kaydırmalı liste; bunlar yalnız aşırı uçta yanıtı korur
+const ACIK_TALEP_SINIRI = 500;
+const FIRMADAN_GELEN_SINIRI = 100;
+
 exports.benimIslerim = async (req, res) => {
     try {
         const kullaniciId = req.user._id;
@@ -188,10 +196,10 @@ exports.benimIslerim = async (req, res) => {
 
         const [takibimde, actiklarim, sonYuklemeler] = await Promise.all([
             DosyaTakip.find({ ...acikSuzgec, 'muraacatSonrasi.takibiYapanPersonel': kullaniciId })
-                .select(alanlar).sort({ updatedAt: -1 }).limit(10).lean(),
+                .select(alanlar).sort({ updatedAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             DosyaTakip.find({ ...acikSuzgec, olusturanKullanici: kullaniciId })
-                .select(alanlar).sort({ createdAt: -1 }).limit(10).lean(),
-            // Firmadan gelen dosyalar: bana ait taleplerde, en yeni 10 tanesi
+                .select(alanlar).sort({ createdAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
+            // Firmadan gelen dosyalar: bana ait taleplerde, en yeni FIRMADAN_GELEN_SINIRI tanesi
             DosyaTakip.aggregate([
                 { $match: { $or: [
                     { 'muraacatSonrasi.takibiYapanPersonel': kullaniciId },
@@ -200,7 +208,7 @@ exports.benimIslerim = async (req, res) => {
                 { $unwind: '$dosyalar' },
                 { $match: { 'dosyalar.firmaYukledi': true } },
                 { $sort: { 'dosyalar.yuklemeTarihi': -1 } },
-                { $limit: 10 },
+                { $limit: FIRMADAN_GELEN_SINIRI },
                 { $project: {
                     _id: 1, takipId: 1, firmaUnvan: 1, ytbNo: 1,
                     dosyaAdi: '$dosyalar.dosyaAdi', tarih: '$dosyalar.yuklemeTarihi',
