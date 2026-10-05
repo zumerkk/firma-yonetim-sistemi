@@ -117,7 +117,7 @@ export const kunyeBolumleri = (t = {}, secenek = {}) => {
     { etiket: 'Öncelikli Yatırım', deger: evetHayirYaz(by.oncelikliYatirim) },
     // E-TUYS türü ayrı satırda göstermiyor ama "Evet" ise hangi tür olduğu bilgisi bizde var
     ...(oncelikliEvet
-      ? [{ etiket: 'Öncelikli Yatırım Türü', deger: metin(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru)) }]
+      ? [{ etiket: 'Öncelikli Yatırım Türü', deger: metin(oncelikliYatirimTuruEtiketi(by.oncelikliYatirimTuru, tur)) }]
       : []),
     { etiket: 'Büyük Ölçekli', deger: evetHayirYaz(yb.buyukOlcekli) },
     { etiket: 'Cazibe Merkezi Mi', deger: evetHayirYaz(yb.cazibeMerkeziMi) },

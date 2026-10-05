@@ -66,7 +66,7 @@ import KayitliSecim, { kayitliSecenekler } from '../../components/common/Kayitli
 // 🔄 Revizyon Timeline Import
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
-import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
+import { oncelikliYatirimTurleri, oncelikliYatirimTuruEtiketi } from '../../data/oncelikliYatirimData';
 import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerHarcamalar';
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
@@ -3062,6 +3062,39 @@ const YeniTesvikForm = () => {
                   </FormControl>
                 </Box>
               </Grid>
+
+              {/* Öncelikli Yatırım Türü — "Evet" ise. Ocak 2026'daki düzen değişikliğinde düşmüştü; müşteri
+                  (05.10.2026): "yeni belge için şu an sistemdeki seçenekler çıksın" (eski belge kendi listesini
+                  kullanıyor, bkz. data/eskiOncelikliYatirimData.js). Harf sırasıyla, gruplamadan. */}
+              {formData.belgeYonetimi.oncelikliYatirim === 'evet' && (
+                <Grid item xs={12}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: '#475569', minWidth: 110, flexShrink: 0, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      Öncelikli Yatırım Türü:
+                    </Typography>
+                    <FormControl size="small" sx={{ flex: 1, minWidth: 200 }}>
+                      <KayitliSecim
+                        value={formData.belgeYonetimi.oncelikliYatirimTuru || ''}
+                        onChange={(e) => handleFieldChange('belgeYonetimi.oncelikliYatirimTuru', e.target.value)}
+                        displayEmpty
+                        renderValue={(v) => (v ? oncelikliYatirimTuruEtiketi(v, 'yeni').replace(' - ', ') ') : 'Seçiniz...')}
+                        sx={{ backgroundColor: '#fff' }}
+                        MenuProps={{ PaperProps: { sx: { maxHeight: 420, maxWidth: 640 } } }}
+                      >
+                        <MenuItem value="">Seçiniz...</MenuItem>
+                        {oncelikliYatirimTurleri.map((tur) => (
+                          <MenuItem key={tur.id} value={tur.id} sx={{ whiteSpace: 'normal', alignItems: 'flex-start' }}>
+                            <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>{tur.id}) {tur.baslik}</Typography>
+                              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{tur.aciklama}</Typography>
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </KayitliSecim>
+                    </FormControl>
+                  </Box>
+                </Grid>
+              )}
 
               {/* Büyük Ölçekli */}
               <Grid item xs={12} sm={6}>

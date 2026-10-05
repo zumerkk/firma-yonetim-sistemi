@@ -67,7 +67,7 @@ import KayitliSecim from '../../components/common/KayitliSecim';
 // 🔄 Revizyon Timeline Import
 import RevisionTimeline from '../../components/RevisionTimeline';
 // 🏆 Öncelikli Yatırım Data Import
-import { oncelikliYatirimTurleri, oncelikliYatirimKategorileri } from '../../data/oncelikliYatirimData';
+import { eskiOncelikliYatirimTurleri } from '../../data/eskiOncelikliYatirimData';
 import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerHarcamalar';
 // 🏭 Yatırım Konusu NACE Kodları Import
 // 🔤 Türkçe Karakter Utils
@@ -2883,6 +2883,10 @@ const TesvikForm = () => {
                     value={formData.belgeYonetimi.oncelikliYatirimTuru || ''}
                     onChange={(e) => handleFieldChange('belgeYonetimi.oncelikliYatirimTuru', e.target.value)}
                     label="Öncelikli Yatırım Türü"
+                    renderValue={(v) => {
+                      const t = eskiOncelikliYatirimTurleri.find((x) => x.id === v);
+                      return t ? `${t.id}) ${t.baslik}` : v;
+                    }}
                     sx={{
                       backgroundColor: '#f8f9fa',
                       '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#d97706' },
@@ -2892,30 +2896,22 @@ const TesvikForm = () => {
                     <MenuItem value="">
                       <em>Öncelikli yatırım türünü seçiniz...</em>
                     </MenuItem>
-                    {oncelikliYatirimKategorileri.map((kategori) => [
-                      <MenuItem key={`kategori-${kategori.value}`} disabled sx={{
-                        fontWeight: 'bold',
-                        color: kategori.renk,
-                        fontSize: '0.9rem',
-                        backgroundColor: '#f8f9fa'
-                      }}>
-                        {kategori.label}
-                      </MenuItem>,
-                      ...oncelikliYatirimTurleri
-                        .filter(tur => tur.kategori === kategori.value)
-                        .map((tur) => (
-                          <MenuItem key={tur.id} value={tur.id} sx={{ pl: 3 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                                {tur.id.toUpperCase()}) {tur.baslik}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                                {tur.aciklama}
-                              </Typography>
-                            </Box>
-                          </MenuItem>
-                        ))
-                    ]).flat()}
+                    {/* Eski belge: 2012/3305 BKK md. 17 bentleri (müşterinin listesi, 05.10.2026).
+                        Yeni sistemin listesi burada GÖSTERİLMEZ — aynı harfler başka anlama geliyor. */}
+                    {eskiOncelikliYatirimTurleri.map((tur) => (
+                      <MenuItem key={tur.id} value={tur.id} disabled={tur.mulga && tur.id !== formData.belgeYonetimi.oncelikliYatirimTuru} sx={{ whiteSpace: 'normal', alignItems: 'flex-start' }}>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {tur.id}) {tur.baslik}
+                          </Typography>
+                          {tur.aciklama && (
+                            <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.25 }}>
+                              {tur.aciklama}
+                            </Typography>
+                          )}
+                        </Box>
+                      </MenuItem>
+                    ))}
                   </KayitliSecim>
                 </FormControl>
               </Grid>

@@ -1,4 +1,6 @@
-// 🏆 ÖNCELİKLİ YATIRIM TÜRLERİ VERİTABANI
+import { eskiOncelikliYatirimTurleri } from './eskiOncelikliYatirimData';
+
+// 🏆 ÖNCELİKLİ YATIRIM TÜRLERİ VERİTABANI (YENİ BELGE — eski belge listesi: eskiOncelikliYatirimData.js)
 // Yatırım Teşvik Sistemi - Öncelikli Yatırım Kategorileri
 // Resimlerden 1:1 alınan tam liste
 
@@ -263,13 +265,21 @@ export const getById = (id) => {
   return oncelikliYatirimTurleri.find(item => item.id === id);
 };
 
+// Eski belge (2012/3305 BKK md. 17) ile yeni belge listesi AYNI harfleri farklı anlamda kullanıyor;
+// hangi listenin geçerli olduğu belgenin türüne bağlı. Müşteri (05.10.2026): "yeni belge için şu an
+// sistemdeki seçenekler çıksın, eski belge için ... yüklediklerim çıksın".
+export const oncelikliYatirimListesi = (belgeTuru = 'yeni') =>
+  (belgeTuru === 'eski' ? eskiOncelikliYatirimTurleri : oncelikliYatirimTurleri);
+
 // Kayıtlarda türün yalnız harf kodu ("n") saklanıyor; ekranda ve PDF'te okunur olsun.
 // Müşteri: "öncelikli yatırım türü sadece 'n' olarak görünüyor ve pdf görünümünde öncelikli yatırım
 // türü görünmüyor". Tanınmayan değer (ör. zaten tam metin) olduğu gibi döner.
-export const oncelikliYatirimTuruEtiketi = (deger) => {
+export const oncelikliYatirimTuruEtiketi = (deger, belgeTuru = 'yeni') => {
   const ham = String(deger ?? '').trim();
   if (!ham) return '';
-  const tur = getById(ham) || oncelikliYatirimTurleri.find((t) => t.kod === ham);
+  const tur = belgeTuru === 'eski'
+    ? eskiOncelikliYatirimTurleri.find((t) => t.id === ham)
+    : (getById(ham) || oncelikliYatirimTurleri.find((t) => t.kod === ham));
   return tur ? `${tur.id} - ${tur.baslik}` : ham;
 };
 

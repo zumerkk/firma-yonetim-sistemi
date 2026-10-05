@@ -80,6 +80,14 @@ describe('kunyeBolumleri — E-TUYS künyesi birebir', () => {
     expect(deger(evet.belge, 'Öncelikli Yatırım Türü')).toMatch(/^n - /);
   });
 
+  test('öncelikli yatırım türü belge türünün listesinden yazılır', () => {
+    const by = { belgeYonetimi: { oncelikliYatirim: 'evet', oncelikliYatirimTuru: 'a' } };
+    expect(deger(kunyeBolumleri(by, { tur: 'eski' }).belge, 'Öncelikli Yatırım Türü'))
+      .toBe('a - Demiryolu, Denizyolu, Havayolu Taşımacılığı');
+    expect(deger(kunyeBolumleri(by, { tur: 'yeni' }).belge, 'Öncelikli Yatırım Türü'))
+      .toBe('a - Dijital Dönüşüm Programı veya Yeşil Dönüşüm');
+  });
+
   test('yeni belge: NACE etiketi ve mücbir uzatma satırı', () => {
     const yeni = kunyeBolumleri(
       { yatirimBilgileri: { yatirimKonusu: '10.11.01' }, belgeYonetimi: { mucbirUzatma: 'evet', mucbirUzumaTarihi: '2027-01-02' } },
