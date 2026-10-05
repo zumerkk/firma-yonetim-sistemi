@@ -172,8 +172,65 @@ function firmaOzetleriniKatla(gruplar = []) {
     .sort((a, b) => a.firmaUnvan.localeCompare(b.firmaUnvan, 'tr'));
 }
 
+// Talebin Ödemeler sekmesindeki fatura durumu (models/DosyaTakip.js → odeme.faturaDurumu)
+const FATURA_DURUMLARI = ['kesildi', 'kesilmedi', 'avans'];
+
+/**
+ * Cari hesaplar listesi: hareketi olan firmalar + Belge Takip'teki TÜM firmalar.
+ *
+ * Müşteri (05.10.2026): "Cari / ödeme takipde hareketi olan firmalar değil de Belge Takip'deki
+ * bütün firmalar gelsin aktif-arşiv ikisi de, Birde Hizmet ve Yatırım ödemeleri'nin solunda
+ * Fatura durumu yazsın (kesildi-kesilmedi-avans)."
+ *
+ * @param ozetler  firmaOzetleriniKatla çıktısı (hareketi olan firmalar)
+ * @param talepGruplari Mongo grubu: { _id: firma, firmaUnvan, talepSayisi, kesildi, kesilmedi, avans }
+ * @param unvanlar Map(firmaId → Firma.tamUnvan) — varsa talepteki/harekettekinden önce gelir
+ * @returns firma başına tek satır; hareketi olmayanların tutarları 0. Fatura durumu, firmanın
+ *          taleplerindeki sayımdır ({ kesildi: 2, kesilmedi: 1, avans: 0, bos: 3 }).
+ */
+function firmaListesiniBirlestir(ozetler = [], talepGruplari = [], unvanlar = new Map()) {
+  const sifir = { ...toplamlar({ fatura: 0, odenen: 0, gelen: 0 }), adet: 0, sonHareketTarihi: null };
+  const firmalar = new Map();
+  const satir = (firma) => {
+    if (!firmalar.has(firma)) {
+      firmalar.set(firma, {
+        firma, firmaUnvan: '', ...sifir, talepSayisi: 0,
+        faturaDurumlari: { kesildi: 0, kesilmedi: 0, avans: 0, bos: 0 }
+      });
+    }
+    return firmalar.get(firma);
+  };
+
+  for (const o of ozetler || []) {
+    if (!o?.firma) continue;
+    Object.assign(satir(String(o.firma)), o, { firma: String(o.firma) });
+  }
+  for (const g of talepGruplari || []) {
+    if (!g?._id) continue;
+    const f = satir(String(g._id));
+    const talepSayisi = Number(g.talepSayisi) || 0;
+    f.talepSayisi = talepSayisi;
+    let isaretli = 0;
+    for (const d of FATURA_DURUMLARI) {
+      f.faturaDurumlari[d] = Number(g[d]) || 0;
+      isaretli += f.faturaDurumlari[d];
+    }
+    f.faturaDurumlari.bos = Math.max(0, talepSayisi - isaretli);
+    if (!f.firmaUnvan && g.firmaUnvan) f.firmaUnvan = g.firmaUnvan;
+  }
+  for (const f of firmalar.values()) {
+    const kayitli = unvanlar.get(f.firma);
+    if (kayitli) f.firmaUnvan = kayitli;
+  }
+
+  return [...firmalar.values()]
+    .sort((a, b) => String(a.firmaUnvan || '').localeCompare(String(b.firmaUnvan || ''), 'tr'));
+}
+
 module.exports = {
   HAREKET_TURLERI,
+  FATURA_DURUMLARI,
+  firmaListesiniBirlestir,
   BANKALAR,
   YON,
   kurus,

@@ -17,6 +17,14 @@ export const HAREKET_TURU = {
     gelen: { etiket: 'Gelen', renk: '#16a34a', zemin: '#f0fdf4', kenar: '#86efac' }
 };
 
+// Talebin Ödemeler sekmesindeki fatura durumu (müşteri, 15.09.2026: "kesildi-kesilmedi-avans").
+// Cari listesinde ve Belge Takip listesinde aynı renklerle görünür.
+export const FATURA_DURUMU = {
+    kesildi: { etiket: 'Kesildi', renk: '#15803d', zemin: '#f0fdf4', kenar: '#86efac' },
+    kesilmedi: { etiket: 'Kesilmedi', renk: '#b91c1c', zemin: '#fef2f2', kenar: '#fca5a5' },
+    avans: { etiket: 'Avans', renk: '#1d4ed8', zemin: '#eff6ff', kenar: '#93c5fd' }
+};
+
 const yuvarla = (n) => Math.round(n * 100) / 100;
 
 // "1.234.567" → "1234567"; gruplar 3'lü değilse null

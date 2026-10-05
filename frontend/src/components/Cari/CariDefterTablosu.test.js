@@ -35,7 +35,8 @@ describe('CariDefterTablosu', () => {
     test('firma görünümü: borç/alacak, satır bakiyesi, talep ve not', () => {
         const h = [{
             _id: '3', tur: 'fatura', faturaNo: 'GM-15', tarih: '2026-01-12T00:00:00.000Z', tutar: 24000, bakiye: 24000,
-            dosyaTakip: { takipId: 'DT2026999', talepTuru: 'Belge Başvuru Talebi' }, aciklama: '24.000 fatura iptal'
+            dosyaTakip: { takipId: 'DT2026999', talepTuru: 'Belge Başvuru Talebi', odeme: { faturaDurumu: 'avans' } },
+            aciklama: '24.000 fatura iptal'
         }];
         render(
             <CariDefterTablosu
@@ -46,10 +47,12 @@ describe('CariDefterTablosu', () => {
         );
         const c = hucreler(satir('Fatura No: GM-15'));
         expect(c[3]).toBe('DT2026999 · Belge Başvuru Talebi');
-        expect(c[4]).toBe('24.000,00 ₺'); // Borç
-        expect(c[5]).toBe('');            // Alacak
-        expect(c[6]).toBe('24.000,00 ₺'); // Bakiye
-        expect(c[7]).toBe('24.000 fatura iptal');
+        // müşteri (05.10.2026): "Hizmet ve Yatırım ödemeleri'nin solunda Fatura durumu yazsın"
+        expect(c[4]).toBe('Avans');       // talebin fatura durumu
+        expect(c[5]).toBe('24.000,00 ₺'); // Borç
+        expect(c[6]).toBe('');            // Alacak
+        expect(c[7]).toBe('24.000,00 ₺'); // Bakiye
+        expect(c[8]).toBe('24.000 fatura iptal');
     });
 
     test('boş defterde yönlendirici mesaj', () => {

@@ -7,6 +7,7 @@ import tesvikService from '../../services/tesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
 import api, { uploadPost } from '../../utils/axios';
 import currencyService from '../../services/currencyService';
+import { dovizKodu, kurKodu, usdEksik, tlEksik, ithalTutarlariniGuncelle, eksikTutarlariDoldur } from '../../utils/ithalTutar';
 import ExcelJS from 'exceljs';
 import { GTIP_DATA } from '../../data/gtipData';
 import { Add as AddIcon, Delete as DeleteIcon, FileUpload as ImportIcon, Download as ExportIcon, Replay as RecalcIcon, ContentCopy as CopyIcon, MoreVert as MoreIcon, Star as StarIcon, StarBorder as StarBorderIcon, Bookmarks as BookmarksIcon, Visibility as VisibilityIcon, Send as SendIcon, Check as CheckIcon, Percent as PercentIcon, Clear as ClearIcon, Fullscreen as FullscreenIcon, FullscreenExit as FullscreenExitIcon, ViewColumn as ViewColumnIcon, ArrowBack as ArrowBackIcon, Home as HomeIcon, Build as BuildIcon, History as HistoryIcon, Restore as RestoreIcon, FiberNew as FiberNewIcon, DeleteOutline as DeleteOutlineIcon, Timeline as TimelineIcon, TableView as TableViewIcon, CurrencyExchange as CurrencyExchangeIcon, FlashOn as FlashOnIcon, GridOn as GridOnIcon, Event as EventIcon } from '@mui/icons-material';
@@ -266,7 +267,30 @@ const MakineYonetimi = () => {
   const sayfaBoyutuKaydet = useCallback((m) => { if (m?.pageSize) yerelYaz('mk_sayfaBoyutu', String(m.pageSize)); }, []);
   const [filterText, setFilterText] = useState('');
   const [bulkMenuAnchor, setBulkMenuAnchor] = useState(null);
-  const [rateCache, setRateCache] = useState({}); // { USD->TRY: 32.1 }
+
+  // 💱 Kur önbelleği ref'te: setState geri çağrılarındaki eşzamanlı hesaplar da okuyabilsin
+  // (updateIthal ilk render'ın kapanışını kullanıyor). Anahtar "EUR->USD" / "EUR->TRY".
+  const kurOnbellekRef = useRef({});
+  const kurAl = useCallback(async (kaynak, hedef) => {
+    const anahtar = `${kaynak}->${hedef}`;
+    if (kurOnbellekRef.current[anahtar]) return kurOnbellekRef.current[anahtar];
+    try {
+      const deger = Number(await currencyService.getRate(kaynak, hedef));
+      if (!(deger > 0)) return null;
+      kurOnbellekRef.current = { ...kurOnbellekRef.current, [anahtar]: deger };
+      return deger;
+    } catch { return null; }
+  }, []);
+  // Bir dövizin $ paritesi ve TL kuru (USD/TL için istek atılmaz)
+  const kurlariHazirla = useCallback(async (doviz) => {
+    const kod = kurKodu(String(doviz || '').trim().toUpperCase());
+    if (!kod) return;
+    await Promise.all([kod !== 'USD' ? kurAl(kod, 'USD') : null, kod !== 'TRY' ? kurAl(kod, 'TRY') : null]);
+  }, [kurAl]);
+  const satirKurlari = (r) => {
+    const kod = kurKodu(dovizKodu(r));
+    return { parite: kurOnbellekRef.current[`${kod}->USD`], kur: kurOnbellekRef.current[`${kod}->TRY`] };
+  };
   const [gumrukMuaf, setGumrukMuaf] = useState(false);
   const [kdvMuaf, setKdvMuaf] = useState(false);
   const [contextAnchor, setContextAnchor] = useState(null);
@@ -727,49 +751,29 @@ const MakineYonetimi = () => {
     return () => { if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current); };
   }, [yerliRows, ithalRows, selectedTesvik]);
 
-  // Otomatik TL hesaplama (kurla) - kullanıcı TL'yi manuel değiştirmediyse
+  // 💱 Eksik ithal tutarlarını doldur (bkz. utils/ithalTutar): boş $/TL ve dövizden hiç çevrilmemiş $.
+  // Dolu TL o günün kuruyla YENİDEN hesaplanmaz — eskiden her açılışta ve her satır değişiminde tüm
+  // satırların TL'si günlük kurla yeniden yazılıyor, liste kaydedilince eski makinelerin tutarı
+  // kendi kendine değişiyordu (müşteri 05.10.2026: "fiyatlar ... değişiyor").
   useEffect(() => {
+    const eksikler = (ithalRows || []).filter((r) => usdEksik(r) || tlEksik(r));
+    if (!eksikler.length) return undefined;
+    let iptal = false;
     (async () => {
-      if (!Array.isArray(ithalRows) || ithalRows.length === 0) return;
-      let changed = false;
-      const nextRows = await Promise.all(ithalRows.map(async (r) => {
-        try {
-          if (r.tlManuel || (r.kurManuel && Number(parseTrCurrency(r.kurManuelDeger))>0)) return r; // manuel TL/kur modda dokunma
-          const miktar = numberOrZero(r.miktar);
-          const fob = numberOrZero(r.birimFiyatiFob);
-          // Elle girilmiş FOB $ (usdManuel) formülle EZİLMEZ. Müşteri: "Fob $ toplam tutarını değiştirince
-          // kaydetmiyor eski haline geri çeviriyor" — bu etki her satır değişiminde tutarı yeniden hesaplıyordu.
-          const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : miktar * fob;
-          // Döviz yoksa sadece USD güncelle
-          if (!r.doviz) {
-            if (numberOrZero(r.toplamUsd) !== usd) { changed = true; return { ...r, toplamUsd: usd }; }
-            return r;
-          }
-          const doviz = (r.doviz || '').toUpperCase();
-          if (doviz === 'TRY') {
-            const tl = usd;
-            if (numberOrZero(r.toplamUsd) !== usd || numberOrZero(r.toplamTl) !== tl) { changed = true; return { ...r, toplamUsd: usd, toplamTl: tl }; }
-            return r;
-          }
-          // Kur çek ve TL hesapla
-          const key = `${doviz}->TRY`;
-          let rate = rateCache[key];
-          if (!rate) {
-            try {
-              rate = await currencyService.getRate(doviz, 'TRY');
-              if (rate) setRateCache(prev => ({ ...prev, [key]: rate }));
-            } catch { /* ignore */ }
-          }
-          const tl = rate ? Math.round(usd * rate) : numberOrZero(r.toplamTl);
-          if (numberOrZero(r.toplamUsd) !== usd || (rate && numberOrZero(r.toplamTl) !== tl)) {
-            changed = true; return { ...r, toplamUsd: usd, ...(rate ? { toplamTl: tl } : {}) };
-          }
-          return r;
-        } catch { return r; }
-      }));
-      if (changed) setIthalRows(nextRows);
+      await Promise.all([...new Set(eksikler.map(dovizKodu))].map(kurlariHazirla));
+      if (iptal) return;
+      setIthalRows((rows) => {
+        let degisti = false;
+        const sonraki = rows.map((r) => {
+          const s = eksikTutarlariDoldur(r, satirKurlari(r));
+          if (s !== r) degisti = true;
+          return s;
+        });
+        return degisti ? sonraki : rows;
+      });
     })();
-  }, [ithalRows, rateCache]);
+    return () => { iptal = true; };
+  }, [ithalRows, kurlariHazirla]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const yerliToplamTl = useMemo(() => yerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [yerliRows]);
   const ithalToplamUsd = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamUsd), 0), [ithalRows]);
@@ -832,7 +836,7 @@ const MakineYonetimi = () => {
     setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
   };
   const updateIthal = (id, patch) => {
-    setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }) : r));
+    setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }, Object.keys(patch)) : r));
   };
 
   // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
@@ -861,105 +865,39 @@ const MakineYonetimi = () => {
         const raw = (newRow.toplamTl ?? newRow.__manualTLInput ?? '').toString();
         const parsed = parseTrCurrency(raw);
         const updatedRow = { ...newRow, tlManuel: true, toplamTl: parsed, __manualTLInput: raw };
-        updateIthal(newRow.id, updatedRow);
-        return updatedRow;
-      }
-      
-      // FOB $ elle düzenlendiyse: usdManuel açılır, formül bu satırı bir daha ezmez.
-      // Müşteri: "Fob $ toplam tutarını da manuel değiştirebilelim."
-      // TL de manuel kurdan yeniden hesaplanıyor ki iki tutar tutarsız kalmasın.
-      if (changedFields.includes('toplamUsd')) {
-        const usd = parseTrCurrency((newRow.toplamUsd ?? '').toString());
-        const updatedRow = { ...newRow, toplamUsd: usd, usdManuel: true };
-        if (newRow.kurManuel && Number(newRow.kurManuelDeger) > 0) {
-          updatedRow.toplamTl = Math.round(usd * Number(newRow.kurManuelDeger));
-        }
-        updateIthal(newRow.id, updatedRow);
+        updateIthal(newRow.id, { tlManuel: true, toplamTl: parsed, __manualTLInput: raw });
         return updatedRow;
       }
 
-      // Miktar veya FOB değiştiyse USD'yi yeniden hesapla.
-      // usdManuel açıksa dokunmuyoruz — kullanıcı tutarı bilerek sabitlemiş.
-      if (!newRow.usdManuel && (changedFields.includes('miktar') || changedFields.includes('birimFiyatiFob'))) {
-        const miktar = numberOrZero(newRow.miktar);
-        const fob = numberOrZero(newRow.birimFiyatiFob);
-        const usd = miktar * fob;
-        
-        console.log(`💰 USD hesaplanıyor: ${miktar} × ${fob} = ${usd}`);
-        
-        // USD güncelle ve manuel TL flag'ini sıfırla
-        const updatedRow = { ...newRow, toplamUsd: usd, tlManuel: false };
-        
-        // Manuel kur varsa önce onu kullan
-        if (newRow.kurManuel && Number(newRow.kurManuelDeger) > 0) {
-          updatedRow.toplamTl = Math.round(usd * Number(newRow.kurManuelDeger));
-          console.log(`📊 Manuel Kur: ${usd} × ${newRow.kurManuelDeger} = ${updatedRow.toplamTl} TL`);
-        }
-        // TRY ise direkt TL = USD
-        else if ((newRow.doviz || '').toUpperCase() === 'TRY') {
-          updatedRow.toplamTl = usd;
-          console.log(`🇹🇷 TRY: TL = ${usd}`);
-        } 
-        // Başka döviz ise otomatik kur ile çevir
-        else if (newRow.doviz && !newRow.tlManuel) {
-          try {
-            const key = `${newRow.doviz}->TRY`;
-            let rate = rateCache[key];
-            if (!rate) { 
-              rate = await currencyService.getRate(newRow.doviz, 'TRY'); 
-              setRateCache(prev => ({ ...prev, [key]: rate })); 
-            }
-            updatedRow.toplamTl = Math.round(usd * (rate || 0));
-            console.log(`💱 ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
-          } catch (error) {
-            console.error('❌ Kur çevirme hatası:', error);
-          }
-        }
-        
-        // State'i güncelle
-        updateIthal(newRow.id, updatedRow);
+      // FOB $ elle düzenlendiyse: usdManuel açılır, formül bu satırı bir daha ezmez. Müşteri: "Fob $
+      // toplam tutarını değiştirince kaydetmiyor eski haline geri çeviriyor." TL de yeniden hesaplanır
+      // (dolar satırında yazılan $'dan; manuel kur varsa o kurdan) ki iki tutar tutarsız kalmasın.
+      if (changedFields.includes('toplamUsd')) {
+        const usd = parseTrCurrency((newRow.toplamUsd ?? '').toString());
+        await kurlariHazirla(newRow.doviz);
+        const updatedRow = calcIthal({ ...newRow, toplamUsd: usd, usdManuel: true }, ['toplamUsd', 'usdManuel']);
+        satiriYaz(updatedRow);
         return updatedRow;
       }
-      // Döviz değiştiyse TL'yi güncelle (manuel değilse)
-      else if (changedFields.includes('doviz') && newRow.doviz && !newRow.tlManuel) {
-        const usd = numberOrZero(newRow.toplamUsd);
-        // Döviz değiştiğinde manuel kur bilgisini temizle
-        const updatedRow = { ...newRow, kurManuel: false, kurManuelDeger: 0 };
-        
-        if (newRow.doviz.toUpperCase() === 'TRY') {
-          updatedRow.toplamTl = usd;
-          console.log(`🇹🇷 Döviz TRY'ye değişti: TL = ${usd}`);
-        } else {
-          try {
-            const key = `${newRow.doviz}->TRY`;
-            let rate = rateCache[key];
-            if (!rate) { 
-              rate = await currencyService.getRate(newRow.doviz, 'TRY'); 
-              setRateCache(prev => ({ ...prev, [key]: rate })); 
-            }
-            // Her zaman yakınsayan yuvarlama: .5 ve üzeri yukarı
-            const tlRaw = usd * (rate || 0);
-            // Eğer kullanıcı daha önce TL'yi string olarak girdi ise aynen gösterilecek formatı koru
-            if (updatedRow.__manualTLInput) {
-              updatedRow.toplamTl = parseTrCurrency(updatedRow.__manualTLInput);
-            } else {
-              updatedRow.toplamTl = Math.round(tlRaw);
-            }
-            console.log(`💱 Döviz değişti ${newRow.doviz}: ${usd} × ${rate} = ${updatedRow.toplamTl} TL`);
-          } catch (error) {
-            console.error('❌ Döviz kur çevirme hatası:', error);
-          }
-        }
-        
-        updateIthal(newRow.id, updatedRow);
+
+      // Miktar / birim fiyat / döviz değiştiyse $ (dövizin $ paritesiyle) ve TL (dövizin TL kuruyla)
+      // birlikte hesaplanır. Müşteri (05.10.2026): "Döviz cinsi EUR olsa bile onun birim fiyatını
+      // yazmıyor hepsini USD üzerinden alıyor" — $ eskiden miktar × birim fiyattı (EUR'yu dolar sayıyordu).
+      const girdiler = ['miktar', 'birimFiyatiFob', 'doviz'].filter((f) => changedFields.includes(f));
+      if (girdiler.length) {
+        let satir = { ...newRow, tlManuel: false };
+        // Döviz değiştiğinde eski dövizin manuel kuru geçersiz
+        if (girdiler.includes('doviz')) satir = { ...satir, kurManuel: false, kurManuelDeger: 0 };
+        await kurlariHazirla(satir.doviz);
+        const updatedRow = calcIthal(satir, [...girdiler, 'tlManuel']);
+        satiriYaz(updatedRow);
         return updatedRow;
       }
-      else {
-        // Normal field değişikliği
-        updateIthal(newRow.id, newRow);
-        return newRow;
-      }
-      
+
+      // Tutarla ilgisiz alan: yalnız değişen alanlar yazılır (tutarlar günlük kurla yeniden hesaplanmaz)
+      updateIthal(newRow.id, Object.fromEntries(changedFields.map((f) => [f, newRow[f]])));
+      return newRow;
+
     } catch (error) {
       console.error('❌ İthal row güncelleme hatası:', error);
       // Hata durumunda eski row'u döndür
@@ -973,22 +911,9 @@ const MakineYonetimi = () => {
     const computed = miktar * bf;
     return { ...r, toplamTl: r.tlYerliManuel ? (r.toplamTl ?? computed) : computed };
   };
-  const calcIthal = (r) => {
-    const miktar = numberOrZero(r.miktar);
-    const fob = numberOrZero(r.birimFiyatiFob);
-    // Müşteri: "Fob $ toplam tutarını da manuel değiştirebilelim makinenin hangi
-    // tarihte alındığını bilmediğimiz zaman dolar kurunu değiştiremiyoruz."
-    // usdManuel açıksa kullanıcının yazdığı tutar korunur; miktar × birim fiyat
-    // formülü onu EZMEZ.
-    const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : miktar * fob;
-    // Kur manuel girilmişse TL'yi o kurdan hesapla ve tlManuel'i de güvenceye al
-    if (r.kurManuel && Number.isFinite(Number(r.kurManuelDeger)) && Number(r.kurManuelDeger) > 0) {
-      const tl = Math.round(usd * Number(r.kurManuelDeger));
-      return { ...r, toplamUsd: usd, toplamTl: tl, tlManuel: true };
-    }
-    // TL manuel ise değeri koru; değilse mevcut kur mantığı devreye girecek (useEffect/processRowUpdate)
-    return { ...r, toplamUsd: usd, toplamTl: r.tlManuel ? (r.toplamTl ?? 0) : (r.toplamTl ?? 0) };
-  };
+  // İthal satırın tutarları — kural utils/ithalTutar'da (yalnız girdisi değişen tutar hesaplanır)
+  const calcIthal = (r, degisenler = Object.keys(r)) => ithalTutarlariniGuncelle(r, degisenler, satirKurlari(r));
+  const satiriYaz = (satir) => setIthalRows((rows) => rows.map((r) => (r.id === satir.id ? satir : r)));
 
   const addRow = () => {
     if (!isReviseStarted) {
@@ -1715,22 +1640,10 @@ const MakineYonetimi = () => {
     }
   };
 
+  // "Kurları yeniden hesapla": TL'si elle girilmemiş satırlarda $ (parite) ve TL (kur) bugünkü kurla
   const recalcIthalTotals = async () => {
-    // Döviz kuruna göre TL hesapla (TRY hedef) + USD yoksa önce hesapla
-    const results = await Promise.all(ithalRows.map(async r => {
-      if (r.tlManuel) return r; // kullanıcı elle girmişse dokunma
-      const miktar = numberOrZero(r.miktar);
-      const fob = numberOrZero(r.birimFiyatiFob);
-      const usd = miktar * fob;
-      if (!r.doviz || (r.doviz || '').toUpperCase() === 'TRY') return { ...r, toplamUsd: usd, toplamTl: usd };
-      try {
-        const key = `${r.doviz}->TRY`;
-        let rate = rateCache[key];
-        if (!rate) { rate = await currencyService.getRate(r.doviz, 'TRY'); setRateCache(prev => ({ ...prev, [key]: rate })); }
-        return { ...r, toplamUsd: usd, toplamTl: Math.round(usd * (rate || 0)) };
-      } catch { return { ...r, toplamUsd: usd }; }
-    }));
-    setIthalRows(results);
+    await Promise.all([...new Set(ithalRows.map(dovizKodu))].map(kurlariHazirla));
+    setIthalRows((rows) => rows.map((r) => (r.tlManuel ? r : calcIthal(r, ['doviz']))));
   };
 
   const duplicateRow = (rows, id) => {
@@ -2786,16 +2699,15 @@ const MakineYonetimi = () => {
       // Eskiden salt-okunur türetilmiş bir sütundu (miktar × birim fiyat). Artık
       // revize modunda yazılabiliyor; elle girilince usdManuel açılıyor ve formül
       // bir daha üzerine yazmıyor. Hücre, manuel olduğunda ipucuyla işaretleniyor.
-      { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (USD) — elle de girilebilir', width: 75,
+      { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (FOB $) — döviz USD değilse pariteyle çevrilir; elle de girilebilir', width: 75,
         align:'right', headerAlign:'right', editable: isReviseMode, type:'string',
-        valueGetter: (p)=> p.row.usdManuel
-          ? numberOrZero(p.row.toplamUsd)
-          : numberOrZero(p.row.miktar) * numberOrZero(p.row.birimFiyatiFob),
+        // Döviz USD değilse $ pariteyle çevrilmiş tutardır (utils/ithalTutar); hesap state'te tutulur
+        valueGetter: (p)=> numberOrZero(p.row.toplamUsd),
         renderCell: (p)=> {
           const metin = numberOrZero(p.value).toLocaleString('tr-TR');
           if (!p.row.usdManuel) return metin;
           return (
-            <span title="Elle girildi — miktar × birim fiyat formülü bu satırda uygulanmıyor" style={{ fontWeight: 700, color: '#7c3aed' }}>{metin}</span>
+            <span title="Elle girildi ya da E-TUYS dosyasından geldi — kur/parite hesabı bu satırda uygulanmıyor" style={{ fontWeight: 700, color: '#7c3aed' }}>{metin}</span>
           );
         }
       },
@@ -3788,8 +3700,8 @@ const MakineYonetimi = () => {
               const secili = new Set(selectionModel.map(String));
               setIthalRows((satirlar) => satirlar.map((r) => {
                 if (!secili.has(String(r.id))) return r;
-                const usd = r.usdManuel ? numberOrZero(r.toplamUsd) : numberOrZero(r.miktar) * numberOrZero(r.birimFiyatiFob);
-                return { ...r, kurManuel: true, kurManuelDeger: kur, toplamUsd: usd, toplamTl: Math.round(usd * kur), tlManuel: true };
+                // Kur 1 döviz = ? TL: dövizli toplama uygulanır; $ tutarı değişmez (EUR tutarı dolar yazılmaz)
+                return calcIthal({ ...r, kurManuel: true, kurManuelDeger: kur, tlManuel: false }, ['kurManuel', 'kurManuelDeger']);
               }));
               setTopluKurOpen(false);
               openToast('success', `${selectionModel.length} satıra ${kur} kuru uygulandı — kaydetmeyi unutmayın`);

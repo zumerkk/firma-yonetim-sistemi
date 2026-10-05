@@ -13,6 +13,11 @@
 // giriş kutusu kaldırıldı; özet kartı ve sütun yalnız eski bir fatura kaydı varsa görünür
 // (canlıda hiç yok, ama olursa bakiyeyi açıklayan satır gizlenmesin). "Ödenen Belge" adı
 // "Hizmet ve Yatırım Ödemeleri" oldu.
+//
+// Müşteri (05.10.2026): "Cari / ödeme takipde hareketi olan firmalar değil de Belge Takip'deki bütün
+// firmalar gelsin aktif-arşiv ikisi de, Birde Hizmet ve Yatırım ödemeleri'nin solunda Fatura durumu
+// yazsın(kesildi-kesilmedi-avans)." Liste sunucuda birleşiyor (cariHesap.firmaListesiniBirlestir);
+// fatura durumu firmanın taleplerindeki sayım. Firma defterinde de hareketin talebinin durumu var.
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -30,6 +35,7 @@ import axios from '../../utils/axios';
 import cariService from '../../services/cariService';
 import CariHareketFormu from '../../components/Cari/CariHareketFormu';
 import CariDefterTablosu from '../../components/Cari/CariDefterTablosu';
+import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import { hareketDosyasiAc } from '../../components/Cari/cariDosya';
 import {
     HAREKET_TURU, ODENEN_BASLIK, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
@@ -326,9 +332,12 @@ export default function CariTakip() {
                     <Paper sx={{ border: '1px solid #e2e8f0' }}>
                         <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                             <Box>
-                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>Hareketi Olan Firmalar</Typography>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                                    Firmalar{ozetler.length ? ` (${ozetler.length})` : ''}
+                                </Typography>
                                 <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                    Satıra tıklayınca firmanın cari tablosu açılır. Yeni firma için yukarıdan arayın.
+                                    Belge Takip'teki tüm firmalar (aktif + arşiv) ve cari hareketi olanlar. Satıra tıklayınca
+                                    firmanın cari tablosu açılır; listede olmayan firma için yukarıdan arayın.
                                 </Typography>
                             </Box>
                             <TextField
@@ -339,12 +348,14 @@ export default function CariTakip() {
                             />
                         </Box>
                         {ozetYukleniyor && <LinearProgress />}
-                        <TableContainer sx={{ overflowX: 'auto' }}>
-                            <Table size="small" sx={{ minWidth: 780 }}>
+                        {/* 200+ firma: başlık sabit, tablo kendi içinde kayar */}
+                        <TableContainer sx={{ overflowX: 'auto', maxHeight: 'calc(100vh - 260px)', minHeight: 320 }}>
+                            <Table size="small" stickyHeader sx={{ minWidth: 900 }}>
                                 <TableHead>
                                     <TableRow>
                                         <TableCell sx={baslikSx}>Firma</TableCell>
                                         {faturaSutunu && <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Kesilen Fatura</TableCell>}
+                                        <TableCell sx={baslikSx}>Fatura Durumu</TableCell>
                                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>{ODENEN_BASLIK}</TableCell>
                                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Gelen</TableCell>
                                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Bakiye</TableCell>
@@ -354,9 +365,9 @@ export default function CariTakip() {
                                 <TableBody>
                                     {!ozetYukleniyor && suzulmus.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={faturaSutunu ? 6 : 5} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
+                                            <TableCell colSpan={faturaSutunu ? 7 : 6} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
                                                 {ozetler.length === 0
-                                                    ? 'Henüz cari hareket yok. Yukarıdan firma seçip ilk ödemeyi girebilirsiniz; Belge Takip › Ödemeler sekmesinden girilenler de burada listelenir.'
+                                                    ? 'Henüz firma yok. Belge Takip\'te talep açılan firmalar ve cari hareketi olanlar burada listelenir.'
                                                     : 'Aramaya uyan firma yok.'}
                                             </TableCell>
                                         </TableRow>
@@ -365,6 +376,7 @@ export default function CariTakip() {
                                         <TableRow key={f.firma} hover onClick={() => firmaSec(f.firma)} sx={{ cursor: 'pointer' }}>
                                             <TableCell sx={{ fontWeight: 500 }}>{f.firmaUnvan || '—'}</TableCell>
                                             {faturaSutunu && <TableCell sx={tutarSx}>{paraYaz(f.toplamFatura)}</TableCell>}
+                                            <TableCell sx={{ py: 0.5 }}><FaturaDurumuEtiketi sayilar={f.faturaDurumlari || {}} /></TableCell>
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.odenen.renk }}>{paraYaz(f.toplamOdenen)}</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.gelen.renk }}>{paraYaz(f.toplamGelen)}</TableCell>
                                             <TableCell sx={{ ...tutarSx, fontWeight: 700, color: bakiyeRengi(f.bakiye) }}>{paraYaz(f.bakiye)}</TableCell>
@@ -373,7 +385,7 @@ export default function CariTakip() {
                                     ))}
                                     {suzulmus.length > 1 && (
                                         <TableRow sx={{ background: '#f8fafc', '& td': { fontWeight: 700, borderBottom: 0 } }}>
-                                            <TableCell colSpan={faturaSutunu ? 4 : 3} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
+                                            <TableCell colSpan={faturaSutunu ? 5 : 4} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: bakiyeRengi(toplamBakiye) }}>{paraYaz(toplamBakiye)}</TableCell>
                                             <TableCell />
                                         </TableRow>

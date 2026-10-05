@@ -8,7 +8,7 @@ const CariHareket = require('../models/CariHareket');
 const DosyaTakip = require('../models/DosyaTakip');
 const Firma = require('../models/Firma');
 const {
-    tutarCoz, tarihCoz, ozetHesapla, defterOlustur, firmaOzetleriniKatla
+    tutarCoz, tarihCoz, ozetHesapla, defterOlustur, firmaOzetleriniKatla, firmaListesiniBirlestir, FATURA_DURUMLARI
 } = require('../services/cari/cariHesap');
 const {
     tekDosyaYukleyici, dosyaBilgisi, dosyaSil, dosyaCek, dosyaGonder
@@ -99,9 +99,9 @@ exports.firmaDefteri = sar(async (req, res) => {
     if (!firma) throw new IstekHatasi(404, 'Firma bulunamadı');
 
     const [hareketler, talepler] = await Promise.all([
-        CariHareket.find({ firma: firma._id }).populate('dosyaTakip', 'takipId belgeId ytbNo talepTuru').lean(),
+        CariHareket.find({ firma: firma._id }).populate('dosyaTakip', 'takipId belgeId ytbNo talepTuru odeme.faturaDurumu').lean(),
         DosyaTakip.find({ firma: firma._id, aktif: { $ne: false } })
-            .select('takipId belgeId ytbNo talepTuru createdAt')
+            .select('takipId belgeId ytbNo talepTuru createdAt odeme.faturaDurumu')
             .sort({ createdAt: -1 })
             .limit(300)
             .lean()
@@ -114,22 +114,47 @@ exports.firmaDefteri = sar(async (req, res) => {
 });
 
 // ============================================================================
-// 📊 GET /api/cari/firmalar — hareketi olan firmalar ve bakiyeleri
+// 📊 GET /api/cari/firmalar — Belge Takip'teki tüm firmalar (aktif + arşiv) ve bakiyeleri
+// Müşteri (05.10.2026): "hareketi olan firmalar değil de Belge Takip'deki bütün firmalar gelsin
+// aktif-arşiv ikisi de" + taleplerinin fatura durumu (kesildi / kesilmedi / avans).
+// Silinmiş (aktif:false) talepler sayılmaz; hareketi olup talebi olmayan firma da listede kalır.
 // ============================================================================
 exports.firmaOzetleri = sar(async (req, res) => {
-    const gruplar = await CariHareket.aggregate([
-        { $sort: { tarih: 1 } },
-        {
-            $group: {
-                _id: { firma: '$firma', tur: '$tur' },
-                toplam: { $sum: '$tutar' },
-                adet: { $sum: 1 },
-                sonTarih: { $max: '$tarih' },
-                firmaUnvan: { $last: '$firmaUnvan' }
+    const [gruplar, talepGruplari] = await Promise.all([
+        CariHareket.aggregate([
+            { $sort: { tarih: 1 } },
+            {
+                $group: {
+                    _id: { firma: '$firma', tur: '$tur' },
+                    toplam: { $sum: '$tutar' },
+                    adet: { $sum: 1 },
+                    sonTarih: { $max: '$tarih' },
+                    firmaUnvan: { $last: '$firmaUnvan' }
+                }
             }
-        }
+        ]),
+        DosyaTakip.aggregate([
+            { $match: { aktif: { $ne: false }, firma: { $ne: null } } },
+            { $sort: { createdAt: 1 } },
+            {
+                $group: {
+                    _id: '$firma',
+                    firmaUnvan: { $last: '$firmaUnvan' },
+                    talepSayisi: { $sum: 1 },
+                    ...Object.fromEntries(FATURA_DURUMLARI.map((d) => [
+                        d, { $sum: { $cond: [{ $eq: ['$odeme.faturaDurumu', d] }, 1, 0] } }
+                    ]))
+                }
+            }
+        ])
     ]);
-    res.json({ success: true, data: firmaOzetleriniKatla(gruplar) });
+
+    const ozetler = firmaOzetleriniKatla(gruplar);
+    const kimlikler = [...new Set([...ozetler.map((o) => String(o.firma)), ...talepGruplari.map((g) => String(g._id))])];
+    const firmalar = await Firma.find({ _id: { $in: kimlikler } }).select('tamUnvan').lean();
+    const unvanlar = new Map(firmalar.filter((f) => f.tamUnvan).map((f) => [String(f._id), f.tamUnvan]));
+
+    res.json({ success: true, data: firmaListesiniBirlestir(ozetler, talepGruplari, unvanlar) });
 });
 
 // ============================================================================

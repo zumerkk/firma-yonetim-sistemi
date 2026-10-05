@@ -6,7 +6,7 @@
 
 const {
   HAREKET_TURLERI, BANKALAR, tutarCoz, tarihCoz,
-  ozetHesapla, defterOlustur, firmaOzetleriniKatla
+  ozetHesapla, defterOlustur, firmaOzetleriniKatla, firmaListesiniBirlestir
 } = require('../../services/cari/cariHesap');
 
 describe('sabitler', () => {
@@ -160,5 +160,40 @@ describe('firmaOzetleriniKatla', () => {
 
   test('bozuk grupları atlar', () => {
     expect(firmaOzetleriniKatla([null, { _id: {} }, g('f1', 'bilinmeyen', 5)])).toEqual([]);
+  });
+});
+
+// Müşteri (05.10.2026): "hareketi olan firmalar değil de Belge Takip'deki bütün firmalar gelsin
+// aktif-arşiv ikisi de" + "Hizmet ve Yatırım ödemeleri'nin solunda Fatura durumu yazsın"
+describe('firmaListesiniBirlestir', () => {
+  const ozet = (firma, firmaUnvan, toplamOdenen, toplamGelen) => ({
+    firma, firmaUnvan, adet: 1, sonHareketTarihi: '2026-09-01', toplamFatura: 0, toplamOdenen, toplamGelen,
+    bakiye: toplamOdenen - toplamGelen, fark: toplamGelen - toplamOdenen
+  });
+
+  test('talebi olup hareketi olmayan firma sıfır bakiyeyle listede', () => {
+    const liste = firmaListesiniBirlestir(
+      [ozet('f1', 'CAN LTD.', 500, 200)],
+      [{ _id: 'f1', firmaUnvan: 'CAN LTD.', talepSayisi: 2, kesildi: 1 }, { _id: 'f2', firmaUnvan: 'ÇINAR A.Ş.', talepSayisi: 3, kesilmedi: 1, avans: 1 }]
+    );
+    expect(liste.map((f) => f.firmaUnvan)).toEqual(['CAN LTD.', 'ÇINAR A.Ş.']);
+    expect(liste[0]).toMatchObject({ toplamOdenen: 500, toplamGelen: 200, bakiye: 300, talepSayisi: 2,
+      faturaDurumlari: { kesildi: 1, kesilmedi: 0, avans: 0, bos: 1 } });
+    expect(liste[1]).toMatchObject({ toplamOdenen: 0, toplamGelen: 0, bakiye: 0, adet: 0, sonHareketTarihi: null,
+      talepSayisi: 3, faturaDurumlari: { kesildi: 0, kesilmedi: 1, avans: 1, bos: 1 } });
+  });
+
+  test('hareketi olup talebi olmayan firma da kalır', () => {
+    const [f] = firmaListesiniBirlestir([ozet('f9', 'ESKİ CARİ A.Ş.', 100, 0)], []);
+    expect(f).toMatchObject({ firma: 'f9', bakiye: 100, talepSayisi: 0, faturaDurumlari: { bos: 0 } });
+  });
+
+  test('firma kaydındaki unvan talepteki/harekettekinden önce gelir; sıra Türkçe', () => {
+    const liste = firmaListesiniBirlestir(
+      [ozet('f1', 'eski ad', 1, 0)],
+      [{ _id: 'f2', firmaUnvan: 'İPEK', talepSayisi: 1 }, { _id: 'f3', firmaUnvan: 'IŞIK', talepSayisi: 1 }],
+      new Map([['f1', 'ZEYTİN A.Ş.']])
+    );
+    expect(liste.map((f) => f.firmaUnvan)).toEqual(['IŞIK', 'İPEK', 'ZEYTİN A.Ş.']);
   });
 });

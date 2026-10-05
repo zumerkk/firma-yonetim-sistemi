@@ -75,3 +75,27 @@ test('firmadan gelen dosyalar en yeniden eskiye listelenir', async () => {
   expect(gelenler.map((g) => g.dosyaAdi)).toEqual(['yeni.pdf', 'eski.pdf']);  // bizim yüklediğimiz yok
   expect(gelenler[0].firmaUnvan).toBe('GLOBTEKS A.Ş.');
 });
+
+// Müşteri (05.10.2026): "Burada talepleri vs. aşağıya kaydırmalı liste yapma şansımız var mı sadece
+// 10 adet görünüyor"
+test('10 kayıt sınırı yok: tüm açık talepler gelir', async () => {
+  // takipId sırayla üretiliyor; paralel create çakışır
+  for (let i = 0; i < 14; i += 1) await talep({ ytbNo: String(600000 + i) });
+  for (let i = 0; i < 12; i += 1) {
+    await talep({ olusturanKullanici: baskasi, ytbNo: String(700000 + i), muraacatSonrasi: { takibiYapanPersonel: ben } });
+  }
+  const r = await request(app).get('/benim');
+  expect(r.body.data.actiklarim).toHaveLength(14);
+  expect(r.body.data.takibimde).toHaveLength(12);
+});
+
+test('firmadan gelenler de 10 ile sınırlı değil', async () => {
+  await talep({
+    dosyalar: Array.from({ length: 15 }, (_, i) => ({
+      dosyaAdi: `f${i}.pdf`, dosyaYolu: `https://x/${i}.pdf`, firmaYukledi: true, yuklemeTarihi: new Date(2026, 8, i + 1)
+    }))
+  });
+  const r = await request(app).get('/benim');
+  expect(r.body.data.sonYuklemeler).toHaveLength(15);
+  expect(r.body.data.sonYuklemeler[0].dosyaAdi).toBe('f14.pdf');
+});

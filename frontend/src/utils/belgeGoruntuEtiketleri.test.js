@@ -5,6 +5,7 @@
 
 import { destekSinifiGoster } from './disaAktarimAdi';
 import { oncelikliYatirimTuruEtiketi } from '../data/oncelikliYatirimData';
+import { eskiOncelikliYatirimTurleri } from '../data/eskiOncelikliYatirimData';
 
 describe('destekSinifiGoster', () => {
     test.each([
@@ -40,5 +41,28 @@ describe('oncelikliYatirimTuruEtiketi', () => {
     test('boş değer', () => {
         expect(oncelikliYatirimTuruEtiketi('')).toBe('');
         expect(oncelikliYatirimTuruEtiketi(undefined)).toBe('');
+    });
+
+    // Müşteri (05.10.2026): eski belgede kendi yüklediği 2012/3305 md. 17 listesi çıksın
+    test('eski belge kendi listesinden okunur (aynı harf başka anlam)', () => {
+        expect(oncelikliYatirimTuruEtiketi('a', 'eski')).toBe('a - Demiryolu, Denizyolu, Havayolu Taşımacılığı');
+        expect(oncelikliYatirimTuruEtiketi('a', 'yeni')).toBe('a - Dijital Dönüşüm Programı veya Yeşil Dönüşüm');
+        expect(oncelikliYatirimTuruEtiketi('n', 'eski')).toBe('n - OECD Yüksek Teknolojili Ürün Üretimi');
+        expect(oncelikliYatirimTuruEtiketi('ff', 'eski')).toBe('ff - Yeşil Dönüşüm Destek Programı');
+        // yeni listenin kurum kodu eski belgede anlamsız — ham döner
+        expect(oncelikliYatirimTuruEtiketi('OY-017', 'eski')).toBe('OY-017');
+    });
+
+    test('eski liste müşterinin dosyasındaki 35 bendin tamamı, sırası korunmuş', () => {
+        const harfler = eskiOncelikliYatirimTurleri.map((t) => t.id);
+        expect(harfler).toHaveLength(35);
+        expect(harfler.slice(0, 6)).toEqual(['a', 'b', 'c', 'ç', 'd', 'e']);
+        expect(harfler.slice(-6)).toEqual(['aa', 'bb', 'cc', 'dd', 'ee', 'ff']);
+        expect(new Set(harfler).size).toBe(35);
+        expect(eskiOncelikliYatirimTurleri.filter((t) => t.mulga).map((t) => t.id)).toEqual(['b', 'd', 'e', 'u']);
+        eskiOncelikliYatirimTurleri.filter((t) => !t.mulga).forEach((t) => {
+            expect(t.baslik).toBeTruthy();
+            expect(t.aciklama).not.toMatch(/Değişik|RG-/);
+        });
     });
 });

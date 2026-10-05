@@ -15,6 +15,7 @@ import {
 import {
     HAREKET_TURU, bakiyeRengi, farkRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
 } from '../../utils/cariFormat';
+import FaturaDurumuEtiketi from './FaturaDurumuEtiketi';
 
 const baslikSx = {
     fontWeight: 700, fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase',
@@ -74,17 +75,19 @@ function Islemler({ h, onDuzenle, onSil, onDosya }) {
  */
 export default function CariDefterTablosu({ hareketler = [], ozet, gorunum = 'talep', onDuzenle, onSil, onDosya }) {
     const firmaGorunumu = gorunum === 'firma';
-    const sutunSayisi = firmaGorunumu ? 9 : 6;
+    const sutunSayisi = firmaGorunumu ? 10 : 6;
 
     return (
         <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 1, overflowX: 'auto' }}>
-            <Table size="small" sx={{ minWidth: firmaGorunumu ? 960 : 640 }}>
+            <Table size="small" sx={{ minWidth: firmaGorunumu ? 1060 : 640 }}>
                 <TableHead>
                     <TableRow>
                         <TableCell sx={baslikSx}>Tarih</TableCell>
                         <TableCell sx={baslikSx}>Tür</TableCell>
                         <TableCell sx={baslikSx}>{firmaGorunumu ? 'Fatura / Belge / Banka' : 'Açıklama'}</TableCell>
                         {firmaGorunumu && <TableCell sx={baslikSx}>Talep</TableCell>}
+                        {/* müşteri (05.10.2026): "Hizmet ve Yatırım ödemeleri'nin solunda Fatura durumu yazsın" */}
+                        {firmaGorunumu && <TableCell sx={baslikSx}>Fatura Durumu</TableCell>}
                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>{firmaGorunumu ? 'Borç' : 'Gelen'}</TableCell>
                         <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>{firmaGorunumu ? 'Alacak' : 'Giden'}</TableCell>
                         {firmaGorunumu && <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Bakiye</TableCell>}
@@ -136,6 +139,11 @@ export default function CariDefterTablosu({ hareketler = [], ozet, gorunum = 'ta
                                                 {talepEtiketi(h.dosyaTakip) || '—'}
                                             </Typography>
                                         </TableCell>
+                                        <TableCell>
+                                            {h.dosyaTakip && typeof h.dosyaTakip === 'object'
+                                                ? <FaturaDurumuEtiketi durum={h.dosyaTakip.odeme?.faturaDurumu} />
+                                                : <Typography variant="caption" sx={{ color: '#94a3b8' }}>—</Typography>}
+                                        </TableCell>
                                         <TableCell sx={tutarSx}>{gelen ? '' : tutar}</TableCell>
                                         <TableCell sx={tutarSx}>{gelen ? tutar : ''}</TableCell>
                                         <TableCell sx={{ ...tutarSx, fontWeight: 700, color: bakiyeRengi(h.bakiye) }}>
@@ -166,7 +174,7 @@ export default function CariDefterTablosu({ hareketler = [], ozet, gorunum = 'ta
                     <TableBody>
                         {firmaGorunumu ? (
                             <TableRow sx={toplamSatirSx}>
-                                <TableCell colSpan={4} sx={{ textAlign: 'right', color: '#475569' }}>Toplam</TableCell>
+                                <TableCell colSpan={5} sx={{ textAlign: 'right', color: '#475569' }}>Toplam</TableCell>
                                 <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.odenen.renk }}>
                                     {paraYaz((ozet.toplamFatura || 0) + (ozet.toplamOdenen || 0))}
                                 </TableCell>

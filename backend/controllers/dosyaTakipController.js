@@ -7,6 +7,7 @@ const path = require('path');
 const cloudinary = require('cloudinary').v2;
 const parcaliDosya = require('../utils/parcaliDosya');
 const { turkceArama } = require('../utils/turkceArama');
+const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
 
 // ============================================================================
 // ☁️ CLOUDINARY AYARLARI
@@ -175,8 +176,16 @@ exports.getDashboardIstatistikleri = async (req, res) => {
  * vs tarzı bir arayüz."
  *
  * Üç liste döner: takibi bende olan açık talepler, benim açtığım açık talepler ve bana ait
- * taleplere firmadan GELEN son dosyalar. Sayfanın yükünü artırmamak için hepsi kısa tutulur.
+ * taleplere firmadan GELEN son dosyalar.
+ *
+ * Müşteri (05.10.2026): "Burada talepleri vs. aşağıya kaydırmalı liste yapma şansımız var mı sadece
+ * 10 adet görünüyor." Açık talepler artık sınırsız (bir kişinin açık talebi canlıda en fazla birkaç
+ * düzine; yalnız 9 alan seçiliyor), firmadan gelenler son 100 dosya. Kaydırma ön yüzde.
  */
+// Güvenlik sınırları — ekranda kaydırmalı liste; bunlar yalnız aşırı uçta yanıtı korur
+const ACIK_TALEP_SINIRI = 500;
+const FIRMADAN_GELEN_SINIRI = 100;
+
 exports.benimIslerim = async (req, res) => {
     try {
         const kullaniciId = req.user._id;
@@ -188,10 +197,10 @@ exports.benimIslerim = async (req, res) => {
 
         const [takibimde, actiklarim, sonYuklemeler] = await Promise.all([
             DosyaTakip.find({ ...acikSuzgec, 'muraacatSonrasi.takibiYapanPersonel': kullaniciId })
-                .select(alanlar).sort({ updatedAt: -1 }).limit(10).lean(),
+                .select(alanlar).sort({ updatedAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             DosyaTakip.find({ ...acikSuzgec, olusturanKullanici: kullaniciId })
-                .select(alanlar).sort({ createdAt: -1 }).limit(10).lean(),
-            // Firmadan gelen dosyalar: bana ait taleplerde, en yeni 10 tanesi
+                .select(alanlar).sort({ createdAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
+            // Firmadan gelen dosyalar: bana ait taleplerde, en yeni FIRMADAN_GELEN_SINIRI tanesi
             DosyaTakip.aggregate([
                 { $match: { $or: [
                     { 'muraacatSonrasi.takibiYapanPersonel': kullaniciId },
@@ -200,7 +209,7 @@ exports.benimIslerim = async (req, res) => {
                 { $unwind: '$dosyalar' },
                 { $match: { 'dosyalar.firmaYukledi': true } },
                 { $sort: { 'dosyalar.yuklemeTarihi': -1 } },
-                { $limit: 10 },
+                { $limit: FIRMADAN_GELEN_SINIRI },
                 { $project: {
                     _id: 1, takipId: 1, firmaUnvan: 1, ytbNo: 1,
                     dosyaAdi: '$dosyalar.dosyaAdi', tarih: '$dosyalar.yuklemeTarihi',
@@ -336,19 +345,42 @@ exports.getTumTalepler = async (req, res) => {
         }
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
+        const listeAlanlari = (sorgu) => sorgu
+            .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
+            .populate('olusturanKullanici', 'adSoyad')
+            .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
+            .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
+            .lean();
 
-        const [talepler, toplam] = await Promise.all([
-            DosyaTakip.find(filter)
-                .sort(sort)
-                .skip(skip)
-                .limit(parseInt(limit))
-                .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
-                .populate('olusturanKullanici', 'adSoyad')
-                .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
-                .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
-                .lean(),
-            DosyaTakip.countDocuments(filter)
-        ]);
+        // ↕️ Sütun başlığından sıralama (siralama=alan:asc|desc) süzülmüş kümenin TAMAMINDA yapılır;
+        // gerekçe: services/dosyaTakip/listeSiralama.js. İstenmemişse eski yol (en yeni üstte).
+        const siralama = siralamaCoz(req.query.siralama);
+        let talepler;
+        let toplam;
+        if (siralama) {
+            const tanim = SIRALANABILIR[siralama.alan];
+            const hafif = await DosyaTakip.find(filter).select(`_id createdAt ${tanim.secim}`).lean();
+            let kisiAdi = () => '';
+            if (siralama.alan === 'muraacatHazirlayan' || siralama.alan === 'takibiYapan') {
+                const kullanicilar = await require('../models/User').find({}).select('adSoyad').lean();
+                const adlar = new Map(kullanicilar.map((u) => [String(u._id), u.adSoyad]));
+                kisiAdi = (id) => (id ? adlar.get(String(id)) || '' : '');
+            }
+            const sirali = talepleriSirala(hafif, siralama, {
+                kisiAdi,
+                sonucaAlinmaTarihi: (t) => DosyaTakip.sonucaAlinmaTarihi(t)
+            });
+            toplam = sirali.length;
+            const kimlikler = sirali.slice(skip, skip + parseInt(limit)).map((t) => t._id);
+            const sayfadakiler = await listeAlanlari(DosyaTakip.find({ _id: { $in: kimlikler } }));
+            const harita = new Map(sayfadakiler.map((t) => [String(t._id), t]));
+            talepler = kimlikler.map((id) => harita.get(String(id))).filter(Boolean);
+        } else {
+            [talepler, toplam] = await Promise.all([
+                listeAlanlari(DosyaTakip.find(filter).sort(sort).skip(skip).limit(parseInt(limit))),
+                DosyaTakip.countDocuments(filter)
+            ]);
+        }
 
         // Virtual alanları elle ekle (lean() virtual döndürmez)
         const enriched = talepler.map(t => ({
