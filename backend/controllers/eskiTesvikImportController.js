@@ -1,3 +1,4 @@
+const { yeniBelgeAlanlari } = require('../services/makineRevizyonDeposu');
 // 📊 ESKİ TEŞVİK IMPORT CONTROLLER
 // Bakanlık formatındaki Excel/CSV dosyalarından otomatik Tesvik (eski sistem) kaydı oluşturma
 // YeniTesvik import controller ile aynı parse engine'i paylaşır
@@ -446,6 +447,7 @@ const confirmImport = async (req, res) => {
         // Eski Tesvik modeli ile kaydet
         const tesvik = new Tesvik({
           ...tesvikData,
+          ...yeniBelgeAlanlari(),
           gmId: tesvikData.gmId || `IMP-${Date.now()}`,
           firma: firmaDoc._id,
           firmaId: firmaDoc.firmaId,

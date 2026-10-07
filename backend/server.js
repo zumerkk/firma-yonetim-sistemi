@@ -16,6 +16,7 @@ const Tesvik = require('./models/Tesvik');
 
 // Services
 const notificationService = require('./services/notificationService');
+const { saglikYaniti, bellekIzlemeyiBaslat } = require('./services/sistemSagligi');
 
 // Route import'ları
 const authRoutes = require('./routes/auth');
@@ -294,12 +295,9 @@ app.get('/', (req, res) => {
 
 // 🏥 Sağlık kontrol endpoint'i
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    memory: process.memoryUsage()
-  });
+  const result = saglikYaniti({ connectionState: mongoose.connection.readyState });
+  res.set('Cache-Control', 'no-store');
+  res.status(result.statusCode).json(result.body);
 });
 
 // 🛣️ API rotaları
@@ -437,6 +435,7 @@ const setupCronJobs = () => {
 
 // 🚀 Server'ı başlat
 const startServer = async () => {
+  bellekIzlemeyiBaslat();
   // 🚀 ÖNCELİKLE Express server'ı başlat (Render port timeout'unu önle)
   app.listen(PORT, () => {
     console.log(`\n🚀 Server çalışıyor: http://localhost:${PORT}`);

@@ -249,6 +249,7 @@ activitySchema.statics.getRecentActivitiesForDashboard = function(limit = 20) {
   return this.find({
     action: { $ne: 'view' } // "view" aktivitelerini dashboard'dan gizle
   })
+    .select('-changes.before -changes.after')
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
@@ -325,4 +326,4 @@ activitySchema.statics.logActivity = async function(options) {
   }
 };
 
-module.exports = mongoose.model('Activity', activitySchema); 
+module.exports = mongoose.model('Activity', activitySchema);

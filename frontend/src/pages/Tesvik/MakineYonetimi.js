@@ -608,7 +608,7 @@ const MakineYonetimi = () => {
       if (!active || !selectedTesvik?._id) { openToast('error','Aktif revize bulunamadı'); return; }
       const meta = { ...metaForm, basvuruTarihi: metaForm.basvuruTarihi ? new Date(metaForm.basvuruTarihi) : undefined };
       await tesvikService.updateMakineRevizyonMeta(selectedTesvik._id, active.revizeId, meta);
-      const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+      const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
       setMetaOpen(false);
       openToast('success','Revize metası güncellendi.');
     }catch(e){ openToast('error','Revize metası kaydedilemedi.'); }
@@ -676,7 +676,7 @@ const MakineYonetimi = () => {
         return; 
       }
       try {
-        const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id);
+        const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true });
         setRevList(Array.isArray(list) ? list.reverse() : []);
       } catch { setRevList([]); }
       // Teşvik bazlı silinenler ve işlem loglarını yükle
@@ -731,11 +731,13 @@ const MakineYonetimi = () => {
     // İlk yüklemede otomatik kaydetme (veri henüz backend'den geldi)
     if (initialLoadRef.current) { initialLoadRef.current = false; return; }
     if (!selectedTesvik?._id) return;
+    if (revizeFinalizingRef.current) return;
     // En az 1 satır olmalı (boş listeyi kaydetmemek için)
     if (yerliRows.length === 0 && ithalRows.length === 0) return;
     
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     autoSaveTimerRef.current = setTimeout(async () => {
+      if (revizeFinalizingRef.current) return;
       try {
         const payload = {
           yerli: yerliRows.map(r => ({ siraNo: r.siraNo, makineId: r.makineId, rowId: r.rowId, gtipKodu: r.gtipKodu, gtipAciklamasi: r.gtipAciklama, adiVeOzelligi: r.adi, miktar: r.miktar, birim: r.birim, birimAciklamasi: r.birimAciklamasi, birimFiyatiTl: r.birimFiyatiTl, toplamTutariTl: r.toplamTl, kdvIstisnasi: r.kdvIstisnasi, makineTechizatTipi: r.makineTechizatTipi, finansalKiralamaMi: r.finansalKiralamaMi, finansalKiralamaAdet: r.finansalKiralamaAdet, finansalKiralamaSirket: r.finansalKiralamaSirket, gerceklesenAdet: r.gerceklesenAdet, gerceklesenTutar: r.gerceklesenTutar, iadeDevirSatisVarMi: r.iadeDevirSatisVarMi, iadeDevirSatisAdet: r.iadeDevirSatisAdet, iadeDevirSatisTutar: r.iadeDevirSatisTutar, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
@@ -3435,7 +3437,7 @@ const MakineYonetimi = () => {
                       ithal: anlikGoruntuAl(ithalRows)
                     };
                     setIsReviseMode(true); setIsReviseStarted(true);
-                    const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+                    const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
                     openToast('success', 'Revize başladı');
                   } catch (e) { openToast('error', 'Hata'); }
                 }}
@@ -4042,7 +4044,7 @@ const MakineYonetimi = () => {
               saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows);
             }
             setRevertOpen(false);
-            const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+            const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
             setIsReviseMode(true);
           }}>Geri Dön</Button>
         </DialogActions>

@@ -3,6 +3,7 @@
 // Mali hesaplamalar + renk kodlaması + durum yönetimi + revizyon takibi
 
 const Tesvik = require('../models/Tesvik');
+const makineRevizyonDeposu = require('../services/makineRevizyonDeposu');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
 const Notification = require('../models/Notification');
@@ -176,6 +177,7 @@ const createTesvik = async (req, res) => {
     // Yeni teşvik oluştur
     const tesvik = new Tesvik({
       ...tesvikData,
+      ...makineRevizyonDeposu.yeniBelgeAlanlari(),
       firmaId: firma.firmaId,
       yatirimciUnvan: tesvikData.yatirimciUnvan || firma.tamUnvan,
       olusturanKullanici: req.user._id,
@@ -298,6 +300,7 @@ const getTesvikler = async (req, res) => {
 
     const [tesvikler, toplam] = await Promise.all([
       Tesvik.find(query)
+        .select('-makineRevizyonlari -revizyonlar.veriSnapshot')
         .populate('firma', 'tamUnvan firmaId vergiNoTC firmaIl')
         .populate('olusturanKullanici', 'adSoyad email')
         .populate('sonGuncelleyen', 'adSoyad email')
@@ -344,10 +347,10 @@ const getTesvik = async (req, res) => {
     let tesvik;
     if (id.match(/^[0-9a-fA-F]{24}$/)) {
       // MongoDB ObjectId
-      tesvik = await Tesvik.findById(id);
+      tesvik = await Tesvik.findById(id).select('-makineRevizyonlari -revizyonlar.veriSnapshot');
     } else {
       // TesvikId (TES2024001 format)
-      tesvik = await Tesvik.findByTesvikId(id);
+      tesvik = await Tesvik.findByTesvikId(id).select('-makineRevizyonlari -revizyonlar.veriSnapshot');
     }
 
     if (!tesvik || !tesvik.aktif) {
@@ -437,6 +440,7 @@ const updateTesvik = async (req, res) => {
 
     // Teşviki getir - eski haliyle
     const tesvik = await Tesvik.findById(id)
+      .select('-makineRevizyonlari -revizyonlar.veriSnapshot')
       .populate('firma', 'tamUnvan firmaId')
       .populate('olusturanKullanici', 'adSoyad email');
 
@@ -490,6 +494,9 @@ const updateTesvik = async (req, res) => {
         // kırpılmış) her kayıtta geri gönderiyordu. Makineler yalnız Makine Listesi uçlarından
         // (rowIdleriKoru ile) değişir; eski sürüm önyüz açık kalmış olsa bile burada düşer.
         if (key === 'makineListeleri') return false;
+        if (key === 'makineRevizyonDeposu' || key === 'makineRevizyonSayaci') return false;
+        if (key === 'makineRevizyonlari') return false; // Geçmiş yalnız makine revizyonu uçlarından yazılır.
+        if (key === 'revizyonlar') return false; // Formdan geri gelen eksik/eski geçmiş sunucudaki geçmişi ezemez.
         return value !== null && value !== undefined;
       })
     );
@@ -599,7 +606,6 @@ const updateTesvik = async (req, res) => {
         sonRevizyon.durumSonrasi = tesvik.durumBilgileri?.genelDurum;
         // Kullanıcı bu kaydetmede ayrıca not yazdıysa üzerine yaz; yazmadıysa başlatma notu kalsın
         if (updateData.guncellemeNotu) sonRevizyon.kullaniciNotu = updateData.guncellemeNotu;
-        tesvik.markModified('revizyonlar');
       } else {
         // Revizyon ekle - manual olarak (pre-save hook'u bypass et)
         tesvik.revizyonlar.push({
@@ -5153,7 +5159,7 @@ module.exports = {
       const { id } = req.params; // Tesvik Id
       const { yerli = [], ithal = [] } = req.body || {};
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id);
+      const tesvik = await Tesvik.findById(id).select('makineListeleri').lean();
       if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
       // Normalize helpers
@@ -5266,7 +5272,7 @@ module.exports = {
           'makineListeleri.ithal': ithalMapped,
           sonGuncelleyen: req.user?._id
         }
-      }, { timestamps: true });
+      }, { timestamps: true, projection: { _id: 1 } }).lean();
 
       return res.json({ success: true, message: 'Makine listeleri kaydedildi' });
     } catch (error) {
@@ -5297,10 +5303,7 @@ module.exports = {
       };
 
       // Atomic $push - full save yok, pre-save hook ÇALIŞMAZ → hızlı
-      await Tesvik.findByIdAndUpdate(id, {
-        $push: { makineRevizyonlari: snapshot },
-        $set: { sonGuncelleyen: req.user?._id }
-      });
+      await makineRevizyonDeposu.revizyonKaydet(Tesvik, id, snapshot, { sonGuncelleyen: req.user?._id });
 
       console.log(`✅ startMakineRevizyon OK: ${id} (yerli:${snapshot.yerli.length}, ithal:${snapshot.ithal.length})`);
       res.json({ success: true, message: 'Revizyon başlatıldı' });
@@ -5379,7 +5382,7 @@ module.exports = {
         if (yerliMapped) updateOps.$set['makineListeleri.yerli'] = yerliMapped;
         if (ithalMapped) updateOps.$set['makineListeleri.ithal'] = ithalMapped;
 
-        await Tesvik.findByIdAndUpdate(id, updateOps);
+        await makineRevizyonDeposu.revizyonKaydet(Tesvik, id, snapshot, updateOps.$set);
         console.log(`✅ finalize+save OK: ${id} (${Date.now() - startTime}ms)`);
       } else {
         // Sadece snapshot (veri gelmemiş - eski uyumluluk)
@@ -5393,7 +5396,7 @@ module.exports = {
           yerli: (tesvik.makineListeleri?.yerli || []).map(r => ({ ...r })),
           ithal: (tesvik.makineListeleri?.ithal || []).map(r => ({ ...r }))
         };
-        await Tesvik.findByIdAndUpdate(id, { $push: { makineRevizyonlari: snapshot }, $set: { sonGuncelleyen: req.user?._id } });
+        await makineRevizyonDeposu.revizyonKaydet(Tesvik, id, snapshot, { sonGuncelleyen: req.user?._id });
         console.log(`✅ finalize OK: ${id} (${Date.now() - startTime}ms)`);
       }
 
@@ -5467,11 +5470,8 @@ module.exports = {
     try {
       const { id } = req.params;
       const Tesvik = require('../models/Tesvik');
-      const tesvik = await Tesvik.findById(id)
-        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
-        .lean();
-      if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
-      const revs = Array.isArray(tesvik.makineRevizyonlari) ? tesvik.makineRevizyonlari : [];
+      const revs = await makineRevizyonDeposu.revizyonlariOku(Tesvik, id, { ozet: req.query?.ozet === 'true' });
+      if (!revs) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const sorted = [...revs].sort((a, b) => new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
       res.json({ success: true, data: sorted });
     } catch (error) {
@@ -5487,6 +5487,12 @@ module.exports = {
       const { revizeId, aciklama } = req.body || {};
       if (!revizeId) return res.status(400).json({ success: false, message: 'revizeId gerekli' });
       const Tesvik = require('../models/Tesvik');
+      const ayriSonuc = await makineRevizyonDeposu.ayriRevizyondanDon(Tesvik, id, { revizeId, aciklama, yapanKullanici: req.user?._id });
+      if (ayriSonuc) return res.json({
+        success: true, message: 'Revizyon geri dönüş uygulandı',
+        data: { revizeId: ayriSonuc.snapshot.revizeId, revizeTarihi: ayriSonuc.snapshot.revizeTarihi },
+        makineListeleri: ayriSonuc.makineListeleri
+      });
       const tesvik = await Tesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const target = (tesvik.makineRevizyonlari || []).find(r => r.revizeId === revizeId);
@@ -5523,12 +5529,14 @@ module.exports = {
       tesvik.makineRevizyonlari = tesvik.makineRevizyonlari || [];
       tesvik.makineRevizyonlari.push(snapshot);
       tesvik.sonGuncelleyen = req.user?._id;
+      // Göç aynı anda tamamlandıysa gömülü geçmişi yeniden yazma.
+      tesvik.$where = { makineRevizyonDeposu: { $ne: 'ayri' } };
       await tesvik.save();
       const last = tesvik.makineRevizyonlari[tesvik.makineRevizyonlari.length - 1];
       res.json({ success: true, message: 'Revizyon geri dönüş uygulandı', data: { revizeId: last.revizeId, revizeTarihi: last.revizeTarihi }, makineListeleri: tesvik.makineListeleri });
     } catch (error) {
       console.error('revertMakineRevizyon error:', error);
-      res.status(500).json({ success: false, message: 'Revizyon geri dönüşü uygulanamadı' });
+      res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Revizyon geri dönüşü uygulanamadı' });
     }
   },
 
@@ -5539,6 +5547,8 @@ module.exports = {
       const { revizeId, meta } = req.body;
       if (!revizeId) return res.status(400).json({ success: false, message: 'revizeId gerekli' });
       const Tesvik = require('../models/Tesvik');
+      const ayriSonuc = await makineRevizyonDeposu.ayriMetaGuncelle(Tesvik, id, revizeId, meta);
+      if (ayriSonuc) return res.json({ success: true, message: 'Revize meta güncellendi', data: ayriSonuc });
       const tesvik = await Tesvik.findById(id);
       if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
       const list = tesvik.makineRevizyonlari || [];
@@ -5548,11 +5558,13 @@ module.exports = {
       const allowed = ['talepNo', 'belgeNo', 'belgeId', 'basvuruTarihi', 'odemeTalebi', 'retSebebi'];
       allowed.forEach(k => { if (meta && meta[k] !== undefined) list[idx][k] = meta[k]; });
       tesvik.markModified('makineRevizyonlari');
+      // Göç aynı anda tamamlandıysa gömülü geçmişi yeniden yazma.
+      tesvik.$where = { makineRevizyonDeposu: { $ne: 'ayri' } };
       await tesvik.save();
       res.json({ success: true, message: 'Revize meta güncellendi', data: tesvik.makineRevizyonlari[idx] });
     } catch (error) {
       console.error('updateMakineRevizyonMeta error:', error);
-      res.status(500).json({ success: false, message: 'Revize meta güncellenemedi' });
+      res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Revize meta güncellenemedi' });
     }
   },
 
@@ -5572,9 +5584,7 @@ module.exports = {
 
       console.log(`📊 Makine Revizyon Excel export başlatılıyor: ${id}`);
 
-      const tesvik = await Tesvik.findById(id)
-        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
-        .lean();
+      const tesvik = await Tesvik.findById(id).select('tesvikId gmId makineListeleri').lean();
 
       if (!tesvik) {
         console.error('❌ exportMakineRevizyonExcel: Teşvik bulunamadı:', id);
@@ -5584,7 +5594,7 @@ module.exports = {
       console.log(`✅ Teşvik bulundu: ${tesvik.tesvikId || tesvik.gmId || id}`);
 
       // 📋 Revizyon verilerini güvenli şekilde al
-      const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
+      const revs = await makineRevizyonDeposu.revizyonlariOku(Tesvik, id) || [];
 
       // 📝 Revizyon yoksa bilgilendirici log
       if (revs.length === 0) {
@@ -5698,8 +5708,7 @@ module.exports = {
         // 🔧 FIX: Fiyat sütunlarına numara formatı ekle (büyük sayıların okunabilirliği için)
         const numFmt = '#,##0';
         ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
-          const col = ws.getColumn(key);
-          if (col) col.numFmt = numFmt;
+          if (baseCols.some(column => column.key === key)) ws.getColumn(key).numFmt = numFmt;
         });
 
         // Önceki snapshot kıyaslaması için map
@@ -6117,8 +6126,7 @@ module.exports = {
 
         // 🔧 FIX: Fiyat sütunlarına numFmt ekle (Değişiklik Yapılanlar sayfasında eksikti)
         ['birimFiyatiTl', 'toplamTl', 'birimFiyatiFob', 'toplamUsd', 'gerceklesenTutar', 'iadeDevirSatisTutar', 'kurManuelDeger'].forEach(key => {
-          const col = ws.getColumn(key);
-          if (col) col.numFmt = '#,##0';
+          if (cols.some(column => column.key === key)) ws.getColumn(key).numFmt = '#,##0';
         });
 
         return ws;
@@ -6143,12 +6151,10 @@ module.exports = {
       const Tesvik = require('../models/Tesvik');
       const ExcelJS = require('exceljs');
 
-      const tesvik = await Tesvik.findById(id)
-        .populate('makineRevizyonlari.yapanKullanici', 'adSoyad email')
-        .lean();
+      const tesvik = await Tesvik.findById(id).select('tesvikId gmId makineListeleri').lean();
       if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
-      const revs = Array.isArray(tesvik.makineRevizyonlari) ? [...tesvik.makineRevizyonlari] : [];
+      const revs = await makineRevizyonDeposu.revizyonlariOku(Tesvik, id) || [];
       revs.sort((a, b) => new Date(a.revizeTarihi) - new Date(b.revizeTarihi));
       const wb = new ExcelJS.Workbook();
       const ws = wb.addWorksheet('İşlem Geçmişi');

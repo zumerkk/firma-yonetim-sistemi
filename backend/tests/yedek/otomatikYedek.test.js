@@ -74,6 +74,7 @@ describe('veritabanı yedeği', () => {
     expect(metin).toContain('firmalar.json');                   // dosya adları ZIP'te düz durur
     expect(metin).toContain('metadata.json');
     expect(metin).toContain('dosya_takip.json');
+    expect(metin).toContain('makine_revizyon_kayitlari.json');
     expect(sonuc.eksikler).toEqual([]);
   });
 

@@ -484,6 +484,8 @@ const tesvikSchema = new mongoose.Schema({
   
   // 📝 Makine Revizyonları (snapshot listesi)
   makineRevizyonlari: [makineRevizyonSchema],
+  makineRevizyonDeposu: { type: String, enum: ['ayri'] },
+  makineRevizyonSayaci: { type: Number, min: 0 },
 
   // 🗒️ Makine Listesi Notları — müşteri: "Taleplerde yaptığımız gibi not kısmı"
   // (tarihli + kim yazdı bilgili; DosyaTakip.genelNotlar ile aynı desen)
@@ -1373,11 +1375,6 @@ tesvikSchema.pre('save', function(next) {
   }
   
   next();
-});
-
-// 📊 Post Save Hook - Original değerini kaydet
-tesvikSchema.post('init', function() {
-  this._original = this.toObject();
 });
 
 // 🔍 Değişiklik Detay Analizi için Method

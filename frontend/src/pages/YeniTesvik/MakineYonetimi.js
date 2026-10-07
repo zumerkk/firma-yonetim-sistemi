@@ -670,7 +670,7 @@ const MakineYonetimi = () => {
       if (!active || !selectedTesvik?._id) { openToast('error','Aktif revize bulunamadı'); return; }
       const meta = { ...metaForm, basvuruTarihi: metaForm.basvuruTarihi ? new Date(metaForm.basvuruTarihi) : undefined };
       await yeniTesvikService.updateMakineRevizyonMeta(selectedTesvik._id, active.revizeId, meta);
-      const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+      const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
       setMetaOpen(false);
       openToast('success','Revize metası güncellendi.');
     }catch(e){ openToast('error','Revize metası kaydedilemedi.'); }
@@ -738,7 +738,7 @@ const MakineYonetimi = () => {
         return; 
       }
       try {
-        const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id);
+        const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true });
         setRevList(Array.isArray(list) ? list.reverse() : []);
       } catch { setRevList([]); }
       // Teşvik bazlı silinenler ve işlem loglarını yükle
@@ -3712,7 +3712,7 @@ const MakineYonetimi = () => {
                   try {
                     await yeniTesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
                     setIsReviseMode(true); setIsReviseStarted(true);
-                    const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+                    const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
                     openToast('success', 'Revize başladı');
                   } catch (e) { openToast('error', 'Hata'); }
                 }}
@@ -4306,7 +4306,7 @@ const MakineYonetimi = () => {
               saveLS(`mk_${selectedTesvik._id}_ithal`, ithalRows);
             }
             setRevertOpen(false);
-            const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id); setRevList(list.reverse());
+            const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
             setIsReviseMode(true);
           }}>Geri Dön</Button>
         </DialogActions>

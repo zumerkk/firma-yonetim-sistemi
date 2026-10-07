@@ -34,6 +34,7 @@ import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiP
 // ekran ekran ve geri alınabilir ilerliyor.
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import BelgeTakipIslemleri from '../../components/Tesvik/BelgeTakipIslemleri';
+import useTesvikDetailData from '../../hooks/useTesvikDetailData';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
 // sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
@@ -74,11 +75,8 @@ const YeniTesvikDetail = () => {
   };
 
   // State management
-  const [tesvik, setTesvik] = useState(null);
+  const { tesvik, activities, loading, error, activitiesError, activitiesLoading, loadData } = useTesvikDetailData('yeni-tesvik', id);
   const [aktifBolum, setAktifBolum] = useState('kunye');
-  const [activities, setActivities] = useState([]); // 🔧 Ensure it's always an array
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [excelLoading, setExcelLoading] = useState(false);
   const [exportingRevizyon, setExportingRevizyon] = useState(false);
   const [durumSaving, setDurumSaving] = useState(false); // belge durumu değiştirme
@@ -406,40 +404,6 @@ const YeniTesvikDetail = () => {
     }
   };
 
-  // Data loading
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      // Paralel API çağrıları - Gerçek data
-      const [tesvikResponse, activitiesResponse] = await Promise.all([
-        api.get(`/yeni-tesvik/${id}`),
-        api.get(`/activities?targetId=${id}`)
-      ]);
-
-      // Tesvik verisi
-      const tesvikData = tesvikResponse?.data?.data;
-
-      // Activities verisi
-      const activitiesData = activitiesResponse?.data?.data?.activities || [];
-
-      setTesvik(tesvikData);
-      setActivities(Array.isArray(activitiesData) ? activitiesData : []); // 🔧 Ensure it's always an array
-
-    } catch (error) {
-      console.error('🚨 Veri yükleme hatası:', error);
-      setError('Veri yüklenemedi: ' + (error.response?.data?.message || error.message));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (id) {
-      loadData();
-    }
-  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // 🔔 Liste ekranından revizyon başlatıldıysa modalı otomatik aç ve düzenleme moduna yönlendir
   useEffect(() => {
     try {
@@ -460,14 +424,20 @@ const YeniTesvikDetail = () => {
 
   if (error || !tesvik) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <Typography variant="h6" color="error">{error || 'Tesvik bulunamadı'}</Typography>
+        <Button variant="outlined" onClick={loadData}>Tekrar dene</Button>
       </Box>
     );
   }
 
   return (
     <Box component="main" sx={{ gridArea: 'content', overflow: 'auto', p: 0.5 }}>
+      {activitiesError && (
+        <Alert severity="warning" sx={{ mb: 1 }} action={<Button color="inherit" size="small" onClick={loadData}>Tekrar dene</Button>}>
+          {activitiesError}
+        </Alert>
+      )}
       {/* 🧭 COMPACT SOL MENÜ - RESPONSIVE */}
       <Paper sx={{
         position: 'fixed',
@@ -1301,6 +1271,7 @@ const YeniTesvikDetail = () => {
 
           {/* 📊 BELGE İŞLEM YÖNETİMİ - KOMPAKT */}
           <Paper sx={{ p: 1.5, background: '#ffffff', border: '1px solid #e2e8f0' }}>
+            {activitiesLoading && <Typography role="status" variant="body2" sx={{ mb: 1 }}>İşlem geçmişi yükleniyor...</Typography>}
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Box sx={{ width: 4, height: 4, borderRadius: '50%', background: '#10b981' }} />
               <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a', fontSize: '0.9rem' }}>

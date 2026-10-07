@@ -1,3 +1,4 @@
+const { yeniBelgeAlanlari } = require('../services/makineRevizyonDeposu');
 /**
  * 📸 Screenshot Import Controller
  * 
@@ -379,11 +380,11 @@ exports.commit = async (req, res) => {
 
     if (isYeni) {
       // YeniTesvik modeli
-      savedDoc = await YeniTesvik.create(belgeData);
+      savedDoc = await YeniTesvik.create({ ...belgeData, ...yeniBelgeAlanlari() });
       console.log(`✅ Yeni Teşvik oluşturuldu: ${savedDoc._id}`);
     } else {
       // Eski Tesvik modeli
-      savedDoc = await Tesvik.create(belgeData);
+      savedDoc = await Tesvik.create({ ...belgeData, ...yeniBelgeAlanlari() });
       console.log(`✅ Eski Teşvik oluşturuldu: ${savedDoc._id}`);
     }
 

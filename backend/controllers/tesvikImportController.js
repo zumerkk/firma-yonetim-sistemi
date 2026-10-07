@@ -1,3 +1,4 @@
+const { yeniBelgeAlanlari } = require('../services/makineRevizyonDeposu');
 // 📊 TEŞVİK IMPORT CONTROLLER - ENTERPRISE EDITION
 // Bakanlık formatındaki Excel/CSV dosyalarından otomatik YeniTesvik kaydı oluşturma
 // 156+ sütun mapping, firma auto-match, ürün/destek/şart parse
@@ -785,6 +786,7 @@ const confirmImport = async (req, res) => {
         // YeniTesvik oluştur
         const tesvik = new YeniTesvik({
           ...tesvikData,
+          ...yeniBelgeAlanlari(),
           gmId: tesvikData.gmId || `IMP-${Date.now()}`,
           firma: firmaDoc._id,
           firmaId: firmaDoc.firmaId,

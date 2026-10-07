@@ -1,3 +1,4 @@
+const { yeniBelgeAlanlari } = require('../../makineRevizyonDeposu');
 const Tesvik = require('../../../models/Tesvik');
 const YeniTesvik = require('../../../models/YeniTesvik');
 const Firma = require('../../../models/Firma');
@@ -110,19 +111,20 @@ async function upsertTesvik(n, { userId, mode = 'upsert' }) {
   if (!firma) throw new Error(`firma not found (firmaId=${n.firmaId || ''})`);
 
   if (mode === 'create_only') {
-    const created = await Tesvik.create({ ...n, firma: firma._id, olusturanKullanici: userId });
+    const created = await Tesvik.create({ ...n, ...yeniBelgeAlanlari(), firma: firma._id, olusturanKullanici: userId });
     return { action: 'created', id: created._id };
   }
 
   const query = n.tesvikId ? { tesvikId: n.tesvikId } : { gmId: n.gmId, firmaId: n.firmaId };
   const existing = await Tesvik.findOne(query);
   if (existing) {
-    existing.set({ ...n, firma: firma._id, sonGuncelleyen: userId });
+    const { makineRevizyonDeposu, makineRevizyonSayaci, makineRevizyonlari, ...guncelleme } = n;
+    existing.set({ ...guncelleme, firma: firma._id, sonGuncelleyen: userId });
     const saved = await existing.save();
     return { action: 'updated', id: saved._id };
   }
 
-  const created = await Tesvik.create({ ...n, firma: firma._id, olusturanKullanici: userId });
+  const created = await Tesvik.create({ ...n, ...yeniBelgeAlanlari(), firma: firma._id, olusturanKullanici: userId });
   return { action: 'created', id: created._id };
 }
 
@@ -131,19 +133,20 @@ async function upsertYeniTesvik(n, { userId, mode = 'upsert' }) {
   if (!firma) throw new Error(`firma not found (firmaId=${n.firmaId || ''})`);
 
   if (mode === 'create_only') {
-    const created = await YeniTesvik.create({ ...n, firma: firma._id, olusturanKullanici: userId });
+    const created = await YeniTesvik.create({ ...n, ...yeniBelgeAlanlari(), firma: firma._id, olusturanKullanici: userId });
     return { action: 'created', id: created._id };
   }
 
   const query = n.tesvikId ? { tesvikId: n.tesvikId } : { gmId: n.gmId, firmaId: n.firmaId };
   const existing = await YeniTesvik.findOne(query);
   if (existing) {
-    existing.set({ ...n, firma: firma._id, sonGuncelleyen: userId });
+    const { makineRevizyonDeposu, makineRevizyonSayaci, makineRevizyonlari, ...guncelleme } = n;
+    existing.set({ ...guncelleme, firma: firma._id, sonGuncelleyen: userId });
     const saved = await existing.save();
     return { action: 'updated', id: saved._id };
   }
 
-  const created = await YeniTesvik.create({ ...n, firma: firma._id, olusturanKullanici: userId });
+  const created = await YeniTesvik.create({ ...n, ...yeniBelgeAlanlari(), firma: firma._id, olusturanKullanici: userId });
   return { action: 'created', id: created._id };
 }
 

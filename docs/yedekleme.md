@@ -11,10 +11,16 @@
 | **Evraklar** (1134 dosya, ~616 MB) | Cloudinary | Her gece artımlı: Drive'da olmayanlar kopyalanır |
 | **Elle yedek** | — | Ayarlar → "Sistemi Yedekle" → ZIP indirir (her zaman çalışır) |
 
-Yedek ZIP'i her koleksiyonu ayrı bir JSON dosyası olarak içerir, ayrıca `metadata.json`
+Yedek ZIP'i her koleksiyonu ayrı bir JSON dosyası olarak içerir. Ayrı saklanan
+makine revizyon geçmişi `makine_revizyon_kayitlari.json` dosyasına dahildir; güncel
+teşvik belgesi tek başına eski makine listelerini içermez. Ayrıca `metadata.json`
 içinde kayıt sayıları ve varsa eksikler yazar. Evraklar Drive'da `evraklar/` klasöründe
 `kaynak_dosyaadi` biçiminde durur; hangi dosyanın hangi belgeye ait olduğu veritabanı
 yedeğindeki kayıtlardan çözülür.
+
+Veritabanı arşivi kayıtları birer birer okur. Büyük aktivite ve revizyon kayıtlarının
+aynı anda bellekte birikmesi önlenir; veritabanına daha fazla okuma gerektiği için
+toplam yedekleme süresi artabilir.
 
 **Saklama:** veritabanı yedeklerinin son 30 günü tutulur (`YEDEK_SAKLAMA_GUN`), eskiler
 otomatik silinir. Evrak kopyaları silinmez.

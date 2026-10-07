@@ -1,4 +1,10 @@
 import api, { uploadPost } from '../utils/axios';
+import { belgeYazimKuyruguOlustur } from '../utils/belgeYazimKuyrugu';
+
+const makineKayitKuyrugu = belgeYazimKuyruguOlustur(async (id, payload) => {
+  const res = await api.post(`/yeni-tesvik/${id}/makine-listeleri`, payload);
+  return res.data;
+});
 
 const yeniTesvikService = {
   async search(q = '', params = {}) {
@@ -32,8 +38,7 @@ const yeniTesvikService = {
   },
   async saveMakineListeleri(id, payload) {
     // payload: { yerli:[], ithal:[] }
-    const res = await api.post(`/yeni-tesvik/${id}/makine-listeleri`, payload);
-    return res.data;
+    return makineKayitKuyrugu.kaydet(id, payload);
   },
   async exportMakineExcel(id) {
     // Tek belge makine listeleri için excel (mevcut export endpointini kullanıyoruz)
@@ -43,20 +48,26 @@ const yeniTesvikService = {
   ,
   // 🆕 Makine Revizyon Servisleri
   async startMakineRevizyon(id, payload = {}) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/start`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/start`, payload);
+      return res.data;
+    });
   },
   async finalizeMakineRevizyon(id, payload = {}) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/finalize`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/finalize`, payload);
+      return res.data;
+    });
   },
-  async listMakineRevizyonlari(id) {
-    const res = await api.get(`/yeni-tesvik/${id}/makine-revizyon/list`);
+  async listMakineRevizyonlari(id, params = {}) {
+    const res = await api.get(`/yeni-tesvik/${id}/makine-revizyon/list`, { params });
     return res.data?.data || [];
   },
   async revertMakineRevizyon(id, revizeId, aciklama) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/revert`, { revizeId, aciklama });
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/revert`, { revizeId, aciklama });
+      return res.data;
+    });
   },
   async exportMakineRevizyonExcel(id) {
     return api.get(`/yeni-tesvik/${id}/makine-revizyon/excel-export`, { responseType: 'blob' });

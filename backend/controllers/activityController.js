@@ -91,6 +91,9 @@ const getActivities = async (req, res) => {
     // Paralel sorgular
     const [activities, toplamSayisi] = await Promise.all([
       Activity.find(filter)
+        // Liste geçmişi taşır; her kaydın içinde tekrar bütün makine geçmişini indirme.
+        // Eski string alan yollarının before/after karşılıkları korunur.
+        .select('-changes.before.makineRevizyonlari -changes.after.makineRevizyonlari -changes.before.revizyonlar.veriSnapshot -changes.after.revizyonlar.veriSnapshot')
         .sort(sort)
         .skip(skip)
         .limit(parseInt(limit))
@@ -411,4 +414,4 @@ module.exports = {
   getFirmaActivities,
   cleanupOldActivities,
   getFilterOptions
-}; 
+};
