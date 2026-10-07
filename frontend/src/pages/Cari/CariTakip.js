@@ -18,6 +18,10 @@
 // firmalar gelsin aktif-arşiv ikisi de, Birde Hizmet ve Yatırım ödemeleri'nin solunda Fatura durumu
 // yazsın(kesildi-kesilmedi-avans)." Liste sunucuda birleşiyor (cariHesap.firmaListesiniBirlestir);
 // fatura durumu firmanın taleplerindeki sayım. Firma defterinde de hareketin talebinin durumu var.
+//
+// Müşteri (07.10.2026): "fatura durumu kesildi (avansı da bunun içine dahil edelim ama avans olduğu belli
+// olsun)-kesilmedi olarak filtreleyebilirsek veya sıralayabilirsek" + "bütün sütunları sıralayabilirsek iyi
+// olur ödemelere, bakiyeye göre vs." Süzgeç düğmeleri + başlığa tıklayınca sıralama (utils/cariListe.js).
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
@@ -25,7 +29,7 @@ import * as XLSX from 'xlsx';
 import {
     Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton,
     InputAdornment, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead,
-    TableRow, TextField, Tooltip, Typography
+    TableRow, TableSortLabel, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography
 } from '@mui/material';
 import {
     ArrowBack as ArrowBackIcon, Close as CloseIcon, FileDownload as ExcelIcon, Search as SearchIcon
@@ -40,6 +44,9 @@ import { hareketDosyasiAc } from '../../components/Cari/cariDosya';
 import {
     HAREKET_TURU, ODENEN_BASLIK, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
 } from '../../utils/cariFormat';
+import {
+    FATURA_SUZGECLERI, faturaSuzgecindenGecer, firmalariSirala, siralamaDegistir, suzgecSayilari
+} from '../../utils/cariListe';
 
 const OZET_KARTLARI = [
     { anahtar: 'toplamFatura', etiket: 'Kesilen Fatura', renk: HAREKET_TURU.fatura.renk, yalnizVarsa: true },
@@ -126,6 +133,8 @@ export default function CariTakip() {
     const [ozetler, setOzetler] = useState([]);
     const [ozetYukleniyor, setOzetYukleniyor] = useState(true);
     const [filtre, setFiltre] = useState('');
+    const [faturaSuzgeci, setFaturaSuzgeci] = useState('');
+    const [siralama, setSiralama] = useState({ alan: 'firmaUnvan', yon: 'asc' });
 
     const [firmaArama, setFirmaArama] = useState('');
     const [firmaSecenekleri, setFirmaSecenekleri] = useState([]);
@@ -263,10 +272,29 @@ export default function CariTakip() {
         }
     };
 
-    const suzulmus = useMemo(() => {
+    // Önce ad araması, sonra fatura durumu süzgeci (düğme sayıları aramaya uyan firmalar üzerinden)
+    const aramayaUyan = useMemo(() => {
         const q = kucukHarf(filtre.trim());
         return q ? ozetler.filter((f) => kucukHarf(f.firmaUnvan).includes(q)) : ozetler;
     }, [ozetler, filtre]);
+    const sayilar = useMemo(() => suzgecSayilari(aramayaUyan), [aramayaUyan]);
+    const suzulmus = useMemo(
+        () => firmalariSirala(aramayaUyan.filter((f) => faturaSuzgecindenGecer(f, faturaSuzgeci)), siralama),
+        [aramayaUyan, faturaSuzgeci, siralama]
+    );
+    const baslik = (alan, etiket, sag = false) => (
+        <TableCell sx={{ ...baslikSx, ...(sag ? { textAlign: 'right' } : {}) }}
+            sortDirection={siralama.alan === alan ? siralama.yon : false}>
+            <TableSortLabel
+                active={siralama.alan === alan}
+                direction={siralama.alan === alan ? siralama.yon : 'asc'}
+                onClick={() => setSiralama((o) => siralamaDegistir(o, alan))}
+                sx={sag ? { flexDirection: 'row-reverse' } : undefined}
+            >
+                {etiket}
+            </TableSortLabel>
+        </TableCell>
+    );
 
     const toplamBakiye = useMemo(
         () => suzulmus.reduce((t, f) => t + Math.round((Number(f.bakiye) || 0) * 100), 0) / 100,
@@ -340,12 +368,26 @@ export default function CariTakip() {
                                     firmanın cari tablosu açılır; listede olmayan firma için yukarıdan arayın.
                                 </Typography>
                             </Box>
-                            <TextField
-                                size="small" placeholder="Listede ara..." value={filtre}
-                                onChange={(e) => setFiltre(e.target.value)}
-                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
-                                sx={{ width: { xs: '100%', sm: 280 } }}
-                            />
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <ToggleButtonGroup
+                                    size="small" exclusive value={faturaSuzgeci}
+                                    onChange={(e, deger) => deger !== null && setFaturaSuzgeci(deger)}
+                                    aria-label="Fatura durumuna göre süz"
+                                    sx={{ flexWrap: 'wrap', '& .MuiToggleButton-root': { textTransform: 'none', py: 0.4, px: 1, fontSize: '0.75rem' } }}
+                                >
+                                    {FATURA_SUZGECLERI.map(({ deger, etiket }) => (
+                                        <ToggleButton key={deger || 'tumu'} value={deger}>
+                                            {etiket} ({sayilar[deger] ?? 0})
+                                        </ToggleButton>
+                                    ))}
+                                </ToggleButtonGroup>
+                                <TextField
+                                    size="small" placeholder="Listede ara..." value={filtre}
+                                    onChange={(e) => setFiltre(e.target.value)}
+                                    InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+                                    sx={{ width: { xs: '100%', sm: 240 } }}
+                                />
+                            </Box>
                         </Box>
                         {ozetYukleniyor && <LinearProgress />}
                         {/* 200+ firma: başlık sabit, tablo kendi içinde kayar */}
@@ -353,13 +395,14 @@ export default function CariTakip() {
                             <Table size="small" stickyHeader sx={{ minWidth: 900 }}>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell sx={baslikSx}>Firma</TableCell>
-                                        {faturaSutunu && <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Kesilen Fatura</TableCell>}
-                                        <TableCell sx={baslikSx}>Fatura Durumu</TableCell>
-                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>{ODENEN_BASLIK}</TableCell>
-                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Gelen</TableCell>
-                                        <TableCell sx={{ ...baslikSx, textAlign: 'right' }}>Bakiye</TableCell>
-                                        <TableCell sx={baslikSx}>Son Hareket</TableCell>
+                                        {baslik('firmaUnvan', 'Firma')}
+                                        {faturaSutunu && baslik('toplamFatura', 'Kesilen Fatura', true)}
+                                        {/* Azalan: kesilmemiş talebi çok olan üstte; durumu girilmemişler hep sonda */}
+                                        {baslik('faturaDurumu', 'Fatura Durumu')}
+                                        {baslik('toplamOdenen', ODENEN_BASLIK, true)}
+                                        {baslik('toplamGelen', 'Gelen', true)}
+                                        {baslik('bakiye', 'Bakiye', true)}
+                                        {baslik('sonHareketTarihi', 'Son Hareket')}
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -368,7 +411,7 @@ export default function CariTakip() {
                                             <TableCell colSpan={faturaSutunu ? 7 : 6} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
                                                 {ozetler.length === 0
                                                     ? 'Henüz firma yok. Belge Takip\'te talep açılan firmalar ve cari hareketi olanlar burada listelenir.'
-                                                    : 'Aramaya uyan firma yok.'}
+                                                    : 'Aramaya / süzgece uyan firma yok.'}
                                             </TableCell>
                                         </TableRow>
                                     )}
