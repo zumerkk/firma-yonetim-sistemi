@@ -24,7 +24,7 @@ import KdvMuafiyetYazisi from '../../components/Tesvik/KdvMuafiyetYazisi';
 
 // API Utils
 import api from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket } from '../../utils/belgeGosterim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
@@ -122,22 +122,15 @@ const YeniTesvikDetail = () => {
   });
 
   // Helper functions
-  const getDurumColor = (durum) => {
-    const colors = {
-      'hazirlaniyor': '#f59e0b',
-      'inceleniyor': '#3b82f6',
-      'onaylandi': '#10b981',
-      'reddedildi': '#ef4444',
-      'beklemede': '#6b7280'
-    };
-    return colors[durum] || '#6b7280';
-  };
+  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   const getDurumProgress = (durum) => {
     const progress = {
       'hazirlaniyor': 25,
       'inceleniyor': 50,
       'onaylandi': 100,
+      'kapama_talepli': 100,
+      'kapandi': 100,
       'reddedildi': 0,
       'beklemede': 10
     };

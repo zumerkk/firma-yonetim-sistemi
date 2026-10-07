@@ -51,7 +51,7 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
 
 const YeniTesvikList = () => {
   const navigate = useNavigate();
@@ -98,22 +98,7 @@ const YeniTesvikList = () => {
   });
 
   // 🎨 Durum Renk Haritası
-  const getDurumColor = (durum) => {
-    const colorMap = {
-      'taslak': '#6B7280',
-      'hazirlaniyor': '#F59E0B',
-      'başvuru_yapildi': '#3B82F6',
-      'inceleniyor': '#F97316',
-      'ek_belge_istendi': '#F59E0B',
-      'revize_talep_edildi': '#EF4444',
-      'onay_bekliyor': '#F97316',
-      'onaylandi': '#10B981',
-      'reddedildi': '#EF4444',
-      'iptal_edildi': '#6B7280',
-      'kapandi': '#6B7280'
-    };
-    return colorMap[durum] || '#6B7280';
-  };
+  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {

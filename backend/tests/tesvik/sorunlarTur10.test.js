@@ -128,7 +128,10 @@ describe('3) Belge durumu enum ve seçenek listeleri "kapandi" içerir', () => {
   ])('%s: durum seçenekleri kapandi içerir', (_ad, yol) => {
     // getDurumOptions dışa aktarılmıyor; şablon ucunun beslendiği kaynağı dosyadan doğrula
     const kaynak = require('fs').readFileSync(require.resolve(yol), 'utf8');
-    expect(kaynak).toContain("{ value: 'kapandi', label: 'Kapandı'");
+    // Seçenekler artık tek kaynaktan (constants/belgeDurumlari.js) üretiliyor
+    expect(kaynak).toContain('const getDurumOptions = () => BELGE_DURUMLARI.map(');
+    expect(require('../../constants/belgeDurumlari').BELGE_DURUMLARI).toContainEqual(
+      expect.objectContaining({ value: 'kapandi', label: 'Kapandı' }));
   });
 });
 
@@ -163,7 +166,9 @@ describe('4) Ekipman takip listesi — kapanan belge filtresi', () => {
     const kaynak = require('fs').readFileSync(
       require.resolve('../../controllers/tesvikMakineController'), 'utf8'
     );
-    expect(kaynak).toContain("m['durumBilgileri.genelDurum'] = { $ne: KAPALI_BELGE_DURUMU }");
+    // 07.10.2026: pasife alınan belgeler de varsayılan olarak gizli (constants/belgeDurumlari.js)
+    expect(kaynak).toContain("m['durumBilgileri.genelDurum'] = { $nin: EKIPMAN_TAKIP_GIZLI_DURUMLAR }");
+    expect(require('../../constants/belgeDurumlari').EKIPMAN_TAKIP_GIZLI_DURUMLAR).toEqual(['kapandi', 'pasife_alindi']);
     expect(kaynak).toContain("belgeDurum: '$durumBilgileri.genelDurum'");
   });
 });

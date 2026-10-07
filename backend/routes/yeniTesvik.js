@@ -352,14 +352,19 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       'reddedildi': 'FFDC143C',          // Kırmızı
       'revize_talep_edildi': 'FFFF8C00', // Turuncu
       'iptal_edildi': 'FF808080',        // Gri
-      'tamamlandi': 'FF228B22'           // Koyu yeşil
+      'tamamlandi': 'FF228B22',          // Koyu yeşil
+      'kapama_talepli': 'FF7C3AED',      // Mor
+      'kapandi': 'FF6B7280',             // Gri
+      'pasife_alindi': 'FFA0AEC0'        // Açık gri
     };
     // Excel hücresinde ham enum yerine Türkçe etiket yazılsın
     const durumEtiketleri = {
       'taslak': 'Taslak', 'hazirlaniyor': 'Hazırlanıyor', 'başvuru_yapildi': 'Başvuru Yapıldı',
       'inceleniyor': 'İnceleniyor', 'ek_belge_istendi': 'Ek Belge İstendi', 'beklemede': 'Beklemede',
       'onay_bekliyor': 'Onay Bekliyor', 'onaylandi': 'Onaylandı', 'reddedildi': 'Reddedildi',
-      'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı'
+      'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı',
+      // tek kaynak: constants/belgeDurumlari.js (kapama talepli, kapandı, pasife alındı …)
+      ...Object.fromEntries(require('../constants/belgeDurumlari').BELGE_DURUMLARI.map((d) => [d.value, d.label]))
     };
 
     // Ana başlık

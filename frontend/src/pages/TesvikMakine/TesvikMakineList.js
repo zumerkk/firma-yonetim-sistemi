@@ -118,7 +118,7 @@ export default function TesvikMakineList() {
             {/* 🗄️ Kapanan belgeler varsayılan olarak gizli; buradan geri getirilebilir
                 (müşteri: "kapanan belgeleri gizleyelim ya da filtreleyebilelim") */}
             <TextField select size="small" label="Belge Durumu" value={belgeDurum} onChange={(e) => setBelgeDurum(e.target.value)} sx={{ minWidth: 200 }}>
-              <MenuItem value="">Kapananlar Hariç</MenuItem>
+              <MenuItem value="">Kapanan ve Pasifler Hariç</MenuItem>
               <MenuItem value="all">Tümü (kapananlar dahil)</MenuItem>
               {BELGE_DURUM_SECENEKLERI.map((o) => (
                 <MenuItem key={o.value} value={o.value}>Sadece: {o.label}</MenuItem>
