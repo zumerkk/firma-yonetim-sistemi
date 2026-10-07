@@ -3,6 +3,7 @@ import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from "./mak
 import { disaAktarimAdi, etiketNormalle } from "./disaAktarimAdi";
 import { kunyeBolumleri } from "./belgeKunye";
 import { finansalBolumleri } from "./belgeFinansal";
+import { SILINDI, silinenBaslik } from "./silinenMakineler";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
 const tl = (val) => {
@@ -61,6 +62,24 @@ const birimDegeri = (m) => birimEtiketi(m.birim, m.birimAciklamasi) || "-";
 
 // Müşteri: "makinelere onay tarihi sütunu da ekleyelim, makine revizyonlarındaki
 // gibi sadece onay tarihi yeterli." Karar onaylandıysa tarihi, değilse "-".
+// Müşteri (07.10.2026): revizyonda silinen makineler çıktıdan düşmesin, kırmızı "SİLİNDİ" ile görünsün
+// (PDF ile aynı: güncel satırların altında başlıklı bölüm, son sütunda "SİLİNDİ").
+const SILINEN_FONT = { color: { argb: "FFDC2626" } };
+export const silinenSatirlariYaz = (sheet, silinenler, sonSutun, satirYap, kenarlik) => {
+  if (!silinenler?.length) return;
+  const b = sheet.addRow([silinenBaslik(silinenler.length)]);
+  sheet.mergeCells(`A${b.number}:${sonSutun}${b.number}`);
+  b.getCell(1).font = { ...SILINEN_FONT, bold: true };
+  b.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
+  silinenler.forEach((m) => {
+    const hucreler = satirYap(m);
+    hucreler[hucreler.length - 1] = SILINDI;
+    const r = sheet.addRow(hucreler);
+    r.eachCell((c) => { c.border = kenarlik; c.font = SILINEN_FONT; c.alignment = { wrapText: true, vertical: "middle" }; });
+    r.getCell(hucreler.length).font = { ...SILINEN_FONT, bold: true };
+  });
+};
+
 const onayTarihi = (m) => {
   const d = m?.karar?.kararTarihi;
   const durum = m?.karar?.kararDurumu;
@@ -69,6 +88,7 @@ const onayTarihi = (m) => {
 };
 
 // secenek: { oecdGoster, konuGoster } — belge görünümü ve PDF ile aynı künye tanımı (utils/belgeKunye.js)
+//          silinenler: { yerli, ithal } — revizyonlarda silinmiş makineler (utils/silinenMakineler.js)
 export const exportTesvikToExcel = async (tesvik, isEski = false, secenek = {}) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Teşvik Belgesi");
@@ -331,7 +351,20 @@ export const exportTesvikToExcel = async (tesvik, isEski = false, secenek = {}) 
 
   // ── 9. MAKİNE LİSTELERİ ───────────────────────────────────────────────────
   const yerliList = tesvik.makineListeleri?.yerli || [];
-  if (yerliList.length > 0) {
+  const yerliSilinen = secenek.silinenler?.yerli || [];
+  const yerliSatir = (m) => [
+    m.siraNo || "-",
+    m.makineId || "-",
+    m.adiVeOzelligi || "-",
+    num(m.miktar),
+    birimDegeri(m),
+    tl(m.birimFiyatiTl),
+    tl(m.toplamTutariTl || m.toplamTl),
+    m.kdvIstisnasi || "-",
+    finansalKiralamaEtiketi(m.finansalKiralamaMi),
+    onayTarihi(m)
+  ];
+  if (yerliList.length > 0 || yerliSilinen.length > 0) {
     const yerliSheet = workbook.addWorksheet("Yerli Makine Listesi");
     yerliSheet.columns = [
       // Müşteri: "yerli makinelerde GTİP sütununa gerek yok, gizleyebiliriz."
@@ -369,24 +402,31 @@ export const exportTesvikToExcel = async (tesvik, isEski = false, secenek = {}) 
     yerliSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
 
     yerliList.forEach(m => {
-      const r = yerliSheet.addRow([
-        m.siraNo || "-",
-        m.makineId || "-",
-        m.adiVeOzelligi || "-",
-        num(m.miktar),
-        birimDegeri(m),
-        tl(m.birimFiyatiTl),
-        tl(m.toplamTutariTl || m.toplamTl),
-        m.kdvIstisnasi || "-",
-        finansalKiralamaEtiketi(m.finansalKiralamaMi),
-        onayTarihi(m)
-      ]);
+      const r = yerliSheet.addRow(yerliSatir(m));
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });
+    silinenSatirlariYaz(yerliSheet, yerliSilinen, "J", yerliSatir, BORDER);
   }
 
   const ithalList = tesvik.makineListeleri?.ithal || [];
-  if (ithalList.length > 0) {
+  const ithalSilinen = secenek.silinenler?.ithal || [];
+  const ithalSatir = (m) => [
+    m.siraNo || "-",
+    m.gtipKodu || "-",
+    m.adiVeOzelligi || "-",
+    num(m.miktar),
+    birimDegeri(m),
+    num(m.birimFiyatiFob),
+    m.gumrukDovizKodu || "-",
+    usd(m.toplamTutarFobUsd || m.toplamUsd),
+    tl(m.toplamTutarFobTl || m.toplamTl),
+    kullanilmisDurum(m),
+    evetHayir(m.gumrukVergisiMuafiyeti),
+    evetHayir(m.kdvMuafiyeti),
+    finansalKiralamaEtiketi(m.finansalKiralamaMi),
+    onayTarihi(m)
+  ];
+  if (ithalList.length > 0 || ithalSilinen.length > 0) {
     const ithalSheet = workbook.addWorksheet("İthal Makine Listesi");
     ithalSheet.columns = [
       { width: 10 }, // Sıra No
@@ -424,24 +464,10 @@ export const exportTesvikToExcel = async (tesvik, isEski = false, secenek = {}) 
     ithalSheet.pageSetup.printTitlesRow = `${hRow.number}:${hRow.number}`;
 
     ithalList.forEach(m => {
-      const r = ithalSheet.addRow([
-        m.siraNo || "-",
-        m.gtipKodu || "-",
-        m.adiVeOzelligi || "-",
-        num(m.miktar),
-        birimDegeri(m),
-        num(m.birimFiyatiFob),
-        m.gumrukDovizKodu || "-",
-        usd(m.toplamTutarFobUsd || m.toplamUsd),
-        tl(m.toplamTutarFobTl || m.toplamTl),
-        kullanilmisDurum(m),
-        evetHayir(m.gumrukVergisiMuafiyeti),
-        evetHayir(m.kdvMuafiyeti),
-        finansalKiralamaEtiketi(m.finansalKiralamaMi),
-        onayTarihi(m)
-      ]);
+      const r = ithalSheet.addRow(ithalSatir(m));
       r.eachCell(c => { c.border = BORDER; c.alignment = { wrapText: true, vertical: "middle" }; });
     });
+    silinenSatirlariYaz(ithalSheet, ithalSilinen, "N", ithalSatir, BORDER);
   }
 
   // ── İndirme ───────────────────────────────────────────────────────────────

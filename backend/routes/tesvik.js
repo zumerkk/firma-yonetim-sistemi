@@ -552,6 +552,9 @@ router.post('/:id/makine-revizyon/start', authenticate, checkPermission('belgeDu
 router.post('/:id/makine-revizyon/finalize', authenticate, checkPermission('belgeDuzenle'), finalizeMakineRevizyon);
 // Revizyon geçmişi: listele
 router.get('/:id/makine-revizyon/list', authenticate, checkPermission('raporGoruntule'), listMakineRevizyonlari);
+// Silinen makineler (müşteri görünümü PDF/Excel'de kırmızı "SİLİNDİ" satırları) — services/tesvikMakine/silinenMakineler.js
+router.get('/:id/makine-revizyon/silinenler', authenticate, checkPermission('raporGoruntule'),
+  require('../services/tesvikMakine/silinenMakineler').silinenlerUcu(require('../models/Tesvik')));
 
 // 🗒️ Makine Listesi Notları (Taleplerdeki not deseninin makine listesi karşılığı)
 router.get('/:id/makine-not', authenticate, checkPermission('raporGoruntule'), listMakineNotlari);
