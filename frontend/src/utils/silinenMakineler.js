@@ -3,12 +3,19 @@
 // Müşteri (07.10.2026): "Makine listesinde silinenleri pdf çıktısından komple kaldırmak yerine kırmızı
 // yazıyla 'Silindi' gibi bir şey yazabilir miyiz belli olsun?" Sunucu revizyon geçmişinden çıkarıyor
 // (backend/services/tesvikMakine/silinenMakineler.js). Çıktılar güncel listenin altına kırmızı
-// "SİLİNEN MAKİNELER" bölümü ekler; her satırın son sütununda "SİLİNDİ" yazar.
+// "SİLİNEN MAKİNELER" bölümü ekler; her satırın son sütununda "SİLİNDİ · silinme tarihi" yazar.
 
 import api from './axios';
 
 export const SILINDI = 'SİLİNDİ';
-export const silinenBaslik = (adet) => `SİLİNEN MAKİNELER (${adet}) — revizyonlarda listeden çıkarıldı`;
+// Müşteri (09.10.2026): "Sadece en son işlemde silinen makineler varsa onları ve silinme tarihlerini
+// göstermesi yeterli." Sunucu artık yalnız son revizyonda silinenleri ve silinme tarihini döner.
+export const silinenBaslik = (adet) => `SİLİNEN MAKİNELER (${adet}) — son revizyonda listeden çıkarıldı`;
+/** Son sütuna yazılan etiket: "SİLİNDİ · 09.10.2026" (süren revizyonda tarih yoksa yalnız "SİLİNDİ") */
+export const silindiEtiketi = (m) => {
+    const t = m?.silinmeTarihi ? new Date(m.silinmeTarihi) : null;
+    return t && !Number.isNaN(t.getTime()) ? `${SILINDI} · ${t.toLocaleDateString('tr-TR')}` : SILINDI;
+};
 
 /**
  * @param kaynak 'tesvik' | 'yeni-tesvik'
