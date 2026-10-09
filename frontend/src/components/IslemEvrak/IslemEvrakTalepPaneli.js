@@ -836,7 +836,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           )}
           {!mail.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
           {/* Taslak durumu görünür olsun: kullanıcı "kaydetmiyor" sanmasın */}
-          {talep.mailGovdesi ? (
+          {devamModu ? null : talep.mailGovdesi ? (
             <Alert severity="success" sx={{ mb: 1 }}>
               Kaydedilmiş taslak kullanılıyor — sayfayı yenilesen de bu metin kalır.
               Evrak listesini değiştirdiysen metni elle güncelle ya da <strong>Taslağı Sil</strong> ile şablondan yeniden üret.
