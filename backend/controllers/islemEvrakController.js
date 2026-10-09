@@ -235,6 +235,12 @@ exports.talepOlustur = wrap(async (req, res) => {
   res.json({ success: true, data: talep, message: 'Talep oluşturuldu' });
 });
 
+// "Eksik / hatalı — tekrar iste" işareti yalnız kendi ucundan değişir; liste kayıtları onu sunucudaki
+// kayıttan taşır (bkz. talepEvrakSchema.tekrarIstemeTarihi)
+const tekrarIstemeAlanlari = (e) => (e?.tekrarIstemeTarihi
+  ? { tekrarIstemeTarihi: e.tekrarIstemeTarihi, tekrarIstemeNotu: e.tekrarIstemeNotu || '', tekrarIsteyenAdi: e.tekrarIsteyenAdi || '' }
+  : { tekrarIstemeTarihi: undefined, tekrarIstemeNotu: '', tekrarIsteyenAdi: '' });
+
 // İstenen evrak listesi + notlar + varyant güncelleme (serbest düzenleme)
 exports.talepGuncelle = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
@@ -246,7 +252,9 @@ exports.talepGuncelle = wrap(async (req, res) => {
     const mevcutEvraklar = new Map(talep.istenenEvraklar.map(e => [String(e._id), e]));
     talep.istenenEvraklar = istenenEvraklar.map((e) => ({
       ...e,
-      // Firmadan gelen yanıtı eski bir düzenleme ekranının kaydıyla silme.
+      // Firmadan gelen yanıtı ve "tekrar istendi" işaretini eski bir düzenleme ekranının kaydıyla silme —
+      // bu alanlar yalnız kendi uçlarından değişir.
+      ...tekrarIstemeAlanlari(mevcutEvraklar.get(String(e._id))),
       yuklenememeNedeni: mevcutEvraklar.get(String(e._id))?.yuklenememeNedeni || '',
       nedenBildirimTarihi: mevcutEvraklar.get(String(e._id))?.nedenBildirimTarihi,
       isteyenKullanici: e.isteyenKullanici || req.user?._id,
@@ -296,7 +304,7 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
   talep.istenenEvraklar = svc.kosullaSuz(sablon.istenenEvraklar, talep.cevaplar).map((e) => {
     const onceki = oncekiler.get(svc.evrakAnahtari(e.ad));
     return {
-      ...(onceki ? { _id: onceki._id, geldiMi: onceki.geldiMi, gelisTarihi: onceki.gelisTarihi, yuklenememeNedeni: onceki.yuklenememeNedeni, nedenBildirimTarihi: onceki.nedenBildirimTarihi } : {}),
+      ...(onceki ? { _id: onceki._id, geldiMi: onceki.geldiMi, gelisTarihi: onceki.gelisTarihi, yuklenememeNedeni: onceki.yuklenememeNedeni, nedenBildirimTarihi: onceki.nedenBildirimTarihi, ...tekrarIstemeAlanlari(onceki) } : {}),
       ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
       ornekDosya: e.ornekDosya || undefined,
       isteyenKullanici: onceki?.isteyenKullanici || req.user?._id,
@@ -310,11 +318,25 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
 });
 
 // Mail önizleme: şablondan konu/gövde üret (link gerekiyorsa üretilir)
+// ?devam=1 → yalnız bekleyen / eksik-hatalı evrakları aynı bağlantıyla isteyen devam maili
 exports.talepMailOnizle = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const tur = await IslemTuru.findById(talep.islemTuru);
   const sablon = tur ? tur.varyantCoz(talep.varyantKod) : { mailKonusu: '', mailGovdesi: '' };
   const uploadLink = await svc.ensureUploadLink(talep);
+  if (String(req.query.devam) === '1') {
+    const { konu, govde, bekleyenSayisi } = svc.devamMailiOlustur({ talep, sablon, uploadLink });
+    return res.json({
+      success: true,
+      data: {
+        subject: konu, body: govde, devam: true, bekleyenSayisi,
+        to: talep.mailAlicilar || [], cc: talep.mailCc || [], uploadLink,
+        smtpConfigured: mailService.isConfigured(),
+        // Devam mailine örnek dosyalar eklenmez (firmada zaten var); istenirse ilk mail akışından eklenir
+        ornekDosyalar: []
+      }
+    });
+  }
   // Google Form bağlantısı firmaya göre ön-doldurulacağı için firma kaydı da lazım
   // (talep yalnızca ad/e-posta snapshot'ı taşıyor; vergi no firmadan geliyor).
   const firma = await Firma.findById(talep.firma).select('tamUnvan vergiNoTC firmaEmail').lean();
@@ -440,6 +462,39 @@ exports.talepSil = wrap(async (req, res) => {
   res.json({ success: true, message: 'Talep kaldırıldı' });
 });
 
+// 🔁 Gelen evrak eksik / hatalı → tekrar iste. Müşteri (09.10.2026): "Firma evrak gönderince eksik veya
+// yanlış yüklese de işlem tamamlanıyor, biz aynı maili tekrar revize edip aynı link üzerinden
+// gönderebilirsek iyi olur." Evrak "gelmedi"ye döner (dosyalar silinmez), talep tamamlanmış olmaktan çıkar,
+// firmaya yükleme sayfasında not görünür; devam maili bu evrakları notuyla listeler.
+exports.talepTekrarIste = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const evrak = talep.istenenEvraklar.id(req.params.evrakId);
+  if (!evrak) { const e = new Error('İstenen evrak bulunamadı.'); e.code = 'TALEP_NOT_FOUND'; throw e; }
+  const not = String(req.body?.not ?? '').trim();
+  if (not.length > 1000) { const e = new Error('Not en fazla 1000 karakter olabilir.'); e.code = 'BAD_INPUT'; throw e; }
+  evrak.tekrarIstemeTarihi = new Date();
+  evrak.tekrarIstemeNotu = not;
+  evrak.tekrarIsteyenAdi = req.user?.adSoyad || '';
+  talep.sonGuncelleyen = req.user?._id;
+  talep.durumTazele();
+  await talep.save();
+  res.json({ success: true, data: talep, message: `"${evrak.ad}" tekrar istenecek` });
+});
+
+// Yanlışlıkla işaretlendiyse geri al: evrak eski yüklemesiyle yeniden "geldi" sayılır
+exports.talepTekrarIstemeGeriAl = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const evrak = talep.istenenEvraklar.id(req.params.evrakId);
+  if (!evrak) { const e = new Error('İstenen evrak bulunamadı.'); e.code = 'TALEP_NOT_FOUND'; throw e; }
+  evrak.tekrarIstemeTarihi = undefined;
+  evrak.tekrarIstemeNotu = '';
+  evrak.tekrarIsteyenAdi = '';
+  talep.sonGuncelleyen = req.user?._id;
+  talep.durumTazele();
+  await talep.save();
+  res.json({ success: true, data: talep, message: `"${evrak.ad}" için tekrar isteme geri alındı` });
+});
+
 exports.talepLinkUret = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const uploadLink = await svc.ensureUploadLink(talep, { days: Number(req.body?.gun) || undefined });
@@ -465,6 +520,9 @@ exports.publicBilgi = async (req, res) => {
         // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
         istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
           id: e._id, ad: e.ad, aciklama: e.aciklama, zorunlu: e.zorunlu, geldiMi: e.geldiMi, yuklenememeNedeni: e.yuklenememeNedeni || '',
+          // Personel "eksik / hatalı" dediyse firma bunu ve notunu görür; yeni dosya gelene kadar bekler
+          tekrarIstendi: !!e.tekrarIstemeTarihi && !e.geldiMi,
+          tekrarIstemeNotu: e.tekrarIstemeTarihi ? (e.tekrarIstemeNotu || '') : '',
           ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath)),
           ornekDosyaAdi: (e.ornekDosya && e.ornekDosya.dosyaAdi) || ''
         })),

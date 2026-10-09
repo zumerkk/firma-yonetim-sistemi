@@ -18,7 +18,7 @@ import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from './mak
 import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
 import { kunyeBolumleri } from './belgeKunye';
 import { finansalBolumleri } from './belgeFinansal';
-import { SILINDI, silinenBaslik } from './silinenMakineler';
+import { silindiEtiketi, silinenBaslik } from './silinenMakineler';
 
 const FONT_YOLLARI = {
   normal: `${process.env.PUBLIC_URL || ''}/fonts/Roboto-Regular.ttf`,
@@ -89,7 +89,7 @@ export const silinenSatirlariEkle = (govde, silinenler, kolonSayisi, satirYap) =
       styles: { fontStyle: 'bold', textColor: RENK.silinen, fillColor: RENK.silinenZemin } }],
     ...silinenler.map((m) => {
       const hucreler = satirYap(m);
-      hucreler[hucreler.length - 1] = SILINDI;
+      hucreler[hucreler.length - 1] = silindiEtiketi(m);
       return hucreler.map((h, i) => ({
         content: h, styles: { textColor: RENK.silinen, ...(i === hucreler.length - 1 ? { fontStyle: 'bold' } : {}) }
       }));

@@ -194,13 +194,51 @@ function mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip }) {
       talep.talepMetni || '',
       'Hazırlanan evrakların taramalarını aşağıdaki bağlantı üzerinden (farklı zamanlarda yükleme yapabilirsiniz) tarafımıza iletmenizi rica ederiz:',
       uploadLink || '', evrakListesi, 'İyi çalışmalar dileriz.',
-      'Genel Müşavirlik ve İşletmecilik Ltd. Şti.\nGM Planlama Yatırım Danışmanlık San. ve Tic. Ltd. Şti.'
+      GM_IMZA
     ].filter(Boolean).join('\n\n');
     return { konu, govde, data };
   }
   const sablonGovdesi = sablonMetniniIsle(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
   const govde = talep.talepMetni ? `${talep.talepMetni}\n\n${sablonGovdesi}` : sablonGovdesi;
   return { konu, govde, data };
+}
+
+// 🔁 Devam maili — müşteri (09.10.2026): "Firmaya mail gönderdiğimiz maili aynı link üzerinden 2. bir
+// şekilde devam maili gibi devam edebileceğimiz bir sistem ... Firma evrak gönderince eksik veya yanlış
+// yüklese de işlem tamamlanıyor, biz aynı maili tekrar revize edip aynı link üzerinden gönderebilirsek."
+// Yalnız henüz gelmemiş evraklar (personelin "eksik/hatalı" işaretledikleri notlarıyla birlikte) yazılır;
+// bağlantı ilk maildekiyle aynıdır (token asla yenilenmez). Metin gönderilmeden önce düzenlenebilir.
+const GM_IMZA = 'Genel Müşavirlik ve İşletmecilik Ltd. Şti.\nGM Planlama Yatırım Danışmanlık San. ve Tic. Ltd. Şti.';
+
+function bekleyenEvraklar(talep) {
+  return maildeIstenenler(talep.istenenEvraklar).filter((e) => !e.geldiMi);
+}
+
+function devamMailiOlustur({ talep, sablon = {}, uploadLink }) {
+  const bekleyenler = bekleyenEvraklar(talep);
+  const evrakListesi = bekleyenler.length
+    ? bekleyenler.map((e, i) => {
+      const not = e.tekrarIstemeTarihi && e.tekrarIstemeNotu ? ` — ${e.tekrarIstemeNotu}` : '';
+      const durum = e.tekrarIstemeTarihi ? ' (eksik / hatalı iletildi)' : '';
+      return `${i + 1}. ${e.ad}${durum}${not}`;
+    }).join('\n')
+    : '(Bekleyen evrak yok — gelen evraklarda "Eksik / Hatalı" işaretleyin ya da evrak listesine yeni satır ekleyin.)';
+
+  const ilkMail = (talep.mailGecmisi || []).find((m) => m.tur === 'ilk');
+  const ilkKonu = ilkMail?.konu || talep.mailKonusu
+    || engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', { islemAdi: talep.islemTuruAdi || '', firmaAdi: talep.firmaAdi || '' });
+  const ilkTarih = (ilkMail?.tarih || talep.sonMailTarihi) ? new Date(ilkMail?.tarih || talep.sonMailTarihi).toLocaleDateString('tr-TR') : '';
+  const konu = `${String(ilkKonu).replace(/\s*—\s*Eksik \/ Hatalı Evraklar$/, '')} — Eksik / Hatalı Evraklar`;
+  const govde = [
+    `Sayın ${talep.firmaAdi || ''} Yetkilisi,`,
+    `${ilkTarih ? `${ilkTarih} tarihli mailimizle` : 'Daha önce'} talep ettiğimiz evraklardan aşağıdakiler henüz iletilmemiş ya da eksik / hatalı iletilmiştir:`,
+    evrakListesi,
+    'Evrakları daha önce paylaştığımız AYNI bağlantı üzerinden yükleyebilirsiniz:',
+    uploadLink || '',
+    'İyi çalışmalar dileriz.',
+    talep.dosyaTakip ? GM_IMZA : getSignature()
+  ].filter(Boolean).join('\n\n');
+  return { konu, govde, bekleyenSayisi: bekleyenler.length };
 }
 
 /**
@@ -367,6 +405,11 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
 
   await mailService.sendMail({ to, cc, subject, text: body, attachments });
 
+  // İlk gönderimden sonraki her mail "devam" — aynı bağlantıyla giden ikinci, üçüncü mail
+  talep.mailGecmisi = [...(talep.mailGecmisi || []), {
+    tarih: new Date(), tur: (talep.mailGonderimSayisi || 0) > 0 ? 'devam' : 'ilk',
+    konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || ''
+  }].slice(-50);
   talep.mailKonusu = subject;
   talep.mailGovdesi = body;
   talep.mailAlicilar = to;
@@ -600,6 +643,8 @@ module.exports = {
   yuklemeBildirimAlicilari,
   resolveByToken,
   mailOlustur,
+  devamMailiOlustur,
+  bekleyenEvraklar,
   formLinkiUret,
   mailGonder,
   ekleriHazirla,

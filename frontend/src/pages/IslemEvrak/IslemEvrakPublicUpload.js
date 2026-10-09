@@ -140,8 +140,15 @@ const IslemEvrakPublicUpload = () => {
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>{e.ad}</Typography>
                   {e.aciklama && <Typography variant="caption" color="text.secondary">{e.aciklama}</Typography>}
-                  {e.yuklenememeNedeni && <Typography variant="body2" sx={{ mt: 0.5 }}>Yüklenememe nedeni: {e.yuklenememeNedeni}</Typography>}
+                  {e.yuklenememeNedeni && !e.tekrarIstendi && <Typography variant="body2" sx={{ mt: 0.5 }}>Yüklenememe nedeni: {e.yuklenememeNedeni}</Typography>}
+                  {/* Müşteri (09.10.2026): eksik / hatalı gelen evrak aynı bağlantıdan yeniden istenir */}
+                  {e.tekrarIstendi && (
+                    <Typography variant="body2" sx={{ mt: 0.5, color: '#b91c1c', fontWeight: 600 }}>
+                      Eksik / hatalı iletildi, lütfen tekrar yükleyin{e.tekrarIstemeNotu ? `: ${e.tekrarIstemeNotu}` : '.'}
+                    </Typography>
+                  )}
                 </Box>
+                {e.tekrarIstendi && <Chip label="Tekrar yükleyin" size="small" color="error" />}
                 {e.geldiMi && <Chip label={e.yuklenememeNedeni ? 'Neden bildirildi' : 'Yüklendi'} size="small" color="success" />}
                 {/* Müşteri (29.09.2026): "Bu belge yükleme linkinde mailde gönderdiğimiz ekleri de
                     gösterme/gönderme şansımız var mı? Bazen mail gönderilmiyor, linki whatsapptan

@@ -2,17 +2,21 @@
 //
 // Müşteri (07.10.2026): "Makine listesinde silinenleri pdf çıktısından komple kaldırmak yerine kırmızı
 // yazıyla 'Silindi' gibi bir şey yazabilir miyiz belli olsun?"
+// Müşteri (09.10.2026): "Komple bütün revizyonları gösteriyor ... liste çok kabaracak, birde yanlışlıkla
+// revizyon ekleyip silsek vs de gösteriyor. Sadece en son işlemde silinen makineler varsa onları ve
+// silinme tarihlerini göstermesi yeterli."
 //
-// Silinen satır makine listesinden fiziksel olarak çıkıyor; izi yalnız makine revizyon kayıtlarında
-// (her revizyonun başı/sonundaki liste) kalıyor. "Silinmiş" = geçmiş bir revizyonda olup güncel listede
-// OLMAYAN makine.
+// Silinen satır makine listesinden fiziksel olarak çıkıyor; izi yalnız makine revizyon kayıtlarında kalıyor.
+// Kayıtlar canlıda neredeyse hep "başlat → bitir" çifti (695 belgenin 550'si "sf", 94'ü "sfsf" ile bitiyor).
+// ESAS LİSTE = son TAMAMLANAN revizyonun başındaki liste (son "final"dan önceki son "start"; son işlem
+// geri dönüşse ondan önceki kayıt; hiç bitirilmemişse son "start"). Silinen = esas listede olup şu anki
+// listede olmayan makine. Böylece revizyonda eklenip aynı revizyonda silinen makine hiç görünmez, eski
+// revizyonlarda silinenler de birikmez. Silinme tarihi = makinenin listeden ilk kaybolduğu sonraki kaydın
+// tarihi (genelde revizyonun "bitir" anı); henüz kayda geçmemişse (süren revizyon) tarih yok.
 //
-// ⚠️ rowId'ye GÜVENİLEMEZ: canlıda (07.10.2026, salt okuma) 612 belgenin geçmişinde rowId'ye göre
-// 20.136 "silinmiş" satır çıktı; 19.604'ü güncel listede aynı ad+GTİP ile duruyordu — eski kayıt
-// yolları satır kimliklerini yeniden üretmiş (art arda gelen 671 revizyon çiftinin 280'inde
-// kimliklerin çoğu değişmiş). Bu yüzden bir geçmiş satır şu üçünden BİRİ tutarsa "hâlâ listede" sayılır:
-// aynı rowId · aynı ad+GTİP · aynı makine ID. Bu kuralla canlıda 23 belgede toplam 198 silinmiş makine
-// kalıyor. Adı değiştirilen makine eski adıyla "silinmiş" görünebilir; çıktı bunu tek satırla gösterir.
+// ⚠️ rowId'ye GÜVENİLEMEZ: canlıda (07.10.2026, salt okuma) geçmişteki satır kimliklerinin büyük kısmı
+// yeniden üretilmiş (art arda gelen 671 revizyon çiftinin 280'inde kimliklerin çoğu değişmiş). Bir satır
+// şu üçünden BİRİ tutarsa "listede" sayılır: aynı rowId · aynı ad+GTİP · aynı makine ID.
 
 const LISTELER = ['yerli', 'ithal'];
 
@@ -29,39 +33,67 @@ const metin = (s) => String(s ?? '').toLocaleLowerCase('tr').replace(/\s+/g, ' '
 const adGtip = (r) => `${metin(r?.adiVeOzelligi)}|${String(r?.gtipKodu ?? '').trim()}`;
 const makineId = (r) => String(r?.makineId ?? '').trim();
 
+/** Bir listede satırın (rowId / ad+GTİP / makine ID ile) bulunup bulunmadığını söyleyen yoklayıcı */
+function listedeMiYoklayicisi(liste = []) {
+  const rowIdler = new Set(liste.map((r) => r?.rowId).filter(Boolean));
+  const adlar = new Set(liste.map(adGtip));
+  const idler = new Set(liste.map(makineId).filter(Boolean));
+  return (r) => Boolean((r?.rowId && rowIdler.has(r.rowId)) || adlar.has(adGtip(r))
+    || (makineId(r) && idler.has(makineId(r))));
+}
+
 /**
- * 1. aşama: hangi makineler silinmiş ve en son hangi revizyon kaydında görülmüş.
- * Yalnız eşleme alanlarına bakar — geçmiş bu dört alanla okunabilir.
- * @returns { yerli: Map<adGtip, kayitIndeksi>, ithal: Map<...> }
+ * Esas alınacak revizyon kaydının indeksi (bkz. dosya başı). Kayıtlar eskiden yeniye.
+ * @returns {number} -1 → geçmiş yok
+ */
+function esasKayitIndeksi(gecmis = []) {
+  const tur = (i) => gecmis[i]?.revizeTuru || 'start';
+  let son = -1;
+  for (let i = gecmis.length - 1; i >= 0; i -= 1) {
+    if (tur(i) === 'final' || tur(i) === 'revert') { son = i; break; }
+  }
+  if (son === -1) {
+    for (let i = gecmis.length - 1; i >= 0; i -= 1) if (tur(i) === 'start') return i;
+    return gecmis.length - 1;
+  }
+  if (tur(son) === 'revert') return Math.max(son - 1, 0);
+  for (let i = son - 1; i >= 0; i -= 1) if (tur(i) === 'start') return i;
+  return Math.max(son - 1, 0);
+}
+
+/**
+ * 1. aşama (yalnız eşleme alanları yeterli): esas kayıttaki hangi makineler silinmiş, ne zaman.
+ * @returns {{ esas: number, yerli: Map<adGtip, silinmeTarihi|null>, ithal: Map<...> }}
  */
 function silinenAnahtarlari(guncel = {}, gecmis = []) {
-  const sonuc = {};
+  const esas = esasKayitIndeksi(gecmis);
+  const sonuc = { esas };
   for (const liste of LISTELER) {
-    const simdi = guncel?.[liste] || [];
-    const rowIdler = new Set(simdi.map((r) => r?.rowId).filter(Boolean));
-    const adlar = new Set(simdi.map(adGtip));
-    const idler = new Set(simdi.map(makineId).filter(Boolean));
-    const halaListede = (r) => (r?.rowId && rowIdler.has(r.rowId)) || adlar.has(adGtip(r))
-      || (makineId(r) && idler.has(makineId(r)));
-
-    const silinen = new Map(); // aynı makine her revizyonda tekrar eder → en son görüldüğü kayıt kalır
-    (gecmis || []).forEach((kayit, i) => {
-      for (const r of kayit?.[liste] || []) {
-        if (r && !halaListede(r) && metin(r.adiVeOzelligi)) silinen.set(adGtip(r), i);
+    const silinen = new Map();
+    if (esas >= 0) {
+      const simdiVar = listedeMiYoklayicisi(guncel?.[liste] || []);
+      const sonrakiler = gecmis.slice(esas + 1).map((k) => ({
+        tarih: k?.revizeTarihi || null, varMi: listedeMiYoklayicisi(k?.[liste] || [])
+      }));
+      for (const r of gecmis[esas]?.[liste] || []) {
+        if (!r || !metin(r.adiVeOzelligi) || simdiVar(r) || silinen.has(adGtip(r))) continue;
+        const kayboldugu = sonrakiler.find((k) => !k.varMi(r));
+        silinen.set(adGtip(r), kayboldugu ? kayboldugu.tarih : null);
       }
-    });
+    }
     sonuc[liste] = silinen;
   }
   return sonuc;
 }
 
-/** 2. aşama: silinen makinelerin son görüldükleri kayıttaki tam hali, sıra no'ya göre */
-function silinenSatirlari(anahtarlar, gecmis = []) {
+/** 2. aşama: silinen makinelerin esas kayıttaki tam hali + silinme tarihi, sıra no'ya göre */
+function silinenSatirlari(anahtarlar, esasKayit = {}) {
   const sonuc = {};
   for (const liste of LISTELER) {
-    sonuc[liste] = [...(anahtarlar[liste] || new Map())].map(([anahtar, i]) => {
-      const satir = (gecmis[i]?.[liste] || []).find((r) => adGtip(r) === anahtar);
-      return satir ? { ...satir, sonGorulme: gecmis[i].revizeTarihi || null } : null;
+    const satirlar = esasKayit?.[liste] || [];
+    sonuc[liste] = [...(anahtarlar[liste] || new Map())].map(([anahtar, silinmeTarihi]) => {
+      const satir = satirlar.find((r) => adGtip(r) === anahtar);
+      return satir ? { ...satir, silinmeTarihi } : null;
     }).filter(Boolean).sort((a, b) => (Number(a.siraNo) || 0) - (Number(b.siraNo) || 0));
   }
   return sonuc;
@@ -69,20 +101,24 @@ function silinenSatirlari(anahtarlar, gecmis = []) {
 
 /**
  * @param guncel  { yerli: [], ithal: [] } — belgenin şu anki makine listeleri
- * @param gecmis  revizyon kayıtları (her biri { yerli, ithal, revizeTarihi }), eskiden yeniye
- * @returns { yerli: [], ithal: [] } — silinen makineler son görüldükleri haliyle + `sonGorulme`
+ * @param gecmis  revizyon kayıtları (her biri { revizeTuru, revizeTarihi, yerli, ithal }), eskiden yeniye
+ * @returns { yerli: [], ithal: [] } — son revizyonda silinen makineler + `silinmeTarihi`
  */
-const silinenMakineleriBul = (guncel = {}, gecmis = []) => silinenSatirlari(silinenAnahtarlari(guncel, gecmis), gecmis);
+function silinenMakineleriBul(guncel = {}, gecmis = []) {
+  const anahtarlar = silinenAnahtarlari(guncel, gecmis);
+  return silinenSatirlari(anahtarlar, gecmis[anahtarlar.esas]);
+}
 
 const projeksiyon = (onEk, alanlar) => Object.fromEntries([
   [`${onEk}revizeTarihi`, 1],
+  [`${onEk}revizeTuru`, 1],
   ...LISTELER.flatMap((l) => alanlar.map((a) => [`${onEk}${l}.${a}`, 1]))
 ]);
 
 /**
- * Bir belgenin silinen makineleri. 830 makine × 23 revizyonluk belgede (ST Turkuaz) geçmişin tamamını
- * çıktı alanlarıyla okumak canlıda ~6 sn sürdü; önce yalnız eşleme alanları okunur (~1/3 süre), sonra
- * tam satırlar yalnız gereken revizyon kayıtlarından.
+ * Bir belgenin son revizyonda silinen makineleri. 830 makine × 23 revizyonluk belgede (ST Turkuaz)
+ * geçmişin tamamını çıktı alanlarıyla okumak canlıda ~6 sn sürdü; önce yalnız eşleme alanları okunur,
+ * tam satırlar yalnız esas kayıttan.
  */
 async function silinenleriOku(Model, id) {
   const MakineRevizyonKaydi = require('../../models/MakineRevizyonKaydi');
@@ -102,13 +138,11 @@ async function silinenleriOku(Model, id) {
   const kayitlar = await MakineRevizyonKaydi.find(anahtar)
     .select({ sira: 1, ...projeksiyon('snapshot.', ESLEME_ALANLARI) }).sort({ sira: 1 }).lean();
   const anahtarlar = silinenAnahtarlari(guncel, kayitlar.map((k) => k.snapshot || {}));
-  const gerekli = [...new Set(LISTELER.flatMap((l) => [...anahtarlar[l].values()]))];
-  if (!gerekli.length) return { yerli: [], ithal: [] };
+  if (anahtarlar.esas < 0 || !LISTELER.some((l) => anahtarlar[l].size)) return { yerli: [], ithal: [] };
 
-  const tamlar = await MakineRevizyonKaydi.find({ ...anahtar, sira: { $in: gerekli.map((i) => kayitlar[i].sira) } })
-    .select({ sira: 1, ...projeksiyon('snapshot.', ALANLAR) }).lean();
-  const siraya = new Map(tamlar.map((k) => [k.sira, k.snapshot || {}]));
-  return silinenSatirlari(anahtarlar, kayitlar.map((k) => siraya.get(k.sira)));
+  const esas = await MakineRevizyonKaydi.findOne({ ...anahtar, sira: kayitlar[anahtarlar.esas].sira })
+    .select(projeksiyon('snapshot.', ALANLAR)).lean();
+  return silinenSatirlari(anahtarlar, esas?.snapshot || {});
 }
 
 /** GET /:id/makine-revizyon/silinenler */
@@ -123,4 +157,4 @@ const silinenlerUcu = (Model) => async (req, res) => {
   }
 };
 
-module.exports = { silinenMakineleriBul, silinenleriOku, silinenlerUcu };
+module.exports = { silinenMakineleriBul, esasKayitIndeksi, silinenleriOku, silinenlerUcu };

@@ -3,7 +3,7 @@ import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from "./mak
 import { disaAktarimAdi, etiketNormalle } from "./disaAktarimAdi";
 import { kunyeBolumleri } from "./belgeKunye";
 import { finansalBolumleri } from "./belgeFinansal";
-import { SILINDI, silinenBaslik } from "./silinenMakineler";
+import { silindiEtiketi, silinenBaslik } from "./silinenMakineler";
 
 // Sayıyı güvenli biçimde Türk lirası formatında göster
 const tl = (val) => {
@@ -73,7 +73,7 @@ export const silinenSatirlariYaz = (sheet, silinenler, sonSutun, satirYap, kenar
   b.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEE2E2" } };
   silinenler.forEach((m) => {
     const hucreler = satirYap(m);
-    hucreler[hucreler.length - 1] = SILINDI;
+    hucreler[hucreler.length - 1] = silindiEtiketi(m);
     const r = sheet.addRow(hucreler);
     r.eachCell((c) => { c.border = kenarlik; c.font = SILINEN_FONT; c.alignment = { wrapText: true, vertical: "middle" }; });
     r.getCell(hucreler.length).font = { ...SILINEN_FONT, bold: true };
