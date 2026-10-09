@@ -34,6 +34,8 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import ReplayIcon from '@mui/icons-material/Replay';
+import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
@@ -187,6 +189,11 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const nedenler = (talep?.istenenEvraklar || []).filter((e) => e.yuklenememeNedeni);
   const [talepMetni, setTalepMetni] = useState('');
   const [mailAcik, setMailAcik] = useState(false);
+  // 🔁 Devam maili modu — müşteri (09.10.2026): "Firmaya mail gönderdiğimiz maili aynı link üzerinden 2. bir
+  // şekilde devam maili gibi devam edebileceğimiz bir sistem ... Firma evrak gönderince eksik veya yanlış
+  // yüklese de işlem tamamlanıyor, biz aynı maili tekrar revize edip aynı link üzerinden gönderebilirsek."
+  // Açıkken mail metni yalnız bekleyen / eksik-hatalı evrakları ister; örnek dosyalar yeniden eklenmez.
+  const [devamModu, setDevamModu] = useState(false);
   const [metinDegisti, setMetinDegisti] = useState(false);
   const [tur, setTur] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -499,6 +506,10 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   const taslagiHazirla = async () => {
     if (kayitSuruyorRef.current || busy) return;
+    if (devamModu) { // devam maili metni duruyorsa ilk talep metnine dön
+      setDevamModu(false);
+      setMail((p) => ({ ...p, body: '', subject: '' }));
+    }
     if (!kaydedilmemis && !metinDegisti && !metinBayat && mail.body) { setMailAcik(true); return; }
     const yenidenOlustur = metinDegisti || kaydedilmemis || metinBayat;
     if (yenidenOlustur && (talep.mailGovdesi || mailElleDegistiRef.current) && !window.confirm('Talep metni veya evraklar değişti. Mail taslağındaki düzenlemeler yerine güncel bilgilerle yeni taslak oluşturulsun mu?')) return;
@@ -559,9 +570,10 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     setBusy('mail');
     try {
       const sonuc = await svc.mailGonder(id, {
-        to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: gidecekEkIdler
+        to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: devamModu ? [] : gidecekEkIdler
       });
       setTalep(sonuc.talep);
+      setDevamModu(false);
       // Alınamayan örnek dosya atlanıp mail yine gidiyor; hangisinin gitmediği görünmeli
       if (sonuc.atlananEkler?.length) {
         notify(`Mail gönderildi ama ${sonuc.atlananEkler.length} ek eklenemedi: ${sonuc.atlananEkler.join(', ')} — dosyayı yeniden yükleyip gerekirse tekrar gönderin`, 'warning');
@@ -628,6 +640,41 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } finally { setBusy(''); }
   };
 
+  // 🔁 Eksik / hatalı — tekrar iste: evrak "gelmedi"ye döner (dosya silinmez), firma yükleme sayfasında
+  // notu görür; devam maili bu evrakları notuyla listeler.
+  const tekrarIste = async (evrakId, evrakAdi) => {
+    const not = window.prompt(`"${evrakAdi}" tekrar istenecek. Firmaya iletilecek not (ör. "Kaşe/imza eksik", "Güncel tarihli olmalı"):`, '');
+    if (not === null) return;
+    setBusy(`tekrar-${evrakId}`);
+    try {
+      const g = await svc.tekrarIste(id, evrakId, not);
+      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar));
+      notify(`"${evrakAdi}" tekrar istenecek — devam mailiyle firmaya bildirin`);
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+  const tekrarIstemeGeriAl = async (evrakId, evrakAdi) => {
+    setBusy(`tekrar-${evrakId}`);
+    try {
+      const g = await svc.tekrarIstemeGeriAl(id, evrakId);
+      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar));
+      notify(`"${evrakAdi}" için tekrar isteme geri alındı`);
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+  // Devam maili: aynı bağlantı, yalnız bekleyen / eksik-hatalı evraklar. Metin gönderilmeden düzenlenebilir.
+  const devamMailiHazirla = async () => {
+    if (busy) return;
+    setBusy('devam');
+    try {
+      const m = await svc.mailOnizle(id, { devam: true });
+      setMail({ ...m, to: (m.to || []).join(', '), cc: (m.cc || []).join(', ') });
+      mailElleDegistiRef.current = true; // evrak listesi kaydı bu metni şablonla ezmesin
+      setMetinBayat(false);
+      setDevamModu(true);
+      setMailAcik(true);
+      if (!m.bekleyenSayisi) notify('Bekleyen evrak yok — önce gelen evraklarda "Eksik / Hatalı" işaretleyin', 'warning');
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  };
+
   const yuklenenSil = async (dosyaId) => {
     if (!window.confirm('Bu dosyayı silmek istediğinize emin misiniz?')) return;
     try {
@@ -644,7 +691,10 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     return <Box sx={{ p: 4 }}><Alert severity="error">Talep bulunamadı.</Alert></Box>;
   }
 
-  const ornekliEvraklar = ekAdaylari;
+  // Devam mailinde örnek dosya yeniden eklenmez (firmada zaten var)
+  const ornekliEvraklar = devamModu ? [] : ekAdaylari;
+  const tekrarIstenenler = (talep.istenenEvraklar || []).filter((e) => e.tekrarIstemeTarihi);
+  const mailGecmisi = talep.mailGecmisi || [];
 
   return (
     <>
@@ -775,7 +825,15 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           <DialogContent>
         {/* 2) Mail */}
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>2. Mail Gönderimi</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+            2. Mail Gönderimi{devamModu ? ' — Devam Maili' : ''}
+          </Typography>
+          {devamModu && (
+            <Alert severity="info" icon={<ForwardToInboxIcon />} sx={{ mb: 1 }}>
+              Devam maili: yalnız henüz gelmeyen ve "eksik / hatalı" işaretlenen evraklar istenir. Bağlantı ilk
+              maildekiyle <strong>aynı</strong>; firma aynı sayfadan yükler. Metni gönderimden önce düzenleyebilirsiniz.
+            </Alert>
+          )}
           {!mail.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
           {/* Taslak durumu görünür olsun: kullanıcı "kaydetmiyor" sanmasın */}
           {talep.mailGovdesi ? (
@@ -846,6 +904,12 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               {talep.mailGonderimSayisi > 0
                 ? `${talep.mailGonderimSayisi} kez gönderildi · Son: ${new Date(talep.sonMailTarihi).toLocaleString('tr-TR')}`
                 : 'Henüz gönderilmedi'}
+              {mailGecmisi.length > 0 && mailGecmisi.map((g, i) => (
+                <Box component="span" key={`${g.tarih}-${i}`} sx={{ display: 'block' }}>
+                  {i + 1}. {g.tur === 'devam' ? 'Devam maili' : 'İlk talep'} · {new Date(g.tarih).toLocaleString('tr-TR')}
+                  {g.gonderenAdi ? ` · ${g.gonderenAdi}` : ''}
+                </Box>
+              ))}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={busy === 'mail-kaydet'}>
@@ -872,6 +936,15 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
               3. Firmadan Gelen Evraklar ({(talep.yuklenenEvraklar || []).length + nedenler.length})
             </Typography>
+            {talep.mailGonderimSayisi > 0 && (
+              <Tooltip title="Eksik ya da hatalı gelenleri ve hâlâ beklenenleri AYNI bağlantıyla yeniden iste">
+                <Button size="small" variant="contained" color="warning" onClick={devamMailiHazirla}
+                  disabled={busy === 'devam'} startIcon={busy === 'devam' ? <CircularProgress size={14} color="inherit" /> : <ForwardToInboxIcon />}
+                  sx={{ textTransform: 'none' }}>
+                  Devam Maili Hazırla
+                </Button>
+              </Tooltip>
+            )}
             {(talep.yuklenenEvraklar || []).length > 0 && (
               <Button size="small" variant="outlined" onClick={topluIndir} disabled={busy === 'toplu-indir'}
                 startIcon={busy === 'toplu-indir' ? <CircularProgress size={14} /> : <FolderZipIcon />}
@@ -885,6 +958,31 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               Henüz yükleme yok. Firma maildeki bağlantıdan dosya yükleyince burada listelenir.
             </Typography>
           )}
+          {tekrarIstenenler.length > 0 && (
+            <Box sx={{ mb: 1.5, p: 1.25, border: '1px solid #fca5a5', bgcolor: '#fef2f2', borderRadius: 1 }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#b91c1c', display: 'block', mb: 0.5 }}>
+                Tekrar istenen evraklar ({tekrarIstenenler.length})
+              </Typography>
+              <Stack spacing={0.5}>
+                {tekrarIstenenler.map((e) => (
+                  <Box key={`tekrar-${e._id}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Chip size="small" label={e.ad} color="error" variant="outlined" />
+                    <Chip size="small" label={e.geldiMi ? 'Yeni dosya geldi' : 'Bekleniyor'} color={e.geldiMi ? 'success' : 'warning'} />
+                    <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }}>
+                      {e.tekrarIstemeNotu || '(not yok)'}
+                      <Typography component="span" variant="caption" color="text.secondary">
+                        {' · '}{new Date(e.tekrarIstemeTarihi).toLocaleString('tr-TR')}{e.tekrarIsteyenAdi ? ` · ${e.tekrarIsteyenAdi}` : ''}
+                      </Typography>
+                    </Typography>
+                    <Button size="small" onClick={() => tekrarIstemeGeriAl(e._id, e.ad)} disabled={busy === `tekrar-${e._id}`}
+                      sx={{ textTransform: 'none' }}>
+                      Geri al
+                    </Button>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+          )}
           <Stack spacing={1}>
             {/* Müşteri (29.09.2026): "Yükleyemiyorum notu gönderince istenen evraklar içinde
                 görünmek yerine, firmadan gelen evraklar kısmında görünme şansı var mı acaba?" */}
@@ -897,6 +995,12 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }}>
                   Yükleyemedi: {e.yuklenememeNedeni}
                 </Typography>
+                {(!e.tekrarIstemeTarihi || new Date(e.nedenBildirimTarihi) > new Date(e.tekrarIstemeTarihi)) && (
+                  <Button size="small" color="warning" startIcon={<ReplayIcon />} onClick={() => tekrarIste(e._id, e.ad)}
+                    disabled={busy === `tekrar-${e._id}`} sx={{ textTransform: 'none' }}>
+                    Kabul etme, tekrar iste
+                  </Button>
+                )}
               </Box>
             ))}
             {(talep.yuklenenEvraklar || []).map((y) => (
@@ -911,6 +1015,21 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   disabled={busy === `indir-${y._id}`}>
                   {busy === `indir-${y._id}` ? 'İndiriliyor…' : 'Aç'}
                 </Button>
+                {y.istenenEvrakId && (() => {
+                  const ev = (talep.istenenEvraklar || []).find((e) => String(e._id) === String(y.istenenEvrakId));
+                  // Bu dosya tekrar istemeden ÖNCE geldiyse artık sayılmıyor — satırda belli olsun
+                  const eski = ev?.tekrarIstemeTarihi && new Date(y.yuklemeTarihi) <= new Date(ev.tekrarIstemeTarihi);
+                  if (eski) return <Chip size="small" color="error" variant="outlined" label="Eksik / hatalı" />;
+                  if (!ev) return null; // düzeltilmiş dosya da hatalıysa yeniden işaretlenebilir
+                  return (
+                    <Tooltip title="Dosya eksik ya da yanlış: evrak yeniden istenir, firma aynı bağlantıdan yükler">
+                      <Button size="small" color="warning" startIcon={<ReplayIcon />} onClick={() => tekrarIste(ev._id, ev.ad)}
+                        disabled={busy === `tekrar-${ev._id}`} sx={{ textTransform: 'none' }}>
+                        Eksik / Hatalı
+                      </Button>
+                    </Tooltip>
+                  );
+                })()}
                 <Tooltip title="Sil">
                   <IconButton size="small" color="error" onClick={() => yuklenenSil(y._id)}>
                     <DeleteOutlineIcon fontSize="small" />

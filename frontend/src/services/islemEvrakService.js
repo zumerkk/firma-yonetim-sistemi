@@ -25,13 +25,18 @@ const islemEvrakService = {
   talepGuncelle: (id, body) => api.patch(`${base}/talepler/${id}`, body).then(d),
   talepSil: (id) => api.delete(`${base}/talepler/${id}`).then((r) => r.data),
   varyantUygula: (id, varyantKod) => api.post(`${base}/talepler/${id}/varyant`, { varyantKod }).then(d),
-  mailOnizle: (id) => api.get(`${base}/talepler/${id}/mail-onizle`).then(d),
+  // devam: true → yalnız bekleyen / eksik-hatalı evrakları aynı bağlantıyla isteyen devam maili
+  mailOnizle: (id, { devam = false } = {}) =>
+    api.get(`${base}/talepler/${id}/mail-onizle`, { params: devam ? { devam: 1 } : {} }).then(d),
   mailGonder: (id, body) => api.post(`${base}/talepler/${id}/mail-gonder`, body).then(d),
   linkUret: (id, gun) => api.post(`${base}/talepler/${id}/link`, { gun }).then(d),
   // Yüklemeler uploadPost üzerinden: gerçek yüzde + uzun timeout (global 15 sn büyük dosyaya yetmiyor)
   ornekDosyaYukle: (id, evrakId, formData, onProgress) =>
     uploadPost(`${base}/talepler/${id}/evrak/${evrakId}/ornek`, formData, { onProgress }).then(d),
   yuklenenSil: (id, dosyaId) => api.delete(`${base}/talepler/${id}/yuklenen/${dosyaId}`).then(d),
+  // 🔁 Gelen evrak eksik / hatalı → tekrar iste (müşteri, 09.10.2026); geri al
+  tekrarIste: (id, evrakId, not) => api.post(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`, { not }).then(d),
+  tekrarIstemeGeriAl: (id, evrakId) => api.delete(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`).then(d),
   // Dosya indirme: blob olarak çekilir. Göreli fileUrl'i doğrudan href vermek işe yaramıyor —
   // tarayıcı onu frontend origin'ine göre çözüp SPA'nın index.html'ini indiriyordu.
   dosyaIndir: (id, dosyaId) =>

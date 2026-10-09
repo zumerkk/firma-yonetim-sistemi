@@ -31,7 +31,14 @@ const talepEvrakSchema = new mongoose.Schema({
   yuklenememeNedeni: { type: String, trim: true, maxlength: 2000, default: '' },
   nedenBildirimTarihi: { type: Date },
   geldiMi: { type: Boolean, default: false },
-  gelisTarihi: { type: Date }
+  gelisTarihi: { type: Date },
+  // 🔁 Eksik / hatalı — tekrar iste. Müşteri (09.10.2026): "Firma evrak gönderince eksik veya yanlış yüklese
+  // de işlem tamamlanıyor, biz aynı maili tekrar revize edip aynı link üzerinden gönderebilirsek iyi olur."
+  // Personel gelen evrakı işaretler: bu tarihten ÖNCEKİ yüklemeler ve bildirilen neden evrakı artık "geldi"
+  // saymaz (dosyalar silinmez, kayıtta kalır). Firma aynı linkten yeni dosya yükleyince evrak yeniden gelir.
+  tekrarIstemeTarihi: { type: Date },
+  tekrarIstemeNotu: { type: String, trim: true, maxlength: 1000, default: '' },
+  tekrarIsteyenAdi: { type: String, trim: true, default: '' }
 }, { _id: true });
 
 // Firmanın public linkten yüklediği dosyalar
@@ -93,6 +100,17 @@ const islemTalebiSchema = new mongoose.Schema({
   // takibi yapan'a düşürtebilir miyiz? Takibi yapan atanmamışsa, maili kim gönderdi ise ona düşsün."
   sonMailGonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   mailGonderimSayisi: { type: Number, default: 0 },
+  // Gönderilen her mailin izi — ilk talep ve aynı linkle giden devam mailleri ayrı görünsün
+  mailGecmisi: {
+    type: [new mongoose.Schema({
+      tarih: { type: Date, default: Date.now },
+      tur: { type: String, enum: ['ilk', 'devam'], default: 'ilk' },
+      konu: { type: String, trim: true, default: '' },
+      alicilar: { type: [String], default: [] },
+      gonderenAdi: { type: String, trim: true, default: '' }
+    }, { _id: false })],
+    default: []
+  },
 
   // Firmanın evrak yükleyeceği public bağlantı
   uploadToken: { type: String, trim: true, index: true, sparse: true },
@@ -119,8 +137,11 @@ islemTalebiSchema.statics.DURUMLAR = DURUMLAR;
 islemTalebiSchema.methods.durumTazele = function () {
   const istenen = this.istenenEvraklar || [];
   for (const ev of istenen) {
-    const geldi = !!ev.yuklenememeNedeni?.trim() || (this.yuklenenEvraklar || []).some(
-      (y) => String(y.istenenEvrakId || '') === String(ev._id)
+    // "Tekrar istendi" ise yalnız o andan SONRAKİ yükleme / neden bildirimi sayılır
+    const esik = ev.tekrarIstemeTarihi ? new Date(ev.tekrarIstemeTarihi).getTime() : 0;
+    const sonra = (t) => !esik || (!!t && new Date(t).getTime() > esik);
+    const geldi = (!!ev.yuklenememeNedeni?.trim() && sonra(ev.nedenBildirimTarihi)) || (this.yuklenenEvraklar || []).some(
+      (y) => String(y.istenenEvrakId || '') === String(ev._id) && sonra(y.yuklemeTarihi)
     );
     if (geldi && !ev.geldiMi) { ev.geldiMi = true; ev.gelisTarihi = new Date(); }
     if (!geldi) { ev.geldiMi = false; ev.gelisTarihi = undefined; }

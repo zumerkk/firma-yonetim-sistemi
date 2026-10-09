@@ -32,3 +32,13 @@ test('neden girildiğinde sunucuya kaydedilir ve durum yenilenir', async () => {
   await screen.findByText('Neden kaydedildi.');
   expect(svc.publicBilgi).toHaveBeenCalledTimes(2);
 });
+// Müşteri (09.10.2026): eksik / hatalı gelen evrak aynı bağlantıdan yeniden istenir — firma notu görür
+test('tekrar istenen evrak kırmızı notla gösterilir', async () => {
+  svc.publicBilgi.mockResolvedValue({ ...bilgi, istenenEvraklar: [
+    { id: 'a', ad: 'Vergi Levhası', geldiMi: true },
+    { id: 'b', ad: 'İmza Sirküleri', geldiMi: false, tekrarIstendi: true, tekrarIstemeNotu: 'Noter onaylı olmalı' }
+  ] });
+  ac();
+  expect(await screen.findByText('Eksik / hatalı iletildi, lütfen tekrar yükleyin: Noter onaylı olmalı')).toBeInTheDocument();
+  expect(screen.getByText('Tekrar yükleyin')).toBeInTheDocument();
+});

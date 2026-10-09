@@ -41,6 +41,9 @@ router.get('/talepler/:id/mail-onizle', ctrl.talepMailOnizle);
 router.post('/talepler/:id/mail-gonder', editor, ctrl.talepMailGonder);
 router.post('/talepler/:id/link', editor, ctrl.talepLinkUret);
 router.post('/talepler/:id/evrak/:evrakId/ornek', editor, uploadMultiple('dosyalar'), ctrl.talepOrnekDosyaYukle);
+// 🔁 Gelen evrak eksik / hatalı → tekrar iste (devam maili için); DELETE geri alır
+router.post('/talepler/:id/evrak/:evrakId/tekrar-iste', editor, ctrl.talepTekrarIste);
+router.delete('/talepler/:id/evrak/:evrakId/tekrar-iste', editor, ctrl.talepTekrarIstemeGeriAl);
 // İndirme: hem firmanın yüklediği evrak hem örnek/şablon dosya (görüntüleme yetkisi yeterli)
 router.get('/talepler/:id/dosya/:dosyaId/indir', ctrl.talepDosyaIndir);
 // Firmadan gelen evrakların hepsi tek ZIP (müşteri, 21.09.2026: "toplu bir şekilde indirebilme")
