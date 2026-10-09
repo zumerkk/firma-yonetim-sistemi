@@ -222,3 +222,45 @@ describe('2b) Firma pasif/aktif → belgeler (bellek içi Mongo)', () => {
     expect(await durumu(YeniTesvik, belge)).toMatchObject({ genelDurum: 'kapama_talepli', durumRengi: 'mavi', durumManuelSecildi: true });
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Müşteri (09.10.2026): "Belge takipdeki Arşiv gibi Kapalı belgeler için de bir arşiv kısmı yapabilir
+// miyiz Teşvik belgesinde?"
+describe('3) Teşvik listesi arşivi', () => {
+  test('kural: açık durum kazanır; arsiv yalnız açıkça gelirse uygulanır', () => {
+    const { listeDurumKosulu } = durumlar;
+    expect(listeDurumKosulu({ arsiv: '0' })).toEqual({ 'durumBilgileri.genelDurum': { $nin: ['kapandi'] } });
+    expect(listeDurumKosulu({ arsiv: '1' })).toEqual({ 'durumBilgileri.genelDurum': { $in: ['kapandi'] } });
+    expect(listeDurumKosulu({ arsiv: '0', durum: 'kapandi' })).toEqual({ 'durumBilgileri.genelDurum': 'kapandi' });
+    expect(listeDurumKosulu({})).toEqual({}); // başka ekranların belge seçicileri eskisi gibi her şeyi alır
+  });
+
+  describe('liste ucu (bellek içi Mongo)', () => {
+    jest.setTimeout(60000);
+    let mem;
+    const kullanici = { _id: yeniId(), adSoyad: 'Test', email: 't@example.test', rol: 'admin' };
+    beforeAll(async () => { mem = await MongoMemoryServer.create(); await mongoose.connect(mem.getUri()); });
+    afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); });
+
+    const liste = async (Model, ctrlYolu, query) => {
+      await Model.deleteMany({});
+      await Model.collection.insertMany(['onaylandi', 'kapandi', 'pasife_alindi', 'kapama_talepli'].map((genelDurum, i) => ({
+        _id: yeniId(), tesvikId: `TES2026900${i}`, firma: yeniId(), firmaId: 'A1', yatirimciUnvan: `FİRMA ${i}`,
+        aktif: true, durumBilgileri: { genelDurum }, createdAt: new Date(2026, 9, i + 1)
+      })));
+      const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, json(d) { this.body = d; return this; } };
+      await require(ctrlYolu).getTesvikler({ query, user: kullanici }, res);
+      return res.body.data.tesvikler.map((t) => t.durumBilgileri.genelDurum).sort();
+    };
+
+    test.each([
+      ['Tesvik', Tesvik, '../../controllers/tesvikController'],
+      ['YeniTesvik', YeniTesvik, '../../controllers/yeniTesvikController']
+    ])('%s: ana liste kapananları göstermez, arşiv yalnız onları, "Kapandı" süzgeci her yerde çalışır', async (_ad, Model, yol) => {
+      expect(await liste(Model, yol, { arsiv: '0' })).toEqual(['kapama_talepli', 'onaylandi', 'pasife_alindi']);
+      expect(await liste(Model, yol, { arsiv: '1' })).toEqual(['kapandi']);
+      expect(await liste(Model, yol, { arsiv: '0', durum: 'kapandi' })).toEqual(['kapandi']);
+      expect(await liste(Model, yol, {})).toHaveLength(4);
+    });
+  });
+});

@@ -45,6 +45,23 @@ const PASIFE_ALINMAYAN_DURUMLAR = ['kapandi', 'iptal_edildi', 'reddedildi', PASI
 // Ekipman takip listesi varsayılan olarak bunları göstermez (kapanan ve pasif belgeler)
 const EKIPMAN_TAKIP_GIZLI_DURUMLAR = ['kapandi', PASIF_DURUM];
 
+// 🗄️ Teşvik listesi arşivi — müşteri (09.10.2026): "Belge takipdeki Arşiv gibi Kapalı belgeler için de bir
+// arşiv kısmı yapabilir miyiz Teşvik belgesinde?" Kapanan belgeler ana listeden çıkar, "Arşiv"te görünür.
+const ARSIV_DURUMLARI = ['kapandi'];
+
+/**
+ * Liste sorgusunun durum koşulu. Durum süzgecinden açıkça seçilen durum her zaman kazanır (Belge Takip'te
+ * aşama seçimi gibi). `arsiv` yalnız açıkça gelirse uygulanır: '1' → yalnız arşiv, '0' → arşiv hariç.
+ * Parametresiz çağıranlar (başka ekranlardaki belge seçicileri) eskisi gibi bütün belgeleri alır.
+ */
+function listeDurumKosulu({ durum, arsiv } = {}) {
+  if (durum) return { 'durumBilgileri.genelDurum': durum };
+  const a = String(arsiv ?? '');
+  if (a === '1' || a === 'true') return { 'durumBilgileri.genelDurum': { $in: ARSIV_DURUMLARI } };
+  if (a === '0' || a === 'false') return { 'durumBilgileri.genelDurum': { $nin: ARSIV_DURUMLARI } };
+  return {};
+}
+
 module.exports = {
   BELGE_DURUMLARI,
   BELGE_DURUM_DEGERLERI,
@@ -54,5 +71,7 @@ module.exports = {
   OTO_SENKRON_DISI_DURUMLAR,
   TOPLU_KORUNAN_DURUMLAR,
   PASIFE_ALINMAYAN_DURUMLAR,
-  EKIPMAN_TAKIP_GIZLI_DURUMLAR
+  EKIPMAN_TAKIP_GIZLI_DURUMLAR,
+  ARSIV_DURUMLARI,
+  listeDurumKosulu
 };

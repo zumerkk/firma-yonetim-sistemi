@@ -32,7 +32,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText
+  DialogContentText,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -44,7 +46,8 @@ import {
 
   TableView as TableViewIcon,
   History as HistoryIcon,
-  DoneAll as DoneAllIcon
+  DoneAll as DoneAllIcon,
+  Inventory2 as ArchiveIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
@@ -91,10 +94,12 @@ const YeniTesvikList = () => {
   });
   
   // 🔍 Filter States
+  // arsiv: '0' ana liste (kapananlar hariç), '1' arşiv — Teşvik Listesi ile aynı (müşteri, 09.10.2026)
   const [filters, setFilters] = useState({
     search: '',
     durum: '',
-    il: ''
+    il: '',
+    arsiv: '0'
   });
 
   // 🎨 Durum Renk Haritası
@@ -276,6 +281,7 @@ const YeniTesvikList = () => {
         responseType: 'blob',
         params: {
           durum: filters.durum,
+          arsiv: filters.arsiv,
           il: filters.il,
           search: filters.search
         }
@@ -365,7 +371,9 @@ const YeniTesvikList = () => {
                 <Chip label="Yalnızca Yeni Kayıtlar" size="small" sx={{ bgcolor: '#ecfdf5', color: '#065f46', border: '1px solid #10b981' }} />
               </Typography>
               <Alert severity="info" sx={{ mt: 1 }}>
-                Bu sayfada yalnızca Yeni Teşvik sisteminde oluşturulan belgeler listelenir. Toplam {pagination.totalCount} yeni kayıt.
+                Bu sayfada yalnızca Yeni Teşvik sisteminde oluşturulan belgeler listelenir. {filters.arsiv === '1'
+                  ? `Arşiv: ${pagination.totalCount} kapanan belge.`
+                  : `Toplam ${pagination.totalCount} yeni kayıt (kapanan belgeler Arşiv'de).`}
               </Alert>
               <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
                 <Button variant="contained" size="small" disabled sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}>
@@ -377,7 +385,18 @@ const YeniTesvikList = () => {
               </Box>
             </Box>
             
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={filters.arsiv}
+                onChange={(e, deger) => deger && setFilters((onceki) => ({ ...onceki, arsiv: deger, durum: '' }))}
+                sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5, fontWeight: 600, color: '#475569' },
+                  '& .Mui-selected': { color: '#fff !important', background: '#047857 !important' } }}
+              >
+                <ToggleButton value="0">Aktif Belgeler</ToggleButton>
+                <ToggleButton value="1"><ArchiveIcon sx={{ fontSize: 18, mr: 0.5 }} />Arşiv</ToggleButton>
+              </ToggleButtonGroup>
               <Button
                 variant="outlined"
                 startIcon={<DoneAllIcon />}

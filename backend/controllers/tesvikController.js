@@ -3,7 +3,7 @@
 // Mali hesaplamalar + renk kodlaması + durum yönetimi + revizyon takibi
 
 const Tesvik = require('../models/Tesvik');
-const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi } = require('../constants/belgeDurumlari');
+const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi, listeDurumKosulu } = require('../constants/belgeDurumlari');
 const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
 const makineRevizyonDeposu = require('../services/makineRevizyonDeposu');
 const Firma = require('../models/Firma');
@@ -247,6 +247,7 @@ const getTesvikler = async (req, res) => {
       sayfa = 1,
       limit = 20,
       durum,
+      arsiv, // '1' → kapanan belgeler (Arşiv), '0' → ana liste (bkz. listeDurumKosulu)
       il,
       firma,
       siraBy = 'createdAt',
@@ -263,7 +264,7 @@ const getTesvikler = async (req, res) => {
     const query = { aktif: true };
     require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
 
-    if (durum) query['durumBilgileri.genelDurum'] = durum;
+    Object.assign(query, listeDurumKosulu({ durum, arsiv }));
     if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
     if (firma) query.firma = firma;
     if (destekSinifi) query['yatirimBilgileri.destekSinifi'] = destekSinifi;
@@ -1981,7 +1982,10 @@ const birlesikFirmaArama = async (req, res) => {
 
     // Süre süzgeci aramayla birlikte de çalışsın (müşteri: süresi dolanları firma bazında da görebilmek)
     const sureKosulu = require('../utils/belgeSureFiltresi').sureFiltresi(req.query.sureDurumu);
-    const sure = (sorgu) => (sureKosulu ? sorgu.and([sureKosulu]) : sorgu);
+    // Arşiv görünümü firma aramasında da geçerli (Belge Takip'teki arama gibi)
+    const durumKosulu = listeDurumKosulu({ durum: req.query.durum, arsiv: req.query.arsiv });
+    const kosullar = [sureKosulu, Object.keys(durumKosulu).length ? durumKosulu : null].filter(Boolean);
+    const sure = (sorgu) => (kosullar.length ? sorgu.and(kosullar) : sorgu);
     const [eski, yeni] = await Promise.all([
       sure(Tesvik.searchTesvikler(q)).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean(),
       sure(YeniTesvik.searchTesvikler(q)).select(select).populate('olusturanKullanici', 'adSoyad rol').populate('firma', 'tamUnvan firmaId').limit(limit).lean()
