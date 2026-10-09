@@ -552,6 +552,17 @@ const startServer = async () => {
       console.error('⚠️ Fatura durumu migrasyonu hatası (kritik değil):', err.message);
     }
 
+    // 💤 Pasif firmaların belgeleri "Pasife Alındı" (müşteri, 07.10.2026). Her açılışta güvenle çalışır:
+    // işlenen belge `durumBilgileri.firmaPasif` ile işaretlenir, ikinci kez dokunulmaz — kullanıcının
+    // sonradan elle değiştirdiği durum ezilmez. Bkz. services/tesvik/firmaPasifBelgeleri.js
+    try {
+      const { pasifFirmalarinBelgeleriniIsle } = require('./services/tesvik/firmaPasifBelgeleri');
+      const sonuc = await pasifFirmalarinBelgeleriniIsle();
+      if (sonuc.pasifeAlinan > 0) console.log(`✅ Pasif firmalar: ${sonuc.pasifeAlinan} belge "Pasife Alındı" yapıldı`);
+    } catch (err) {
+      console.error('⚠️ Pasif firma belgeleri migrasyonu hatası (kritik değil):', err.message);
+    }
+
     // 🔕 Makine hatırlatmaları varsayılan KAPALI (müşteri, 15.09.2026: "otomatik olarak kapalı gelsin
     // biz manuel açabilelim istersek"). Elle açılmamış eski süreçlerin hatırlatması kapatılır; elle
     // açılanlara dokunulmaz, bu yüzden her açılışta güvenle çalışır.

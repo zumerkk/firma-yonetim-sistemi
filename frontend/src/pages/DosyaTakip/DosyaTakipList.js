@@ -19,7 +19,8 @@ import {
     ArrowBack as ArrowBackIcon,
     Clear as ClearIcon,
     Inventory2 as ArchiveIcon,
-    ViewColumn as ViewColumnIcon
+    ViewColumn as ViewColumnIcon,
+    FileDownload as ExcelIcon
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
@@ -29,6 +30,7 @@ import useSutunSirasi from '../../hooks/useSutunSirasi';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import axios from '../../utils/axios';
+import { belgeTakipExcelIndir } from '../../utils/belgeTakipExcel';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
 // Tek kaynak burasıdır — hücre renderer'larında ayrı fontSize yazmayın, bu sabiti kullanın.
@@ -235,25 +237,44 @@ const DosyaTakipList = () => {
         return () => { iptal = true; };
     }, []);
 
+    // Ekran ve Excel çıktısı AYNI süzgeçleri kullanır (görünüm, arama, aşama, tür, personel, sıralama)
+    const sorguParametreleri = useMemo(() => ({
+        search: aramaTerimi,
+        anaAsama: filterAnaAsama,
+        talepTuru: filterTalepTuru,
+        hazirlayan: filterHazirlayan,
+        takipEden: filterTakipEden,
+        // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
+        arsiv: arsivModu ? '1' : '',
+        // kapama=1 → yalnız kapama talepleri; boş → ana liste bunları göstermez
+        kapama: kapamaModu ? '1' : '',
+        // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
+        kapsam,
+        siralama: siralamaParam
+    }), [aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam, siralamaParam]);
+
     const loadData = useCallback(() => {
-        const params = {
-            page: sayfa + 1,
-            limit: sayfaBoyutu,
-            search: aramaTerimi,
-            anaAsama: filterAnaAsama,
-            talepTuru: filterTalepTuru,
-            hazirlayan: filterHazirlayan,
-            takipEden: filterTakipEden,
-            // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
-            arsiv: arsivModu ? '1' : '',
-            // kapama=1 → yalnız kapama talepleri; boş → ana liste bunları göstermez
-            kapama: kapamaModu ? '1' : '',
-            // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
-            kapsam,
-            siralama: siralamaParam
-        };
-        fetchTalepler(params);
-    }, [fetchTalepler, sayfa, sayfaBoyutu, aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam, siralamaParam]);
+        fetchTalepler({ ...sorguParametreleri, page: sayfa + 1, limit: sayfaBoyutu });
+    }, [fetchTalepler, sorguParametreleri, sayfa, sayfaBoyutu]);
+
+    // 📊 Excel — müşteri (07.10.2026): "Bu talepleri excel çıktısı olarak alabilme imkanımız var mı acaba?
+    // Kapama talepleri vs olarak." Ekrandaki kümenin TAMAMI iner (sayfa sınırı yok).
+    const [excelHazirlaniyor, setExcelHazirlaniyor] = useState(false);
+    const [excelHata, setExcelHata] = useState('');
+    const excelAktar = async () => {
+        setExcelHazirlaniyor(true);
+        try {
+            const { data } = await axios.get('/dosya-takip', {
+                params: { ...sorguParametreleri, page: 1, limit: 10000 },
+                timeout: 60000
+            });
+            await belgeTakipExcelIndir(Array.isArray(data?.data) ? data.data : [], gorunum);
+        } catch (err) {
+            setExcelHata(`Excel hazırlanamadı: ${err?.response?.data?.message || err.message}`);
+        } finally {
+            setExcelHazirlaniyor(false);
+        }
+    };
 
     // ☑️ E-TUYS takip kutusu — hata olursa tablonun üstünde görünür, kutu sunucudaki haliyle kalır
     const etuysDegistir = useCallback(async (id, isaretli) => {
@@ -596,6 +617,19 @@ const DosyaTakipList = () => {
                             <ToggleButton value="kapama">Kapama Talepleri</ToggleButton>
                             <ToggleButton value="arsiv"><ArchiveIcon sx={{ fontSize: 18, mr: 0.5 }} />Arşiv</ToggleButton>
                         </ToggleButtonGroup>
+                        <Tooltip title="Ekrandaki görünüm ve süzgeçlerle listenin tamamı (sayfa sınırı olmadan)">
+                            <span>
+                                <Button
+                                    variant="outlined"
+                                    startIcon={<ExcelIcon />}
+                                    onClick={excelAktar}
+                                    disabled={excelHazirlaniyor || !pagination?.toplam}
+                                    sx={{ textTransform: 'none' }}
+                                >
+                                    {excelHazirlaniyor ? 'Hazırlanıyor…' : 'Excel’e Aktar'}
+                                </Button>
+                            </span>
+                        </Tooltip>
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
@@ -612,6 +646,7 @@ const DosyaTakipList = () => {
 
                 {error && <Alert severity="error" onClose={clearError} sx={{ mb: 2 }}>{error}</Alert>}
                 {etuysHata && <Alert severity="error" onClose={() => setEtuysHata('')} sx={{ mb: 2 }}>{etuysHata}</Alert>}
+                {excelHata && <Alert severity="error" onClose={() => setExcelHata('')} sx={{ mb: 2 }}>{excelHata}</Alert>}
 
                 {/* Filtreler */}
                 <Paper sx={{ p: 2, mb: 2, border: '1px solid #e2e8f0' }}>

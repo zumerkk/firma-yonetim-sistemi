@@ -12,6 +12,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs-extra');
 const path = require('path');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
+const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
 
 // 🎯 Success Response Helper
 const sendSuccess = (res, data, message = 'İşlem başarılı', statusCode = 200) => {
@@ -447,6 +448,18 @@ const updateFirma = async (req, res) => {
       return sendError(res, 'Firma bulunamadı', 404);
     }
 
+    // 💤 Firma pasif/aktif olduysa belgeleri de izlesin (müşteri, 07.10.2026). Firma kaydı zaten
+    // yazıldı; belge güncellemesi düşerse kullanıcı yanıtta görür, firma güncellemesi geri alınmaz.
+    let belgeNotu = '';
+    try {
+      belgeNotu = firmaPasifBelgeleri.sonucMetni(
+        await firmaPasifBelgeleri.firmaAktiflikDegisti(oldFirma.aktif, firma.aktif, firma._id)
+      );
+    } catch (belgeHatasi) {
+      console.error('🚨 Firma aktiflik değişimi belgelere yansıtılamadı:', belgeHatasi);
+      belgeNotu = 'belgelerin durumu güncellenemedi, tekrar deneyin';
+    }
+
     // 📋 Activity Log - Firma Güncelleme
     const changes = analyzeChanges(oldFirma, firma.toObject());
     const changedFields = changes.fields.map(f => f.field).join(', ');
@@ -469,7 +482,7 @@ const updateFirma = async (req, res) => {
 
     sendSuccess(res,
       { firma: firma.toSafeJSON() },
-      `Firma başarıyla güncellendi (${firma.firmaId})`
+      `Firma başarıyla güncellendi (${firma.firmaId})${belgeNotu ? ` · ${belgeNotu}` : ''}`
     );
 
   } catch (error) {

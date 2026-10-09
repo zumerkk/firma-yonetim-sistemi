@@ -3,6 +3,7 @@
 // Gelişmiş özellikler + bonus hesaplama sistemi
 
 const mongoose = require('mongoose');
+const { BELGE_DURUM_DEGERLERI, durumRengi } = require('../constants/belgeDurumlari');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // 💰 Mali Hesaplamalar Schema
@@ -690,7 +691,7 @@ const tesvikSchema = new mongoose.Schema({
   durumBilgileri: {
     genelDurum: {
       type: String,
-      enum: ['taslak', 'hazirlaniyor', 'başvuru_yapildi', 'inceleniyor', 'ek_belge_istendi', 'revize_talep_edildi', 'onay_bekliyor', 'onaylandi', 'reddedildi', 'iptal_edildi', 'kapandi'],
+      enum: BELGE_DURUM_DEGERLERI, // tek kaynak: constants/belgeDurumlari.js
       default: 'onaylandi', // müşteri: yeni belgeler varsayılan 'Onaylandı' açılır
       index: true
     },
@@ -706,7 +707,12 @@ const tesvikSchema = new mongoose.Schema({
       maxlength: 500
     },
     // 🔒 Kullanıcı durumu elle seçtiyse true olur (bkz. Tesvik modelindeki aynı alan).
-    durumManuelSecildi: { type: Boolean, default: false }
+    durumManuelSecildi: { type: Boolean, default: false },
+    // 💤 Firma pasife alınınca belge de "Pasife Alındı" olur (services/tesvik/firmaPasifBelgeleri.js).
+    // firmaPasif: bu belge firma pasifliğiyle işlendi (açılış göçü aynı belgeyi ikinci kez işlemesin).
+    // pasifOncesiDurum: firma yeniden aktif yapılınca belge bu duruma döner.
+    firmaPasif: { type: Boolean },
+    pasifOncesiDurum: { type: String, enum: BELGE_DURUM_DEGERLERI }
   },
 
   // 📮 Ara Kontrol — belge geneli public yükleme linki (firma fatura/evrak yükler)
@@ -1295,21 +1301,7 @@ tesvikSchema.methods.hesaplaGenelBonusOzeti = function() {
 
 // 🎨 Durum Rengi Güncelleme
 tesvikSchema.methods.updateDurumRengi = function() {
-  const durumRenkMappingi = {
-    'taslak': 'gri',
-    'hazirlaniyor': 'sari',
-    'başvuru_yapildi': 'mavi',
-    'inceleniyor': 'turuncu',
-    'ek_belge_istendi': 'sari',
-    'revize_talep_edildi': 'kirmizi',
-    'onay_bekliyor': 'turuncu',
-    'onaylandi': 'yesil',
-    'reddedildi': 'kirmizi',
-    'iptal_edildi': 'gri',
-    'kapandi': 'gri'
-  };
-  
-  this.durumBilgileri.durumRengi = durumRenkMappingi[this.durumBilgileri.genelDurum] || 'gri';
+  this.durumBilgileri.durumRengi = durumRengi(this.durumBilgileri.genelDurum);
   this.durumBilgileri.sonDurumGuncelleme = new Date();
 };
 

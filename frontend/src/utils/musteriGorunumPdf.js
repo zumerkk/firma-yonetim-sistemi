@@ -18,6 +18,7 @@ import { birimEtiketi, finansalKiralamaEtiketi, kullanilmisEtiketi } from './mak
 import { disaAktarimAdi, etiketNormalle } from './disaAktarimAdi';
 import { kunyeBolumleri } from './belgeKunye';
 import { finansalBolumleri } from './belgeFinansal';
+import { SILINDI, silinenBaslik } from './silinenMakineler';
 
 const FONT_YOLLARI = {
   normal: `${process.env.PUBLIC_URL || ''}/fonts/Roboto-Regular.ttf`,
@@ -75,9 +76,29 @@ const doluysa = (etiket, deger, bicim = str) => {
   return (!v || v === '-') ? null : [etiket, v];
 };
 
-const RENK = { baslik: [30, 58, 138], satirBaslik: [241, 245, 249], grupBaslik: [226, 232, 240], cizgi: [203, 213, 225] };
+const RENK = { baslik: [30, 58, 138], satirBaslik: [241, 245, 249], grupBaslik: [226, 232, 240], cizgi: [203, 213, 225],
+  silinen: [220, 38, 38], silinenZemin: [254, 226, 226] };
+
+// Müşteri (07.10.2026): silinen makineler listeden düşmesin, kırmızı "SİLİNDİ" ile görünsün.
+// Güncel satırların altına başlıklı ayrı bölüm; son sütun (Onay Tarihi) yerine "SİLİNDİ".
+export const silinenSatirlariEkle = (govde, silinenler, kolonSayisi, satirYap) => {
+  if (!silinenler?.length) return govde;
+  return [
+    ...govde,
+    [{ content: silinenBaslik(silinenler.length), colSpan: kolonSayisi,
+      styles: { fontStyle: 'bold', textColor: RENK.silinen, fillColor: RENK.silinenZemin } }],
+    ...silinenler.map((m) => {
+      const hucreler = satirYap(m);
+      hucreler[hucreler.length - 1] = SILINDI;
+      return hucreler.map((h, i) => ({
+        content: h, styles: { textColor: RENK.silinen, ...(i === hucreler.length - 1 ? { fontStyle: 'bold' } : {}) }
+      }));
+    })
+  ];
+};
 
 // secenek: { tur: 'eski' | 'yeni', oecdGoster, konuGoster } — belge görünümüyle aynı (utils/belgeKunye.js)
+//          silinenler: { yerli, ithal } — revizyonlarda silinmiş makineler (utils/silinenMakineler.js)
 export const exportTesvikToPdf = async (tesvik, secenek = {}) => {
   const { normal, bold } = await fontlariYukle();
 
@@ -283,7 +304,15 @@ export const exportTesvikToPdf = async (tesvik, secenek = {}) => {
   // Müşterinin asıl şikayeti buydu: Excel'den PDF'e çevirince listelerin
   // hangisi yerli hangisi ithal olduğu anlaşılmıyordu.
   const yerli = tesvik.makineListeleri?.yerli || [];
-  if (yerli.length) {
+  const yerliSilinen = secenek.silinenler?.yerli || [];
+  const yerliSatir = (m) => [
+    str(m.siraNo), str(m.makineId), str(m.adiVeOzelligi),
+    num(m.miktar), birimEtiketi(m.birim, m.birimAciklamasi) || '-',
+    tl(m.birimFiyatiTl), tl(m.toplamTutariTl || m.toplamTl), str(m.kdvIstisnasi),
+    finansalKiralamaEtiketi(m.finansalKiralamaMi),
+    onayTarihi(m)
+  ];
+  if (yerli.length || yerliSilinen.length) {
     doc.addPage('a4', 'landscape');
     y = 44;
     baslik(`YERLİ MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ''}`, 14);
@@ -291,33 +320,29 @@ export const exportTesvikToPdf = async (tesvik, secenek = {}) => {
     // Yerine onay tarihi geldi; sütun sayısı değişmediği için sayfa düzeni bozulmuyor.
     tablo(
       ['Sıra', 'Makine ID', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı (TL)', 'Toplam (TL)', 'KDV İstisnası', 'Finansal Kiralama', 'Onay Tarihi'],
-      yerli.map((m) => [
-        str(m.siraNo), str(m.makineId), str(m.adiVeOzelligi),
-        num(m.miktar), birimEtiketi(m.birim, m.birimAciklamasi) || '-',
-        tl(m.birimFiyatiTl), tl(m.toplamTutariTl || m.toplamTl), str(m.kdvIstisnasi),
-        finansalKiralamaEtiketi(m.finansalKiralamaMi),
-        onayTarihi(m)
-      ]),
+      silinenSatirlariEkle(yerli.map(yerliSatir), yerliSilinen, 10, yerliSatir),
       { columnStyles: { 2: { cellWidth: 200 } } }
     );
   }
 
   const ithal = tesvik.makineListeleri?.ithal || [];
-  if (ithal.length) {
+  const ithalSilinen = secenek.silinenler?.ithal || [];
+  const ithalSatir = (m) => [
+    str(m.siraNo), str(m.gtipKodu), str(m.adiVeOzelligi), num(m.miktar),
+    birimEtiketi(m.birim, m.birimAciklamasi) || '-', num(m.birimFiyatiFob), str(m.gumrukDovizKodu),
+    usd(m.toplamTutarFobUsd || m.toplamUsd), tl(m.toplamTutarFobTl || m.toplamTl),
+    kullanilmisEtiketi(m.kullanilmisMakine, m.kullanilmisMakineAciklama),
+    evetHayir(m.gumrukVergisiMuafiyeti), evetHayir(m.kdvMuafiyeti),
+    finansalKiralamaEtiketi(m.finansalKiralamaMi),
+    onayTarihi(m)
+  ];
+  if (ithal.length || ithalSilinen.length) {
     doc.addPage('a4', 'landscape');
     y = 44;
     baslik(`İTHAL MAKİNE LİSTESİ${tesvik.belgeNo ? ` — Belge No: ${tesvik.belgeNo}` : ''}`, 14);
     tablo(
       ['Sıra', 'GTİP', 'Adı ve Özelliği', 'Miktar', 'Birim', 'Birim Fiyatı', 'Döviz', 'Toplam ($)', 'Toplam (TL)', 'Kullanılmış', 'Gümrük İstisnası', 'KDV İstisnası', 'Finansal Kiralama', 'Onay Tarihi'],
-      ithal.map((m) => [
-        str(m.siraNo), str(m.gtipKodu), str(m.adiVeOzelligi), num(m.miktar),
-        birimEtiketi(m.birim, m.birimAciklamasi) || '-', num(m.birimFiyatiFob), str(m.gumrukDovizKodu),
-        usd(m.toplamTutarFobUsd || m.toplamUsd), tl(m.toplamTutarFobTl || m.toplamTl),
-        kullanilmisEtiketi(m.kullanilmisMakine, m.kullanilmisMakineAciklama),
-        evetHayir(m.gumrukVergisiMuafiyeti), evetHayir(m.kdvMuafiyeti),
-        finansalKiralamaEtiketi(m.finansalKiralamaMi),
-        onayTarihi(m)
-      ]),
+      silinenSatirlariEkle(ithal.map(ithalSatir), ithalSilinen, 14, ithalSatir),
       { columnStyles: { 2: { cellWidth: 165 } }, styles: { font: 'Roboto', fontSize: 6.5, cellPadding: 2.5, overflow: 'linebreak' } }
     );
   }

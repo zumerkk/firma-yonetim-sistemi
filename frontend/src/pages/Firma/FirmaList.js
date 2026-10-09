@@ -729,9 +729,13 @@ const FirmaList = () => {
               onClick={async () => {
                 try {
                   const newStatus = params.row.aktif === false;
-                  await updateFirma(params.row._id, { aktif: newStatus });
+                  const sonuc = await updateFirma(params.row._id, { aktif: newStatus });
+                  // updateFirma hata durumunda fırlatmıyor, { success:false } dönüyor
+                  if (sonuc && sonuc.success === false) throw new Error(sonuc.message || 'Sunucu reddetti');
+                  // Sunucu firmanın belgelerinin de pasife alındığını / geri döndüğünü yanıtta söyler
+                  const belgeNotu = String(sonuc?.message || '').split(' · ').slice(1).join(' · ');
                   showNotification(
-                    newStatus ? `${params.row.tamUnvan} aktif yapıldı` : `${params.row.tamUnvan} pasif yapıldı`,
+                    `${params.row.tamUnvan} ${newStatus ? 'aktif' : 'pasif'} yapıldı${belgeNotu ? ` · ${belgeNotu}` : ''}`,
                     'success'
                   );
                   await fetchFirmalar();

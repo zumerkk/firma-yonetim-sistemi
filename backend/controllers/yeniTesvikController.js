@@ -3,6 +3,8 @@
 // Bonus hesaplamaları + yeni alanlar + mali hesaplamalar + durum yönetimi
 
 const YeniTesvik = require('../models/YeniTesvik');
+const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi, listeDurumKosulu } = require('../constants/belgeDurumlari');
+const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
 const makineRevizyonDeposu = require('../services/makineRevizyonDeposu');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
@@ -298,6 +300,7 @@ const getTesvikler = async (req, res) => {
       sayfa = 1,
       limit = 20,
       durum,
+      arsiv, // '1' → kapanan belgeler (Arşiv), '0' → ana liste (bkz. listeDurumKosulu)
       il,
       firma,
       siraBy = 'createdAt',
@@ -314,7 +317,7 @@ const getTesvikler = async (req, res) => {
     const query = { aktif: true };
     require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
 
-    if (durum) query['durumBilgileri.genelDurum'] = durum;
+    Object.assign(query, listeDurumKosulu({ durum, arsiv }));
     if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
     if (firma) query.firma = firma;
     if (destekSinifi) query['yatirimBilgileri.destekSinifi'] = destekSinifi;
@@ -570,6 +573,7 @@ const updateTesvik = async (req, res) => {
     // (aksi halde kayıt sonrası auto-sync bu seçimi revizyon geçmişinden ezer)
     if (updateData.durumBilgileri?.genelDurum) {
       tesvik.durumBilgileri.durumManuelSecildi = true;
+      firmaPasifBelgeleri.elleSecimiIsle(tesvik.durumBilgileri);
       tesvik.updateDurumRengi();
     }
 
@@ -1039,6 +1043,8 @@ const updateTesvikDurum = async (req, res) => {
     tesvik.durumBilgileri.durumAciklamasi = aciklama || '';
     // Elle seçim: bundan sonra revizyon geçmişinden türetilen durum bunu ezmesin
     tesvik.durumBilgileri.durumManuelSecildi = true;
+    // Pasif firmanın belgesi elle başka duruma alındıysa firma aktif olunca seçim ezilmesin
+    firmaPasifBelgeleri.elleSecimiIsle(tesvik.durumBilgileri);
     tesvik.sonGuncelleyen = req.user._id;
     tesvik.sonGuncellemeNotlari = kullaniciNotu || `Durum güncellendi: ${eskiDurum} → ${yeniDurum}`;
 
@@ -1936,7 +1942,9 @@ const getDurumRenkleri = async (req, res) => {
       'onaylandi': { renk: 'yesil', hex: '#10B981', aciklama: 'Onaylandı - Başarıyla tamamlandı' },
       'reddedildi': { renk: 'kirmizi', hex: '#EF4444', aciklama: 'Reddedildi - Başvuru kabul edilmedi' },
       'iptal_edildi': { renk: 'gri', hex: '#6B7280', aciklama: 'İptal Edildi - İşlem durduruldu' },
-      'kapandi': { renk: 'gri', hex: '#6B7280', aciklama: 'Kapandı - Belge kapatıldı' }
+      'kapama_talepli': { renk: 'mavi', hex: '#7C3AED', aciklama: 'Kapama Talepli - Kapama başvurusu yapıldı' },
+      'kapandi': { renk: 'gri', hex: '#6B7280', aciklama: 'Kapandı - Belge kapatıldı' },
+      'pasife_alindi': { renk: 'gri', hex: '#94A3B8', aciklama: 'Pasife Alındı - Firma pasif / takip dışı' }
     };
 
     res.json({
@@ -2380,19 +2388,8 @@ const getNextTesvikIdValue = async () => {
   return `TES${year}${nextNumber.toString().padStart(4, '0')}`;
 };
 
-const getDurumOptions = () => [
-  { value: 'taslak', label: 'Taslak', color: '#6B7280' },
-  { value: 'hazirlaniyor', label: 'Hazırlanıyor', color: '#F59E0B' },
-  { value: 'başvuru_yapildi', label: 'Başvuru Yapıldı', color: '#3B82F6' },
-  { value: 'inceleniyor', label: 'İnceleniyor', color: '#F97316' },
-  { value: 'ek_belge_istendi', label: 'Ek Belge İstendi', color: '#F59E0B' },
-  { value: 'revize_talep_edildi', label: 'Revize Talep Edildi', color: '#EF4444' },
-  { value: 'onay_bekliyor', label: 'Onay Bekliyor', color: '#F97316' },
-  { value: 'onaylandi', label: 'Onaylandı', color: '#10B981' },
-  { value: 'reddedildi', label: 'Reddedildi', color: '#EF4444' },
-  { value: 'iptal_edildi', label: 'İptal Edildi', color: '#6B7280' },
-  { value: 'kapandi', label: 'Kapandı', color: '#6B7280' } // müşteri: listede 'kapandı' seçeneği yoktu
-];
+// Tek kaynak: constants/belgeDurumlari.js (müşteri: 'kapandı', 'kapama talepli', 'pasife alındı')
+const getDurumOptions = () => BELGE_DURUMLARI.map(({ value, label, hex }) => ({ value, label, color: hex }));
 
 const getDestekSiniflariOptions = async () => {
   try {
@@ -2880,20 +2877,19 @@ const bulkUpdateDurum = async (req, res) => {
     // müşteri isteği: "'Tümünü onaylandı yap' sadece taslakları onaylandı yapsın."
     // → tumu:true ile toplu onayda YALNIZCA taslak belgeler değişir; kapanmış, iptal edilmiş
     //   veya süreçte olan (inceleniyor/onay_bekliyor/reddedildi...) belgelere dokunulmaz.
-    const KORUNAN_DURUMLAR = ['kapandi', 'iptal_edildi'];
+    const KORUNAN_DURUMLAR = TOPLU_KORUNAN_DURUMLAR; // kapama talepli, kapandı, iptal, pasife alındı
     const tumuFiltresi = yeniDurum === 'onaylandi'
       ? { aktif: true, 'durumBilgileri.genelDurum': 'taslak' }
       : { aktif: true, 'durumBilgileri.genelDurum': { $nin: KORUNAN_DURUMLAR } };
     const filter = tumu === true
       ? tumuFiltresi
       : { _id: { $in: tesvikIds }, aktif: true };
-    const renkMap = { taslak: 'gri', hazirlaniyor: 'mavi', başvuru_yapildi: 'mavi', inceleniyor: 'mavi', ek_belge_istendi: 'turuncu', revize_talep_edildi: 'turuncu', onay_bekliyor: 'sari', onaylandi: 'yesil', reddedildi: 'kirmizi', iptal_edildi: 'gri', kapandi: 'gri' };
 
     const updateResult = await YeniTesvik.updateMany(
       filter,
       {
         'durumBilgileri.genelDurum': yeniDurum,
-        'durumBilgileri.durumRengi': renkMap[yeniDurum] || 'gri',
+        'durumBilgileri.durumRengi': durumRengi(yeniDurum),
         'durumBilgileri.durumAciklamasi': aciklama || '',
         'durumBilgileri.sonDurumGuncelleme': new Date(),
         // Toplu değişiklik de elle seçimdir; auto-sync geri almasın
@@ -3294,7 +3290,7 @@ const deriveDurumFromRevision = (rev) => {
 };
 
 // Otomatik türetmenin ASLA ezmemesi gereken durumlar (bkz. tesvikController'daki eşi)
-const OTO_SENKRON_DISI_DURUMLAR = ['kapandi', 'iptal_edildi'];
+// (liste: constants/belgeDurumlari.js — kapama talepli, kapandı, iptal edildi, pasife alındı)
 
 // 🔄 Revizyon geçmişine göre durumu otomatik senkronize et
 // ⚠️ Yalnızca durumu hiç elle seçilmemiş kayıtlar için — aksi halde elle yapılan durum

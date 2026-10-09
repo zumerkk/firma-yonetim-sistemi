@@ -8,6 +8,7 @@ const cloudinary = require('cloudinary').v2;
 const parcaliDosya = require('../utils/parcaliDosya');
 const { turkceArama } = require('../utils/turkceArama');
 const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
+const notBildirimi = require('../services/dosyaTakip/notBildirimi');
 
 // ============================================================================
 // ☁️ CLOUDINARY AYARLARI
@@ -185,6 +186,7 @@ exports.getDashboardIstatistikleri = async (req, res) => {
 // Güvenlik sınırları — ekranda kaydırmalı liste; bunlar yalnız aşırı uçta yanıtı korur
 const ACIK_TALEP_SINIRI = 500;
 const FIRMADAN_GELEN_SINIRI = 100;
+const GELEN_NOT_SINIRI = 100; // bildirimler 30 gün tutuluyor; bu pencerede fazlası pek olmaz
 
 exports.benimIslerim = async (req, res) => {
     try {
@@ -195,7 +197,7 @@ exports.benimIslerim = async (req, res) => {
         const acikSuzgec = { aktif: { $ne: false }, durum: { $nin: KAPALI } };
         const alanlar = 'takipId firmaUnvan talepTuru ytbNo durum durumRengi anaAsama createdAt updatedAt';
 
-        const [takibimde, actiklarim, sonYuklemeler] = await Promise.all([
+        const [takibimde, actiklarim, sonYuklemeler, gelenNotlar] = await Promise.all([
             DosyaTakip.find({ ...acikSuzgec, 'muraacatSonrasi.takibiYapanPersonel': kullaniciId })
                 .select(alanlar).sort({ updatedAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             DosyaTakip.find({ ...acikSuzgec, olusturanKullanici: kullaniciId })
@@ -215,12 +217,17 @@ exports.benimIslerim = async (req, res) => {
                     dosyaAdi: '$dosyalar.dosyaAdi', tarih: '$dosyalar.yuklemeTarihi',
                     yukleyenAdi: '$dosyalar.yukleyenAdi'
                 } }
-            ])
+            ]),
+            // 🔔 Müşteri (07.10.2026): "bildirim gönderince maile gidiyor ya aynı şekilde Dashboard'ına da
+            // düşsün" — talep notunda bana gönderilen bildirimler (bkz. services/dosyaTakip/notBildirimi.js)
+            Notification.find(notBildirimi.notBildirimiSorgusu(kullaniciId))
+                .select('title message isRead createdAt actionButton')
+                .sort({ createdAt: -1 }).limit(GELEN_NOT_SINIRI).lean()
         ]);
 
         res.json({
             success: true,
-            data: { takibimde, actiklarim, sonYuklemeler }
+            data: { takibimde, actiklarim, sonYuklemeler, gelenNotlar: gelenNotlar.map(notBildirimi.notBildirimiSatiri) }
         });
     } catch (error) {
         console.error('🚨 benimIslerim hatası:', error);
@@ -1006,10 +1013,10 @@ exports.notEkle = async (req, res) => {
             if (hedefler.length) {
                 const firmaAdi = talep.firmaUnvan || 'Firma';
                 const tarihStr = new Date().toLocaleString('tr-TR');
-                const kisaNot = String(metin).length > 260 ? `${String(metin).slice(0, 257)}...` : String(metin);
+                // Biçim ana sayfadaki "Bana Gelen Notlar"da geri çözülüyor — services/dosyaTakip/notBildirimi.js
                 await Promise.all(hedefler.map((uid) => Notification.createNotification({
-                    title: `Talep Notu — ${firmaAdi}`.slice(0, 100),
-                    message: `${firmaAdi} · ${tarihStr} · ${req.user.adSoyad}\n${kisaNot}`.slice(0, 500),
+                    title: notBildirimi.notBildirimiBasligi(firmaAdi),
+                    message: notBildirimi.notBildirimiMesaji({ firmaAdi, tarihStr, gonderen: req.user.adSoyad, metin }),
                     type: 'info',
                     category: 'general',
                     priority: 'medium',

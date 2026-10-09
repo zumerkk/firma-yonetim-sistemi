@@ -131,8 +131,8 @@ exports.getDashboard = wrap(async (req, res) => {
 });
 
 // ───────── SERTİFİKA (TEŞVİK) LİSTESİ ─────────
-// Tesvik/YeniTesvik modellerindeki durumBilgileri.genelDurum enum'undaki kapalı değeri
-const KAPALI_BELGE_DURUMU = 'kapandi';
+// Varsayılan olarak gösterilmeyenler: kapanan ve pasife alınan belgeler (constants/belgeDurumlari.js)
+const { EKIPMAN_TAKIP_GIZLI_DURUMLAR } = require('../constants/belgeDurumlari');
 
 function certAggPipeline(match) {
   return [
@@ -160,11 +160,11 @@ function buildCertMatch(q) {
   if (q.belgeId) m['belgeYonetimi.belgeId'] = q.belgeId;
   // 🗄️ Kapanan belgeler (müşteri: "ekipman takipte kapanan belgeleri gizleyelim ya da
   // filtreleyebilelim"). Varsayılan: kapananlar listede görünmez.
-  //   belgeDurum boş  → kapananlar hariç
+  //   belgeDurum boş  → kapanan ve pasife alınan belgeler hariç
   //   belgeDurum=all  → hepsi
   //   belgeDurum=<x>  → yalnızca o durum
   const belgeDurum = (q.belgeDurum || '').trim();
-  if (!belgeDurum) m['durumBilgileri.genelDurum'] = { $ne: KAPALI_BELGE_DURUMU };
+  if (!belgeDurum) m['durumBilgileri.genelDurum'] = { $nin: EKIPMAN_TAKIP_GIZLI_DURUMLAR };
   else if (belgeDurum !== 'all') m['durumBilgileri.genelDurum'] = belgeDurum;
   return m;
 }

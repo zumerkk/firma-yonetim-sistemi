@@ -33,7 +33,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText
+  DialogContentText,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -45,14 +47,15 @@ import {
 
   TableView as TableViewIcon,
   History as HistoryIcon,
-  DoneAll as DoneAllIcon
+  DoneAll as DoneAllIcon,
+  Inventory2 as ArchiveIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 
 const TesvikList = () => {
@@ -95,12 +98,17 @@ const TesvikList = () => {
   
   // 🔍 Filter States
   // sureDurumu: müşteri (21.09.2026) "belge bitiş tarihi geçenler" + "süre uzatım hakkı var mı, yok mu?"
+  // arsiv: müşteri (09.10.2026) "Belge takipdeki Arşiv gibi Kapalı belgeler için de bir arşiv kısmı yapabilir
+  // miyiz Teşvik belgesinde?" — '0' ana liste (kapananlar hariç), '1' arşiv (yalnız kapananlar). Durum
+  // süzgecinden açıkça bir durum seçilirse o kazanır (sunucu: constants/belgeDurumlari.js listeDurumKosulu).
   const [filters, setFilters] = useState({
     search: '',
     durum: '',
     il: '',
-    sureDurumu: ''
+    sureDurumu: '',
+    arsiv: '0'
   });
+  const arsivModu = filters.arsiv === '1';
 
   // 📅 Tarih sıralaması — müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını,
   // tarihe göre sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" (artan = en yakın üstte)
@@ -111,22 +119,7 @@ const TesvikList = () => {
   };
 
   // 🎨 Durum Renk Haritası
-  const getDurumColor = (durum) => {
-    const colorMap = {
-      'taslak': '#6B7280',
-      'hazirlaniyor': '#F59E0B',
-      'başvuru_yapildi': '#3B82F6',
-      'inceleniyor': '#F97316',
-      'ek_belge_istendi': '#F59E0B',
-      'revize_talep_edildi': '#EF4444',
-      'onay_bekliyor': '#F97316',
-      'onaylandi': '#10B981',
-      'reddedildi': '#EF4444',
-      'iptal_edildi': '#6B7280',
-      'kapandi': '#6B7280'
-    };
-    return colorMap[durum] || '#6B7280';
-  };
+  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
@@ -197,7 +190,9 @@ const TesvikList = () => {
       let varsayilanSistem = 'Eski';
       if (aramaTerimi.length >= 2) {
         // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
-        response = await axios.get('/tesvik/birlesik-arama', { params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined } });
+        response = await axios.get('/tesvik/birlesik-arama', {
+          params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined, durum: filters.durum || undefined, arsiv: filters.arsiv }
+        });
         varsayilanSistem = '';
       } else if (sistemFiltre === 'Yeni') {
         // müşteri: "Yeni" filtresi arama yokken de çalışsın (eskiden boş dönüyordu)
@@ -321,6 +316,7 @@ const TesvikList = () => {
         responseType: 'blob',
         params: {
           durum: filters.durum,
+          arsiv: filters.arsiv,
           il: filters.il,
           search: filters.search,
           sureDurumu: filters.sureDurumu || undefined
@@ -420,14 +416,29 @@ const TesvikList = () => {
                 gap: 2
               }}>
                 <EmojiEventsIcon sx={{ fontSize: 32, color: '#dc2626' }} />
-                Teşvik Listesi
+                {arsivModu ? 'Teşvik Arşivi — Kapanan Belgeler' : 'Teşvik Listesi'}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                Toplam {pagination.totalCount} teşvik kaydı
+                {arsivModu
+                  ? `Toplam ${pagination.totalCount} kapanan belge`
+                  : `Toplam ${pagination.totalCount} teşvik kaydı (kapanan belgeler Arşiv'de)`}
               </Typography>
             </Box>
             
-            <Box sx={{ display: 'flex', gap: 2 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center' }}>
+              {/* 🗄️ Belge Takip'teki Aktif / Arşiv düğmesiyle aynı görünüm; durum süzgeci sıfırlanır ki
+                  ana listede "Kapandı" seçili kalıp arşiv boş görünmesin */}
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={filters.arsiv}
+                onChange={(e, deger) => deger && setFilters((onceki) => ({ ...onceki, arsiv: deger, durum: '' }))}
+                sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5, fontWeight: 600, color: '#475569' },
+                  '& .Mui-selected': { color: '#fff !important', background: '#047857 !important' } }}
+              >
+                <ToggleButton value="0">Aktif Belgeler</ToggleButton>
+                <ToggleButton value="1"><ArchiveIcon sx={{ fontSize: 18, mr: 0.5 }} />Arşiv</ToggleButton>
+              </ToggleButtonGroup>
               <Button
                 variant="outlined"
                 startIcon={<DoneAllIcon />}

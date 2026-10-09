@@ -20,11 +20,13 @@ import {
   History as HistoryIcon
 } from '@mui/icons-material';
 import { exportTesvikToExcel } from '../../utils/docxExcelExport';
+import { silinenMakineleriGetir } from '../../utils/silinenMakineler';
+
 import KdvMuafiyetYazisi from '../../components/Tesvik/KdvMuafiyetYazisi';
 
 // API Utils
 import api from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket } from '../../utils/belgeGosterim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
@@ -35,6 +37,9 @@ import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiP
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import BelgeTakipIslemleri from '../../components/Tesvik/BelgeTakipIslemleri';
 import useTesvikDetailData from '../../hooks/useTesvikDetailData';
+
+// Silinen makineler okunamazsa çıktı yine alınır ama kullanıcı bunu bilmeli
+const SILINEN_ALINAMADI = 'Silinen makineler okunamadı; PDF silinen makineler olmadan indirildi. Tekrar denerseniz eklenir.';
 
 // ETUYS bölüm sırası — DEĞİŞTİRMEYİN. Kullanıcılar bu sırayı bakanlık
 // sisteminde ezberlemiş; "en sık kullanılanı öne al" kas hafızasını bozar.
@@ -64,13 +69,33 @@ const YeniTesvikDetail = () => {
     try {
       // Dinamik import: jspdf + autotable ~120 KB. Statik alınırsa herkesin
       // ana paketine giriyordu; PDF nadiren istendiği için tıklayınca inmesi yeterli.
-      const { exportTesvikToPdf } = await import('../../utils/musteriGorunumPdf');
-      await exportTesvikToPdf(tesvik, { tur: 'yeni', oecdGoster, konuGoster });
+      const [{ exportTesvikToPdf }, silinenler] = await Promise.all([
+        import('../../utils/musteriGorunumPdf'),
+        silinenMakineleriGetir('yeni-tesvik', tesvik._id)
+      ]);
+      await exportTesvikToPdf(tesvik, { ...{ tur: 'yeni', oecdGoster, konuGoster }, silinenler });
+      if (!silinenler) window.alert(SILINEN_ALINAMADI);
     } catch (hata) {
       console.error('PDF oluşturulamadı:', hata);
       window.alert('PDF oluşturulamadı. Sayfayı yenileyip tekrar deneyin.');
     } finally {
       setPdfHazirlaniyor(false);
+    }
+  };
+
+  // 📊 Müşteri görünümü Excel — PDF ile aynı içerik (silinen makineler dahil)
+  const [excelHazirlaniyor, setExcelHazirlaniyor] = useState(false);
+  const musteriGorunumuExcel = async () => {
+    setExcelHazirlaniyor(true);
+    try {
+      const silinenler = await silinenMakineleriGetir('yeni-tesvik', tesvik._id);
+      await exportTesvikToExcel(tesvik, false, { ...{ oecdGoster, konuGoster }, silinenler });
+      if (!silinenler) window.alert(SILINEN_ALINAMADI.replace('PDF', 'Excel'));
+    } catch (hata) {
+      console.error('Excel oluşturulamadı:', hata);
+      window.alert('Excel oluşturulamadı. Sayfayı yenileyip tekrar deneyin.');
+    } finally {
+      setExcelHazirlaniyor(false);
     }
   };
 
@@ -122,22 +147,15 @@ const YeniTesvikDetail = () => {
   });
 
   // Helper functions
-  const getDurumColor = (durum) => {
-    const colors = {
-      'hazirlaniyor': '#f59e0b',
-      'inceleniyor': '#3b82f6',
-      'onaylandi': '#10b981',
-      'reddedildi': '#ef4444',
-      'beklemede': '#6b7280'
-    };
-    return colors[durum] || '#6b7280';
-  };
+  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   const getDurumProgress = (durum) => {
     const progress = {
       'hazirlaniyor': 25,
       'inceleniyor': 50,
       'onaylandi': 100,
+      'kapama_talepli': 100,
+      'kapandi': 100,
       'reddedildi': 0,
       'beklemede': 10
     };
@@ -777,7 +795,8 @@ const YeniTesvikDetail = () => {
               variant="contained"
               size="small"
               startIcon={<FileDownloadIcon />}
-              onClick={() => exportTesvikToExcel(tesvik, false, { oecdGoster, konuGoster })}
+              onClick={musteriGorunumuExcel}
+              disabled={excelHazirlaniyor}
               sx={{
                 background: 'rgba(255,255,255,0.2)',
                 border: '1px solid rgba(255,255,255,0.3)',
@@ -790,7 +809,7 @@ const YeniTesvikDetail = () => {
                 '&:hover': { background: 'rgba(255,255,255,0.3)' }
               }}
             >
-              Müşteri Görünümü (Excel)
+              {excelHazirlaniyor ? 'Excel hazırlanıyor…' : 'Müşteri Görünümü (Excel)'}
             </Button>
             <Button
               variant="contained"

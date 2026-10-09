@@ -266,7 +266,7 @@ router.get('/:id/revizyon-excel-export', authenticate, checkPermission('raporGor
 // Query params: durum, il, firma, tarihBaslangic, tarihBitis
 router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule'), async (req, res) => {
   try {
-    const { durum, il, firma, tarihBaslangic, tarihBitis, search, sureDurumu } = req.query;
+    const { durum, arsiv, il, firma, tarihBaslangic, tarihBitis, search, sureDurumu } = req.query;
     
     // Filtreleme kriterlerini oluştur
     let filter = { aktif: true };
@@ -275,7 +275,8 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     
     // 🔧 FIX: durum alanı modelde durumBilgileri.genelDurum (durum diye alan yok —
     // bu yüzden Excel'de her şey "taslak" görünüyordu)
-    if (durum) filter['durumBilgileri.genelDurum'] = durum;
+    // Listede seçili görünüm (ana liste / arşiv) Excel'e de uygulanır — constants/belgeDurumlari.js
+    Object.assign(filter, require('../constants/belgeDurumlari').listeDurumKosulu({ durum, arsiv }));
     if (il) filter['firma.il'] = il;
     if (firma) filter.firma = firma;
     if (search) {
@@ -356,14 +357,19 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       'reddedildi': 'FFDC143C',          // Kırmızı
       'revize_talep_edildi': 'FFFF8C00', // Turuncu
       'iptal_edildi': 'FF808080',        // Gri
-      'tamamlandi': 'FF228B22'           // Koyu yeşil
+      'tamamlandi': 'FF228B22',          // Koyu yeşil
+      'kapama_talepli': 'FF7C3AED',      // Mor
+      'kapandi': 'FF6B7280',             // Gri
+      'pasife_alindi': 'FFA0AEC0'        // Açık gri
     };
     // Excel hücresinde ham enum yerine Türkçe etiket yazılsın
     const durumEtiketleri = {
       'taslak': 'Taslak', 'hazirlaniyor': 'Hazırlanıyor', 'başvuru_yapildi': 'Başvuru Yapıldı',
       'inceleniyor': 'İnceleniyor', 'ek_belge_istendi': 'Ek Belge İstendi', 'beklemede': 'Beklemede',
       'onay_bekliyor': 'Onay Bekliyor', 'onaylandi': 'Onaylandı', 'reddedildi': 'Reddedildi',
-      'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı'
+      'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı',
+      // tek kaynak: constants/belgeDurumlari.js (kapama talepli, kapandı, pasife alındı …)
+      ...Object.fromEntries(require('../constants/belgeDurumlari').BELGE_DURUMLARI.map((d) => [d.value, d.label]))
     };
 
     // Ana başlık
@@ -547,6 +553,9 @@ router.post('/:id/makine-revizyon/start', authenticate, checkPermission('belgeDu
 router.post('/:id/makine-revizyon/finalize', authenticate, checkPermission('belgeDuzenle'), finalizeMakineRevizyon);
 // Revizyon geçmişi: listele
 router.get('/:id/makine-revizyon/list', authenticate, checkPermission('raporGoruntule'), listMakineRevizyonlari);
+// Silinen makineler (müşteri görünümü PDF/Excel'de kırmızı "SİLİNDİ" satırları) — services/tesvikMakine/silinenMakineler.js
+router.get('/:id/makine-revizyon/silinenler', authenticate, checkPermission('raporGoruntule'),
+  require('../services/tesvikMakine/silinenMakineler').silinenlerUcu(require('../models/Tesvik')));
 
 // 🗒️ Makine Listesi Notları (Taleplerdeki not deseninin makine listesi karşılığı)
 router.get('/:id/makine-not', authenticate, checkPermission('raporGoruntule'), listMakineNotlari);

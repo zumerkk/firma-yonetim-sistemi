@@ -651,8 +651,10 @@ const FirmaForm = () => {
       console.log('📥 Backend Response:', result);
 
       if (result.success) {
+        // Aktiflik değiştiyse sunucu belgelerin ne olduğunu da söyler ("2 belge Pasife Alındı yapıldı")
+        const belgeNotu = isEdit ? String(result.message || '').split(' · ').slice(1).join(' · ') : '';
         showSnackbar(
-          isEdit ? 'Firma başarıyla güncellendi ✅' : 'Firma başarıyla oluşturuldu ✅',
+          isEdit ? `Firma başarıyla güncellendi ✅${belgeNotu ? ` · ${belgeNotu}` : ''}` : 'Firma başarıyla oluşturuldu ✅',
           'success'
         );
 
