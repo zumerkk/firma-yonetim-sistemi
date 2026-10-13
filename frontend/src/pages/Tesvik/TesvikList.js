@@ -112,7 +112,9 @@ const TesvikList = () => {
 
   // 📅 Tarih sıralaması — müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını,
   // tarihe göre sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" (artan = en yakın üstte)
-  const [siralama, setSiralama] = useState({ alan: 'createdAt', yon: 'desc' });
+  // Müşteri (13.10.2026): "Teşvik listesini açınca otomatik olarak süre uzatım tarihi eskiden yeniye göre
+  // sıralı olarak gelebilirse" — varsayılan bu; uzatımı olmayan belgeler sunucuda sona konur.
+  const [siralama, setSiralama] = useState({ alan: 'belgeYonetimi.uzatimTarihi', yon: 'asc' });
   const siralamayaGec = (alan) => {
     // useEffect sıralama değişince listeyi ilk sayfadan yeniden yükler
     setSiralama((o) => ({ alan, yon: o.alan === alan && o.yon === 'asc' ? 'desc' : 'asc' }));

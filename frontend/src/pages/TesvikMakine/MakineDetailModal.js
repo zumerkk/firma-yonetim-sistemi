@@ -5,7 +5,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Grid, TextField, MenuItem,
   Switch, FormControlLabel, Box, Typography, Divider, Chip, IconButton, Snackbar, Alert,
-  CircularProgress, List, ListItem, ListItemText, Tooltip, Stack,
+  CircularProgress, List, ListItem, ListItemText, Tooltip, Stack, Checkbox,
   Accordion, AccordionSummary, AccordionDetails
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -20,10 +20,8 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import UploadProgress from '../../components/common/UploadProgress';
 import FolderIcon from '@mui/icons-material/CreateNewFolder';
 import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import TutarAlani from '../../components/common/TutarAlani';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import svc from '../../services/tesvikMakineService';
 import { StatusChip, formatDate, formatMoney, listTypeLabel, actionLabel } from './helpers';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
@@ -35,6 +33,15 @@ const emptyForm = {
 };
 
 function joinEmails(v) { return Array.isArray(v) ? v.join(', ') : (v || ''); }
+
+// Ara Kontrol belge geneli bir mail (alıcı firma, link belgenin tamamı için); makine maillerinden ayrı
+// uçlardan hazırlanır/gönderilir. Müşteri (13.10.2026): "Ara kontrol maili kısmını komple kaldırabiliriz"
+// (sayfa kalktı) + "Buradan Ara Kontrol - Maili çalışmıyor gönderemedik hata veriyor" (bu listeden
+// seçilince makine akışına sokuluyordu: alıcı tedarikçi, {listeBilgisi} boş kalıyordu).
+const ARA_KONTROL_KODU = 'ara_kontrol_fatura_talebi';
+const LISTE_EKTE = 'yerli makine listesi ektedir';
+const LISTE_AYRICA = 'yerli makine listesi tarafımızca ayrıca iletilecektir';
+const ayniMi = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
 export default function MakineDetailModal({ open, onClose, target, meta: metaProp, onChanged }) {
   // Müşteri (30.09.2026): "makine işlemi sekmesinde süreç ayarları-mail şablonu-evrak türü vs boş
@@ -60,22 +67,12 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
   const [preview, setPreview] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [busy, setBusy] = useState('');
-  // 🧾 Fatura kalemleri — yerel düzenleme listesi (React anahtarı satır silinince kaymasın)
-  const [faturalar, setFaturalar] = useState([]);
-  const faturaAnahtar = useRef(0);
-  const faturaSatiri = (f = {}) => ({
-    _anahtar: `f${(faturaAnahtar.current += 1)}`,
-    tarih: f.tarih ? String(f.tarih).slice(0, 10) : '',
-    no: f.no || '', tutar: Number(f.tutar) || 0, adet: Number(f.adet) || 0
-  });
-  const faturaEkle = () => setFaturalar((o) => [...o, faturaSatiri()]);
-  const faturaSil = (i) => setFaturalar((o) => o.filter((_, x) => x !== i));
-  const faturaDegistir = (i, alan, deger) => setFaturalar((o) =>
-    o.map((f, x) => (x === i ? { ...f, [alan]: alan === 'adet' ? Number(deger) || 0 : deger } : f)));
-  const faturaToplam = faturalar.reduce(
-    (t, f) => ({ tutar: t.tutar + (Number(f.tutar) || 0), adet: t.adet + (Number(f.adet) || 0) }),
-    { tutar: 0, adet: 0 }
-  );
+  // Son kaydedilen form — "kaydedilmemiş değişiklik var mı" buna göre (müşteri, 13.10.2026: "çok fazla ayrı
+  // ayrı kaydetme tuşu var onları birleştirelim ya da otomatik kayıt etsin")
+  const [kayitliForm, setKayitliForm] = useState(emptyForm);
+  // Ara Kontrol önizlemesi: alıcı/CC düzenlenebilir, yerli liste Excel'i istenirse eklenir
+  const [akEkler, setAkEkler] = useState([]);
+  const [akSistemListesi, setAkSistemListesi] = useState(false);
   const [yukleme, setYukleme] = useState(null); // evrak yükleme göstergesi
   const [snack, setSnack] = useState(null);
   const fileRef = useRef(null);
@@ -85,14 +82,15 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
 
   const hydrate = (p) => {
     setProc(p);
-    setForm({
+    const f = {
       barcode: p.barcode || '', supplierCompanyName: p.supplierCompanyName || '',
       supplierTaxNumber: p.supplierTaxNumber || '', supplierEmails: joinEmails(p.supplierEmails),
       supplierCcEmails: joinEmails(p.supplierCcEmails), customerContactName: p.customerContactName || '',
       customerEmails: joinEmails(p.customerEmails), kdvExemptRequired: !!p.kdvExemptRequired,
       invoiceDescriptionAuto: p.invoiceDescriptionAuto !== false, autoSendEnabled: !!p.autoSendEnabled,
       dueDate: p.dueDate ? String(p.dueDate).slice(0, 10) : '', notes: p.notes || '', status: p.status || 'not_started'
-    });
+    };
+    setForm(f); setKayitliForm(f);
     if (p.uploadToken) setUploadLink(buildLink(p.uploadToken));
   };
 
@@ -108,7 +106,6 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
         setTimeline(full.timeline || []);
         setFolderInfo(full.folder || null);
         setProc(full.process); hydrate(full.process);
-        setFaturalar((full.process.faturalar || []).map(faturaSatiri));
       })
       .catch((e) => notify(errMsg(e), 'error'))
       .finally(() => setLoading(false));
@@ -121,49 +118,93 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
   const setField = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   const setSwitch = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.checked }));
 
-  const faturalariKaydet = async () => {
-    setBusy('fatura');
-    try {
-      const sonuc = await svc.faturalariKaydet(proc._id, faturalar.map(({ _anahtar, ...f }) => f));
-      setFaturalar((sonuc.faturalar || []).map(faturaSatiri));
-      setProc((p) => ({ ...p, ...sonuc }));
-      notify(`Faturalar kaydedildi — toplam ${formatMoney(sonuc.invoiceRealizedValue, proc.currency)}`, 'success');
-      onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
-  };
+  const kaydedilmemis = !!proc && !ayniMi(form, kayitliForm);
 
-  const doSave = async () => {
+  // Tek kaydetme: bilgiler + durum birlikte. Bilgiler önce yazılır; durum değiştiyse ardından durum
+  // (durum değişikliği zaman çizelgesine ayrı kayıt düşer, hatırlatmaları etkiler).
+  // sessiz: pencere kapanırken / mail hazırlanırken otomatik kayıt — başarı bildirimi göstermez.
+  const kaydet = async ({ sessiz = false } = {}) => {
+    if (!proc) return true;
+    if (!kaydedilmemis) return true;
     setBusy('save');
     try {
-      const updated = await svc.updateFields(proc._id, { ...form });
-      hydrate(updated); notify('Bilgiler kaydedildi'); onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+      const { status: yeniDurum, ...alanlar } = form;
+      const { status: eskiDurum, ...eskiAlanlar } = kayitliForm;
+      let guncel = proc;
+      if (!ayniMi(alanlar, eskiAlanlar)) guncel = await svc.updateFields(proc._id, alanlar);
+      if (yeniDurum !== eskiDurum) guncel = (await svc.updateStatus(proc._id, { status: yeniDurum })).data;
+      hydrate(guncel);
+      if (!sessiz) notify('Kaydedildi');
+      reloadTimeline(proc._id);
+      if (onChanged) onChanged();
+      return true;
+    } catch (e) {
+      notify(errMsg(e), 'error');
+      return false;
+    } finally { setBusy(''); }
   };
 
-  const doStatus = async () => {
-    setBusy('status');
-    try {
-      const r = await svc.updateStatus(proc._id, { status: form.status });
-      setProc(r.data); notify('Durum güncellendi'); reloadTimeline(proc._id); onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+  // Kapatırken kaydedilmemiş değişiklik otomatik kaydedilir; kayıt başarısızsa pencere açık kalır
+  const kapat = async () => {
+    if (kaydedilmemis && !(await kaydet({ sessiz: true }))) return;
+    onClose();
   };
 
+  const araKontrolMu = templateCode === ARA_KONTROL_KODU;
 
   const doPreview = async () => {
     if (!templateCode) return notify('Şablon seçin', 'warning');
+    // Alıcı/tedarikçi bilgisi formda değiştiyse önce kaydedilir — mail kayıtlı bilgilerle hazırlanıyor
+    if (!(await kaydet({ sessiz: true }))) return;
     setBusy('preview');
-    try { const p = await svc.previewMail(proc._id, { templateCode }); setPreview(p); setPreviewOpen(true); }
-    catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    try {
+      if (araKontrolMu) {
+        const c = await svc.araKontrolCompose(proc.tesvikModel, proc.tesvikId);
+        // Alıcı: firma kaydındaki e-posta + bu makinede girilmiş firma yetkilisi mailleri
+        const alicilar = Array.from(new Set([...(c.to || []), ...(proc.customerEmails || [])]));
+        setAkEkler([]); setAkSistemListesi(false);
+        setPreview({
+          araKontrol: true, subject: c.subject, body: c.body, to: alicilar.join(', '), cc: '',
+          smtpConfigured: c.smtpConfigured, belgeSuresi: c.belgeSuresi, uploadLink: c.uploadLink, missing: []
+        });
+      } else {
+        setPreview(await svc.previewMail(proc._id, { templateCode }));
+      }
+      setPreviewOpen(true);
+    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
   const doSend = async () => {
     setBusy('send');
     try {
-      // Önizlemede düzenlenen konu/içerik aynen gönderilir (müşteri isteği: anlık değişiklikler)
-      await svc.sendMail(proc._id, { templateCode, subject: preview?.subject, body: preview?.body });
-      notify('Mail SMTP ile gönderildi'); setPreviewOpen(false); reloadTimeline(proc._id); onChanged && onChanged();
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+      if (preview?.araKontrol) {
+        const fd = new FormData();
+        akEkler.forEach((f) => fd.append('ekler', f));
+        fd.append('to', preview.to); fd.append('cc', preview.cc);
+        fd.append('subject', preview.subject); fd.append('body', preview.body);
+        fd.append('sistemListesi', akSistemListesi ? '1' : '0');
+        await svc.araKontrolSend(proc.tesvikModel, proc.tesvikId, fd);
+        notify('Ara kontrol maili gönderildi');
+      } else {
+        // Önizlemede düzenlenen konu/içerik aynen gönderilir (müşteri isteği: anlık değişiklikler)
+        await svc.sendMail(proc._id, { templateCode, subject: preview?.subject, body: preview?.body });
+        notify('Mail SMTP ile gönderildi');
+      }
+      setPreviewOpen(false); reloadTimeline(proc._id); if (onChanged) onChanged();
+    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); }
   };
+
+  // Ara Kontrol: ek durumu değişince {listeBilgisi} cümlesi metinde uyarlanır (elle yazılanlara dokunmaz)
+  useEffect(() => {
+    if (!preview?.araKontrol) return;
+    const ekVar = akSistemListesi || akEkler.length > 0;
+    setPreview((p) => ({ ...p, body: ekVar ? p.body.replace(LISTE_AYRICA, LISTE_EKTE) : p.body.replace(LISTE_EKTE, LISTE_AYRICA) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [akSistemListesi, akEkler.length]);
+
+  const gonderilebilir = preview && (preview.araKontrol
+    ? preview.smtpConfigured && preview.to.includes('@') && String(preview.subject).trim() && String(preview.body).trim() && !preview.belgeSuresi?.doldu
+    : preview.canSend);
 
   const doUploadLink = async () => {
     setBusy('link');
@@ -215,7 +256,6 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
     setPreview((p) => ({ ...p, body: `${String(p.body || '').replace(/\s+$/, '')}\n\n${blok}\n` }));
   };
 
-  const m = target?.machine || {};
   const allStatuses = meta?.statuses || [];
   // Dropdown'da gizli durumları gösterme; ancak mevcut durum gizliyse onu da ekle (Select boş kalmasın)
   const statusItems = allStatuses.filter((s) => !s.hidden || s.value === form.status);
@@ -223,14 +263,14 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
   const docTypes = meta?.documentTypes || [];
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+    <Dialog open={open} onClose={kapat} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle sx={{ pr: 6 }}>
         <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
           <QrCode2Icon color="primary" />
           <Typography variant="h6" component="span">Makine İşlemi</Typography>
           {proc && <StatusChip badge={proc.statusMeta || (meta?.categories ? null : null)} />}
         </Stack>
-        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton>
+        <IconButton onClick={kapat} sx={{ position: 'absolute', right: 8, top: 8 }}><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent dividers>
         {loading || !proc ? (
@@ -278,45 +318,12 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
               <Grid item xs={6} sm={4}><FormControlLabel control={<Switch checked={form.invoiceDescriptionAuto} onChange={setSwitch('invoiceDescriptionAuto')} />} label="Fatura açıklaması oto." /></Grid>
               <Grid item xs={12}><TextField fullWidth size="small" multiline minRows={2} label="Not" value={form.notes} onChange={setField('notes')} /></Grid>
             </Grid>
-            <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-              <Button variant="contained" onClick={doSave} disabled={busy === 'save'} startIcon={<SaveIcon />}>Kaydet</Button>
-              <Button variant="outlined" onClick={doStatus} disabled={busy === 'status'}>Durumu Güncelle</Button>
-            </Stack>
-
-            {/* 🧾 Fatura kalemleri — müşteri (29.09.2026): "her fatura için Fatura Tarih - Fatura No -
-                Kalem Tutarı alt kısma birden fazla kalem girilebilecek şekilde giriş satırları
-                açılacak (manuel satır ekleme çıkarma yapabilelim)". Toplamlar makine ana
-                listesindeki gerçekleşen adet/tutara yansır. */}
-            <SectionTitle>Fatura Kalemleri</SectionTitle>
-            <Stack spacing={1}>
-              {faturalar.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Henüz fatura girilmedi. "Satır Ekle" ile fatura tarihi, numarası ve tutarını girin.
-                </Typography>
-              )}
-              {faturalar.map((f, i) => (
-                <Stack key={f._anahtar} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="center">
-                  <TextField size="small" type="date" label="Fatura Tarihi" InputLabelProps={{ shrink: true }}
-                    value={f.tarih || ''} onChange={(e) => faturaDegistir(i, 'tarih', e.target.value)} sx={{ minWidth: 165 }} />
-                  <TextField size="small" label="Fatura No" value={f.no || ''}
-                    onChange={(e) => faturaDegistir(i, 'no', e.target.value)} sx={{ flex: 1, minWidth: 140 }} />
-                  <TutarAlani size="small" label="Kalem Tutarı" value={f.tutar}
-                    onChange={(v) => faturaDegistir(i, 'tutar', v)} sx={{ minWidth: 160 }} />
-                  <TextField size="small" type="number" label="Adet" value={f.adet ?? ''}
-                    onChange={(e) => faturaDegistir(i, 'adet', e.target.value)} sx={{ width: 90 }} />
-                  <Tooltip title="Satırı sil">
-                    <IconButton size="small" color="error" onClick={() => faturaSil(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
-                  </Tooltip>
-                </Stack>
-              ))}
-              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                <Button size="small" startIcon={<AddIcon />} onClick={faturaEkle}>Satır Ekle</Button>
-                <Button size="small" variant="contained" startIcon={<SaveIcon />} onClick={faturalariKaydet}
-                  disabled={busy === 'fatura'}>Faturaları Kaydet</Button>
-                <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 700 }}>
-                  Toplam: {formatMoney(faturaToplam.tutar, proc.currency)} · {faturaToplam.adet} adet
-                </Typography>
-              </Stack>
+            {/* Tek kaydetme düğmesi; pencere kapanırken ya da mail hazırlanırken kendiliğinden kaydedilir */}
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }} alignItems="center">
+              <Button variant="contained" onClick={() => kaydet()} disabled={busy === 'save' || !kaydedilmemis} startIcon={<SaveIcon />}>Kaydet</Button>
+              <Typography variant="caption" color={kaydedilmemis ? 'warning.main' : 'text.secondary'}>
+                {kaydedilmemis ? 'Kaydedilmemiş değişiklik var — pencereyi kapatınca otomatik kaydedilir' : 'Tüm değişiklikler kayıtlı'}
+              </Typography>
             </Stack>
 
             {/* Mail */}
@@ -393,7 +400,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
           </Box>
         )}
       </DialogContent>
-      <DialogActions><Button onClick={onClose}>Kapat</Button></DialogActions>
+      <DialogActions><Button onClick={kapat} disabled={busy === 'save'}>Kapat</Button></DialogActions>
 
       {/* Mail önizleme dialog */}
       <Dialog open={previewOpen} onClose={() => setPreviewOpen(false)} maxWidth="sm" fullWidth>
@@ -401,10 +408,35 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
         <DialogContent dividers>
           {preview && (
             <Box>
+              {preview.belgeSuresi?.doldu && <Alert severity="error" sx={{ mb: 1 }}>{preview.belgeSuresi.mesaj}</Alert>}
               {preview.missingRecipients && <Alert severity="warning" sx={{ mb: 1 }}>Alıcı (to) e-posta adresi yok. Önce tedarikçi/müşteri mailini girin.</Alert>}
               {preview.missing?.length > 0 && <Alert severity="warning" sx={{ mb: 1 }}>Eksik bilgi: {preview.missing.join(', ')}</Alert>}
               {!preview.smtpConfigured && <Alert severity="info" sx={{ mb: 1 }}>SMTP yapılandırılmamış — gönderim devre dışı.</Alert>}
-              <Typography variant="caption" color="text.secondary">Kime: {(preview.to || []).join(', ') || '-'}{preview.cc?.length ? ' · CC: ' + preview.cc.join(', ') : ''}</Typography>
+              {preview.araKontrol ? (
+                // Ara Kontrol firmaya gider: alıcı burada yazılır/düzeltilir, yerli liste istenirse eklenir
+                <Stack spacing={1} sx={{ mt: 0.5 }}>
+                  {!preview.to.includes('@') && <Alert severity="warning" sx={{ py: 0 }}>Firma kaydında e-posta yok — alıcıyı yazın.</Alert>}
+                  <TextField size="small" fullWidth label="Kime (firma)" placeholder="firma@ornek.com, ..." value={preview.to}
+                    onChange={(e) => setPreview((p) => ({ ...p, to: e.target.value }))} />
+                  <TextField size="small" fullWidth label="CC" value={preview.cc}
+                    onChange={(e) => setPreview((p) => ({ ...p, cc: e.target.value }))} />
+                  <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                    <FormControlLabel sx={{ mr: 1 }}
+                      control={<Checkbox size="small" checked={akSistemListesi} onChange={(e) => setAkSistemListesi(e.target.checked)} />}
+                      label={<Typography variant="body2">Yerli makine listesini ekle (Excel)</Typography>} />
+                    <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
+                      Dosya Ekle
+                      <input hidden multiple type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml"
+                        onChange={(e) => { const yeni = Array.from(e.target.files || []); e.target.value = ''; setAkEkler((o) => [...o, ...yeni]); }} />
+                    </Button>
+                    {akEkler.map((f, i) => (
+                      <Chip key={`${f.name}-${i}`} size="small" label={f.name} onDelete={() => setAkEkler((o) => o.filter((_, j) => j !== i))} />
+                    ))}
+                  </Stack>
+                </Stack>
+              ) : (
+                <Typography variant="caption" color="text.secondary">Kime: {(preview.to || []).join(', ') || '-'}{preview.cc?.length ? ' · CC: ' + preview.cc.join(', ') : ''}</Typography>
+              )}
               {/* 🧾 KDV muafiyet yazısı: ek yerine indirme linki (müşteri talebi) */}
               {kdv?.varMi && kdv.gecerliMi && (
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
@@ -439,7 +471,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
         <DialogActions>
           <Button onClick={() => setPreviewOpen(false)}>Kapat</Button>
           <Button variant="contained" startIcon={<SendIcon />} onClick={doSend}
-            disabled={busy === 'send' || !preview?.canSend}>SMTP ile Gönder</Button>
+            disabled={busy === 'send' || !gonderilebilir}>SMTP ile Gönder</Button>
         </DialogActions>
       </Dialog>
 

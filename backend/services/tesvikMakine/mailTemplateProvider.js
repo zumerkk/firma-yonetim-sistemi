@@ -17,11 +17,19 @@ async function seedMailTemplates() {
       ...extractPlaceholders(t.bodyTemplate)
     ]));
     const defVersion = t.version || 1;
+    const { eskiAdlar = [], ...sablon } = t;
     const existing = await MailTemplate.findOne({ code: t.code });
     if (!existing) {
-      await MailTemplate.create({ ...t, version: defVersion, placeholders, isActive: true });
+      await MailTemplate.create({ ...sablon, version: defVersion, placeholders, isActive: true });
       created += 1;
       continue;
+    }
+    // Ad değişikliği metinden bağımsız: içeriği elle düzenlenmiş şablonun da adı, eski VARSAYILAN adı
+    // taşıyorsa yenilenir (müşterinin kendi verdiği özel ada dokunulmaz).
+    if (eskiAdlar.includes(existing.name) && existing.name !== t.name) {
+      existing.name = t.name;
+      await existing.save();
+      updated += 1;
     }
     const manuallyEdited = Boolean(existing.updatedByUserId);
     const outdated = (existing.version || 1) < defVersion;

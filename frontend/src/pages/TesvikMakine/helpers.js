@@ -50,13 +50,13 @@ export const DOC_TYPE_TR = {
   beyanname: 'Gümrük Beyannamesi', yevmiye_fisi: 'Yevmiye Fişi'
 };
 export const TEMPLATE_TR = {
-  supplier_verification_invoice_instruction: 'Tedarikçi Doğrulama / Fatura Yönergesi',
+  supplier_verification_invoice_instruction: 'Fatura Taslağı Maili',
   customer_document_request: 'Müşteri Evrak Talebi',
   supplier_info_request: 'Tedarikçi Bilgi / GTİP Talebi',
   reminder_no_response: 'Hatırlatma (Cevapsız)',
-  invoice_draft_approved: 'Fatura Taslağı Onayı',
+  invoice_draft_approved: 'Fatura Onay Maili',
   supplier_beyanname_request: 'Gümrük Beyannamesi Talebi',
-  ara_kontrol_fatura_talebi: 'Ara Kontrol — Fatura Talebi'
+  ara_kontrol_fatura_talebi: 'Ara Kontrol — Makine Listesi ve Fatura Talebi'
 };
 const ACTION_TR = {
   created: 'Süreç başlatıldı', status_change: 'Durum değişti', mail_draft: 'Mail taslağı oluşturuldu',

@@ -16,6 +16,7 @@ const resolver = require('./certificateResolver');
 const { resolveTemplate } = require('./mailTemplateProvider');
 const engine = require('./mailTemplateEngine');
 const mailService = require('./mailService');
+const { belgeSuresiDurumu, mailGonderilebilirMi } = require('../../utils/belgeGecerlilik');
 
 function getModel(tesvikModel) {
   if (tesvikModel === 'YeniTesvik') return YeniTesvik;
@@ -100,6 +101,7 @@ async function composeAraKontrol({ tesvikModel, tesvikId, ekVar = false }) {
     belgeNo: data.belgeNo,
     yerliSayisi: resolver.listFor(cert, 'local').length,
     ithalSayisi: resolver.listFor(cert, 'import').length,
+    belgeSuresi: belgeSuresiDurumu(cert),
     smtpConfigured: mailService.isConfigured()
   };
 }
@@ -144,6 +146,7 @@ async function sendAraKontrol({ tesvikModel, tesvikId, to = [], cc = [], subject
   if (!String(subject).trim() || !String(body).trim()) {
     const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
   }
+  mailGonderilebilirMi(await loadCert(tesvikModel, tesvikId)); // süresi dolmuş belgeye mail gitmez
 
   const log = await MailLog.create({
     tesvikModel, tesvikId, machineProcessId: null,

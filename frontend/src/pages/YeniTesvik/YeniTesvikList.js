@@ -169,9 +169,12 @@ const YeniTesvikList = () => {
     try {
       setLoading(true);
       
+      // Teşvik Listesi ile aynı varsayılan: süre uzatım tarihi eskiden yeniye (müşteri, 13.10.2026)
       const params = new URLSearchParams({
         sayfa: page,
         limit: 20,
+        siraBy: 'belgeYonetimi.uzatimTarihi',
+        siraSekli: 'asc',
         ...filters
       });
 

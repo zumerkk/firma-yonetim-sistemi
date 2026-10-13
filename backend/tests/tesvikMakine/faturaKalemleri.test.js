@@ -75,37 +75,76 @@ describe('toplamlar', () => {
   });
 });
 
-describe('ana listeye yansıma', () => {
-  test('kalemler kaydedilince makine satırındaki gerçekleşen adet/tutar güncellenir', async () => {
+describe('kalem bazlı kayıt (13.10.2026)', () => {
+  test('kalem eklenince makine satırındaki gerçekleşen adet/tutar güncellenir', async () => {
     const proc = await surecKur();
-    await mps.faturalariGuncelle(proc, [
-      { tarih: '2026-03-10', no: 'A-1', tutar: 1500, adet: 2 },
-      { tarih: '2026-04-11', no: 'A-2', tutar: 500, adet: 1 }
-    ], user);
+    await mps.faturaKalemiEkle(proc, { tarih: '2026-03-10', no: 'A-1', icerik: 'Pompa', tutar: 1500, adet: 2 }, { user });
+    await mps.faturaKalemiEkle(proc, { tarih: '2026-04-11', no: 'A-2', tutar: 500, adet: 1 }, { user });
 
     const sonra = await Tesvik.findById(belge._id).lean();
     const satir = sonra.makineListeleri.yerli[0];
     expect(satir.gerceklesenTutar).toBe(2000);
     expect(satir.gerceklesenAdet).toBe(3);
-    expect(satir.rowId).toBe('R1');    // kimlik korunur
+    expect(satir.rowId).toBe('R1'); // kimlik korunur
+    expect(proc.faturalar[0].icerik).toBe('Pompa');
+    expect(proc.faturalar[0].kaynak).toBe('personel');
+    expect(proc.faturalar[0].girenAdi).toBe('Test');
   });
 
-  test('kalemler silinince toplamlar sıfırlanır', async () => {
+  test('düzeltme ve silme toplamları yeniden hesaplar; kaynak/giren değişmez', async () => {
     const proc = await surecKur();
-    await mps.faturalariGuncelle(proc, [{ no: 'A-1', tutar: 1500, adet: 2 }], user);
-    await mps.faturalariGuncelle(proc, [], user);
+    await mps.faturaKalemiEkle(proc, { no: 'F-1', tutar: 100, adet: 1 }, { kaynak: 'firma', girenAdi: 'Ayşe' });
+    await mps.faturaKalemiEkle(proc, { no: 'P-1', tutar: 900, adet: 1 }, { user });
+    const firmaKalemi = proc.faturalar.find((k) => k.no === 'F-1');
 
-    const sonra = await Tesvik.findById(belge._id).lean();
-    expect(sonra.makineListeleri.yerli[0].gerceklesenTutar).toBe(0);
-    expect(proc.faturalar).toHaveLength(0);
-    expect(proc.invoiceNo).toBe('');
+    await mps.faturaKalemiGuncelle(proc, firmaKalemi._id, { tutar: 250, kaynak: 'personel', girenAdi: 'Sahte' }, { user });
+    expect(proc.invoiceRealizedValue).toBe(1150);
+    expect(proc.faturalar.id(firmaKalemi._id).kaynak).toBe('firma');
+    expect(proc.faturalar.id(firmaKalemi._id).girenAdi).toBe('Ayşe');
+
+    await mps.faturaKalemiSil(proc, firmaKalemi._id, { user });
+    const taze = await MachineProcess.findById(proc._id).lean();
+    expect(taze.faturalar).toHaveLength(1);
+    expect(taze.invoiceRealizedValue).toBe(900);
+    expect(taze.invoiceNo).toBe('P-1');
   });
 
-  test('kaydetme işlem geçmişine yazılır', async () => {
+  test('boş ve eksi kalem reddedilir', async () => {
     const proc = await surecKur();
-    await mps.faturalariGuncelle(proc, [{ no: 'A-1', tutar: 100, adet: 1 }], user);
+    await expect(mps.faturaKalemiEkle(proc, { no: '', tutar: 0 }, { user })).rejects.toMatchObject({ code: 'FATURA_GECERSIZ' });
+    await expect(mps.faturaKalemiEkle(proc, { no: 'X', tutar: -5 }, { user })).rejects.toMatchObject({ code: 'FATURA_GECERSIZ' });
+    await expect(mps.faturaKalemiSil(proc, new ObjectId(), { user })).rejects.toMatchObject({ code: 'FATURA_YOK' });
+  });
+
+  test('yalnız içerik girilmiş kalem de kaydedilir', async () => {
+    const proc = await surecKur();
+    await mps.faturaKalemiEkle(proc, { icerik: 'Montaj bedeli' }, { user });
+    expect(proc.faturalar).toHaveLength(1);
+  });
+
+  test('işlem geçmişine yazılır', async () => {
+    const proc = await surecKur();
+    await mps.faturaKalemiEkle(proc, { no: 'A-1', tutar: 100, adet: 1 }, { kaynak: 'firma', girenAdi: 'Ali' });
     const MachineProcessLog = require('../../models/MachineProcessLog');
     const kayitlar = await MachineProcessLog.find({ machineProcessId: proc._id }).lean();
-    expect(kayitlar.some((k) => String(k.note).includes('Fatura kalemleri güncellendi'))).toBe(true);
+    expect(kayitlar.some((k) => String(k.note).includes('Fatura kalemi eklendi: A-1 (Firma — Ali)'))).toBe(true);
+  });
+});
+
+describe('eski doğrudan girilmiş özetler (açılış göçü)', () => {
+  test('kalemi olmayan süreçteki özet tek kaleme çevrilir, ikinci çalıştırma bir şey yapmaz', async () => {
+    const eski = await MachineProcess.create({
+      tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'local', rowId: 'R1',
+      invoiceRealizedValue: 4200, invoiceRealizedQty: 2, invoiceNo: 'ESK-9', invoiceDate: new Date('2026-05-05')
+    });
+    const bos = await MachineProcess.create({ tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'local', rowId: 'R2' });
+
+    expect(await mps.eskiFaturaOzetleriniKalemeCevir()).toBe(1);
+    expect(await mps.eskiFaturaOzetleriniKalemeCevir()).toBe(0);
+
+    const taze = await MachineProcess.findById(eski._id).lean();
+    expect(taze.faturalar).toHaveLength(1);
+    expect(taze.faturalar[0]).toMatchObject({ no: 'ESK-9', tutar: 4200, adet: 2, girenAdi: 'Önceki kayıt' });
+    expect((await MachineProcess.findById(bos._id).lean()).faturalar).toHaveLength(0);
   });
 });

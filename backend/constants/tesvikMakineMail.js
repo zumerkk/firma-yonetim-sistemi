@@ -59,7 +59,9 @@ const DEFAULT_TEMPLATES = [
   },
   {
     code: MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION,
-    name: 'Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi',
+    // Müşteri (13.10.2026): "Tedarikçi ile başlayan mailin ismini 'Fatura Taslağı Maili' … olarak güncelleyelim"
+    name: 'Fatura Taslağı Maili',
+    eskiAdlar: ['Tedarikçiye Bakanlık Doğrulama ve Fatura Yönergesi'],
     // v2: ({tedarikciMail}) parantezi kaldırıldı + mail sonuna taslak yükleme linki eklendi
     // v3 (müşteri talebi): firma ismi kaldırıldı → "işbu firma" (konudan ve gövdeden)
     // v4 (müşteri talebi): "Öncelikle suret fatura hazırlanıp onay için tarafımıza gönderilmesi
@@ -110,7 +112,9 @@ const DEFAULT_TEMPLATES = [
   },
   {
     code: MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED,
-    name: 'Fatura Taslağı Kontrol Sonrası Onay Maili',
+    // Müşteri (13.10.2026): "Fatura taslağı kontrol… ile başlayan maili 'Fatura Onay Maili' olarak güncelleyelim"
+    name: 'Fatura Onay Maili',
+    eskiAdlar: ['Fatura Taslağı Kontrol Sonrası Onay Maili'],
     // v2: KDV istisna cümlesi yerine fatura kesimi sonrası XML+PDF yükleme bağlantısı
     // v3 (müşteri talebi): firma ismi kaldırıldı → "işbu firma"
     version: 3,

@@ -22,6 +22,7 @@ const storageService = require('./storageService');
 const tokenService = require('./uploadTokenService');
 const kdvMuafiyetService = require('./kdvMuafiyetService');
 const { resolveTemplate } = require('./mailTemplateProvider');
+const { belgeSuresiDurumu } = require('../../utils/belgeGecerlilik');
 
 const { MACHINE_STATUS } = status;
 
@@ -180,11 +181,11 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
 
 // ───────────────────────── Alan & durum güncelleme ─────────────────────────
 
+// Fatura özet alanları (invoice*) burada YOK: kalemlerden hesaplanır (faturaOzetiniYenile).
+// Müşteri (13.10.2026): "Fatura değerleri vs buradan güncellenmesin sadece kayıt edilenler görünsün".
 const EDITABLE_FIELDS = [
   'supplierCompanyName', 'supplierTaxNumber', 'customerContactName',
-  'kdvExemptRequired', 'invoiceDescriptionAuto', 'autoSendEnabled', 'dueDate', 'notes',
-  // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
-  'invoiceRealizedValue', 'invoiceRealizedQty', 'invoiceNo', 'invoiceDate'
+  'kdvExemptRequired', 'invoiceDescriptionAuto', 'autoSendEnabled', 'dueDate', 'notes'
 ];
 
 // 🔄 Fatura gerçekleşme bilgilerini ana teşvik belgesinin gömülü makine satırına geri yaz.
@@ -222,44 +223,125 @@ async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar
  * @param {object} proc  MachineProcess belgesi (yerinde güncellenir)
  * @param {Array} kalemler  [{ tarih, no, tutar, adet }]
  */
-function faturaToplamlariniHesapla(proc, kalemler) {
-  const sayi = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
-  const temiz = (Array.isArray(kalemler) ? kalemler : [])
-    .map((k) => ({
-      tarih: k.tarih ? new Date(k.tarih) : undefined,
-      no: String(k.no || '').trim().slice(0, 100),
-      tutar: sayi(k.tutar),
-      adet: sayi(k.adet)
-    }))
-    // Tamamen boş satır kaydedilmez (kullanıcı satır ekleyip vazgeçebiliyor)
-    .filter((k) => k.no || k.tutar || k.adet || k.tarih);
+const faturaSayi = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-  proc.faturalar = temiz;
-  proc.invoiceRealizedValue = temiz.reduce((t, k) => t + k.tutar, 0);
-  proc.invoiceRealizedQty = temiz.reduce((t, k) => t + k.adet, 0);
+/**
+ * Tek bir fatura kalemini doğrular/temizler. Tamamen boşsa null döner.
+ * Kimlik ve kaynak bilgisi (kim, ne zaman, personel mi firma mı) korunur — eskiden bu eşleme
+ * yalnız tarih/no/tutar/adet'i taşıyordu, kaydedilen her listede diğer alanlar düşerdi.
+ */
+function faturaKalemiTemizle(k = {}) {
+  const tarih = k.tarih ? new Date(k.tarih) : undefined;
+  const kalem = {
+    tarih: tarih && !Number.isNaN(tarih.getTime()) ? tarih : undefined,
+    no: String(k.no || '').trim().slice(0, 100),
+    icerik: String(k.icerik || '').trim().slice(0, 500),
+    tutar: faturaSayi(k.tutar),
+    adet: faturaSayi(k.adet),
+    kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
+    girenAdi: String(k.girenAdi || '').trim().slice(0, 120),
+    girisTarihi: k.girisTarihi ? new Date(k.girisTarihi) : new Date()
+  };
+  if (k._id) kalem._id = k._id;
+  // Tamamen boş satır kaydedilmez (kullanıcı satır ekleyip vazgeçebiliyor)
+  if (!kalem.no && !kalem.tutar && !kalem.adet && !kalem.tarih && !kalem.icerik) return null;
+  return kalem;
+}
+
+/** Sürecin mevcut kalemlerinden özet alanları (invoice*) yeniden hesaplar. */
+function faturaOzetiniYenile(proc) {
+  const kalemler = proc.faturalar || [];
+  proc.invoiceRealizedValue = kalemler.reduce((t, k) => t + faturaSayi(k.tutar), 0);
+  proc.invoiceRealizedQty = kalemler.reduce((t, k) => t + faturaSayi(k.adet), 0);
   // Özet alanlar: tek kalemde o kalemin no'su, çoklu kalemde virgülle ilk üçü
-  const nolar = temiz.map((k) => k.no).filter(Boolean);
+  const nolar = kalemler.map((k) => k.no).filter(Boolean);
   proc.invoiceNo = nolar.length <= 3 ? nolar.join(', ') : `${nolar.slice(0, 3).join(', ')} +${nolar.length - 3}`;
-  const tarihler = temiz.map((k) => k.tarih).filter(Boolean).sort((a, b) => a - b);
+  const tarihler = kalemler.map((k) => k.tarih).filter(Boolean).map((t) => new Date(t)).sort((a, b) => a - b);
   proc.invoiceDate = tarihler[0];
   return proc;
 }
 
-/** Fatura kalemlerini kaydet: toplamları hesapla, ana listeye yansıt, kayda geç */
-async function faturalariGuncelle(proc, kalemler, user) {
-  faturaToplamlariniHesapla(proc, kalemler);
+function faturaToplamlariniHesapla(proc, kalemler) {
+  proc.faturalar = (Array.isArray(kalemler) ? kalemler : []).map(faturaKalemiTemizle).filter(Boolean);
+  return faturaOzetiniYenile(proc);
+}
+
+/**
+ * 🩹 Açılış göçü: kalem listesi gelmeden önce fatura bilgisi doğrudan özet alanlara
+ * (invoiceRealizedValue/Qty, invoiceNo, invoiceDate) yazılmış süreçler (canlıda 13.10.2026: 84'ün 4'ü).
+ * Özet artık kalemlerden hesaplandığı için ilk yeni kalemde bu değerler silinirdi; tek kaleme
+ * çevrilir. Yalnız kalemi hiç olmayan süreçlere dokunur → tekrar çalışınca bir şey yapmaz.
+ */
+async function eskiFaturaOzetleriniKalemeCevir() {
+  const adaylar = await MachineProcess.find({
+    'faturalar.0': { $exists: false },
+    $or: [{ invoiceRealizedValue: { $gt: 0 } }, { invoiceRealizedQty: { $gt: 0 } }, { invoiceNo: { $nin: ['', null] } }]
+  }).select('invoiceRealizedValue invoiceRealizedQty invoiceNo invoiceDate updatedAt').lean();
+  let cevrilen = 0;
+  for (const p of adaylar) {
+    const kalem = faturaKalemiTemizle({
+      tarih: p.invoiceDate, no: p.invoiceNo, tutar: p.invoiceRealizedValue, adet: p.invoiceRealizedQty,
+      kaynak: 'personel', girenAdi: 'Önceki kayıt', girisTarihi: p.updatedAt || new Date()
+    });
+    if (!kalem) continue;
+    const r = await MachineProcess.updateOne(
+      { _id: p._id, 'faturalar.0': { $exists: false } },
+      { $set: { faturalar: [kalem] } }
+    );
+    cevrilen += r.modifiedCount || 0;
+  }
+  return cevrilen;
+}
+
+// ───────── 🧾 Fatura kalemi: tek tek ekle / düzelt / sil ─────────
+// Bütün listeyi yeniden yazmak yerine kalem bazlı: firma kendi linkinden kalem eklerken personel aynı
+// makinede düzeltme yapıyorsa biri ötekinin kalemini silmesin.
+
+async function faturaKaydiniBitir(proc, not, user, performedByLabel) {
+  faturaOzetiniYenile(proc);
   proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
   await proc.save();
   await syncInvoiceToMasterList(proc, {
     gerceklesenAdet: proc.invoiceRealizedQty || 0,
     gerceklesenTutar: proc.invoiceRealizedValue || 0
   });
-  await addLog({
-    proc, actionType: PROCESS_ACTION.FIELDS_UPDATED,
-    note: `Fatura kalemleri güncellendi (${proc.faturalar.length} kalem)`,
-    meta: { kalem: proc.faturalar.length, toplam: proc.invoiceRealizedValue }, user
-  });
+  await addLog({ proc, actionType: PROCESS_ACTION.FIELDS_UPDATED, note: not, meta: { kalem: proc.faturalar.length, toplam: proc.invoiceRealizedValue }, user, performedByLabel });
   return proc;
+}
+
+function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
+  const e = new Error(mesaj); e.code = code; return e;
+}
+
+/** @param {{kaynak?: 'personel'|'firma', girenAdi?: string}} kim */
+async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '' } = {}) {
+  const kalem = faturaKalemiTemizle({
+    ...girdi, _id: undefined, kaynak, girisTarihi: new Date(),
+    girenAdi: girenAdi || (user && user.adSoyad) || ''
+  });
+  if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
+  if (kalem.tutar < 0 || kalem.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
+  proc.faturalar.push(kalem);
+  const kim = kaynak === 'firma' ? `Firma${kalem.girenAdi ? ` — ${kalem.girenAdi}` : ''}` : '';
+  return faturaKaydiniBitir(proc, `Fatura kalemi eklendi${kalem.no ? `: ${kalem.no}` : ''}${kim ? ` (${kim})` : ''}`, user, kim);
+}
+
+async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null } = {}) {
+  const mevcut = proc.faturalar.id(kalemId);
+  if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
+  const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
+  if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
+  if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
+  mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet });
+  return faturaKaydiniBitir(proc, `Fatura kalemi düzeltildi${yeni.no ? `: ${yeni.no}` : ''}`, user);
+}
+
+async function faturaKalemiSil(proc, kalemId, { user = null } = {}) {
+  const mevcut = proc.faturalar.id(kalemId);
+  if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
+  const no = mevcut.no;
+  mevcut.deleteOne();
+  return faturaKaydiniBitir(proc, `Fatura kalemi silindi${no ? `: ${no}` : ''}`, user);
 }
 
 async function updateFields(proc, fields = {}, user) {
@@ -277,14 +359,6 @@ async function updateFields(proc, fields = {}, user) {
   }
   proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
   await proc.save();
-
-  // 🔄 Fatura gerçekleşme alanları değiştiyse ana belgenin gömülü makine satırını da güncelle
-  if (changed.invoiceRealizedValue !== undefined || changed.invoiceRealizedQty !== undefined) {
-    await syncInvoiceToMasterList(proc, {
-      gerceklesenAdet: proc.invoiceRealizedQty || 0,
-      gerceklesenTutar: proc.invoiceRealizedValue || 0
-    });
-  }
 
   if (Object.keys(changed).length) {
     await addLog({ proc, actionType: PROCESS_ACTION.FIELDS_UPDATED, note: 'Alanlar güncellendi', meta: { changed: Object.keys(changed) }, user });
@@ -360,7 +434,9 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
     // tarafin sablon verisini bastan kurmasi gerekirdi.
     data,
     missing: rendered.missing, ok: rendered.ok && to.length > 0,
-    needsUploadLink: templateNeedsUploadLink(tpl), kdvMuafiyet
+    needsUploadLink: templateNeedsUploadLink(tpl), kdvMuafiyet,
+    // Süresi dolmuş belgeye mail gitmez (müşteri, 13.10.2026) — önizleme uyarır, gönderim reddeder
+    belgeSuresi: belgeSuresiDurumu(cert)
   };
 }
 
@@ -404,7 +480,8 @@ async function previewMail(proc, templateCode, { user } = {}) {
     cc: composed.cc,
     missing: composed.missing,
     missingRecipients,
-    canSend: composed.ok && mailService.isConfigured(),
+    belgeSuresi: composed.belgeSuresi,
+    canSend: composed.ok && mailService.isConfigured() && !composed.belgeSuresi.doldu,
     smtpConfigured: mailService.isConfigured(),
     // Önizleme ekranı bunu gösterir: link eklendi mi, süresi dolmuş mu, hiç yüklenmemiş mi
     kdvMuafiyet: composed.kdvMuafiyet
@@ -437,6 +514,9 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
   if (templateNeedsUploadLink(tpl)) uploadLink = await ensureUploadLink(proc, { user });
 
   const composed = await composeMail(proc, templateCode, { uploadLink, toOverride, ccOverride, subjectOverride, bodyOverride });
+  if (composed.belgeSuresi.doldu) {
+    const e = new Error(composed.belgeSuresi.mesaj); e.code = 'BELGE_SURESI_DOLDU'; throw e;
+  }
   if (composed.to.length === 0) {
     const e = new Error('Gönderim için alıcı (to) e-posta adresi yok.'); e.code = 'NO_RECIPIENT'; throw e;
   }
@@ -493,6 +573,9 @@ async function resendMail(mailLogId, { user } = {}) {
   if (!log) { const e = new Error('Mail kaydı bulunamadı.'); e.code = 'MAILLOG_NOT_FOUND'; throw e; }
   const proc = await MachineProcess.findById(log.machineProcessId);
   if (!proc) { const e = new Error('Süreç bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
+  const { cert } = await buildContext(proc);
+  const sure = belgeSuresiDurumu(cert);
+  if (sure.doldu) { const e = new Error(sure.mesaj); e.code = 'BELGE_SURESI_DOLDU'; throw e; }
   try {
     const res = await mailService.sendMail({ to: log.toEmails, cc: log.ccEmails, subject: log.subject, text: log.body });
     log.status = MAIL_STATUS.SENT; log.smtpMessageId = res.messageId || ''; log.sentAt = new Date(); log.errorMessage = '';
@@ -740,7 +823,11 @@ async function getTimeline(proc) {
 
 module.exports = {
   faturaToplamlariniHesapla,
-  faturalariGuncelle,
+  faturaKalemiTemizle,
+  faturaKalemiEkle,
+  faturaKalemiGuncelle,
+  faturaKalemiSil,
+  eskiFaturaOzetleriniKalemeCevir,
   // helpers
   reminderDays, getSignature, autoSendDefault, parseEmails, audienceForTemplate, buildContext, addLog,
   // core

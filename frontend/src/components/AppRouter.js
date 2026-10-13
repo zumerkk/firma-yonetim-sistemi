@@ -68,7 +68,6 @@ import TesvikMakineList from '../pages/TesvikMakine/TesvikMakineList';
 import TesvikMakineDetail from '../pages/TesvikMakine/TesvikMakineDetail';
 import TesvikRaporlar from '../pages/TesvikMakine/TesvikRaporlar';
 import BakanlikMailParser from '../pages/TesvikMakine/BakanlikMailParser';
-import AraKontrol from '../pages/TesvikMakine/AraKontrol';
 
 // 🧩 İşlem ve Evrak Yönetimi
 import IslemEvrakList from '../pages/IslemEvrak/IslemEvrakList';
@@ -78,6 +77,7 @@ import IslemTuruYonetimi from '../pages/IslemEvrak/IslemTuruYonetimi';
 import PublicUpload from '../pages/TesvikMakine/PublicUpload';
 import KdvMuafiyetIndir from '../pages/TesvikMakine/KdvMuafiyetIndir';
 import BelgeTakipPublicUpload from '../pages/DosyaTakip/BelgeTakipPublicUpload';
+import MusteriBelgeSayfasi from '../pages/MusteriBelge/MusteriBelgeSayfasi';
 
 const AppRouter = () => {
   // 🛡️ Page refresh handler - F5 basınca 404 engelleme
@@ -96,6 +96,8 @@ const AppRouter = () => {
       <Route path="/kdv-muafiyet/:token" element={<KdvMuafiyetIndir />} />
       {/* 🌐 Belge Takip → firma yükleme bağlantısı (token tabanlı, AUTH YOK) */}
       <Route path="/belge-yukle/:token" element={<BelgeTakipPublicUpload />} />
+      {/* 🔗 Müşteri belge linki: belge bilgileri + yerli/ithal liste + fatura kalemi (token, AUTH YOK) */}
+      <Route path="/belge/:token" element={<MusteriBelgeSayfasi />} />
 
       {/* 🛠️ Teşvik Makine Teçhizat Yönetimi */}
       <Route path="/tesvikler" element={
@@ -113,11 +115,9 @@ const AppRouter = () => {
           <BakanlikMailParser />
         </ProtectedRoute>
       } />
-      <Route path="/tesvikler/ara-kontrol" element={
-        <ProtectedRoute>
-          <AraKontrol />
-        </ProtectedRoute>
-      } />
+      {/* Ara Kontrol Maili sayfası kaldırıldı (müşteri, 13.10.2026) — mail Ekipman Takip › İşlem
+          penceresinden gidiyor; eski yer imleri listeye düşsün */}
+      <Route path="/tesvikler/ara-kontrol" element={<Navigate to="/tesvikler" replace />} />
 
       {/* 🧩 İşlem ve Evrak Yönetimi */}
       <Route path="/islem-evrak" element={

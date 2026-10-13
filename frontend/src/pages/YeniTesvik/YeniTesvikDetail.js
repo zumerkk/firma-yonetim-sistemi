@@ -30,6 +30,8 @@ import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../..
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket } from '../../utils/belgeGosterim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
+import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
+import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
 
 // 🎛️ Tasarım sistemi (madde 6 / Faz 2). Bu ekran ETUYS temasıyla SARMALANIYOR;
 // uygulamanın geri kalanı mevcut temayla çalışmaya devam ediyor. Geçiş böylece
@@ -591,6 +593,11 @@ const YeniTesvikDetail = () => {
               </Box>
             </Box>
 
+            {/* Müşteri (13.10.2026): "Müşterinin sadece burayı görebileceği bir link … o linki de sağ üst
+                kısma ekleyebilir miyiz?" — belge bilgileri + yerli/ithal liste + fatura kalemi girişi */}
+            <Box sx={{ ml: 'auto', mr: 0.5 }}>
+              <MusteriLinkiDugmesi tesvikModel="YeniTesvik" tesvikId={tesvik._id} />
+            </Box>
             {/* Sağ Taraf - Hızlı Navigasyon (Sadece Desktop) */}
             <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 0.5 }}>
               <Button
@@ -1121,42 +1128,10 @@ const YeniTesvikDetail = () => {
 
                 {/* 2 · Yatırım Cinsi — ETUYS'te ayrı sekme; bizde künye içinde
                     tek satıra sıkışmıştı. sCinsi1..vCinsi4 alanları liste olur. */}
-                {aktifBolum === 'cins' && (
-                  <VeriTablosu
-                    sutunlar={[{ anahtar: 'cins', baslik: 'Yatırım Cinsi' }]}
-                    satirlar={[
-                      tesvik.yatirimBilgileri?.sCinsi1,
-                      tesvik.yatirimBilgileri?.tCinsi2,
-                      tesvik.yatirimBilgileri?.uCinsi3,
-                      tesvik.yatirimBilgileri?.vCinsi4
-                    ].filter(Boolean).map((cins, i) => ({ id: i, cins }))}
-                    bosMetin="Yatırım cinsi tanımlanmamış"
-                  />
-                )}
+                {aktifBolum === 'cins' && <YatirimCinsiTablosu tesvik={tesvik} />}
 
                 {/* 3 · Ürün Bilgileri */}
-                {aktifBolum === 'urun' && (
-                  <Box>
-                <VeriTablosu
-                      enAzGenislik={600}
-                      satirlar={tesvik.urunler || []}
-                      anahtarAl={(u, i) => u?._id || i}
-                      bosMetin="Ürün bulunamadı"
-                      sutunlar={[
-                        { anahtar: 'nace', baslik: 'NACE Kodu', genislik: 120,
-                          bicim: (_, u) => u.naceKodu || u.u97Kodu || u.us97Kodu || '-' },
-                        { anahtar: 'urunAdi', baslik: 'Ürün Adı', bicim: (v) => v || '-' },
-                        { anahtar: 'mevcutKapasite', baslik: 'Mevcut Kap.', sayi: true,
-                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
-                        { anahtar: 'ilaveKapasite', baslik: 'İlave Kap.', sayi: true,
-                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
-                        { anahtar: 'toplamKapasite', baslik: 'Toplam Kap.', sayi: true,
-                          bicim: (v) => (Number(v) || 0).toLocaleString('tr-TR') },
-                        { anahtar: 'kapasiteBirimi', baslik: 'Kap. Birim', genislik: 120, bicim: (v) => v || '-' }
-                      ]}
-                    />
-                  </Box>
-                )}
+                {aktifBolum === 'urun' && <UrunTablosu tesvik={tesvik} tur="yeni" />}
 
                 {/* 4-5 · Yerli / İthal Liste — makine kalemleri bu sayfada
                     yüklenmiyor (830 satıra kadar çıkabiliyor). ETUYS'teki sekme
@@ -1180,39 +1155,10 @@ const YeniTesvikDetail = () => {
                 {/* 6 · Finansal Bilgiler */}
                 {aktifBolum === 'finansal' && <FinansalPaneli tesvik={tesvik} />}
 
-                {aktifBolum === 'sart' && (
-                  <Box>
-                <VeriTablosu
-                      enAzGenislik={600}
-                      satirlar={tesvik.ozelSartlar || []}
-                      anahtarAl={(x, i) => x?._id || i}
-                      bosMetin="Özel şart bulunamadı"
-                      sutunlar={[
-                        { anahtar: 'kisaltma', baslik: 'Kısaltma', genislik: '30%',
-                          bicim: (_, x, i) => x?.koşulMetni || x?.kisaltma || `Şart ${i + 1}` },
-                        { anahtar: 'aciklama', baslik: 'Açıklama',
-                          bicim: (_, x) => x?.aciklamaNotu || x?.sart || x?.metin || x?.aciklama || '-', sar: true }
-                      ]}
-                    />
-                  </Box>
-                )}
+                {aktifBolum === 'sart' && <OzelSartTablosu tesvik={tesvik} />}
 
                 {/* 8 · Destek Unsurları */}
-                {aktifBolum === 'destek' && (
-                  <Box>
-                {/* Müşteri isteği: Destek Unsurunda Açıklama kolonu kaldırılmıştı — korunuyor */}
-                    <VeriTablosu
-                      enAzGenislik={600}
-                      satirlar={tesvik.destekUnsurlari || []}
-                      anahtarAl={(x, i) => x?._id || i}
-                      bosMetin="Destek unsuru bulunamadı"
-                      sutunlar={[
-                        { anahtar: 'destekUnsuru', baslik: 'Destek Unsuru', genislik: '40%', bicim: (v) => v || '-' },
-                        { anahtar: 'sarti', baslik: 'Şartı', bicim: (_, x) => x.sarti || x.sart || '-', sar: true }
-                      ]}
-                    />
-                  </Box>
-                )}
+                {aktifBolum === 'destek' && <DestekUnsuruTablosu tesvik={tesvik} />}
 
                 {/* 10 · Evrak Listesi — akordeonken gizliydi, sekmede görünür */}
                 {aktifBolum === 'evrak' && (
