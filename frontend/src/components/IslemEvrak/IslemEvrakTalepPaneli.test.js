@@ -28,13 +28,18 @@ test('açılışta mail üretmez; metin ve seçimler kaydedildikten sonra ayrı 
   expect(screen.queryByLabelText('İçerik')).not.toBeInTheDocument();
   fireEvent.change(input, { target: { value: 'Belgeleri hazırlayınız.' } });
   fireEvent.click(screen.getByRole('button', { name: 'Mail Taslağı Hazırla' }));
-  expect(await screen.findByLabelText('İçerik')).toHaveValue('Taslak metni');
+  // İçerik artık biçimli metin editörü (contentEditable, aria-label "İçerik") — müşteri 13.10.2026
+  expect(await screen.findByLabelText('İçerik')).toHaveTextContent('Taslak metni');
   expect(svc.talepGuncelle).toHaveBeenCalledWith('t1', expect.objectContaining({ talepMetni: 'Belgeleri hazırlayınız.', istenenEvraklar: expect.any(Array) }));
-  fireEvent.change(screen.getByLabelText('İçerik'), { target: { value: 'Elle düzenlenen mail' } });
+  const editor = screen.getByLabelText('İçerik');
+  editor.innerHTML = 'Elle <b>düzenlenen</b> mail';
+  fireEvent.input(editor);
+  fireEvent.blur(editor); // değer beklemeden üst bileşene geçer
   fireEvent.click(screen.getByRole('button', { name: 'Evraklara dön' }));
   await waitFor(() => expect(screen.queryByLabelText('İçerik')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'Mail Taslağı Hazırla' }));
-  expect(await screen.findByLabelText('İçerik')).toHaveValue('Elle düzenlenen mail');
+  expect(await screen.findByLabelText('İçerik')).toHaveTextContent('Elle düzenlenen mail');
+  expect(screen.getByLabelText('İçerik').querySelector('b')).toHaveTextContent('düzenlenen');
   expect(svc.mailOnizle).toHaveBeenCalledTimes(1);
 });
 

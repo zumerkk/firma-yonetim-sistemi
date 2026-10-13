@@ -11,6 +11,7 @@ const tokenService = require('../tesvikMakine/uploadTokenService');
 const storageService = require('../tesvikMakine/storageService');
 const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 const mailService = require('../tesvikMakine/mailService');
+const { mailIcerigi } = require('../../utils/mailHtml');
 const engine = require('../tesvikMakine/mailTemplateEngine');
 const { DEFAULT_SIGNATURE } = require('../../constants/tesvikMakineMail');
 
@@ -393,18 +394,22 @@ async function topluZipYaz(talep, res, { icerikAl = zipDosyaIcerigi } = {}) {
 }
 
 // 📤 Talebi mail olarak gönder (konu/gövde dışarıdan düzenlenmiş gelebilir)
-async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user }) {
+// serbestEkler: bu maile özel, saklanmayan dosyalar [{ filename, content }] (müşteri, 13.10.2026)
+async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbestEkler = [], user }) {
   if (!Array.isArray(to) || to.length === 0) {
     const e = new Error('Gönderim için alıcı e-posta adresi yok.'); e.code = 'NO_RECIPIENT'; throw e;
   }
-  if (!String(subject || '').trim() || !String(body || '').trim()) {
+  // Editörden gelen gövde HTML olabilir: boşluk kontrolü görünen metne göre
+  const { text, html } = mailIcerigi(body);
+  if (!String(subject || '').trim() || !text.trim()) {
     const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
   }
 
-  // Ekler: istenen evrakların örnek dosyaları (bkz. ekleriHazirla)
+  // Ekler: istenen evrakların örnek dosyaları (bkz. ekleriHazirla) + bu maile özel dosyalar
   const { attachments, atlananEkler } = await ekleriHazirla(ekler);
+  attachments.push(...serbestEkler);
 
-  await mailService.sendMail({ to, cc, subject, text: body, attachments });
+  await mailService.sendMail({ to, cc, subject, text, html, attachments });
 
   // İlk gönderimden sonraki her mail "devam" — aynı bağlantıyla giden ikinci, üçüncü mail
   talep.mailGecmisi = [...(talep.mailGecmisi || []), {
@@ -412,7 +417,7 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], user 
     konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || ''
   }].slice(-50);
   talep.mailKonusu = subject;
-  talep.mailGovdesi = body;
+  talep.mailGovdesi = html || body;
   talep.mailAlicilar = to;
   talep.mailCc = cc;
   talep.sonMailTarihi = new Date();

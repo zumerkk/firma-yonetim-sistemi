@@ -11,6 +11,7 @@ import {
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import AddIcon from '@mui/icons-material/Add';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
@@ -29,6 +30,10 @@ const IslemEvrakPublicUpload = () => {
   const [yukleyenAdi, setYukleyenAdi] = useState('');
   // Firma tarafı en çok burada bekliyor: belirsiz bar yerine gerçek yüzde gösterilir
   const [yukleme, setYukleme] = useState(null);
+  // ➕ Firmanın kendi eklediği belge — müşteri (13.10.2026): "en alt kısma + işareti ile Ek belge ekleme
+  // koyalım firma isterse ekleyebilsin. Belge ismi yazıp kaydetsin > sonra yüklesin"
+  const [ekFormAcik, setEkFormAcik] = useState(false);
+  const [ekAd, setEkAd] = useState('');
 
   const yukle = useCallback(async (sessiz = false) => {
     if (!sessiz) setLoading(true);
@@ -98,6 +103,18 @@ const IslemEvrakPublicUpload = () => {
       setNedenAcik(prev => ({ ...prev, [evrakId]: false }));
     } catch (err) {
       setHata(err?.response?.data?.message || 'Neden kaydedilemedi.');
+    } finally { setYukleniyor(false); }
+  };
+
+  const ekBelgeKaydet = async () => {
+    setYukleniyor(true); setHata(''); setSonuc('');
+    try {
+      const r = await svc.publicEkBelgeEkle(token, { ad: ekAd, ekleyenAdi: yukleyenAdi.trim() });
+      setSonuc(r.message || 'Belge eklendi.');
+      setEkAd(''); setEkFormAcik(false);
+      await yukle(true);
+    } catch (err) {
+      setHata(err?.response?.data?.message || 'Belge eklenemedi.');
     } finally { setYukleniyor(false); }
   };
 
@@ -177,6 +194,47 @@ const IslemEvrakPublicUpload = () => {
               </Stack>}
             </Box>
           ))}
+        </Stack>
+      </Paper>
+
+      {/* ➕ Ek belgeler: firmanın eklediği, yalnız bu talepte görünen belgeler */}
+      <Paper sx={{ p: 3, mb: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>Ek Belgeler</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+          Listede olmayan bir belge göndermek isterseniz adını yazıp ekleyin, ardından dosyasını yükleyin.
+        </Typography>
+        <Stack spacing={1}>
+          {(bilgi.ekBelgeler || []).map((e) => (
+            <Stack key={e.id} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}
+              sx={{ borderBottom: '1px solid #e2e8f0', py: 1 }}>
+              {e.geldiMi
+                ? <CheckCircleIcon sx={{ color: '#059669', fontSize: 20 }} />
+                : <RadioButtonUncheckedIcon sx={{ color: '#cbd5e1', fontSize: 20 }} />}
+              <Typography variant="body2" sx={{ flex: 1, fontWeight: 600, overflowWrap: 'anywhere' }}>{e.ad}</Typography>
+              {e.geldiMi && <Chip label="Yüklendi" size="small" color="success" />}
+              <Button component="label" variant="contained" size="small" startIcon={<CloudUploadIcon />} disabled={yukleniyor}
+                onClick={() => setSeciliEvrak(e.id)}>
+                Dosya yükle
+                <input hidden type="file" multiple aria-label={`${e.ad} yükle`} onChange={(event) => dosyaSec(event, e.id)} />
+              </Button>
+            </Stack>
+          ))}
+          {ekFormAcik ? (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }}>
+              <TextField size="small" fullWidth autoFocus label="Belge adı" placeholder="ör. Kira sözleşmesi"
+                value={ekAd} onChange={(e) => setEkAd(e.target.value)} inputProps={{ maxLength: 200 }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && ekAd.trim().length >= 2) ekBelgeKaydet(); }} />
+              <Button variant="contained" disabled={yukleniyor || ekAd.trim().length < 2} onClick={ekBelgeKaydet}>Kaydet</Button>
+              <Button disabled={yukleniyor} onClick={() => { setEkFormAcik(false); setEkAd(''); }}>Vazgeç</Button>
+            </Stack>
+          ) : (
+            <Box>
+              <Button size="small" startIcon={<AddIcon />} disabled={yukleniyor || (bilgi.ekBelgeler || []).length >= (bilgi.ekBelgeSiniri || 20)}
+                onClick={() => setEkFormAcik(true)}>
+                Ek belge ekle
+              </Button>
+            </Box>
+          )}
         </Stack>
       </Paper>
 

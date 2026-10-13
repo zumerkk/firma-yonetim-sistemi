@@ -55,13 +55,17 @@ function escapeHtml(s = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function textToHtml(text = '') {
-  const safe = escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>');
+// Ortak kurumsal kalıp — düz metinden üretilen ve editörde biçimlendirilen gövde aynı görünür
+function htmlSarmala(icerik = '') {
   return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width, initial-scale=1.0"></head>` +
     `<body style="margin:0;padding:0;background:#f4f5f7;">` +
     `<div style="max-width:640px;margin:0 auto;padding:24px;font-family:Arial,Helvetica,sans-serif;` +
-    `font-size:14px;line-height:1.6;color:#222;background:#ffffff;">${safe}</div></body></html>`;
+    `font-size:14px;line-height:1.6;color:#222;background:#ffffff;">${icerik}</div></body></html>`;
+}
+
+function textToHtml(text = '') {
+  return htmlSarmala(escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>'));
 }
 
 function asList(v) {
@@ -87,7 +91,8 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     cc: ccList.length ? ccList.join(', ') : undefined,
     subject: subject || '',
     text: text || '',
-    html: html || textToHtml(text || ''),
+    // Editörden gelen HTML (İşlem & Evrak mail editörü) kalıba sarılır; yoksa düz metinden üretilir
+    html: html ? htmlSarmala(html) : textToHtml(text || ''),
     attachments
   };
 
@@ -119,4 +124,4 @@ function humanizeSmtpError(error) {
 // Test edilebilirlik için transporter cache'ini sıfırla
 function _resetCache() { cachedTransporter = null; cachedSignature = null; }
 
-module.exports = { isConfigured, getTransporter, verify, sendMail, fromAddress, textToHtml, asList, _resetCache };
+module.exports = { isConfigured, getTransporter, verify, sendMail, fromAddress, textToHtml, htmlSarmala, asList, _resetCache };
