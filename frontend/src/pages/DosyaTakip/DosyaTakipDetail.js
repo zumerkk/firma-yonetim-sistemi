@@ -56,6 +56,7 @@ import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import { adresEkle, eklenebilirOneriler } from '../../utils/epostaListesi';
 import { tarihSaatGirdisi, tarihSaatIso, tarihSaatYapistir } from '../../utils/tarihSaat';
+import { takipEdenAdlari } from '../../utils/takipEdenler';
 
 // Renk eşleştirmeleri
 const DURUM_RENKLERI = {
@@ -1091,8 +1092,8 @@ const DosyaTakipDetail = () => {
                                 <Chip size="small" label="⚠️ Görüşme atanımadı" onClick={() => setActiveTab(3)}
                                     sx={{ fontSize: '0.65rem', height: 22, background: '#fef3c7', color: '#92400e', cursor: 'pointer' }} />
                             )}
-                            {(seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi) && (
-                                <Chip size="small" label={`Takip: ${seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi}`}
+                            {takipEdenAdlari(seciliTalep).length > 0 && (
+                                <Chip size="small" label={`Takip: ${takipEdenAdlari(seciliTalep).join(', ')}`}
                                     sx={{ fontSize: '0.65rem', height: 22, background: '#dbeafe', color: '#1e40af' }} />
                             )}
                             {/* ☑️ Müşteri (21.09.2026): listedeki E-TUYS takip kutusu dosya detayında da olsun */}
@@ -1497,6 +1498,7 @@ const DosyaTakipDetail = () => {
                                                         'muraacatOncesi.muraacatHazirlayanAdi': seciliTalep.muraacatOncesi?.muraacatHazirlayanAdi || '',
                                                         'muraacatSonrasi.takibiYapanPersonel': seciliTalep.muraacatSonrasi?.takibiYapanPersonel?._id || '',
                                                         'muraacatSonrasi.takibiYapanAdi': seciliTalep.muraacatSonrasi?.takibiYapanAdi || '',
+                                                        'muraacatSonrasi.ekTakipEdenler': (seciliTalep.muraacatSonrasi?.ekTakipEdenler || []).map((k) => k?._id || k).filter(Boolean),
                                                         'kurumSonuclanma.personel': seciliTalep.kurumSonuclanma?.personel?._id || '',
                                                         'kurumSonuclanma.personelAdi': seciliTalep.kurumSonuclanma?.personelAdi || '',
                                                         'muraacatSonrasi.kurumDegerlendirme.kurumDaire': seciliTalep.muraacatSonrasi?.kurumDegerlendirme?.kurumDaire || '',
@@ -1515,7 +1517,8 @@ const DosyaTakipDetail = () => {
                                             {[
                                                 { label: 'Görüşme Yapan', idKey: 'muraacatOncesi.gorusmeYapan', nameKey: 'muraacatOncesi.gorusmeYapanAdi', value: seciliTalep.muraacatOncesi?.gorusmeYapan?.adSoyad || seciliTalep.muraacatOncesi?.gorusmeYapanAdi },
                                                 { label: 'Müracaat Hazırlayan', idKey: 'muraacatOncesi.muraacatHazirlayanPersonel', nameKey: 'muraacatOncesi.muraacatHazirlayanAdi', value: seciliTalep.muraacatOncesi?.muraacatHazirlayanPersonel?.adSoyad || seciliTalep.muraacatOncesi?.muraacatHazirlayanAdi },
-                                                { label: 'Takibi Yapan', idKey: 'muraacatSonrasi.takibiYapanPersonel', nameKey: 'muraacatSonrasi.takibiYapanAdi', value: seciliTalep.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || seciliTalep.muraacatSonrasi?.takibiYapanAdi },
+                                                // Müşteri (13.10.2026): "takibi yapan kısmına birden fazla kişi atayabilelim" — ilk seçilen birincil
+                                                { label: 'Takibi Yapan', idKey: 'muraacatSonrasi.takibiYapanPersonel', nameKey: 'muraacatSonrasi.takibiYapanAdi', coklu: true, value: takipEdenAdlari(seciliTalep).join(', ') },
                                                 { label: 'Sonuçlama Personeli', idKey: 'kurumSonuclanma.personel', nameKey: 'kurumSonuclanma.personelAdi', value: seciliTalep.kurumSonuclanma?.personel?.adSoyad || seciliTalep.kurumSonuclanma?.personelAdi }
                                             ].map((atama, i) => (
                                                 <Grid item xs={12} md={6} key={i}>
@@ -1523,7 +1526,23 @@ const DosyaTakipDetail = () => {
                                                         <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, textTransform: 'uppercase', fontSize: '0.65rem', mb: 0.5, display: 'block' }}>
                                                             {atama.label}
                                                         </Typography>
-                                                        {atamaEditing ? (
+                                                        {atamaEditing && atama.coklu ? (
+                                                            <Autocomplete multiple size="small"
+                                                                options={(Array.isArray(users) ? users : []).map((u) => String(u._id || u.id))}
+                                                                getOptionLabel={(id) => (users || []).find((u) => String(u._id || u.id) === String(id))?.adSoyad || ''}
+                                                                value={[atamaData[atama.idKey], ...(atamaData['muraacatSonrasi.ekTakipEdenler'] || [])].filter(Boolean).map(String)}
+                                                                onChange={(e, secilen) => {
+                                                                    const [birincil = '', ...ekler] = secilen;
+                                                                    const user = (users || []).find((u) => String(u._id || u.id) === String(birincil));
+                                                                    setAtamaData((prev) => ({
+                                                                        ...prev,
+                                                                        [atama.idKey]: birincil,
+                                                                        [atama.nameKey]: user?.adSoyad || '',
+                                                                        'muraacatSonrasi.ekTakipEdenler': ekler
+                                                                    }));
+                                                                }}
+                                                                renderInput={(params) => <TextField {...params} placeholder="Kişi ekleyin" helperText="Birden fazla kişi seçebilirsiniz" />} />
+                                                        ) : atamaEditing ? (
                                                             <TextField select fullWidth size="small" value={atamaData[atama.idKey] || ''}
                                                                 onChange={(e) => {
                                                                     const user = users.find(u => (u._id || u.id) === e.target.value);

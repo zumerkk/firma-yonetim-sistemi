@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const { takipEdenKosulu, ekListesiniDuzelt } = require('../services/dosyaTakip/takipEdenler');
+const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
 const DosyaTakip = require('../models/DosyaTakip');
 const { aktiviteKaydet } = require('../utils/aktiviteKaydi');
 const Notification = require('../models/Notification');
@@ -81,6 +83,7 @@ const TALEP_POPULATE = [
     { path: 'muraacatOncesi.gorusmeYapan', select: 'adSoyad' },
     { path: 'muraacatOncesi.muraacatHazirlayanPersonel', select: 'adSoyad' },
     { path: 'muraacatSonrasi.takibiYapanPersonel', select: 'adSoyad' },
+    { path: 'muraacatSonrasi.ekTakipEdenler', select: 'adSoyad' },
     { path: 'muraacatSonrasi.kurumEksik.bizdenBeklenen.personel', select: 'adSoyad' },
     { path: 'muraacatSonrasi.kurumEksik.herIkisindenBeklenen.personel', select: 'adSoyad' },
     { path: 'kurumSonuclanma.personel', select: 'adSoyad' }
@@ -198,14 +201,14 @@ exports.benimIslerim = async (req, res) => {
         const alanlar = 'takipId firmaUnvan talepTuru ytbNo durum durumRengi anaAsama createdAt updatedAt';
 
         const [takibimde, actiklarim, sonYuklemeler, gelenNotlar] = await Promise.all([
-            DosyaTakip.find({ ...acikSuzgec, 'muraacatSonrasi.takibiYapanPersonel': kullaniciId })
+            DosyaTakip.find({ ...acikSuzgec, ...takipEdenKosulu(kullaniciId) })
                 .select(alanlar).sort({ updatedAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             DosyaTakip.find({ ...acikSuzgec, olusturanKullanici: kullaniciId })
                 .select(alanlar).sort({ createdAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             // Firmadan gelen dosyalar: bana ait taleplerde, en yeni FIRMADAN_GELEN_SINIRI tanesi
             DosyaTakip.aggregate([
                 { $match: { $or: [
-                    { 'muraacatSonrasi.takibiYapanPersonel': kullaniciId },
+                    ...takipEdenKosulu(kullaniciId).$or,
                     { olusturanKullanici: kullaniciId }
                 ] } },
                 { $unwind: '$dosyalar' },
@@ -225,9 +228,33 @@ exports.benimIslerim = async (req, res) => {
                 .sort({ createdAt: -1 }).limit(GELEN_NOT_SINIRI).lean()
         ]);
 
+        // 📥 İşlem & Evrak linkinden gelen dosyalar da aynı sütunda — müşteri (13.10.2026): "firma işlem &
+        // evrak kısmından belge yükleyince dashboardda görünmüyor." Bana ait talep: benim açtığım, mailini
+        // benim gönderdiğim ya da takip ettiğim/açtığım Belge Takip talebinden açılmış olan.
+        const IslemTalebi = require('../models/IslemTalebi');
+        const benimTakiplerim = await DosyaTakip.find({ $or: [...takipEdenKosulu(kullaniciId).$or, { olusturanKullanici: kullaniciId }] })
+            .distinct('_id');
+        const islemYuklemeleri = await IslemTalebi.aggregate([
+            { $match: { aktif: { $ne: false }, $or: [
+                { olusturanKullanici: kullaniciId }, { sonMailGonderen: kullaniciId }, { dosyaTakip: { $in: benimTakiplerim } }
+            ] } },
+            { $unwind: '$yuklenenEvraklar' },
+            { $sort: { 'yuklenenEvraklar.yuklemeTarihi': -1 } },
+            { $limit: FIRMADAN_GELEN_SINIRI },
+            { $project: {
+                _id: 1, firmaUnvan: '$firmaAdi', islemAdi: '$islemTuruAdi',
+                dosyaAdi: { $ifNull: [{ $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$yuklenenEvraklar.orijinalAd', ''] } }, 0] }, '$yuklenenEvraklar.orijinalAd', '$yuklenenEvraklar.dosyaAdi'] }, ''] },
+                tarih: '$yuklenenEvraklar.yuklemeTarihi', yukleyenAdi: '$yuklenenEvraklar.yukleyenAdi'
+            } }
+        ]);
+        const firmadanGelenler = [
+            ...sonYuklemeler.map((y) => ({ ...y, kaynak: 'belgeTakip' })),
+            ...islemYuklemeleri.map((y) => ({ ...y, kaynak: 'islemEvrak', dosyaAdi: dosyaAdiDuzelt(y.dosyaAdi) }))
+        ].sort((a, b) => new Date(b.tarih || 0) - new Date(a.tarih || 0)).slice(0, FIRMADAN_GELEN_SINIRI);
+
         res.json({
             success: true,
-            data: { takibimde, actiklarim, sonYuklemeler, gelenNotlar: gelenNotlar.map(notBildirimi.notBildirimiSatiri) }
+            data: { takibimde, actiklarim, sonYuklemeler: firmadanGelenler, gelenNotlar: gelenNotlar.map(notBildirimi.notBildirimiSatiri) }
         });
     } catch (error) {
         console.error('🚨 benimIslerim hatası:', error);
@@ -343,7 +370,13 @@ exports.getTumTalepler = async (req, res) => {
             }
         };
         personelFiltresi(hazirlayan, 'muraacatOncesi.muraacatHazirlayanPersonel');
-        personelFiltresi(takipEden, 'muraacatSonrasi.takibiYapanPersonel');
+        // Takibi yapan birden fazla kişi olabilir: kişi seçilince birincil ya da ek takip eden eşleşir
+        // ('YOK' → birincil boş; ek kişiler birincil olmadan atanamıyor)
+        if (takipEden && takipEden !== 'YOK' && mongoose.Types.ObjectId.isValid(takipEden)) {
+            filter.$and = [...(filter.$and || []), takipEdenKosulu(new mongoose.Types.ObjectId(takipEden))];
+        } else {
+            personelFiltresi(takipEden, 'muraacatSonrasi.takibiYapanPersonel');
+        }
 
         if (baslangicTarihi || bitisTarihi) {
             filter.createdAt = {};
@@ -357,6 +390,7 @@ exports.getTumTalepler = async (req, res) => {
             .populate('olusturanKullanici', 'adSoyad')
             .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
             .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
+            .populate('muraacatSonrasi.ekTakipEdenler', 'adSoyad')
             .lean();
 
         // ↕️ Sütun başlığından sıralama (siralama=alan:asc|desc) süzülmüş kümenin TAMAMINDA yapılır;
@@ -576,6 +610,7 @@ exports.talepGuncelle = async (req, res) => {
 
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;
+        ekListesiniDuzelt(talep); // ek takip edenlerde birincil/tekrar kalmasın
 
         await talep.save();
 

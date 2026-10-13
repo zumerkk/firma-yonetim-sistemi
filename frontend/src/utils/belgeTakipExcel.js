@@ -6,6 +6,7 @@
 // sıralanabilsin).
 
 import { FATURA_DURUMU } from './cariFormat';
+import { takipEdenAdlari } from './takipEdenler';
 
 const GORUNUM_ADI = { aktif: 'Aktif Talepler', kapama: 'Kapama Talepleri', arsiv: 'Arşiv' };
 
@@ -25,7 +26,7 @@ export const BELGE_TAKIP_EXCEL_SUTUNLARI = [
     ['Belge No', (t) => t.ytbNo || '', 12],
     ['İl / İlçe', (t) => [t.firma?.firmaIl, t.firma?.firmaIlce].filter(Boolean).join(' / '), 22],
     ['Müracaat Hazırlayan', (t) => kisi(t.muraacatOncesi?.muraacatHazirlayanPersonel, t.muraacatOncesi?.muraacatHazirlayanAdi), 20],
-    ['Takibi Yapan', (t) => kisi(t.muraacatSonrasi?.takibiYapanPersonel, t.muraacatSonrasi?.takibiYapanAdi), 20],
+    ['Takibi Yapan', (t) => takipEdenAdlari(t).join(', '), 20],
     ['Oluşturma Tarihi', (t) => tarihHucresi(t.createdAt), 14],
     ['Resmi Müracaat Eksik Son Gün', (t) => tarihHucresi(t.zamanlama?.resmiMuracaatEksikSonGun), 16],
     ['Sonuçlanma', (t) => tarihHucresi(t.sonuclanmaTarihi || t.sonucaAlinmaTarihi), 14],

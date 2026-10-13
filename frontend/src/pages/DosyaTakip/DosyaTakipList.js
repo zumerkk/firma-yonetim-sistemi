@@ -30,6 +30,7 @@ import useSutunSirasi from '../../hooks/useSutunSirasi';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import axios from '../../utils/axios';
+import { takipEdenAdlari } from '../../utils/takipEdenler';
 import { belgeTakipExcelIndir } from '../../utils/belgeTakipExcel';
 
 // müşteri: tablodaki bütün yazılar (firma ismi, çipler, tarihler, başlıklar) tek boyut kullansın.
@@ -461,12 +462,12 @@ const DosyaTakipList = () => {
             headerName: 'Takibi Yapan',
             flex: 0.7,
             minWidth: 130,
-            valueGetter: (params) => params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad || params.row.muraacatSonrasi?.takibiYapanAdi || '',
+            // Birden fazla takip eden olabilir (müşteri, 13.10.2026) — birincil önce, virgülle
+            valueGetter: (params) => takipEdenAdlari(params.row).join(', '),
             renderCell: (params) => {
-                const ad = params.row.muraacatSonrasi?.takibiYapanPersonel?.adSoyad
-                    || params.row.muraacatSonrasi?.takibiYapanAdi;
+                const ad = takipEdenAdlari(params.row).join(', ');
                 return (
-                    <Typography variant="body2" sx={{ fontSize: TABLO_FONT, color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <Typography variant="body2" title={ad} sx={{ fontSize: TABLO_FONT, color: ad ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {ad || '-'}
                     </Typography>
                 );

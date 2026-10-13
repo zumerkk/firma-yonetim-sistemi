@@ -75,21 +75,22 @@ async function yuklemeBildirimAlicilari(talep) {
   const DosyaTakip = require('../../models/DosyaTakip');
   const User = require('../../models/User');
   const kimlik = (v) => (v ? String(v._id || v) : '');
-  let hedefId = '';
+  let hedefIdler = [];
 
+  // Takibi yapan birden fazla kişi olabilir (müşteri, 13.10.2026) — hepsine haber gider
   if (talep.dosyaTakip) {
     const takip = await DosyaTakip.findById(talep.dosyaTakip)
-      .select('muraacatSonrasi.takibiYapanPersonel').lean();
-    hedefId = kimlik(takip?.muraacatSonrasi?.takibiYapanPersonel);
+      .select('muraacatSonrasi.takibiYapanPersonel muraacatSonrasi.ekTakipEdenler').lean();
+    hedefIdler = require('../dosyaTakip/takipEdenler').takipEdenIdleri(takip);
   }
-  if (!hedefId) hedefId = kimlik(talep.sonMailGonderen);
-  if (!hedefId) hedefId = kimlik(talep.olusturanKullanici);
+  if (!hedefIdler.length && kimlik(talep.sonMailGonderen)) hedefIdler = [kimlik(talep.sonMailGonderen)];
+  if (!hedefIdler.length && kimlik(talep.olusturanKullanici)) hedefIdler = [kimlik(talep.olusturanKullanici)];
 
-  const kullaniciIdleri = hedefId ? [hedefId] : [];
+  const kullaniciIdleri = hedefIdler;
   let adresler = [];
-  if (hedefId) {
-    const kisi = await User.findById(hedefId).select('email').lean();
-    if (kisi?.email) adresler = [kisi.email];
+  if (hedefIdler.length) {
+    const kisiler = await User.find({ _id: { $in: hedefIdler } }).select('email').lean();
+    adresler = kisiler.map((k) => k.email).filter(Boolean);
   }
   if (!adresler.length) {
     const ortak = process.env.UPLOAD_NOTIFY_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER;

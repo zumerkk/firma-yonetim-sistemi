@@ -99,3 +99,27 @@ test('firmadan gelenler de 10 ile sınırlı değil', async () => {
   expect(r.body.data.sonYuklemeler).toHaveLength(15);
   expect(r.body.data.sonYuklemeler[0].dosyaAdi).toBe('f14.pdf');
 });
+
+// Müşteri (13.10.2026): "Belgede takibi yapan kısmına birden fazla kişi atayabilelim"
+test('ek takip eden olarak atandığım talep de "Takibi Bende"de', async () => {
+  await talep({ olusturanKullanici: baskasi, muraacatSonrasi: { takibiYapanPersonel: baskasi, ekTakipEdenler: [ben] } });
+  const r = await request(app).get('/benim');
+  expect(r.body.data.takibimde).toHaveLength(1);
+});
+
+// Müşteri (13.10.2026): "firma işlem & evrak kısmından belge yükleyince dashboardda görünmüyor."
+test('İşlem & Evrak linkinden gelen dosya "Firmadan Gelenler"de, kaynağıyla', async () => {
+  const IslemTalebi = require('../../models/IslemTalebi');
+  await IslemTalebi.deleteMany({});
+  const takip = await talep({ olusturanKullanici: baskasi, muraacatSonrasi: { takibiYapanPersonel: baskasi, ekTakipEdenler: [ben] } });
+  const base = { firma, firmaAdi: 'SAY HASSAS', islemTuru: new ObjectId(), islemTuruAdi: 'Yeni Belge Taahhütname' };
+  await IslemTalebi.create({ ...base, dosyaTakip: takip._id, olusturanKullanici: baskasi,
+    yuklenenEvraklar: [{ dosyaAdi: 'a.pdf', orijinalAd: 'taahhutname.pdf', yuklemeTarihi: new Date('2026-10-12T10:00:00Z') }] });
+  await IslemTalebi.create({ ...base, olusturanKullanici: baskasi,
+    yuklenenEvraklar: [{ dosyaAdi: 'baskasinin.pdf', yuklemeTarihi: new Date() }] });
+
+  const r = await request(app).get('/benim');
+  const gelenler = r.body.data.sonYuklemeler;
+  expect(gelenler).toHaveLength(1);
+  expect(gelenler[0]).toMatchObject({ kaynak: 'islemEvrak', dosyaAdi: 'taahhutname.pdf', firmaUnvan: 'SAY HASSAS', islemAdi: 'Yeni Belge Taahhütname' });
+});
