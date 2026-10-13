@@ -96,9 +96,9 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     attachments
   };
 
+  let result;
   try {
-    const result = await transporter.sendMail(mailOptions);
-    return { messageId: result.messageId, accepted: result.accepted, rejected: result.rejected };
+    result = await transporter.sendMail(mailOptions);
   } catch (error) {
     // Ham hatayı sunucuda logla, çağırana sade mesaj ver
     console.error('🚨 [mailService] SMTP gönderim hatası:', error && error.message);
@@ -107,6 +107,21 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     friendly.original = error && error.message;
     throw friendly;
   }
+
+  // 🔎 Sunucunun cevabı iz olarak kalır. Müşteri (13.10.2026): "smtp ile gönderdiğimiz mailler gönderildi
+  // diyor ama mail gelmiyor" — uygulama yalnız "kabul edildi" diyebiliyordu; teslim sorunu Gmail sonrası.
+  // Artık her gönderimde kabul/red sayısı ve sunucu yanıtı (ör. "250 2.0.0 OK … gsmtp") loglanıyor ve
+  // MailLog'a yazılıyor. Adresler loga yazılmaz, yalnız alan adları.
+  const accepted = result.accepted || [];
+  const rejected = result.rejected || [];
+  const alanlar = (l) => [...new Set(l.map((a) => String(a && a.address ? a.address : a).split('@')[1] || '?'))].join(',');
+  console.log(`📮 [mailService] gönderildi id=${result.messageId} kabul=${accepted.length}(${alanlar(accepted)}) red=${rejected.length}${rejected.length ? `(${alanlar(rejected)})` : ''} yanit="${String(result.response || '').slice(0, 160)}"`);
+  if (!accepted.length && rejected.length) {
+    const e = new Error('Alıcı adres(ler)i mail sunucusu tarafından reddedildi. E-posta adreslerini kontrol edin.');
+    e.code = 'EENVELOPE';
+    throw e;
+  }
+  return { messageId: result.messageId, accepted, rejected, response: result.response || '' };
 }
 
 function humanizeSmtpError(error) {

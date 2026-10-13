@@ -302,7 +302,8 @@ const dosyaTakipSchema = new mongoose.Schema({
     ekDosyaAdlari: [{ type: String, trim: true }],
     gonderenAdi: { type: String, trim: true },
     gonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    tarih: { type: Date, default: Date.now }
+    tarih: { type: Date, default: Date.now },
+    smtpYaniti: { type: String, trim: true, default: '' } // mail sunucusunun kabul cevabı (bkz. mailService)
   }, { _id: true, timestamps: false })],
 
   // --- FİRMA YÜKLEME BAĞLANTISI (müşteri, 15.09.2026: "firma mailine yükleme linki koyabilir miyiz") ---

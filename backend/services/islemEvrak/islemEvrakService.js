@@ -409,12 +409,13 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
   const { attachments, atlananEkler } = await ekleriHazirla(ekler);
   attachments.push(...serbestEkler);
 
-  await mailService.sendMail({ to, cc, subject, text, html, attachments });
+  const gonderim = await mailService.sendMail({ to, cc, subject, text, html, attachments });
 
   // İlk gönderimden sonraki her mail "devam" — aynı bağlantıyla giden ikinci, üçüncü mail
   talep.mailGecmisi = [...(talep.mailGecmisi || []), {
     tarih: new Date(), tur: (talep.mailGonderimSayisi || 0) > 0 ? 'devam' : 'ilk',
-    konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || ''
+    konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || '',
+    smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300)
   }].slice(-50);
   talep.mailKonusu = subject;
   talep.mailGovdesi = html || body;

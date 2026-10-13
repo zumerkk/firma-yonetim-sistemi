@@ -39,7 +39,7 @@ test('açılışta mail üretmez; metin ve seçimler kaydedildikten sonra ayrı 
   await waitFor(() => expect(screen.queryByLabelText('İçerik')).not.toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'Mail Taslağı Hazırla' }));
   expect(await screen.findByLabelText('İçerik')).toHaveTextContent('Elle düzenlenen mail');
-  expect(screen.getByLabelText('İçerik').querySelector('b')).toHaveTextContent('düzenlenen');
+  expect(screen.getByLabelText('İçerik')).toContainHTML('<b>düzenlenen</b>');
   expect(svc.mailOnizle).toHaveBeenCalledTimes(1);
 });
 

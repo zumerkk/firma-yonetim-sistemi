@@ -540,7 +540,7 @@ async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverrid
   try {
     const res = await mailService.sendMail({ to: composed.to, cc: composed.cc, subject: composed.subject, text: composed.body, attachments: ekler || [] });
     log.status = MAIL_STATUS.SENT;
-    log.smtpMessageId = res.messageId || '';
+    log.smtpMessageId = res.messageId || ''; log.smtpYaniti = String(res.response || '').slice(0, 300); log.reddedilenler = (res.rejected || []).map(String);
     log.sentAt = new Date();
     await log.save();
 
@@ -578,7 +578,7 @@ async function resendMail(mailLogId, { user } = {}) {
   if (sure.doldu) { const e = new Error(sure.mesaj); e.code = 'BELGE_SURESI_DOLDU'; throw e; }
   try {
     const res = await mailService.sendMail({ to: log.toEmails, cc: log.ccEmails, subject: log.subject, text: log.body });
-    log.status = MAIL_STATUS.SENT; log.smtpMessageId = res.messageId || ''; log.sentAt = new Date(); log.errorMessage = '';
+    log.status = MAIL_STATUS.SENT; log.smtpMessageId = res.messageId || ''; log.smtpYaniti = String(res.response || '').slice(0, 300); log.reddedilenler = (res.rejected || []).map(String); log.sentAt = new Date(); log.errorMessage = '';
     await log.save();
     proc.lastMailAt = log.sentAt; proc.lastMailTemplateCode = log.templateCode; await proc.save();
     await addLog({ proc, actionType: PROCESS_ACTION.MAIL_SENT, note: `Yeniden gönderildi: ${log.templateCode}`, meta: { mailLogId: log._id }, user });

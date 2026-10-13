@@ -158,7 +158,7 @@ async function sendAraKontrol({ tesvikModel, tesvikId, to = [], cc = [], subject
   try {
     const res = await mailService.sendMail({ to, cc, subject, text: body, attachments });
     log.status = MAIL_STATUS.SENT;
-    log.smtpMessageId = res.messageId || '';
+    log.smtpMessageId = res.messageId || ''; log.smtpYaniti = String(res.response || '').slice(0, 300); log.reddedilenler = (res.rejected || []).map(String);
     log.sentAt = new Date();
     await log.save();
     return { mailLog: log, sent: true, ekSayisi: attachments.length };

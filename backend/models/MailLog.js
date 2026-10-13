@@ -24,6 +24,10 @@ const mailLogSchema = new mongoose.Schema({
   body: { type: String, default: '' },
 
   smtpMessageId: { type: String, trim: true, default: '' },
+  // Mail sunucusunun kabul cevabı (ör. "250 2.0.0 OK 1728… - gsmtp") ve reddettiği alıcılar — "gönderildi
+  // diyor ama gelmiyor" sorularında maile sunucunun ne dediği buradan görülür (bkz. mailService.sendMail)
+  smtpYaniti: { type: String, trim: true, default: '' },
+  reddedilenler: { type: [String], default: [] },
   status: { type: String, enum: Object.values(MAIL_STATUS), default: MAIL_STATUS.DRAFT, index: true },
   errorMessage: { type: String, trim: true, default: '' },
 

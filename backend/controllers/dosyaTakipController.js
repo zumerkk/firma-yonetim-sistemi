@@ -1752,7 +1752,7 @@ exports.firmaMailGonder = async (req, res) => {
             });
         }
 
-        await mailService.sendMail({ to: alicilar, cc, subject: konu, text: govde, attachments });
+        const gonderim = await mailService.sendMail({ to: alicilar, cc, subject: konu, text: govde, attachments });
 
         // İz kaydı — "firmaya ne yazmıştık, ne zaman" sonradan cevaplanabilsin
         talep.firmaMailleri.push({
@@ -1760,7 +1760,8 @@ exports.firmaMailGonder = async (req, res) => {
             ekDosyaAdlari: attachments.map((a) => a.filename),
             gonderen: req.user._id,
             gonderenAdi: req.user.adSoyad,
-            tarih: new Date()
+            tarih: new Date(),
+            smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300)
         });
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;

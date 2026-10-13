@@ -121,7 +121,8 @@ const islemTalebiSchema = new mongoose.Schema({
       tur: { type: String, enum: ['ilk', 'devam'], default: 'ilk' },
       konu: { type: String, trim: true, default: '' },
       alicilar: { type: [String], default: [] },
-      gonderenAdi: { type: String, trim: true, default: '' }
+      gonderenAdi: { type: String, trim: true, default: '' },
+      smtpYaniti: { type: String, trim: true, default: '' } // mail sunucusunun kabul cevabı (bkz. mailService)
     }, { _id: false })],
     default: []
   },
