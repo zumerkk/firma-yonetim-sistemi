@@ -37,7 +37,8 @@ export default function BelgeDurumSecici({ belgeId, sistem = 'Eski', durum, onDe
         onDelete={(e) => setMenu(e.currentTarget.parentElement)}
         deleteIcon={kaydediliyor ? <CircularProgress size={12} sx={{ color: 'white !important' }} /> : <ArrowDropDownIcon />}
         disabled={kaydediliyor}
-        aria-haspopup="listbox"
+        aria-haspopup="menu"
+        aria-label={`Durum: ${belgeDurumLabel(durum)} — değiştir`}
         title="Durumu değiştir"
         sx={{
           backgroundColor: belgeDurumRengi(durum), color: 'white', fontSize: '0.75rem', fontWeight: 600,

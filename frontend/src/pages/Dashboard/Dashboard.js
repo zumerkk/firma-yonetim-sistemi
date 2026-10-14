@@ -414,7 +414,8 @@ const Dashboard = () => {
       </Grid>
 
       <Grid container spacing={1.2}>
-        <Grid item xs={12} md={6} lg={3}>
+        {/* Sol: Hızlı İşlemler + Son Eklenen Firmalar alt alta; sağ: Belge Takip son işlemleri (5 sütun, geniş) */}
+        <Grid item xs={12} lg={4} sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
           <Panel baslik="Hızlı İşlemler" ikon={<BusinessIcon sx={{ fontSize: 14 }} />}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
               {quickActions.map((eylem, i) => (
@@ -430,9 +431,6 @@ const Dashboard = () => {
               ))}
             </Box>
           </Panel>
-        </Grid>
-
-        <Grid item xs={12} md={6} lg={3}>
           <Panel
             baslik="Son Eklenen Firmalar"
             ikon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
@@ -458,7 +456,7 @@ const Dashboard = () => {
           </Panel>
         </Grid>
 
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12} lg={8}>
           <Panel
             baslik="Belge Takip — Son İşlemler"
             ikon={<HistoryIcon sx={{ fontSize: 14 }} />}
@@ -470,11 +468,11 @@ const Dashboard = () => {
               </IconButton>
             }
           >
-            <Box sx={{ maxHeight: 360, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+            <Box sx={{ maxHeight: 420, overflowY: 'auto', overscrollBehavior: 'contain' }}>
               <VeriTablosu
                 sutunlar={[
-                  { anahtar: 'firmaUnvan', baslik: 'Firma', bicim: (v) => v || '-' },
-                  { anahtar: 'talepTuru', baslik: 'Talep Türü', genislik: 140, bicim: (v) => v || '-' },
+                  { anahtar: 'firmaUnvan', baslik: 'Firma', sar: true, bicim: (v) => v || '-' },
+                  { anahtar: 'talepTuru', baslik: 'Talep Türü', genislik: 150, sar: true, bicim: (v) => v || '-' },
                   { anahtar: 'durum', baslik: 'Durum', genislik: 150,
                     bicim: (_v, s) => <IslemHucresi zamanDegeri={s.durumZamani} ust={s.durumEtiketi || s.durum} son={s.sonIslem} /> },
                   { anahtar: 'notZamani', baslik: 'Notlar', genislik: 90,

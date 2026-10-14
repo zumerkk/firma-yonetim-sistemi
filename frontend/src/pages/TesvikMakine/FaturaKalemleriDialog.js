@@ -155,8 +155,8 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                             : <Typography variant="caption" color="text.secondary">{k.girenAdi || 'Personel'}</Typography>}
                         </TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <Tooltip title="Düzelt"><span><IconButton size="small" disabled={mesgul} onClick={() => duzenle(k)}><EditIcon fontSize="small" /></IconButton></span></Tooltip>
-                          <Tooltip title="Sil"><span><IconButton size="small" color="error" disabled={mesgul} onClick={() => sil(k)}><DeleteOutlineIcon fontSize="small" /></IconButton></span></Tooltip>
+                          <Tooltip title="Düzelt"><span><IconButton size="small" aria-label={`${k.no || 'Kalem'} düzelt`} disabled={mesgul} onClick={() => duzenle(k)}><EditIcon fontSize="small" /></IconButton></span></Tooltip>
+                          <Tooltip title="Sil"><span><IconButton size="small" color="error" aria-label={`${k.no || 'Kalem'} sil`} disabled={mesgul} onClick={() => sil(k)}><DeleteOutlineIcon fontSize="small" /></IconButton></span></Tooltip>
                         </TableCell>
                       </TableRow>
                     ))}
