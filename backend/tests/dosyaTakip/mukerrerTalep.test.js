@@ -9,9 +9,7 @@
 // açık talep (%8,3). Örnek: A001014 / "Yerli Makine Revize Talebi" / belge
 // 578589 için DT20260031 ve DT20260161 aynı anda açık.
 //
-// ⚠️ SERT KİLİT DEĞİL: ölçümde bazı çiftler farklı aşamalardaydı
-// (MURACAAT_ONCESI ↔ KURUM_SONUCLANMA), yani meşru ikinci talep olabiliyor.
-// Kural "uyar ve mevcudu göster"; kullanıcı bilerek devam edebiliyor.
+// Aynı açık talep engellenir; sonuçlanmış talepler yeni başvuruyu engellemez.
 
 const mongoose = require('mongoose');
 const DosyaTakip = require('../../models/DosyaTakip');

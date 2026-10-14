@@ -191,7 +191,7 @@ const TesvikList = () => {
       if (aramaTerimi.length >= 2) {
         // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
         response = await axios.get('/tesvik/birlesik-arama', {
-          params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined, durum: filters.durum || undefined, arsiv: filters.arsiv }
+          params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined, durum: filters.durum || undefined, arsiv: filters.arsiv, siraBy: siralama.alan, siraSekli: siralama.yon }
         });
         varsayilanSistem = '';
       } else if (sistemFiltre === 'Yeni') {

@@ -3,6 +3,7 @@
 
 const crypto = require('crypto');
 const MachineProcess = require('../models/MachineProcess');
+const MailLog = require('../models/MailLog');
 const tokenService = require('../services/tesvikMakine/uploadTokenService');
 const storageService = require('../services/tesvikMakine/storageService');
 const mps = require('../services/tesvikMakine/machineProcessService');
@@ -47,12 +48,12 @@ async function resolveByToken(token) {
 // Makineye daha önce kaydedilmiş fatura kalemlerinin özeti — müşteri (13.10.2026): "Buradaki makinelere
 // daha önceden fatura kaydedildiyse görünsün (miktar-tutar)". Fatura no/tarih/içerik paylaşılmaz.
 const faturaOzeti = (p) => {
-  const kalemler = p.faturalar || [];
+  const kalemler = mps.faturaKalemleriniOku(p);
   if (!kalemler.length) return null;
   return {
     kalemSayisi: kalemler.length,
-    toplamTutar: Number(p.invoiceRealizedValue) || 0,
-    toplamAdet: Number(p.invoiceRealizedQty) || 0,
+    toplamTutar: kalemler.reduce((toplam, k) => toplam + (Number(k.tutar) || 0), 0),
+    toplamAdet: kalemler.reduce((toplam, k) => toplam + (Number(k.adet) || 0), 0),
     paraBirimi: p.currency || (p.listType === 'import' ? 'USD' : 'TRY')
   };
 };
@@ -60,9 +61,18 @@ const faturaOzeti = (p) => {
 // Linkle gelen evrakın ön seçili türü — müşteri (13.10.2026): "onaylı faturayı seçince evrak türü onaylı
 // fatura açılsın, taslak maili ise fatura taslağı olarak açılsın". Link aynı kaldığı için karar,
 // makineye giden SON mailin şablonuna göre verilir.
-function varsayilanEvrakTuru(surecler, turler) {
+async function varsayilanEvrakTuru(surecler, turler, linkTuru) {
   const kodlar = (turler || []).map((t) => t.key);
-  const sonSablon = (surecler.find((p) => p && p.lastMailTemplateCode) || {}).lastMailTemplateCode || '';
+  if (kodlar.includes(linkTuru)) return linkTuru;
+  const ids = surecler.map((p) => p._id).filter(Boolean);
+  // Sorgu parametresiz eski linkler de çalışır. Hatırlatma son mail olmuşsa en son fatura talebinin
+  // amacı kaybolmaz; toplu kayıtta ilk satırın değil son gönderimin şablonu esas alınır.
+  const sonTalep = await MailLog.findOne({
+    $or: [{ machineProcessId: { $in: ids } }, { kapsananSurecIds: { $in: ids } }],
+    templateCode: { $in: [MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED, MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION] },
+    status: 'sent'
+  }).sort({ sentAt: -1, createdAt: -1 }).select('templateCode').lean();
+  const sonSablon = sonTalep?.templateCode || (surecler.find((p) => p && p.lastMailTemplateCode) || {}).lastMailTemplateCode || '';
   const istenen = sonSablon === MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED ? 'fatura_onayli'
     : sonSablon === MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION ? 'fatura_taslak'
       : '';
@@ -119,7 +129,7 @@ exports.getInfo = async (req, res) => {
           })),
           ...ortak,
           documentTypes: turler,
-          varsayilanEvrakTuru: varsayilanEvrakTuru(grupCtx.processes, turler)
+          varsayilanEvrakTuru: await varsayilanEvrakTuru(grupCtx.processes, turler, req.query.evrakTuru)
         }
       });
     }
@@ -133,7 +143,7 @@ exports.getInfo = async (req, res) => {
         listType: proc.listType,
         fatura: faturaOzeti(proc),
         ...ortak,
-        varsayilanEvrakTuru: varsayilanEvrakTuru([proc], ortak.documentTypes)
+        varsayilanEvrakTuru: await varsayilanEvrakTuru([proc], ortak.documentTypes, req.query.evrakTuru)
       }
     });
   } catch (err) {

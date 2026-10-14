@@ -22,7 +22,7 @@ const storageService = require('./storageService');
 const tokenService = require('./uploadTokenService');
 const kdvMuafiyetService = require('./kdvMuafiyetService');
 const { resolveTemplate } = require('./mailTemplateProvider');
-const { belgeSuresiDurumu } = require('../../utils/belgeGecerlilik');
+const { belgeSuresiDurumu, mailGonderilebilirMi } = require('../../utils/belgeGecerlilik');
 
 const { MACHINE_STATUS } = status;
 
@@ -71,6 +71,29 @@ function templateNeedsUploadLink(tpl) {
   return /\{uploadLink\}/.test(tpl.subjectTemplate || '') || /\{uploadLink\}/.test(tpl.bodyTemplate || '');
 }
 
+// Aynı token yaşamaya devam eder; maildeki amaç URL'de taşınır. Sonraki bir hatırlatma/taslak maili
+// daha önce gönderilmiş onay mailinin linkini tekrar "taslak" hâline getirmesin.
+function mailYuklemeLinki(link, templateCode) {
+  const tur = templateCode === MAIL_TEMPLATE_CODE.INVOICE_DRAFT_APPROVED ? 'fatura_onayli'
+    : templateCode === MAIL_TEMPLATE_CODE.SUPPLIER_VERIFICATION_INVOICE_INSTRUCTION ? 'fatura_taslak' : '';
+  if (!link || !tur) return link;
+  const [adres, sorgu = ''] = String(link).split('?');
+  const params = new URLSearchParams(sorgu);
+  params.set('evrakTuru', tur);
+  return `${adres}?${params.toString()}`;
+}
+
+async function sureclerinMailSuresiniKontrolEt(surecler) {
+  const gorulen = new Set();
+  for (const p of surecler) {
+    const key = `${p.tesvikModel}:${p.tesvikId}`;
+    if (gorulen.has(key)) continue;
+    gorulen.add(key);
+    const { cert } = await buildContext(p);
+    mailGonderilebilirMi(cert);
+  }
+}
+
 // Audit log yaz
 // Bir sürecin mailleri: kendi mailleri + kapsandığı toplu mailler (bkz. MailLog.kapsananSurecIds)
 function surecMailFiltresi(procId) {
@@ -115,7 +138,10 @@ async function ensureProcess({ tesvikModel, tesvikId, listType, rowId, user }) {
     const e = new Error('Geçersiz belge modeli.'); e.code = 'BAD_MODEL'; throw e;
   }
   let proc = await MachineProcess.findOne({ tesvikModel, tesvikId, rowId });
-  if (proc) return proc;
+  if (proc) {
+    await eskiFaturaOzetiniKalemeCevir(proc);
+    return proc;
+  }
 
   // Yeni: gömülü satırı doğrula + snapshot al
   const cert = await resolver.loadCertificate(tesvikModel, tesvikId, { populateFirma: true });
@@ -169,7 +195,7 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
       customerEmails: p ? p.customerEmails : [],
       barcode: p ? p.barcode : '',
       // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
-      faturalar: p ? (p.faturalar || []) : [],
+      faturalar: p ? faturaKalemleriniOku(p) : [],
       invoiceRealizedValue: p ? p.invoiceRealizedValue : 0,
       invoiceRealizedQty: p ? p.invoiceRealizedQty : 0,
       invoiceNo: p ? p.invoiceNo : '',
@@ -203,11 +229,17 @@ async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar
     const idx = list.findIndex((r) => String(r.rowId) === String(proc.rowId));
     if (idx < 0) return;
 
-    const update = {};
-    update[`makineListeleri.${lk}.${idx}.gerceklesenAdet`] = gerceklesenAdet;
-    update[`makineListeleri.${lk}.${idx}.gerceklesenTutar`] = gerceklesenTutar;
-
-    await M.collection.updateOne({ _id: cert._id }, { $set: update });
+    for (let deneme = 0; deneme < 5; deneme += 1) {
+      const son = await MachineProcess.findById(proc._id).select('invoiceRealizedQty invoiceRealizedValue __v').lean();
+      if (!son) return;
+      const update = {};
+      update[`makineListeleri.${lk}.$[makine].gerceklesenAdet`] = son.invoiceRealizedQty || 0;
+      update[`makineListeleri.${lk}.$[makine].gerceklesenTutar`] = son.invoiceRealizedValue || 0;
+      await M.collection.updateOne({ _id: cert._id }, { $set: update }, { arrayFilters: [{ 'makine.rowId': proc.rowId }] });
+      const sonSurum = await MachineProcess.findById(proc._id).select('__v').lean();
+      // Başka kalem kaydı bu yansıtma sırasında bittiyse en yeni toplamla tekrar yazılır.
+      if (!sonSurum || sonSurum.__v === son.__v) return;
+    }
   } catch (err) {
     console.warn('⚠️ [tesvikMakine] fatura→master sync atlandı:', err && err.message);
   }
@@ -266,6 +298,33 @@ function faturaToplamlariniHesapla(proc, kalemler) {
   return faturaOzetiniYenile(proc);
 }
 
+// Açılış göçü henüz çalışmamış/yarıda kalmış olsa da eski fatura görünür ve yeni kalem eklenirken
+// korunur. Kararlı kimlik, ilk okuma ile kalemi düzeltme/silme arasında değişmez.
+function faturaKalemleriniOku(proc) {
+  if (proc.faturalar && proc.faturalar.length) return proc.faturalar;
+  const kalem = faturaKalemiTemizle({
+    _id: proc._id, tarih: proc.invoiceDate, no: proc.invoiceNo,
+    tutar: proc.invoiceRealizedValue, adet: proc.invoiceRealizedQty,
+    kaynak: 'personel', girenAdi: 'Önceki kayıt', girisTarihi: proc.updatedAt || proc.createdAt
+  });
+  return kalem ? [kalem] : [];
+}
+
+async function eskiFaturaOzetiniKalemeCevir(proc) {
+  if (proc.faturalar && proc.faturalar.length) return proc;
+  const kalemler = faturaKalemleriniOku(proc);
+  if (!kalemler.length) return proc;
+  // Eşzamanlı eklenen kalemin üstüne yazılmaz. Sürüm artışı kalem kaydının CAS denetimine katılır.
+  await MachineProcess.updateOne(
+    { _id: proc._id, 'faturalar.0': { $exists: false } },
+    { $set: { faturalar: kalemler }, $inc: { __v: 1 } },
+    { timestamps: false }
+  );
+  const taze = await MachineProcess.findById(proc._id);
+  if (taze) proc.init(taze.toObject());
+  return proc;
+}
+
 /**
  * 🩹 Açılış göçü: kalem listesi gelmeden önce fatura bilgisi doğrudan özet alanlara
  * (invoiceRealizedValue/Qty, invoiceNo, invoiceDate) yazılmış süreçler (canlıda 13.10.2026: 84'ün 4'ü).
@@ -275,18 +334,17 @@ function faturaToplamlariniHesapla(proc, kalemler) {
 async function eskiFaturaOzetleriniKalemeCevir() {
   const adaylar = await MachineProcess.find({
     'faturalar.0': { $exists: false },
-    $or: [{ invoiceRealizedValue: { $gt: 0 } }, { invoiceRealizedQty: { $gt: 0 } }, { invoiceNo: { $nin: ['', null] } }]
+    $or: [{ invoiceRealizedValue: { $ne: 0, $exists: true } }, { invoiceRealizedQty: { $ne: 0, $exists: true } },
+      { invoiceNo: { $nin: ['', null], $exists: true } }, { invoiceDate: { $ne: null, $exists: true } }]
   }).select('invoiceRealizedValue invoiceRealizedQty invoiceNo invoiceDate updatedAt').lean();
   let cevrilen = 0;
   for (const p of adaylar) {
-    const kalem = faturaKalemiTemizle({
-      tarih: p.invoiceDate, no: p.invoiceNo, tutar: p.invoiceRealizedValue, adet: p.invoiceRealizedQty,
-      kaynak: 'personel', girenAdi: 'Önceki kayıt', girisTarihi: p.updatedAt || new Date()
-    });
-    if (!kalem) continue;
+    const kalemler = faturaKalemleriniOku(p);
+    if (!kalemler.length) continue;
     const r = await MachineProcess.updateOne(
       { _id: p._id, 'faturalar.0': { $exists: false } },
-      { $set: { faturalar: [kalem] } }
+      { $set: { faturalar: kalemler }, $inc: { __v: 1 } },
+      { timestamps: false }
     );
     cevrilen += r.modifiedCount || 0;
   }
@@ -297,10 +355,27 @@ async function eskiFaturaOzetleriniKalemeCevir() {
 // Bütün listeyi yeniden yazmak yerine kalem bazlı: firma kendi linkinden kalem eklerken personel aynı
 // makinede düzeltme yapıyorsa biri ötekinin kalemini silmesin.
 
-async function faturaKaydiniBitir(proc, not, user, performedByLabel) {
-  faturaOzetiniYenile(proc);
-  proc.updatedByUserId = user ? user._id : proc.updatedByUserId;
-  await proc.save();
+async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel) {
+  let kaydedilen;
+  for (let deneme = 0; deneme < 5; deneme += 1) {
+    const taze = await MachineProcess.findById(proc._id);
+    if (!taze) throw faturaHatasi('Makine süreci bulunamadı.', 'PROC_NOT_FOUND');
+    taze.faturalar = faturaKalemleriniOku(taze);
+    degistir(taze);
+    faturaOzetiniYenile(taze);
+    // Kalem listesi ve toplamları birlikte, ancak okunan sürüm hâlâ güncelse yazılır. Başka kullanıcı
+    // arada kalem eklediyse yeni liste üzerinden yeniden denenir; eski listeyle üstüne yazılmaz.
+    kaydedilen = await MachineProcess.findOneAndUpdate(
+      { _id: taze._id, __v: taze.__v === undefined ? { $exists: false } : taze.__v },
+      { $set: { faturalar: taze.faturalar.toObject(), invoiceRealizedValue: taze.invoiceRealizedValue,
+        invoiceRealizedQty: taze.invoiceRealizedQty, invoiceNo: taze.invoiceNo, invoiceDate: taze.invoiceDate || null,
+        updatedByUserId: user ? user._id : taze.updatedByUserId }, $inc: { __v: 1 } },
+      { new: true, runValidators: true }
+    );
+    if (kaydedilen) break;
+  }
+  if (!kaydedilen) throw faturaHatasi('Faturalar başka bir kullanıcı tarafından güncellendi. Lütfen yeniden deneyin.', 'FATURA_CAKISMA');
+  proc.init(kaydedilen.toObject());
   await syncInvoiceToMasterList(proc, {
     gerceklesenAdet: proc.invoiceRealizedQty || 0,
     gerceklesenTutar: proc.invoiceRealizedValue || 0
@@ -310,7 +385,10 @@ async function faturaKaydiniBitir(proc, not, user, performedByLabel) {
 }
 
 function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
-  const e = new Error(mesaj); e.code = code; return e;
+  const e = new Error(mesaj);
+  e.code = code;
+  e.status = code === 'FATURA_CAKISMA' ? 409 : ['FATURA_YOK', 'PROC_NOT_FOUND'].includes(code) ? 404 : 400;
+  return e;
 }
 
 /** @param {{kaynak?: 'personel'|'firma', girenAdi?: string}} kim */
@@ -321,27 +399,27 @@ async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel',
   });
   if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
   if (kalem.tutar < 0 || kalem.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
-  proc.faturalar.push(kalem);
   const kim = kaynak === 'firma' ? `Firma${kalem.girenAdi ? ` — ${kalem.girenAdi}` : ''}` : '';
-  return faturaKaydiniBitir(proc, `Fatura kalemi eklendi${kalem.no ? `: ${kalem.no}` : ''}${kim ? ` (${kim})` : ''}`, user, kim);
+  return faturaKaydiniBitir(proc, (p) => p.faturalar.push(kalem), `Fatura kalemi eklendi${kalem.no ? `: ${kalem.no}` : ''}${kim ? ` (${kim})` : ''}`, user, kim);
 }
 
 async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null } = {}) {
-  const mevcut = proc.faturalar.id(kalemId);
-  if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
-  const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
-  if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
-  if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
-  mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet });
-  return faturaKaydiniBitir(proc, `Fatura kalemi düzeltildi${yeni.no ? `: ${yeni.no}` : ''}`, user);
+  return faturaKaydiniBitir(proc, (p) => {
+    const mevcut = p.faturalar.id(kalemId);
+    if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
+    const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
+    if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
+    if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
+    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet });
+  }, 'Fatura kalemi düzeltildi', user);
 }
 
 async function faturaKalemiSil(proc, kalemId, { user = null } = {}) {
-  const mevcut = proc.faturalar.id(kalemId);
-  if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
-  const no = mevcut.no;
-  mevcut.deleteOne();
-  return faturaKaydiniBitir(proc, `Fatura kalemi silindi${no ? `: ${no}` : ''}`, user);
+  return faturaKaydiniBitir(proc, (p) => {
+    const mevcut = p.faturalar.id(kalemId);
+    if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
+    mevcut.deleteOne();
+  }, 'Fatura kalemi silindi', user);
 }
 
 async function updateFields(proc, fields = {}, user) {
@@ -411,7 +489,7 @@ async function composeMail(proc, templateCode, { uploadLink = '', toOverride, cc
   // Makine ID/adı süreç kopyasından değil canlı satırdan (bkz. resolver.snapshotuCanliylaGuncelle)
   const data = resolver.buildPlaceholderData({
     process: resolver.snapshotuCanliylaGuncelle(proc, machineFields),
-    identity, signature: getSignature(), uploadLink, mailDate, kdvMuafiyet
+    identity, signature: getSignature(), uploadLink: mailYuklemeLinki(uploadLink, templateCode), mailDate, kdvMuafiyet
   });
   const rendered = engine.renderTemplate(tpl, data);
   const audience = audienceForTemplate(templateCode);
@@ -507,6 +585,7 @@ async function createDraftMail(proc, templateCode, { user, uploadLink } = {}) {
 // ekler: nodemailer ekleri [{ filename, content }] — toplu mail penceresinden yüklenen dosyalar
 async function sendProcessMail(proc, templateCode, { user, toOverride, ccOverride, subjectOverride, bodyOverride, isReminder = false, reminderMailLogId = null, kapsananSurecler = [], ekler = [] } = {}) {
   const digerleri = (kapsananSurecler || []).filter((p) => p && String(p._id) !== String(proc._id));
+  await sureclerinMailSuresiniKontrolEt([proc, ...digerleri]);
   const toplu = digerleri.length > 0;
   const topluNotu = toplu ? ` (toplu mail — ${digerleri.length + 1} makine, tek mail)` : '';
   const tpl = await resolveTemplate(templateCode);
@@ -573,9 +652,8 @@ async function resendMail(mailLogId, { user } = {}) {
   if (!log) { const e = new Error('Mail kaydı bulunamadı.'); e.code = 'MAILLOG_NOT_FOUND'; throw e; }
   const proc = await MachineProcess.findById(log.machineProcessId);
   if (!proc) { const e = new Error('Süreç bulunamadı.'); e.code = 'PROC_NOT_FOUND'; throw e; }
-  const { cert } = await buildContext(proc);
-  const sure = belgeSuresiDurumu(cert);
-  if (sure.doldu) { const e = new Error(sure.mesaj); e.code = 'BELGE_SURESI_DOLDU'; throw e; }
+  const kapsananlar = await MachineProcess.find({ _id: { $in: log.kapsananSurecIds || [] } });
+  await sureclerinMailSuresiniKontrolEt([proc, ...kapsananlar]);
   try {
     const res = await mailService.sendMail({ to: log.toEmails, cc: log.ccEmails, subject: log.subject, text: log.body });
     log.status = MAIL_STATUS.SENT; log.smtpMessageId = res.messageId || ''; log.smtpYaniti = String(res.response || '').slice(0, 300); log.reddedilenler = (res.rejected || []).map(String); log.sentAt = new Date(); log.errorMessage = '';
@@ -828,6 +906,8 @@ module.exports = {
   faturaKalemiGuncelle,
   faturaKalemiSil,
   eskiFaturaOzetleriniKalemeCevir,
+  eskiFaturaOzetiniKalemeCevir,
+  faturaKalemleriniOku,
   // helpers
   reminderDays, getSignature, autoSendDefault, parseEmails, audienceForTemplate, buildContext, addLog,
   // core
@@ -837,5 +917,5 @@ module.exports = {
   setBarcode,
   scheduleReminder, stopReminders, resumeReminders, sendReminderForJob,
   ensureFolders, ensureUploadLink, recordUploadedDocument, notifyUploadReceived, getTimeline,
-  surecMailFiltresi, kdvLinkiUygun
+  surecMailFiltresi, kdvLinkiUygun, mailYuklemeLinki
 };

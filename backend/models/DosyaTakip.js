@@ -241,6 +241,10 @@ const dosyaTakipSchema = new mongoose.Schema({
   },
   belgeId: { type: String, trim: true },
   ytbNo: { type: String, trim: true },
+  // Sparse unique: yeni eşzamanlı istekleri atomik engeller; geçmişteki mükerrer kayıtlar silinmez.
+  acikTalepAnahtari: { type: String, select: false },
+  // İçerik silinse de son değişiklik anı Dashboard'da kaybolmaz.
+  sonDegisiklikler: { durum: Date, not: Date, dosya: Date },
   ytbBaslamaTarihi: { type: Date },
   ytbBitisTarihi: { type: Date },
   belgeTuru: { type: String, trim: true },
@@ -502,10 +506,7 @@ const dosyaTakipSchema = new mongoose.Schema({
 // (%8,3). Örnek: A001014 / "Yerli Makine Revize Talebi" / belge 578589 için
 // DT20260031 ve DT20260161 aynı anda açık.
 //
-// ⚠️ SERT KİLİT DEĞİL. Ölçümde bazı çiftler farklı aşamalardaydı
-// (MURACAAT_ONCESI ↔ KURUM_SONUCLANMA), yani meşru ikinci talep olabiliyor.
-// Bu yüzden kural "engelle" değil "uyar ve mevcudu göster"; kullanıcı bilerek
-// devam edebiliyor. Amaç unutmayı önlemek, işi kilitlemek değil.
+// Açık kayıt ikinci kez açılamaz; sonuçlanmış talepler bu kontrolün dışındadır.
 //
 // Belge no'su BOŞ olan talepte kural uygulanmaz (28 kayıt böyle) — neyin
 // mükerrer olduğunu söyleyecek bir anahtar yok.
@@ -524,6 +525,7 @@ dosyaTakipSchema.statics.acikMukerrerBul = function ({ firma, talepTuru, ytbNo, 
   const sorgu = {
     firma,
     talepTuru,
+    aktif: { $ne: false },
     anaAsama: { $ne: 'TAMAMLANDI' },
     durum: { $nin: KAPALI_DURUMLAR },
     $or: [{ ytbNo: belgeNo }, { belgeId: belgeNo }]
@@ -537,6 +539,7 @@ dosyaTakipSchema.statics.acikMukerrerBul = function ({ firma, talepTuru, ytbNo, 
 };
 
 dosyaTakipSchema.index({ firma: 1, durum: 1 });
+dosyaTakipSchema.index({ acikTalepAnahtari: 1 }, { unique: true, sparse: true });
 dosyaTakipSchema.index({ talepTuru: 1 });
 dosyaTakipSchema.index({ anaAsama: 1 });
 dosyaTakipSchema.index({ createdAt: -1 });
@@ -569,6 +572,29 @@ dosyaTakipSchema.statics.sonucaAlinmaTarihi = function (talep) {
 // ============================================================================
 // OTOMATİK TAKİP ID ÜRETİMİ (DT20260001 formatı)
 // ============================================================================
+dosyaTakipSchema.pre('validate', function () {
+  const alanlar = ['firma', 'talepTuru', 'ytbNo', 'belgeId', 'durum', 'anaAsama', 'aktif'];
+  // Eski mükerrer kayıtlar yalnız not/dosya düzenlendiğinde kilitlenmesin. Kimliği veya açık/kapalı
+  // durumu değişirse yeni kurala katılır; yeni kayıtlar her zaman atomik anahtar taşır.
+  if (this.isNew || this.acikTalepAnahtari || alanlar.some((a) => this.isModified(a))) {
+    this.acikTalepAnahtari = require('../services/dosyaTakip/mukerrerTalep').acikTalepAnahtari(this);
+  }
+});
+
+dosyaTakipSchema.pre('save', function () {
+  if (this.isNew) return;
+  const simdi = new Date();
+  const notAlanlari = ['durumAciklamasi', 'muraacatOncesi.sozlesmeNotlari', 'odeme.notlar'];
+  const dosyaAlanlari = [];
+  this.schema.eachPath((alan, tip) => {
+    if (tip.schema?.path('metin')) notAlanlari.push(alan);
+    if (tip.schema?.path('dosyaAdi')) dosyaAlanlari.push(alan);
+  });
+  if (notAlanlari.some((a) => this.isModified(a))) this.set('sonDegisiklikler.not', simdi);
+  if (dosyaAlanlari.some((a) => this.isModified(a))) this.set('sonDegisiklikler.dosya', simdi);
+  if (this.isModified('durum') || this.isModified('durumGecmisi')) this.set('sonDegisiklikler.durum', simdi);
+});
+
 dosyaTakipSchema.pre('save', async function(next) {
   if (!this.takipId) {
     const year = new Date().getFullYear();

@@ -133,6 +133,7 @@ const islemTalebiSchema = new mongoose.Schema({
 
   durum: { type: String, enum: DURUMLAR, default: 'taslak', index: true },
   notlar: { type: String, trim: true, maxlength: 2000, default: '' },
+  sonDegisiklikler: { not: Date, dosya: Date },
 
   olusturanKullanici: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   olusturanAdi: { type: String, trim: true, default: '' },
@@ -147,6 +148,29 @@ islemTalebiSchema.index({ firma: 1, createdAt: -1 });
 islemTalebiSchema.index({ durum: 1, createdAt: -1 });
 
 islemTalebiSchema.statics.DURUMLAR = DURUMLAR;
+
+// Silinen/yeniden istenen evrak ve değiştirilen açıklamalar da ortak Dashboard'da güncel kalır.
+islemTalebiSchema.pre('save', function () {
+  const simdi = new Date();
+  const degisim = {};
+  if (this.isModified('yuklenenEvraklar') || this.isModified('firmaEkBelgeleri') || this.isModified('aktif')) {
+    degisim.dosya = simdi;
+  }
+  if (this.isModified('notlar') || this.isModified('istenenEvraklar')) degisim.not = simdi;
+  this.$locals.dashboardDegisimi = this.isNew ? {} : degisim;
+  if (!this.isNew) Object.entries(degisim).forEach(([alan, tarih]) => this.set(`sonDegisiklikler.${alan}`, tarih));
+});
+islemTalebiSchema.post('save', async function () {
+  const degisim = this.$locals.dashboardDegisimi || {};
+  if (!this.dosyaTakip || !Object.keys(degisim).length) return;
+  try {
+    await require('./DosyaTakip').updateOne({ _id: this.dosyaTakip }, {
+      $max: Object.fromEntries(Object.entries(degisim).map(([a, t]) => [`sonDegisiklikler.${a}`, t]))
+    });
+  } catch (err) {
+    console.error('İşlem evrak Dashboard özeti güncellenemedi:', err.message);
+  }
+});
 
 // Yüklenen evraklara göre "geldi" işaretlerini ve genel durumu tazele
 islemTalebiSchema.methods.durumTazele = function () {

@@ -23,7 +23,8 @@ describe.each([
   test.each([
     ['start', (s, id) => s.startMakineRevizyon(id, { aciklama: 'Yeni revize' })],
     ['finalize', (s, id) => s.finalizeMakineRevizyon(id, { yerli: [], ithal: [] })],
-    ['revert', (s, id) => s.revertMakineRevizyon(id, 'revize-1', 'Geri dön')]
+    ['revert', (s, id) => s.revertMakineRevizyon(id, 'revize-1', 'Geri dön')],
+    ['revert', (s, id) => s.cancelMakineRevizyon(id, 'revize-1')]
   ])('%s uzun otomatik kayıt ve son bekleyen liste tamamlandıktan sonra başlar', async (islem, calistir) => {
     const ilk = beklet();
     api.post.mockImplementationOnce(() => ilk.promise).mockResolvedValue({ data: { success: true } });
@@ -49,5 +50,24 @@ describe.each([
     expect(api.get).toHaveBeenLastCalledWith(`/${rota}/belge-1/makine-revizyon/list`, { params: { ozet: true } });
     await service.listMakineRevizyonlari('belge-1');
     expect(api.get).toHaveBeenLastCalledWith(`/${rota}/belge-1/makine-revizyon/list`, { params: {} });
+  });
+
+  test.each([
+    ['makine-talep', (s) => s.setMakineTalep('belge-1', { rowId: 'r1', talep: {} })],
+    ['makine-karar', (s) => s.setMakineKarar('belge-1', { rowId: 'r1', karar: {} })],
+    ['makine-talep/toplu', (s) => s.setMakineTalepToplu('belge-1', { islemler: [] })],
+    ['makine-karar/toplu', (s) => s.setMakineKararToplu('belge-1', { islemler: [] })]
+  ])('iptal uçuşta olan %s yazması tamamlandıktan sonra geri yükler', async (yol, yaz) => {
+    const bekleyen = beklet();
+    api.post.mockImplementationOnce(() => bekleyen.promise).mockResolvedValue({ data: { success: true } });
+    const yazma = yaz(service);
+    const iptal = service.cancelMakineRevizyon('belge-1', 'baslangic-1');
+    expect(api.post).toHaveBeenCalledTimes(1);
+    bekleyen.resolve({ data: { success: true } });
+    await Promise.all([yazma, iptal]);
+    expect(api.post.mock.calls.map(([url]) => url)).toEqual([
+      `/${rota}/belge-1/${yol}`, `/${rota}/belge-1/makine-revizyon/revert`
+    ]);
+    expect(api.post.mock.calls[1][1]).toEqual({ revizeId: 'baslangic-1', iptal: true });
   });
 });

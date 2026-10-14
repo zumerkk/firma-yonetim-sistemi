@@ -1,7 +1,7 @@
 // 🌐 PUBLIC EVRAK YÜKLEME - /upload/tesvik/:token  (AUTH YOK)
 // Müşteri/tedarikçi için sade yükleme ekranı. LayoutWrapper KULLANMAZ.
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Paper, Typography, TextField, MenuItem, Button, Alert, CircularProgress, Stack, Divider
 } from '@mui/material';
@@ -26,6 +26,8 @@ function Wrapper({ children }) {
 export default function PublicUpload() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const linkTuru = searchParams.get('evrakTuru') || '';
   const [info, setInfo] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -44,7 +46,7 @@ export default function PublicUpload() {
 
   useEffect(() => {
     let iptal = false;
-    svc.publicInfo(token)
+    svc.publicInfo(token, linkTuru ? { evrakTuru: linkTuru } : {})
       .then((d) => {
         if (iptal) return;
         // Ön seçili tür sunucudan: makineye son giden mail onay maili ise "Onaylı Fatura", taslak
@@ -68,7 +70,7 @@ export default function PublicUpload() {
         }
       });
     return () => { iptal = true; };
-  }, [token, navigate]);
+  }, [token, navigate, linkTuru]);
 
   const submit = async (e) => {
     e.preventDefault();

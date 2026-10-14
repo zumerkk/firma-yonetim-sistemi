@@ -96,16 +96,16 @@ function gelenDosyaKaydi(file, { yukleyenAdi = '', aciklama = '' } = {}) {
 
 const { takipEdenIdleri } = require('./takipEdenler');
 
-/** Firmadan dosya gelince haber verilecek personel: firmaya mail gönderenler + takibi yapan(lar) */
+/** Önce atanmış takipçiler; atama yoksa en son maili gönderen, o da yoksa talebi açan. */
 function bildirimHedefleri(talep) {
   const kimlik = (v) => (v ? String(v._id || v) : '');
-  const idler = [
-    ...(talep?.firmaMailleri || []).map((m) => kimlik(m.gonderen)),
-    ...takipEdenIdleri(talep)
-  ].filter(Boolean);
-  const tekil = [...new Set(idler)];
-  if (!tekil.length && kimlik(talep?.olusturanKullanici)) tekil.push(kimlik(talep.olusturanKullanici));
-  return tekil;
+  const takipciler = takipEdenIdleri(talep);
+  if (takipciler.length) return takipciler;
+  const sonMail = (talep?.firmaMailleri || []).map((m, i) => ({ m, i }))
+    .filter(({ m }) => kimlik(m.gonderen))
+    .sort((a, b) => (new Date(b.m.tarih || 0) - new Date(a.m.tarih || 0)) || b.i - a.i)[0]?.m;
+  const hedef = kimlik(sonMail?.gonderen) || kimlik(talep?.olusturanKullanici);
+  return hedef ? [hedef] : [];
 }
 
 module.exports = {

@@ -79,40 +79,29 @@ export const yazarkenBicimle = (deger) => {
   return Number(rakamlar).toLocaleString('tr-TR');
 };
 
-/**
- * Finansal tablo girişi: kuruşlu tutarı tam sayıya YUKARI yuvarlar.
- *
- * Müşteri (05.10.2026): "revizelerde finansal tabloyu düzenlerken virgül koydurmuyor o yüzden
- * tutarlar farklı yapışıyor" — "virgül olmayacaksa bile yukarıya yuvarlasın". E-TUYS'ten
- * kopyalanan "76.588.704,44" rakam dışı her şey atılınca 7.658.870.444 (100 katı) oluyordu.
- *
- * Bu alanlarda yazım Türkçedir: virgül HER ZAMAN ondalık, nokta binlik. İngilizce yapıştırma
- * ("76,588,704.44") da tanınır: iki ayıraç birlikte varsa sonda olan ondalıktır; tek nokta
- * yalnız binlik kalıbına ("1.500") uymuyorsa ondalıktır ("1234.5").
- * @returns {number|''} boş girdide '' (alan "0" ile kilitlenmesin)
- */
-export const tutarYukariYuvarla = (deger) => {
-  if (deger === null || deger === undefined) return '';
-  if (typeof deger === 'number') return Number.isFinite(deger) ? Math.ceil(deger - 1e-9) : '';
+/** Finansal girdiyi kuruşları koruyarak çözer; virgül Türkçe ondalık ayıracıdır. */
+export const finansalTutarCoz = (deger) => {
+  if (deger === null || deger === undefined || deger === '') return '';
+  if (typeof deger === 'number') return Number.isFinite(deger) ? deger : '';
   let s = String(deger).trim().replace(/[^\d.,-]/g, '');
   if (!/\d/.test(s)) return '';
-
   const sonVirgul = s.lastIndexOf(',');
   const sonNokta = s.lastIndexOf('.');
   if (sonVirgul !== -1 && sonNokta !== -1) {
-    s = sonVirgul > sonNokta
-      ? s.replace(/\./g, '').replace(',', '.')   // 76.588.704,44
-      : s.replace(/,/g, '');                     // 76,588,704.44
+    s = sonVirgul > sonNokta ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
   } else if (sonVirgul !== -1) {
-    // Tek virgül ondalık ("704,44"); birden çok virgül İngilizce binlik ("1,234,567")
     s = s.indexOf(',') === sonVirgul ? s.replace(',', '.') : s.replace(/,/g, '');
   } else if (sonNokta !== -1 && (s.indexOf('.') !== sonNokta || TEK_AYRAC_BINLIK.test(s))) {
-    s = s.replace(/\./g, '');                    // 7.658.870 / 1.500
+    s = s.replace(/\./g, '');
   }
-
   const n = Number(s);
-  // 0,1 + 0,2 gibi kayan nokta artıkları bir üst sayıya taşımasın
-  return Number.isFinite(n) ? Math.ceil(n - 1e-9) : '';
+  return Number.isFinite(n) ? n : '';
+};
+
+/** Kayıtlı ondalıkları rakamlara birleştirmeden Türkçe biçimde gösterir. */
+export const finansalTutarYaz = (deger) => {
+  const n = finansalTutarCoz(deger);
+  return n === '' ? '' : n.toLocaleString('tr-TR', { maximumFractionDigits: 20 });
 };
 
 /** Biçimlenmiş girdiden ham rakam dizisi ("18.000.000" → "18000000"). */

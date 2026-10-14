@@ -16,6 +16,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TableSortLabel,
   Paper,
   Chip,
   IconButton,
@@ -102,6 +103,10 @@ const YeniTesvikList = () => {
     il: '',
     arsiv: '0'
   });
+  const [siralama, setSiralama] = useState({ alan: 'belgeYonetimi.uzatimTarihi', yon: 'asc' });
+  const siralamayaGec = (alan) => setSiralama((onceki) => ({
+    alan, yon: onceki.alan === alan && onceki.yon === 'asc' ? 'desc' : 'asc'
+  }));
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
@@ -171,8 +176,8 @@ const YeniTesvikList = () => {
       const params = new URLSearchParams({
         sayfa: page,
         limit: 20,
-        siraBy: 'belgeYonetimi.uzatimTarihi',
-        siraSekli: 'asc',
+        siraBy: siralama.alan,
+        siraSekli: siralama.yon,
         ...filters
       });
 
@@ -194,7 +199,7 @@ const YeniTesvikList = () => {
 
   useEffect(() => {
     loadTesvikler();
-  }, [filters]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [filters, siralama]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 🗑️ SİLME FONKSİYONLARI
   const handleDeleteClick = (tesvik) => {
@@ -515,6 +520,16 @@ const YeniTesvikList = () => {
                     <TableCell>Yatırımcı Ünvanı</TableCell>
                     <TableCell>Durum</TableCell>
                     <TableCell>İl</TableCell>
+                    {[
+                      ['belgeYonetimi.belgeBitisTarihi', 'Belge Bitiş Tarihi'],
+                      ['belgeYonetimi.uzatimTarihi', 'Süre Uzatım Tarihi']
+                    ].map(([alan, etiket]) => (
+                      <TableCell key={alan} sortDirection={siralama.alan === alan ? siralama.yon : false}>
+                        <TableSortLabel active={siralama.alan === alan} direction={siralama.alan === alan ? siralama.yon : 'asc'} onClick={() => siralamayaGec(alan)}>
+                          {etiket}
+                        </TableSortLabel>
+                      </TableCell>
+                    ))}
                     <TableCell>Oluşturan</TableCell>
                     <TableCell>Oluşturma Tarihi</TableCell>
                   </TableRow>
@@ -523,7 +538,7 @@ const YeniTesvikList = () => {
                   {loading ? (
                     Array.from({ length: 10 }).map((_, index) => (
                       <TableRow key={index}>
-                        {Array.from({ length: 8 }).map((_, cellIndex) => (
+                        {Array.from({ length: 10 }).map((_, cellIndex) => (
                           <TableCell key={cellIndex}>
                             <Skeleton />
                           </TableCell>
@@ -616,6 +631,8 @@ const YeniTesvikList = () => {
                           </Typography>
                         </TableCell>
                         
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(tesvik.belgeYonetimi?.belgeBitisTarihi)}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(tesvik.belgeYonetimi?.uzatimTarihi)}</TableCell>
                         {/* 👤 Oluşturan Kullanıcı */}
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -644,7 +661,7 @@ const YeniTesvikList = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8}>
+                      <TableCell colSpan={10}>
                         <Alert severity="info">
                           Henüz teşvik kaydı bulunmuyor
                         </Alert>

@@ -145,11 +145,12 @@ const kalemGorunumu = (k) => ({
 
 function makineGorunumu(satir, listType, surec) {
   const m = resolver.extractMachineFields(satir, listType);
-  const kalemler = ((surec && surec.faturalar) || []).map(kalemGorunumu);
+  const kalemler = (surec ? mps.faturaKalemleriniOku(surec) : []).map(kalemGorunumu);
   return {
     rowId: String(m.rowId), listType, siraNo: m.siraNo, makineId: m.makineId, gtipNo: m.gtipNo,
     adi: m.machineName, miktar: m.quantity, birim: m.unit, birimFiyat: m.unitPrice, toplam: m.totalPrice,
     paraBirimi: listType === 'import' ? 'USD' : 'TRY',
+    birimParaBirimi: listType === 'import' ? (satir.gumrukDovizKodu || 'USD') : 'TRY',
     kalemler,
     faturaToplami: kalemler.reduce((t, k) => t + k.tutar, 0),
     faturaAdedi: kalemler.reduce((t, k) => t + k.adet, 0)
@@ -162,7 +163,7 @@ async function portalVerisi(token) {
   if (await resolver.ensureRowIds(tesvikModel, belge._id)) ({ tesvikModel, belge } = await belgeBulVeyaHata(token));
 
   const surecler = await MachineProcess.find({ tesvikModel, tesvikId: belge._id })
-    .select('rowId listType faturalar').lean();
+    .select('rowId listType faturalar invoiceRealizedValue invoiceRealizedQty invoiceNo invoiceDate updatedAt createdAt').lean();
   const surecAl = (listType, rowId) => surecler.find((p) => p.listType === listType && String(p.rowId) === String(rowId));
   const liste = (listType) => resolver.listFor(belge, listType)
     .filter((r) => r && r.rowId)

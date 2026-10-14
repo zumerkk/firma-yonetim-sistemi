@@ -355,7 +355,7 @@ const DosyaTakipForm = () => {
         }
     };
 
-    // Kaydetme, mükerrer onayından sonra da tekrar çağrılabilsin diye ayrıldı.
+    // Oluşturma ve güncelleme aynı başarı yönlendirmesini kullanır.
     const kaydet = async (veri) => {
         let result;
         if (isEdit) {
@@ -371,20 +371,6 @@ const DosyaTakipForm = () => {
             }, 1000);
         }
         return result;
-    };
-
-    // Müşteri: "aynı talep ve aynı belge no'su olan işlemden 1 tane açabilelim,
-    // halihazırda açık olan talebi unutup yeni sıfırdan açabiliyoruz bazen."
-    // Sunucu 409 + mevcut talebi döndürüyor; burada gösterip kullanıcıya seçim
-    // bırakıyoruz. Sert kilit değil — ölçümde meşru ikinci talepler de vardı.
-    const mukerrerOnayla = async () => {
-        const mevcut = mukerrer;
-        setMukerrer(null);
-        try {
-            await kaydet({ ...formData, mukerrereIzinVer: true });
-        } catch (e) {
-            console.error('Mükerrer onayı sonrası kaydetme hatası:', e, mevcut);
-        }
     };
 
     const isStepValid = (step) => {
@@ -702,7 +688,7 @@ const DosyaTakipForm = () => {
                 <DialogContent>
                     <Alert severity="warning" sx={{ mb: 2 }}>
                         Aynı firma, aynı talep türü ve aynı belge numarasıyla açık bir talep bulundu.
-                        Yeni talep açmadan önce mevcut olanı kontrol etmek isteyebilirsiniz.
+                        Mevcut talep sonuçlanmadan aynı belge ve tür için ikinci bir talep açılamaz.
                     </Alert>
                     {mukerrer && (
                         <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: 0.75, columnGap: 2 }}>
@@ -730,9 +716,6 @@ const DosyaTakipForm = () => {
                         onClick={() => navigate(`/dosya-takip/${mukerrer._id}`)}
                     >
                         Mevcut Talebi Aç
-                    </Button>
-                    <Button color="warning" onClick={mukerrerOnayla}>
-                        Yine de yeni talep oluştur
                     </Button>
                 </DialogActions>
             </Dialog>

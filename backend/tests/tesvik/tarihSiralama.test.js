@@ -5,7 +5,7 @@
 
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { sayfaliListe, siralamaCoz } = require('../../utils/tarihSiralama');
+const { sayfaliListe, siralamaCoz, kayitlariSirala } = require('../../utils/tarihSiralama');
 
 jest.setTimeout(60000);
 
@@ -64,4 +64,33 @@ test('metin gelen firma kimliği aggregate içinde ObjectId\'ye çevrilir', asyn
 
 test('bilinmeyen alan Mongo\'ya gitmez, createdAt\'e düşer', () => {
   expect(siralamaCoz('$where', 'asc')).toEqual({ alan: 'createdAt', yon: 1 });
+});
+
+test('birleşik eski/yeni arama seçilen tarihe göre sıralanır, boşlar her iki yönde sonda', () => {
+  const liste = [
+    { _id: '1', ad: 'eski', belgeYonetimi: { uzatimTarihi: '2027-01-01' } },
+    { _id: '2', ad: 'bos', belgeYonetimi: {} },
+    { _id: '3', ad: 'yeni', belgeYonetimi: { uzatimTarihi: '2026-01-01' } }
+  ];
+  const alan = 'belgeYonetimi.uzatimTarihi';
+  expect(adlar(kayitlariSirala(liste, { alan, yon: 1 }))).toEqual(['yeni', 'eski', 'bos']);
+  expect(adlar(kayitlariSirala(liste, { alan, yon: -1 }))).toEqual(['eski', 'yeni', 'bos']);
+  expect(liste.map((x) => x.ad)).toEqual(['eski', 'bos', 'yeni']);
+});
+
+test('birleşik arama uçtan uca iki sistemde tarih sırasını limitten önce uygular', async () => {
+  require('../../models/User');
+  const Tesvik = require('../../models/Tesvik');
+  const YeniTesvik = require('../../models/YeniTesvik');
+  const { birlesikFirmaArama } = require('../../controllers/tesvikController');
+  const kayit = (tesvikId, tarih) => ({
+    tesvikId, aktif: true, yatirimciUnvan: 'SIRALAMA ORTAK',
+    belgeYonetimi: tarih ? { uzatimTarihi: g(tarih) } : {}, createdAt: g('2026-01-01')
+  });
+  await Tesvik.collection.insertMany([kayit('ESKI-GEC', '2028-01-01'), kayit('ESKI-YAKIN', '2026-01-01'), kayit('ESKI-BOS')]);
+  await YeniTesvik.collection.insertMany([kayit('YENI-YAKIN', '2027-01-01'), kayit('YENI-BOS')]);
+  const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+  await birlesikFirmaArama({ query: { q: 'SIRALAMA', limit: '1', siraBy: 'belgeYonetimi.uzatimTarihi', siraSekli: 'asc' } }, res);
+  expect(res.status).not.toHaveBeenCalled();
+  expect(res.json.mock.calls[0][0].data.tesvikler.map((b) => b.tesvikId)).toEqual(['ESKI-YAKIN', 'YENI-YAKIN']);
 });

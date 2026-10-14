@@ -17,7 +17,6 @@ import IzgaraTarihHucresi from '../../components/Tesvik/IzgaraTarihHucresi';
 import { BirimHucresi, GirdiHucresi, HafifDugme, HafifMetinDugme, MetinHucresi, Rozet, SecimHucresi } from '../../components/Tesvik/HafifHucreler';
 import { makineSatiriCoz, iceAktarimBirlestir, excelSatirlariniOku, csvSatirlariniOku } from '../../utils/makineSablonu';
 import { makineSablonuIndir } from '../../utils/makineSablonuExcel';
-import { anlikGoruntuAl, geriAlinacaklar } from '../../utils/talepKararGeriAl';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import { makineOnbellegiKaydet, yerelYaz } from '../../utils/yerelDepo';
 import MakineDetailModal from '../TesvikMakine/MakineDetailModal';
@@ -350,7 +349,8 @@ const MakineYonetimi = () => {
   const [quickTab, setQuickTab] = useState(tab);
   const quickScrollRef = useRef({ top: 0, left: 0 });
   const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 });
-  const talepKararAnlikRef = useRef(null);   // revize basindaki talep/karar goruntusu
+  const aktifRevizeIdRef = useRef(null);
+  const [revizeMesgul, setRevizeMesgul] = useState(false);
   const revizeFinalizingRef = useRef(false); // 🔧 FIX: Çift tıklama engeli
   const [birimListesi, setBirimListesi] = useState([]);
   const [dovizListesi, setDovizListesi] = useState([]);
@@ -427,11 +427,11 @@ const MakineYonetimi = () => {
   };
 
   // Makine verilerini yükle (teşvik ID'sine göre) - Önce backend, sonra localStorage
-  const loadMakineData = async (tesvikId) => {
+  const loadMakineData = async (tesvikId, { yerelYedek = true, veri } = {}) => {
     if (!tesvikId) return;
     try {
       // 1) Önce backend'den veri çek
-      const data = await tesvikService.get(tesvikId);
+      const data = veri || await tesvikService.get(tesvikId);
       
       // Tarihli makine notlarını yükle
       notlariYukle(tesvikId);
@@ -439,7 +439,7 @@ const MakineYonetimi = () => {
       const backendIthal = data?.makineListeleri?.ithal || [];
       
       // 2) Backend'de veri varsa onu kullan
-      if (backendYerli.length > 0 || backendIthal.length > 0) {
+      if (backendYerli.length > 0 || backendIthal.length > 0 || !yerelYedek) {
         // Backend verisini UI formatına çevir
         const yerli = backendYerli.map((r, idx) => ({
           id: r.rowId || Math.random().toString(36).slice(2),
@@ -668,6 +668,7 @@ const MakineYonetimi = () => {
   
   // Seçili teşvik değişince revizyon listesini getir ve modu sıfırla
   useEffect(()=>{
+    aktifRevizeIdRef.current = null;
     (async()=>{
       if (!selectedTesvik?._id) { 
         setRevList([]); 
@@ -824,6 +825,10 @@ const MakineYonetimi = () => {
   // Keyboard shortcuts
   useEffect(()=>{
     const handler = (e)=>{
+      if (revizeFinalizingRef.current) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') e.preventDefault();
+        return;
+      }
       if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
       if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); if(isReviseStarted) addRow(); else openToast('warning', 'Satır eklemek için önce revize talebi başlatmanız gerekmektedir.'); }
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='c' && selectionModel.length===1) { e.preventDefault(); const id=selectionModel[0]; const list=tab==='yerli'?yerliRows:ithalRows; const row=list.find(r=>r.id===id); if(row) setRowClipboard(row); }
@@ -938,6 +943,7 @@ const MakineYonetimi = () => {
 
   // 🛡️ Yardımcı: Satırın rowId'sini garanti altına al (gerekirse autosave yap)
   const ensureRowId = async (liste, row) => {
+    if (revizeFinalizingRef.current) return null;
     // Eğer zaten rowId varsa döndür
     if (row?.rowId) return row.rowId;
     if (!selectedTesvik?._id) return null;
@@ -1293,11 +1299,9 @@ const MakineYonetimi = () => {
       };
       const row = wsIthal.addRow(rowData);
       
-      // $'ı Excel formülüyle üret
-      const miktarCol = ithalColumns.findIndex(c => c.key === 'miktar') + 1;
-      const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
+      // E-TUYS/manuel FOB $ zaten USD'dir; menşe dövizli birim fiyatla yeniden hesaplanmaz.
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
-      row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
+      row.getCell(usdCol).value = Number(r.toplamUsd) || 0;
       
       // Karar durumuna göre renklendirme - Enterprise Level
       if (kararKodu && kararRenkler[kararKodu]) {
@@ -1721,6 +1725,7 @@ const MakineYonetimi = () => {
   };
 
   const handleBulkTalep = async (tarih) => {
+    if (revizeFinalizingRef.current) return;
     if (!selectedTesvik || selectionModel.length === 0) return;
     try {
       const islemler = await topluIslemleriHazirla((row) => ({
@@ -1740,6 +1745,7 @@ const MakineYonetimi = () => {
   // Kısmi onay adedi ve tarih dışarıdan (toplu diyalog) gelir; ikisi de verilmezse eski davranış
   // (prompt / satırdaki tarih, yoksa bugün) korunur.
   const handleBulkKarar = async (type, adet, tarih) => {
+    if (revizeFinalizingRef.current) return;
     if (!selectedTesvik || selectionModel.length === 0) return;
     let onayAdet = Number(adet) || 0;
     if (type === 'kismi_onay' && !onayAdet) {
@@ -1765,41 +1771,28 @@ const MakineYonetimi = () => {
     }
   };
 
-  // ↩️ Revizeden vazgeç.
-  //
-  // Müşteri: "Listede işlemi iptal etsek bile yaptığımız değişiklikler kalıyor
-  // iptal olmuyor." Hücre düzenlemeleri yalnız yerelde durduğu için yeniden
-  // yükleme onları zaten atıyordu; sorun talep/karar'daydı — onlar anında
-  // sunucuya yazılıyor. Revize başlarken alınan anlık görüntüyle karşılaştırıp
-  // yalnızca DEĞİŞMİŞ olanları eski hâline geri yazıyoruz.
+  // İptal, sunucudaki başlangıç görüntüsünü tek işlemle geri yükler; otomatik/manuel
+  // kaydedilmiş fiyatlar, ekle-sil ve hemen yazılan talep/karar tarihleri de geri alınır.
   const revizeIptal = async () => {
-    if (!selectedTesvik?._id) return;
-    const anlik = talepKararAnlikRef.current;
-    let basarisiz = 0;
-
-    if (anlik) {
-      const isler = [
-        ...geriAlinacaklar(anlik.yerli, yerliRows, 'yerli'),
-        ...geriAlinacaklar(anlik.ithal, ithalRows, 'ithal')
-      ];
-      for (const is of isler) {
-        try {
-          if (is.alan === 'talep') {
-            await tesvikService.setMakineTalep(selectedTesvik._id, { liste: is.liste, rowId: is.rowId, talep: is.deger });
-          } else {
-            await tesvikService.setMakineKarar(selectedTesvik._id, { liste: is.liste, rowId: is.rowId, karar: is.deger });
-          }
-        } catch { basarisiz += 1; }
-      }
+    if (!selectedTesvik?._id || !aktifRevizeIdRef.current || revizeFinalizingRef.current) return;
+    revizeFinalizingRef.current = true;
+    setRevizeMesgul(true);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    try {
+      const sonuc = await tesvikService.cancelMakineRevizyon(selectedTesvik._id, aktifRevizeIdRef.current);
+      await loadMakineData(selectedTesvik._id, { yerelYedek: false, veri: { makineListeleri: sonuc.makineListeleri } });
+      aktifRevizeIdRef.current = null;
+      const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }).catch(() => []);
+      setRevList(list.reverse());
+      setIsReviseMode(false); setIsReviseStarted(false);
+      setSelectionModel([]);
+      openToast('info', 'Revizyon iptal edildi; başlangıçtaki makine listesi geri yüklendi');
+    } catch (e) {
+      openToast('error', e?.response?.data?.message || 'Revizyon iptal edilemedi; tekrar deneyin');
+    } finally {
+      revizeFinalizingRef.current = false;
+      setRevizeMesgul(false);
     }
-
-    talepKararAnlikRef.current = null;
-    setIsReviseMode(false); setIsReviseStarted(false);
-    await loadMakineData(selectedTesvik._id);
-    // Kısmen başarısız geri almayı SESSİZ geçmiyoruz: kullanıcı neyin geri
-    // alınmadığını bilmeli, aksi halde "iptal ettim ama duruyor" yeniden yaşanır.
-    if (basarisiz > 0) openToast('warning', `${basarisiz} satırın talep/karar bilgisi geri alınamadı — listeyi kontrol edin`);
-    else openToast('info', 'Vazgeçildi');
   };
 
   // Toplu tarih/durum diyaloğunun "Uygula" düğmesi
@@ -2514,7 +2507,7 @@ const MakineYonetimi = () => {
             // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
             // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
             // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-            const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+            const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : null };
             if (yeni && !talep.durum) {
               talep.durum = 'bakanliga_gonderildi';
               if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
@@ -2535,7 +2528,7 @@ const MakineYonetimi = () => {
             // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
             // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
             // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-            const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+            const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : null };
             if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
               karar.kararDurumu = 'onay';
               if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
@@ -2855,7 +2848,7 @@ const MakineYonetimi = () => {
               // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
               // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
               // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-              const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+              const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : null };
               if (yeni && !talep.durum) {
                 talep.durum = 'bakanliga_gonderildi';
                 if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
@@ -2878,7 +2871,7 @@ const MakineYonetimi = () => {
               // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
               // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
               // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-              const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+              const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : null };
               if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
                 karar.kararDurumu = 'onay';
                 if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
@@ -3024,7 +3017,7 @@ const MakineYonetimi = () => {
   };
 
   return (
-    <Box sx={{ 
+    <Box inert={revizeMesgul ? '' : undefined} aria-busy={revizeMesgul} sx={{
       background: theme.bg, 
       height: '100vh',
       maxHeight: '100vh',
@@ -3429,13 +3422,9 @@ const MakineYonetimi = () => {
                   const ok = window.confirm('Revize başlat?');
                   if (!ok) return;
                   try {
-                    await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
-                    // Talep/karar ANINDA sunucuya yazıldığı için İptal onları geri
-                    // alamıyordu. Revize başlarken anlık görüntü alıyoruz.
-                    talepKararAnlikRef.current = {
-                      yerli: anlikGoruntuAl(yerliRows),
-                      ithal: anlikGoruntuAl(ithalRows)
-                    };
+                    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+                    const baslangic = await tesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
+                    aktifRevizeIdRef.current = baslangic.data.revizeId;
                     setIsReviseMode(true); setIsReviseStarted(true);
                     const list = await tesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
                     openToast('success', 'Revize başladı');
@@ -3460,7 +3449,7 @@ const MakineYonetimi = () => {
               <>
                 <Button 
                   size="small" 
-                  disabled={!selectedTesvik || revizeFinalizingRef.current} 
+                  disabled={!selectedTesvik || revizeMesgul || revizeFinalizingRef.current}
                   onClick={async()=>{
                     if (revizeFinalizingRef.current) return; // Çift tıklama engeli
                     const ok = window.confirm('Revize bitir?');
@@ -3480,6 +3469,7 @@ const MakineYonetimi = () => {
                         yerli: payload.yerli, 
                         ithal: payload.ithal 
                       });
+                      aktifRevizeIdRef.current = null;
                       setIsReviseMode(false); setIsReviseStarted(false);
                       openToast('success', 'Revize tamamlandı');
                     } catch (e) { 
@@ -3507,6 +3497,7 @@ const MakineYonetimi = () => {
                 <Button 
                   size="small" 
                   onClick={revizeIptal}
+                  disabled={revizeMesgul}
                   sx={{ 
                     fontSize: '0.68rem',
                     py: 0.5,

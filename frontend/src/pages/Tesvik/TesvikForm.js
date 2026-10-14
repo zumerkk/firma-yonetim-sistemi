@@ -105,7 +105,9 @@ const TesvikForm = () => {
 
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
-    const numericValue = parseNumber(rawValue);
+    const numericValue = fieldPath.startsWith('finansalBilgiler.')
+      ? (rawValue === '' ? '' : sayiyaCevir(rawValue))
+      : parseNumber(rawValue);
 
     // FormData'yı güncelle - raw değeri kaydet
     const keys = fieldPath.split('.');
@@ -5242,7 +5244,7 @@ const TesvikForm = () => {
                 fullWidth
                 label="Metrekaresi"
                 value={formData.finansalBilgiler.araziArsaBedeli.metrekaresi}
-                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
+                onDegis={(v) => handleNumberChange({ target: { value: v } }, 'finansalBilgiler.araziArsaBedeli.metrekaresi')}
                 InputProps={{ endAdornment: 'm²' }}
               />
             </Grid>
@@ -5251,7 +5253,7 @@ const TesvikForm = () => {
                 fullWidth
                 label="Birim Fiyatı TL"
                 value={formData.finansalBilgiler.araziArsaBedeli.birimFiyatiTl}
-                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
+                onDegis={(v) => handleNumberChange({ target: { value: v } }, 'finansalBilgiler.araziArsaBedeli.birimFiyatiTl')}
                 InputProps={{ endAdornment: '₺/m²' }}
               />
             </Grid>
@@ -5294,7 +5296,7 @@ const TesvikForm = () => {
                 fullWidth
                 label="Ana Bina ve Tesisleri"
                 value={formData.finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri}
-                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
+                onDegis={(v) => handleNumberChange({ target: { value: v } }, 'finansalBilgiler.binaInsaatGiderleri.anaBinaVeTesisleri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5303,7 +5305,7 @@ const TesvikForm = () => {
                 fullWidth
                 label="Yardımcı İş. Bina ve İcare Binaları"
                 value={formData.finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari}
-                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
+                onDegis={(v) => handleNumberChange({ target: { value: v } }, 'finansalBilgiler.binaInsaatGiderleri.yardimciIsBinaVeIcareBinalari')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>
@@ -5312,7 +5314,7 @@ const TesvikForm = () => {
                 fullWidth
                 label="Yeraltı Ana Galerileri"
                 value={formData.finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri}
-                onDegis={(v) => handleNumberChange({ target: { value: String(v) } }, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
+                onDegis={(v) => handleNumberChange({ target: { value: v } }, 'finansalBilgiler.binaInsaatGiderleri.yeraltiAnaGalerileri')}
                 InputProps={{ endAdornment: '₺' }}
               />
             </Grid>

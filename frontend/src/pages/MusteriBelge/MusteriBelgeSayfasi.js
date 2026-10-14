@@ -126,6 +126,7 @@ function MakineListesi({ ithal, satirlar, onSec }) {
     ...(ithal ? [{ anahtar: 'gtipNo', baslik: 'GTİP', genislik: 120, bicim: (v) => v || '-' }] : []),
     { anahtar: 'adi', baslik: 'Adı ve Özelliği', sar: true, bicim: (v) => v || '-' },
     { anahtar: 'miktar', baslik: 'Miktar', genislik: 110, bicim: (_, m) => `${m.miktar || 0} ${m.birim || ''}` },
+    { anahtar: 'birimFiyat', baslik: 'Birim Fiyatı', genislik: 140, sayi: true, bicim: (v, m) => para(v, m.birimParaBirimi || kod) },
     { anahtar: 'toplam', baslik: ithal ? 'FOB Toplam ($)' : 'Toplam (TL)', genislik: 150, sayi: true, bicim: (v) => para(v, kod) },
     {
       anahtar: 'fatura', baslik: ithal ? 'Beyanname' : 'Fatura', genislik: 200,
@@ -195,7 +196,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{makine.siraNo}. {makine.adi}</Typography>
           <Typography variant="caption" color="text.secondary">
             {makine.makineId ? `Makine ID ${makine.makineId} · ` : ''}{ithal && makine.gtipNo ? `GTİP ${makine.gtipNo} · ` : ''}
-            {makine.miktar} {makine.birim} · {para(makine.toplam, kod)}
+            {makine.miktar} {makine.birim} · Birim: {para(makine.birimFiyat, makine.birimParaBirimi || kod)} · Toplam: {para(makine.toplam, kod)}
           </Typography>
         </Box>
 

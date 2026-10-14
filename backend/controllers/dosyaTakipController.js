@@ -11,6 +11,16 @@ const parcaliDosya = require('../utils/parcaliDosya');
 const { turkceArama } = require('../utils/turkceArama');
 const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
 const notBildirimi = require('../services/dosyaTakip/notBildirimi');
+const { talepAcik } = require('../services/dosyaTakip/mukerrerTalep');
+
+const mukerrerCevabi = (res, mevcut) => res.status(409).json({
+    success: false, kod: 'MUKERRER_ACIK_TALEP',
+    message: `Bu firma için aynı talep türü ve belge no ile zaten açık bir talep var${mevcut?.takipId ? `: ${mevcut.takipId}` : '.'}`,
+    mevcut
+});
+const mukerreriBul = (talep) => talepAcik(talep) ? DosyaTakip.acikMukerrerBul({
+    firma: talep.firma, talepTuru: talep.talepTuru, ytbNo: talep.ytbNo, belgeId: talep.belgeId, haricId: talep._id
+}) : null;
 
 // ============================================================================
 // ☁️ CLOUDINARY AYARLARI
@@ -207,9 +217,16 @@ exports.benimIslerim = async (req, res) => {
                 .select(alanlar).sort({ createdAt: -1 }).limit(ACIK_TALEP_SINIRI).lean(),
             // Firmadan gelen dosyalar: bana ait taleplerde, en yeni FIRMADAN_GELEN_SINIRI tanesi
             DosyaTakip.aggregate([
-                { $match: { $or: [
+                { $match: { aktif: { $ne: false }, $or: [
                     ...takipEdenKosulu(kullaniciId).$or,
-                    { olusturanKullanici: kullaniciId }
+                    { olusturanKullanici: kullaniciId },
+                    // Atanmamış bir talebin mailini başka personel gönderebilir; yükleme bildirimi
+                    // o kişiye düşüyorsa dosya Dashboard'daki Gelenler listesinde de yer almalı.
+                    { $and: [
+                        { 'muraacatSonrasi.takibiYapanPersonel': null },
+                        { 'muraacatSonrasi.ekTakipEdenler.0': { $exists: false } },
+                        { $expr: { $eq: [{ $arrayElemAt: ['$firmaMailleri.gonderen', -1] }, kullaniciId] } }
+                    ] }
                 ] } },
                 { $unwind: '$dosyalar' },
                 { $match: { 'dosyalar.firmaYukledi': true } },
@@ -272,13 +289,23 @@ exports.sonIslemler = async (req, res) => {
     try {
         const { talepSonIslemleri } = require('../services/dosyaTakip/sonIslemler');
         const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100);
-        // updatedAt her değişiklikte ilerliyor: en son dokunulan talepler adaydır; kesin sıra aşağıda
+        // Bağlı İşlem & Evrak dosyaları eski bir talebi de öne taşıyabilir. Önceden updatedAt'e göre
+        // adayları kırpmak bu değişiklikleri gizliyordu; tarih sırası birleşmiş özet üzerinde uygulanır.
         const adaylar = await DosyaTakip.find({ aktif: { $ne: false } })
-            .sort({ updatedAt: -1 }).limit(limit * 2)
             .select('-firmaMailleri -firmaYukleme -odeme')
             .lean();
+        const evraklar = await require('../models/IslemTalebi').find({
+            aktif: { $ne: false }, dosyaTakip: { $in: adaylar.map((t) => t._id) }
+        }).select('dosyaTakip yuklenenEvraklar.dosyaAdi yuklenenEvraklar.yuklemeTarihi '
+            + 'istenenEvraklar.yuklenememeNedeni istenenEvraklar.nedenBildirimTarihi sonDegisiklikler').lean();
+        const evrakHaritasi = new Map();
+        evraklar.forEach((e) => {
+            const key = String(e.dosyaTakip);
+            if (!evrakHaritasi.has(key)) evrakHaritasi.set(key, []);
+            evrakHaritasi.get(key).push(e);
+        });
         const satirlar = adaylar.map((t) => {
-            const s = talepSonIslemleri(t);
+            const s = talepSonIslemleri(t, evrakHaritasi.get(String(t._id)) || []);
             return {
                 _id: t._id, takipId: t.takipId, firmaUnvan: t.firmaUnvan, talepTuru: t.talepTuru, ytbNo: t.ytbNo,
                 durum: t.durum, durumEtiketi: DosyaTakip.hydrate({ durum: t.durum }).durumEtiketi, durumRengi: t.durumRengi,
@@ -543,10 +570,8 @@ exports.getTalepById = async (req, res) => {
 exports.yeniTalepOlustur = async (req, res) => {
     try {
         // 🔎 Aynı firma + talep türü + belge no ile ZATEN AÇIK bir talep var mı?
-        // Kullanıcı bilerek devam edebilsin diye engel değil, uyarı: 409 ile
-        // mevcut talebi döndürüyoruz. `mukerrereIzinVer: true` gelirse geçilir.
-        // Ayrıntı ve ölçüm: DosyaTakip.acikMukerrerBul notu.
-        if (!req.body.mukerrereIzinVer) {
+        // Eski istemci override bayrağı yollasa da aynı açık talep ikinci kez oluşturulamaz.
+        {
             const mevcut = await DosyaTakip.acikMukerrerBul({
                 firma: req.body.firma,
                 talepTuru: req.body.talepTuru,
@@ -554,12 +579,7 @@ exports.yeniTalepOlustur = async (req, res) => {
                 belgeId: req.body.belgeId
             });
             if (mevcut) {
-                return res.status(409).json({
-                    success: false,
-                    kod: 'MUKERRER_ACIK_TALEP',
-                    message: `Bu firma için aynı talep türü ve belge no ile zaten açık bir talep var: ${mevcut.takipId}`,
-                    mevcut
-                });
+                return mukerrerCevabi(res, mevcut);
             }
         }
 
@@ -573,6 +593,7 @@ exports.yeniTalepOlustur = async (req, res) => {
         };
 
         delete data.mukerrereIzinVer;   // yalnız istek bayrağı, kayda yazılmaz
+        delete data.acikTalepAnahtari; // anahtar yalnız model tarafından hesaplanır
 
         const talep = new DosyaTakip(data);
         await talep.save();
@@ -586,6 +607,10 @@ exports.yeniTalepOlustur = async (req, res) => {
 
         res.status(201).json({ success: true, data: talep, message: 'Talep başarıyla oluşturuldu' });
     } catch (error) {
+        if (error.code === 11000) {
+            const mevcut = await DosyaTakip.acikMukerrerBul(req.body);
+            if (mevcut) return mukerrerCevabi(res, mevcut);
+        }
         console.error('Talep oluşturma hatası:', error);
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(e => e.message);
@@ -610,6 +635,8 @@ exports.talepGuncelle = async (req, res) => {
         const body = { ...req.body };
         delete body.sonGuncelleyen;
         delete body.sonGuncelleyenAdi;
+        delete body.acikTalepAnahtari;
+        delete body.mukerrereIzinVer;
 
         for (const [key, value] of Object.entries(body)) {
             if (key.includes('.')) {
@@ -645,6 +672,11 @@ exports.talepGuncelle = async (req, res) => {
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         ekListesiniDuzelt(talep); // ek takip edenlerde birincil/tekrar kalmasın
 
+        if (['firma', 'talepTuru', 'ytbNo', 'belgeId', 'durum', 'anaAsama', 'aktif'].some((a) => talep.isModified(a))) {
+            const mevcut = await mukerreriBul(talep);
+            if (mevcut) return mukerrerCevabi(res, mevcut);
+        }
+
         await talep.save();
 
         // Activity log
@@ -656,6 +688,7 @@ exports.talepGuncelle = async (req, res) => {
 
         res.json({ success: true, data: await populateTalep(talep._id), message: 'Talep başarıyla güncellendi' });
     } catch (error) {
+        if (error.code === 11000 && error.keyPattern?.acikTalepAnahtari) return mukerrerCevabi(res, null);
         console.error('Talep güncelleme hatası:', error);
         res.status(500).json({ success: false, message: 'Talep güncellenirken hata oluştu', error: error.message });
     }
@@ -734,6 +767,8 @@ exports.durumDegistir = async (req, res) => {
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;
 
+        const mevcut = await mukerreriBul(talep);
+        if (mevcut) return mukerrerCevabi(res, mevcut);
         await talep.save();
 
         // Activity log
@@ -752,6 +787,7 @@ exports.durumDegistir = async (req, res) => {
             message: `Durum başarıyla güncellendi: ${getDurumEtiketi(yeniDurum)}`
         });
     } catch (error) {
+        if (error.code === 11000 && error.keyPattern?.acikTalepAnahtari) return mukerrerCevabi(res, null);
         console.error('Durum değiştirme hatası:', error);
         res.status(500).json({ success: false, message: 'Durum değiştirilirken hata oluştu', error: error.message });
     }
@@ -1877,7 +1913,7 @@ exports.firmaYuklemeYap = [
             // değer yüzünden düşmesin. Eklenen dosya kayıtları yine şemaya göre doğrulanır.
             await DosyaTakip.updateOne(
                 { _id: talep._id },
-                { $push: { dosyalar: { $each: kayitlar } } },
+                { $push: { dosyalar: { $each: kayitlar } }, $set: { 'sonDegisiklikler.dosya': new Date() } },
                 { runValidators: true }
             );
         } catch (error) {

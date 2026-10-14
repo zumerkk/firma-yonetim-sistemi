@@ -45,12 +45,13 @@ function satirIndeksiBul(satirlar, { rowId, match } = {}) {
 function yeniTalep(mevcut, talep, simdi = new Date()) {
   const eskiDurum = mevcut?.durum || 'taslak';
   const yeniDurum = talep?.durum || eskiDurum;
+  const tarihVerildi = Object.prototype.hasOwnProperty.call(talep || {}, 'talepTarihi');
   let tarih = mevcut?.talepTarihi;
-  if (yeniDurum !== eskiDurum && yeniDurum !== 'taslak' && !talep?.talepTarihi) tarih = simdi;
+  if (yeniDurum !== eskiDurum && yeniDurum !== 'taslak' && !tarihVerildi) tarih = simdi;
   return {
     durum: yeniDurum,
     istenenAdet: talep?.istenenAdet ?? mevcut?.istenenAdet ?? 0,
-    talepTarihi: talep?.talepTarihi || tarih || undefined,
+    talepTarihi: tarihVerildi ? (talep.talepTarihi || undefined) : (tarih || undefined),
     talepNotu: talep?.talepNotu || ''
   };
 }
@@ -59,12 +60,13 @@ function yeniTalep(mevcut, talep, simdi = new Date()) {
 function yeniKarar(mevcut, karar, simdi = new Date()) {
   const eskiDurum = mevcut?.kararDurumu || 'beklemede';
   const yeniDurum = karar?.kararDurumu || eskiDurum;
+  const tarihVerildi = Object.prototype.hasOwnProperty.call(karar || {}, 'kararTarihi');
   let tarih = mevcut?.kararTarihi;
-  if (yeniDurum !== eskiDurum && yeniDurum !== 'beklemede' && !karar?.kararTarihi) tarih = simdi;
+  if (yeniDurum !== eskiDurum && yeniDurum !== 'beklemede' && !tarihVerildi) tarih = simdi;
   return {
     kararDurumu: yeniDurum,
     onaylananAdet: karar?.onaylananAdet ?? mevcut?.onaylananAdet ?? 0,
-    kararTarihi: karar?.kararTarihi || tarih || undefined,
+    kararTarihi: tarihVerildi ? (karar.kararTarihi || undefined) : (tarih || undefined),
     kararNotu: karar?.kararNotu || ''
   };
 }

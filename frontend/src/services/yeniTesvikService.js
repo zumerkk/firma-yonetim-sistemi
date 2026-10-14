@@ -20,21 +20,29 @@ const yeniTesvikService = {
     return res.data?.data;
   },
   async setMakineTalep(id, payload) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-talep`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-talep`, payload);
+      return res.data;
+    });
   },
   async setMakineKarar(id, payload) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-karar`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-karar`, payload);
+      return res.data;
+    });
   },
   // Toplu talep/karar — tek istek. payload: { liste, islemler:[{ rowId, talep | karar }] }
   async setMakineTalepToplu(id, payload) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-talep/toplu`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-talep/toplu`, payload);
+      return res.data;
+    });
   },
   async setMakineKararToplu(id, payload) {
-    const res = await api.post(`/yeni-tesvik/${id}/makine-karar/toplu`, payload);
-    return res.data;
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-karar/toplu`, payload);
+      return res.data;
+    });
   },
   async saveMakineListeleri(id, payload) {
     // payload: { yerli:[], ithal:[] }
@@ -66,6 +74,12 @@ const yeniTesvikService = {
   async revertMakineRevizyon(id, revizeId, aciklama) {
     return makineKayitKuyrugu.sirayla(id, async () => {
       const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/revert`, { revizeId, aciklama });
+      return res.data;
+    });
+  },
+  async cancelMakineRevizyon(id, revizeId) {
+    return makineKayitKuyrugu.sirayla(id, async () => {
+      const res = await api.post(`/yeni-tesvik/${id}/makine-revizyon/revert`, { revizeId, iptal: true });
       return res.data;
     });
   },

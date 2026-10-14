@@ -210,3 +210,53 @@ describe.each([
     for (const r of records) expect(r.snapshot.ithal).toEqual(base.makineListeleri.ithal);
   });
 });
+
+// İptal, otomatik kaydedilmiş listeyi ve boş tarihleri başlangıca döndürür.
+describe.each([
+  ['eski', Tesvik, ctrlEski], ['yeni', YeniTesvik, ctrlYeni]
+])('%s makine revizyon iptali', (_label, Model, ctrl) => {
+  test.each([false, true])('fiyat, miktar, kur, ekle/sil ve boş tarihleri geri yükler (ayrı depo=%s)', async ayri => {
+    const { base } = await belgeKur(Model, ayri);
+    const start = await cagir(ctrl.startMakineRevizyon, base._id);
+    expect(start.statusCode).toBe(200);
+    expect(start.body.data.revizeId).toBeTruthy();
+    const changed = {
+      yerli: [{ ...base.makineListeleri.yerli[0], miktar: 99, birimFiyatiTl: 98765.43 },
+        { ...base.makineListeleri.yerli[0], rowId: 'eklenen', makineId: 'yeni', siraNo: 2 }], ithal: []
+    };
+    expect((await cagir(ctrl.saveMakineListeleri, base._id, changed)).statusCode).toBe(200);
+    // İthal satırında başlangıçta tarih yok; sonradan girilen tarih de silinmeli.
+    await Model.collection.updateOne({ _id: base._id }, { $set: {
+      'makineListeleri.ithal': [{ ...base.makineListeleri.ithal[0], kurManuelDeger: 99,
+        talep: { durum: 'bakanliga_gonderildi', talepTarihi: new Date('2026-10-14') },
+        karar: { kararDurumu: 'onay', kararTarihi: new Date('2026-10-14') } }]
+    } });
+    const result = await cagir(ctrl.revertMakineRevizyon, base._id, { revizeId: start.body.data.revizeId, iptal: true });
+    expect(result.statusCode).toBe(200);
+    expect((await Model.collection.findOne({ _id: base._id })).makineListeleri).toEqual(base.makineListeleri);
+    expect(result.body.makineListeleri).toEqual(base.makineListeleri);
+    expect((await cagir(ctrl.listMakineRevizyonlari, base._id)).body.data).toHaveLength(1);
+    expect((await cagir(ctrl.startMakineRevizyon, base._id)).statusCode).toBe(200);
+  });
+
+  test.each([false, true])('daha yeni tamamlanan revizyonu iptal ezemez (ayrı depo=%s)', async ayri => {
+    const { base } = await belgeKur(Model, ayri);
+    const start = await cagir(ctrl.startMakineRevizyon, base._id);
+    await cagir(ctrl.finalizeMakineRevizyon, base._id, { yerli: [] });
+    const before = await Model.collection.findOne({ _id: base._id });
+    const cancel = await cagir(ctrl.revertMakineRevizyon, base._id, { revizeId: start.body.data.revizeId, iptal: true });
+    expect(cancel.statusCode).toBe(409);
+    expect((await Model.collection.findOne({ _id: base._id })).makineListeleri).toEqual(before.makineListeleri);
+  });
+
+  test('ayrı depo iptal hatasında liste ve geçmiş transaction ile korunur', async () => {
+    const { base } = await belgeKur(Model);
+    const start = await cagir(ctrl.startMakineRevizyon, base._id);
+    await Model.collection.updateOne({ _id: base._id }, { $set: { 'makineListeleri.yerli': [] } });
+    jest.spyOn(Kayit, 'deleteOne').mockRejectedValueOnce(new Error('İptal yazma hatası'));
+    const result = await cagir(ctrl.revertMakineRevizyon, base._id, { revizeId: start.body.data.revizeId, iptal: true });
+    expect(result.statusCode).toBe(500);
+    expect((await Model.collection.findOne({ _id: base._id })).makineListeleri.yerli).toEqual([]);
+    expect(await Kayit.countDocuments({ tesvik: base._id, tesvikModeli: Model.modelName })).toBe(2);
+  });
+});

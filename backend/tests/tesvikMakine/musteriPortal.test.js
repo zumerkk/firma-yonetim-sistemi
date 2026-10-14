@@ -115,3 +115,26 @@ test('link kapatılınca firma erişemez', async () => {
   await expect(portal.portalVerisi(token)).rejects.toMatchObject({ status: 404 });
   expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
 });
+
+test('ithal birim fiyatı menşe döviziyle, toplam kayıtlı USD değeriyle görünür', async () => {
+  await Tesvik.updateOne({ _id: belge._id }, { $set: {
+    'makineListeleri.ithal.0.birimFiyatiFob': 165000,
+    'makineListeleri.ithal.0.gumrukDovizKodu': 'EUR',
+    'makineListeleri.ithal.0.toplamTutarFobUsd': 179000
+  } });
+  const veri = await portal.portalVerisi(await linkUret());
+  expect(veri.makineler.ithal[0]).toMatchObject({
+    birimFiyat: 165000, birimParaBirimi: 'EUR', toplam: 179000, paraBirimi: 'USD'
+  });
+});
+
+test('eski fatura özeti açılış göçü beklemeden müşteriye görünür', async () => {
+  const proc = await mps.ensureProcess({ tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'local', rowId: 'R1' });
+  await MachineProcess.updateOne({ _id: proc._id }, { $set: {
+    faturalar: [], invoiceRealizedValue: 1000, invoiceRealizedQty: 2,
+    invoiceNo: 'ESKI-1', invoiceDate: new Date('2026-10-01')
+  } });
+  const veri = await portal.portalVerisi(await linkUret());
+  expect(veri.makineler.yerli[0]).toMatchObject({ faturaToplami: 1000, faturaAdedi: 2 });
+  expect(veri.makineler.yerli[0].kalemler[0].no).toBe('ESKI-1');
+});

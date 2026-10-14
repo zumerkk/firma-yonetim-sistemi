@@ -95,7 +95,7 @@ const tesvikMakineService = {
     api.get(`${base}/certificates/${m}/${id}/kdv-muafiyet/download`, { responseType: 'blob' }),
 
   // Public (token tabanlı — auth gerektirmez)
-  publicInfo: (token) => api.get(`/tesvik-evrak/${token}`).then(d),
+  publicInfo: (token, params = {}) => api.get(`/tesvik-evrak/${token}`, { params }).then(d),
   publicUpload: (token, formData, onProgress) => uploadPost(`/tesvik-evrak/${token}`, formData, { onProgress }).then((r) => r.data),
   // KDV muafiyet yazısı public indirme sayfası (/kdv-muafiyet/:token)
   kdvMuafiyetPublicInfo: (token) => api.get(`/tesvik-evrak/kdv-muafiyet/${token}`).then(d),

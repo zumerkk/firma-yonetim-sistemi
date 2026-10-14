@@ -635,19 +635,24 @@ exports.publicYukle = async (req, res) => {
         yukleyenAdi ? `Yükleyen: ${yukleyenAdi}` : ''
       ].filter(Boolean);
 
-      if (mailService.isConfigured() && adresler.length) {
-        await mailService.sendMail({
-          to: adresler.join(', '),
-          subject: `Gmplansis Belge Takip Bildirimi — ${talep.firmaAdi} evrak yükledi`,
-          text: ['İşlem ve Evrak bağlantısı üzerinden yeni evrak yüklendi:', '', ...satirlar].join('\n')
-        });
-      }
-      await Promise.all(kullaniciIdleri.map((uid) => Notification.createNotification({
+      // İki kanal bağımsızdır: SMTP kesintisi uygulama içindeki haberi engellememeli.
+      const gonderimler = kullaniciIdleri.map((uid) => Notification.createNotification({
         title: `Firmadan evrak geldi — ${talep.firmaAdi}`.slice(0, 100),
         message: satirlar.join(' · ').slice(0, 500),
         type: 'info', category: 'general', priority: 'medium', userId: uid,
         actionButton: { text: 'Talebi Aç', url: `/islem-evrak/${talep._id}`, action: 'navigate' }
-      })));
+      }));
+      if (mailService.isConfigured() && adresler.length) {
+        gonderimler.push(mailService.sendMail({
+          to: adresler.join(', '),
+          subject: `Gmplansis Belge Takip Bildirimi — ${talep.firmaAdi} evrak yükledi`,
+          text: ['İşlem ve Evrak bağlantısı üzerinden yeni evrak yüklendi:', '', ...satirlar].join('\n')
+        }));
+      }
+      const sonuclar = await Promise.allSettled(gonderimler);
+      sonuclar.filter((r) => r.status === 'rejected').forEach((r) => {
+        console.error('🚨 [islemEvrak] yükleme bildirim kanalı:', r.reason?.message || r.reason);
+      });
     } catch (e) { console.error('🚨 [islemEvrak] yükleme bildirimi:', e && e.message); }
 
     res.json({

@@ -1,7 +1,7 @@
 // 📄 TEŞVİK MAKİNE DETAY - /tesvikler/:tesvikModel/:tesvikId
 // Sekmeler: Künye · Yerli · İthal · Makine Talepleri · Evraklar · Mail Geçmişi · Hatırlatmalar · Geçmiş
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Paper, Tabs, Tab, Typography, Grid, Button, TextField, MenuItem, Stack, Chip,
   IconButton, Tooltip, Snackbar, Alert, CircularProgress, Menu, Divider,
@@ -26,6 +26,7 @@ import {
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [tab, setTab] = useState(3); // Makine Talepleri varsayılan
   const [cert, setCert] = useState(null);
   const [machines, setMachines] = useState([]);
@@ -238,6 +239,11 @@ export default function TesvikMakineDetail() {
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }} flexWrap="wrap">
           {/* Listeye bırakılan filtre/sayfa ile dön (müşteri: "geri gelince bütün filtreleri sıfırlıyor") */}
           <IconButton onClick={() => {
+            const kaynak = location.state?.ekipmanListeAdresi;
+            if (typeof kaynak === 'string' && /^\/tesvikler(?:\?|$)/.test(kaynak)) {
+              navigate(kaynak);
+              return;
+            }
             let adres = '';
             try { adres = sessionStorage.getItem(LISTE_ADRESI_ANAHTARI) || ''; } catch (_) { /* gizli sekme */ }
             navigate(`/tesvikler${adres}`);

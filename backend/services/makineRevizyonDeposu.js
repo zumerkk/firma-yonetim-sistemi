@@ -165,4 +165,48 @@ async function ayriMetaGuncelle(Model, id, revizeId, meta) {
   return result.snapshot;
 }
 
-module.exports = { yeniBelgeAlanlari, revizyonKaydet, revizyonlariOku, ayriRevizyondanDon, ayriMetaGuncelle };
+// İptal, başlangıç anındaki tam listeyi geri getirir. Normal geri dönüşün aksine
+// yeni bir revizyon yazmaz; yalnız iptal edilen başlangıç kaydını kaldırır.
+// En son revizyon şartı, başka bir kullanıcının tamamladığı işi ezmeyi önler.
+async function revizyonIptalEt(Model, id, revizeId, yapanKullanici) {
+  const cakisma = () => Object.assign(new Error('Revizyon artık son işlem değil. Listeyi yenileyip kontrol edin.'), { statusCode: 409 });
+  const kontrolEt = snapshot => {
+    if (!snapshot || snapshot.revizeId !== revizeId || snapshot.revizeTuru !== 'start') throw cakisma();
+  };
+  const belge = await Model.findById(id).select({
+    makineRevizyonDeposu: 1, makineRevizyonlari: { $slice: -1 }
+  }).lean();
+  if (!belge) throw durum('Teşvik bulunamadı');
+  if (belge.makineRevizyonDeposu === AYRI) {
+    return transaction(Model, async session => {
+      const current = await Model.findById(id).select('makineRevizyonDeposu').session(session).lean();
+      if (!current || current.makineRevizyonDeposu !== AYRI) throw cakisma();
+      const kayit = await MakineRevizyonKaydi.findOne(anahtar(Model, id)).sort({ sira: -1 }).session(session).lean();
+      kontrolEt(kayit?.snapshot);
+      const lists = { yerli: kayit.snapshot.yerli || [], ithal: kayit.snapshot.ithal || [] };
+      await Model.updateOne({ _id: id, makineRevizyonDeposu: AYRI }, {
+        $set: { 'makineListeleri.yerli': lists.yerli, 'makineListeleri.ithal': lists.ithal, sonGuncelleyen: yapanKullanici }
+      }, { session });
+      await MakineRevizyonKaydi.deleteOne({ _id: kayit._id }, { session });
+      return lists;
+    });
+  }
+  const snapshot = belge.makineRevizyonlari?.[0];
+  kontrolEt(snapshot);
+  const lists = { yerli: snapshot.yerli || [], ithal: snapshot.ithal || [] };
+  const result = await Model.findOneAndUpdate({
+    _id: id, makineRevizyonDeposu: { $ne: AYRI },
+    $expr: { $eq: [{ $arrayElemAt: ['$makineRevizyonlari.revizeId', -1] }, revizeId] }
+  }, {
+    $set: { 'makineListeleri.yerli': lists.yerli, 'makineListeleri.ithal': lists.ithal, sonGuncelleyen: yapanKullanici },
+    $pull: { makineRevizyonlari: { revizeId } }
+  }, { projection: { _id: 1 } }).lean();
+  if (!result) {
+    const migrated = await Model.findById(id).select('makineRevizyonDeposu').lean();
+    if (migrated?.makineRevizyonDeposu === AYRI) return revizyonIptalEt(Model, id, revizeId, yapanKullanici);
+    throw cakisma();
+  }
+  return lists;
+}
+
+module.exports = { yeniBelgeAlanlari, revizyonKaydet, revizyonlariOku, ayriRevizyondanDon, ayriMetaGuncelle, revizyonIptalEt };

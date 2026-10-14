@@ -53,7 +53,7 @@ function fail(res, err) {
     UNSUPPORTED_FILE_TYPE: 415, NO_FILE: 400, BAD_RANGE: 400,
     // Toplu mail kullanıcı hataları ("makine seçilmedi", "konu boş") 500 dönüp sunucu hatası gibi görünüyordu
     BAD_INPUT: 400, EMPTY_CONTENT: 400,
-    FATURA_GECERSIZ: 400, FATURA_YOK: 404, BELGE_SURESI_DOLDU: 409
+    FATURA_GECERSIZ: 400, FATURA_YOK: 404, FATURA_CAKISMA: 409, BELGE_SURESI_DOLDU: 409
   };
   const httpStatus = codeMap[err && err.code] || 500;
   if (httpStatus >= 500) console.error('🚨 [tesvikMakine] hata:', err && (err.stack || err.message));
@@ -374,6 +374,7 @@ exports.ensureProcess = wrap(async (req, res) => {
 
 exports.getProcess = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
+  await mps.eskiFaturaOzetiniKalemeCevir(proc);
   const [timeline, mails, docs, reminders, folder] = await Promise.all([
     mps.getTimeline(proc),
     MailLog.find(mps.surecMailFiltresi(proc._id)).sort({ createdAt: -1 }).limit(200).lean(),
@@ -780,6 +781,10 @@ exports.deleteParserQueue = wrap(async (req, res) => {
 
 // Seçilen hedeflerin süreç kayıtlarını getirir (yoksa oluşturur)
 async function topluSurecler(targets, user) {
+  const ilk = targets && targets[0];
+  if (ilk && targets.some((t) => t.tesvikModel !== ilk.tesvikModel || String(t.tesvikId) !== String(ilk.tesvikId))) {
+    const e = new Error('Toplu mail yalnızca aynı belgedeki makineler için gönderilebilir.'); e.code = 'BAD_INPUT'; throw e;
+  }
   const list = [];
   for (const t of targets || []) {
     list.push(await mps.ensureProcess({ ...t, user }));
@@ -816,6 +821,7 @@ exports.bulkMailPreview = wrap(async (req, res) => {
   let uploadLink = '';
   if (onizleme.needsUploadLink) {
     ({ link: uploadLink } = await topluYukleme.ensureTopluYuklemeLinki(surecler, { user: req.user }));
+    uploadLink = mps.mailYuklemeLinki(uploadLink, templateCode);
   }
   const veri = topluPlaceholderVerisi({ ...(onizleme.data || {}), uploadLink }, canli);
 

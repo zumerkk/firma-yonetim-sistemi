@@ -24,7 +24,7 @@ function gez(deger, ziyaret, derinlik = 0) {
  * @param {object} talep  lean DosyaTakip kaydı
  * @returns {{ durum: {zaman, kim}|null, not: {zaman, kim, sayi}|null, dosya: {zaman, kim, sayi}|null, son: number }}
  */
-function talepSonIslemleri(talep) {
+function talepSonIslemleri(talep, evrakTalepleri = []) {
   let not = null; let notSayi = 0;
   let dosya = null; let dosyaSayi = 0;
   gez(talep, (o) => {
@@ -46,6 +46,33 @@ function talepSonIslemleri(talep) {
     const z = zaman(g.ilkTarih || g.tarih);
     if (z && (!durum || z > durum.zaman)) durum = { zaman: z, kim: g.degistirenAdi || '' };
   });
+  if (not) not.sayi = notSayi;
+  if (dosya) dosya.sayi = dosyaSayi;
+  // İşlem & Evrak, Belge Takip'in Firma Maili sekmesinde aynı talebe bağlı çalışır.
+  for (const e of evrakTalepleri) {
+    const dosyalar = e.yuklenenEvraklar || [];
+    dosyaSayi += dosyalar.length;
+    for (const d of dosyalar) {
+      if (!dosya || zaman(d.yuklemeTarihi) > dosya.zaman) dosya = { zaman: zaman(d.yuklemeTarihi), kim: '' };
+    }
+    for (const ev of e.istenenEvraklar || []) {
+      if (!ev.yuklenememeNedeni) continue;
+      notSayi += 1;
+      if (!not || zaman(ev.nedenBildirimTarihi) > not.zaman) not = { zaman: zaman(ev.nedenBildirimTarihi), kim: '' };
+    }
+    for (const alan of ['not', 'dosya']) {
+      const t = zaman(e.sonDegisiklikler?.[alan]);
+      if (alan === 'not' && t > (not?.zaman || 0)) not = { zaman: t, kim: '' };
+      if (alan === 'dosya' && t > (dosya?.zaman || 0)) dosya = { zaman: t, kim: '' };
+    }
+  }
+  // Kalan içerikten tarih türetmek silme ve açıklama değişikliğini gösteremez; kalıcı damga kullanılır.
+  for (const alan of ['durum', 'not', 'dosya']) {
+    const t = zaman(talep?.sonDegisiklikler?.[alan]);
+    if (alan === 'durum' && t > (durum?.zaman || 0)) durum = { zaman: t, kim: '' };
+    if (alan === 'not' && t > (not?.zaman || 0)) not = { zaman: t, kim: '' };
+    if (alan === 'dosya' && t > (dosya?.zaman || 0)) dosya = { zaman: t, kim: '' };
+  }
   if (not) not.sayi = notSayi;
   if (dosya) dosya.sayi = dosyaSayi;
   const son = Math.max(durum ? durum.zaman : 0, not ? not.zaman : 0, dosya ? dosya.zaman : 0, zaman(talep && talep.createdAt));

@@ -1,16 +1,7 @@
-// 💰 Finansal tablo tutar alanı (belge ekleme / revize formları)
-//
-// Müşteri (05.10.2026): "revizelerde finansal tabloyu düzenlerken virgül koydurmuyor o yüzden
-// tutarlar farklı yapışıyor" — "virgül olmayacaksa bile yukarıya yuvarlasın".
-// Eskiden alan her tuşta rakam dışını atıyordu: E-TUYS'ten "76.588.704,44" yapıştırınca
-// 7.658.870.444 oluyordu. Artık odaktayken yazılan metin olduğu gibi kalır (virgül yazılabilir),
-// değer her değişimde kuruşu yukarı yuvarlanmış tam sayı olarak üst bileşene gider; odaktan
-// çıkınca binlik noktalı gösterilir. Değerler tam sayı kaldığı için toplamlar, PDF ve E-TUYS
-// karşılaştırması eskisi gibi çalışır.
-
+// Finansal tutarlar yazılırken ve kaydedilirken kuruşları korunur.
 import React, { useState } from 'react';
 import { TextField } from '@mui/material';
-import { tutarYukariYuvarla, yazarkenBicimle } from '../../utils/sayiFormat';
+import { finansalTutarCoz, finansalTutarYaz } from '../../utils/sayiFormat';
 
 /**
  * @param value     formdaki ham değer (sayı, rakam dizisi ya da '')
@@ -20,7 +11,7 @@ import { tutarYukariYuvarla, yazarkenBicimle } from '../../utils/sayiFormat';
 export default function FinansalTutarAlani({ value, onDegis, sifirGizle = false, ...props }) {
   const [yazi, setYazi] = useState(null); // null = odakta değil
 
-  const gorunum = (sifirGizle && Number(value) === 0) ? '' : yazarkenBicimle(value);
+  const gorunum = (sifirGizle && Number(value) === 0) ? '' : finansalTutarYaz(value);
 
   return (
     <TextField
@@ -33,7 +24,7 @@ export default function FinansalTutarAlani({ value, onDegis, sifirGizle = false,
       }}
       onChange={(e) => {
         setYazi(e.target.value);
-        onDegis(tutarYukariYuvarla(e.target.value));
+        onDegis(finansalTutarCoz(e.target.value));
       }}
       onBlur={(e) => {
         setYazi(null);

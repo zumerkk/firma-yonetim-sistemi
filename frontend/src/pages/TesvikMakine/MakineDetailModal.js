@@ -124,8 +124,8 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
   // (durum değişikliği zaman çizelgesine ayrı kayıt düşer, hatırlatmaları etkiler).
   // sessiz: pencere kapanırken / mail hazırlanırken otomatik kayıt — başarı bildirimi göstermez.
   const kaydet = async ({ sessiz = false } = {}) => {
-    if (!proc) return true;
-    if (!kaydedilmemis) return true;
+    if (!proc) return false;
+    if (!kaydedilmemis) return proc;
     setBusy('save');
     try {
       const { status: yeniDurum, ...alanlar } = form;
@@ -137,7 +137,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
       if (!sessiz) notify('Kaydedildi');
       reloadTimeline(proc._id);
       if (onChanged) onChanged();
-      return true;
+      return guncel;
     } catch (e) {
       notify(errMsg(e), 'error');
       return false;
@@ -155,13 +155,14 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
   const doPreview = async () => {
     if (!templateCode) return notify('Şablon seçin', 'warning');
     // Alıcı/tedarikçi bilgisi formda değiştiyse önce kaydedilir — mail kayıtlı bilgilerle hazırlanıyor
-    if (!(await kaydet({ sessiz: true }))) return;
+    const kayit = await kaydet({ sessiz: true });
+    if (!kayit) return;
     setBusy('preview');
     try {
       if (araKontrolMu) {
         const c = await svc.araKontrolCompose(proc.tesvikModel, proc.tesvikId);
         // Alıcı: firma kaydındaki e-posta + bu makinede girilmiş firma yetkilisi mailleri
-        const alicilar = Array.from(new Set([...(c.to || []), ...(proc.customerEmails || [])]));
+        const alicilar = Array.from(new Set([...(c.to || []), ...(kayit.customerEmails || [])]));
         setAkEkler([]); setAkSistemListesi(false);
         setPreview({
           araKontrol: true, subject: c.subject, body: c.body, to: alicilar.join(', '), cc: '',

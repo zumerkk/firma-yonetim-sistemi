@@ -132,6 +132,68 @@ describe('kalem bazlı kayıt (13.10.2026)', () => {
 });
 
 describe('eski doğrudan girilmiş özetler (açılış göçü)', () => {
+  test('açılış göçü çalışmadan yeni kalem eski tutarı ve adedi korur', async () => {
+    const eski = await surecKur();
+    await MachineProcess.updateOne({ _id: eski._id }, { $set: { invoiceNo: 'ESKI-1', invoiceRealizedValue: 1000, invoiceRealizedQty: 2 } });
+    // Çağıranın elindeki belge de eski olabilir: kalem kaydı DB'nin güncel hâlinden başlar.
+    await mps.faturaKalemiEkle(eski, { no: 'YENI-1', tutar: 250, adet: 1 }, { user });
+    expect(eski.faturalar.map((k) => k.no)).toEqual(['ESKI-1', 'YENI-1']);
+    expect(eski.invoiceRealizedValue).toBe(1250);
+    expect(eski.invoiceRealizedQty).toBe(3);
+    expect((await Tesvik.findById(belge._id).lean()).makineListeleri.yerli[0].gerceklesenTutar).toBe(1250);
+    expect(eski.isModified('faturalar')).toBe(false);
+  });
+
+  test('yalnız tarihli eski kayıt da görünür, kararlı kimlikle taşınır; güncelleme tarihi korunur', async () => {
+    const eski = await surecKur();
+    const tarih = new Date('2026-05-05');
+    await MachineProcess.updateOne({ _id: eski._id }, { $set: { invoiceDate: tarih } });
+    const once = await MachineProcess.findById(eski._id).lean();
+    const okunmus = mps.faturaKalemleriniOku(once);
+    expect(okunmus[0].tarih).toEqual(tarih);
+    expect(String(okunmus[0]._id)).toBe(String(eski._id));
+    expect(await mps.eskiFaturaOzetleriniKalemeCevir()).toBe(1);
+    const sonra = await MachineProcess.findById(eski._id).lean();
+    expect(sonra.updatedAt).toEqual(once.updatedAt);
+    expect(String(sonra.faturalar[0]._id)).toBe(String(okunmus[0]._id));
+  });
+
+  test('ensureProcess eski faturayı açılış göçüne bağlı olmadan döndürür', async () => {
+    const eski = await surecKur();
+    await MachineProcess.updateOne({ _id: eski._id }, { $set: { invoiceNo: 'ONCEKI', invoiceRealizedValue: 700 } });
+    const sonuc = await mps.ensureProcess({ tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'local', rowId: 'R1' });
+    expect(sonuc.faturalar).toHaveLength(1);
+    expect(sonuc.faturalar[0].tutar).toBe(700);
+  });
+
+  test('eşzamanlı iki kullanıcı kalem ve toplam kaybetmez', async () => {
+    const eski = await surecKur();
+    await mps.faturaKalemiEkle(eski, { no: 'ILK', tutar: 1000, adet: 2 }, { user });
+    const [a, b] = await Promise.all([MachineProcess.findById(eski._id), MachineProcess.findById(eski._id)]);
+    await Promise.all([
+      mps.faturaKalemiEkle(a, { no: 'FIRMA', tutar: 250, adet: 1 }, { kaynak: 'firma', girenAdi: 'Ali' }),
+      mps.faturaKalemiEkle(b, { no: 'PERSONEL', tutar: 400, adet: 3 }, { user })
+    ]);
+    const taze = await MachineProcess.findById(eski._id);
+    expect(taze.faturalar).toHaveLength(3);
+    expect(taze.invoiceRealizedValue).toBe(1650);
+    expect(taze.invoiceRealizedQty).toBe(6);
+    expect((await Tesvik.findById(belge._id).lean()).makineListeleri.yerli[0].gerceklesenTutar).toBe(1650);
+  });
+
+  test('eski ekranın kalem düzeltme/silmesi sonradan eklenen firma kalemini silmez', async () => {
+    const proc = await surecKur();
+    await mps.faturaKalemiEkle(proc, { no: 'ILK', tutar: 100, adet: 1 }, { user });
+    const eskiEkran = await MachineProcess.findById(proc._id);
+    const ilkId = proc.faturalar[0]._id;
+    await mps.faturaKalemiEkle(proc, { no: 'FIRMA', tutar: 250, adet: 2 }, { kaynak: 'firma', girenAdi: 'Ali' });
+    await mps.faturaKalemiGuncelle(eskiEkran, ilkId, { tutar: 200 }, { user });
+    expect(eskiEkran.invoiceRealizedValue).toBe(450);
+    await mps.faturaKalemiSil(eskiEkran, ilkId, { user });
+    expect(eskiEkran.faturalar.map((k) => k.no)).toEqual(['FIRMA']);
+    expect(eskiEkran.invoiceRealizedValue).toBe(250);
+  });
+
   test('kalemi olmayan süreçteki özet tek kaleme çevrilir, ikinci çalıştırma bir şey yapmaz', async () => {
     const eski = await MachineProcess.create({
       tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'local', rowId: 'R1',

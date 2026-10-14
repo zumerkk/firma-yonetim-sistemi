@@ -61,4 +61,27 @@ async function sayfaliListe(Model, filtre, { alan, yon, skip, limit, select = ''
   return belgeler.sort((a, b) => sira.get(String(a._id)) - sira.get(String(b._id)));
 }
 
-module.exports = { TARIH_ALANLARI, SIRALANABILIR, siralamaCoz, sayfaliListe };
+// İki sistemden gelen arama sonuçları da listede seçilen sırayı korur.
+function kayitlariSirala(kayitlar, { alan, yon }) {
+  const tarih = TARIH_ALANLARI.includes(alan) || ['createdAt', 'updatedAt'].includes(alan);
+  const oku = (b) => alan.split('.').reduce((v, k) => v?.[k], b);
+  const deger = (b) => {
+    const v = oku(b);
+    if (v === null || v === undefined || v === '') return null;
+    if (!tarih) return String(v);
+    const t = new Date(v).getTime();
+    return Number.isNaN(t) ? null : t;
+  };
+  return [...kayitlar].sort((a, b) => {
+    const x = deger(a), y = deger(b);
+    if (x === null || y === null) {
+      if (x !== y) return x === null ? 1 : -1;
+    } else {
+      const fark = tarih ? x - y : x.localeCompare(y, 'tr');
+      if (fark) return fark * yon;
+    }
+    return String(a._id).localeCompare(String(b._id));
+  });
+}
+
+module.exports = { TARIH_ALANLARI, SIRALANABILIR, siralamaCoz, sayfaliListe, kayitlariSirala };

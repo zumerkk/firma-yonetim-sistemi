@@ -129,3 +129,16 @@ describe('eski kimlikli makinelerde toplu tarih', () => {
     expect(satirIndeksiBul(rows, { match: { adiVeOzelligi: 'Pres' } })).toBe(-1);
   });
 });
+
+describe('açıkça temizlenen tarih', () => {
+  test.each([null, ''])('talep tarihi %p ile temizlenir, atlanırsa korunur', bos => {
+    const once = { durum: 'bakanliga_gonderildi', talepTarihi: simdi, istenenAdet: 2 };
+    expect(yeniTalep(once, { talepTarihi: bos }).talepTarihi).toBeUndefined();
+    expect(yeniTalep(once, {}).talepTarihi).toEqual(simdi);
+  });
+  test.each([null, ''])('karar tarihi %p ile temizlenir, atlanırsa korunur', bos => {
+    const once = { kararDurumu: 'onay', kararTarihi: simdi, onaylananAdet: 2 };
+    expect(yeniKarar(once, { kararTarihi: bos }).kararTarihi).toBeUndefined();
+    expect(yeniKarar(once, {}).kararTarihi).toEqual(simdi);
+  });
+});

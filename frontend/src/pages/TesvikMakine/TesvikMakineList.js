@@ -159,7 +159,9 @@ export default function TesvikMakineList() {
             paginationMode="server" rowCount={rowCount}
             paginationModel={paginationModel} onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[25, 50, 100]} density="compact" disableRowSelectionOnClick
-            onRowClick={(p) => navigate(`/tesvikler/${p.row.tesvikModel}/${p.row.tesvikId}`)}
+            onRowClick={(p) => navigate(`/tesvikler/${p.row.tesvikModel}/${p.row.tesvikId}`, {
+              state: { ekipmanListeAdresi: `/tesvikler${aramaParam ? `?${aramaParam}` : ''}` }
+            })}
             sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
           />
         </Paper>

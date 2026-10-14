@@ -263,6 +263,8 @@ const MakineYonetimi = () => {
   const quickScrollRef = useRef({ top: 0, left: 0 });
   const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 });
   const revizeFinalizingRef = useRef(false); // Çift tıklama engeli
+  const aktifRevizeIdRef = useRef(null);
+  const [revizeMesgul, setRevizeMesgul] = useState(false);
   const autoSaveTimerRef = useRef(null); // Auto-save iptal için
   const [birimListesi, setBirimListesi] = useState([]);
   const [dovizListesi, setDovizListesi] = useState([]);
@@ -332,6 +334,8 @@ const MakineYonetimi = () => {
   const [topluIslem, setTopluIslem] = useState('onay'); // talep | onay | kismi_onay | red
   const [topluTarih, setTopluTarih] = useState('');
   const [topluAdet, setTopluAdet] = useState(0);
+  const [topluKurOpen, setTopluKurOpen] = useState(false);
+  const [topluKur, setTopluKur] = useState('');
   const [favAnchor, setFavAnchor] = useState(null);
   const [favType, setFavType] = useState(null); // 'gtip'|'unit'|'currency'
   const [favRowId, setFavRowId] = useState(null);
@@ -430,11 +434,11 @@ const MakineYonetimi = () => {
   };
 
   // Makine verilerini yükle (teşvik ID'sine göre) - Önce backend, sonra localStorage
-  const loadMakineData = async (tesvikId) => {
+  const loadMakineData = async (tesvikId, { yerelYedek = true, veri } = {}) => {
     if (!tesvikId) return;
     try {
       // 1) Önce backend'den veri çek
-      const data = await yeniTesvikService.get(tesvikId);
+      const data = veri || await yeniTesvikService.get(tesvikId);
       
       // Tarihli makine notlarını yükle
       notlariYukle(tesvikId);
@@ -443,7 +447,7 @@ const MakineYonetimi = () => {
       const backendIthal = data?.makineListeleri?.ithal || [];
       
       // 2) Backend'de veri varsa onu kullan
-      if (backendYerli.length > 0 || backendIthal.length > 0) {
+      if (backendYerli.length > 0 || backendIthal.length > 0 || !yerelYedek) {
         // Backend verisini UI formatına çevir
         const yerli = backendYerli.map((r, idx) => ({
           id: r.rowId || Math.random().toString(36).slice(2),
@@ -593,7 +597,7 @@ const MakineYonetimi = () => {
   // 🔧 FIX: Sadece revize modunda değil, her zaman veritabanına kaydet
   // Böylece makineId ve diğer alanlar sayfa yenilendiğinde kaybolmaz
   const autoSaveToDb = useCallback(async () => {
-    if (!selectedTesvik?._id) return;
+    if (!selectedTesvik?._id || revizeFinalizingRef.current) return;
     
     setIsSaving(true);
     setSyncStatus('syncing');
@@ -730,6 +734,7 @@ const MakineYonetimi = () => {
   
   // Seçili teşvik değişince revizyon listesini getir ve modu sıfırla
   useEffect(()=>{
+    aktifRevizeIdRef.current = null;
     (async()=>{
       if (!selectedTesvik?._id) { 
         setRevList([]); 
@@ -865,6 +870,10 @@ const MakineYonetimi = () => {
   // 🚀 ENTERPRISE: Enhanced Keyboard shortcuts
   useEffect(()=>{
     const handler = (e)=>{
+      if (revizeFinalizingRef.current) {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') e.preventDefault();
+        return;
+      }
       // ? veya Shift+/ - Yardım
       if (e.key==='?' || (e.shiftKey && e.key==='/')) { e.preventDefault(); setHelpOpen(true); }
       
@@ -1103,6 +1112,7 @@ const MakineYonetimi = () => {
 
   // 🛡️ Yardımcı: Satırın rowId'sini garanti altına al (gerekirse autosave yap)
   const ensureRowId = async (liste, row) => {
+    if (revizeFinalizingRef.current) return null;
     // Eğer zaten rowId varsa döndür
     if (row?.rowId) return row.rowId;
     if (!selectedTesvik?._id) return null;
@@ -1483,11 +1493,9 @@ const MakineYonetimi = () => {
       };
       const row = wsIthal.addRow(rowData);
       
-      // $'ı Excel formülüyle üret
-      const miktarCol = ithalColumns.findIndex(c => c.key === 'miktar') + 1;
-      const fobCol = ithalColumns.findIndex(c => c.key === 'birimFiyatiFob') + 1;
+      // E-TUYS/manuel FOB $ zaten USD'dir; menşe dövizli birim fiyatla yeniden hesaplanmaz.
       const usdCol = ithalColumns.findIndex(c => c.key === 'toplamUsd') + 1;
-      row.getCell(usdCol).value = { formula: `${colLetter(miktarCol)}${row.number}*${colLetter(fobCol)}${row.number}` };
+      row.getCell(usdCol).value = Number(r.toplamUsd) || 0;
       
       // Karar durumuna göre renklendirme - Enterprise Level
       if (kararKodu && kararRenkler[kararKodu]) {
@@ -1938,6 +1946,7 @@ const MakineYonetimi = () => {
   };
 
   const handleBulkTalep = async (tarih) => {
+    if (revizeFinalizingRef.current) return;
     if (!selectedTesvik || selectionModel.length === 0) return;
     try {
       const islemler = await topluIslemleriHazirla((row) => ({
@@ -1957,6 +1966,7 @@ const MakineYonetimi = () => {
   // Kısmi onay adedi ve tarih dışarıdan (toplu diyalog) gelir; ikisi de verilmezse eski davranış
   // (prompt / satırdaki tarih, yoksa bugün) korunur.
   const handleBulkKarar = async (type, adet, tarih) => {
+    if (revizeFinalizingRef.current) return;
     if (!selectedTesvik || selectionModel.length === 0) return;
     let onayAdet = Number(adet) || 0;
     if (type === 'kismi_onay' && !onayAdet) {
@@ -1979,6 +1989,31 @@ const MakineYonetimi = () => {
       openToast(result?.ozet?.bulunamayan?.length ? 'warning' : 'success', result?.message || 'Karar durumları güncellendi');
     } catch (e) {
       openToast('error', e?.response?.data?.message || 'Toplu karar güncellenemedi');
+    }
+  };
+
+  // İptal, sunucudaki başlangıç görüntüsünü tek işlemle geri yükler; otomatik/manuel
+  // kaydedilmiş fiyatlar, ekle-sil ve hemen yazılan talep/karar tarihleri de geri alınır.
+  const revizeIptal = async () => {
+    if (!selectedTesvik?._id || !aktifRevizeIdRef.current || revizeFinalizingRef.current) return;
+    revizeFinalizingRef.current = true;
+    setRevizeMesgul(true);
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    try {
+      const sonuc = await yeniTesvikService.cancelMakineRevizyon(selectedTesvik._id, aktifRevizeIdRef.current);
+      await loadMakineData(selectedTesvik._id, { yerelYedek: false, veri: { makineListeleri: sonuc.makineListeleri } });
+      aktifRevizeIdRef.current = null;
+      const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }).catch(() => []);
+      setRevList(list.reverse());
+      setIsReviseMode(false); setIsReviseStarted(false);
+      setSelectionModel([]);
+      setHasUnsavedChanges(false);
+      openToast('info', 'Revizyon iptal edildi; başlangıçtaki makine listesi geri yüklendi');
+    } catch (e) {
+      openToast('error', e?.response?.data?.message || 'Revizyon iptal edilemedi; tekrar deneyin');
+    } finally {
+      revizeFinalizingRef.current = false;
+      setRevizeMesgul(false);
     }
   };
 
@@ -2135,7 +2170,7 @@ const MakineYonetimi = () => {
                 // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
                 // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
                 // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-                const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+                const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : null };
                 if (yeni && !talep.durum) {
                   talep.durum = 'bakanliga_gonderildi';
                   if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
@@ -2154,7 +2189,7 @@ const MakineYonetimi = () => {
                 // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
                 // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
                 // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-                const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+                const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : null };
                 if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
                   karar.kararDurumu = 'onay';
                   if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
@@ -2461,7 +2496,7 @@ const MakineYonetimi = () => {
                 // Madde 9: "talep göndermeden tarihi girebilelim". Tarih girmek zaten
                 // talebin yapıldığını kaydetmek demek; durum boşsa onu da yazıyoruz ki
                 // satır "tarihi var ama durumu yok" gibi tutarsız görünmesin.
-                const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : undefined };
+                const talep = { ...(p.row.talep||{}), talepTarihi: yeni ? new Date(yeni) : null };
                 if (yeni && !talep.durum) {
                   talep.durum = 'bakanliga_gonderildi';
                   if (!talep.istenenAdet) talep.istenenAdet = Number(p.row.miktar) || 0;
@@ -2480,7 +2515,7 @@ const MakineYonetimi = () => {
                 // Madde 9: "karar tarihi girince onaylandıya alsın direkt."
                 // Yalnız karar HENÜZ VERİLMEMİŞSE onaya çekiyoruz; kısmi onay/red daha önce
                 // elle seçilmişse tarih düzeltmek o kararı ezmemeli.
-                const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : undefined };
+                const karar = { ...(p.row.karar||{}), kararTarihi: yeni ? new Date(yeni) : null };
                 if (yeni && (!karar.kararDurumu || karar.kararDurumu === 'beklemede')) {
                   karar.kararDurumu = 'onay';
                   if (!karar.onaylananAdet) karar.onaylananAdet = Number(p.row.miktar) || 0;
@@ -3189,7 +3224,7 @@ const MakineYonetimi = () => {
   };
 
   return (
-    <Box sx={{ 
+    <Box inert={revizeMesgul ? '' : undefined} aria-busy={revizeMesgul} sx={{
       background: theme.bg, 
       height: '100vh',
       maxHeight: '100vh',
@@ -3660,7 +3695,7 @@ const MakineYonetimi = () => {
                 <IconButton 
                   size="small" 
                   onClick={autoSaveToDb}
-                  disabled={!hasUnsavedChanges || isSaving}
+                  disabled={!hasUnsavedChanges || isSaving || revizeMesgul}
                   sx={{ 
                     color: hasUnsavedChanges ? theme.accent : '#94a3b8',
                     '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
@@ -3710,7 +3745,9 @@ const MakineYonetimi = () => {
                   const ok = window.confirm('Revize başlat?');
                   if (!ok) return;
                   try {
-                    await yeniTesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
+                    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+                    const baslangic = await yeniTesvikService.startMakineRevizyon(selectedTesvik._id, { aciklama: 'Yeni revize' });
+                    aktifRevizeIdRef.current = baslangic.data.revizeId;
                     setIsReviseMode(true); setIsReviseStarted(true);
                     const list = await yeniTesvikService.listMakineRevizyonlari(selectedTesvik._id, { ozet: true }); setRevList(list.reverse());
                     openToast('success', 'Revize başladı');
@@ -3735,7 +3772,7 @@ const MakineYonetimi = () => {
               <>
                 <Button 
                   size="small" 
-                  disabled={!selectedTesvik || revizeFinalizingRef.current} 
+                  disabled={!selectedTesvik || revizeMesgul || revizeFinalizingRef.current}
                   onClick={async()=>{
                     if (revizeFinalizingRef.current) return;
                     const ok = window.confirm('Revize bitir?');
@@ -3754,6 +3791,7 @@ const MakineYonetimi = () => {
                         yerli: payload.yerli, 
                         ithal: payload.ithal 
                       });
+                      aktifRevizeIdRef.current = null;
                       setIsReviseMode(false); setIsReviseStarted(false);
                       openToast('success', 'Revize tamamlandı');
                     } catch (e) { 
@@ -3780,7 +3818,8 @@ const MakineYonetimi = () => {
                 </Button>
                 <Button 
                   size="small" 
-                  onClick={()=>{ setIsReviseMode(false); setIsReviseStarted(false); if(selectedTesvik) loadMakineData(selectedTesvik._id); openToast('info','Vazgeçildi'); }} 
+                  onClick={revizeIptal}
+                  disabled={revizeMesgul}
                   sx={{ 
                     fontSize: '0.68rem',
                     py: 0.5,
@@ -4084,7 +4123,56 @@ const MakineYonetimi = () => {
           <EventIcon sx={{ fontSize: 16, mr: 1.5, color: theme.accent }} />
           Toplu Tarih Gir…
         </MenuItem>
+        {/* Müşteri: "Birde ithal makinelere toplu manuel kur giremiyoruz."
+            Kur satır satır giriliyordu; 50 kalemlik listede kullanılamazdı. */}
+        {tab === 'ithal' && (
+          <MenuItem
+            disabled={!isReviseStarted}
+            onClick={()=> { setBulkMenuAnchor(null); setTopluKurOpen(true); }}
+            sx={{ fontSize: '0.75rem', py: 1, px: 2, fontWeight: 600 }}
+          >
+            <CurrencyExchangeIcon sx={{ fontSize: 16, mr: 1.5, color: theme.accent }} />
+            Toplu Manuel Kur Gir…
+          </MenuItem>
+        )}
       </Menu>
+
+      {/* 💱 Toplu Manuel Kur — seçili ithal satırlarına aynı kuru uygular */}
+      <Dialog open={topluKurOpen} onClose={()=> setTopluKurOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: '1rem', fontWeight: 700 }}>Toplu Manuel Kur</DialogTitle>
+        <DialogContent>
+          <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mb: 2 }}>
+            Seçili <b>{selectionModel.length}</b> ithal satırına uygulanacak. TL tutarları
+            bu kurdan yeniden hesaplanır; FOB $ değerleri değişmez.
+          </Typography>
+          <TextField
+            type="number" size="small" label="Kur (1 döviz = ? TL)" fullWidth autoFocus
+            value={topluKur} onChange={(e)=> setTopluKur(e.target.value)}
+            inputProps={{ step: '0.0001', min: '0' }}
+            helperText="Makinenin alım tarihindeki kuru bilmiyorsanız kendi belirlediğiniz kuru girin"
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={()=> setTopluKurOpen(false)} color="inherit">İptal</Button>
+          <Button
+            variant="contained"
+            disabled={selectionModel.length === 0 || !(Number(topluKur) > 0)}
+            onClick={()=> {
+              const kur = Number(topluKur);
+              const secili = new Set(selectionModel.map(String));
+              setIthalRows((satirlar) => satirlar.map((r) => {
+                if (!secili.has(String(r.id))) return r;
+                // Kur 1 döviz = ? TL: dövizli toplama uygulanır; $ tutarı değişmez (EUR tutarı dolar yazılmaz)
+                return calcIthal({ ...r, kurManuel: true, kurManuelDeger: kur, tlManuel: false }, ['kurManuel', 'kurManuelDeger']);
+              }));
+              setTopluKurOpen(false);
+              openToast('success', `${selectionModel.length} satıra ${kur} kuru uygulandı — kaydetmeyi unutmayın`);
+            }}
+          >
+            Uygula ({selectionModel.length})
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 📅 Toplu Tarih / Durum — madde 10 */}
       <Dialog open={topluOpen} onClose={()=> setTopluOpen(false)} maxWidth="xs" fullWidth>

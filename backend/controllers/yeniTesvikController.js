@@ -12,7 +12,7 @@ const Notification = require('../models/Notification');
 const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const { validationResult } = require('express-validator');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
-const { tamSayiyaCevir } = require('../utils/sayiFormat');
+const { tamSayiyaCevir, sayiyaCevir } = require('../utils/sayiFormat');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -3953,13 +3953,13 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     const araziGideri = finansal.aracAracaGideri || {};
 
     // Veri öncelik sırası: maliyetlenen > aracAracaGideri > legacy alan
-    const metrekaresi = parseInt(maliyetlenen.sl ?? araziGideri.sx ?? 0);
-    const birimFiyat = parseInt(maliyetlenen.sm ?? araziGideri.sayisi ?? 0);
+    const metrekaresi = sayiyaCevir(maliyetlenen.sl ?? araziGideri.sx ?? 0);
+    const birimFiyat = sayiyaCevir(maliyetlenen.sm ?? araziGideri.sayisi ?? 0);
     // Her revizyonda doğru toplamı türet: eğer sn yoksa sl*sm; o da yoksa alternatif/legacy toplam
     const hesaplananSn = Number.isFinite(maliyetlenen.sl) && Number.isFinite(maliyetlenen.sm)
       ? (maliyetlenen.sl || 0) * (maliyetlenen.sm || 0)
       : undefined;
-    const araziToplam = parseInt(
+    const araziToplam = sayiyaCevir(
       (maliyetlenen.sn ?? hesaplananSn ?? araziGideri.toplam ?? finansal.araciArsaBedeli ?? 0)
     );
     // Açıklama için otomatik oluştur veya varsa kullan
@@ -3989,16 +3989,16 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
     // NOT: Model'de yatirimHesaplamalari altında et, eu, ev, ew, ex, ey, ez olarak saklanıyor
     const yatirimHesap = finansal.yatirimHesaplamalari || {};
 
-    row.push(parseInt(yatirimHesap.et || 0));                   // Yardımcı İşl. Mak. Teç. Gid.
-    row.push(parseInt(yatirimHesap.eu || 0));                   // İthalat ve Güm.Giderleri
-    row.push(parseInt(yatirimHesap.ev || 0));                   // Taşıma ve Sigorta Giderleri
-    row.push(parseInt(yatirimHesap.ew || 0));                   // Montaj Giderleri
-    row.push(parseInt(yatirimHesap.ex || 0));                   // Etüd ve Proje Giderleri
-    row.push(parseInt(yatirimHesap.ey || 0));                   // Diğer Giderleri
-    row.push(parseInt(yatirimHesap.ez || 0));                   // TOPLAM DİĞER YATIRIM HARCAMALARI
+    row.push(sayiyaCevir(yatirimHesap.et || 0));                   // Yardımcı İşl. Mak. Teç. Gid.
+    row.push(sayiyaCevir(yatirimHesap.eu || 0));                   // İthalat ve Güm.Giderleri
+    row.push(sayiyaCevir(yatirimHesap.ev || 0));                   // Taşıma ve Sigorta Giderleri
+    row.push(sayiyaCevir(yatirimHesap.ew || 0));                   // Montaj Giderleri
+    row.push(sayiyaCevir(yatirimHesap.ex || 0));                   // Etüd ve Proje Giderleri
+    row.push(sayiyaCevir(yatirimHesap.ey || 0));                   // Diğer Giderleri
+    row.push(sayiyaCevir(yatirimHesap.ez || 0));                   // TOPLAM DİĞER YATIRIM HARCAMALARI
 
     // Toplam Sabit Yatırım Tutarı (1 sütun) - PRIORITY: toplamSabitYatirim FIRST!
-    const toplamSabitYatirim = parseInt(finansal.toplamSabitYatirim || finansal.toplamSabitYatirimTutari || 0);
+    const toplamSabitYatirim = sayiyaCevir(finansal.toplamSabitYatirim || finansal.toplamSabitYatirimTutari || 0);
     row.push(toplamSabitYatirim > maxValue ? 0 : toplamSabitYatirim);  // TOPLAM SABİT YATIRIM TUTARI TL
 
     // Makine Teçhizat Giderleri TL (3 sütun) - MODEL'E UYGUN
@@ -5292,6 +5292,7 @@ module.exports = {
       if (!tesvik) return res.status(404).json({ success: false, message: 'Teşvik bulunamadı' });
 
       const snapshot = {
+        revizeId: new (require('mongoose')).Types.ObjectId().toString(),
         revizeTuru: 'start',
         revizeTarihi: new Date(),
         aciklama: aciklama || 'Makine revizyonu başlatıldı',
@@ -5303,7 +5304,7 @@ module.exports = {
       await makineRevizyonDeposu.revizyonKaydet(YeniTesvik, id, snapshot, { sonGuncelleyen: req.user?._id });
 
       console.log(`✅ startMakineRevizyon OK: ${id}`);
-      res.json({ success: true, message: 'Revizyon başlatıldı' });
+      res.json({ success: true, message: 'Revizyon başlatıldı', data: { revizeId: snapshot.revizeId } });
     } catch (error) {
       console.error('❌ startMakineRevizyon error:', error.message);
       res.status(500).json({ success: false, message: 'Revizyon başlatılamadı', error: error.message });
@@ -5461,6 +5462,10 @@ module.exports = {
       const { revizeId, aciklama } = req.body || {};
       if (!revizeId) return res.status(400).json({ success: false, message: 'revizeId gerekli' });
       // YeniTesvik modeli zaten dosya başında import edildi
+      if (req.body?.iptal === true) {
+        const makineListeleri = await makineRevizyonDeposu.revizyonIptalEt(YeniTesvik, id, revizeId, req.user?._id);
+        return res.json({ success: true, message: 'Revizyon iptal edildi', makineListeleri });
+      }
       const ayriSonuc = await makineRevizyonDeposu.ayriRevizyondanDon(YeniTesvik, id, { revizeId, aciklama, yapanKullanici: req.user?._id });
       if (ayriSonuc) return res.json({
         success: true, message: 'Revizyon geri dönüş uygulandı',
@@ -6292,23 +6297,8 @@ module.exports = {
       }
       if (idx === -1) return res.status(404).json({ success: false, message: 'Makine satırı bulunamadı' });
 
-      // Mevcut talep durumu
-      const currentDurum = arr[idx].talep?.durum || 'taslak';
-      const newDurum = talep?.durum || currentDurum;
-
-      // Durum değişiyorsa ve taslak'tan farklı bir duruma geçiyorsa otomatik tarih ata
-      let autoTalepTarihi = arr[idx].talep?.talepTarihi;
-      if (newDurum !== currentDurum && newDurum !== 'taslak' && !talep?.talepTarihi) {
-        autoTalepTarihi = new Date();
-        console.log(`🗓️ Talep durumu değişti (${currentDurum} → ${newDurum}), tarih atandı:`, autoTalepTarihi);
-      }
-
-      arr[idx].talep = {
-        durum: newDurum,
-        istenenAdet: talep?.istenenAdet ?? arr[idx].talep?.istenenAdet ?? 0,
-        talepTarihi: talep?.talepTarihi || autoTalepTarihi || undefined,
-        talepNotu: talep?.talepNotu || ''
-      };
+      const { yeniTalep } = require('../services/tesvik/makineTalepKarar');
+      arr[idx].talep = yeniTalep(arr[idx].talep, talep);
       if (!arr[idx].rowId) {
         arr[idx].rowId = new (require('mongoose')).Types.ObjectId().toString();
       }
@@ -6340,23 +6330,8 @@ module.exports = {
       }
       if (idx === -1) return res.status(404).json({ success: false, message: 'Makine satırı bulunamadı' });
 
-      // Mevcut karar durumu
-      const currentKarar = arr[idx].karar?.kararDurumu || 'beklemede';
-      const newKarar = karar?.kararDurumu || currentKarar;
-
-      // Durum değişiyorsa ve beklemede'den farklı bir duruma geçiyorsa otomatik tarih ata
-      let autoKararTarihi = arr[idx].karar?.kararTarihi;
-      if (newKarar !== currentKarar && newKarar !== 'beklemede' && !karar?.kararTarihi) {
-        autoKararTarihi = new Date();
-        console.log(`🗓️ Karar durumu değişti (${currentKarar} → ${newKarar}), tarih atandı:`, autoKararTarihi);
-      }
-
-      arr[idx].karar = {
-        kararDurumu: newKarar,
-        onaylananAdet: karar?.onaylananAdet ?? arr[idx].karar?.onaylananAdet ?? 0,
-        kararTarihi: karar?.kararTarihi || autoKararTarihi || undefined,
-        kararNotu: karar?.kararNotu || ''
-      };
+      const { yeniKarar } = require('../services/tesvik/makineTalepKarar');
+      arr[idx].karar = yeniKarar(arr[idx].karar, karar);
       if (!arr[idx].rowId) {
         arr[idx].rowId = new (require('mongoose')).Types.ObjectId().toString();
       }
