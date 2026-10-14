@@ -28,7 +28,14 @@ const islemEvrakService = {
   // devam: true → yalnız bekleyen / eksik-hatalı evrakları aynı bağlantıyla isteyen devam maili
   mailOnizle: (id, { devam = false } = {}) =>
     api.get(`${base}/talepler/${id}/mail-onizle`, { params: devam ? { devam: 1 } : {} }).then(d),
-  mailGonder: (id, body) => api.post(`${base}/talepler/${id}/mail-gonder`, body).then(d),
+  // ekler: bu maile özel dosyalar (saklanmaz) — varsa çok parçalı gider, alanlar metin olarak
+  mailGonder: (id, body, ekler = [], onProgress) => {
+    if (!ekler.length) return api.post(`${base}/talepler/${id}/mail-gonder`, body).then(d);
+    const fd = new FormData();
+    Object.entries(body).forEach(([k, v]) => fd.append(k, Array.isArray(v) ? JSON.stringify(v) : (v ?? '')));
+    ekler.forEach((f) => fd.append('ekDosyalar', f));
+    return uploadPost(`${base}/talepler/${id}/mail-gonder`, fd, { onProgress }).then(d);
+  },
   linkUret: (id, gun) => api.post(`${base}/talepler/${id}/link`, { gun }).then(d),
   // Yüklemeler uploadPost üzerinden: gerçek yüzde + uzun timeout (global 15 sn büyük dosyaya yetmiyor)
   ornekDosyaYukle: (id, evrakId, formData, onProgress) =>
@@ -48,6 +55,7 @@ const islemEvrakService = {
 
   // Public (token — auth gerektirmez)
   publicNedenKaydet: (token, body) => api.post(`${base}/public/${token}/neden`, body).then(r => r.data),
+  publicEkBelgeEkle: (token, body) => api.post(`${base}/public/${token}/ek-belge`, body).then(r => r.data),
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
   // Maile eklediğimiz örnek/şablon dosya — firma yükleme sayfasından da indirebilsin
   publicOrnekIndir: (token, evrakId) =>

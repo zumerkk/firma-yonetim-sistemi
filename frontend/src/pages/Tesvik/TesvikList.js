@@ -55,7 +55,8 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI } from '../../utils/belgeDurum';
+import BelgeDurumSecici from '../../components/Tesvik/BelgeDurumSecici';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 
 const TesvikList = () => {
@@ -112,14 +113,13 @@ const TesvikList = () => {
 
   // 📅 Tarih sıralaması — müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını,
   // tarihe göre sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" (artan = en yakın üstte)
-  const [siralama, setSiralama] = useState({ alan: 'createdAt', yon: 'desc' });
+  // Müşteri (13.10.2026): "Teşvik listesini açınca otomatik olarak süre uzatım tarihi eskiden yeniye göre
+  // sıralı olarak gelebilirse" — varsayılan bu; uzatımı olmayan belgeler sunucuda sona konur.
+  const [siralama, setSiralama] = useState({ alan: 'belgeYonetimi.uzatimTarihi', yon: 'asc' });
   const siralamayaGec = (alan) => {
     // useEffect sıralama değişince listeyi ilk sayfadan yeniden yükler
     setSiralama((o) => ({ alan, yon: o.alan === alan && o.yon === 'asc' ? 'desc' : 'asc' }));
   };
-
-  // 🎨 Durum Renk Haritası
-  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
@@ -714,15 +714,15 @@ const TesvikList = () => {
                         </TableCell>
                         
                         <TableCell>
-                          <Chip
-                            label={belgeDurumLabel(tesvik.durumBilgileri?.genelDurum)}
-                            size="small"
-                            sx={{
-                              backgroundColor: getDurumColor(tesvik.durumBilgileri?.genelDurum),
-                              color: 'white',
-                              fontSize: '0.75rem',
-                              fontWeight: 600
-                            }}
+                          {/* Belgeye girmeden durum değişir (müşteri, 14.10.2026) */}
+                          <BelgeDurumSecici
+                            belgeId={tesvik._id}
+                            sistem={tesvik.sistem || 'Eski'}
+                            durum={tesvik.durumBilgileri?.genelDurum}
+                            onDegisti={(yeniDurum) => setTesvikler((liste) => liste.map((x) => (x._id === tesvik._id
+                              ? { ...x, durumBilgileri: { ...(x.durumBilgileri || {}), genelDurum: yeniDurum } }
+                              : x)))}
+                            onHata={(mesaj) => window.alert(`Durum güncellenemedi: ${mesaj}`)}
                           />
                         </TableCell>
                         

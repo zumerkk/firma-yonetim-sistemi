@@ -9,6 +9,8 @@ const Firma = require('../models/Firma');
 const svc = require('../services/islemEvrak/islemEvrakService');
 const storageService = require('../services/tesvikMakine/storageService');
 const mailService = require('../services/tesvikMakine/mailService');
+const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
+const { htmlMi, htmlTemizle } = require('../utils/mailHtml');
 
 // Mongoose doğrulama hatasını okunur tek cümleye çevirir.
 // Ham hâli kullanıcıya "IslemTalebi validation failed: istenenEvraklar.1.aciklama:
@@ -273,7 +275,8 @@ exports.talepGuncelle = wrap(async (req, res) => {
   // Boş string = taslağı sil → mail önizlemesi tekrar şablondan üretilir (talepMailOnizle
   // `talep.mailKonusu || konu` mantığıyla çalışır).
   if (typeof mailKonusu === 'string') talep.mailKonusu = mailKonusu;
-  if (typeof mailGovdesi === 'string') talep.mailGovdesi = mailGovdesi;
+  // Editörde biçimlendirilen taslak HTML olarak saklanır (sunucu tarafında da süzülür)
+  if (typeof mailGovdesi === 'string') talep.mailGovdesi = htmlMi(mailGovdesi) ? htmlTemizle(mailGovdesi) : mailGovdesi;
   if (typeof varyantKod === 'string') talep.varyantKod = varyantKod;
   if (typeof varyantAd === 'string') talep.varyantAd = varyantAd;
 
@@ -360,7 +363,12 @@ exports.talepMailOnizle = wrap(async (req, res) => {
 
 exports.talepMailGonder = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
-  const { to, cc, subject, body, ekEvrakIdler } = req.body || {};
+  const { to, cc, subject, body } = req.body || {};
+  // Bu maile özel dosya eklenince istek çok parçalı gelir; dizi alanı metin (JSON) olarak taşınır
+  let { ekEvrakIdler } = req.body || {};
+  if (typeof ekEvrakIdler === 'string') {
+    try { ekEvrakIdler = JSON.parse(ekEvrakIdler); } catch (_) { ekEvrakIdler = null; }
+  }
   const parseList = (v) => (Array.isArray(v) ? v : String(v || '').split(/[;,\s]+/))
     .map((s) => String(s).trim()).filter((s) => s.includes('@'));
 
@@ -373,8 +381,10 @@ exports.talepMailGonder = wrap(async (req, res) => {
     .filter((e) => !secilen || secilen.includes(String(e._id)))
     .map((e) => e.ornekDosya);
 
+  // multer Türkçe adı latin1 çözüyor — alıcıya düzgün adla gitsin
+  const serbestEkler = (req.uploadedFiles || []).map((f) => ({ filename: dosyaAdiDuzelt(f.originalname), content: f.buffer }));
   const sonuc = await svc.mailGonder(talep, {
-    to: parseList(to), cc: parseList(cc), subject, body, ekler, user: req.user
+    to: parseList(to), cc: parseList(cc), subject, body, ekler, serbestEkler, user: req.user
   });
   res.json({ success: true, data: { ...sonuc, talep }, message: 'Mail gönderildi' });
 });
@@ -503,6 +513,9 @@ exports.talepLinkUret = wrap(async (req, res) => {
 
 // ───────── PUBLIC (token ile, AUTH YOK) ─────────
 
+// Firmanın bir talebe ekleyebileceği belge sayısı (yükleme sayfasındaki "+ Ek belge")
+const EK_BELGE_SINIRI = 20;
+
 exports.publicBilgi = async (req, res) => {
   try {
     const sonuc = await svc.resolveByToken(req.params.token);
@@ -526,6 +539,12 @@ exports.publicBilgi = async (req, res) => {
           ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath)),
           ornekDosyaAdi: (e.ornekDosya && e.ornekDosya.dosyaAdi) || ''
         })),
+        // Firmanın kendi eklediği belgeler — yalnız bu talepte görünür
+        ekBelgeler: (talep.firmaEkBelgeleri || []).map((b) => ({
+          id: b._id, ad: b.ad,
+          geldiMi: (talep.yuklenenEvraklar || []).some((y) => String(y.istenenEvrakId || '') === String(b._id))
+        })),
+        ekBelgeSiniri: EK_BELGE_SINIRI,
         maxUploadMB: Number(process.env.MAX_UPLOAD_MB) || 100
       }
     });
@@ -581,9 +600,12 @@ exports.publicYukle = async (req, res) => {
 
     const evrakId = (req.body && req.body.istenenEvrakId) || null;
     const yukleyenAdi = ((req.body && req.body.yukleyenAdi) || '').toString().slice(0, 120);
-    const hedefEvrak = evrakId ? talep.istenenEvraklar.id(evrakId) : null;
+    // Hedef: personelin istediği evrak ya da firmanın kendi eklediği belge
+    const istenen = evrakId ? talep.istenenEvraklar.id(evrakId) : null;
+    const firmaEki = evrakId && !istenen ? talep.firmaEkBelgeleri.id(evrakId) : null;
+    const hedefEvrak = istenen || firmaEki;
 
-    if (evrakId && (!hedefEvrak || hedefEvrak.zorunlu === false)) {
+    if (evrakId && (!hedefEvrak || (istenen && istenen.zorunlu === false))) {
       return res.status(400).json({ success: false, message: 'İstenen evrak bulunamadı.' });
     }
     for (const file of files) {
@@ -608,7 +630,7 @@ exports.publicYukle = async (req, res) => {
       const satirlar = [
         `Firma : ${talep.firmaAdi}`,
         `İşlem : ${talep.islemTuruAdi}${talep.varyantAd ? ` (${talep.varyantAd})` : ''}`,
-        `Evrak : ${hedefEvrak ? hedefEvrak.ad : 'Belirtilmedi'}`,
+        `Evrak : ${hedefEvrak ? `${hedefEvrak.ad}${firmaEki ? ' (firmanın eklediği belge)' : ''}` : 'Belirtilmedi'}`,
         `Adet  : ${files.length}`,
         yukleyenAdi ? `Yükleyen: ${yukleyenAdi}` : ''
       ].filter(Boolean);
@@ -637,6 +659,33 @@ exports.publicYukle = async (req, res) => {
     if (err && err.code === 'UNSUPPORTED_FILE_TYPE') return res.status(415).json({ success: false, message: err.message });
     console.error('🚨 [islemEvrak] publicYukle:', err && (err.stack || err.message));
     res.status(500).json({ success: false, message: 'Dosya yüklenemedi. Lütfen tekrar deneyin.' });
+  }
+};
+
+// ➕ Firma kendi belgesini ekler (ad), sonra o satırdan yükler — bkz. IslemTalebi.firmaEkBelgeleri
+exports.publicEkBelgeEkle = async (req, res) => {
+  try {
+    const sonuc = await svc.resolveByToken(req.params.token);
+    if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
+    if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş.' });
+    const { talep } = sonuc;
+    const ad = String(req.body?.ad || '').replace(/\s+/g, ' ').trim();
+    if (ad.length < 2 || ad.length > 200) {
+      return res.status(400).json({ success: false, message: 'Belge adı 2–200 karakter olmalı.' });
+    }
+    const ayni = (x) => String(x || '').toLocaleLowerCase('tr') === ad.toLocaleLowerCase('tr');
+    const mevcut = (talep.firmaEkBelgeleri || []).find((b) => ayni(b.ad));
+    if (mevcut) return res.json({ success: true, data: { id: mevcut._id, ad: mevcut.ad }, message: 'Bu belge zaten listede.' });
+    if ((talep.firmaEkBelgeleri || []).length >= EK_BELGE_SINIRI) {
+      return res.status(400).json({ success: false, message: `En fazla ${EK_BELGE_SINIRI} ek belge eklenebilir.` });
+    }
+    talep.firmaEkBelgeleri.push({ ad, ekleyenAdi: String(req.body?.ekleyenAdi || '').trim().slice(0, 120) });
+    await talep.save();
+    const yeni = talep.firmaEkBelgeleri[talep.firmaEkBelgeleri.length - 1];
+    return res.json({ success: true, data: { id: yeni._id, ad: yeni.ad }, message: 'Belge eklendi — şimdi dosyasını yükleyebilirsiniz.' });
+  } catch (err) {
+    console.error('🚨 [islemEvrak] publicEkBelgeEkle:', err && err.message);
+    return res.status(500).json({ success: false, message: 'Belge eklenemedi. Lütfen tekrar deneyin.' });
   }
 };
 

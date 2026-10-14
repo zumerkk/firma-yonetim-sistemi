@@ -66,6 +66,11 @@ async function processDueReminders({ now = new Date(), limit = 200 } = {}) {
         summary.sent++;
         await scheduleNext(proc, job.mailLogId);
       } catch (sendErr) {
+        // Süresi dolmuş belgeye hatırlatma gitmez — hata değil, atlama (bir daha denenmesin)
+        if (sendErr && sendErr.code === 'BELGE_SURESI_DOLDU') {
+          job.status = 'skipped'; job.skipReason = 'belge_suresi_doldu'; job.lastError = sendErr.message; await job.save();
+          summary.skipped++; continue;
+        }
         job.status = 'failed'; job.lastError = sendErr.message || 'Gönderim hatası'; await job.save();
         summary.failed++;
       }

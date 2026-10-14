@@ -721,6 +721,14 @@ const tesvikSchema = new mongoose.Schema({
     uploadTokenExpiresAt: { type: Date }
   },
 
+  // 🔗 Müşteri belge linki — firma belge künyesini + yerli/ithal listeyi görür, makinelere fatura kalemi
+  // girer (müşteri, 13.10.2026). Süresiz; personel yenileyince eski link geçersiz olur.
+  musteriPortal: {
+    token: { type: String, trim: true, index: true, sparse: true },
+    olusturmaTarihi: { type: Date },
+    olusturanAdi: { type: String, trim: true, default: '' }
+  },
+
   // 🧾 KDV Muafiyet Yazısı — belge geneli TEK dosya + geçerlilik aralığı.
   // Müşteri talebi: tedarikçiye mail EKİ olarak değil, "bu linkten indirebilirsiniz"
   // biçiminde public indirme bağlantısı (indirmeToken) olarak iletilir.

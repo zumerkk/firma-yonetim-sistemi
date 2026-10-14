@@ -292,25 +292,22 @@ const getTesvikler = async (req, res) => {
     // Sıralanabilir alanlar — istekten gelen anahtar doğrudan Mongo sort'una konmaz.
     // Müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını, tarihe göre
     // sıralama ekleyebilir miyiz, yakından uzağa olacak şekilde" → artan sıra = en yakın tarih üstte.
-    const SIRALANABILIR = new Set([
-      'createdAt', 'updatedAt', 'tesvikId', 'yatirimciUnvan',
-      'belgeYonetimi.belgeTarihi', 'belgeYonetimi.belgeBitisTarihi', 'belgeYonetimi.uzatimTarihi'
-    ]);
-    const sortObj = {};
-    sortObj[SIRALANABILIR.has(siraBy) ? siraBy : 'createdAt'] = siraSekli === 'desc' ? -1 : 1;
+    // Tarih sıralamasında tarihi boş belgeler sonda (bkz. utils/tarihSiralama).
+    const { siralamaCoz, sayfaliListe } = require('../utils/tarihSiralama');
+    const { alan, yon } = siralamaCoz(siraBy, siraSekli);
 
     const skip = (parseInt(sayfa) - 1) * parseInt(limit);
 
     const [tesvikler, toplam] = await Promise.all([
-      Tesvik.find(query)
-        .select('-makineRevizyonlari -revizyonlar.veriSnapshot')
-        .populate('firma', 'tamUnvan firmaId vergiNoTC firmaIl')
-        .populate('olusturanKullanici', 'adSoyad email')
-        .populate('sonGuncelleyen', 'adSoyad email')
-        .sort(sortObj)
-        .skip(skip)
-        .limit(parseInt(limit))
-        .lean(),
+      sayfaliListe(Tesvik, query, {
+        alan, yon, skip, limit: parseInt(limit),
+        select: '-makineRevizyonlari -revizyonlar.veriSnapshot',
+        populate: [
+          ['firma', 'tamUnvan firmaId vergiNoTC firmaIl'],
+          ['olusturanKullanici', 'adSoyad email'],
+          ['sonGuncelleyen', 'adSoyad email']
+        ]
+      }),
 
       Tesvik.countDocuments(query)
     ]);

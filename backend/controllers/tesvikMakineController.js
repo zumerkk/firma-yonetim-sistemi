@@ -52,7 +52,8 @@ function fail(res, err) {
     NO_RECIPIENT: 400, TEMPLATE_INCOMPLETE: 422, SMTP_NOT_CONFIGURED: 503,
     UNSUPPORTED_FILE_TYPE: 415, NO_FILE: 400, BAD_RANGE: 400,
     // Toplu mail kullanıcı hataları ("makine seçilmedi", "konu boş") 500 dönüp sunucu hatası gibi görünüyordu
-    BAD_INPUT: 400, EMPTY_CONTENT: 400
+    BAD_INPUT: 400, EMPTY_CONTENT: 400,
+    FATURA_GECERSIZ: 400, FATURA_YOK: 404, BELGE_SURESI_DOLDU: 409
   };
   const httpStatus = codeMap[err && err.code] || 500;
   if (httpStatus >= 500) console.error('🚨 [tesvikMakine] hata:', err && (err.stack || err.message));
@@ -383,27 +384,36 @@ exports.getProcess = wrap(async (req, res) => {
   res.json({ success: true, data: { process: proc, statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder } });
 });
 
-/**
- * 🧾 Fatura kalemlerini kaydet
- * PATCH /api/tesvik-makine/process/:id/faturalar   body: { faturalar: [{ tarih, no, tutar, adet }] }
- *
- * Müşteri (29.09.2026): "İşleme tıklayınca her fatura için 'Fatura Tarih - Fatura No - Kalem Tutarı'
- * alt kısma birden fazla kalem veya fatura girilebilecek şekilde giriş satırları açılacak."
- */
-exports.updateProcessFaturalar = wrap(async (req, res) => {
+// ───────── 🧾 FATURA KALEMLERİ (tek tek) ─────────
+// Müşteri (13.10.2026): kalem girişi İşlem penceresinden ayrıldı; Yerli/İthal Liste'de makineye
+// tıklayınca "üstte makinanın bilgisi, altta fatura listesi, onun altında kalem girme ve kaydetme yeri".
+const faturaYaniti = (proc) => ({
+  faturalar: proc.faturalar,
+  invoiceRealizedValue: proc.invoiceRealizedValue,
+  invoiceRealizedQty: proc.invoiceRealizedQty,
+  invoiceNo: proc.invoiceNo,
+  invoiceDate: proc.invoiceDate
+});
+
+// POST /process/:id/fatura-kalemleri   body: { tarih, no, icerik, tutar, adet }
+exports.faturaKalemiEkle = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  await mps.faturalariGuncelle(proc, req.body?.faturalar, req.user);
-  res.json({
-    success: true,
-    message: `${proc.faturalar.length} fatura kalemi kaydedildi`,
-    data: {
-      faturalar: proc.faturalar,
-      invoiceRealizedValue: proc.invoiceRealizedValue,
-      invoiceRealizedQty: proc.invoiceRealizedQty,
-      invoiceNo: proc.invoiceNo,
-      invoiceDate: proc.invoiceDate
-    }
-  });
+  await mps.faturaKalemiEkle(proc, req.body || {}, { user: req.user, kaynak: 'personel' });
+  res.json({ success: true, message: 'Fatura kalemi kaydedildi', data: faturaYaniti(proc) });
+});
+
+// PATCH /process/:id/fatura-kalemleri/:kalemId
+exports.faturaKalemiGuncelle = wrap(async (req, res) => {
+  const proc = await loadProc(req.params.id);
+  await mps.faturaKalemiGuncelle(proc, req.params.kalemId, req.body || {}, { user: req.user });
+  res.json({ success: true, message: 'Fatura kalemi güncellendi', data: faturaYaniti(proc) });
+});
+
+// DELETE /process/:id/fatura-kalemleri/:kalemId
+exports.faturaKalemiSil = wrap(async (req, res) => {
+  const proc = await loadProc(req.params.id);
+  await mps.faturaKalemiSil(proc, req.params.kalemId, { user: req.user });
+  res.json({ success: true, message: 'Fatura kalemi silindi', data: faturaYaniti(proc) });
 });
 
 exports.updateProcessFields = wrap(async (req, res) => {
@@ -834,6 +844,7 @@ exports.bulkMailPreview = wrap(async (req, res) => {
       // Doldurulamayan alanlar gönderimden ÖNCE gösterilir; gönderimde de engelleniyor
       eksikAlanlar: eksikAlanEtiketleri(rendered.missing),
       makineIdEksik: makineIdEksikSiralar(canli),
+      belgeSuresi: onizleme.belgeSuresi,
       smtpConfigured: mailService.isConfigured()
     }
   });

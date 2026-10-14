@@ -72,6 +72,8 @@ export default function BenimIslerim() {
   }, []);
 
   const ac = (k) => navigate(`/dosya-takip/${k._id}`);
+  // Firmadan gelenler iki kaynaktan: Belge Takip yükleme linki ve İşlem & Evrak linki (müşteri, 13.10.2026)
+  const geleniAc = (k) => navigate(k.kaynak === 'islemEvrak' ? `/islem-evrak/${k._id}` : `/dosya-takip/${k._id}`);
   // Not bildirimi: okunmamışsa okundu işaretle (zildeki sayı da düşsün), sonra talebi aç
   const notuAc = (n) => {
     if (!n.okundu && n._id) {
@@ -104,14 +106,17 @@ export default function BenimIslerim() {
       </Grid>
       <Grid item xs={12} md={6} lg={3}>
         <Liste baslik="Firmadan Gelenler" ikon={<MarkEmailUnreadIcon sx={{ fontSize: 16 }} />}
-          kayitlar={veri.sonYuklemeler} yukleniyor={yukleniyor} onAc={ac}
+          kayitlar={veri.sonYuklemeler} yukleniyor={yukleniyor} onAc={geleniAc}
           bos="Henüz firmadan dosya gelmedi."
           satirCiz={(k) => (
             <>
               <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>{k.dosyaAdi}</Typography>
-              <Typography variant="caption" color="text.secondary" noWrap>
-                {k.firmaUnvan || '-'}{k.ytbNo ? ` · ${k.ytbNo}` : ''} · {tarih(k.tarih)}
+              <Typography variant="caption" color="text.secondary" noWrap component="div">
+                {k.firmaUnvan || '-'}{k.ytbNo ? ` · ${k.ytbNo}` : ''}{k.islemAdi ? ` · ${k.islemAdi}` : ''} · {tarih(k.tarih)}
               </Typography>
+              {k.kaynak === 'islemEvrak' && (
+                <Chip size="small" label="İşlem & Evrak" sx={{ height: 16, fontSize: '0.6rem', mt: 0.25 }} />
+              )}
             </>
           )} />
       </Grid>

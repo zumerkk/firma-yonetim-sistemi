@@ -37,6 +37,8 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import ReplayIcon from '@mui/icons-material/Replay';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import UploadProgress from '../../components/common/UploadProgress';
+import ZenginMetinEditoru from '../common/ZenginMetinEditoru';
+import { htmlMetin } from '../../utils/mailHtml';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { tasi } from '../../utils/dizi';
@@ -205,6 +207,12 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const [evraklar, setEvraklar] = useState([]);
   // Mail alanları
   const [mail, setMail] = useState({ to: '', cc: '', subject: '', body: '', uploadLink: '', smtpConfigured: true });
+  // 📎 Bu maile özel ekler — müşteri (13.10.2026): "mail taslağı hazırladığımız kısımdan da evrak ekleme
+  // şansımız var mı acaba? Bağlamadan/tek seferlik de olabilir." Saklanmaz; yalnız bu gönderimle gider.
+  const [mailEkleri, setMailEkleri] = useState([]);
+  const [mailYukleme, setMailYukleme] = useState(null);
+  const mailEkBoyutu = mailEkleri.reduce((t, f) => t + (f.size || 0), 0);
+  const MAIL_EK_SINIRI = 20 * 1024 * 1024; // Gmail tüm mail için 25 MB kabul ediyor; örnekler + metin payı
   // 📎 Ek seçimi: örnek dosyası olan her evrak VARSAYILAN OLARAK eklenir; burada yalnızca
   // kullanıcının elle KALDIRDIKLARI tutulur. Böylece yeni yüklenen bir örnek dosya ayrıca
   // seçilmeye gerek kalmadan maile girer.
@@ -567,20 +575,23 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // ── Mail
   const mailGonder = async () => {
+    if (mailEkBoyutu > MAIL_EK_SINIRI) { notify('Eklerin toplamı 20 MB\'ı geçmesin — mail sunucusu büyük maili reddeder.', 'warning'); return; }
     setBusy('mail');
+    if (mailEkleri.length) setMailYukleme({ fileName: mailEkleri.length > 1 ? `${mailEkleri.length} ek` : mailEkleri[0].name, pct: 0, loaded: 0, total: mailEkBoyutu });
     try {
       const sonuc = await svc.mailGonder(id, {
         to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: devamModu ? [] : gidecekEkIdler
-      });
+      }, mailEkleri, (p) => setMailYukleme((o) => (o ? { ...o, ...p } : o)));
       setTalep(sonuc.talep);
       setDevamModu(false);
+      setMailEkleri([]);
       // Alınamayan örnek dosya atlanıp mail yine gidiyor; hangisinin gitmediği görünmeli
       if (sonuc.atlananEkler?.length) {
         notify(`Mail gönderildi ama ${sonuc.atlananEkler.length} ek eklenemedi: ${sonuc.atlananEkler.join(', ')} — dosyayı yeniden yükleyip gerekirse tekrar gönderin`, 'warning');
       } else {
         notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
       }
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setMailYukleme(null); }
   };
 
   const linkKopyala = async () => {
@@ -894,9 +905,30 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               onChange={(e) => setMail((p) => ({ ...p, cc: e.target.value }))} placeholder="isteğe bağlı" />
             <TextField label="Konu" size="small" fullWidth value={mail.subject}
               onChange={(e) => { mailElleDegistiRef.current = true; setMail((p) => ({ ...p, subject: e.target.value })); }} />
-            <TextField label="İçerik" fullWidth multiline minRows={12} value={mail.body}
-              onChange={(e) => { mailElleDegistiRef.current = true; setMail((p) => ({ ...p, body: e.target.value })); }}
-              helperText="Metni istediğiniz gibi düzenleyebilirsiniz — mail bu haliyle gönderilir." />
+            {/* Müşteri (13.10.2026): "Buraya mail düzenleme aparatı koyabilir miyiz?" — Gmail benzeri araç çubuğu */}
+            <ZenginMetinEditoru etiket="İçerik" value={mail.body}
+              onChange={(html) => { mailElleDegistiRef.current = true; setMail((p) => ({ ...p, body: html })); }}
+              yardim="Metni istediğiniz gibi düzenleyip biçimlendirebilirsiniz — mail bu haliyle gönderilir." />
+            <Box>
+              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
+                  Dosya Ekle (yalnız bu mail)
+                  <input hidden multiple type="file"
+                    onChange={(e) => { const yeni = Array.from(e.target.files || []); e.target.value = ''; setMailEkleri((o) => [...o, ...yeni]); }} />
+                </Button>
+                {mailEkleri.map((f, i) => (
+                  <Chip key={`${f.name}-${i}`} size="small" icon={<AttachFileIcon />}
+                    label={`${f.name} · ${Math.max(1, Math.round((f.size || 0) / 1024))} KB`}
+                    onDelete={() => setMailEkleri((o) => o.filter((_, j) => j !== i))} />
+                ))}
+              </Stack>
+              {mailEkBoyutu > MAIL_EK_SINIRI && (
+                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                  Eklerin toplamı {(mailEkBoyutu / 1048576).toFixed(1)} MB — 20 MB'ı geçmesin.
+                </Typography>
+              )}
+              <UploadProgress active={busy === 'mail' && !!mailYukleme} {...(mailYukleme || {})} />
+            </Box>
           </Stack>
 
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
@@ -920,7 +952,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 Taslağı Sil
               </Button>
               <Button variant="contained" startIcon={busy === 'mail' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-                onClick={mailGonder} disabled={busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@')}>
+                onClick={mailGonder} disabled={busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(mail.body).trim()}>
                 SMTP ile Gönder
               </Button>
             </Stack>
@@ -1003,8 +1035,21 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 )}
               </Box>
             ))}
+            {/* Firmanın yükleme sayfasından kendi eklediği belgeler (müşteri, 13.10.2026) — dosyası henüz gelmeyenler */}
+            {(talep.firmaEkBelgeleri || [])
+              .filter((b) => !(talep.yuklenenEvraklar || []).some((y) => String(y.istenenEvrakId) === String(b._id)))
+              .map((b) => (
+                <Box key={b._id} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', pb: 0.75 }}>
+                  <Chip size="small" color="info" label="Firma ekledi" />
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }}>{b.ad} — dosyası henüz yüklenmedi</Typography>
+                  {b.ekleyenAdi && <Typography variant="caption" color="text.secondary">{b.ekleyenAdi}</Typography>}
+                </Box>
+              ))}
             {(talep.yuklenenEvraklar || []).map((y) => (
               <Box key={y._id} sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px dashed #e2e8f0', pb: 0.75 }}>
+                {(talep.firmaEkBelgeleri || []).some((b) => String(b._id) === String(y.istenenEvrakId)) && (
+                  <Chip size="small" color="info" label="Firma eki" />
+                )}
                 {y.istenenEvrakAdi && <Chip size="small" variant="outlined" label={y.istenenEvrakAdi} />}
                 <Typography variant="caption" sx={{ fontWeight: 600 }}>
                   {new Date(y.yuklemeTarihi).toLocaleString('tr-TR')}

@@ -47,6 +47,7 @@ const screenshotImportRoutes = require('./routes/screenshotImport'); // 📸 Ekr
 const tesvikMakineRoutes = require('./routes/tesvikMakine'); // 🛠️ Teşvik Makine Teçhizat Yönetimi (admin)
 const islemEvrakRoutes = require('./routes/islemEvrak'); // 🧩 İşlem ve Evrak Yönetimi (firma bazlı evrak talebi)
 const tesvikEvrakUploadRoutes = require('./routes/tesvikEvrakUpload'); // 🌐 Teşvik Evrak Public Upload (token)
+const musteriPortalRoutes = require('./routes/musteriPortal'); // 🔗 Müşteri belge linki (token) + personel yönetimi
 const belgeTakipYuklemeRoutes = require('./routes/belgeTakipYukleme'); // 🌐 Belge Takip → firma yükleme bağlantısı (token)
 const tesvikReminderService = require('./services/tesvikMakine/reminderService'); // ⏰ Makine hatırlatma cron servisi
 
@@ -331,6 +332,7 @@ app.use('/api/tesvik-makine', tesvikMakineRoutes); // 🛠️ Teşvik Makine Te�
 app.use('/api/islem-evrak', islemEvrakRoutes); // 🧩 İşlem ve Evrak Yönetimi
 app.use('/api/tesvik-evrak', tesvikEvrakUploadRoutes); // 🌐 Teşvik Evrak Public Upload (token tabanlı)
 app.use('/api/belge-takip-yukleme', belgeTakipYuklemeRoutes); // 🌐 Belge Takip → firma yükleme bağlantısı (token tabanlı, AUTH YOK)
+app.use('/api/musteri-belge', musteriPortalRoutes); // 🔗 Müşteri belge linki: belge künyesi + yerli/ithal liste + fatura kalemi (token)
 
 // 🚫 404 handler - Bulunamayan endpoint'ler için
 app.use('*', (req, res) => {
@@ -466,6 +468,15 @@ const startServer = async () => {
       await seedMailTemplates();
     } catch (err) {
       console.error('⚠️ Mail şablonu seed hatası (kritik değil):', err.message);
+    }
+
+    // 🧾 Doğrudan girilmiş eski fatura özetleri → tek fatura kalemi (idempotent)
+    try {
+      const { eskiFaturaOzetleriniKalemeCevir } = require('./services/tesvikMakine/machineProcessService');
+      const n = await eskiFaturaOzetleriniKalemeCevir();
+      if (n > 0) console.log(`✅ Eski fatura özetleri kaleme çevrildi: ${n} süreç`);
+    } catch (err) {
+      console.error('⚠️ Fatura özeti göçü hatası (kritik değil):', err.message);
     }
 
     // 🌍 OECD kategorileri: yanlış/eksik fallback verisi varsa CSV'den yeniden yükle

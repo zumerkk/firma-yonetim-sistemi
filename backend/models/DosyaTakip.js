@@ -302,7 +302,8 @@ const dosyaTakipSchema = new mongoose.Schema({
     ekDosyaAdlari: [{ type: String, trim: true }],
     gonderenAdi: { type: String, trim: true },
     gonderen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    tarih: { type: Date, default: Date.now }
+    tarih: { type: Date, default: Date.now },
+    smtpYaniti: { type: String, trim: true, default: '' } // mail sunucusunun kabul cevabı (bkz. mailService)
   }, { _id: true, timestamps: false })],
 
   // --- FİRMA YÜKLEME BAĞLANTISI (müşteri, 15.09.2026: "firma mailine yükleme linki koyabilir miyiz") ---
@@ -373,6 +374,9 @@ const dosyaTakipSchema = new mongoose.Schema({
   muraacatSonrasi: {
     takibiYapanPersonel: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     takibiYapanAdi: { type: String },
+    // Müşteri (13.10.2026): "takibi yapan kısmına birden fazla kişi atayabilelim" — birincil yukarıda,
+    // diğerleri burada (bkz. services/dosyaTakip/takipEdenler.js)
+    ekTakipEdenler: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], default: [] },
 
     // 2.2.1 Kurum Değerlendirme
     kurumDegerlendirme: {
@@ -540,6 +544,7 @@ dosyaTakipSchema.index({ ytbNo: 1 });
 // Talep listesindeki personel filtreleri (müşteri: isim isim filtreleme)
 dosyaTakipSchema.index({ 'muraacatOncesi.muraacatHazirlayanPersonel': 1 });
 dosyaTakipSchema.index({ 'muraacatSonrasi.takibiYapanPersonel': 1 });
+dosyaTakipSchema.index({ 'muraacatSonrasi.ekTakipEdenler': 1 });
 // Firmanın açtığı yükleme sayfası talebi bu alanla bulur (herkese açık uç koleksiyon taramasın)
 dosyaTakipSchema.index({ 'firmaYukleme.token': 1 }, { sparse: true });
 dosyaTakipSchema.index({ firmaUnvan: 'text', takipId: 'text', ytbNo: 'text' });

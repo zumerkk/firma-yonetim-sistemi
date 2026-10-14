@@ -56,12 +56,21 @@ const machineProcessSchema = new mongoose.Schema({
   // Aşağıdaki invoice* alanları artık bu kalemlerin TOPLAMIDIR (faturaToplamlariniHesapla).
   // Tek kalemli eski kayıtlar bozulmasın diye alanlar duruyor: ihracat, ızgara ve ana liste
   // senkronu hep onları okur.
+  //
+  // Müşteri (13.10.2026): kalem girişi İşlem penceresinden ayrıldı — Yerli/İthal Liste'de makineye
+  // tıklayınca açılan pencereden ve firmanın belge linkinden (musteriPortal) girilir; alanlar
+  // "F. Tarih - F. Sayı, Kalem içeriği, Kalem tutarı". Firmanın girdiği kalem firmaya kilitlidir
+  // ("bir kere kalemi kaydedince silemesin veya düzenleyemesin - 'onaylandı' olsun"); personel düzeltir.
   faturalar: {
     type: [new mongoose.Schema({
       tarih: { type: Date },
       no: { type: String, trim: true, default: '', maxlength: 100 },
+      icerik: { type: String, trim: true, default: '', maxlength: 500 }, // kalem içeriği
       tutar: { type: Number, default: 0 },
-      adet: { type: Number, default: 0 }
+      adet: { type: Number, default: 0 },
+      kaynak: { type: String, enum: ['personel', 'firma'], default: 'personel' },
+      girenAdi: { type: String, trim: true, default: '', maxlength: 120 },
+      girisTarihi: { type: Date }
     }, { _id: true })],
     default: []
   },

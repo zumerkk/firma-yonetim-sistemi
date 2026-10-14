@@ -76,6 +76,20 @@ const islemTalebiSchema = new mongoose.Schema({
 
   istenenEvraklar: { type: [talepEvrakSchema], default: [] },
   yuklenenEvraklar: { type: [yuklenenEvrakSchema], default: [] },
+  // ➕ Firmanın yükleme sayfasından kendi eklediği belgeler. Müşteri (13.10.2026): "Firma için yükleme
+  // linkinde en alt kısma + işareti ile Ek belge ekleme koyalım firma isterse ekleyebilsin. Belge ismi yazıp
+  // kaydetsin > sonra yüklesin, sadece bir işlem için kayıtlı olsun ama her işlemde kaydettiği ekler
+  // görünmesin." Personelin düzenlediği istenenEvraklar'dan AYRI: personel ekranının otomatik kaydı listeyi
+  // bütünüyle yazdığı için orada dursa firma eklediği anda açık ekran onu silerdi. Talebin tamamlanma
+  // hesabına girmez; yüklenen dosya yuklenenEvraklar'a bu kaydın kimliğiyle düşer.
+  firmaEkBelgeleri: {
+    type: [new mongoose.Schema({
+      ad: { type: String, required: true, trim: true, maxlength: 200 },
+      ekleyenAdi: { type: String, trim: true, default: '', maxlength: 120 },
+      eklemeTarihi: { type: Date, default: Date.now }
+    }, { _id: true })],
+    default: []
+  },
 
   // 🔀 Sihirbazda verilen EVET/HAYIR cevapları. Hem iz kaydı hem de varyant
   // değiştirilince listeyi aynı koşullarla yeniden süzebilmek için saklanır.
@@ -107,7 +121,8 @@ const islemTalebiSchema = new mongoose.Schema({
       tur: { type: String, enum: ['ilk', 'devam'], default: 'ilk' },
       konu: { type: String, trim: true, default: '' },
       alicilar: { type: [String], default: [] },
-      gonderenAdi: { type: String, trim: true, default: '' }
+      gonderenAdi: { type: String, trim: true, default: '' },
+      smtpYaniti: { type: String, trim: true, default: '' } // mail sunucusunun kabul cevabı (bkz. mailService)
     }, { _id: false })],
     default: []
   },

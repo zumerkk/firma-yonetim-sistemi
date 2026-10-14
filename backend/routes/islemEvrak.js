@@ -13,6 +13,7 @@ const editor = authorize('admin', 'kullanici');
 router.get('/public/:token', ctrl.publicBilgi);
 router.get('/public/:token/ornek/:evrakId', ctrl.publicOrnekIndir);
 router.post('/public/:token/neden', ctrl.publicNedenKaydet);
+router.post('/public/:token/ek-belge', ctrl.publicEkBelgeEkle);
 router.post('/public/:token', uploadMultiple('dosyalar'), ctrl.publicYukle);
 
 // ── Bundan sonrası giriş gerektirir
@@ -38,7 +39,7 @@ router.patch('/talepler/:id', editor, ctrl.talepGuncelle);
 router.delete('/talepler/:id', editor, ctrl.talepSil);
 router.post('/talepler/:id/varyant', editor, ctrl.talepVaryantUygula);
 router.get('/talepler/:id/mail-onizle', ctrl.talepMailOnizle);
-router.post('/talepler/:id/mail-gonder', editor, ctrl.talepMailGonder);
+router.post('/talepler/:id/mail-gonder', editor, uploadMultiple('ekDosyalar'), ctrl.talepMailGonder);
 router.post('/talepler/:id/link', editor, ctrl.talepLinkUret);
 router.post('/talepler/:id/evrak/:evrakId/ornek', editor, uploadMultiple('dosyalar'), ctrl.talepOrnekDosyaYukle);
 // 🔁 Gelen evrak eksik / hatalı → tekrar iste (devam maili için); DELETE geri alır

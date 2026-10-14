@@ -55,13 +55,17 @@ function escapeHtml(s = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-function textToHtml(text = '') {
-  const safe = escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>');
+// Ortak kurumsal kalıp — düz metinden üretilen ve editörde biçimlendirilen gövde aynı görünür
+function htmlSarmala(icerik = '') {
   return `<!DOCTYPE html><html lang="tr"><head><meta charset="utf-8">` +
     `<meta name="viewport" content="width=device-width, initial-scale=1.0"></head>` +
     `<body style="margin:0;padding:0;background:#f4f5f7;">` +
     `<div style="max-width:640px;margin:0 auto;padding:24px;font-family:Arial,Helvetica,sans-serif;` +
-    `font-size:14px;line-height:1.6;color:#222;background:#ffffff;">${safe}</div></body></html>`;
+    `font-size:14px;line-height:1.6;color:#222;background:#ffffff;">${icerik}</div></body></html>`;
+}
+
+function textToHtml(text = '') {
+  return htmlSarmala(escapeHtml(text).replace(/\r\n|\r|\n/g, '<br>'));
 }
 
 function asList(v) {
@@ -87,13 +91,14 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     cc: ccList.length ? ccList.join(', ') : undefined,
     subject: subject || '',
     text: text || '',
-    html: html || textToHtml(text || ''),
+    // Editörden gelen HTML (İşlem & Evrak mail editörü) kalıba sarılır; yoksa düz metinden üretilir
+    html: html ? htmlSarmala(html) : textToHtml(text || ''),
     attachments
   };
 
+  let result;
   try {
-    const result = await transporter.sendMail(mailOptions);
-    return { messageId: result.messageId, accepted: result.accepted, rejected: result.rejected };
+    result = await transporter.sendMail(mailOptions);
   } catch (error) {
     // Ham hatayı sunucuda logla, çağırana sade mesaj ver
     console.error('🚨 [mailService] SMTP gönderim hatası:', error && error.message);
@@ -102,6 +107,21 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     friendly.original = error && error.message;
     throw friendly;
   }
+
+  // 🔎 Sunucunun cevabı iz olarak kalır. Müşteri (13.10.2026): "smtp ile gönderdiğimiz mailler gönderildi
+  // diyor ama mail gelmiyor" — uygulama yalnız "kabul edildi" diyebiliyordu; teslim sorunu Gmail sonrası.
+  // Artık her gönderimde kabul/red sayısı ve sunucu yanıtı (ör. "250 2.0.0 OK … gsmtp") loglanıyor ve
+  // MailLog'a yazılıyor. Adresler loga yazılmaz, yalnız alan adları.
+  const accepted = result.accepted || [];
+  const rejected = result.rejected || [];
+  const alanlar = (l) => [...new Set(l.map((a) => String(a && a.address ? a.address : a).split('@')[1] || '?'))].join(',');
+  console.log(`📮 [mailService] gönderildi id=${result.messageId} kabul=${accepted.length}(${alanlar(accepted)}) red=${rejected.length}${rejected.length ? `(${alanlar(rejected)})` : ''} yanit="${String(result.response || '').slice(0, 160)}"`);
+  if (!accepted.length && rejected.length) {
+    const e = new Error('Alıcı adres(ler)i mail sunucusu tarafından reddedildi. E-posta adreslerini kontrol edin.');
+    e.code = 'EENVELOPE';
+    throw e;
+  }
+  return { messageId: result.messageId, accepted, rejected, response: result.response || '' };
 }
 
 function humanizeSmtpError(error) {
@@ -119,4 +139,4 @@ function humanizeSmtpError(error) {
 // Test edilebilirlik için transporter cache'ini sıfırla
 function _resetCache() { cachedTransporter = null; cachedSignature = null; }
 
-module.exports = { isConfigured, getTransporter, verify, sendMail, fromAddress, textToHtml, asList, _resetCache };
+module.exports = { isConfigured, getTransporter, verify, sendMail, fromAddress, textToHtml, htmlSarmala, asList, _resetCache };

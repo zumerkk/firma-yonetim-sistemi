@@ -14,8 +14,8 @@ router.get('/kdv-muafiyet/:token/download', ctrl.kdvMuafiyetDownload);
 // Yükleme ekranı bilgisi
 router.get('/:token', ctrl.getInfo);
 
-// Dosya yükle (çoklu)
-router.post('/:token/faturalar', ctrl.faturaBildir);
+// Dosya yükle (çoklu). Fatura kalemi bildirimi buradan kaldırıldı (müşteri, 13.10.2026) — firma
+// kalemleri belge linkinden girer (routes/musteriPortal.js).
 router.post('/:token', uploadMultiple('files'), ctrl.upload);
 
 module.exports = router;

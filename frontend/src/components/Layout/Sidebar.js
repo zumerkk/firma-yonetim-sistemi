@@ -33,7 +33,8 @@ import {
   BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
   Assignment as AssignmentIcon, // 📋 İş Akış Takip ikonu
   ImportExport as ImportExportIcon, // 📥 Import/Export ikonu
-  Email as EmailIcon, // 📮 Ara Kontrol maili ikonu
+  PrecisionManufacturing as PrecisionManufacturingIcon, // 🏭 Makine Listesi ikonu
+  FactCheck as FactCheckIcon, // ✅ Ekipman Takip ikonu
   AccountBalanceWallet as AccountBalanceWalletIcon // 💳 Cari hesap / ödeme takip ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -218,9 +219,11 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
       gradient: '#7f1d1d',
       description: 'Eski + yeni belgeler (firma araması birleşik)'
     },
+    // Müşteri (13.10.2026): "makine listesi ve ekipman takip'in icon'unu değiştirebilir miyiz alt altalar
+    // ya karışıyor, renklerini de değiştirsek ok" — ikisi de kupa/mor idi.
     {
       text: 'Makine Listesi',
-      icon: <EmojiEventsIcon />,
+      icon: <PrecisionManufacturingIcon />,
       path: '/yeni-tesvik/makine-yonetimi',
       color: '#7c3aed',
       gradient: '#4c1d95',
@@ -228,20 +231,14 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
     },
     {
       text: 'Ekipman Takip',
-      icon: <EmojiEventsIcon />,
+      icon: <FactCheckIcon />,
       path: '/tesvikler',
-      color: '#7c3aed',
-      gradient: '#4c1d95',
+      color: '#0d9488',
+      gradient: '#134e4a',
       description: 'Süreç, mail, evrak takibi'
     },
-    {
-      text: 'Ara Kontrol Maili',
-      icon: <EmailIcon />,
-      path: '/tesvikler/ara-kontrol',
-      color: '#0ea5e9',
-      gradient: '#0c4a6e',
-      description: 'Firmaya makine listesi + fatura talebi'
-    },
+    // "Ara Kontrol Maili" sayfası kaldırıldı (müşteri, 13.10.2026: "komple kaldırabiliriz"); mail Ekipman
+    // Takip › İşlem penceresindeki şablon listesinden gönderiliyor, firmanın elindeki linkler çalışıyor.
     {
       text: 'İşlem & Evrak',
       icon: <AssignmentIcon />,

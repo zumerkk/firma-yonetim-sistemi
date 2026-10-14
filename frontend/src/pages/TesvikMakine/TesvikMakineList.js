@@ -26,40 +26,65 @@ const CARD_DEFS = [
   { key: 'completed', label: 'Tamamlanan İşlem', color: '#2e7d32' }
 ];
 
+// Belge detayındaki "geri" düğmesi listeye bu adresle döner (filtre + sayfa korunur)
+export const LISTE_ADRESI_ANAHTARI = 'ekipmanTakip.listeAdresi';
+
 export default function TesvikMakineList() {
   const navigate = useNavigate();
   const [dash, setDash] = useState(null);
   const [rows, setRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 25 });
-  const [q, setQ] = useState('');
-  // Belge türü filtresi URL'den türetilir → sidebar'daki eski/yeni grupları ön-filtreli açar
+  // Müşteri (13.10.2026): "ekipman takipde firmaya girip geri gelince bütün filtreleri sayfayı vs
+  // sıfırlıyor en başa atıyor." Arama, belge türü/durumu ve sayfa adres çubuğunda tutulur: tarayıcının
+  // geri tuşu da, detaydaki geri düğmesi de listeyi bırakıldığı yerde açar.
   const [searchParams, setSearchParams] = useSearchParams();
   const model = searchParams.get('model') || '';
-  const setModel = (v) => {
+  const belgeDurum = searchParams.get('durum') || ''; // '' → kapananlar hariç, 'all' → hepsi, diğer → o durum
+  const paginationModel = {
+    page: Math.max(0, (Number(searchParams.get('sayfa')) || 1) - 1),
+    pageSize: [25, 50, 100].includes(Number(searchParams.get('adet'))) ? Number(searchParams.get('adet')) : 25
+  };
+  const parametreYaz = (degerler) => {
     const sp = new URLSearchParams(searchParams);
-    if (v) sp.set('model', v); else sp.delete('model');
+    Object.entries(degerler).forEach(([k, v]) => { if (v) sp.set(k, String(v)); else sp.delete(k); });
     setSearchParams(sp, { replace: true });
   };
+  const setModel = (v) => parametreYaz({ model: v, sayfa: '' });
+  const setBelgeDurum = (v) => parametreYaz({ durum: v, sayfa: '' });
+  const setPaginationModel = (m) => parametreYaz({ sayfa: m.page > 0 ? m.page + 1 : '', adet: m.pageSize !== 25 ? m.pageSize : '' });
+  // Arama kutusu her tuşta adresi değiştirmesin: yerel tutulur, 300 ms sonra adrese yazılır
+  const qAdres = searchParams.get('q') || '';
+  const [q, setQ] = useState(qAdres);
+  useEffect(() => { setQ(qAdres); }, [qAdres]);
+  useEffect(() => {
+    if (q === qAdres) return undefined;
+    const t = setTimeout(() => parametreYaz({ q: q.trim() ? q : '', sayfa: '' }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+  const aramaParam = searchParams.toString();
+  useEffect(() => {
+    try { sessionStorage.setItem(LISTE_ADRESI_ANAHTARI, aramaParam ? `?${aramaParam}` : ''); } catch (_) { /* gizli sekme */ }
+  }, [aramaParam]);
   const [snack, setSnack] = useState(null);
-  // 🗄️ Belge durumu filtresi: '' → kapananlar hariç (varsayılan), 'all' → hepsi, diğer → o durum
-  const [belgeDurum, setBelgeDurum] = useState('');
 
   const loadDash = useCallback(() => { svc.dashboard().then(setDash).catch(() => {}); }, []);
 
+  const sayfa = paginationModel.page;
+  const adet = paginationModel.pageSize;
   const loadList = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await svc.listCertificates({ q, tesvikModel: model || undefined, belgeDurum: belgeDurum || undefined, page: paginationModel.page + 1, limit: paginationModel.pageSize });
+      const res = await svc.listCertificates({ q: qAdres, tesvikModel: model || undefined, belgeDurum: belgeDurum || undefined, page: sayfa + 1, limit: adet });
       setRows((res.data || []).map((r) => ({ id: `${r.tesvikModel}:${r.tesvikId}`, ...r })));
       setRowCount(res.pagination?.total || 0);
     } catch (e) { setSnack({ message: e?.response?.data?.message || 'Liste yüklenemedi', severity: 'error' }); }
     finally { setLoading(false); }
-  }, [q, model, belgeDurum, paginationModel]);
+  }, [qAdres, model, belgeDurum, sayfa, adet]);
 
   useEffect(() => { loadDash(); }, [loadDash]);
-  useEffect(() => { const t = setTimeout(loadList, 300); return () => clearTimeout(t); }, [loadList]);
+  useEffect(() => { loadList(); }, [loadList]);
 
   const columns = [
     { field: 'firmaAdi', headerName: 'Firma', flex: 1, minWidth: 220 },

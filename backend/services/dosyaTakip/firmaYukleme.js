@@ -94,12 +94,14 @@ function gelenDosyaKaydi(file, { yukleyenAdi = '', aciklama = '' } = {}) {
   };
 }
 
-/** Firmadan dosya gelince haber verilecek personel: firmaya mail gönderenler + takibi yapan */
+const { takipEdenIdleri } = require('./takipEdenler');
+
+/** Firmadan dosya gelince haber verilecek personel: firmaya mail gönderenler + takibi yapan(lar) */
 function bildirimHedefleri(talep) {
   const kimlik = (v) => (v ? String(v._id || v) : '');
   const idler = [
     ...(talep?.firmaMailleri || []).map((m) => kimlik(m.gonderen)),
-    kimlik(talep?.muraacatSonrasi?.takibiYapanPersonel)
+    ...takipEdenIdleri(talep)
   ].filter(Boolean);
   const tekil = [...new Set(idler)];
   if (!tekil.length && kimlik(talep?.olusturanKullanici)) tekil.push(kimlik(talep.olusturanKullanici));

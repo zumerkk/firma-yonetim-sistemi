@@ -15,6 +15,9 @@ import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
 import MakineDetailModal from './MakineDetailModal';
+import FaturaKalemleriDialog from './FaturaKalemleriDialog';
+import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
+import { LISTE_ADRESI_ANAHTARI } from './TesvikMakineList';
 import {
   StatusChip, formatDate, formatMoney, listTypeLabel,
   mailStatusLabel, templateLabel, docTypeLabel, uploaderLabel, reminderStatusLabel, actionLabel, saveBlobResponse
@@ -127,26 +130,23 @@ export default function TesvikMakineDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localMachines, q, fStatus, fQuick]);
 
-  // Yerli / İthal Liste düzenlenebilir alanları kaydı (#4). İthalde aynı alanlar beyanname için kullanılır
-  // (gümrük gerçekleşen değer/adet, beyanname no/tarihi) ve ana listedeki gerçekleşme alanlarına yazılır.
-  const handleYerliRowUpdate = async (newRow) => {
-    let processId = newRow.process?._id;
-    if (!processId) {
-      // Liste tipi satırın kendisinden alınır; ithal satırda 'local' yazmak
-      // yanlış klasöre ve yanlış belge türüne (fatura ↔ beyanname) yol açardı.
-      const p = await svc.ensureProcess({ tesvikModel, tesvikId, listType: newRow.listType || listeTipi, rowId: newRow.rowId });
-      processId = p._id;
-    }
-    await svc.updateFields(processId, {
-      invoiceRealizedValue: Number(newRow.invoiceRealizedValue) || 0,
-      invoiceRealizedQty: Number(newRow.invoiceRealizedQty) || 0,
-      invoiceNo: newRow.invoiceNo || '',
-      invoiceDate: newRow.invoiceDate || null
-    });
-    notify(newRow.listType === 'import' ? 'Beyanname bilgisi kaydedildi' : 'Fatura bilgisi kaydedildi');
-    svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || []));
-    return newRow;
-  };
+  // 🧾 Yerli / İthal Liste: fatura (ithalde beyanname) değerleri ızgarada DÜZENLENMEZ, yalnız kayıtlılar
+  // görünür; makineye tıklayınca kalem penceresi açılır (müşteri, 13.10.2026: "Fatura değerleri vs buradan
+  // güncellenmesin sadece kayıt edilenler görünsün, Makinelerin üstüne tıklayınca fatura kalem kaydetme
+  // kısmı açılsın"). Toplamlar kalemlerden hesaplanır ve ana makine listesine yansır.
+  const [faturaMakinesi, setFaturaMakinesi] = useState(null);
+  const makineleriTazele = () => svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || [])).catch(() => {});
+  const kalemSutunlari = (ithal) => [
+    {
+      field: 'invoiceRealizedValue', headerName: ithal ? 'Gümrük Gerçekleşen Değer' : 'Fatura Gerçekleşen Değer', width: 190,
+      cellClassName: 'fatura-cell', type: 'number',
+      valueFormatter: (p) => (p.value ? formatMoney(p.value, ithal ? 'USD' : 'TRY') : '-')
+    },
+    { field: 'invoiceRealizedQty', headerName: ithal ? 'Gümrük Gerçekleşen Adet' : 'Fatura Gerçekleşen Adet', width: 180, cellClassName: 'fatura-cell', type: 'number' },
+    { field: 'kalemSayisi', headerName: 'Kalem', width: 80, cellClassName: 'fatura-cell', type: 'number', valueGetter: (p) => (p.row.faturalar || []).length },
+    { field: 'invoiceNo', headerName: ithal ? 'Beyanname No' : 'Fatura Sayısı', width: 160, cellClassName: 'fatura-cell', valueGetter: (p) => p.row.invoiceNo || '-' },
+    { field: 'invoiceDate', headerName: ithal ? 'Beyanname Tarihi' : 'Fatura Tarihi', width: 130, cellClassName: 'fatura-cell', valueGetter: (p) => formatDate(p.row.invoiceDate) }
+  ];
 
   const machineColumns = [
     { field: 'siraNo', headerName: 'Sıra', width: 70 },
@@ -164,28 +164,9 @@ export default function TesvikMakineDetail() {
     {
       field: 'actions', headerName: 'İşlem', width: 130, sortable: false, filterable: false,
       renderCell: (p) => <Button size="small" variant="contained" startIcon={<BuildCircleIcon />} onClick={(e) => { e.stopPropagation(); openModal(p.row); }}>İşlem</Button>
-    },
-    // 🧾 Fatura bilgisi İşlem'in SAĞINDA — müşteri (29.09.2026): "Bu fatura girme kısmını Makine
-    // Taleplerinde İşlem kısmının sağ tarafına taşıyabilir miyiz?" Kalem girişi İşlem penceresinde;
-    // burada özet durur ve tıklayınca aynı pencere açılır.
-    {
-      field: 'faturaNo', headerName: 'Fatura No', width: 150,
-      valueGetter: (p) => p.row.invoiceNo || '-'
-    },
-    {
-      field: 'faturaTarihi', headerName: 'Fatura Tarihi', width: 120,
-      valueGetter: (p) => formatDate(p.row.invoiceDate)
-    },
-    {
-      field: 'faturaTutari', headerName: 'Fatura Tutarı', width: 150,
-      valueGetter: (p) => (p.row.invoiceRealizedValue
-        ? `${formatMoney(p.row.invoiceRealizedValue, p.row.currency)}${(p.row.faturalar || []).length > 1 ? ` (${p.row.faturalar.length} kalem)` : ''}`
-        : '-')
-    },
-    {
-      field: 'faturaAdet', headerName: 'Fatura Adet', width: 110,
-      valueGetter: (p) => p.row.invoiceRealizedQty || 0
     }
+    // Fatura sütunları buradan kalktı — müşteri (13.10.2026): "Fatura kalem girme ve Makine talepleri
+    // kısmını komple ayıracağız". Kalemler Yerli / İthal Liste sekmelerinde.
   ];
 
   const openModal = (row) => setModalTarget({ tesvikModel, tesvikId, listType: row.listType, rowId: row.rowId, machine: row });
@@ -255,13 +236,20 @@ export default function TesvikMakineDetail() {
       <Box sx={{ p: { xs: 2, md: 3 } }}>
         {/* Başlık */}
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }} flexWrap="wrap">
-          <IconButton onClick={() => navigate('/tesvikler')}><ArrowBackIcon /></IconButton>
+          {/* Listeye bırakılan filtre/sayfa ile dön (müşteri: "geri gelince bütün filtreleri sıfırlıyor") */}
+          <IconButton onClick={() => {
+            let adres = '';
+            try { adres = sessionStorage.getItem(LISTE_ADRESI_ANAHTARI) || ''; } catch (_) { /* gizli sekme */ }
+            navigate(`/tesvikler${adres}`);
+          }}><ArrowBackIcon /></IconButton>
           <Box sx={{ flex: 1, minWidth: 200 }}>
             <Typography variant="h5" sx={{ fontWeight: 700 }}>{id.firmaName || 'Teşvik Belgesi'}</Typography>
             <Typography variant="body2" color="text.secondary">
               Belge No: {id.documentNo || '-'} · Belge ID: {id.documentId || '-'} · {formatDate(id.documentDate)} · {tesvikModel === 'YeniTesvik' ? 'Yeni Belge' : 'Eski Belge'}
             </Typography>
           </Box>
+          {/* Firmanın belgeyi + yerli/ithal listeyi görüp fatura kalemi girdiği tek link (müşteri, 13.10.2026) */}
+          <MusteriLinkiDugmesi tesvikModel={tesvikModel} tesvikId={tesvikId} />
           <Tooltip title="Yenile"><IconButton onClick={refreshAll}><RefreshIcon /></IconButton></Tooltip>
         </Stack>
 
@@ -297,66 +285,40 @@ export default function TesvikMakineDetail() {
           </Paper>
         )}
 
-        {/* 1 Yerli Liste — düzenlenebilir fatura alanları (#4). GTİP ve KDV kolonları kaldırıldı. */}
-        {tab === 1 && (
+        {/* 1 Yerli Liste / 2 İthal Liste — fatura (beyanname) kalemleri: satıra tıkla → kalem penceresi */}
+        {(tab === 1 || tab === 2) && (
           <Paper sx={{ p: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
-              Sarı kolonlardaki fatura bilgilerini hücreye çift tıklayıp düzenleyebilirsiniz (Enter ile kaydedilir).
+              {tab === 1
+                ? 'Fatura kalemi girmek, görmek veya düzeltmek için makinenin üstüne tıklayın.'
+                : 'Beyanname kalemi girmek için makinenin üstüne tıklayın. Beyanname talebi için Makine Talepleri › İthal (Beyanname) › Toplu İşlem.'}
             </Typography>
             <Box sx={{ height: 540 }}>
               <DataGrid
-                rows={yerliMakineler}
+                key={tab}
+                rows={tab === 1 ? yerliMakineler : ithalMakineler}
                 getRowId={(r) => r.rowId}
-                processRowUpdate={handleYerliRowUpdate}
-                onProcessRowUpdateError={(e) => notify(e?.response?.data?.message || 'Kaydedilemedi', 'error')}
-                columns={[
+                onRowClick={(p) => setFaturaMakinesi(p.row)}
+                columns={tab === 1 ? [
                   { field: 'siraNo', headerName: 'Sıra', width: 64 },
                   { field: 'makineId', headerName: 'Makine ID', width: 100 },
                   { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
                   { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
                   { field: 'totalPrice', headerName: 'Toplam', width: 130, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
-                  { field: 'invoiceRealizedValue', headerName: 'Fatura Gerçekleşen Değer', width: 190, editable: true, type: 'number', cellClassName: 'fatura-cell' },
-                  { field: 'invoiceRealizedQty', headerName: 'Fatura Gerçekleşen Adet', width: 180, editable: true, type: 'number', cellClassName: 'fatura-cell' },
-                  { field: 'invoiceNo', headerName: 'Fatura NO', width: 140, editable: true, cellClassName: 'fatura-cell' },
-                  { field: 'invoiceDate', headerName: 'Fatura Tarihi', width: 150, editable: true, type: 'date', cellClassName: 'fatura-cell', valueGetter: (p) => p.row.invoiceDate ? new Date(p.row.invoiceDate) : null }
-                ]}
-                density="compact" disableRowSelectionOnClick
-                initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-                sx={{ '& .fatura-cell': { backgroundColor: '#fffbeb' } }}
-              />
-            </Box>
-          </Paper>
-        )}
-
-        {/* 2 İthal Liste — beyanname bilgileri (yerli listedeki fatura alanlarının karşılığı) */}
-        {tab === 2 && (
-          <Paper sx={{ p: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
-              Sarı kolonlardaki beyanname bilgilerini hücreye çift tıklayıp düzenleyebilirsiniz (Enter ile kaydedilir).
-              Beyanname talebi için Makine Talepleri › İthal (Beyanname) › Toplu İşlem.
-            </Typography>
-            <Box sx={{ height: 540 }}>
-              <DataGrid
-                rows={ithalMakineler}
-                getRowId={(r) => r.rowId}
-                processRowUpdate={handleYerliRowUpdate}
-                onProcessRowUpdateError={(e) => notify(e?.response?.data?.message || 'Kaydedilemedi', 'error')}
-                columns={[
+                  ...kalemSutunlari(false)
+                ] : [
                   { field: 'siraNo', headerName: 'Sıra', width: 64 },
                   { field: 'gtipNo', headerName: 'GTİP', width: 130 },
                   { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
                   { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
                   { field: 'totalPrice', headerName: 'FOB Toplam', width: 140, valueGetter: (p) => formatMoney(p.row.totalPrice, 'USD') },
                   { field: 'status', headerName: 'Durum', width: 190, renderCell: (p) => <StatusChip badge={p.row.statusBadge} /> },
-                  { field: 'invoiceRealizedValue', headerName: 'Gümrük Gerçekleşen Değer', width: 190, editable: true, type: 'number', cellClassName: 'fatura-cell' },
-                  { field: 'invoiceRealizedQty', headerName: 'Gümrük Gerçekleşen Adet', width: 180, editable: true, type: 'number', cellClassName: 'fatura-cell' },
-                  { field: 'invoiceNo', headerName: 'Beyanname No', width: 160, editable: true, cellClassName: 'fatura-cell' },
-                  { field: 'invoiceDate', headerName: 'Beyanname Tarihi', width: 150, editable: true, type: 'date', cellClassName: 'fatura-cell', valueGetter: (p) => p.row.invoiceDate ? new Date(p.row.invoiceDate) : null }
+                  ...kalemSutunlari(true)
                 ]}
                 density="compact" disableRowSelectionOnClick
                 initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
-                sx={{ '& .fatura-cell': { backgroundColor: '#fffbeb' } }}
-                localeText={{ noRowsLabel: 'Bu belgede ithal makine yok' }}
+                sx={{ '& .fatura-cell': { backgroundColor: '#fffbeb' }, '& .MuiDataGrid-row': { cursor: 'pointer' } }}
+                localeText={tab === 2 ? { noRowsLabel: 'Bu belgede ithal makine yok' } : undefined}
               />
             </Box>
           </Paper>
@@ -440,6 +402,7 @@ export default function TesvikMakineDetail() {
                     {!topluMail.smtpConfigured && (
                       <Alert severity="warning">SMTP yapılandırması eksik — mail gönderilemez.</Alert>
                     )}
+                    {topluMail.belgeSuresi?.doldu && <Alert severity="error">{topluMail.belgeSuresi.mesaj}</Alert>}
                     <Alert severity="info" sx={{ py: 0.5 }}>
                       <b>Makine ID:</b> {topluMail.makineIdListesi || '—'}<br />
                       <b>Sıra No:</b> {topluMail.siraNoListesi || '—'}
@@ -494,7 +457,7 @@ export default function TesvikMakineDetail() {
               </DialogContent>
               <DialogActions sx={{ px: 3, pb: 2 }}>
                 <Button onClick={topluMailKapat}>Vazgeç</Button>
-                <Button variant="contained" disabled={topluMailBusy || !topluMail?.smtpConfigured}
+                <Button variant="contained" disabled={topluMailBusy || !topluMail?.smtpConfigured || !!topluMail?.belgeSuresi?.doldu}
                   onClick={topluMailGonder}>
                   {topluMailBusy ? 'Gönderiliyor…' : 'Tek Mail Gönder'}
                 </Button>
@@ -607,7 +570,9 @@ export default function TesvikMakineDetail() {
       </Box>
 
       <MakineDetailModal open={!!modalTarget} target={modalTarget} meta={meta}
-        onClose={() => setModalTarget(null)} onChanged={() => { svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || [])); }} />
+        onClose={() => setModalTarget(null)} onChanged={makineleriTazele} />
+      <FaturaKalemleriDialog open={!!faturaMakinesi} makine={faturaMakinesi} tesvikModel={tesvikModel} tesvikId={tesvikId}
+        onClose={() => setFaturaMakinesi(null)} onChanged={makineleriTazele} />
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         {snack && <Alert severity={snack.severity} onClose={() => setSnack(null)}>{snack.message}</Alert>}
@@ -622,6 +587,7 @@ function skipReasonLabel(r) {
   if (r === 'manual_stop') return 'Elle durduruldu';
   if (r === 'reminder_stopped') return 'Hatırlatma kapalı';
   if (r === 'process_missing') return 'Süreç bulunamadı';
+  if (r === 'belge_suresi_doldu') return 'Belge süresi doldu';
   if (r.startsWith('status:')) return 'Süreç kapandı';
   return r;
 }
