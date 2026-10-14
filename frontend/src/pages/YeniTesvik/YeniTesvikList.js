@@ -54,7 +54,8 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI } from '../../utils/belgeDurum';
+import BelgeDurumSecici from '../../components/Tesvik/BelgeDurumSecici';
 
 const YeniTesvikList = () => {
   const navigate = useNavigate();
@@ -101,9 +102,6 @@ const YeniTesvikList = () => {
     il: '',
     arsiv: '0'
   });
-
-  // 🎨 Durum Renk Haritası
-  const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
 
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
@@ -600,15 +598,15 @@ const YeniTesvikList = () => {
                         </TableCell>
                         
                         <TableCell>
-                          <Chip
-                            label={belgeDurumLabel(tesvik.durumBilgileri?.genelDurum)}
-                            size="small"
-                            sx={{
-                              backgroundColor: getDurumColor(tesvik.durumBilgileri?.genelDurum),
-                              color: 'white',
-                              fontSize: '0.75rem',
-                              fontWeight: 600
-                            }}
+                          {/* Belgeye girmeden durum değişir (müşteri, 14.10.2026) */}
+                          <BelgeDurumSecici
+                            belgeId={tesvik._id}
+                            sistem={'Yeni'}
+                            durum={tesvik.durumBilgileri?.genelDurum}
+                            onDegisti={(yeniDurum) => setTesvikler((liste) => liste.map((x) => (x._id === tesvik._id
+                              ? { ...x, durumBilgileri: { ...(x.durumBilgileri || {}), genelDurum: yeniDurum } }
+                              : x)))}
+                            onHata={(mesaj) => window.alert(`Durum güncellenemedi: ${mesaj}`)}
                           />
                         </TableCell>
                         

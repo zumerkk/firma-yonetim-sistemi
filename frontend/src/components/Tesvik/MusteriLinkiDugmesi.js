@@ -53,7 +53,8 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   if (!tesvikId) return null;
   return (
     <>
-      <Tooltip title="Firmanın belgeyi görüp makinelere fatura kalemi gireceği link">
+      {/* describeChild: ipucu düğmenin ADI olmasın — ekran okuyucu "Müşteri Linki" desin, ipucu açıklama olsun */}
+      <Tooltip describeChild title="Firmanın belgeyi görüp makinelere fatura kalemi gireceği link">
         <Button size="small" variant="outlined" startIcon={<LinkIcon />} onClick={ac}
           sx={{ textTransform: 'none', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
           Müşteri Linki

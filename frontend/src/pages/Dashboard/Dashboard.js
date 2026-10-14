@@ -28,6 +28,7 @@ import {
 import { useFirma } from '../../contexts/FirmaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import activityService from '../../services/activityService';
+import api from '../../utils/axios';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import SmartUpload from '../../components/Dashboard/SmartUpload';
@@ -36,6 +37,20 @@ import {
   renk, yazi, aralik,
   Panel, SayiKutusu, VeriTablosu, DurumRozeti
 } from '../../tasarim';
+
+// Son işlem hücresi: değişiklik yapıldığı ve ne zaman yapıldığı (içerik yok). Satırın EN SON işlemi kalın.
+const IslemHucresi = ({ zamanDegeri, ust, son, sayi }) => {
+  if (!zamanDegeri) return <Box component="span" sx={{ color: renk.sessiz }}>{ust || '—'}</Box>;
+  const enSon = son && new Date(zamanDegeri).getTime() === new Date(son).getTime();
+  return (
+    <Box title={new Date(zamanDegeri).toLocaleString('tr-TR')}>
+      {ust && <Box sx={{ fontSize: `${yazi.kucuk}px`, lineHeight: 1.3 }}>{ust}</Box>}
+      <Box component="span" sx={{ fontSize: `${yazi.kucuk}px`, fontWeight: enSon ? 700 : 400, color: enSon ? renk.murekkep : renk.sessiz }}>
+        {activityService.formatDate(zamanDegeri, 'relative')}{sayi ? ` · ${sayi}` : ''}
+      </Box>
+    </Box>
+  );
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -50,15 +65,15 @@ const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
-  // 📋 Load Recent Activities
+  // 🕒 Belge Takip son işlemleri — müşteri (14.10.2026): "sağ alttaki son işlemleri vs kaldırıp onların yerine
+  // Belge Takipdeki bütün belgelerin son işlemlerini gösterebilir miyiz? 'Firma ismi - Talep türü - Durum -
+  // Notlar - Dosyalar' şeklinde … sadece değişiklik yapıldığı bilgisi ve ne zaman … Herkeste görünsün."
   const loadRecentActivities = useCallback(async () => {
     try {
-      const result = await activityService.getRecentActivities(8);
-      if (result.success) {
-        setRecentActivities(result.data.activities || []);
-      }
+      const res = await api.get('/dosya-takip/son-islemler', { params: { limit: 40 } });
+      if (res.data?.success) setRecentActivities(res.data.data || []);
     } catch (error) {
-      console.error('Recent activities loading error:', error);
+      console.error('Belge Takip son işlemleri alınamadı:', error);
     }
   }, []);
 
@@ -399,7 +414,7 @@ const Dashboard = () => {
       </Grid>
 
       <Grid container spacing={1.2}>
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} md={6} lg={3}>
           <Panel baslik="Hızlı İşlemler" ikon={<BusinessIcon sx={{ fontSize: 14 }} />}>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
               {quickActions.map((eylem, i) => (
@@ -417,7 +432,7 @@ const Dashboard = () => {
           </Panel>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} md={6} lg={3}>
           <Panel
             baslik="Son Eklenen Firmalar"
             ikon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
@@ -443,32 +458,36 @@ const Dashboard = () => {
           </Panel>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} lg={6}>
           <Panel
-            baslik="Son İşlemler"
+            baslik="Belge Takip — Son İşlemler"
             ikon={<HistoryIcon sx={{ fontSize: 14 }} />}
             bosluksuz
             sagUnsur={
-              <IconButton size="small" onClick={() => navigate('/son-islemler')}
-                aria-label="Tüm işlemleri aç" sx={{ p: 0.15, color: renk.sessiz }}>
+              <IconButton size="small" onClick={() => navigate('/dosya-takip/liste')}
+                aria-label="Belge Takip listesini aç" sx={{ p: 0.15, color: renk.sessiz }}>
                 <ViewListIcon sx={{ fontSize: 16 }} />
               </IconButton>
             }
           >
-            <VeriTablosu
-              sutunlar={[
-                { anahtar: 'title', baslik: 'İşlem' },
-                { anahtar: 'user', baslik: 'Kullanıcı', genislik: 110,
-                  bicim: (_v, satir) => satir.user?.name || '—' },
-                { anahtar: 'action', baslik: 'Tür', genislik: 110,
-                  bicim: (v) => activityService.getActionDisplayName(v) },
-                { anahtar: 'createdAt', baslik: 'Zaman', genislik: 90,
-                  bicim: (v) => activityService.formatDate(v, 'relative') }
-              ]}
-              satirlar={recentActivities}
-              onSatirTik={() => navigate('/son-islemler')}
-              bosMetin="Henüz işlem geçmişi bulunmamaktadır"
-            />
+            <Box sx={{ maxHeight: 360, overflowY: 'auto', overscrollBehavior: 'contain' }}>
+              <VeriTablosu
+                sutunlar={[
+                  { anahtar: 'firmaUnvan', baslik: 'Firma', bicim: (v) => v || '-' },
+                  { anahtar: 'talepTuru', baslik: 'Talep Türü', genislik: 140, bicim: (v) => v || '-' },
+                  { anahtar: 'durum', baslik: 'Durum', genislik: 150,
+                    bicim: (_v, s) => <IslemHucresi zamanDegeri={s.durumZamani} ust={s.durumEtiketi || s.durum} son={s.sonIslem} /> },
+                  { anahtar: 'notZamani', baslik: 'Notlar', genislik: 90,
+                    bicim: (v, s) => <IslemHucresi zamanDegeri={v} son={s.sonIslem} sayi={s.notSayisi} /> },
+                  { anahtar: 'dosyaZamani', baslik: 'Dosyalar', genislik: 90,
+                    bicim: (v, s) => <IslemHucresi zamanDegeri={v} son={s.sonIslem} sayi={s.dosyaSayisi} /> }
+                ]}
+                satirlar={recentActivities}
+                anahtarAl={(s) => s._id}
+                onSatirTik={(satir) => navigate(`/dosya-takip/${satir._id}`)}
+                bosMetin="Belge Takip'te henüz işlem yok"
+              />
+            </Box>
           </Panel>
         </Grid>
       </Grid>

@@ -262,6 +262,39 @@ exports.benimIslerim = async (req, res) => {
     }
 };
 
+/**
+ * 🕒 Belge Takip son işlemleri — ana sayfa, herkese açık (müşteri, 14.10.2026)
+ * GET /api/dosya-takip/son-islemler?limit=40
+ * Talep başına: firma, talep türü, güncel durum ve durum/not/dosya için son değişiklik zamanı.
+ * Not metni ve dosya adı verilmez ("detaylarına gerek yok").
+ */
+exports.sonIslemler = async (req, res) => {
+    try {
+        const { talepSonIslemleri } = require('../services/dosyaTakip/sonIslemler');
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 40, 1), 100);
+        // updatedAt her değişiklikte ilerliyor: en son dokunulan talepler adaydır; kesin sıra aşağıda
+        const adaylar = await DosyaTakip.find({ aktif: { $ne: false } })
+            .sort({ updatedAt: -1 }).limit(limit * 2)
+            .select('-firmaMailleri -firmaYukleme -odeme')
+            .lean();
+        const satirlar = adaylar.map((t) => {
+            const s = talepSonIslemleri(t);
+            return {
+                _id: t._id, takipId: t.takipId, firmaUnvan: t.firmaUnvan, talepTuru: t.talepTuru, ytbNo: t.ytbNo,
+                durum: t.durum, durumEtiketi: DosyaTakip.hydrate({ durum: t.durum }).durumEtiketi, durumRengi: t.durumRengi,
+                durumZamani: s.durum && s.durum.zaman ? new Date(s.durum.zaman) : null,
+                notZamani: s.not ? new Date(s.not.zaman) : null, notSayisi: s.not ? s.not.sayi : 0,
+                dosyaZamani: s.dosya ? new Date(s.dosya.zaman) : null, dosyaSayisi: s.dosya ? s.dosya.sayi : 0,
+                sonIslem: s.son ? new Date(s.son) : t.updatedAt
+            };
+        }).sort((a, b) => new Date(b.sonIslem) - new Date(a.sonIslem)).slice(0, limit);
+        res.json({ success: true, data: satirlar });
+    } catch (error) {
+        console.error('🚨 sonIslemler hatası:', error);
+        res.status(500).json({ success: false, message: 'Son işlemler alınamadı' });
+    }
+};
+
 exports.getTumTalepler = async (req, res) => {
     try {
         const {
