@@ -72,8 +72,10 @@ import { digerHarcamalariForma, digerHarcamalariKayda } from '../../utils/digerH
 // 🏭 Yatırım Konusu NACE Kodları Import
 // 🔤 Türkçe Karakter Utils
 import { turkishIncludes } from '../../utils/turkishUtils';
-import { sayiyaCevir, yazarkenBicimle, bicimiCoz } from '../../utils/sayiFormat';
+import { sayiyaCevir, yazarkenBicimle } from '../../utils/sayiFormat';
 import FinansalTutarAlani from '../../components/Tesvik/FinansalTutarAlani';
+import KapasiteAlani from '../../components/Tesvik/KapasiteAlani';
+import { kapasiteCoz, kapasiteToplami, kapasiteYaz, urunuKaydaCevir } from '../../utils/urunKapasite';
 import { yatirimKonusuKodlari, yatirimKonusuKategorileri } from '../../data/yatirimKonusuData';
 // 🏭 OSB (Organize Sanayi Bölgeleri) Import
 import { osbListesi, osbIlleri } from '../../data/osbData';
@@ -100,14 +102,10 @@ const TesvikForm = () => {
   // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
   // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
   const formatNumber = yazarkenBicimle;
-  const parseNumber = bicimiCoz;
-  const safeParseInt = (value) => Math.round(sayiyaCevir(value));
 
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
-    const numericValue = fieldPath.startsWith('finansalBilgiler.')
-      ? (rawValue === '' ? '' : sayiyaCevir(rawValue))
-      : parseNumber(rawValue);
+    const numericValue = rawValue === '' ? '' : sayiyaCevir(rawValue);
 
     // FormData'yı güncelle - raw değeri kaydet
     const keys = fieldPath.split('.');
@@ -119,17 +117,6 @@ const TesvikForm = () => {
       current = current[keys[i]];
     }
     current[keys[keys.length - 1]] = numericValue;
-
-    // Özel durum: US97 kapasite alanları için toplam hesaplama
-    if (fieldPath.includes('urunBilgileri') && (fieldPath.includes('mevcut') || fieldPath.includes('ilave'))) {
-      const index = parseInt(keys[1]);
-      const urun = newData.urunBilgileri[index];
-      if (urun) {
-        const mevcut = Number(urun.mevcut) || 0;
-        const ilave = Number(urun.ilave) || 0;
-        urun.toplam = mevcut + ilave;
-      }
-    }
 
     setFormData(newData);
   };
@@ -1414,49 +1401,17 @@ const TesvikForm = () => {
   // 🔢 ÜRÜN BİLGİLERİ ARRAY HANDLER - BÜYÜK SAYI DESTEĞİ
   const handleUrunChange = (index, field, value) => {
     setFormData(prev => {
-      const newData = { ...prev };
-
-      // 🎯 SAYı ALANLARI İÇİN ÖZEL İŞLEM
-      if (['mevcut', 'ilave', 'toplam', 'kapsite'].includes(field)) {
-        // String'i temizle ve sayıya çevir
-        const cleanValue = String(value).replace(/[^\d.-]/g, ''); // Sadece rakam, nokta, tire
-        const numericValue = cleanValue === '' ? '' : Number(cleanValue);
-
-        newData.urunBilgileri[index] = {
-          ...newData.urunBilgileri[index],
-          [field]: numericValue
-        };
-      } else {
-        newData.urunBilgileri[index] = {
-          ...newData.urunBilgileri[index],
-          [field]: value
-        };
-      }
-
-      // 🧮 TOPLAM HESAPLA - BÜYÜK SAYI SAFE
-      const urun = newData.urunBilgileri[index];
-      if (urun.mevcut !== undefined || urun.ilave !== undefined) {
-        const mevcut = Number(urun.mevcut) || 0;
-        const ilave = Number(urun.ilave) || 0;
-
-        // Precision güvenliği için
-        const toplam = Math.round((mevcut + ilave) * 100) / 100;
-        urun.toplam = toplam;
-
-        // 📊 Debug için console log (production'da kaldırılabilir)
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔢 Büyük sayı hesaplama:', {
-            mevcut: mevcut.toLocaleString('tr-TR'),
-            ilave: ilave.toLocaleString('tr-TR'),
-            toplam: toplam.toLocaleString('tr-TR'),
-            field,
-            originalValue: value,
-            parsedValue: typeof value === 'string' ? value.replace(/[^\d.-]/g, '') : value
-          });
-        }
-      }
-
-      return newData;
+      const urun = {
+        ...prev.urunBilgileri[index],
+        [field]: ['mevcut', 'ilave', 'toplam', 'kapsite'].includes(field)
+          ? kapasiteCoz(value)
+          : value
+      };
+      urun.toplam = kapasiteToplami(urun.mevcut, urun.ilave);
+      return {
+        ...prev,
+        urunBilgileri: prev.urunBilgileri.map((satir, i) => i === index ? urun : satir)
+      };
     });
   };
 
@@ -1984,7 +1939,7 @@ const TesvikForm = () => {
         const ilave = Number(urun.ilave) || 0;
 
         // Precision güvenliği ile hesaplama
-        const toplam = Math.round((mevcut + ilave) * 100) / 100;
+        const toplam = kapasiteToplami(mevcut, ilave);
         urun.toplam = toplam;
 
         // 📊 Debug için console log (production'da kaldırılabilir)
@@ -2095,14 +2050,7 @@ const TesvikForm = () => {
           const hasCode = !!(urun.kod && urun.kod.toString().trim());
           const hasName = !!(urun.aciklama && urun.aciklama.toString().trim());
           return hasCode || hasName;
-        }).map(urun => ({
-          u97Kodu: urun.kod || '',
-          urunAdi: urun.aciklama || '',
-          mevcutKapasite: safeParseInt(urun.mevcut),
-          ilaveKapasite: safeParseInt(urun.ilave),
-          toplamKapasite: safeParseInt(urun.toplam),
-          kapasiteBirimi: urun.kapasite_birimi || ''
-        })) || [],
+        }).map(urunuKaydaCevir) || [],
 
         // Mali hesaplamaları model formatına çevir (finansalBilgiler → maliHesaplamalar)
         maliHesaplamalar: {
@@ -4124,14 +4072,15 @@ const TesvikForm = () => {
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
                             Mevcut Kapasite
                           </Typography>
-                          <TextField
+                          <KapasiteAlani
                             fullWidth
                             type="text"
-                            value={formatNumber(urun.mevcut)}
-                            onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.mevcut`)}
+                            value={urun.mevcut}
+                            onDegis={(value) => handleUrunChange(index, 'mevcut', value)}
                             placeholder="500.000.000"
                             variant="outlined"
                             inputProps={{
+                              'aria-label': `Mevcut kapasite ${index + 1}`,
                               min: 0,
                               max: 999999999999,
                               style: {
@@ -4166,14 +4115,15 @@ const TesvikForm = () => {
                           <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600, mb: 1, display: 'block' }}>
                             İlave Kapasite
                           </Typography>
-                          <TextField
+                          <KapasiteAlani
                             fullWidth
                             type="text"
-                            value={formatNumber(urun.ilave)}
-                            onChange={(e) => handleNumberChange(e, `urunBilgileri.${index}.ilave`)}
+                            value={urun.ilave}
+                            onDegis={(value) => handleUrunChange(index, 'ilave', value)}
                             placeholder="120.000.000"
                             variant="outlined"
                             inputProps={{
+                              'aria-label': `İlave kapasite ${index + 1}`,
                               min: 0,
                               max: 999999999999,
                               style: {
@@ -4211,7 +4161,8 @@ const TesvikForm = () => {
                           <TextField
                             fullWidth
                             type="text"
-                            value={formatNumber(urun.toplam)}
+                            value={kapasiteYaz(urun.toplam)}
+                            inputProps={{ 'aria-label': `Toplam kapasite ${index + 1}` }}
                             InputProps={{
                               readOnly: true,
                               style: {

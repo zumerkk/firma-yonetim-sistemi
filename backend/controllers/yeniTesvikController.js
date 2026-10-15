@@ -12,7 +12,8 @@ const Notification = require('../models/Notification');
 const { DestekUnsuru, DestekSarti, OzelSart, OzelSartNotu } = require('../models/DynamicOptions');
 const { validationResult } = require('express-validator');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
-const { tamSayiyaCevir, sayiyaCevir } = require('../utils/sayiFormat');
+const { sayiyaCevir } = require('../utils/sayiFormat');
+const { kapasiteCoz, kapasiteToplami } = require('../utils/urunKapasite');
 const XLSX = require('xlsx');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -38,13 +39,12 @@ function normalizeAndMergeUrunler(urunler = []) {
         urunAdi = urunAdi.slice(0, 400);
       }
       const kapasiteBirimi = (raw.kapasiteBirimi || raw.birim || '').toString().trim();
-      // Türkçe/İngilizce formatlı kapasiteleri güvenle çevir. Eskiden tüm noktalar
-      // silindiği için gerçek ondalıklar şişiyordu ("1250.5" → 12505); artık ayıraç
-      // konumuna bakan ortak parser kullanılıyor.
-      const cleanNum = (v) => tamSayiyaCevir(v);
+      // MW gibi birimlerde kapasite ondalıklı olabilir; kayıt sırasında tam sayıya
+      // yuvarlamak kullanıcının girdiği kapasiteyi değiştirir.
+      const cleanNum = (v) => kapasiteCoz(v) || 0;
       const mevcutKapasite = cleanNum(raw.mevcutKapasite || raw.mevcut);
       const ilaveKapasite = cleanNum(raw.ilaveKapasite || raw.ilave);
-      const toplamKapasite = cleanNum(raw.toplamKapasite || raw.toplam) || (mevcutKapasite + ilaveKapasite);
+      const toplamKapasite = cleanNum(raw.toplamKapasite || raw.toplam) || kapasiteToplami(mevcutKapasite, ilaveKapasite);
 
       // En azından kod veya ad olmalı; ikisi de boşsa atla
       if (!u97Kodu && !urunAdi) return;
@@ -57,7 +57,7 @@ function normalizeAndMergeUrunler(urunler = []) {
         kapasiteBirimi,
         mevcutKapasite,
         ilaveKapasite,
-        toplamKapasite: toplamKapasite || (mevcutKapasite + ilaveKapasite),
+        toplamKapasite: toplamKapasite || kapasiteToplami(mevcutKapasite, ilaveKapasite),
         aktif: true
       });
     });
@@ -3867,7 +3867,7 @@ const buildCsvDataRowWithSnapshot = async (snapshot, revizyon = null, revizyonNo
         row.push(urun.urunAdi || '');                             // Ürün
         row.push(urun.mevcutKapasite || 0);                       // Mevcut
         row.push(urun.ilaveKapasite || 0);                        // İlave
-        row.push(urun.toplamKapasite || (urun.mevcutKapasite || 0) + (urun.ilaveKapasite || 0));  // Toplam
+        row.push(urun.toplamKapasite || kapasiteToplami(urun.mevcutKapasite, urun.ilaveKapasite));  // Toplam
         row.push(urun.kapasiteBirimi || '');                      // Kapasite Birimi
       } else {
         // BOŞ SLOT - Tamamen boş bırak (0 değil, boş string)

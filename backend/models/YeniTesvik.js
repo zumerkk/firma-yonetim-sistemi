@@ -5,6 +5,7 @@
 const mongoose = require('mongoose');
 const { BELGE_DURUM_DEGERLERI, durumRengi } = require('../constants/belgeDurumlari');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
+const { kapasiteToplami } = require('../utils/urunKapasite');
 
 // 💰 Mali Hesaplamalar Schema
 const maliHesaplamalarSchema = new mongoose.Schema({
@@ -965,7 +966,7 @@ tesvikSchema.methods.updateMaliHesaplamalar = function() {
   
   // Ürün kapasiteleri
   this.urunler.forEach(urun => {
-    urun.toplamKapasite = (urun.mevcutKapasite || 0) + (urun.ilaveKapasite || 0);
+    urun.toplamKapasite = kapasiteToplami(urun.mevcutKapasite, urun.ilaveKapasite);
   });
   
   // 🆕 Bonus hesaplamalarını güncelle
