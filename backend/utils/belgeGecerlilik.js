@@ -3,9 +3,10 @@
 // Müşteri (13.10.2026): "Mail gönderirken eğer tarih belgenin 'süre uzatımı tarihini' geçmiş ise maili
 // gönderemesin uyarı/hata versin."
 //
-// Son geçerlilik = süre uzatım, belge bitiş ve mücbir uzama tarihlerinin EN GEÇ olanı. Uzatım tarihi
-// hemen her belgede dolu (uzatım yapılmadıysa bitişe eşit giriliyor — bkz. belgeSureFiltresi); boşsa
-// bitiş tarihi esas alınır. Gün İstanbul takvimiyle sayılır: son gün hâlâ geçerlidir.
+// Mail için süre uzatım tarihi önceliklidir. Daha ileri tarihli bitiş/mücbir alanı,
+// geçmiş uzatım tarihini geçersiz kılamaz (müşteri, 17.10.2026: "denedim ama gönderdi").
+// Uzatım boşsa bitiş/mücbir tarihlerinin en geç olanı esas alınır.
+// Gün İstanbul takvimiyle sayılır: son gün hâlâ geçerlidir.
 
 const { bugunBaslangici } = require('./belgeSureFiltresi');
 
@@ -18,7 +19,9 @@ const gecerliTarih = (v) => {
 /** @returns {Date|null} belgede hiç tarih yoksa null (kontrol yapılmaz) */
 function sonGecerlilikTarihi(belge) {
   const by = (belge && belge.belgeYonetimi) || {};
-  const tarihler = [by.uzatimTarihi, by.belgeBitisTarihi, by.mucbirUzumaTarihi].map(gecerliTarih).filter(Boolean);
+  const uzatim = gecerliTarih(by.uzatimTarihi);
+  if (uzatim) return uzatim;
+  const tarihler = [by.belgeBitisTarihi, by.mucbirUzumaTarihi].map(gecerliTarih).filter(Boolean);
   if (!tarihler.length) return null;
   return new Date(Math.max(...tarihler.map((t) => t.getTime())));
 }

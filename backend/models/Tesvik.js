@@ -605,6 +605,7 @@ const tesvikSchema = new mongoose.Schema({
   // girer (müşteri, 13.10.2026). Süresiz; personel yenileyince eski link geçersiz olur.
   musteriPortal: {
     token: { type: String, trim: true, index: true, sparse: true },
+    istekId: { type: String, maxlength: 100 },
     olusturmaTarihi: { type: Date },
     olusturanAdi: { type: String, trim: true, default: '' }
   },

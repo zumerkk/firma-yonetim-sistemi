@@ -13,6 +13,7 @@ import { AccountBalanceWallet as CariIcon } from '@mui/icons-material';
 import cariService from '../../services/cariService';
 import CariHareketFormu from './CariHareketFormu';
 import CariDefterTablosu from './CariDefterTablosu';
+import CariDurumuSecimi from './CariDurumuSecimi';
 import { hareketDosyasiAc } from './cariDosya';
 import { HAREKET_TURU, hareketBasligi, paraYaz, tarihYaz } from '../../utils/cariFormat';
 
@@ -32,6 +33,7 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
         try {
             const r = await cariService.talepDefteri(talepId);
             setDefter({
+                firma: r?.data?.firma || null,
                 hareketler: Array.isArray(r?.data?.hareketler) ? r.data.hareketler : [],
                 ozet: r?.data?.ozet || null
             });
@@ -107,6 +109,9 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
                     </Typography>
                 </Box>
                 {firmaId && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    <CariDurumuSecimi firmaId={firmaId} value={defter.firma?.cariDurumu} disabled={yukleniyor || !!hata}
+                        onDegis={(cariDurumu) => setDefter((d) => ({ ...d, firma: { ...d.firma, cariDurumu } }))} />
                     <Button
                         size="small" variant="outlined" startIcon={<CariIcon />}
                         // Müşteri (21.09.2026): cari hesaptaki "Geri" bu talebin Ödemeler sekmesine dönsün.
@@ -124,6 +129,7 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
                     >
                         Firmanın Cari Hesabı
                     </Button>
+                    </Box>
                 )}
             </Box>
 

@@ -46,6 +46,15 @@ const kirp = (v) => (v === undefined || v === null ? undefined : String(v).trim(
 // Mongoose'a açıkça undefined verilen alan varsayılanını kaybedebilir → hiç gönderme
 const tanimli = (o) => Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
+// Multipart true/false metin olarak gelir. Boolean('false') yanlışlıkla true olur.
+const dahilAl = (v) => {
+    if (v === undefined) return undefined;
+    if (v === true || v === 'true') return true;
+    if (v === false || v === 'false') return false;
+    throw new IstekHatasi(400, 'Hizmete dahil seçimi geçersiz');
+};
+const firmaDurumuyla = (f) => f ? { ...f, cariDurumu: f.cariDurumu || 'acik' } : null;
+
 // Tutar/tarih kullanıcı yazımıyla gelebilir ("24.000,50", "15.09.2026"). Boşsa undefined
 // (model "zorunludur" der); anlaşılamıyorsa sessizce 0'a/bugüne çevirmek yerine reddedilir.
 function tutarAl(ham) {
@@ -83,11 +92,14 @@ async function baglamCoz({ firma, dosyaTakip }) {
 // 📋 GET /api/cari/talep/:talepId — Ödemeler sekmesindeki mini cari tablo
 // ============================================================================
 exports.talepDefteri = sar(async (req, res) => {
-    const talep = await DosyaTakip.findById(req.params.talepId).select('_id').lean();
+    const talep = await DosyaTakip.findById(req.params.talepId).select('_id firma').lean();
     if (!talep) throw new IstekHatasi(404, 'Talep bulunamadı');
 
-    const hareketler = await CariHareket.find({ dosyaTakip: talep._id }).lean();
-    res.json({ success: true, data: { hareketler: defterOlustur(hareketler), ozet: ozetHesapla(hareketler) } });
+    const [hareketler, firma] = await Promise.all([
+        CariHareket.find({ dosyaTakip: talep._id }).lean(),
+        Firma.findById(talep.firma).select('tamUnvan cariDurumu').lean()
+    ]);
+    res.json({ success: true, data: { firma: firmaDurumuyla(firma), hareketler: defterOlustur(hareketler), ozet: ozetHesapla(hareketler) } });
 });
 
 // ============================================================================
@@ -95,7 +107,7 @@ exports.talepDefteri = sar(async (req, res) => {
 // Hareket bağlanabilsin diye firmanın aktif talepleri de döner.
 // ============================================================================
 exports.firmaDefteri = sar(async (req, res) => {
-    const firma = await Firma.findById(req.params.firmaId).select('tamUnvan firmaId vergiNoTC').lean();
+    const firma = await Firma.findById(req.params.firmaId).select('tamUnvan firmaId vergiNoTC cariDurumu').lean();
     if (!firma) throw new IstekHatasi(404, 'Firma bulunamadı');
 
     const [hareketler, talepler] = await Promise.all([
@@ -109,7 +121,7 @@ exports.firmaDefteri = sar(async (req, res) => {
 
     res.json({
         success: true,
-        data: { firma, hareketler: defterOlustur(hareketler), ozet: ozetHesapla(hareketler), talepler }
+        data: { firma: firmaDurumuyla(firma), hareketler: defterOlustur(hareketler), ozet: ozetHesapla(hareketler), talepler }
     });
 });
 
@@ -126,7 +138,9 @@ exports.firmaOzetleri = sar(async (req, res) => {
             {
                 $group: {
                     _id: { firma: '$firma', tur: '$tur' },
-                    toplam: { $sum: '$tutar' },
+                    toplam: { $sum: { $cond: [
+                        { $and: [{ $eq: ['$tur', 'odenen'] }, { $eq: ['$hizmeteDahil', true] }] }, 0, '$tutar'
+                    ] } },
                     adet: { $sum: 1 },
                     sonTarih: { $max: '$tarih' },
                     firmaUnvan: { $last: '$firmaUnvan' }
@@ -151,10 +165,23 @@ exports.firmaOzetleri = sar(async (req, res) => {
 
     const ozetler = firmaOzetleriniKatla(gruplar);
     const kimlikler = [...new Set([...ozetler.map((o) => String(o.firma)), ...talepGruplari.map((g) => String(g._id))])];
-    const firmalar = await Firma.find({ _id: { $in: kimlikler } }).select('tamUnvan').lean();
+    const firmalar = await Firma.find({ _id: { $in: kimlikler } }).select('tamUnvan cariDurumu').lean();
     const unvanlar = new Map(firmalar.filter((f) => f.tamUnvan).map((f) => [String(f._id), f.tamUnvan]));
+    const durumlar = new Map(firmalar.map((f) => [String(f._id), f.cariDurumu || 'acik']));
 
-    res.json({ success: true, data: firmaListesiniBirlestir(ozetler, talepGruplari, unvanlar) });
+    res.json({ success: true, data: firmaListesiniBirlestir(ozetler, talepGruplari, unvanlar)
+        .map((f) => ({ ...f, cariDurumu: durumlar.get(f.firma) || 'acik' })) });
+});
+
+// Firma bazındaki seçim bütün taleplerde ve cari listesinde ortak görünür.
+exports.firmaDurumuGuncelle = sar(async (req, res) => {
+    const cariDurumu = req.body?.cariDurumu;
+    if (!['acik', 'kapandi'].includes(cariDurumu)) throw new IstekHatasi(400, 'Geçersiz cari durumu');
+    const firma = await Firma.findByIdAndUpdate(req.params.firmaId,
+        { $set: { cariDurumu, sonGuncelleyen: req.user?._id } },
+        { new: true, runValidators: true }).select('tamUnvan cariDurumu').lean();
+    if (!firma) throw new IstekHatasi(404, 'Firma bulunamadı');
+    res.json({ success: true, data: firmaDurumuyla(firma), message: 'Cari durumu kaydedildi' });
 });
 
 // ============================================================================
@@ -169,6 +196,7 @@ exports.hareketEkle = [dosyaYukle, sar(async (req, res) => {
         tur: kirp(g.tur),
         tarih: tarihAl(g.tarih),
         tutar: tutarAl(g.tutar),
+        hizmeteDahil: dahilAl(g.hizmeteDahil),
         belgeAdi: kirp(g.belgeAdi),
         faturaNo: kirp(g.faturaNo),
         banka: kirp(g.banka),
@@ -196,6 +224,7 @@ exports.hareketGuncelle = [dosyaYukle, sar(async (req, res) => {
     const degisim = tanimli({
         tarih: tarihAl(g.tarih),
         tutar: tutarAl(g.tutar),
+        hizmeteDahil: dahilAl(g.hizmeteDahil),
         belgeAdi: kirp(g.belgeAdi),
         faturaNo: kirp(g.faturaNo),
         banka: kirp(g.banka),

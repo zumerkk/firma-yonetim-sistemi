@@ -435,11 +435,7 @@ export const validateFirmaData = (firmaData) => {
     errors.push('Geçerli bir firma telefon numarası giriniz');
   }
   
-  // Website validation
-  if (firmaData.firmaWebsite && !/^https?:\/\/.+/.test(firmaData.firmaWebsite)) {
-    errors.push('Website http:// veya https:// ile başlamalıdır');
-  }
-  
+  // Website isteğe bağlıdır; eski kayıtlardaki protokolsüz adresler firma kaydını engellemez.
   return {
     isValid: errors.length === 0,
     errors

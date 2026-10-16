@@ -205,19 +205,8 @@ const validateCreateFirma = [
     .withMessage('Geçerli bir firma e-posta adresi giriniz')
     .normalizeEmail(),
     
-  body('firmaWebsite')
-    .optional({ checkFalsy: true })
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        // URL validation - http:// veya https:// ile başlamalı
-        const urlPattern = /^https?:\/\/.+/;
-        if (!urlPattern.test(value)) {
-          throw new Error('Website adresi http:// veya https:// ile başlamalıdır');
-        }
-      }
-      return true;
-    })
-    .withMessage('Geçerli bir website adresi giriniz'),
+  // Website isteğe bağlı serbest metindir; protokol zorunluluğu yok.
+  body('firmaWebsite').optional({ nullable: true }).isString().trim(),
     
   body('notlar')
     .optional({ checkFalsy: true })  // Boş string'i de kabul et
@@ -381,19 +370,8 @@ const validateUpdateFirma = [
       return true;
     }),
     
-  body('firmaWebsite')
-    .optional({ checkFalsy: true })
-    .custom((value) => {
-      if (value && value.trim() !== '') {
-        // URL validation - http:// veya https:// ile başlamalı
-        const urlPattern = /^https?:\/\/.+/;
-        if (!urlPattern.test(value)) {
-          throw new Error('Website adresi http:// veya https:// ile başlamalıdır');
-        }
-      }
-      return true;
-    })
-    .withMessage('Geçerli bir website adresi giriniz'),
+  // Website isteğe bağlı serbest metindir; protokol zorunluluğu yok.
+  body('firmaWebsite').optional({ nullable: true }).isString().trim(),
     
   body('notlar')
     .optional()

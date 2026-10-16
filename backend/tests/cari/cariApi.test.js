@@ -11,6 +11,7 @@ const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const mockKullanici = { _id: '0000000000000000000000aa', adSoyad: 'Test Danışman', rol: 'admin', yetkiler: {} };
 jest.mock('../../middleware/auth', () => ({
+  ...jest.requireActual('../../middleware/auth'),
   authenticate: (req, res, next) => {
     req.user = mockKullanici;
     next();
@@ -63,9 +64,64 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await CariHareket.deleteMany({});
+  await Firma.collection.updateMany({}, { $unset: { cariDurumu: '' } });
 });
 
 const ekle = (govde) => request(app).post('/api/cari').send(govde);
+
+describe('Hizmete dahil ödemeler ve ortak firma cari durumu', () => {
+  test('nominal tutar saklanır; talep, firma ve liste hesapları sıfır etkiyle tutarlıdır', async () => {
+    const r = await ekle({ dosyaTakip: String(talepA), tur: 'odenen', belgeAdi: 'Harç',
+      tarih: '2026-10-17', tutar: '1.500,75', hizmeteDahil: true });
+    expect(r.status).toBe(201);
+    expect(r.body.data).toMatchObject({ tutar: 1500.75, hizmeteDahil: true });
+    const kimlik = r.body.data._id;
+    const oku = async (beklenen) => {
+      const talep = (await request(app).get(`/api/cari/talep/${talepA}`)).body.data;
+      const firma = (await request(app).get(`/api/cari/firma/${firmaA}`)).body.data;
+      const liste = (await request(app).get('/api/cari/firmalar')).body.data.find((f) => f.firma === String(firmaA));
+      expect(talep.ozet.toplamOdenen).toBe(beklenen);
+      expect(talep.ozet.fark).toBe(beklenen ? -beklenen : 0);
+      expect(firma.ozet.bakiye).toBe(beklenen);
+      expect(firma.hareketler[0]).toMatchObject({ tutar: 1500.75, cariyeEtki: beklenen, bakiye: beklenen });
+      expect(liste).toMatchObject({ bakiye: beklenen, toplamOdenen: beklenen, adet: 1 });
+    };
+    await oku(0);
+    // Multipart, belge düzenleme formuyla aynı boolean metin aktarımını kullanır.
+    expect((await request(app).put(`/api/cari/${kimlik}`).field('hizmeteDahil', 'false')).status).toBe(200);
+    await oku(1500.75);
+    expect((await request(app).put(`/api/cari/${kimlik}`).send({ hizmeteDahil: true })).status).toBe(200);
+    await oku(0);
+    expect((await CariHareket.findById(kimlik).lean()).tutar).toBe(1500.75);
+  });
+
+  test('gelen ödeme hizmete dahil gönderilse bile cariden düşer; geçersiz seçim reddedilir', async () => {
+    const r = await ekle({ firma: String(firmaA), tur: 'gelen', banka: 'Garanti',
+      tarih: '2026-10-17', tutar: 100, hizmeteDahil: true });
+    expect(r.status).toBe(201);
+    expect(r.body.data.hizmeteDahil).toBe(false);
+    expect((await request(app).get(`/api/cari/firma/${firmaA}`)).body.data.ozet.bakiye).toBe(-100);
+    expect((await request(app).put(`/api/cari/${r.body.data._id}`).send({ hizmeteDahil: 'belki' })).status).toBe(400);
+  });
+
+  test('alanı olmayan eski firma açık; kapandı seçimi firma, talep ve listeye kalıcı yansır', async () => {
+    const oku = async (durum) => {
+      expect((await request(app).get(`/api/cari/firma/${firmaA}`)).body.data.firma.cariDurumu).toBe(durum);
+      expect((await request(app).get(`/api/cari/talep/${talepA}`)).body.data.firma.cariDurumu).toBe(durum);
+      const liste = (await request(app).get('/api/cari/firmalar')).body.data;
+      expect(liste.find((f) => f.firma === String(firmaA)).cariDurumu).toBe(durum);
+    };
+    await oku('acik');
+    const uri = `/api/cari/firma/${firmaA}/durum`;
+    expect((await request(app).put(uri).send({ cariDurumu: 'kapandi' })).status).toBe(200);
+    expect((await Firma.collection.findOne({ _id: firmaA })).cariDurumu).toBe('kapandi');
+    await oku('kapandi');
+    expect((await request(app).put(uri).send({ cariDurumu: 'acik' })).status).toBe(200);
+    await oku('acik');
+    expect((await request(app).put(uri).send({ cariDurumu: 'bilinmiyor' })).status).toBe(400);
+    expect((await request(app).put(`/api/cari/firma/${new ObjectId()}/durum`).send({ cariDurumu: 'acik' })).status).toBe(404);
+  });
+});
 
 describe('Ödemeler sekmesi (talebe bağlı mini cari)', () => {
   test('talepten girilen ödeme firmayı talepten alır, kullanıcı yazımını anlar', async () => {

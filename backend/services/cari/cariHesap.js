@@ -28,6 +28,7 @@ const tl = (k) => k / 100;
 const yuvarla = (n) => Math.round(n * 100) / 100;
 
 const gecerliTur = (tur) => HAREKET_TURLERI.includes(tur);
+const etkiliTutar = (h) => h.tur === 'odenen' && h.hizmeteDahil === true ? 0 : h.tutar;
 
 // "1.234.567" → "1234567"; gruplar 3'lü değilse null ("12.34" binlik olamaz)
 const binlikCoz = (s, ayrac) => {
@@ -115,7 +116,7 @@ function ozetHesapla(hareketler = []) {
   let adet = 0;
   for (const h of hareketler || []) {
     if (!h || !gecerliTur(h.tur)) continue;
-    k[h.tur] += kurus(h.tutar);
+    k[h.tur] += kurus(etkiliTutar(h));
     adet += 1;
   }
   return { ...toplamlar(k), adet };
@@ -141,8 +142,9 @@ function defterOlustur(hareketler = []) {
     .slice()
     .sort(defterSirasi)
     .map((h) => {
-      bakiye += kurus(h.tutar) * YON[h.tur];
-      return { ...h, bakiye: tl(bakiye) };
+      const cariyeEtki = tl(kurus(etkiliTutar(h)));
+      bakiye += kurus(cariyeEtki) * YON[h.tur];
+      return { ...h, cariyeEtki, bakiye: tl(bakiye) };
     });
 }
 
@@ -234,6 +236,7 @@ module.exports = {
   BANKALAR,
   YON,
   kurus,
+  etkiliTutar,
   tutarCoz,
   tarihCoz,
   ozetHesapla,

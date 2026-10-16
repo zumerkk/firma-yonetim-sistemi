@@ -79,6 +79,9 @@ export const tutarYaz = (n) => SAYI.format(Number(n) || 0);
 /** 24000.5 → "24.000,50 ₺" */
 export const paraYaz = (n) => `${tutarYaz(n)} ₺`;
 
+/** Hizmete dahil giden tutar saklanır, borç/giden sütununa sıfır yansır. */
+export const etkiliTutar = (h) => h.tur === 'odenen' && h.hizmeteDahil === true ? 0 : h.tutar;
+
 // Tarihler sunucuda UTC gece yarısı saklanıyor → gösterimde de UTC: gün kaymasın
 export const tarihYaz = (d) => {
     if (!d) return '—';

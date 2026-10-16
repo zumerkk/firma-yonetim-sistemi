@@ -69,4 +69,15 @@ describe('CariDefterTablosu', () => {
         // belgesi olmayan satırda düğme yok
         expect(screen.getAllByRole('button', { name: 'Belgeyi aç' })).toHaveLength(1);
     });
+
+    test.each(['talep', 'firma'])('%s defterinde hizmete dahil tutar bakiyeye sıfır yansır, asıl tutar da görünür', (gorunum) => {
+        const onDuzenle = jest.fn();
+        const h = { ...hareketler[0], hizmeteDahil: true, bakiye: 0 };
+        render(<CariDefterTablosu hareketler={[h]} gorunum={gorunum} onDuzenle={onDuzenle} />);
+        const c = hucreler(satir('BELGE HARCI'));
+        expect(c[gorunum === 'talep' ? 4 : 5]).toBe('0,00 ₺');
+        expect(screen.getByText('Hizmete dahil · Kayıt tutarı: 2.500,00 ₺')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Düzenle' }));
+        expect(onDuzenle).toHaveBeenCalledWith(h);
+    });
 });

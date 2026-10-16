@@ -13,6 +13,7 @@
 // diğer linklerin token'ları hiç gönderilmez). Firma yalnız kalem EKLER; düzeltme/silme personelde.
 
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const Tesvik = require('../../models/Tesvik');
 const YeniTesvik = require('../../models/YeniTesvik');
 const MachineProcess = require('../../models/MachineProcess');
@@ -29,46 +30,89 @@ function hata(mesaj, code, status) {
 }
 
 function modelAl(tesvikModel) {
-  const M = MODELLER[tesvikModel];
-  if (!M) throw hata('Geçersiz belge türü.', 'BAD_MODEL', 400);
-  return M;
+  if (!Object.prototype.hasOwnProperty.call(MODELLER, tesvikModel)) {
+    throw hata('Geçersiz belge türü. Sayfayı yenileyip belgeyi yeniden açın.', 'BAD_MODEL', 400);
+  }
+  return MODELLER[tesvikModel];
 }
+
+function belgeKimliginiDogrula(tesvikId) {
+  if (!mongoose.isObjectIdOrHexString(tesvikId)) {
+    throw hata('Belge kimliği geçersiz. Sayfayı yenileyip belgeyi yeniden açın.', 'BAD_CERT_ID', 400);
+  }
+}
+
+// Bu okuma makine listelerini ve büyüyen revizyon geçmişini belleğe almaz.
+const portalOku = (M, tesvikId) => M.findById(tesvikId).select('musteriPortal').lean();
 
 const linkYaz = (token) => buildUploadLink(token, SAYFA_YOLU);
 
 function linkBilgisi(belge) {
   const mp = belge && belge.musteriPortal;
   if (!mp || !mp.token) return null;
-  return { link: linkYaz(mp.token), olusturmaTarihi: mp.olusturmaTarihi || null, olusturanAdi: mp.olusturanAdi || '' };
+  return {
+    link: linkYaz(mp.token), olusturmaTarihi: mp.olusturmaTarihi || null, olusturanAdi: mp.olusturanAdi || '',
+    // Yenileme, kullanıcının gördüğü sürümü değiştirir; eski bir tekrar yeni linki ezmez.
+    surum: crypto.createHash('sha256').update(mp.token).digest('hex')
+  };
 }
 
 // ───────── Personel tarafı: link üret / göster / kapat ─────────
 
 async function linkGetir(tesvikModel, tesvikId) {
-  const belge = await modelAl(tesvikModel).findById(tesvikId).select('musteriPortal').lean();
+  const M = modelAl(tesvikModel);
+  belgeKimliginiDogrula(tesvikId);
+  const belge = await portalOku(M, tesvikId);
   if (!belge) throw hata('Belge bulunamadı.', 'CERT_NOT_FOUND', 404);
   return linkBilgisi(belge);
 }
 
 /** Varsa mevcut link döner (firmaya gitmiş link bozulmasın); yenile=true eskisini geçersiz kılar. */
-async function linkUret(tesvikModel, tesvikId, { user = null, yenile = false } = {}) {
+async function linkUret(tesvikModel, tesvikId, { user = null, yenile = false, istekId, beklenenSurum } = {}) {
   const M = modelAl(tesvikModel);
-  const belge = await M.findById(tesvikId).select('musteriPortal').lean();
+  belgeKimliginiDogrula(tesvikId);
+  if (istekId !== undefined && (typeof istekId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(istekId))) {
+    throw hata('Link isteği geçersiz. Pencereyi kapatıp tekrar açın.', 'BAD_REQUEST_ID', 400);
+  }
+  if (beklenenSurum !== undefined && (typeof beklenenSurum !== 'string' || !/^[a-f0-9]{64}$/.test(beklenenSurum))) {
+    throw hata('Link sürümü geçersiz. Pencereyi kapatıp tekrar açın.', 'BAD_LINK_VERSION', 400);
+  }
+  const belge = await portalOku(M, tesvikId);
   if (!belge) throw hata('Belge bulunamadı.', 'CERT_NOT_FOUND', 404);
-  if (!yenile && belge.musteriPortal && belge.musteriPortal.token) return linkBilgisi(belge);
+  const mevcut = linkBilgisi(belge);
+  if (!yenile && mevcut) return mevcut;
+  // Yanıt yolda kaybolmuşsa aynı işlemin tekrarı ikinci bir link üretmesin.
+  if (istekId && belge.musteriPortal?.istekId === istekId) return mevcut;
+  if (yenile && beklenenSurum !== undefined && mevcut?.surum !== beklenenSurum) return mevcut;
 
   const musteriPortal = {
     token: crypto.randomBytes(18).toString('base64url'), // 24 karakter, tahmin edilemez
     olusturmaTarihi: new Date(),
-    olusturanAdi: (user && user.adSoyad) || ''
+    olusturanAdi: (user && user.adSoyad) || '',
+    ...(istekId ? { istekId } : {})
   };
-  // $set: pre-save kancaları (mali hesaplama vb.) bu alan için çalışmasın
-  await M.updateOne({ _id: tesvikId }, { $set: { musteriPortal } });
-  return linkBilgisi({ musteriPortal });
+  // Oku → yaz arasında başka bir istek link ürettiyse onun token'ını koru.
+  const filtre = mevcut
+    ? { _id: tesvikId, 'musteriPortal.token': belge.musteriPortal.token }
+    : { _id: tesvikId, $or: [
+      { 'musteriPortal.token': { $exists: false } },
+      { 'musteriPortal.token': null },
+      { 'musteriPortal.token': '' }
+    ] };
+  // Yalnız metadata güncellenir; pre-save hesaplamaları ve geçmiş yükleme çalışmaz.
+  const sonuc = await M.updateOne(filtre, { $set: { musteriPortal } });
+  if (sonuc.matchedCount) return linkBilgisi({ musteriPortal });
+  const kazanan = await portalOku(M, tesvikId);
+  if (!kazanan) throw hata('Belge bulunamadı.', 'CERT_NOT_FOUND', 404);
+  return linkBilgisi(kazanan);
 }
 
 async function linkKapat(tesvikModel, tesvikId) {
-  const r = await modelAl(tesvikModel).updateOne({ _id: tesvikId }, { $unset: { musteriPortal: 1 } });
+  const M = modelAl(tesvikModel);
+  belgeKimliginiDogrula(tesvikId);
+  // Son üretim kimliği kalsın: yanıtı kaybolan aynı isteğin tekrarı kapatılmış
+  // linki yeniden açmasın. Bilinçli yeni üretim farklı bir istekId kullanır.
+  const r = await M.updateOne({ _id: tesvikId }, { $unset: { 'musteriPortal.token': 1 } });
   if (!r.matchedCount) throw hata('Belge bulunamadı.', 'CERT_NOT_FOUND', 404);
   return true;
 }

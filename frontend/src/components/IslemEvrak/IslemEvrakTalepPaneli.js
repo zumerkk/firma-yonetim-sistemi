@@ -38,6 +38,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import UploadProgress from '../../components/common/UploadProgress';
 import ZenginMetinEditoru from '../common/ZenginMetinEditoru';
+import DosyaOnizlemeDialog from '../common/DosyaOnizlemeDialog';
 import { htmlMetin } from '../../utils/mailHtml';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
@@ -202,6 +203,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const [busy, setBusy] = useState('');
   const [yukleme, setYukleme] = useState(null); // örnek dosya yükleme göstergesi
   const [snack, setSnack] = useState(null);
+  const [onizleme, setOnizleme] = useState(null);
 
   // İstenen evrak listesi (yerel düzenleme — Kaydet ile gönderilir)
   const [evraklar, setEvraklar] = useState([]);
@@ -603,27 +605,12 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } catch (e) { notify(errMsg(e), 'error'); }
   };
 
-  // 📥 Dosyayı blob olarak indir. Göreli fileUrl'i href vermek frontend origin'ine
-  // çözülüp SPA'nın index.html'ini indiriyordu (müşteri: "belgeler açılmıyor/indirilmiyor").
-  const dosyaIndir = async (dosyaId, ad) => {
-    setBusy(`indir-${dosyaId}`);
-    try {
-      const res = await svc.dosyaIndir(id, dosyaId);
-      const url = window.URL.createObjectURL(new Blob([res.data]));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = ad || 'dosya';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (e) {
-      // Blob hata gövdesi JSON'dur; okunabilir mesajı çıkar
-      let mesaj = 'Dosya indirilemedi.';
-      try { mesaj = JSON.parse(await e?.response?.data?.text())?.message || mesaj; } catch (x) { /* düz metin */ }
-      notify(mesaj, 'error');
-    } finally { setBusy(''); }
-  };
+  // Gerçek dosya mevcut yetkili API'den gelir; belge dış görüntüleme servisine gitmez.
+  const dosyaAc = (dosya) => setOnizleme({
+    ad: dosya.orijinalAd || dosya.dosyaAdi || 'dosya',
+    mimeType: dosya.mimeType,
+    yukle: (signal) => svc.dosyaIndir(id, dosya._id, signal)
+  });
 
   // 📦 Müşteri (21.09.2026): "Yüklenen evrakları tek tek değil de toplu bir şekilde indirebilme özelliği
   // ekleyebilirsek çok işimize yarar." Sunucu hepsini evrak adına göre klasörlü tek ZIP yapıyor.
@@ -1056,9 +1043,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 </Typography>
                 <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }} noWrap>{y.orijinalAd || y.dosyaAdi}</Typography>
                 {y.yukleyenAdi && <Typography variant="caption" color="text.secondary">{y.yukleyenAdi}</Typography>}
-                <Button size="small" onClick={() => dosyaIndir(y._id, y.orijinalAd || y.dosyaAdi)}
-                  disabled={busy === `indir-${y._id}`}>
-                  {busy === `indir-${y._id}` ? 'İndiriliyor…' : 'Aç'}
+                <Button size="small" onClick={() => dosyaAc(y)} aria-label={`${y.orijinalAd || y.dosyaAdi} önizle`}>
+                  Aç
                 </Button>
                 {y.istenenEvrakId && (() => {
                   const ev = (talep.istenenEvraklar || []).find((e) => String(e._id) === String(y.istenenEvrakId));
@@ -1087,6 +1073,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
         <Divider sx={{ my: 2, opacity: 0 }} />
       </Box>
+
+      <DosyaOnizlemeDialog dosya={onizleme} onClose={() => setOnizleme(null)} />
 
       {/* 💾 Müşteri (15.09.2026): "istenen evrakları kaydet kısmını sağ alt tarafa da ekleyebilir miyiz her
           seferinde mailde iste dedikten sonra yukarı çıkmak zor oluyor". Kaydedilmemiş değişiklik varken

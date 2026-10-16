@@ -28,6 +28,11 @@ const cariService = {
         return data;
     },
 
+    firmaDurumuGuncelle: async (firmaId, cariDurumu) => {
+        const { data } = await axios.put(`${API_URL}/firma/${firmaId}/durum`, { cariDurumu });
+        return data;
+    },
+
     // Belge Takip › Ödemeler sekmesindeki mini cari tablo
     talepDefteri: async (talepId) => {
         const { data } = await axios.get(`${API_URL}/talep/${talepId}`);

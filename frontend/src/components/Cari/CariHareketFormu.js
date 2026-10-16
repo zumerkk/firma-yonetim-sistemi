@@ -9,7 +9,7 @@
 // düzenlemek için destekleniyor).
 
 import React, { useMemo, useRef, useState } from 'react';
-import { Box, Button, CircularProgress, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { Box, Button, Checkbox, CircularProgress, FormControlLabel, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { Add as AddIcon, AttachFile as AttachFileIcon, Save as SaveIcon } from '@mui/icons-material';
 import {
     BANKALAR, HAREKET_TURU, ODENEN_BASLIK, bugun, buyukHarf, isoGun, talepEtiketi, tutarCoz, tutarYaz
@@ -30,6 +30,7 @@ const formKur = (baslangic) => ({
     banka: baslangic?.banka || '',
     tarih: baslangic?.tarih ? isoGun(baslangic.tarih) : bugun(),
     tutar: baslangic?.tutar != null ? tutarYaz(baslangic.tutar) : '',
+    hizmeteDahil: baslangic?.hizmeteDahil === true,
     aciklama: baslangic?.aciklama || '',
     dosyaTakip: baslangic?.dosyaTakip?._id || (typeof baslangic?.dosyaTakip === 'string' ? baslangic.dosyaTakip : '')
 });
@@ -92,7 +93,10 @@ export default function CariHareketFormu({
         if (tutar === null) return;
 
         const alanlar = { tur, tarih: form.tarih, tutar };
-        if (tur === 'odenen') alanlar.belgeAdi = buyukHarf(form.belgeAdi.trim());
+        if (tur === 'odenen') {
+            alanlar.belgeAdi = buyukHarf(form.belgeAdi.trim());
+            alanlar.hizmeteDahil = form.hizmeteDahil;
+        }
         if (tur === 'gelen') alanlar.banka = form.banka;
         if (tur === 'fatura') alanlar.faturaNo = form.faturaNo.trim();
         if (notAlani) alanlar.aciklama = form.aciklama.trim();
@@ -160,6 +164,21 @@ export default function CariHareketFormu({
                     sx={{ flex: '1 1 140px' }}
                 />
             </Box>
+
+            {tur === 'odenen' && (
+                <Box>
+                    <FormControlLabel
+                        control={<Checkbox checked={form.hizmeteDahil}
+                            onChange={(e) => setForm((p) => ({ ...p, hizmeteDahil: e.target.checked }))} />}
+                        label="Hizmete dahil"
+                    />
+                    {form.hizmeteDahil && (
+                        <Typography variant="caption" sx={{ display: 'block', color: '#64748b' }}>
+                            Tutar kayıtta korunur; bu ödemenin bakiyeye etkisi 0,00 ₺ olur.
+                        </Typography>
+                    )}
+                </Box>
+            )}
 
             {talepler && (
                 <TextField

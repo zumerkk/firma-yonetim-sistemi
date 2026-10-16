@@ -48,6 +48,7 @@ import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import dosyaTakipService from '../../services/dosyaTakipService';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import UploadProgress from '../../components/common/UploadProgress';
+import DosyaOnizlemeDialog from '../../components/common/DosyaOnizlemeDialog';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import BelgeTakipEvrakTalepleri from '../../components/IslemEvrak/BelgeTakipEvrakTalepleri';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
@@ -197,10 +198,10 @@ const getBackendUrl = () => {
 const cloudinaryDosyasiMi = (dosya, talepId) => !!(dosya?.cloudinaryPublicId && dosya?._id && talepId);
 
 // Dosyayı backend stream proxy'den blob olarak çek (PDF/ZIP teslimat kısıtını aşar; JWT axios ile taşınır)
-const dosyaBlobAl = async (talepId, dosya, indir) => {
+const dosyaBlobAl = async (talepId, dosya, indir, signal) => {
     const { data } = await axios.get(`/dosya-takip/${talepId}/dosya-getir/${dosya._id}`, {
         params: { alan: dosya.alan || 'dosyalar', dl: indir ? 1 : 0 },
-        responseType: 'blob'
+        responseType: 'blob', signal, timeout: 2 * 60 * 1000
     });
     return data; // Blob
 };
@@ -208,14 +209,6 @@ const dosyaBlobAl = async (talepId, dosya, indir) => {
 const dogrudanUrl = (dosya) => {
     const yol = dosya?.dosyaYolu || '';
     return yol.startsWith('http') ? yol : (yol ? `${getBackendUrl()}${yol}` : '');
-};
-
-// 📱 Mobil tarayıcı tespiti. iPadOS 13+ kendini "Macintosh" olarak tanıttığı için
-// dokunma noktası sayısıyla ayrıca kontrol edilir.
-const mobilCihaz = () => {
-    const ua = navigator.userAgent || '';
-    if (/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i.test(ua)) return true;
-    return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
 };
 
 // MIME → kabul edilen uzantılar (ilki varsayılan olarak eklenir)
@@ -248,44 +241,6 @@ const dosyaAdiUzantili = (dosya) => {
     const kucuk = ad.toLowerCase();
     if (kabul.some((u) => kucuk.endsWith(u))) return ad; // zaten uygun uzantılı
     return `${ad}${kabul[0]}`;
-};
-
-// Yeni sekmede aç — sekme tıklama anında (senkron) açılır, popup engeline takılmaz
-const dosyaAc = async (talepId, dosya) => {
-    if (!cloudinaryDosyasiMi(dosya, talepId)) {
-        const url = dogrudanUrl(dosya);
-        if (url) window.open(url, '_blank', 'noopener');
-        return;
-    }
-    // 📱 Mobilde blob'u iframe'de göstermek çalışmıyor: Android Chrome'un PDF için
-    // gömülü görüntüleyicisi yok, indirme ara ekranına düşüyor ve blob URL'in adı
-    // olmadığı için dosya uzantısız bir UUID olarak iniyor — "Aç" da tepkisiz kalıyor.
-    // Bu yüzden mobilde doğrudan, adı ve uzantısı doğru olan indirme yolu kullanılır;
-    // kullanıcı dosyayı kendi PDF uygulamasında açar. Boş sekme de açılmaz.
-    if (mobilCihaz()) {
-        await dosyaIndir(talepId, dosya);
-        return;
-    }
-    const win = window.open('', '_blank'); // gesture anında boş sekme
-    try {
-        const raw = await dosyaBlobAl(talepId, dosya, false);
-        // MIME tipini açıkça ver: aksi halde tarayıcı dosyayı tanımaz → boş sayfa
-        const blob = new Blob([raw], { type: dosya.dosyaTipi || raw.type || 'application/octet-stream' });
-        const blobUrl = URL.createObjectURL(blob);
-        if (win) {
-            // blob'u iframe içinde göster — tarayıcının blob: üst-gezinme kısıtlarına takılmaz
-            win.document.title = dosya.dosyaAdi || 'Dosya';
-            win.document.body.style.margin = '0';
-            win.document.body.innerHTML = `<iframe src="${blobUrl}" style="border:0;width:100vw;height:100vh"></iframe>`;
-        } else {
-            window.open(blobUrl, '_blank', 'noopener');
-        }
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 120000);
-    } catch (err) {
-        if (win) win.close();
-        const url = dogrudanUrl(dosya);
-        if (url) window.open(url, '_blank', 'noopener');
-    }
 };
 
 // Programatik indir
@@ -538,6 +493,12 @@ const DosyaTakipDetail = () => {
     const [dosyaDragOver, setDosyaDragOver] = useState(false); // sürükle-bırak görsel geri bildirim
     const [durumDialog, setDurumDialog] = useState({ open: false, yeniDurum: '', aciklama: '' });
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [onizleme, setOnizleme] = useState(null);
+    const dosyaAc = (talepId, dosya) => setOnizleme({
+        ad: dosyaAdiUzantili(dosya),
+        mimeType: dosya.dosyaTipi,
+        yukle: (signal, indir) => dosyaBlobAl(talepId, dosya, indir, signal)
+    });
     const [expandedStep, setExpandedStep] = useState(null);
     const [users, setUsers] = useState([]);
     const [atamaEditing, setAtamaEditing] = useState(false);
@@ -1424,7 +1385,7 @@ const DosyaTakipDetail = () => {
                                             <input hidden multiple type="file" onChange={handleDosyaYukle} disabled={!!yukleme} />
                                         </Box>
 
-                                        {renderDosyalar(seciliTalep, askDeleteConfirm, handleAciklamaKaydet)}
+                                        {renderDosyalar(seciliTalep, askDeleteConfirm, handleAciklamaKaydet, dosyaAc)}
                                     </Box>
                                 )}
 
@@ -1923,7 +1884,7 @@ const DosyaTakipDetail = () => {
                                                             </Typography>
                                                         </Box>
                                                         <Tooltip title="Aç / Görüntüle">
-                                                            <IconButton size="small" onClick={() => dosyaAc(seciliTalep._id, d)}>
+                                                            <IconButton size="small" aria-label={`${d.dosyaAdi} önizle`} onClick={() => dosyaAc(seciliTalep._id, d)}>
                                                                 <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
                                                             </IconButton>
                                                         </Tooltip>
@@ -2016,6 +1977,8 @@ const DosyaTakipDetail = () => {
                         </Button>
                     </DialogActions>
                 </Dialog>
+
+                <DosyaOnizlemeDialog dosya={onizleme} onClose={() => setOnizleme(null)} />
 
                 {/* Snackbar */}
                 <Snackbar
@@ -2196,7 +2159,7 @@ const DosyaAciklamaKutusu = ({ dosya, onKaydet }) => {
     );
 };
 
-function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
+function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet, onDosyaAc) {
     const tumDosyalar = [];
 
     (talep.dosyalar || []).forEach(d => tumDosyalar.push({ ...d, kaynak: 'Genel', alan: 'dosyalar' }));
@@ -2247,9 +2210,9 @@ function renderDosyalar(talep, onDosyaSil, onAciklamaKaydet) {
             {onAciklamaKaydet && <DosyaAciklamaKutusu dosya={dosya} onKaydet={onAciklamaKaydet} />}
             {dosya.dosyaYolu && (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    {/* Görüntüleme (imzalı URL ile yeni sekmede aç) */}
+                    {/* Yetkili API üzerinden uygulama içi önizleme */}
                     <Tooltip title="Aç / Görüntüle">
-                        <IconButton size="small" onClick={() => dosyaAc(talep._id, dosya)}>
+                        <IconButton size="small" aria-label={`${dosya.dosyaAdi} önizle`} onClick={() => onDosyaAc(talep._id, dosya)}>
                             <LinkIcon sx={{ fontSize: 18, color: '#8b5cf6' }} />
                         </IconButton>
                     </Tooltip>

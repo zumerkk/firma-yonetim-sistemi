@@ -423,6 +423,7 @@ exports.talepDosyaIndir = wrap(async (req, res) => {
     return storageService.serveFile({
       fileUrl: yuklenen.fileUrl,
       filePath: yuklenen.filePath,
+      mimeType: yuklenen.mimeType,
       originalName: yuklenen.orijinalAd || yuklenen.dosyaAdi,
       fileName: yuklenen.dosyaAdi
     }, res);
@@ -433,6 +434,7 @@ exports.talepDosyaIndir = wrap(async (req, res) => {
     return storageService.serveFile({
       fileUrl: istenen.ornekDosya.fileUrl,
       filePath: istenen.ornekDosya.filePath,
+      mimeType: istenen.ornekDosya.mimeType,
       originalName: istenen.ornekDosya.dosyaAdi,
       fileName: istenen.ornekDosya.dosyaAdi
     }, res);

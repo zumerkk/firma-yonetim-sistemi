@@ -23,6 +23,7 @@
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.525.0",
+    "pdfjs-dist": "4.8.69",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-dropzone": "^14.3.8",
@@ -42,7 +43,10 @@
     "build:force": "rm -rf build && npm run build",
     "serve": "node server.js",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "prestart": "node scripts/pdfjs-assets.js",
+    "prebuild": "node scripts/pdfjs-assets.js",
+    "prebuild:debug": "node scripts/pdfjs-assets.js"
   },
   "eslintConfig": {
     "extends": [

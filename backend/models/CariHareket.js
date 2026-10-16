@@ -45,6 +45,8 @@ const cariHareketSchema = new mongoose.Schema({
     // Kuruştan küçük hane saklanmaz — bakiyeler kuruş üzerinden toplanıyor
     set: (v) => (typeof v === 'number' && Number.isFinite(v) ? Math.round(v * 100) / 100 : v)
   },
+  // Asıl tutar saklanır; hizmete dahil giden ödemenin cariye etkisi sıfırdır.
+  hizmeteDahil: { type: Boolean, default: false },
 
   // Türe göre anlamlı alanlar
   belgeAdi: { type: String, trim: true, maxlength: [300, 'Belge adı en fazla 300 karakter olabilir'], default: '' },
@@ -76,6 +78,7 @@ cariHareketSchema.pre('validate', function () {
   // Başka türe ait alan taşınmasın (fatura satırında banka görünmesin vb.)
   if (this.tur !== 'gelen') this.banka = '';
   if (this.tur !== 'fatura') this.faturaNo = '';
+  if (this.tur !== 'odenen') this.hizmeteDahil = false;
 });
 
 cariHareketSchema.statics.HAREKET_TURLERI = HAREKET_TURLERI;

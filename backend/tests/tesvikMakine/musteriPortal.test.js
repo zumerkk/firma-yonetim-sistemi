@@ -21,7 +21,7 @@ const personel = { _id: new ObjectId(), adSoyad: 'Berk Acar' };
 
 beforeAll(async () => {
   mem = await MongoMemoryServer.create();
-  await mongoose.connect(mem.getUri());
+  await mongoose.connect(mem.getUri(), { monitorCommands: true });
 });
 afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); });
 
@@ -59,6 +59,80 @@ test('link aynı kalır; yenilenince eskisi geçersiz olur', async () => {
   expect(t2).not.toBe(t1);
   await expect(portal.portalVerisi(t1)).rejects.toMatchObject({ status: 404 });
   expect((await portal.portalVerisi(t2)).belge.yatirimciUnvan).toBe('ANTİMA MAKİNA');
+});
+
+test('eşzamanlı ilk üretimler aynı geçerli linki döndürür', async () => {
+  const sonuclar = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+    portal.linkUret('Tesvik', belge._id, { user: personel, istekId: `ilk-istek-${i}` })));
+  expect(new Set(sonuclar.map((r) => r.link)).size).toBe(1);
+  expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(sonuclar[0].link);
+});
+
+test('yenileme aynı istekle güvenle tekrarlanır; eski tekrar daha yeni linki veya kapatmayı ezmez', async () => {
+  const ilk = await portal.linkUret('Tesvik', belge._id);
+  const islem = { user: personel, yenile: true, istekId: 'yenile-istek-1', beklenenSurum: ilk.surum };
+  const sonuclar = await Promise.all(Array.from({ length: 5 }, () => portal.linkUret('Tesvik', belge._id, islem)));
+  const yenilenen = sonuclar[0];
+  expect(new Set(sonuclar.map((r) => r.link)).size).toBe(1);
+  expect(yenilenen.link).not.toBe(ilk.link);
+  expect((await portal.linkUret('Tesvik', belge._id, islem)).link).toBe(yenilenen.link);
+  const dahaYeni = await portal.linkUret('Tesvik', belge._id, {
+    ...islem, istekId: 'yenile-istek-2', beklenenSurum: yenilenen.surum
+  });
+  expect(dahaYeni.link).not.toBe(yenilenen.link);
+  expect((await portal.linkUret('Tesvik', belge._id, islem)).link).toBe(dahaYeni.link);
+  await portal.linkKapat('Tesvik', belge._id);
+  expect(await portal.linkUret('Tesvik', belge._id, islem)).toBeNull();
+  expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
+});
+
+test('ilk üretim yanıtı kaybolup link kapatılırsa aynı istek açmaz; yeni bilinçli üretim açabilir', async () => {
+  const islem = { user: personel, istekId: 'ilk-istek-kayip-yanit' };
+  const ilk = await portal.linkUret('Tesvik', belge._id, islem);
+  await portal.linkKapat('Tesvik', belge._id);
+  expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
+  expect(await portal.linkUret('Tesvik', belge._id, islem)).toBeNull();
+  const kapali = await Tesvik.findById(belge._id).select('musteriPortal').lean();
+  expect(kapali.musteriPortal.istekId).toBe(islem.istekId);
+  expect(kapali.musteriPortal.token).toBeUndefined();
+  const yeni = await portal.linkUret('Tesvik', belge._id, { user: personel, istekId: 'yeni-bilincli-istek' });
+  expect(yeni.link).not.toBe(ilk.link);
+  expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(yeni.link);
+});
+
+test.each(['Tesvik', 'YeniTesvik'])('%s: hatalı iş kodu ObjectId sanılmaz; geçerli ama eksik belge 404 olur', async (model) => {
+  await expect(portal.linkGetir(model, 'TES202600001')).rejects.toMatchObject({ status: 400, code: 'BAD_CERT_ID' });
+  await expect(portal.linkUret(model, { $ne: null })).rejects.toMatchObject({ status: 400, code: 'BAD_CERT_ID' });
+  await expect(portal.linkKapat(model, 'undefined')).rejects.toMatchObject({ status: 400, code: 'BAD_CERT_ID' });
+  await expect(portal.linkGetir(model, new ObjectId())).rejects.toMatchObject({ status: 404 });
+});
+
+test.each(['YanlisModel', 'toString', '__proto__'])('geçersiz model %s anlamlı 400 döner', async (model) => {
+  await expect(portal.linkGetir(model, belge._id)).rejects.toMatchObject({ status: 400, code: 'BAD_MODEL' });
+});
+
+test('link okumak/üretmek büyük geçmişi MongoDB’den getirmez ve onu yeniden kaydetmez', async () => {
+  const gecmis = Array.from({ length: 3000 }, (_, i) => ({ sira: i, snapshot: 'x'.repeat(512) }));
+  await Tesvik.collection.updateOne({ _id: belge._id }, { $set: { makineRevizyonlari: gecmis } });
+  const projeksiyonlar = [];
+  const dinle = (olay) => {
+    if (olay.commandName === 'find' && olay.command.find === Tesvik.collection.name) {
+      projeksiyonlar.push(olay.command.projection);
+    }
+  };
+  const istemci = mongoose.connection.getClient();
+  istemci.on('commandStarted', dinle);
+  try {
+    expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
+    const uretilen = await portal.linkUret('Tesvik', belge._id, { istekId: 'buyuk-belge-istegi' });
+    expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(uretilen.link);
+    expect(projeksiyonlar).toHaveLength(3);
+    expect(projeksiyonlar.every((p) => p?.musteriPortal === 1 && Object.keys(p).length === 1)).toBe(true);
+  } finally {
+    istemci.off('commandStarted', dinle);
+  }
+  const saklanan = await Tesvik.collection.findOne({ _id: belge._id }, { projection: { makineRevizyonlari: 1 } });
+  expect(saklanan.makineRevizyonlari).toEqual(gecmis);
 });
 
 test('firmaya evrak listesi, başka linklerin token\'ları ve iç alanlar gitmez', async () => {

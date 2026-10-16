@@ -13,7 +13,7 @@ import {
     Delete as DeleteIcon, Download as DownloadIcon, Edit as EditIcon, OpenInNew as OpenInNewIcon
 } from '@mui/icons-material';
 import {
-    HAREKET_TURU, bakiyeRengi, farkRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
+    HAREKET_TURU, bakiyeRengi, farkRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz, etkiliTutar
 } from '../../utils/cariFormat';
 import FaturaDurumuEtiketi from './FaturaDurumuEtiketi';
 
@@ -110,7 +110,7 @@ export default function CariDefterTablosu({ hareketler = [], ozet, gorunum = 'ta
                         const gelen = h.tur === 'gelen';
                         const tutar = (
                             <Typography component="span" variant="body2" sx={{ fontWeight: 600, color: m.renk }}>
-                                {paraYaz(h.tutar)}
+                                {paraYaz(etkiliTutar(h))}
                             </Typography>
                         );
                         return (
@@ -119,6 +119,11 @@ export default function CariDefterTablosu({ hareketler = [], ozet, gorunum = 'ta
                                 <TableCell><TurEtiketi tur={h.tur} /></TableCell>
                                 <TableCell sx={{ minWidth: 160 }}>
                                     <Typography variant="body2" sx={{ fontWeight: 500 }}>{hareketBasligi(h)}</Typography>
+                                    {h.tur === 'odenen' && h.hizmeteDahil && (
+                                        <Typography variant="caption" sx={{ display: 'block', color: '#64748b' }}>
+                                            Hizmete dahil · Kayıt tutarı: {paraYaz(h.tutar)}
+                                        </Typography>
+                                    )}
                                     {/* Talep görünümünde faturanın gelen/giden sütunu yok; tutarı burada */}
                                     {!firmaGorunumu && h.tur === 'fatura' && (
                                         <Typography variant="caption" sx={{ display: 'block', color: m.renk, fontWeight: 600 }}>

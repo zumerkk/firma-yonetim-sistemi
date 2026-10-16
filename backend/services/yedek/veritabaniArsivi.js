@@ -46,12 +46,14 @@ const MachineProcess = require('../../models/MachineProcess');
 const UploadedDocument = require('../../models/UploadedDocument');
 const MailLog = require('../../models/MailLog');
 const MakineRevizyonKaydi = require('../../models/MakineRevizyonKaydi');
+const BelgeOzelNot = require('../../models/BelgeOzelNot');
 
 const KOLEKSIYONLAR = [
   { model: Firma, dosya: 'firmalar.json', etiket: 'Firma Bilgileri', gizle: [] },
   { model: Tesvik, dosya: 'eski_tesvik_belgeleri.json', etiket: 'Eski Teşvik Belgeleri', gizle: [] },
   { model: YeniTesvik, dosya: 'yeni_tesvik_belgeleri.json', etiket: 'Yeni Teşvik Belgeleri', gizle: [] },
   { model: MakineRevizyonKaydi, dosya: 'makine_revizyon_kayitlari.json', etiket: 'Makine Revizyon Geçmişi', gizle: [] },
+  { model: BelgeOzelNot, dosya: 'belge_ozel_notlari.json', etiket: 'Belge Özel Notları', gizle: [] },
   { model: DosyaTakip, dosya: 'dosya_takip.json', etiket: 'Dosya İş Akış Takip', gizle: [] },
   { model: User, dosya: 'kullanicilar.json', etiket: 'Kullanıcılar', gizle: ['sifre'] },
   { model: Activity, dosya: 'aktiviteler.json', etiket: 'Aktivite Kayıtları', gizle: [] },

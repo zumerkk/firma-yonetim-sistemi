@@ -9,6 +9,7 @@
 
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const AdmZip = require('adm-zip');
 const { ObjectId } = mongoose.Types;
 
 const yedekIsi = require('../../services/yedek/yedekIsi');
@@ -17,6 +18,7 @@ const YedekDosya = require('../../models/YedekDosya');
 const YedekCalismasi = require('../../models/YedekCalismasi');
 const DosyaTakip = require('../../models/DosyaTakip');
 const UploadedDocument = require('../../models/UploadedDocument');
+const BelgeOzelNot = require('../../models/BelgeOzelNot');
 
 jest.setTimeout(60000);
 
@@ -56,12 +58,16 @@ beforeAll(async () => {
 });
 afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); delete process.env.YEDEK_DRIVE_KLASOR_ID; });
 beforeEach(async () => {
-  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({})]);
+  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({}), BelgeOzelNot.deleteMany({})]);
 });
 
 describe('veritabanı yedeği', () => {
   test('ZIP üretir ve Drive\'a akıtır; içinde koleksiyon dosyaları vardır', async () => {
     await mongoose.connection.db.collection('firmas').insertOne({ tamUnvan: 'GLOBTEKS TEKSTİL A.Ş.', firmaId: 'A000001' });
+    const not = await BelgeOzelNot.create({
+      tesvikModel: 'YeniTesvik', tesvikId: new ObjectId(), metin: 'Yedekte korunacak özel not',
+      kullanici, kullaniciAdi: 'Test Personel'
+    });
     const istemci = sahteDrive();
     const sonuc = await yedekIsi.veritabaniniYedekle({ klasorId: 'vt', baslatan: 'Test', gunluk: sessiz, istemci });
 
@@ -75,6 +81,14 @@ describe('veritabanı yedeği', () => {
     expect(metin).toContain('metadata.json');
     expect(metin).toContain('dosya_takip.json');
     expect(metin).toContain('makine_revizyon_kayitlari.json');
+    const zip = new AdmZip(icerik);
+    const notlar = JSON.parse(zip.readAsText('belge_ozel_notlari.json'));
+    expect(notlar).toEqual([expect.objectContaining({
+      _id: String(not._id), tesvikModel: 'YeniTesvik', tesvikId: String(not.tesvikId),
+      metin: 'Yedekte korunacak özel not', kullanici: String(kullanici), kullaniciAdi: 'Test Personel',
+      createdAt: not.createdAt.toISOString()
+    })]);
+    expect(JSON.parse(zip.readAsText('metadata.json')).kayitSayilari['Belge Özel Notları']).toBe(1);
     expect(sonuc.eksikler).toEqual([]);
   });
 
@@ -82,7 +96,7 @@ describe('veritabanı yedeği', () => {
     const { KOLEKSIYONLAR } = require('../../services/yedek/veritabaniArsivi');
     const dosyalar = KOLEKSIYONLAR.map((k) => k.dosya);
     expect(dosyalar).toEqual(expect.arrayContaining([
-      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json'
+      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json', 'belge_ozel_notlari.json'
     ]));
   });
 });

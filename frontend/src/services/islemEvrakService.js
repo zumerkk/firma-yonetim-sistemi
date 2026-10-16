@@ -46,8 +46,8 @@ const islemEvrakService = {
   tekrarIstemeGeriAl: (id, evrakId) => api.delete(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`).then(d),
   // Dosya indirme: blob olarak çekilir. Göreli fileUrl'i doğrudan href vermek işe yaramıyor —
   // tarayıcı onu frontend origin'ine göre çözüp SPA'nın index.html'ini indiriyordu.
-  dosyaIndir: (id, dosyaId) =>
-    api.get(`${base}/talepler/${id}/dosya/${dosyaId}/indir`, { responseType: 'blob' }),
+  dosyaIndir: (id, dosyaId, signal) =>
+    api.get(`${base}/talepler/${id}/dosya/${dosyaId}/indir`, { responseType: 'blob', signal, timeout: 2 * 60 * 1000 }),
   // Firmadan gelen evrakların hepsi tek ZIP (evrak adına göre klasörlü). Büyük arşivde global
   // 15 sn'lik zaman aşımı yetmez; sunucu dosyaları buluttan tek tek çekip paketliyor.
   topluIndir: (id) =>

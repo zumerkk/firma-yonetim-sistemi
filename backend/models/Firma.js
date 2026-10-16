@@ -96,6 +96,13 @@ const firmaSchema = new mongoose.Schema({
     index: 'text'
   },
   
+  // Cari durumu firma bazında ortaktır; tüm belge takip talepleri aynı alanı okur.
+  cariDurumu: {
+    type: String,
+    enum: ['acik', 'kapandi'],
+    default: 'acik'
+  },
+
   // 📍 Lokasyon Bilgileri
   adres: {
     type: String,
@@ -162,13 +169,7 @@ const firmaSchema = new mongoose.Schema({
   firmaWebsite: {
     type: String,
     trim: true,
-    default: '',
-    validate: {
-      validator: function(v) {
-        return !v || /^https?:\/\/.+/.test(v);
-      },
-      message: 'Website http:// veya https:// ile başlamalıdır'
-    }
+    default: ''
   },
   
   // 🏭 İş Bilgileri

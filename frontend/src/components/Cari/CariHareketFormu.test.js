@@ -47,7 +47,7 @@ describe('CariHareketFormu', () => {
 
         await waitFor(() => expect(onKaydet).toHaveBeenCalledWith(
             // Müşteri (21.09.2026): elle yazılan ad büyük harfe çevrilerek kaydedilir
-            { tur: 'odenen', tarih: '2026-09-15', tutar: 1500, belgeAdi: 'BELGE HARCI MAKBUZU' },
+            { tur: 'odenen', tarih: '2026-09-15', tutar: 1500, belgeAdi: 'BELGE HARCI MAKBUZU', hizmeteDahil: false },
             null
         ));
         await waitFor(() => expect(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri')).toHaveValue(''));
@@ -94,5 +94,37 @@ describe('CariHareketFormu', () => {
         expect(screen.getByLabelText('Tutar')).toHaveValue('2.500,00');
         expect(screen.getByText('dekont.pdf')).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'Kaydet' })).toBeInTheDocument();
+    });
+
+    test('hizmete dahil kayıtta gerçek tutar gönderilir, başarılı girişten sonra seçim sıfırlanır', async () => {
+        const onKaydet = jest.fn().mockResolvedValue(true);
+        render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} />);
+        fireEvent.change(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri'), { target: { value: 'Harç' } });
+        fireEvent.change(screen.getByLabelText('Tutar'), { target: { value: '1.500,75' } });
+        fireEvent.click(screen.getByLabelText('Hizmete dahil'));
+        expect(screen.getByLabelText('Tutar')).toHaveValue('1.500,75');
+        fireEvent.click(ekleDugmesi());
+        await waitFor(() => expect(onKaydet).toHaveBeenCalledWith(
+            expect.objectContaining({ tutar: 1500.75, hizmeteDahil: true }), null
+        ));
+        await waitFor(() => expect(screen.getByLabelText('Hizmete dahil')).not.toBeChecked());
+    });
+
+    test('düzenlemede hizmete dahil kaldırılınca nominal tutar aynen geri gönderilir', async () => {
+        const onKaydet = jest.fn().mockResolvedValue(true);
+        render(<CariHareketFormu tur="odenen" onKaydet={onKaydet} baslangic={{
+            belgeAdi: 'HARÇ', tarih: '2026-10-17', tutar: 1500.75, hizmeteDahil: true
+        }} />);
+        expect(screen.getByLabelText('Hizmete dahil')).toBeChecked();
+        fireEvent.click(screen.getByLabelText('Hizmete dahil'));
+        fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+        await waitFor(() => expect(onKaydet).toHaveBeenCalledWith(
+            expect.objectContaining({ tutar: 1500.75, hizmeteDahil: false }), null
+        ));
+    });
+
+    test('gelen ödemede hizmete dahil seçeneği gösterilmez', () => {
+        render(<CariHareketFormu tur="gelen" onKaydet={jest.fn()} />);
+        expect(screen.queryByLabelText('Hizmete dahil')).not.toBeInTheDocument();
     });
 });

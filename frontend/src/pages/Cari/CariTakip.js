@@ -39,10 +39,11 @@ import axios from '../../utils/axios';
 import cariService from '../../services/cariService';
 import CariHareketFormu from '../../components/Cari/CariHareketFormu';
 import CariDefterTablosu from '../../components/Cari/CariDefterTablosu';
+import CariDurumuSecimi from '../../components/Cari/CariDurumuSecimi';
 import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import { hareketDosyasiAc } from '../../components/Cari/cariDosya';
 import {
-    HAREKET_TURU, ODENEN_BASLIK, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz
+    HAREKET_TURU, ODENEN_BASLIK, bakiyeRengi, hareketBasligi, paraYaz, talepEtiketi, tarihYaz, etkiliTutar
 } from '../../utils/cariFormat';
 import {
     FATURA_SUZGECLERI, faturaSuzgecindenGecer, firmalariSirala, siralamaDegistir, suzgecSayilari
@@ -54,7 +55,7 @@ const OZET_KARTLARI = [
     { anahtar: 'toplamGelen', etiket: 'Gelen Ödeme', renk: HAREKET_TURU.gelen.renk }
 ];
 
-const bakiyeAciklamasi = (n) => (n > 0 ? 'Firmadan alacak' : n < 0 ? 'Fazla ödeme' : 'Hesap kapalı');
+const bakiyeAciklamasi = (n) => (n > 0 ? 'Firmadan alacak' : n < 0 ? 'Fazla ödeme' : 'Bakiye sıfır');
 const kucukHarf = (s) => String(s || '').toLocaleLowerCase('tr');
 const baslikSx = {
     fontWeight: 700, fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase', whiteSpace: 'nowrap', background: '#f8fafc'
@@ -86,10 +87,10 @@ function excelAktar(defter) {
         ...(faturaVar ? { 'FATURA NO': h.tur === 'fatura' ? h.faturaNo || '' : '' } : {}),
         'ÖDEME / BANKA': h.tur === 'odenen' ? hareketBasligi(h) : (h.tur === 'gelen' ? h.banka : ''),
         'TALEP': talepEtiketi(h.dosyaTakip),
-        [BORC]: h.tur === 'gelen' ? '' : h.tutar,
+        [BORC]: h.tur === 'gelen' ? '' : etkiliTutar(h),
         'ALACAK (GELEN ÖDEME)': h.tur === 'gelen' ? h.tutar : '',
         'ALACAK / BORÇ BAKİYESİ': h.bakiye,
-        'NOT': h.aciklama || ''
+        'NOT': [h.tur === 'odenen' && h.hizmeteDahil ? `Hizmete dahil · Kayıt tutarı: ${paraYaz(h.tutar)}` : '', h.aciklama].filter(Boolean).join(' · ')
     }));
     const o = defter.ozet || {};
     satirlar.push({});
@@ -222,6 +223,11 @@ export default function CariTakip() {
     };
 
     const yenile = () => Promise.all([defteriYukle(firmaParam), ozetleriYukle()]);
+
+    const cariDurumunuYansit = (firmaId, cariDurumu) => {
+        setOzetler((liste) => liste.map((f) => f.firma === firmaId ? { ...f, cariDurumu } : f));
+        setDefter((d) => d?.firma?._id === firmaId ? { ...d, firma: { ...d.firma, cariDurumu } } : d);
+    };
 
     const ekle = async (alanlar, dosya) => {
         try {
@@ -396,6 +402,7 @@ export default function CariTakip() {
                                 <TableHead>
                                     <TableRow>
                                         {baslik('firmaUnvan', 'Firma')}
+                                        <TableCell sx={baslikSx}>Cari durumu</TableCell>
                                         {faturaSutunu && baslik('toplamFatura', 'Kesilen Fatura', true)}
                                         {/* Azalan: kesilmemiş talebi çok olan üstte; durumu girilmemişler hep sonda */}
                                         {baslik('faturaDurumu', 'Fatura Durumu')}
@@ -408,7 +415,7 @@ export default function CariTakip() {
                                 <TableBody>
                                     {!ozetYukleniyor && suzulmus.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={faturaSutunu ? 7 : 6} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
+                                            <TableCell colSpan={faturaSutunu ? 8 : 7} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
                                                 {ozetler.length === 0
                                                     ? 'Henüz firma yok. Belge Takip\'te talep açılan firmalar ve cari hareketi olanlar burada listelenir.'
                                                     : 'Aramaya / süzgece uyan firma yok.'}
@@ -418,6 +425,8 @@ export default function CariTakip() {
                                     {suzulmus.map((f) => (
                                         <TableRow key={f.firma} hover onClick={() => firmaSec(f.firma)} sx={{ cursor: 'pointer' }}>
                                             <TableCell sx={{ fontWeight: 500 }}>{f.firmaUnvan || '—'}</TableCell>
+                                            <TableCell><CariDurumuSecimi firmaId={f.firma} value={f.cariDurumu}
+                                                onDegis={(durum) => cariDurumunuYansit(f.firma, durum)} /></TableCell>
                                             {faturaSutunu && <TableCell sx={tutarSx}>{paraYaz(f.toplamFatura)}</TableCell>}
                                             <TableCell sx={{ py: 0.5 }}><FaturaDurumuEtiketi sayilar={f.faturaDurumlari || {}} /></TableCell>
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.odenen.renk }}>{paraYaz(f.toplamOdenen)}</TableCell>
@@ -428,7 +437,7 @@ export default function CariTakip() {
                                     ))}
                                     {suzulmus.length > 1 && (
                                         <TableRow sx={{ background: '#f8fafc', '& td': { fontWeight: 700, borderBottom: 0 } }}>
-                                            <TableCell colSpan={faturaSutunu ? 5 : 4} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
+                                            <TableCell colSpan={faturaSutunu ? 6 : 5} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: bakiyeRengi(toplamBakiye) }}>{paraYaz(toplamBakiye)}</TableCell>
                                             <TableCell />
                                         </TableRow>
@@ -454,6 +463,8 @@ export default function CariTakip() {
                                     </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                    <CariDurumuSecimi firmaId={firmaParam} value={defter.firma?.cariDurumu}
+                                        onDegis={(durum) => cariDurumunuYansit(firmaParam, durum)} />
                                     <Button
                                         size="small" variant="outlined" startIcon={<ExcelIcon />}
                                         onClick={() => excelAktar(defter)} disabled={!defter.hareketler.length}

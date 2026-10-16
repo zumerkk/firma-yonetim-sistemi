@@ -23,6 +23,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useDosyaTakip } from '../../contexts/DosyaTakipContext';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import axios from '../../utils/axios';
+import { firmaSecenekleriniAra } from '../../services/firmaSecenekleri';
 
 
 const DosyaTakipForm = () => {
@@ -34,6 +35,7 @@ const DosyaTakipForm = () => {
     const [firmalar, setFirmalar] = useState([]);
     const [firmaLoading, setFirmaLoading] = useState(false);
     const [firmaSearch, setFirmaSearch] = useState('');
+    const [firmaAramaHata, setFirmaAramaHata] = useState('');
     const [selectedFirma, setSelectedFirma] = useState(null);
     const [users, setUsers] = useState([]);
     const [success, setSuccess] = useState('');
@@ -111,28 +113,24 @@ const DosyaTakipForm = () => {
 
     // Firma arama
     useEffect(() => {
+        let iptal = false;
+        const controller = new AbortController();
+        setFirmalar([]);
+        setFirmaAramaHata('');
+        setFirmaLoading(false);
         const timer = setTimeout(() => {
-            if (firmaSearch.length >= 2) {
-                searchFirmalar(firmaSearch);
+            if (firmaSearch.trim().length >= 2) {
+                setFirmaLoading(true);
+                firmaSecenekleriniAra(firmaSearch, { signal: controller.signal })
+                    .then((liste) => { if (!iptal) setFirmalar(liste); })
+                    .catch((err) => {
+                        if (!iptal) setFirmaAramaHata(err?.kullaniciMesaji || err?.response?.data?.message || 'Firma araması tamamlanamadı. Lütfen tekrar deneyin.');
+                    })
+                    .finally(() => { if (!iptal) setFirmaLoading(false); });
             }
         }, 300);
-        return () => clearTimeout(timer);
+        return () => { iptal = true; clearTimeout(timer); controller.abort(); };
     }, [firmaSearch]);
-
-    const searchFirmalar = async (query) => {
-        try {
-            setFirmaLoading(true);
-            const { data } = await axios.get(`/firma?arama=${query}&limit=20`);
-            // API yanıtı: { success, data: { firmalar: [...], pagination } }
-            const list = data?.data?.firmalar || data?.firmalar || data?.data || [];
-            setFirmalar(Array.isArray(list) ? list : []);
-        } catch (err) {
-            console.error('Firma arama hatası:', err);
-            setFirmalar([]);
-        } finally {
-            setFirmaLoading(false);
-        }
-    };
 
     const loadUsers = async () => {
         try {
@@ -428,20 +426,22 @@ const DosyaTakipForm = () => {
                                     ? [selectedFirma, ...firmalar]
                                     : firmalar}
                                 getOptionLabel={(option) => option.tamUnvan || option.firmaId || ''}
+                                filterOptions={(options) => options}
                                 isOptionEqualToValue={(option, value) => option._id === value._id}
                                 value={selectedFirma}
                                 onChange={handleFirmaSelect}
                                 onInputChange={(e, value, reason) => {
-                                    if (reason === 'input') setFirmaSearch(value);
+                                    if (reason === 'input' || reason === 'clear') setFirmaSearch(value);
                                 }}
                                 loading={firmaLoading}
-                                noOptionsText="Firma adı yazarak arayın..."
+                                noOptionsText={firmaSearch.trim().length < 2 ? 'Firma adı yazarak arayın...' : 'Firma bulunamadı'}
                                 renderInput={(params) => (
                                     <TextField
                                         {...params}
                                         label="Firma Seçimi *"
                                         placeholder="Firma adı veya ID yazın..."
-                                        helperText="En az 2 karakter yazarak arayın"
+                                        error={!!firmaAramaHata}
+                                        helperText={firmaAramaHata || 'En az 2 karakter yazarak arayın'}
                                         sx={{ mb: 3 }}
                                     />
                                 )}

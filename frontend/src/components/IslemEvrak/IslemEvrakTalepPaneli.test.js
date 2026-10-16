@@ -6,7 +6,7 @@ import Panel from './IslemEvrakTalepPaneli';
 import svc from '../../services/islemEvrakService';
 
 jest.mock('../../services/islemEvrakService', () => ({
-  __esModule: true, default: { talepDetay: jest.fn(), turDetay: jest.fn(), talepGuncelle: jest.fn(), mailOnizle: jest.fn() }
+  __esModule: true, default: { talepDetay: jest.fn(), turDetay: jest.fn(), talepGuncelle: jest.fn(), mailOnizle: jest.fn(), dosyaIndir: jest.fn() }
 }));
 
 const talep = { _id: 't1', firmaAdi: 'Firma', islemTuru: 'tur1', dosyaTakip: 'dt1',
@@ -51,4 +51,30 @@ test('kayıt başarısızsa taslak açılmaz, metin ekranda kalır', async () =>
   expect(await screen.findByText('Kayıt başarısız')).toBeInTheDocument();
   expect(screen.getByLabelText('Talep metni')).toHaveValue('Korunacak metin');
   expect(svc.mailOnizle).not.toHaveBeenCalled();
+});
+
+test('gelen evrakın Aç düğmesi dosyayı indirmeden uygulama içinde gösterir', async () => {
+  svc.talepDetay.mockResolvedValue({ ...talep, yuklenenEvraklar: [{
+    _id: 'dosya1', orijinalAd: 'Fatura.png', mimeType: 'image/png', yuklemeTarihi: '2026-10-17T10:00:00Z'
+  }] });
+  svc.dosyaIndir.mockResolvedValue({ data: new Blob(['png'], { type: 'image/png' }) });
+  const eskiOlustur = URL.createObjectURL;
+  const eskiBirak = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn(() => 'blob:guvenli-evrak');
+  URL.revokeObjectURL = jest.fn();
+  const indir = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  const pencere = jest.spyOn(window, 'open').mockImplementation(() => {});
+  try {
+    const { unmount } = render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Fatura.png önizle' }));
+    expect(await screen.findByRole('img', { name: 'Fatura.png' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(svc.dosyaIndir).toHaveBeenCalledWith('t1', 'dosya1', expect.any(AbortSignal));
+    expect(indir).not.toHaveBeenCalled();
+    expect(pencere).not.toHaveBeenCalled();
+    unmount();
+  } finally {
+    indir.mockRestore(); pencere.mockRestore();
+    URL.createObjectURL = eskiOlustur; URL.revokeObjectURL = eskiBirak;
+  }
 });

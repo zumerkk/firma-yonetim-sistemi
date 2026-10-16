@@ -5,6 +5,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { authenticate, authorize } = require('../middleware/auth');
 const portal = require('../services/musteriPortal/portalService');
+const ozelNotlar = require('../services/tesvik/belgeOzelNotlar');
 
 const router = express.Router();
 const editor = authorize('admin', 'kullanici');
@@ -20,10 +21,16 @@ const gonder = (fn) => async (req, res) => {
 };
 
 // ───────── Personel ─────────
+router.get('/yonetim/:tesvikModel/:tesvikId/notlar', authenticate,
+  gonder((req) => ozelNotlar.listele(req.params.tesvikModel, req.params.tesvikId)));
+router.post('/yonetim/:tesvikModel/:tesvikId/notlar', authenticate, editor,
+  gonder((req) => ozelNotlar.ekle(req.params.tesvikModel, req.params.tesvikId, req.body?.metin, req.user)));
 router.get('/yonetim/:tesvikModel/:tesvikId', authenticate,
   gonder((req) => portal.linkGetir(req.params.tesvikModel, req.params.tesvikId)));
 router.post('/yonetim/:tesvikModel/:tesvikId', authenticate, editor,
-  gonder((req) => portal.linkUret(req.params.tesvikModel, req.params.tesvikId, { user: req.user, yenile: !!req.body?.yenile })));
+  gonder((req) => portal.linkUret(req.params.tesvikModel, req.params.tesvikId, {
+    user: req.user, yenile: req.body?.yenile === true, istekId: req.body?.istekId, beklenenSurum: req.body?.beklenenSurum
+  })));
 router.delete('/yonetim/:tesvikModel/:tesvikId', authenticate, editor,
   gonder((req) => portal.linkKapat(req.params.tesvikModel, req.params.tesvikId)));
 

@@ -32,6 +32,8 @@ import { useOecdEtiket } from '../../utils/belgeGosterim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
+import BelgeOzelNotlar from '../../components/Tesvik/BelgeOzelNotlar';
+import BelgeMakineListesi from '../../components/Tesvik/BelgeMakineListesi';
 
 // 🎛️ Tasarım sistemi (madde 6). Bu ekran ETUYS temasıyla sarmalanıyor.
 // Yeni teşvik detay sayfasıyla AYNI yapı — iki sayfa bir daha ayrışmasın.
@@ -54,7 +56,8 @@ const BOLUMLER = [
   { anahtar: 'destek',   baslik: 'Destek Unsurları' },
   // "Proje Tanıtımı" müşteri isteğiyle kaldırıldı (21.09.2026: "Teşvik görüntüleme ekranındaki 'Proje
   // Tanımı' kısmını tamamen kaldırabiliriz") — içi hep "bilgi bulunmuyor" diyordu.
-  { anahtar: 'evrak',    baslik: 'Evrak Listesi' }
+  { anahtar: 'evrak',    baslik: 'Evrak Listesi' },
+  { anahtar: 'notlar',   baslik: 'Özel Notlar' }
 ];
 
 const TesvikDetail = () => {
@@ -1114,15 +1117,12 @@ const TesvikDetail = () => {
                 {aktifBolum === 'urun' && <UrunTablosu tesvik={tesvik} tur="eski" />}
 
                 {(aktifBolum === 'yerli' || aktifBolum === 'ithal') && (
-                  <Box sx={{ py: 4, textAlign: 'center' }}>
-                    <Typography sx={{ color: renk.sessiz, fontSize: 13, mb: 2 }}>
-                      {aktifBolum === 'yerli' ? 'Yerli' : 'İthal'} makine teçhizat listesi
-                      makine yönetimi ekranında düzenlenir.
-                    </Typography>
-                    <Button variant="contained" onClick={() => navigate('/tesvik/makine-yonetimi')}>
-                      Makine Listesini Aç
-                    </Button>
-                  </Box>
+                  <BelgeMakineListesi key={aktifBolum} ithal={aktifBolum === 'ithal'}
+                    satirlar={tesvik.makineListeleri?.[aktifBolum] || []} />
+                )}
+
+                {aktifBolum === 'notlar' && (
+                  <BelgeOzelNotlar tesvikModel="Tesvik" tesvikId={tesvik._id} />
                 )}
 
                 {aktifBolum === 'finansal' && <FinansalPaneli tesvik={tesvik} />}

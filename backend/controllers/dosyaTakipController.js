@@ -2,13 +2,15 @@ const mongoose = require('mongoose');
 const { takipEdenKosulu, ekListesiniDuzelt } = require('../services/dosyaTakip/takipEdenler');
 const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
 const DosyaTakip = require('../models/DosyaTakip');
+const Firma = require('../models/Firma');
 const { aktiviteKaydet } = require('../utils/aktiviteKaydi');
 const Notification = require('../models/Notification');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs/promises');
 const cloudinary = require('cloudinary').v2;
 const parcaliDosya = require('../utils/parcaliDosya');
-const { turkceArama } = require('../utils/turkceArama');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
 const notBildirimi = require('../services/dosyaTakip/notBildirimi');
 const { talepAcik } = require('../services/dosyaTakip/mukerrerTalep');
@@ -368,11 +370,15 @@ exports.getTumTalepler = async (req, res) => {
         // 🔍 Müşteri: "arama kısmında büyük küçük harf ayrımı var, sistem otomatik
         // büyük harfe çevirsin". Mongo'nun $options:'i' bayrağı Türkçe harflerde
         // çalışmadığı için (PLASTİK→18 kayıt, plastik→0) terim, her harfin Türkçe
-        // büyük/küçük varyantlarını kapsayan desene çevriliyor. bkz. utils/turkceArama
+        // büyük/küçük varyantlarını kapsayan desene çevriliyor.
         if (search) {
-            const aramaFiltresi = turkceArama(search);
+            const aramaFiltresi = createTurkishInsensitiveRegex(search);
+            // Talepteki unvan eski/eksik bir kopya olabilir. Firma kaydındaki güncel
+            // adın her kısmını da ara; "ÖLMEZ" kopyası "AHMET ÖLMEZ"i gizlemesin.
+            const eslesenFirmalar = await Firma.find({ tamUnvan: aramaFiltresi }).select('_id').lean();
             filter.$or = [
                 { firmaUnvan: aramaFiltresi },
+                { firma: { $in: eslesenFirmalar.map((f) => f._id) } },
                 { takipId: aramaFiltresi },
                 { ytbNo: aramaFiltresi },
                 { belgeId: aramaFiltresi }
@@ -1285,6 +1291,28 @@ exports.dosyaGetir = async (req, res) => {
         const rt = isImage ? 'image' : 'raw';
         const pid = dosya.cloudinaryPublicId;
         const ad = encodeURIComponent(dosya.dosyaAdi || 'dosya');
+
+        // Eski yerel dosyalar da aynı yetkili uçtan alınır; önizleme için doğrudan
+        // /uploads bağlantısına çıkmak veya istemciye dosya sistemi yolu vermek gerekmez.
+        if (!pid && !/^https?:\/\//i.test(dosya.dosyaYolu)) {
+            const kok = path.resolve(__dirname, '../uploads');
+            const kayitliYol = String(dosya.dosyaYolu);
+            const aday = path.isAbsolute(kayitliYol) && kayitliYol.startsWith(`${kok}${path.sep}`)
+                ? path.resolve(kayitliYol)
+                : path.resolve(__dirname, '..', kayitliYol.replace(/^[/\\]+/, ''));
+            if (!aday.startsWith(`${kok}${path.sep}`)) {
+                return res.status(403).json({ success: false, message: 'Yetkisiz dosya erişimi' });
+            }
+            let gercek;
+            try { gercek = await fs.realpath(aday); }
+            catch { return res.status(404).json({ success: false, message: 'Dosya sunucuda bulunamadı' }); }
+            if (!gercek.startsWith(`${kok}${path.sep}`)) {
+                return res.status(403).json({ success: false, message: 'Yetkisiz dosya erişimi' });
+            }
+            res.setHeader('Content-Disposition', `${indir ? 'attachment' : 'inline'}; filename*=UTF-8''${ad}`);
+            if (dosya.dosyaTipi) res.setHeader('Content-Type', dosya.dosyaTipi);
+            return res.sendFile(gercek);
+        }
 
         // 🧩 10 MiB'tan büyük dosya parçalı saklanıyor: parçalar sırayla yanıta akıtılır (belleğe alınmaz)
         if (parcaliDosya.manifestMi(pid)) {
