@@ -25,10 +25,10 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
-import ClearIcon from '@mui/icons-material/Clear';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/islemEvrakService';
 import { tasi } from '../../utils/dizi';
+import { ornekDosyalari } from '../../utils/islemEvrakOrnekleri';
 import useSurukleSirala from '../../hooks/useSurukleSirala';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { hataMesaji } from '../../utils/hataMesaji';
@@ -71,11 +71,12 @@ const kodTuret = (metin) => String(metin || '').toLowerCase()
 // türden okur. Yükleme türden bağımsız çalışır, o yüzden tür henüz hiç
 // kaydedilmemişken de örnek eklenebilir — indirme ise kaydettikten sonra açılır.
 const EvrakListesiEditoru = ({
-  evraklar, onChange, baslik, sorular = [], turId = null, turAd = '', varyantKod = '', onDurum
+  evraklar, onChange, baslik, sorular = [], turId = null, turAd = '', varyantKod = '', onDurum, onYuklemeDurumu, indirmeKilitli = false
 }) => {
   // Müşteri: "yeni evrak ekleyince en alta ekliyor 30 kere yukarı oka tıklamamız
   // gerekiyor" — satırlar artık sürüklenebiliyor.
   const { satirProps } = useSurukleSirala(evraklar, onChange);
+  const [ornekYukleniyor, setOrnekYukleniyor] = useState(false);
   return (
   <Box>
     <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
@@ -167,74 +168,64 @@ const EvrakListesiEditoru = ({
           {/* 📎 Örnek/şablon dosya — müşteri: "örnekleri de işlem türleri kısmından
               yükleyip kaydedebilelim". Yükleme yalnızca künyeyi satıra yazar;
               kalıcı olması için türü kaydetmek gerekir (uyarıyı orada veriyoruz). */}
-          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.4 }}>
-            <Tooltip title={e.ornekDosya?.dosyaAdi
-              ? `Örnek: ${e.ornekDosya.dosyaAdi} — değiştirmek için tıklayın`
-              : 'Firmaya gönderilecek örnek/şablon dosyayı yükleyin'}>
-              <Button
-                component="label" size="small"
-                variant={e.ornekDosya?.dosyaAdi ? 'contained' : 'outlined'}
-                color={e.ornekDosya?.dosyaAdi ? 'success' : 'primary'}
-                startIcon={<AttachFileIcon sx={{ fontSize: 16 }} />}
-                sx={{ minWidth: 0, whiteSpace: 'nowrap' }}
-              >
-                {e.ornekDosya?.dosyaAdi ? 'Örnek ✓' : 'Örnek'}
-                <input
-                  type="file" hidden
+          <Stack spacing={0.5} sx={{ mt: 0.4 }}>
+            <Tooltip title="Bu evraka bir veya birden fazla örnek/şablon ekleyin">
+              <Button component="label" size="small" disabled={ornekYukleniyor}
+                variant={ornekDosyalari(e).length ? 'contained' : 'outlined'}
+                color={ornekDosyalari(e).length ? 'success' : 'primary'}
+                startIcon={<AttachFileIcon sx={{ fontSize: 16 }} />}>
+                {ornekDosyalari(e).length ? `Örnek (${ornekDosyalari(e).length}) +` : 'Örnek'}
+                <input type="file" hidden multiple aria-label={`${e.ad || 'Yeni evrak'} örnek ekle`}
                   onChange={async (ev) => {
-                    const file = ev.target.files?.[0];
-                    ev.target.value = '';           // aynı dosya tekrar seçilebilsin
-                    if (!file) return;
+                    const files = Array.from(ev.target.files || []);
+                    ev.target.value = '';
+                    if (!files.length) return;
+                    const eklenenler = [];
+                    setOrnekYukleniyor(true);
+                    onYuklemeDurumu?.(true);
                     try {
-                      const fd = new FormData();
-                      fd.append('turAd', turAd || '');   // metin alanı dosyadan ÖNCE
-                      fd.append('dosyalar', file);
-                      const kunye = await svc.turOrnekYukle(fd);
-                      onChange(evraklar.map((x, j) => (j === i ? { ...x, ornekDosya: kunye } : x)));
-                      onDurum?.('Örnek yüklendi — kalıcı olması için Kaydet’e basın.', 'info');
+                      for (const file of files) {
+                        const fd = new FormData();
+                        fd.append('turAd', turAd || '');
+                        fd.append('dosyalar', file);
+                        eklenenler.push(await svc.turOrnekYukle(fd));
+                      }
+                      onDurum?.('Örnekler yüklendi — kalıcı olması için Kaydet’e basın.', 'info');
                     } catch (err) {
                       onDurum?.(err?.response?.data?.message || 'Örnek dosya yüklenemedi', 'error');
+                    } finally {
+                      if (eklenenler.length) {
+                        onChange(evraklar.map((x, j) => (j === i
+                          ? { ...x, ornekDosyalar: [...ornekDosyalari(x), ...eklenenler] } : x)));
+                      }
+                      setOrnekYukleniyor(false);
+                      onYuklemeDurumu?.(false);
                     }
-                  }}
-                />
+                  }} />
               </Button>
             </Tooltip>
-            {/* İndirme yalnızca KAYITLI örnek için anlamlı: sunucu dosyayı satır
-                numarasıyla kayıtlı türden okuyor, henüz kaydedilmemiş künyeyi bulamaz.
-                Bilinen sınır: satırları taşıyıp KAYDETMEDEN indirirseniz sunucu hâlâ
-                eski sırayı bildiği için yanlış örnek iner. Kaydet'ten sonra liste
-                sunucudan tazelendiği için numaralar yeniden örtüşür. */}
-            {e.ornekDosya?.dosyaAdi && turId && (
-              <Tooltip title="Örneği indir">
-                <IconButton
-                  size="small" sx={{ p: 0.25 }}
-                  onClick={async () => {
+            <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap">
+              {ornekDosyalari(e).map((o, ornek) => (
+                <Chip key={`${o.filePath || o.fileUrl || o.dosyaAdi}-${ornek}`} size="small" label={o.dosyaAdi}
+                  title={indirmeKilitli ? 'İndirmek için önce değişiklikleri kaydedin.' : 'Örneği indir'}
+              deleteIcon={<DeleteOutlineIcon aria-label={`${o.dosyaAdi} örneğini kaldır`} />}
+                  icon={turId && !indirmeKilitli ? <DownloadIcon sx={{ fontSize: 16 }} /> : undefined}
+                  onClick={turId && !indirmeKilitli ? async () => {
                     try {
-                      const res = await svc.turOrnekIndir(turId, { varyant: varyantKod, i });
+                      const res = await svc.turOrnekIndir(turId, { varyant: varyantKod, i, ornek });
                       const url = window.URL.createObjectURL(new Blob([res.data]));
                       const a = document.createElement('a');
-                      a.href = url; a.download = e.ornekDosya.dosyaAdi || 'ornek';
+                      a.href = url; a.download = o.dosyaAdi || 'ornek';
                       document.body.appendChild(a); a.click(); a.remove();
                       window.URL.revokeObjectURL(url);
                     } catch (err) {
-                      onDurum?.(await hataMesaji(err, 'Örnek indirilemedi.'), 'error');
+                      onDurum?.(await hataMesaji(err, 'Örnek indirilemedi. Önce değişiklikleri kaydedin.'), 'error');
                     }
-                  }}
-                >
-                  <DownloadIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            )}
-            {e.ornekDosya?.dosyaAdi && (
-              <Tooltip title="Örneği kaldır">
-                <IconButton
-                  size="small" sx={{ p: 0.25 }}
-                  onClick={() => onChange(evraklar.map((x, j) => (j === i ? { ...x, ornekDosya: undefined } : x)))}
-                >
-                  <ClearIcon sx={{ fontSize: 16 }} />
-                </IconButton>
-              </Tooltip>
-            )}
+                  } : undefined}
+                  onDelete={ornekYukleniyor ? undefined : () => onChange(evraklar.map((x, j) => (j === i
+                    ? { ...x, ornekDosyalar: ornekDosyalari(x).filter((_, k) => k !== ornek) } : x)))} />
+              ))}
+            </Stack>
           </Stack>
           <Tooltip title="Satırı sil">
             <IconButton size="small" color="error" onClick={() => onChange(evraklar.filter((_, j) => j !== i))}>
@@ -255,22 +246,39 @@ const IslemTuruYonetimi = () => {
   const [form, setForm] = useState(bosTur());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
+  const [ornekYukleniyor, setOrnekYukleniyor] = useState(false);
+  const ornekYukleniyorRef = useRef(false);
+  const turYuklemeIdRef = useRef(0);
+  const [kayitliForm, setKayitliForm] = useState(null);
+  const kaydedilmemis = JSON.stringify(form) !== JSON.stringify(kayitliForm);
+  const yuklemeDurumu = useCallback((yukleniyor) => {
+    ornekYukleniyorRef.current = yukleniyor;
+    // Daha önce başlatılmış tür GET yanıtları yükleme tamamlanınca da eski formu ezemez.
+    if (yukleniyor) turYuklemeIdRef.current += 1;
+    setOrnekYukleniyor(yukleniyor);
+  }, []);
   const [snack, setSnack] = useState(null);
+  const duzenlemeKilitli = ornekYukleniyor || !!busy;
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
 
   const listeyiYukle = useCallback(async (secilecekId) => {
+    if (ornekYukleniyorRef.current) return;
+    const yuklemeId = ++turYuklemeIdRef.current;
     setLoading(true);
     try {
       // hepsi=1 → pasifleştirilmiş türler de görünsün (tekrar aktifleştirilebilsinler)
       const d = await svc.turler({ hepsi: '1' });
+      if (yuklemeId !== turYuklemeIdRef.current || ornekYukleniyorRef.current) return;
       setTurler(d || []);
       const hedef = secilecekId || (d && d[0]?._id) || null;
       if (hedef) {
         const tam = await svc.turDetay(hedef);
+        if (yuklemeId !== turYuklemeIdRef.current || ornekYukleniyorRef.current) return;
         setSeciliId(hedef);
         setForm({ ...bosTur(), ...tam });
+        setKayitliForm({ ...bosTur(), ...tam });
       }
     } catch (e) { notify(errMsg(e), 'error'); } finally { setLoading(false); }
   }, []);
@@ -278,14 +286,18 @@ const IslemTuruYonetimi = () => {
   useEffect(() => { listeyiYukle(); }, [listeyiYukle]);
 
   const turSec = async (id) => {
+    if (ornekYukleniyorRef.current) return;
+    const yuklemeId = ++turYuklemeIdRef.current;
     try {
       const tam = await svc.turDetay(id);
+      if (yuklemeId !== turYuklemeIdRef.current || ornekYukleniyorRef.current) return;
       setSeciliId(id);
       setForm({ ...bosTur(), ...tam });
+      setKayitliForm({ ...bosTur(), ...tam });
     } catch (e) { notify(errMsg(e), 'error'); }
   };
 
-  const yeniTur = () => { setSeciliId(null); setForm(bosTur()); };
+  const yeniTur = () => { if (ornekYukleniyorRef.current) return; setSeciliId(null); setForm(bosTur()); setKayitliForm(null); };
 
   const alan = (k, v) => setForm((p) => ({ ...p, [k]: v }));
 
@@ -297,6 +309,7 @@ const IslemTuruYonetimi = () => {
   const varyantGovdeRefleri = useRef({});
 
   const kaydet = async () => {
+    if (ornekYukleniyorRef.current) return;
     if (!String(form.ad || '').trim()) { notify('İşlem adı zorunludur.', 'warning'); return; }
     // Varyant kodları benzersiz ve dolu olmalı — varyantCoz koda göre eşleşme yapıyor
     const kodlar = (form.varyantlar || []).map((v) => v.kod);
@@ -322,6 +335,7 @@ const IslemTuruYonetimi = () => {
   };
 
   const sil = async () => {
+    if (ornekYukleniyorRef.current) return;
     if (!seciliId) return;
     if (!window.confirm('Bu işlem türü silinecek. Taleplerde kullanılıyorsa silinmez, pasifleştirilir. Devam edilsin mi?')) return;
     setBusy('sil');
@@ -346,7 +360,8 @@ const IslemTuruYonetimi = () => {
 
   return (
     <LayoutWrapper>
-      <Box sx={{ p: { xs: 2, md: 3 } }}>
+      <Box component="fieldset" disabled={duzenlemeKilitli} inert={duzenlemeKilitli ? '' : undefined} aria-busy={duzenlemeKilitli}
+        sx={{ p: { xs: 2, md: 3 }, m: 0, border: 0, minWidth: 0, pointerEvents: duzenlemeKilitli ? 'none' : undefined }}>
         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
           <IconButton onClick={() => navigate('/islem-evrak')}><ArrowBackIcon /></IconButton>
           <Box sx={{ flex: 1 }}>
@@ -359,6 +374,7 @@ const IslemTuruYonetimi = () => {
         </Stack>
 
         {loading && <CircularProgress size={22} sx={{ mb: 2 }} />}
+        {ornekYukleniyor && <Alert severity="info" sx={{ mb: 2 }}>Örnek dosyalar yükleniyor. Yükleme tamamlandıktan sonra düzenlemeye devam edebilirsiniz.</Alert>}
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
           {/* Sol: tür listesi */}
@@ -366,7 +382,7 @@ const IslemTuruYonetimi = () => {
             <List dense disablePadding>
               {turler.map((t) => (
                 <ListItemButton
-                  key={t._id} selected={t._id === seciliId} onClick={() => turSec(t._id)}
+                  key={t._id} disabled={duzenlemeKilitli} selected={t._id === seciliId} onClick={() => turSec(t._id)}
                   sx={{ mb: 0.5 }}
                 >
                   <ListItemText
@@ -395,10 +411,10 @@ const IslemTuruYonetimi = () => {
               <Stack direction="row" spacing={1}>
                 {seciliId && (
                   <Button size="small" color="error" startIcon={<DeleteOutlineIcon />}
-                    onClick={sil} disabled={busy === 'sil'}>Sil</Button>
+                    onClick={sil} disabled={ornekYukleniyor || busy === 'sil'}>Sil</Button>
                 )}
                 <Button size="small" variant="contained" startIcon={<SaveIcon />}
-                  onClick={kaydet} disabled={busy === 'kaydet'}>Kaydet</Button>
+                  onClick={kaydet} disabled={ornekYukleniyor || busy === 'kaydet'}>Kaydet</Button>
               </Stack>
             </Stack>
 
@@ -571,6 +587,8 @@ const IslemTuruYonetimi = () => {
                 turId={seciliId}
                 turAd={form.ad}
                 onDurum={notify}
+                onYuklemeDurumu={yuklemeDurumu}
+                indirmeKilitli={kaydedilmemis}
                 onChange={(v) => alan('istenenEvraklar', v)}
               />
 
@@ -654,6 +672,8 @@ const IslemTuruYonetimi = () => {
                         turAd={form.ad}
                         varyantKod={v.kod}
                         onDurum={notify}
+                onYuklemeDurumu={yuklemeDurumu}
+                indirmeKilitli={kaydedilmemis}
                         onChange={(list) => varyantDegistir(i, { istenenEvraklar: list })}
                       />
                     </Stack>
@@ -662,8 +682,8 @@ const IslemTuruYonetimi = () => {
               ))}
 
               <Alert severity="info" variant="outlined">
-                Örnek/şablon dosyalar (ör. taahhütname) talep ekranından yüklenir; buradaki
-                "Örnek ✓" işareti yalnızca bilgi amaçlıdır.
+                Bir evraka birden fazla örnek/şablon dosya ekleyebilirsiniz. Değişikliklerin kalıcı
+                olması ve örnekleri indirebilmek için Kaydet’e basın.
               </Alert>
             </Stack>
           </Paper>

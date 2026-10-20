@@ -473,7 +473,9 @@ const DosyaTakipDetail = () => {
     const { id } = useParams();
     // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
     // girildiyse state boştur ve normal listeye dönülür.
-    const listeyeDon = () => navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
+    const listeyeDon = () => location.state?.geriDon?.yol
+        ? navigate(location.state.geriDon.yol, { state: location.state.geriDon.state })
+        : navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
     const { seciliTalep, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, durumGecmisiSil, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
 
     const [activeTab, setActiveTabDurumu] = useState(() => Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme'))));
@@ -967,7 +969,7 @@ const DosyaTakipDetail = () => {
                 {/* Header */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <IconButton onClick={listeyeDon} sx={{ border: '1px solid #e2e8f0' }}>
+                        <IconButton onClick={listeyeDon} aria-label={location.state?.geriDon?.etiket ? `${location.state.geriDon.etiket} ekranına dön` : 'Talep listesine dön'} sx={{ border: '1px solid #e2e8f0' }}>
                             <ArrowBackIcon />
                         </IconButton>
                         <Box>

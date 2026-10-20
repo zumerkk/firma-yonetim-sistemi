@@ -29,4 +29,13 @@ async function ekle(tesvikModel, tesvikId, metin, user) {
   });
 }
 
-module.exports = { listele, ekle };
+async function sil(tesvikModel, tesvikId, notId) {
+  await belgeyiKontrolEt(tesvikModel, tesvikId);
+  if (!mongoose.isObjectIdOrHexString(notId)) throw hata('Geçersiz not bilgisi.', 400);
+  // Kimlik tek başına yeterli değil: başka belgenin veya modelin notu silinemez.
+  const not = await BelgeOzelNot.findOneAndDelete({ _id: notId, tesvikModel, tesvikId });
+  if (!not) throw hata('Not bulunamadı.', 404);
+  return { _id: not._id };
+}
+
+module.exports = { listele, ekle, sil };

@@ -16,6 +16,7 @@ import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import svc from '../../services/islemEvrakService';
+import { editoreHazirla, htmlTemizle } from '../../utils/mailHtml';
 
 const IslemEvrakPublicUpload = () => {
   const { token } = useParams();
@@ -71,13 +72,13 @@ const IslemEvrakPublicUpload = () => {
   };
 
   // Maildeki ek ile aynı dosya: tarayıcıda indir
-  const ornekIndir = async (evrak) => {
+  const ornekIndir = async (evrak, ornek) => {
     try {
-      const yanit = await svc.publicOrnekIndir(token, evrak.id);
+      const yanit = await svc.publicOrnekIndir(token, evrak.id, ornek.indeks ?? 0);
       const adres = URL.createObjectURL(new Blob([yanit.data]));
       const bag = document.createElement('a');
       bag.href = adres;
-      bag.download = evrak.ornekDosyaAdi || `${evrak.ad}.pdf`;
+      bag.download = ornek.dosyaAdi || evrak.ornekDosyaAdi || `${evrak.ad}.pdf`;
       document.body.appendChild(bag);
       bag.click();
       bag.remove();
@@ -145,6 +146,17 @@ const IslemEvrakPublicUpload = () => {
         </Typography>
       </Paper>
 
+      {bilgi.gonderilenMail && (
+        <Paper component="section" aria-label="Gönderilen mail" sx={{ p: 3, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Gönderilen mail</Typography>
+          <Typography variant="body1" sx={{ fontWeight: 600, mt: 1, overflowWrap: 'anywhere' }}>
+            {bilgi.gonderilenMail.konu}
+          </Typography>
+          <Box sx={{ mt: 1.5, overflowWrap: 'anywhere', '& p': { my: 1 } }}
+            dangerouslySetInnerHTML={{ __html: htmlTemizle(editoreHazirla(bilgi.gonderilenMail.govde)) }} />
+        </Paper>
+      )}
+
       <Paper sx={{ p: 3, mb: 2 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>İstenen Evraklar</Typography>
         <Stack spacing={1}>
@@ -167,15 +179,6 @@ const IslemEvrakPublicUpload = () => {
                 </Box>
                 {e.tekrarIstendi && <Chip label="Tekrar yükleyin" size="small" color="error" />}
                 {e.geldiMi && <Chip label={e.yuklenememeNedeni ? 'Neden bildirildi' : 'Yüklendi'} size="small" color="success" />}
-                {/* Müşteri (29.09.2026): "Bu belge yükleme linkinde mailde gönderdiğimiz ekleri de
-                    gösterme/gönderme şansımız var mı? Bazen mail gönderilmiyor, linki whatsapptan
-                    yolluyoruz." — maile eklenen örnek dosya burada da indirilebilir. */}
-                {e.ornekDosyaVar && (
-                  <Button size="small" startIcon={<DownloadIcon />} disabled={yukleniyor}
-                    onClick={() => ornekIndir(e)}>
-                    Örnek indir
-                  </Button>
-                )}
                 <Button component="label" variant="contained" size="small" startIcon={<CloudUploadIcon />} disabled={yukleniyor}
                   onClick={() => setSeciliEvrak(e.id)}>
                   Dosya yükle
@@ -185,6 +188,18 @@ const IslemEvrakPublicUpload = () => {
                   setNedenAcik(prev => ({ ...prev, [e.id]: !prev[e.id] }));
                   setNedenler(prev => ({ ...prev, [e.id]: prev[e.id] ?? e.yuklenememeNedeni ?? '' }));
                 }}>Yükleyemiyorum</Button>
+              </Stack>
+              <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 0.5 }}>
+                {/* Müşteri (29.09.2026): "Bu belge yükleme linkinde mailde gönderdiğimiz ekleri de
+                    gösterme/gönderme şansımız var mı? Bazen mail gönderilmiyor, linki whatsapptan
+                    yolluyoruz." — maile eklenen örnek dosya burada da indirilebilir. */}
+                {(Array.isArray(e.ornekDosyalar) ? e.ornekDosyalar
+                  : (e.ornekDosyaVar ? [{ indeks: 0, dosyaAdi: e.ornekDosyaAdi }] : [])).map((ornek, i) => (
+                  <Button key={ornek.indeks ?? i} size="small" startIcon={<DownloadIcon />} disabled={yukleniyor}
+                    sx={{ overflowWrap: 'anywhere' }} onClick={() => ornekIndir(e, ornek)}>
+                    {ornek.dosyaAdi || 'Örnek indir'}
+                  </Button>
+                ))}
               </Stack>
               {nedenAcik[e.id] && <Stack spacing={1} sx={{ mt: 1 }}>
                 <TextField multiline minRows={2} size="small" label={`${e.ad} yüklenememe nedeni`}

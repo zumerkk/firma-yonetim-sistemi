@@ -114,6 +114,8 @@ async function ornekDosyalariBagla() {
 
       for (const evrak of varyant.istenenEvraklar || []) {
         if (!TAAHHUTNAME_KALIBI.test(evrak.ad || '')) continue;
+        // Dizi (boş olsa da) kullanıcı tarafından yönetilen yeni örnek listesidir.
+        if (Array.isArray(evrak.ornekDosyalar)) continue;
         if (evrak.ornekDosya && (evrak.ornekDosya.filePath || evrak.ornekDosya.fileUrl)) continue;
         evrak.ornekDosya = { ...ornek };
         degisti = true;

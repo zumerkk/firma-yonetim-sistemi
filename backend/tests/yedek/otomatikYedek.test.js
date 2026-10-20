@@ -19,6 +19,7 @@ const YedekCalismasi = require('../../models/YedekCalismasi');
 const DosyaTakip = require('../../models/DosyaTakip');
 const UploadedDocument = require('../../models/UploadedDocument');
 const BelgeOzelNot = require('../../models/BelgeOzelNot');
+const CariHareket = require('../../models/CariHareket');
 
 jest.setTimeout(60000);
 
@@ -58,7 +59,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); delete process.env.YEDEK_DRIVE_KLASOR_ID; });
 beforeEach(async () => {
-  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({}), BelgeOzelNot.deleteMany({})]);
+  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({}), BelgeOzelNot.deleteMany({}), CariHareket.deleteMany({})]);
 });
 
 describe('veritabanı yedeği', () => {
@@ -67,6 +68,10 @@ describe('veritabanı yedeği', () => {
     const not = await BelgeOzelNot.create({
       tesvikModel: 'YeniTesvik', tesvikId: new ObjectId(), metin: 'Yedekte korunacak özel not',
       kullanici, kullaniciAdi: 'Test Personel'
+    });
+    const hareket = await CariHareket.create({
+      firma, tur: 'odenen', belgeAdi: 'Danışmanlık hizmeti', tutar: 12500.75, tarih: new Date('2026-10-20'),
+      olusturan: kullanici, olusturanAdi: 'Test Personel'
     });
     const istemci = sahteDrive();
     const sonuc = await yedekIsi.veritabaniniYedekle({ klasorId: 'vt', baslatan: 'Test', gunluk: sessiz, istemci });
@@ -89,6 +94,9 @@ describe('veritabanı yedeği', () => {
       createdAt: not.createdAt.toISOString()
     })]);
     expect(JSON.parse(zip.readAsText('metadata.json')).kayitSayilari['Belge Özel Notları']).toBe(1);
+    expect(JSON.parse(zip.readAsText('cari_hareketler.json'))).toEqual([
+      expect.objectContaining({ _id: String(hareket._id), firma: String(firma), tutar: 12500.75 })
+    ]);
     expect(sonuc.eksikler).toEqual([]);
   });
 
@@ -96,7 +104,7 @@ describe('veritabanı yedeği', () => {
     const { KOLEKSIYONLAR } = require('../../services/yedek/veritabaniArsivi');
     const dosyalar = KOLEKSIYONLAR.map((k) => k.dosya);
     expect(dosyalar).toEqual(expect.arrayContaining([
-      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json', 'belge_ozel_notlari.json'
+      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json', 'belge_ozel_notlari.json', 'cari_hareketler.json'
     ]));
   });
 });
@@ -171,10 +179,16 @@ describe('envanter', () => {
       documentType: 'diger', fileName: 'f.pdf', originalName: 'fatura.pdf',
       fileUrl: ayniAdres, fileSize: 400   // aynı adres → tek kayıt olmalı
     });
+    const cariDosyaAdresi = 'https://res.cloudinary.com/x/dekont.pdf';
+    await CariHareket.create({
+      firma, tur: 'odenen', belgeAdi: 'Hizmet', tutar: 100, tarih: new Date(),
+      dosya: { dosyaAdi: 'dekont.pdf', dosyaYolu: cariDosyaAdresi, dosyaBoyutu: 120, dosyaTipi: 'application/pdf' }
+    });
     const liste = await envanter();
     const adresler = liste.map((x) => x.anahtar);
     expect(adresler).toContain(ayniAdres);
     expect(adresler).toContain('https://res.cloudinary.com/x/imza.pdf');
+    expect(liste).toContainEqual(expect.objectContaining({ anahtar: cariDosyaAdresi, kaynak: 'cariHareket' }));
     expect(adresler.filter((a) => a === ayniAdres)).toHaveLength(1);       // tekrar yok
     expect(adresler.some((a) => a.startsWith('/opt'))).toBe(false);        // yerel yol yedeklenemez
   });

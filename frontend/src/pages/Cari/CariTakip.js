@@ -23,12 +23,12 @@
 // olsun)-kesilmedi olarak filtreleyebilirsek veya sıralayabilirsek" + "bütün sütunları sıralayabilirsek iyi
 // olur ödemelere, bakiyeye göre vs." Süzgeç düğmeleri + başlığa tıklayınca sıralama (utils/cariListe.js).
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import {
     Alert, Autocomplete, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton,
-    InputAdornment, LinearProgress, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead,
+    InputAdornment, LinearProgress, List, ListItemButton, ListItemText, Paper, Snackbar, Table, TableBody, TableCell, TableContainer, TableHead,
     TableRow, TableSortLabel, TextField, ToggleButton, ToggleButtonGroup, Tooltip, Typography
 } from '@mui/material';
 import {
@@ -133,9 +133,23 @@ export default function CariTakip() {
 
     const [ozetler, setOzetler] = useState([]);
     const [ozetYukleniyor, setOzetYukleniyor] = useState(true);
-    const [filtre, setFiltre] = useState('');
-    const [faturaSuzgeci, setFaturaSuzgeci] = useState('');
-    const [siralama, setSiralama] = useState({ alan: 'firmaUnvan', yon: 'asc' });
+    const [filtre, setFiltre] = useState(location.state?.cariListe?.filtre || '');
+    const [faturaSuzgeci, setFaturaSuzgeci] = useState(location.state?.cariListe?.faturaSuzgeci || '');
+    const [siralama, setSiralama] = useState(location.state?.cariListe?.siralama || { alan: 'firmaUnvan', yon: 'asc' });
+    const [talepSecimi, setTalepSecimi] = useState(null);
+    const talepIstekSirasi = useRef(0);
+
+    // Hem sayfanın Geri düğmesinde hem tarayıcı geçmişinde liste seçimi korunur.
+    useEffect(() => {
+        const cariListe = { filtre, faturaSuzgeci, siralama };
+        if (JSON.stringify(location.state?.cariListe) !== JSON.stringify(cariListe)) {
+            navigate(`${location.pathname}${location.search}`, {
+                replace: true, state: { ...location.state, cariListe }
+            });
+        }
+    }, [filtre, faturaSuzgeci, siralama, location.pathname, location.search, location.state, navigate]);
+
+    useEffect(() => () => { talepIstekSirasi.current += 1; }, []);
 
     const [firmaArama, setFirmaArama] = useState('');
     const [firmaSecenekleri, setFirmaSecenekleri] = useState([]);
@@ -216,6 +230,35 @@ export default function CariTakip() {
 
     // Durum taşınır: talepten gelinip başka firmaya geçilse de "Geri" talebe dönsün
     const firmaSec = (firmaId) => setSearchParams(firmaId ? { firma: firmaId } : {}, { state: location.state });
+    const talepSeciminiKapat = () => {
+        talepIstekSirasi.current += 1;
+        setTalepSecimi(null);
+    };
+    const talebeGit = (talep) => {
+        talepSeciminiKapat();
+        navigate(`/dosya-takip/${talep._id}?sekme=odemeler`, {
+            state: { geriDon: {
+                yol: `${location.pathname}${location.search}`,
+                state: location.state,
+                etiket: 'Cari Hesaplar / Ödeme Takip'
+            } }
+        });
+    };
+    const talepSeciminiAc = async (firma) => {
+        const sira = ++talepIstekSirasi.current;
+        setTalepSecimi({ firma, talepler: [], yukleniyor: true });
+        try {
+            const r = await cariService.firmaTalepleri(firma.firma);
+            if (sira !== talepIstekSirasi.current) return;
+            const talepler = Array.isArray(r?.data?.talepler) ? r.data.talepler : [];
+            if (talepler.length === 1) talebeGit(talepler[0]);
+            else setTalepSecimi({ firma, talepler, yukleniyor: false });
+        } catch (err) {
+            if (sira !== talepIstekSirasi.current) return;
+            setTalepSecimi({ firma, talepler: [], yukleniyor: false,
+                hata: err?.response?.data?.message || 'Firmanın talepleri yüklenemedi. Tekrar deneyin.' });
+        }
+    };
     const geri = () => {
         if (geriDon?.yol) navigate(geriDon.yol, { state: geriDon.state });
         else if (firmaParam) firmaSec('');
@@ -370,8 +413,8 @@ export default function CariTakip() {
                                     Firmalar{ozetler.length ? ` (${ozetler.length})` : ''}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                    Belge Takip'teki tüm firmalar (aktif + arşiv) ve cari hareketi olanlar. Satıra tıklayınca
-                                    firmanın cari tablosu açılır; listede olmayan firma için yukarıdan arayın.
+                                    Firma adına tıklayınca Belge Takip › Ödemeler açılır; birden fazla talep varsa seçebilirsiniz.
+                                    Firmanın tüm hareketleri için Cari Hesabı düğmesini kullanın.
                                 </Typography>
                             </Box>
                             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -410,12 +453,13 @@ export default function CariTakip() {
                                         {baslik('toplamGelen', 'Gelen', true)}
                                         {baslik('bakiye', 'Bakiye', true)}
                                         {baslik('sonHareketTarihi', 'Son Hareket')}
+                                        <TableCell sx={baslikSx}>Cari Hesabı</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
                                     {!ozetYukleniyor && suzulmus.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={faturaSutunu ? 8 : 7} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
+                                            <TableCell colSpan={faturaSutunu ? 9 : 8} sx={{ textAlign: 'center', color: '#94a3b8', py: 4 }}>
                                                 {ozetler.length === 0
                                                     ? 'Henüz firma yok. Belge Takip\'te talep açılan firmalar ve cari hareketi olanlar burada listelenir.'
                                                     : 'Aramaya / süzgece uyan firma yok.'}
@@ -423,8 +467,12 @@ export default function CariTakip() {
                                         </TableRow>
                                     )}
                                     {suzulmus.map((f) => (
-                                        <TableRow key={f.firma} hover onClick={() => firmaSec(f.firma)} sx={{ cursor: 'pointer' }}>
-                                            <TableCell sx={{ fontWeight: 500 }}>{f.firmaUnvan || '—'}</TableCell>
+                                        <TableRow key={f.firma} hover onClick={() => talepSeciminiAc(f)} sx={{ cursor: 'pointer' }}>
+                                            <TableCell sx={{ fontWeight: 500 }}>
+                                                <Button onClick={(e) => { e.stopPropagation(); talepSeciminiAc(f); }} sx={{ textTransform: 'none', textAlign: 'left', justifyContent: 'flex-start', p: 0 }}>
+                                                    {f.firmaUnvan || '—'}
+                                                </Button>
+                                            </TableCell>
                                             <TableCell><CariDurumuSecimi firmaId={f.firma} value={f.cariDurumu}
                                                 onDegis={(durum) => cariDurumunuYansit(f.firma, durum)} /></TableCell>
                                             {faturaSutunu && <TableCell sx={tutarSx}>{paraYaz(f.toplamFatura)}</TableCell>}
@@ -433,12 +481,18 @@ export default function CariTakip() {
                                             <TableCell sx={{ ...tutarSx, color: HAREKET_TURU.gelen.renk }}>{paraYaz(f.toplamGelen)}</TableCell>
                                             <TableCell sx={{ ...tutarSx, fontWeight: 700, color: bakiyeRengi(f.bakiye) }}>{paraYaz(f.bakiye)}</TableCell>
                                             <TableCell sx={{ whiteSpace: 'nowrap', color: '#64748b' }}>{tarihYaz(f.sonHareketTarihi)}</TableCell>
+                                            <TableCell>
+                                                <Button size="small" onClick={(e) => { e.stopPropagation(); firmaSec(f.firma); }} sx={{ textTransform: 'none', whiteSpace: 'nowrap' }}>
+                                                    Cari Hesabı
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
                                     ))}
                                     {suzulmus.length > 1 && (
                                         <TableRow sx={{ background: '#f8fafc', '& td': { fontWeight: 700, borderBottom: 0 } }}>
                                             <TableCell colSpan={faturaSutunu ? 6 : 5} sx={{ textAlign: 'right', color: '#475569' }}>Toplam Bakiye</TableCell>
                                             <TableCell sx={{ ...tutarSx, color: bakiyeRengi(toplamBakiye) }}>{paraYaz(toplamBakiye)}</TableCell>
+                                            <TableCell />
                                             <TableCell />
                                         </TableRow>
                                     )}
@@ -513,6 +567,27 @@ export default function CariTakip() {
                         />
                     </>
                 )}
+
+                <Dialog open={!!talepSecimi} onClose={talepSeciminiKapat} fullWidth maxWidth="sm">
+                    <DialogTitle>Ödemeler için talep seçin</DialogTitle>
+                    <DialogContent>
+                        <Typography variant="body2" sx={{ mb: 1 }}>{talepSecimi?.firma?.firmaUnvan}</Typography>
+                        {talepSecimi?.yukleniyor ? <LinearProgress aria-label="Talepler yükleniyor" />
+                            : talepSecimi?.hata ? <Alert severity="error">{talepSecimi.hata}</Alert>
+                                : !talepSecimi?.talepler.length ? <Alert severity="info">Bu firmanın Belge Takip talebi bulunmuyor. Tüm hareketlerini cari hesabından görebilirsiniz.</Alert>
+                                    : <List disablePadding>{talepSecimi.talepler.map((talep) => (
+                                        <ListItemButton key={talep._id} onClick={() => talebeGit(talep)} divider>
+                                            <ListItemText primary={talepEtiketi(talep) || 'Talep'}
+                                                secondary={`${['KURUM_SONUCLANMA', 'TAMAMLANDI'].includes(talep.anaAsama) ? 'Arşiv' : 'Aktif'} · ${tarihYaz(talep.createdAt)}`} />
+                                        </ListItemButton>
+                                    ))}</List>}
+                    </DialogContent>
+                    <DialogActions>
+                        {talepSecimi?.hata && <Button onClick={() => talepSeciminiAc(talepSecimi.firma)}>Tekrar Dene</Button>}
+                        <Button onClick={() => { const firmaId = talepSecimi.firma.firma; talepSeciminiKapat(); firmaSec(firmaId); }}>Firmanın Cari Hesabı</Button>
+                        <Button onClick={talepSeciminiKapat}>Vazgeç</Button>
+                    </DialogActions>
+                </Dialog>
 
                 <Dialog open={!!duzenlenen} onClose={() => setDuzenlenen(null)} fullWidth maxWidth="xs">
                     <DialogTitle sx={{ color: HAREKET_TURU[duzenlenen?.tur]?.renk }}>

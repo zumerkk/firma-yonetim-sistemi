@@ -12,6 +12,7 @@ const storageService = require('../tesvikMakine/storageService');
 const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 const mailService = require('../tesvikMakine/mailService');
 const { mailIcerigi } = require('../../utils/mailHtml');
+const { ornekDosyalari, ornekDosyayiSec } = require('../../utils/islemEvrakOrnekleri');
 const engine = require('../tesvikMakine/mailTemplateEngine');
 const { DEFAULT_SIGNATURE } = require('../../constants/tesvikMakineMail');
 
@@ -161,7 +162,7 @@ function maildeIstenenler(evraklar) {
 // ek olarak gitmeye devam ediyor. İstenmeyen evrakların örnekleri maile eklenmemeli."
 function ekliOrnekler(evraklar) {
   return maildeIstenenler(evraklar)
-    .filter((e) => e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath));
+    .filter((e) => ornekDosyalari(e).length);
 }
 
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
@@ -417,6 +418,7 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
     konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || '',
     smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300)
   }].slice(-50);
+  talep.sonGonderilenMail = { konu: subject, govde: html || body, tarih: new Date() };
   talep.mailKonusu = subject;
   talep.mailGovdesi = html || body;
   talep.mailAlicilar = to;
@@ -618,6 +620,7 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
       aciklama: e.aciklama || '',
       zorunlu: e.zorunlu !== false,
       ornekDosya: e.ornekDosya || undefined,
+      ornekDosyalar: ornekDosyalari(e),
       isteyenKullanici: user ? user._id : undefined,
       isteyenAdi: user ? user.adSoyad : '',
       istenmeTarihi: new Date()
@@ -643,6 +646,8 @@ module.exports = {
   getSignature,
   maildeIstenenler,
   ekliOrnekler,
+  ornekDosyalari,
+  ornekDosyayiSec,
   topluZipYaz,
   zipDosyaIcerigi,
   ensureUploadLink,

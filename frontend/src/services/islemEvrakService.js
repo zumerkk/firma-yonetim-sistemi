@@ -15,8 +15,8 @@ const islemEvrakService = {
   // yazılır ve türü kaydedince kalıcılaşır — yükleme tek başına türü değiştirmez.
   turOrnekYukle: (formData, onProgress) =>
     uploadPost(`${base}/turler/ornek-yukle`, formData, { onProgress }).then(d),
-  turOrnekIndir: (id, { varyant = '', i } = {}) =>
-    api.get(`${base}/turler/${id}/ornek-indir`, { params: { varyant, i }, responseType: 'blob' }),
+  turOrnekIndir: (id, { varyant = '', i, ornek = 0 } = {}) =>
+    api.get(`${base}/turler/${id}/ornek-indir`, { params: { varyant, i, ornek }, responseType: 'blob' }),
 
   // Talepler
   talepler: (params = {}) => api.get(`${base}/talepler`, { params }).then((r) => r.data),
@@ -46,8 +46,8 @@ const islemEvrakService = {
   tekrarIstemeGeriAl: (id, evrakId) => api.delete(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`).then(d),
   // Dosya indirme: blob olarak çekilir. Göreli fileUrl'i doğrudan href vermek işe yaramıyor —
   // tarayıcı onu frontend origin'ine göre çözüp SPA'nın index.html'ini indiriyordu.
-  dosyaIndir: (id, dosyaId, signal) =>
-    api.get(`${base}/talepler/${id}/dosya/${dosyaId}/indir`, { responseType: 'blob', signal, timeout: 2 * 60 * 1000 }),
+  dosyaIndir: (id, dosyaId, signal, ornek) =>
+    api.get(`${base}/talepler/${id}/dosya/${dosyaId}/indir`, { responseType: 'blob', signal, params: ornek === undefined ? undefined : { ornek }, timeout: 2 * 60 * 1000 }),
   // Firmadan gelen evrakların hepsi tek ZIP (evrak adına göre klasörlü). Büyük arşivde global
   // 15 sn'lik zaman aşımı yetmez; sunucu dosyaları buluttan tek tek çekip paketliyor.
   topluIndir: (id) =>
@@ -58,8 +58,8 @@ const islemEvrakService = {
   publicEkBelgeEkle: (token, body) => api.post(`${base}/public/${token}/ek-belge`, body).then(r => r.data),
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
   // Maile eklediğimiz örnek/şablon dosya — firma yükleme sayfasından da indirebilsin
-  publicOrnekIndir: (token, evrakId) =>
-    api.get(`${base}/public/${token}/ornek/${evrakId}`, { responseType: 'blob' }),
+  publicOrnekIndir: (token, evrakId, ornek = 0) =>
+    api.get(`${base}/public/${token}/ornek/${evrakId}`, { params: { ornek }, responseType: 'blob' }),
   publicYukle: (token, formData, onProgress) =>
     uploadPost(`${base}/public/${token}`, formData, { onProgress }).then((r) => r.data)
 };

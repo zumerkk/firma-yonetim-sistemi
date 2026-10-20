@@ -24,7 +24,7 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'cari-yetki-regresyon';
   for (const rol of ['admin', 'kullanici', 'readonly']) {
     const _id = id();
-    await User.collection.insertOne({ _id, adSoyad: `Test ${rol}`, rol, aktif: true });
+    await User.collection.insertOne({ _id, adSoyad: `Test ${rol}`, email: `${rol}@yetki.example.test`, rol, aktif: true });
     tokenlar[rol] = jwt.sign({ id: String(_id) }, process.env.JWT_SECRET);
   }
   await Firma.collection.insertOne({ _id: firma, tamUnvan: 'YETKİ TEST', firmaId: 'A-YETKI', cariDurumu: 'acik' });

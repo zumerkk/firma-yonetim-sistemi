@@ -1,7 +1,7 @@
 // ⚙️ Settings Page - FUNCTIONAL BACKEND INTEGRATION
 // Kullanıcı ve sistem ayarları sayfası - Real API calls
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -48,6 +48,7 @@ import {
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import api from '../../utils/axios';
+import { sistemYedegiIndir } from '../../services/backupService';
 
 const Settings = () => {
   // 🎯 Layout State Management
@@ -63,7 +64,10 @@ const Settings = () => {
   const [backupLoading, setBackupLoading] = useState(false);
   const [backupInfo, setBackupInfo] = useState(null);
   const [yedekDurumu, setYedekDurumu] = useState(null);
-  const [backupProgress, setBackupProgress] = useState(0);
+  const [backupProgress, setBackupProgress] = useState(null);
+  const [backupBytes, setBackupBytes] = useState(0);
+  const backupController = useRef(null);
+  useEffect(() => () => backupController.current?.abort(), []);
   
   const [settings, setSettings] = useState({
     // 🔔 Bildirim Ayarları
@@ -148,71 +152,36 @@ const Settings = () => {
 
   // 💾 Sistemi Yedekle
   const handleBackup = async () => {
+    const controller = new AbortController();
+    backupController.current = controller;
     setBackupLoading(true);
-    setBackupProgress(0);
-    
+    setBackupProgress(null);
+    setBackupBytes(0);
     try {
-      // Progress simülasyonu başlat
-      const progressInterval = setInterval(() => {
-        setBackupProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.random() * 15;
-        });
-      }, 500);
-
-      const token = localStorage.getItem('token');
-      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-      
-      const response = await fetch(`${baseURL}/backup/full`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
+      const { blob, filename } = await sistemYedegiIndir({
+        signal: controller.signal,
+        onProgress: ({ loaded, percent }) => {
+          setBackupBytes(loaded);
+          setBackupProgress(percent);
         }
       });
-
-      clearInterval(progressInterval);
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.message || `HTTP ${response.status}`);
-      }
-
-      setBackupProgress(95);
-
-      // Blob'a çevir ve indirmeyi tetikle
-      const blob = await response.blob();
-      const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
-      
-      // Dosya adını header'dan al
-      const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = 'GM_Yedek.zip';
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="(.+?)"/);
-        if (match) filename = match[1];
-      }
-
-      // İndirme linki oluştur
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      link.remove();
+      // Tarayıcının indirmeyi başlatmasına fırsat ver.
+      setTimeout(() => window.URL.revokeObjectURL(url), 60000);
       setBackupProgress(100);
-      showSnackbar(`✅ Yedekleme tamamlandı! (${sizeMB} MB)`, 'success');
-
+      showSnackbar(`Yedekleme tamamlandı! (${(blob.size / 1048576).toFixed(2)} MB)`, 'success');
     } catch (error) {
-      console.error('Backup hatası:', error);
-      showSnackbar(`❌ Yedekleme başarısız: ${error.message}`, 'error');
+      if (controller.signal.aborted) showSnackbar('Yedekleme iptal edildi.', 'info');
+      else showSnackbar(`Yedekleme başarısız: ${error.kullaniciMesaji || error.message}`, 'error');
     } finally {
+      if (backupController.current === controller) backupController.current = null;
       setBackupLoading(false);
-      setTimeout(() => setBackupProgress(0), 3000);
     }
   };
 
@@ -734,15 +703,15 @@ const Settings = () => {
                     <Box sx={{ mb: 3 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-                          {backupProgress < 90 ? 'Veriler toplanıyor...' : backupProgress < 100 ? 'ZIP paketleniyor...' : '✅ Tamamlandı!'}
+                          {backupBytes > 0 ? `Yedek hazırlanıyor ve indiriliyor · ${(backupBytes / 1048576).toFixed(2)} MB alındı` : 'Yedek hazırlanıyor, sunucudan veri bekleniyor...'}
                         </Typography>
                         <Typography variant="body2" sx={{ color: '#38bdf8', fontWeight: 600 }}>
-                          %{Math.round(backupProgress)}
+                          {backupProgress === null ? 'İşlem sürüyor' : `%${Math.round(backupProgress)}`}
                         </Typography>
                       </Box>
                       <LinearProgress
-                        variant="determinate"
-                        value={backupProgress}
+                        variant={backupProgress === null ? "indeterminate" : "determinate"}
+                        value={backupProgress ?? 0}
                         sx={{
                           height: 8,
                           backgroundColor: 'rgba(255,255,255,0.1)',
@@ -753,6 +722,9 @@ const Settings = () => {
                           }
                         }}
                       />
+                      <Button size="small" onClick={() => backupController.current?.abort()} sx={{ mt: 1, color: '#f8fafc' }}>
+                        Yedeklemeyi iptal et
+                      </Button>
                     </Box>
                   )}
 
@@ -887,4 +859,4 @@ const Settings = () => {
   );
 };
 
-export default Settings; 
+export default Settings;

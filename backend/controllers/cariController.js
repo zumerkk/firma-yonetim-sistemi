@@ -125,6 +125,17 @@ exports.firmaDefteri = sar(async (req, res) => {
     });
 });
 
+// Firma satırından Ödemeler'e geçiş: aktif ve arşivdeki bütün talepler; silinenler hariç.
+// Cari hareketlerini yüklemeden ve defterdeki seçenek sınırına takılmadan listelenir.
+exports.firmaTalepleri = sar(async (req, res) => {
+    const firma = await Firma.findById(req.params.firmaId).select('tamUnvan').lean();
+    if (!firma) throw new IstekHatasi(404, 'Firma bulunamadı');
+    const talepler = await DosyaTakip.find({ firma: firma._id, aktif: { $ne: false } })
+        .select('takipId belgeId ytbNo talepTuru createdAt anaAsama guncelDurum')
+        .sort({ createdAt: -1, _id: -1 }).lean();
+    res.json({ success: true, data: { firma, talepler } });
+});
+
 // ============================================================================
 // 📊 GET /api/cari/firmalar — Belge Takip'teki tüm firmalar (aktif + arşiv) ve bakiyeleri
 // Müşteri (05.10.2026): "hareketi olan firmalar değil de Belge Takip'deki bütün firmalar gelsin

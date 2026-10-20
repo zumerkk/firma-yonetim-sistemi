@@ -5,6 +5,14 @@
 
 const mongoose = require('mongoose');
 
+const ornekDosyaSchema = new mongoose.Schema({
+  dosyaAdi: { type: String, trim: true },
+  fileUrl: { type: String, trim: true },
+  filePath: { type: String, trim: true },
+  mimeType: { type: String, trim: true },
+  fileSize: { type: Number, default: 0 }
+}, { _id: false });
+
 const DURUMLAR = ['taslak', 'mail_gonderildi', 'kismi_geldi', 'tamamlandi', 'iptal'];
 
 // Talep bazındaki istenen evrak: şablondan gelir, kullanıcı ekler/çıkarır
@@ -16,6 +24,8 @@ const talepEvrakSchema = new mongoose.Schema({
   aciklama: { type: String, trim: true, maxlength: 2000, default: '' },
   zorunlu: { type: Boolean, default: true },
   // Firmaya gönderilen örnek/şablon dosya (varsa maile eklenir)
+  // Eski tekli kayıt okunur; yeni dosyalar bu dizide tutulur.
+  ornekDosyalar: { type: [ornekDosyaSchema], default: undefined },
   ornekDosya: {
     dosyaAdi: { type: String, trim: true },
     fileUrl: { type: String, trim: true },
@@ -109,6 +119,12 @@ const islemTalebiSchema = new mongoose.Schema({
   mailAlicilar: { type: [String], default: [] },
   mailCc: { type: [String], default: [] },
   sonMailTarihi: { type: Date },
+  // Taslak sonradan düzenlense de firma yalnız gönderilmiş içeriği görür.
+  sonGonderilenMail: {
+    konu: { type: String },
+    govde: { type: String },
+    tarih: { type: Date }
+  },
   // Firmadan evrak gelince haber bu kişiye gider (takibi yapan atanmamışsa).
   // Müşteri (29.09.2026): "belge yüklendi diye mail bilgi@gmplanlama.com'a düşüyor ya, onu
   // takibi yapan'a düşürtebilir miyiz? Takibi yapan atanmamışsa, maili kim gönderdi ise ona düşsün."

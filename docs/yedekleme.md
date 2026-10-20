@@ -7,7 +7,7 @@
 
 | Katman | Nerede | Nasıl |
 |---|---|---|
-| **Veritabanı** (27 koleksiyon, ~31 bin kayıt, sıkıştırılmış ~22 MB) | MongoDB Atlas | Her gece 03:30'da ZIP olarak Google Drive'a |
+| **Veritabanı** (cari hareketler ve özel notlar dahil 30 koleksiyon) | MongoDB Atlas | Her gece 03:30'da ZIP olarak Google Drive'a |
 | **Evraklar** (1134 dosya, ~616 MB) | Cloudinary | Her gece artımlı: Drive'da olmayanlar kopyalanır |
 | **Elle yedek** | — | Ayarlar → "Sistemi Yedekle" → ZIP indirir (her zaman çalışır) |
 
@@ -15,12 +15,19 @@ Yedek ZIP'i her koleksiyonu ayrı bir JSON dosyası olarak içerir. Ayrı saklan
 makine revizyon geçmişi `makine_revizyon_kayitlari.json` dosyasına dahildir; güncel
 teşvik belgesi tek başına eski makine listelerini içermez. Ayrıca `metadata.json`
 içinde kayıt sayıları ve varsa eksikler yazar. Evraklar Drive'da `evraklar/` klasöründe
-`kaynak_dosyaadi` biçiminde durur; hangi dosyanın hangi belgeye ait olduğu veritabanı
+`kaynak_dosyaadi` biçiminde durur; cari hareketlerin dekontları ve evrakların çoklu
+örnekleri de taranır. Hangi dosyanın hangi belgeye ait olduğu veritabanı
 yedeğindeki kayıtlardan çözülür.
 
-Veritabanı arşivi kayıtları birer birer okur. Büyük aktivite ve revizyon kayıtlarının
-aynı anda bellekte birikmesi önlenir; veritabanına daha fazla okuma gerektiği için
-toplam yedekleme süresi artabilir.
+Veritabanı arşivi kayıtları 50 kayıtlık MongoDB paketleriyle alır ve sırayla ZIP'e
+akıtır. Koleksiyonun tamamı belleğe alınmaz; tüketici yavaşladığında okuma da bekler.
+Önceki tek kayıtlık paketler her kayıt için bir ağ isteği yaptığından özellikle
+kod listelerinde yedeklemeyi dakikalarca uzatıyordu.
+
+Elle indirmede toplam ZIP boyutu üretim sırasında bilinmediği için sahte bir yüzde
+gösterilmez; ekranda alınan MB ve işlemin sürdüğü görünür. İndirme iptal edilebilir.
+Akış kesilirse veya ZIP'in son kaydı eksikse tamamlandı mesajı verilmez. Sunucuda
+iki dakika veri akmaması bağlantıyı kapatır; istemcide toplam süre sınırı 15 dakikadır.
 
 **Saklama:** veritabanı yedeklerinin son 30 günü tutulur (`YEDEK_SAKLAMA_GUN`), eskiler
 otomatik silinir. Evrak kopyaları silinmez.

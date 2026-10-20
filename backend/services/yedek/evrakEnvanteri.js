@@ -11,8 +11,10 @@ const DosyaTakip = require('../../models/DosyaTakip');
 const UploadedDocument = require('../../models/UploadedDocument');
 const IslemTalebi = require('../../models/IslemTalebi');
 const IslemTuru = require('../../models/IslemTuru');
+const { ornekDosyalari } = require('../../utils/islemEvrakOrnekleri');
 const Tesvik = require('../../models/Tesvik');
 const YeniTesvik = require('../../models/YeniTesvik');
+const CariHareket = require('../../models/CariHareket');
 
 const adTemizle = (s) => String(s || 'dosya').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 180);
 
@@ -41,13 +43,21 @@ async function envanter() {
     hepsi.push(kayit('ekipmanTakip', e.fileUrl, e.originalName || e.fileName, e.fileSize, e.mimeType));
   }
 
+  const cariHareketler = await CariHareket.find({ 'dosya.dosyaYolu': { $exists: true } }, { dosya: 1 }).lean();
+  for (const hareket of cariHareketler) {
+    const d = hareket.dosya || {};
+    hepsi.push(kayit('cariHareket', d.dosyaYolu, d.dosyaAdi, d.dosyaBoyutu, d.dosyaTipi));
+  }
+
   const talepler = await IslemTalebi.find({}, { yuklenenEvraklar: 1, istenenEvraklar: 1, firmaAdi: 1 }).lean();
   for (const t of talepler) {
     for (const y of t.yuklenenEvraklar || []) {
       hepsi.push(kayit('islemEvrak', y.fileUrl, `${t.firmaAdi || ''}_${y.orijinalAd || y.dosyaAdi}`, y.fileSize, y.mimeType));
     }
     for (const i of t.istenenEvraklar || []) {
-      if (i.ornekDosya) hepsi.push(kayit('ornekDosya', i.ornekDosya.fileUrl, i.ornekDosya.dosyaAdi, i.ornekDosya.fileSize, i.ornekDosya.mimeType));
+      for (const o of ornekDosyalari(i)) {
+        hepsi.push(kayit('ornekDosya', o.fileUrl, o.dosyaAdi, o.fileSize, o.mimeType));
+      }
     }
   }
 
@@ -55,7 +65,9 @@ async function envanter() {
   for (const t of turler) {
     const satirlar = [...(t.istenenEvraklar || []), ...(t.varyantlar || []).flatMap((v) => v.istenenEvraklar || [])];
     for (const i of satirlar) {
-      if (i.ornekDosya) hepsi.push(kayit('ornekDosya', i.ornekDosya.fileUrl, i.ornekDosya.dosyaAdi, i.ornekDosya.fileSize, i.ornekDosya.mimeType));
+      for (const o of ornekDosyalari(i)) {
+        hepsi.push(kayit('ornekDosya', o.fileUrl, o.dosyaAdi, o.fileSize, o.mimeType));
+      }
     }
   }
 

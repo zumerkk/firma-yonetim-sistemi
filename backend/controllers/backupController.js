@@ -24,8 +24,8 @@ const fullBackup = async (req, res) => {
   console.log(`\n💾 [${new Date().toLocaleString('tr-TR')}] Tam sistem yedeği başlatılıyor...`);
   console.log(`👤 Yedek alan: ${req.user?.adSoyad || req.user?.ad || 'Bilinmiyor'} (${req.user?.email || '-'})`);
 
-  req.setTimeout(5 * 60 * 1000);
-  res.setTimeout(5 * 60 * 1000);
+  req.setTimeout(15 * 60 * 1000);
+  res.setTimeout(2 * 60 * 1000, () => res.destroy(new Error('Yedekleme veri akışı zaman aşımına uğradı.')));
 
   const arsiv = yeniArsiv();
   try {
@@ -33,17 +33,27 @@ const fullBackup = async (req, res) => {
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${dosyaAdi}"`);
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('X-Accel-Buffering', 'no');
 
     arsiv.on('error', (err) => {
       console.error('❌ Arşiv hatası:', err);
-      if (!res.headersSent) res.status(500).json({ success: false, message: 'Yedekleme sırasında hata oluştu: ' + err.message });
+      arsiv.destroy();
+      if (!res.headersSent) {
+        res.removeHeader('Content-Disposition');
+        res.removeHeader('Content-Type');
+        res.status(500).json({ success: false, message: 'Yedekleme sırasında hata oluştu: ' + err.message });
+      } else res.destroy(err);
     });
     arsiv.on('end', () => console.log(`✅ Yedekleme tamamlandı: ${(arsiv.pointer() / 1048576).toFixed(2)} MB`));
     arsiv.pipe(res);
 
     // Kullanıcı indirmeyi iptal ederse cursor'lar boşta kalmasın
     res.on('close', () => {
-      if (!res.writableEnded) { console.warn('⚠️ Yedek indirmesi yarıda kesildi.'); arsiv.abort(); }
+      if (!res.writableEnded) {
+        console.warn('⚠️ Yedek indirmesi yarıda kesildi.');
+        arsiv.abort();
+        arsiv.destroy();
+      }
     });
 
     await arsiveYaz(arsiv, {
@@ -53,7 +63,13 @@ const fullBackup = async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Yedekleme hatası:', error);
-    if (!res.headersSent) res.status(500).json({ success: false, message: 'Yedekleme başarısız: ' + error.message });
+    arsiv.abort();
+    arsiv.destroy();
+    if (!res.headersSent) {
+      res.removeHeader('Content-Disposition');
+      res.removeHeader('Content-Type');
+      res.status(500).json({ success: false, message: 'Yedekleme başarısız: ' + error.message });
+    } else if (!res.destroyed) res.destroy(error);
   }
 };
 

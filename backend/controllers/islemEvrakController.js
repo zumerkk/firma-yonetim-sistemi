@@ -157,7 +157,7 @@ exports.turOrnekDosyaIndir = wrap(async (req, res) => {
     ? ((tur.varyantlar || []).find((v) => v.kod === varyantKod) || {}).istenenEvraklar
     : tur.istenenEvraklar;
   const evrak = (liste || [])[Number(req.query.i)];
-  const ornek = evrak && evrak.ornekDosya;
+  const ornek = svc.ornekDosyayiSec(evrak, req.query?.ornek ?? 0);
   if (!ornek || !(ornek.fileUrl || ornek.filePath)) {
     const e = new Error('Bu satıra örnek dosya yüklenmemiş.'); e.code = 'BAD_INPUT'; throw e;
   }
@@ -310,6 +310,7 @@ exports.talepVaryantUygula = wrap(async (req, res) => {
       ...(onceki ? { _id: onceki._id, geldiMi: onceki.geldiMi, gelisTarihi: onceki.gelisTarihi, yuklenememeNedeni: onceki.yuklenememeNedeni, nedenBildirimTarihi: onceki.nedenBildirimTarihi, ...tekrarIstemeAlanlari(onceki) } : {}),
       ad: e.ad, aciklama: e.aciklama || '', zorunlu: e.zorunlu !== false,
       ornekDosya: e.ornekDosya || undefined,
+      ornekDosyalar: svc.ornekDosyalari(e),
       isteyenKullanici: onceki?.isteyenKullanici || req.user?._id,
       isteyenAdi: onceki?.isteyenAdi || req.user?.adSoyad || '',
       istenmeTarihi: onceki?.istenmeTarihi || new Date()
@@ -356,7 +357,7 @@ exports.talepMailOnizle = wrap(async (req, res) => {
       smtpConfigured: mailService.isConfigured(),
       // Maile eklenebilecek örnek dosyalar — yalnız mailde istenen evrakların (bkz. talepMailGonder)
       ornekDosyalar: svc.ekliOrnekler(talep.istenenEvraklar)
-        .map((e) => ({ evrakId: e._id, ...e.ornekDosya.toObject?.() || e.ornekDosya }))
+        .flatMap((e) => svc.ornekDosyalari(e).map((o, indeks) => ({ evrakId: e._id, indeks, ...(o.toObject?.() || o) })))
     }
   });
 });
@@ -379,7 +380,7 @@ exports.talepMailGonder = wrap(async (req, res) => {
   const secilen = Array.isArray(ekEvrakIdler) ? ekEvrakIdler.map(String) : null;
   const ekler = svc.ekliOrnekler(talep.istenenEvraklar)
     .filter((e) => !secilen || secilen.includes(String(e._id)))
-    .map((e) => e.ornekDosya);
+    .flatMap((e) => svc.ornekDosyalari(e));
 
   // multer Türkçe adı latin1 çözüyor — alıcıya düzgün adla gitsin
   const serbestEkler = (req.uploadedFiles || []).map((f) => ({ filename: dosyaAdiDuzelt(f.originalname), content: f.buffer }));
@@ -397,11 +398,16 @@ exports.talepOrnekDosyaYukle = wrap(async (req, res) => {
   const files = req.uploadedFiles || [];
   if (!files.length) { const e = new Error('Dosya seçilmedi.'); e.code = 'BAD_INPUT'; throw e; }
 
-  const kayit = await svc.dosyaKaydet(talep, files[0], 'Ornek_Sablonlar');
-  evrak.ornekDosya = {
-    dosyaAdi: kayit.orijinalAd, fileUrl: kayit.fileUrl, filePath: kayit.filePath,
-    mimeType: kayit.mimeType, fileSize: kayit.fileSize
-  };
+  const eklenenler = [];
+  for (const file of files) {
+    const kayit = await svc.dosyaKaydet(talep, file, 'Ornek_Sablonlar');
+    eklenenler.push({
+      dosyaAdi: kayit.orijinalAd, fileUrl: kayit.fileUrl, filePath: kayit.filePath,
+      mimeType: kayit.mimeType, fileSize: kayit.fileSize
+    });
+  }
+  evrak.ornekDosyalar = [...svc.ornekDosyalari(evrak), ...eklenenler];
+  evrak.ornekDosya = evrak.ornekDosyalar[0];
   await talep.save();
   res.json({ success: true, data: talep, message: 'Örnek dosya yüklendi' });
 });
@@ -430,13 +436,11 @@ exports.talepDosyaIndir = wrap(async (req, res) => {
   }
 
   const istenen = talep.istenenEvraklar.id(dosyaId);
-  if (istenen && istenen.ornekDosya && (istenen.ornekDosya.fileUrl || istenen.ornekDosya.filePath)) {
+  const ornek = svc.ornekDosyayiSec(istenen, req.query?.ornek ?? 0);
+  if (ornek) {
     return storageService.serveFile({
-      fileUrl: istenen.ornekDosya.fileUrl,
-      filePath: istenen.ornekDosya.filePath,
-      mimeType: istenen.ornekDosya.mimeType,
-      originalName: istenen.ornekDosya.dosyaAdi,
-      fileName: istenen.ornekDosya.dosyaAdi
+      fileUrl: ornek.fileUrl, filePath: ornek.filePath, mimeType: ornek.mimeType,
+      originalName: ornek.dosyaAdi, fileName: ornek.dosyaAdi
     }, res);
   }
 
@@ -524,13 +528,21 @@ exports.publicBilgi = async (req, res) => {
     if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
     if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş. Lütfen yetkiliyle iletişime geçin.' });
     const { talep } = sonuc;
-    // Hassas veri paylaşılmaz: yalnızca istenen evrak listesi ve firma/işlem adı
+    // Eski kayıttaki mailGovdesi gönderimden sonra değişmiş bir taslak olabilir.
+    // Yalnız SMTP tarafından kabul edilen gönderimin ayrı kopyası paylaşılır.
+    const gonderilenMail = talep.sonGonderilenMail?.tarih ? talep.sonGonderilenMail : null;
+    // Alıcılar, personel notları ve SMTP kayıtları public cevaba dahil edilmez.
     res.json({
       success: true,
       data: {
         firmaAdi: talep.firmaAdi,
         islemAdi: talep.islemTuruAdi,
         varyantAd: talep.varyantAd || '',
+        gonderilenMail: gonderilenMail ? {
+          konu: gonderilenMail.konu || '',
+          govde: htmlMi(gonderilenMail.govde) ? htmlTemizle(gonderilenMail.govde) : (gonderilenMail.govde || ''),
+          tarih: gonderilenMail.tarih
+        } : null,
         // Maile yazılmayan evrak firmaya da gösterilmez: aksi halde firma, mailde
         // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
         istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
@@ -538,8 +550,9 @@ exports.publicBilgi = async (req, res) => {
           // Personel "eksik / hatalı" dediyse firma bunu ve notunu görür; yeni dosya gelene kadar bekler
           tekrarIstendi: !!e.tekrarIstemeTarihi && !e.geldiMi,
           tekrarIstemeNotu: e.tekrarIstemeTarihi ? (e.tekrarIstemeNotu || '') : '',
-          ornekDosyaVar: !!(e.ornekDosya && (e.ornekDosya.fileUrl || e.ornekDosya.filePath)),
-          ornekDosyaAdi: (e.ornekDosya && e.ornekDosya.dosyaAdi) || ''
+          ornekDosyaVar: svc.ornekDosyalari(e).length > 0,
+          ornekDosyaAdi: svc.ornekDosyalari(e)[0]?.dosyaAdi || '',
+          ornekDosyalar: svc.ornekDosyalari(e).map((o, indeks) => ({ indeks, dosyaAdi: o.dosyaAdi || 'Örnek dosya' }))
         })),
         // Firmanın kendi eklediği belgeler — yalnız bu talepte görünür
         ekBelgeler: (talep.firmaEkBelgeleri || []).map((b) => ({
@@ -576,7 +589,7 @@ exports.publicOrnekIndir = async (req, res) => {
     if (!evrak || evrak.zorunlu === false) {
       return res.status(404).json({ success: false, message: 'Örnek dosya bulunamadı.' });
     }
-    const ornek = evrak.ornekDosya;
+    const ornek = svc.ornekDosyayiSec(evrak, req.query?.ornek ?? 0);
     if (!ornek || !(ornek.fileUrl || ornek.filePath)) {
       return res.status(404).json({ success: false, message: 'Bu evrak için örnek dosya yok.' });
     }

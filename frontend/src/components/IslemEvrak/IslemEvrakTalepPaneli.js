@@ -40,6 +40,7 @@ import UploadProgress from '../../components/common/UploadProgress';
 import ZenginMetinEditoru from '../common/ZenginMetinEditoru';
 import DosyaOnizlemeDialog from '../common/DosyaOnizlemeDialog';
 import { htmlMetin } from '../../utils/mailHtml';
+import { ornekDosyalari } from '../../utils/islemEvrakOrnekleri';
 import svc from '../../services/islemEvrakService';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { tasi } from '../../utils/dizi';
@@ -73,17 +74,14 @@ const eslesmePuani = (dosyaAdi, evrakAdi) => {
   return ortak / Math.min(a.length, b.length);
 };
 
-// Her dosyayı en iyi eşleşen SATIRA atar; bir satır iki dosya almaz
+// Her dosyayı en iyi eşleşen satıra atar; aynı satıra birden fazla örnek eklenebilir.
 const dosyalariEslestir = (dosyalar, evraklar) => {
-  const kullanilan = new Set();
   return dosyalar.map((file) => {
     let enIyi = -1; let enIyiPuan = 0.34; // eşiğin altındakini kullanıcı seçsin
     evraklar.forEach((e, i) => {
-      if (kullanilan.has(i)) return;
       const p = eslesmePuani(file.name, e.ad);
       if (p > enIyiPuan) { enIyiPuan = p; enIyi = i; }
     });
-    if (enIyi >= 0) kullanilan.add(enIyi);
     return { file, evrakIndex: enIyi };
   });
 };
@@ -97,8 +95,9 @@ const dosyalariEslestir = (dosyalar, evraklar) => {
 // sarıldı ve yalnız kendi verisi değişince çiziliyor. Bunun için işleyicilerin kimliği sabit
 // (useCallback / useSabitFonksiyon) ve `suruklemeProps` satır başına önbellekli (useSurukleSirala).
 const EvrakSatiri = memo(function EvrakSatiri({
-  e, i, sonSatir, ornekKilitli, suruklemeProps, onDegistir, onMaildeIste, onTasi, onSil, onOrnekSec
+  e, i, sonSatir, ornekKilitli, indirmeKilitli, suruklemeProps, onDegistir, onMaildeIste, onTasi, onSil, onOrnekSec, onOrnekAc
 }) {
+  const ornekler = ornekDosyalari(e);
   return (
     <Box
       {...suruklemeProps}
@@ -139,16 +138,26 @@ const EvrakSatiri = memo(function EvrakSatiri({
       {/* Buton kaydedilmemiş satırlarda da görünür: eskiden `e._id &&` ile gizleniyordu,
           "Satır Ekle" ile eklenen satırda hiç çıkmıyordu (müşteri: "sonradan satır
           ekleyince örnek yükleyemiyoruz"). Artık satır önce otomatik kaydedilir. */}
-      <Tooltip title={e.ornekDosya?.dosyaAdi
-        ? `Örnek: ${e.ornekDosya.dosyaAdi}`
-        : (e._id ? 'Örnek/şablon dosya ekle' : 'Örnek ekle — satır önce otomatik kaydedilir')}>
-        <Button component="label" size="small" variant={e.ornekDosya?.dosyaAdi ? 'contained' : 'outlined'}
-          color={e.ornekDosya?.dosyaAdi ? 'success' : 'primary'}
+      <Tooltip title="Bu evraka bir veya birden fazla örnek/şablon dosya ekleyin">
+        <Button component="label" size="small" variant={ornekler.length ? 'contained' : 'outlined'}
+          color={ornekler.length ? 'success' : 'primary'}
           startIcon={<AttachFileIcon />} disabled={ornekKilitli}>
-          {e.ornekDosya?.dosyaAdi ? 'Örnek ✓' : 'Örnek'}
-          <input hidden type="file" onChange={(ev) => onOrnekSec(i, ev.target.files?.[0], ev)} />
+          {ornekler.length ? `Örnek (${ornekler.length}) +` : 'Örnek'}
+          <input hidden type="file" multiple aria-label={`${e.ad || 'Yeni evrak'} örnek ekle`}
+            onChange={(ev) => onOrnekSec(i, Array.from(ev.target.files || []), ev)} />
         </Button>
       </Tooltip>
+      {ornekler.length > 0 && (
+        <Stack direction="row" spacing={0.5} useFlexGap flexWrap="wrap" sx={{ width: '100%', pl: 4.5 }}>
+          {ornekler.map((o, indeks) => (
+            <Chip key={`${o.filePath || o.fileUrl || o.dosyaAdi}-${indeks}`} size="small" label={o.dosyaAdi}
+              deleteIcon={<DeleteOutlineIcon aria-label={`${o.dosyaAdi} örneğini kaldır`} />}
+              title={indirmeKilitli ? 'İndirmek için önce değişiklikleri kaydedin.' : 'Örneği aç'}
+              onClick={e._id && !indirmeKilitli ? () => onOrnekAc(e, o, indeks) : undefined}
+              onDelete={ornekKilitli ? undefined : () => onDegistir(i, 'ornekDosyalar', ornekler.filter((_, j) => j !== indeks))} />
+          ))}
+        </Stack>
+      )}
       <Stack direction="row" spacing={0} alignItems="center">
         <Tooltip title="Yukarı taşı">
           <span>
@@ -254,7 +263,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya maile
   // ek olarak gitmeye devam ediyor." Yalnız "Mailde iste" işaretli evrakların örnekleri aday; ekrandaki
   // (henüz kaydı süren) işarete bakılır ki işaret kalkar kalkmaz çip de kaybolsun. Sunucu da ayrıca süzüyor.
-  const ekAdaylari = evraklar.filter((e) => e._id && e.zorunlu !== false && e.ornekDosya?.dosyaAdi);
+  const ekAdaylari = evraklar.filter((e) => e._id && e.zorunlu !== false && ornekDosyalari(e).length);
   const gidecekEkIdler = ekAdaylari
     .map((e) => String(e._id))
     .filter((x) => !kaldirilanEkler.includes(x));
@@ -411,12 +420,12 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // Satırdan örnek dosya seçildi. Satır henüz kaydedilmemişse (_id yok) önce listeyi
   // kaydedip sunucudan _id alırız; kullanıcı "önce Kaydet'e bas" diye uğraşmasın.
-  const ornekSecildi = async (index, file, ev) => {
+  const ornekSecildi = async (index, files, ev) => {
     if (ev?.target) ev.target.value = ''; // aynı dosya tekrar seçilebilsin
-    if (!file) return;
+    if (!files.length) return;
 
     const satir = evraklar[index];
-    if (satir?._id) return ornekYukle(satir._id, file);
+    if (satir?._id) return ornekYukle(satir._id, files);
 
     if (!String(satir?.ad || '').trim()) {
       notify('Örnek eklemeden önce evrak adını yazın.', 'warning');
@@ -434,19 +443,19 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
       const yeniId = g.istenenEvraklar?.[hedefIndex]?._id;
       if (!yeniId) { notify('Satır kaydedildi ama kimliği alınamadı, tekrar deneyin.', 'error'); return; }
-      await ornekYukle(yeniId, file);
+      await ornekYukle(yeniId, files);
     } catch (e) {
       notify(errMsg(e), 'error');
     } finally { setBusy(''); }
   };
 
-  const ornekYukle = async (evrakId, file) => {
-    if (!file) return;
+  const ornekYukle = async (evrakId, files) => {
+    if (!files.length) return;
     setBusy(`ornek-${evrakId}`);
-    setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size });
+    setYukleme({ fileName: files.length > 1 ? `${files.length} örnek dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((n, f) => n + f.size, 0) });
     try {
       const fd = new FormData();
-      fd.append('dosyalar', file);
+      files.forEach((file) => fd.append('dosyalar', file));
       const g = await svc.ornekDosyaYukle(id, evrakId, fd,
         (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
       setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
@@ -455,6 +464,10 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setYukleme(null); }
   };
   const ornekSecildiSabit = useSabitFonksiyon(ornekSecildi);
+  const ornekAcSabit = useSabitFonksiyon((evrak, ornek, indeks) => setOnizleme({
+    ad: ornek.dosyaAdi || 'Örnek dosya', mimeType: ornek.mimeType,
+    yukle: (signal) => svc.dosyaIndir(id, evrak._id, signal, indeks)
+  }));
 
   // ── 📎 Toplu örnek yükleme
   const topluDosyaSecildi = (dosyalar) => {
@@ -796,12 +809,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 i={i}
                 sonSatir={i === evraklar.length - 1}
                 ornekKilitli={busy.startsWith('ornek-')}
+                indirmeKilitli={kaydedilmemis}
                 suruklemeProps={satirProps(i)}
                 onDegistir={evrakDegistir}
                 onMaildeIste={maildeIsteDegisti}
                 onTasi={evrakTasi}
                 onSil={evrakSil}
                 onOrnekSec={ornekSecildiSabit}
+                onOrnekAc={ornekAcSabit}
               />
             ))}
             {evraklar.length === 0 && (
@@ -872,7 +887,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   return (
                     <Chip
                       key={e._id} size="small"
-                      label={e.ornekDosya.dosyaAdi}
+                      label={ornekDosyalari(e).map((o) => o.dosyaAdi).join(' · ')}
                       color={secili ? 'primary' : 'default'}
                       variant={secili ? 'filled' : 'outlined'}
                       onClick={() => setKaldirilanEkler((p) =>
@@ -1130,7 +1145,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   <MenuItem value={-1}><em>Bu dosyayı atla</em></MenuItem>
                   {evraklar.map((e, j) => (
                     <MenuItem key={e._id || j} value={j} disabled={!String(e.ad || '').trim()}>
-                      {e.ad || '(adsız satır)'}{e.ornekDosya?.dosyaAdi ? ' — mevcut örneğin üzerine yazılır' : ''}
+                      {e.ad || '(adsız satır)'}{ornekDosyalari(e).length ? ' — mevcut örneklere eklenir' : ''}
                     </MenuItem>
                   ))}
                 </TextField>

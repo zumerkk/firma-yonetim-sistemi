@@ -28,6 +28,11 @@ const cariService = {
         return data;
     },
 
+    firmaTalepleri: async (firmaId) => {
+        const { data } = await axios.get(`${API_URL}/firma/${firmaId}/talepler`);
+        return data;
+    },
+
     firmaDurumuGuncelle: async (firmaId, cariDurumu) => {
         const { data } = await axios.put(`${API_URL}/firma/${firmaId}/durum`, { cariDurumu });
         return data;

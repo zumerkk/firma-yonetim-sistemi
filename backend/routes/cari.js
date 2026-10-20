@@ -11,6 +11,7 @@ router.use(authenticate);
 router.get('/firmalar', cari.firmaOzetleri);
 // Firmanın tüm carisi
 router.get('/firma/:firmaId', cari.firmaDefteri);
+router.get('/firma/:firmaId/talepler', cari.firmaTalepleri);
 router.put('/firma/:firmaId/durum', editor, cari.firmaDurumuGuncelle);
 // Belge Takip › Ödemeler sekmesindeki mini cari tablo
 router.get('/talep/:talepId', cari.talepDefteri);

@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import DosyaTakipDetail from './DosyaTakipDetail';
 import api from '../../utils/axios';
 
@@ -52,4 +52,26 @@ test('Belge Takip dosya Aç işlemi yerel dosyayı da yetkili API ile önizler',
     jest.restoreAllMocks();
     URL.createObjectURL = eskiOlustur; URL.revokeObjectURL = eskiBirak;
   }
+});
+
+test.each([
+  [{ geriDon: { yol: '/cari-takip?firma=firma1', state: { cariListe: { filtre: 'FİRMA' } }, etiket: 'Cari Takip' } }, '/cari-takip?firma=firma1'],
+  [{ listeQuery: '?arsiv=1&arama=TEST' }, '/dosya-takip/liste?arsiv=1&arama=TEST']
+])('Ödemeler derin bağlantısı açılır ve Geri başlangıç konumunu korur (%j)', async (state, beklenen) => {
+  api.get.mockResolvedValue({ data: { success: true, data: [] } });
+  function Donus() {
+    const konum = useLocation();
+    return <output data-testid="donus-konumu">{konum.pathname}{konum.search}{JSON.stringify(konum.state)}</output>;
+  }
+  render(<MemoryRouter initialEntries={[{ pathname: '/dosya-takip/talep1', search: '?sekme=odemeler', state }]}>
+    <Routes>
+      <Route path="/dosya-takip/:id" element={<DosyaTakipDetail />} />
+      <Route path="/cari-takip" element={<Donus />} />
+      <Route path="/dosya-takip/liste" element={<Donus />} />
+    </Routes>
+  </MemoryRouter>);
+  expect(screen.getByRole('tab', { name: 'Ödemeler' })).toHaveAttribute('aria-selected', 'true');
+  fireEvent.click(screen.getByRole('button', { name: state.geriDon ? 'Cari Takip ekranına dön' : 'Talep listesine dön' }));
+  expect(await screen.findByTestId('donus-konumu')).toHaveTextContent(beklenen);
+  if (state.geriDon) expect(screen.getByTestId('donus-konumu')).toHaveTextContent('"filtre":"FİRMA"');
 });

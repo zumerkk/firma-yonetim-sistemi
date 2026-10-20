@@ -188,6 +188,34 @@ describe('Hatalar okunur, veri bozulmaz', () => {
 });
 
 describe('Cari hesaplar modülü (firma bazlı)', () => {
+  test('Ödemeler seçimi aktif ve arşiv tüm talepleri sınır olmadan getirir; silinen ve başka firmayı dışlar', async () => {
+    const firmaC = new ObjectId();
+    await Firma.collection.insertOne({ _id: firmaC, tamUnvan: 'TALEP SEÇİM FİRMASI' });
+    const talepler = Array.from({ length: 302 }, (_, i) => ({
+      _id: new ObjectId(), takipId: `SECIM-${i}`, firma: firmaC, aktif: true,
+      anaAsama: i % 2 ? 'MURACAAT_ONCESI' : 'KURUM_SONUCLANMA',
+      ytbNo: `YTB-${i}`, talepTuru: 'Belge Revize Talebi', createdAt: new Date(2026, 0, 1, 0, i)
+    }));
+    await DosyaTakip.collection.insertMany([...talepler, {
+      firma: firmaC, takipId: 'SILINEN', aktif: false
+    }]);
+    try {
+      const r = await request(app).get(`/api/cari/firma/${firmaC}/talepler`);
+      expect(r.status).toBe(200);
+      expect(r.body.data.firma.tamUnvan).toBe('TALEP SEÇİM FİRMASI');
+      expect(r.body.data.talepler).toHaveLength(302);
+      expect(r.body.data.talepler[0]).toMatchObject({ takipId: 'SECIM-301', ytbNo: 'YTB-301' });
+      expect(new Set(r.body.data.talepler.map((t) => t.anaAsama))).toEqual(new Set(['MURACAAT_ONCESI', 'KURUM_SONUCLANMA']));
+      expect(r.body.data.talepler.every((t) => t.takipId.startsWith('SECIM-'))).toBe(true);
+      expect((await request(app).get(`/api/cari/firma/${firmaB}/talepler`)).body.data.talepler).toEqual([]);
+      expect((await request(app).get('/api/cari/firma/bozuk-id/talepler')).status).toBe(400);
+      expect((await request(app).get(`/api/cari/firma/${new ObjectId()}/talepler`)).status).toBe(404);
+    } finally {
+      await DosyaTakip.collection.deleteMany({ firma: firmaC });
+      await Firma.collection.deleteOne({ _id: firmaC });
+    }
+  });
+
   test('firma defteri talebe bağlı ve bağsız hareketleri birlikte, bakiyeyle gösterir', async () => {
     await ekle({ firma: String(firmaA), tur: 'fatura', faturaNo: 'GM2026-15', tarih: '2026-01-12', tutar: 24000 });
     await ekle({ dosyaTakip: String(talepA), tur: 'odenen', belgeAdi: 'Harç makbuzu', tarih: '2026-01-13', tutar: 1500 });

@@ -6,7 +6,7 @@ import Panel from './IslemEvrakTalepPaneli';
 import svc from '../../services/islemEvrakService';
 
 jest.mock('../../services/islemEvrakService', () => ({
-  __esModule: true, default: { talepDetay: jest.fn(), turDetay: jest.fn(), talepGuncelle: jest.fn(), mailOnizle: jest.fn(), dosyaIndir: jest.fn() }
+  __esModule: true, default: { talepDetay: jest.fn(), turDetay: jest.fn(), talepGuncelle: jest.fn(), mailOnizle: jest.fn(), dosyaIndir: jest.fn(), ornekDosyaYukle: jest.fn(), mailGonder: jest.fn() }
 }));
 
 const talep = { _id: 't1', firmaAdi: 'Firma', islemTuru: 'tur1', dosyaTakip: 'dt1',
@@ -77,4 +77,71 @@ test('gelen evrakın Aç düğmesi dosyayı indirmeden uygulama içinde gösteri
     indir.mockRestore(); pencere.mockRestore();
     URL.createObjectURL = eskiOlustur; URL.revokeObjectURL = eskiBirak;
   }
+});
+
+
+test('bir satırda seçilen birden fazla örnek tek yüklemede aynı evraka eklenir', async () => {
+  const son = { ...talep, istenenEvraklar: [{ ...talep.istenenEvraklar[0], ornekDosyalar: [
+    { dosyaAdi: 'bir.pdf', filePath: 'bir.pdf' }, { dosyaAdi: 'iki.docx', filePath: 'iki.docx' }
+  ] }] };
+  svc.ornekDosyaYukle.mockResolvedValue(son);
+  render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+  const input = await screen.findByLabelText('Vergi Levhası örnek ekle');
+  expect(input).toHaveAttribute('multiple');
+  fireEvent.change(input, { target: { files: [new File(['1'], 'bir.pdf'), new File(['2'], 'iki.docx')] } });
+  await waitFor(() => expect(svc.ornekDosyaYukle).toHaveBeenCalled());
+  const [id, evrakId, form] = svc.ornekDosyaYukle.mock.calls[0];
+  expect([id, evrakId]).toEqual(['t1', 'e1']);
+  expect(form.getAll('dosyalar').map((f) => f.name)).toEqual(['bir.pdf', 'iki.docx']);
+  expect(await screen.findByText('bir.pdf')).toBeInTheDocument();
+  expect(screen.getByText('iki.docx')).toBeInTheDocument();
+  await screen.findByText('Örnek dosya eklendi — maile ek olarak eklenecek');
+});
+
+test('çoklu örnekli satır mail ekleri arasına alınır', async () => {
+  const son = { ...talep, istenenEvraklar: [{ ...talep.istenenEvraklar[0], ornekDosyalar: [
+    { dosyaAdi: 'bir.pdf', filePath: 'bir.pdf' }, { dosyaAdi: 'iki.docx', filePath: 'iki.docx' }
+  ] }] };
+  svc.talepDetay.mockResolvedValue(son);
+  svc.talepGuncelle.mockResolvedValue(son);
+  svc.mailGonder.mockResolvedValue({ talep: son, ekSayisi: 2 });
+  render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Mail Taslağı Hazırla' }));
+  expect(await screen.findByText('bir.pdf · iki.docx')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'SMTP ile Gönder' }));
+  await waitFor(() => expect(svc.mailGonder).toHaveBeenCalledWith('t1', expect.objectContaining({ ekEvrakIdler: ['e1'] }), [], expect.any(Function)));
+  await screen.findByText('Mail gönderildi · 2 ek ✅');
+});
+
+
+test('örnek kaldırma yalnız seçilen dosyayı listeden çıkarır', async () => {
+  const son = { ...talep, istenenEvraklar: [{ ...talep.istenenEvraklar[0], ornekDosyalar: [
+    { dosyaAdi: 'bir.pdf', filePath: 'bir.pdf' }, { dosyaAdi: 'iki.docx', filePath: 'iki.docx' }
+  ] }] };
+  svc.talepDetay.mockResolvedValue(son);
+  render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+  fireEvent.click(await screen.findByLabelText('bir.pdf örneğini kaldır'));
+  expect(screen.queryByText('bir.pdf')).not.toBeInTheDocument();
+  expect(screen.getByText('iki.docx')).toBeInTheDocument();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Kaydet' })[0]);
+  await waitFor(() => expect(svc.talepGuncelle).toHaveBeenCalledWith('t1', {
+    istenenEvraklar: [expect.objectContaining({ ornekDosyalar: [{ dosyaAdi: 'iki.docx', filePath: 'iki.docx' }] })]
+  }));
+  await screen.findByText('İstenen evrak listesi kaydedildi');
+});
+
+
+test('örnek listesi kaydedilmeden kalan örneğin eski indeksinden dosya açılmaz', async () => {
+  const son = { ...talep, istenenEvraklar: [{ ...talep.istenenEvraklar[0], ornekDosyalar: [
+    { dosyaAdi: 'A.pdf', filePath: 'A.pdf' }, { dosyaAdi: 'B.pdf', filePath: 'B.pdf' }
+  ] }] };
+  svc.talepDetay.mockResolvedValue(son);
+  render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+  fireEvent.click(await screen.findByLabelText('A.pdf örneğini kaldır'));
+  fireEvent.click(screen.getByText('B.pdf'));
+  expect(svc.dosyaIndir).not.toHaveBeenCalled();
+  expect(screen.getByText('B.pdf').parentElement).toHaveAttribute('title', 'İndirmek için önce değişiklikleri kaydedin.');
+  fireEvent.click(screen.getAllByRole('button', { name: 'Kaydet' })[0]);
+  await screen.findByText('İstenen evrak listesi kaydedildi');
+  expect(screen.getByText('B.pdf').parentElement).toHaveAttribute('title', 'Örneği aç');
 });

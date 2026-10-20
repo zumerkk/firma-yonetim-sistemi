@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Upload from './IslemEvrakPublicUpload';
 import svc from '../../services/islemEvrakService';
-jest.mock('../../services/islemEvrakService', () => ({ __esModule: true, default: { publicBilgi: jest.fn(), publicYukle: jest.fn(), publicNedenKaydet: jest.fn() } }));
+jest.mock('../../services/islemEvrakService', () => ({ __esModule: true, default: { publicBilgi: jest.fn(), publicYukle: jest.fn(), publicNedenKaydet: jest.fn(), publicOrnekIndir: jest.fn() } }));
 const bilgi = { firmaAdi: 'Test Firma', islemAdi: 'Yeni Belge', maxUploadMB: 100, istenenEvraklar: [{ id: 'a', ad: 'Vergi Levhası' }, { id: 'b', ad: 'İmza Sirküleri' }] };
 const ac = () => render(<MemoryRouter initialEntries={['/evrak/token1']}><Routes><Route path="/evrak/:token" element={<Upload />} /></Routes></MemoryRouter>);
 beforeEach(() => { jest.clearAllMocks(); svc.publicBilgi.mockResolvedValue(bilgi); });
@@ -41,4 +41,34 @@ test('tekrar istenen evrak kırmızı notla gösterilir', async () => {
   ac();
   expect(await screen.findByText('Eksik / hatalı iletildi, lütfen tekrar yükleyin: Noter onaylı olmalı')).toBeInTheDocument();
   expect(screen.getByText('Tekrar yükleyin')).toBeInTheDocument();
+});
+
+
+test('gönderilen mailin konusu ve biçimi görünür; etkin HTML ve tehlikeli bağlantılar temizlenir', async () => {
+  svc.publicBilgi.mockResolvedValue({ ...bilgi, gonderilenMail: {
+    konu: 'Revize evrak talebi', govde: '<p>Sayın <b>Yetkili</b></p><script>kotu()</script><img src=x onerror="kotu()"><a href="javascript:alert(1)" onclick="kotu()">Tıkla</a><iframe src="https://kotu.test"></iframe>'
+  } });
+  ac();
+  const bolum = await screen.findByRole('region', { name: 'Gönderilen mail' });
+  expect(bolum).toHaveTextContent('Revize evrak talebi');
+  expect(bolum).toContainHTML('<b>Yetkili</b>');
+  expect(bolum.querySelector('script, img, iframe, [onclick], [onerror]')).toBeNull();
+  expect(bolum.querySelector('a')).not.toHaveAttribute('href');
+});
+
+test('aynı evrakın birden fazla örneği kendi indeksiyle indirilir', async () => {
+  svc.publicBilgi.mockResolvedValue({ ...bilgi, istenenEvraklar: [{ id: 'a', ad: 'Taahhütname', ornekDosyalar: [
+    { indeks: 0, dosyaAdi: 'Şahıs.docx' }, { indeks: 1, dosyaAdi: 'Şirket.docx' }
+  ] }] });
+  svc.publicOrnekIndir.mockResolvedValue({ data: new Blob(['ornek']) });
+  const create = URL.createObjectURL; const revoke = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn(() => 'blob:ornek'); URL.revokeObjectURL = jest.fn();
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    ac();
+    fireEvent.click(await screen.findByRole('button', { name: 'Şirket.docx' }));
+    await waitFor(() => expect(svc.publicOrnekIndir).toHaveBeenCalledWith('token1', 'a', 1));
+    expect(screen.getByRole('button', { name: 'Şahıs.docx' })).toBeInTheDocument();
+    await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:ornek'));
+  } finally { URL.createObjectURL = create; URL.revokeObjectURL = revoke; click.mockRestore(); }
 });

@@ -14,9 +14,10 @@ const archiver = require('archiver');
 const mongoose = require('mongoose');
 const { Readable } = require('stream');
 
-// Bazı eski aktivite/teşvik kayıtları tek başına 10 MB'ı geçebiliyor.
-// Sürücü + lean dönüşümü aynı batch'teki büyük kayıtları biriktirmesin.
-const BATCH_BOYUTU = 1;
+// Tekli batch, her kayıt için ayrı ağ isteği yapıp canlı yedeği dakikalarca
+// bekletiyordu. MongoDB yanıt boyutunu da sınırlar; lean cursor kayıtları sırayla
+// işler, bütün koleksiyonu belleğe almaz.
+const BATCH_BOYUTU = 50;
 const TAMPON_ESIGI = 64 * 1024;
 
 const Firma = require('../../models/Firma');
@@ -47,6 +48,7 @@ const UploadedDocument = require('../../models/UploadedDocument');
 const MailLog = require('../../models/MailLog');
 const MakineRevizyonKaydi = require('../../models/MakineRevizyonKaydi');
 const BelgeOzelNot = require('../../models/BelgeOzelNot');
+const CariHareket = require('../../models/CariHareket');
 
 const KOLEKSIYONLAR = [
   { model: Firma, dosya: 'firmalar.json', etiket: 'Firma Bilgileri', gizle: [] },
@@ -55,6 +57,7 @@ const KOLEKSIYONLAR = [
   { model: MakineRevizyonKaydi, dosya: 'makine_revizyon_kayitlari.json', etiket: 'Makine Revizyon Geçmişi', gizle: [] },
   { model: BelgeOzelNot, dosya: 'belge_ozel_notlari.json', etiket: 'Belge Özel Notları', gizle: [] },
   { model: DosyaTakip, dosya: 'dosya_takip.json', etiket: 'Dosya İş Akış Takip', gizle: [] },
+  { model: CariHareket, dosya: 'cari_hareketler.json', etiket: 'Cari Hesap Hareketleri', gizle: [] },
   { model: User, dosya: 'kullanicilar.json', etiket: 'Kullanıcılar', gizle: ['sifre'] },
   { model: Activity, dosya: 'aktiviteler.json', etiket: 'Aktivite Kayıtları', gizle: [] },
   { model: Notification, dosya: 'bildirimler.json', etiket: 'Bildirimler', gizle: [] },
@@ -143,13 +146,28 @@ const koleksiyonAkisi = (model, gizle = []) => {
 
 /** Akışı arşive ekler ve tamamen yutulmasını bekler (aynı anda tek koleksiyon bellekte olsun) */
 const arsiveEkleVeBekle = (arsiv, akis, ad) => new Promise((resolve, reject) => {
+  const temizle = () => {
+    arsiv.removeListener('entry', kayitli);
+    arsiv.removeListener('error', hata);
+    arsiv.removeListener('close', kapandi);
+    akis.removeListener('error', hata);
+  };
+  const hata = (err) => {
+    temizle();
+    akis.destroy();
+    reject(err);
+  };
+  const kapandi = () => hata(new Error('Yedek arşivi tamamlanmadan kapandı.'));
   const kayitli = (girdi) => {
     if (girdi.name !== ad) return;
-    arsiv.removeListener('entry', kayitli);
+    temizle();
     resolve();
   };
+  if (arsiv.destroyed) { hata(new Error('Yedekleme iptal edildi.')); return; }
   arsiv.on('entry', kayitli);
-  akis.once('error', (err) => { arsiv.removeListener('entry', kayitli); reject(err); });
+  arsiv.once('error', hata);
+  arsiv.once('close', kapandi);
+  akis.once('error', hata);
   arsiv.append(akis, { name: ad });
 });
 
@@ -195,6 +213,7 @@ async function arsiveYaz(arsiv, { yedekAlan = 'Otomatik yedek', yedekAlanEmail =
         gunluk(`  ✅ ${kol.etiket}: ${adet} kayıt`);
       }
     } catch (hata) {
+      if (arsiv.destroyed) throw hata;
       ustveri.kayitSayilari[kol.etiket] = `HATA: ${hata.message}`;
       ustveri.eksikler.push(`${kol.etiket}: ${hata.message}`);
       gunluk(`  ⚠️ ${kol.etiket} yedeklenemedi: ${hata.message}`);

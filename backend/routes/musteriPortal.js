@@ -25,6 +25,8 @@ router.get('/yonetim/:tesvikModel/:tesvikId/notlar', authenticate,
   gonder((req) => ozelNotlar.listele(req.params.tesvikModel, req.params.tesvikId)));
 router.post('/yonetim/:tesvikModel/:tesvikId/notlar', authenticate, editor,
   gonder((req) => ozelNotlar.ekle(req.params.tesvikModel, req.params.tesvikId, req.body?.metin, req.user)));
+router.delete('/yonetim/:tesvikModel/:tesvikId/notlar/:notId', authenticate, editor,
+  gonder((req) => ozelNotlar.sil(req.params.tesvikModel, req.params.tesvikId, req.params.notId)));
 router.get('/yonetim/:tesvikModel/:tesvikId', authenticate,
   gonder((req) => portal.linkGetir(req.params.tesvikModel, req.params.tesvikId)));
 router.post('/yonetim/:tesvikModel/:tesvikId', authenticate, editor,

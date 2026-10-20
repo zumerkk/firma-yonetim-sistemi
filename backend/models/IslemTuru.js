@@ -5,6 +5,14 @@
 
 const mongoose = require('mongoose');
 
+const ornekDosyaSchema = new mongoose.Schema({
+  dosyaAdi: { type: String, trim: true },
+  fileUrl: { type: String, trim: true },
+  filePath: { type: String, trim: true },
+  mimeType: { type: String, trim: true },
+  fileSize: { type: Number, default: 0 }
+}, { _id: false });
+
 // İşlem türünde istenen tek bir evrak kalemi
 const istenenEvrakSchema = new mongoose.Schema({
   ad: { type: String, required: true, trim: true, maxlength: 200 },
@@ -21,6 +29,8 @@ const istenenEvrakSchema = new mongoose.Schema({
   kosulSoruId: { type: String, trim: true, default: '' },
   kosulDeger: { type: String, enum: ['', 'EVET', 'HAYIR'], default: '' },
   // Firmaya gönderilecek örnek/şablon dosya (doldurup geri yükleyecekleri form)
+  // Eski tekli kayıt okunur; yeni dosyalar bu dizide tutulur.
+  ornekDosyalar: { type: [ornekDosyaSchema], default: undefined },
   ornekDosya: {
     dosyaAdi: { type: String, trim: true },
     fileUrl: { type: String, trim: true },
