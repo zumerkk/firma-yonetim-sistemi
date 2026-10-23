@@ -49,6 +49,11 @@ const SIRALANABILIR = {
     tur: 'metin',
     deger: (t, b) => metin(b.kisiAdi(t.muraacatSonrasi?.takibiYapanPersonel) || t.muraacatSonrasi?.takibiYapanAdi)
   },
+  daireUzman: {
+    secim: 'muraacatSonrasi.kurumDegerlendirme.daireUzman',
+    tur: 'metin',
+    deger: (t) => metin(t.muraacatSonrasi?.kurumDegerlendirme?.daireUzman)
+  },
   createdAt: { secim: 'createdAt', tur: 'sayi', deger: (t) => tarih(t.createdAt) },
   resmiMuracaatEksikSonGun: {
     secim: 'zamanlama.resmiMuracaatEksikSonGun', tur: 'sayi', deger: (t) => tarih(t.zamanlama?.resmiMuracaatEksikSonGun)

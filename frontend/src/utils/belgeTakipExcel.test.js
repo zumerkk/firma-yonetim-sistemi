@@ -6,7 +6,7 @@ const kapama = {
     durum: '2.2.1_INCELEMEDE', durumEtiketi: 'İncelemede', ytbNo: '568289',
     firma: { tamUnvan: 'GLOBTEKS A.Ş.', firmaIl: 'GAZİANTEP', firmaIlce: 'ŞEHİTKAMİL' },
     muraacatOncesi: { muraacatHazirlayanPersonel: { adSoyad: 'Berk Acar' } },
-    muraacatSonrasi: { takibiYapanAdi: 'Seda Durak' },
+    muraacatSonrasi: { takibiYapanAdi: 'Seda Durak', kurumDegerlendirme: { daireUzman: 'Ayşe Uzman' } },
     createdAt: '2026-10-01T09:00:00.000Z',
     zamanlama: { resmiMuracaatEksikSonGun: '2026-10-20T00:00:00.000Z' },
     sonucaAlinmaTarihi: '2026-10-05T12:00:00.000Z',
@@ -19,7 +19,7 @@ test('sütunlar listedeki sırada, değerler okunur metinle', () => {
     expect(satir).toMatchObject({
         Firma: 'GLOBTEKS A.Ş.', 'Talep Türü': 'Belge Kapama Talebi', 'Aşama': '2. Kurum Değerlendirme',
         Durum: 'İncelemede', 'Belge No': '568289', 'İl / İlçe': 'GAZİANTEP / ŞEHİTKAMİL',
-        'Müracaat Hazırlayan': 'Berk Acar', 'Takibi Yapan': 'Seda Durak', 'Fatura Durumu': 'Avans', 'Takip No': 'DT2026101'
+        'Müracaat Hazırlayan': 'Berk Acar', 'Takibi Yapan': 'Seda Durak', Uzman: 'Ayşe Uzman', 'Fatura Durumu': 'Avans', 'Takip No': 'DT2026101'
     });
 });
 

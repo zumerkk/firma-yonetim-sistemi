@@ -27,6 +27,7 @@ export const BELGE_TAKIP_EXCEL_SUTUNLARI = [
     ['İl / İlçe', (t) => [t.firma?.firmaIl, t.firma?.firmaIlce].filter(Boolean).join(' / '), 22],
     ['Müracaat Hazırlayan', (t) => kisi(t.muraacatOncesi?.muraacatHazirlayanPersonel, t.muraacatOncesi?.muraacatHazirlayanAdi), 20],
     ['Takibi Yapan', (t) => takipEdenAdlari(t).join(', '), 20],
+    ['Uzman', (t) => t.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || '', 20],
     ['Oluşturma Tarihi', (t) => tarihHucresi(t.createdAt), 14],
     ['Resmi Müracaat Eksik Son Gün', (t) => tarihHucresi(t.zamanlama?.resmiMuracaatEksikSonGun), 16],
     ['Sonuçlanma', (t) => tarihHucresi(t.sonuclanmaTarihi || t.sonucaAlinmaTarihi), 14],

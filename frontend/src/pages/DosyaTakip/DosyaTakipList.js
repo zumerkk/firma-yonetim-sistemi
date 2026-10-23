@@ -474,6 +474,19 @@ const DosyaTakipList = () => {
             }
         },
         {
+            // Müşteri (23.10.2026): "Bu sekmeye uzman ismini de ekleyebilir miyiz?" — kurumdaki daire uzmanı
+            field: 'daireUzman',
+            headerName: 'Uzman',
+            flex: 0.6,
+            minWidth: 120,
+            valueGetter: (params) => params.row.muraacatSonrasi?.kurumDegerlendirme?.daireUzman || '',
+            renderCell: (params) => (
+                <Typography variant="body2" title={params.value || ''} sx={{ fontSize: TABLO_FONT, color: params.value ? '#1e293b' : '#94a3b8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {params.value || '-'}
+                </Typography>
+            )
+        },
+        {
             field: 'createdAt',
             headerName: 'Oluşturma Tarihi',
             // Tarih 10 karakter ama başlık uzun; 130 başlığın sığdığı alt sınır.

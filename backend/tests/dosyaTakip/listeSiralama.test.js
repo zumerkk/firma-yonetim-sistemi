@@ -36,6 +36,13 @@ describe('talepleriSirala (saf)', () => {
       .toEqual(['3', '4', '1', '2']);
   });
 
+  // Müşteri (23.10.2026): listeye Uzman sütunu
+  test('uzman adına göre Türkçe sıralama, boş en sonda', () => {
+    const uz = (ad) => ({ muraacatSonrasi: { kurumDegerlendirme: { daireUzman: ad } } });
+    const liste = [t('1', uz('Zeynep')), t('2', {}), t('3', uz('Çağla')), t('4', uz('Cem'))];
+    expect(talepleriSirala(liste, siralamaCoz('daireUzman:asc')).map((x) => x._id)).toEqual(['4', '3', '1', '2']);
+  });
+
   test('sonuçlanma: sonuç tarihi yoksa sonuca alınma tarihi', () => {
     const liste = [t('1', { sonuclanmaTarihi: new Date('2026-05-01') }), t('2', { gecmis: new Date('2026-03-01') }), t('3', {})];
     const r = talepleriSirala(liste, { alan: 'sonuclanmaTarihi', yon: -1 }, { sonucaAlinmaTarihi: (x) => x.gecmis || null });
