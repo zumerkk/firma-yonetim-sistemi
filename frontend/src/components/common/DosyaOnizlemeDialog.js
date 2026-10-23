@@ -99,7 +99,6 @@ const PdfTekSayfa = ({ pdf, no, toplam, genislik, varsayilanOran, kok, kutuAyarl
 const PdfSayfasi = ({ blob }) => {
   const alan = useRef(null);
   const kutular = useRef([]);
-  const kare = useRef(0);
   const [pdf, setPdf] = useState(null);
   const [varsayilanOran, setVarsayilanOran] = useState(Math.SQRT2);
   const [sayfa, setSayfa] = useState(1);
@@ -150,8 +149,6 @@ const PdfSayfasi = ({ blob }) => {
     return () => { observer?.disconnect(); window.removeEventListener('resize', olc); };
   }, []);
 
-  useEffect(() => () => { if (kare.current) cancelAnimationFrame(kare.current); }, []);
-
   const kutuAyarla = useCallback((no, el) => { kutular.current[no - 1] = el; }, []);
 
   const konumuGuncelle = useCallback(() => {
@@ -164,11 +161,6 @@ const PdfSayfasi = ({ blob }) => {
     kutular.current.forEach((el, i) => { if (el && el.offsetTop <= esik) bulunan = i + 1; });
     setSayfa(bulunan);
   }, [pdf]);
-
-  const kaydirildi = () => {
-    if (kare.current) return;
-    kare.current = requestAnimationFrame(() => { kare.current = 0; konumuGuncelle(); });
-  };
 
   const sayfayaGit = (no) => {
     const hedef = Math.min(Math.max(1, no), pdf.numPages);
@@ -192,7 +184,7 @@ const PdfSayfasi = ({ blob }) => {
         </Box>
       )}
       {hata ? <Alert severity="warning" sx={{ m: 2 }}>{hata}</Alert> : (
-        <Box ref={alan} onScroll={kaydirildi} tabIndex={0} role="region" aria-label="PDF sayfaları"
+        <Box ref={alan} onScroll={konumuGuncelle} tabIndex={0} role="region" aria-label="PDF sayfaları"
           sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto', p: 1.5, bgcolor: '#e2e8f0', textAlign: 'center', '&:focus-visible': { outline: '2px solid #2563eb', outlineOffset: -2 } }}>
           {!pdf && <CircularProgress size={24} aria-label="PDF hazırlanıyor" sx={{ display: 'block', mx: 'auto', mb: 1 }} />}
           {pdf && genislik > 0 && sayfaNolari.map((no) => (

@@ -30,6 +30,8 @@ const UstMenu = () => {
                   bgcolor: secili ? '#fff' : 'transparent',
                   borderTop: '3px solid transparent', borderBottom: '3px solid', borderBottomColor: secili ? oge.color : 'transparent',
                   transition: 'background-color .15s, color .15s',
+                  // 1024-1279px: tek satıra sığsın diye biraz sıkı; sığmazsa yine de alt satıra sarar
+                  '@media (max-width:1279.95px)': { px: 0.75, fontSize: '0.78rem' },
                   '&:hover': { bgcolor: '#fff', color: '#0f172a' },
                   '&.Mui-focusVisible': { outline: '2px solid #2563eb', outlineOffset: -2 }
                 }}>
