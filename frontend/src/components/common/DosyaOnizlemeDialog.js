@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
   DialogTitle, IconButton, Typography, useMediaQuery, useTheme
@@ -24,19 +24,92 @@ export const onizlemeTuru = (dosya, blob) => {
   return tahmin === 'application/pdf' ? 'pdf' : (RESIM_MIMELERI.includes(tahmin) ? 'resim' : '');
 };
 
+// Ekranın üstünde/altında bu kadar alan içindeki sayfalar çizili tutulur.
+// Uzaktaki sayfaların tuvali boşaltılır; 100 sayfalık PDF de belleği şişirmez.
+const SAYFA_PAYI = '1200px 0px';
+
+const PdfTekSayfa = ({ pdf, no, toplam, genislik, varsayilanOran, kok, kutuAyarla }) => {
+  const kutu = useRef(null);
+  const canvas = useRef(null);
+  const [gorunur, setGorunur] = useState(typeof IntersectionObserver === 'undefined');
+  const [oran, setOran] = useState(varsayilanOran);
+  const [durum, setDurum] = useState('bekliyor');
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined' || !kutu.current) return undefined;
+    const izleyici = new IntersectionObserver(([g]) => setGorunur(g.isIntersecting), { root: kok.current, rootMargin: SAYFA_PAYI });
+    izleyici.observe(kutu.current);
+    return () => izleyici.disconnect();
+  }, [kok]);
+
+  useEffect(() => {
+    if (!gorunur || !genislik) {
+      if (canvas.current) { canvas.current.width = 0; canvas.current.height = 0; }
+      setDurum('bekliyor');
+      return undefined;
+    }
+    let iptal = false;
+    let cizim;
+    setDurum('ciziliyor');
+    (async () => {
+      try {
+        const sayfaVerisi = await pdf.getPage(no);
+        if (iptal || !canvas.current) return;
+        const normal = sayfaVerisi.getViewport({ scale: 1 });
+        setOran(normal.height / normal.width);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const viewport = sayfaVerisi.getViewport({ scale: (genislik / normal.width) * dpr });
+        const hedef = canvas.current;
+        hedef.width = viewport.width; hedef.height = viewport.height;
+        cizim = sayfaVerisi.render({ canvasContext: hedef.getContext('2d'), viewport });
+        await cizim.promise;
+        if (!iptal) setDurum('hazir');
+      } catch (e) {
+        if (!iptal && e?.name !== 'RenderingCancelledException') setDurum('hata');
+      }
+    })();
+    return () => { iptal = true; cizim?.cancel(); };
+  }, [pdf, no, genislik, gorunur]);
+
+  return (
+    <>
+      {toplam > 1 && (
+        <Typography variant="caption" sx={{ display: 'block', color: '#475569', fontWeight: 600, mb: 0.5 }}>
+          {no}. sayfa
+        </Typography>
+      )}
+      <Box ref={(el) => { kutu.current = el; kutuAyarla(no, el); }}
+        sx={{ position: 'relative', width: `${genislik}px`, maxWidth: '100%', height: `${Math.round(genislik * oran)}px`, mx: 'auto', mb: 2, bgcolor: '#fff', boxShadow: '0 1px 4px rgba(15,23,42,.25)' }}>
+        <canvas ref={canvas} role="img" aria-label={`PDF sayfa ${no}`} style={{ display: 'block', width: '100%', height: '100%' }} />
+        {durum !== 'hazir' && (
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+            {durum === 'hata'
+              ? <Typography variant="body2" color="text.secondary">Bu sayfa görüntülenemedi. Dosyayı indirerek açabilirsiniz.</Typography>
+              : <CircularProgress size={22} aria-label={`${no}. sayfa hazırlanıyor`} />}
+          </Box>
+        )}
+      </Box>
+    </>
+  );
+};
+
+// Müşteri (23.10): "en aşağıya kaydırınca bitti sanıyoruz, devam sayfalarını
+// unutuyoruz". Sayfalar artık alt alta; kaydırdıkça sıradaki sayfa gelir,
+// üstteki sayaç görünen sayfayı izler, belge sonu ayrıca işaretlenir.
 const PdfSayfasi = ({ blob }) => {
   const alan = useRef(null);
-  const canvas = useRef(null);
+  const kutular = useRef([]);
+  const kare = useRef(0);
   const [pdf, setPdf] = useState(null);
+  const [varsayilanOran, setVarsayilanOran] = useState(Math.SQRT2);
   const [sayfa, setSayfa] = useState(1);
   const [genislik, setGenislik] = useState(0);
   const [hata, setHata] = useState('');
-  const [ciziliyor, setCiziliyor] = useState(true);
 
   useEffect(() => {
     let iptal = false;
     let gorev;
-    setPdf(null); setSayfa(1); setHata('');
+    setPdf(null); setSayfa(1); setHata(''); kutular.current = [];
     (async () => {
       try {
         const [pdfjs, data] = await Promise.all([pdfKutuphaneAl(), blobVerisi(blob)]);
@@ -47,7 +120,12 @@ const PdfSayfasi = ({ blob }) => {
           standardFontDataUrl: `${pdfVarlikYolu}standard_fonts/`
         });
         const belge = await gorev.promise;
-        if (!iptal) setPdf(belge);
+        let oran = Math.SQRT2;
+        try {
+          const ilk = (await belge.getPage(1)).getViewport({ scale: 1 });
+          if (ilk.width > 0 && ilk.height > 0) oran = ilk.height / ilk.width;
+        } catch (e) { /* sayfa kendi oranını çizerken bulur */ }
+        if (!iptal) { setVarsayilanOran(oran); setPdf(belge); }
       } catch (e) {
         if (!iptal) setHata(e?.name === 'PasswordException'
           ? 'Bu PDF parola korumalı. Görüntülemek için dosyayı indirebilirsiniz.'
@@ -61,7 +139,10 @@ const PdfSayfasi = ({ blob }) => {
   }, [blob]);
 
   useEffect(() => {
-    const olc = () => setGenislik(Math.max(1, (alan.current?.clientWidth || window.innerWidth) - 24));
+    const olc = () => {
+      const yeni = Math.max(1, (alan.current?.clientWidth || window.innerWidth) - 24);
+      setGenislik((eski) => (Math.abs(eski - yeni) < 2 ? eski : yeni));
+    };
     olc();
     const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(olc) : null;
     if (alan.current) observer?.observe(alan.current);
@@ -69,47 +150,60 @@ const PdfSayfasi = ({ blob }) => {
     return () => { observer?.disconnect(); window.removeEventListener('resize', olc); };
   }, []);
 
-  useEffect(() => {
-    if (!pdf || !genislik) return undefined;
-    let iptal = false;
-    let cizim;
-    setCiziliyor(true);
-    (async () => {
-      try {
-        const sayfaVerisi = await pdf.getPage(sayfa);
-        if (iptal || !canvas.current) return;
-        const normal = sayfaVerisi.getViewport({ scale: 1 });
-        const oran = Math.min(window.devicePixelRatio || 1, 2);
-        const viewport = sayfaVerisi.getViewport({ scale: (genislik / normal.width) * oran });
-        const hedef = canvas.current;
-        hedef.width = viewport.width; hedef.height = viewport.height;
-        hedef.style.width = `${viewport.width / oran}px`;
-        hedef.style.height = `${viewport.height / oran}px`;
-        cizim = sayfaVerisi.render({ canvasContext: hedef.getContext('2d'), viewport });
-        await cizim.promise;
-        if (!iptal) setCiziliyor(false);
-      } catch (e) {
-        if (!iptal && e?.name !== 'RenderingCancelledException') {
-          setHata('Bu sayfa görüntülenemedi. Dosyayı indirerek açabilirsiniz.');
-        }
-      }
-    })();
-    return () => { iptal = true; cizim?.cancel(); };
-  }, [pdf, sayfa, genislik]);
+  useEffect(() => () => { if (kare.current) cancelAnimationFrame(kare.current); }, []);
+
+  const kutuAyarla = useCallback((no, el) => { kutular.current[no - 1] = el; }, []);
+
+  const konumuGuncelle = useCallback(() => {
+    const k = alan.current;
+    if (!k || !pdf) return;
+    // En alta inildiyse son sayfa; kısa son sayfa hiçbir zaman üste çıkamaz.
+    if (k.scrollTop > 0 && k.scrollTop + k.clientHeight >= k.scrollHeight - 4) { setSayfa(pdf.numPages); return; }
+    const esik = k.scrollTop + k.clientHeight / 3;
+    let bulunan = 1;
+    kutular.current.forEach((el, i) => { if (el && el.offsetTop <= esik) bulunan = i + 1; });
+    setSayfa(bulunan);
+  }, [pdf]);
+
+  const kaydirildi = () => {
+    if (kare.current) return;
+    kare.current = requestAnimationFrame(() => { kare.current = 0; konumuGuncelle(); });
+  };
+
+  const sayfayaGit = (no) => {
+    const hedef = Math.min(Math.max(1, no), pdf.numPages);
+    setSayfa(hedef);
+    const el = kutular.current[hedef - 1];
+    if (el && alan.current) alan.current.scrollTop = Math.max(0, el.offsetTop - 28);
+  };
+
+  const sayfaNolari = pdf ? Array.from({ length: pdf.numPages }, (_, i) => i + 1) : [];
 
   return (
     <Box sx={{ minHeight: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
       {pdf && !hata && (
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, p: 1, flexWrap: 'wrap', borderBottom: '1px solid #e2e8f0' }}>
-          <Button size="small" disabled={sayfa <= 1} onClick={() => setSayfa((s) => s - 1)}>Önceki</Button>
-          <Typography role="status" variant="body2">Sayfa {sayfa} / {pdf.numPages}</Typography>
-          <Button size="small" disabled={sayfa >= pdf.numPages} onClick={() => setSayfa((s) => s + 1)}>Sonraki</Button>
+          <Button size="small" disabled={sayfa <= 1} onClick={() => sayfayaGit(sayfa - 1)}>Önceki</Button>
+          <Typography role="status" variant="body2" sx={{ fontWeight: 600 }}>Sayfa {sayfa} / {pdf.numPages}</Typography>
+          <Button size="small" disabled={sayfa >= pdf.numPages} onClick={() => sayfayaGit(sayfa + 1)}>Sonraki</Button>
+          {pdf.numPages > 1 && sayfa < pdf.numPages && (
+            <Typography variant="caption" color="text.secondary">Sonraki sayfalar için aşağı kaydırın</Typography>
+          )}
         </Box>
       )}
       {hata ? <Alert severity="warning" sx={{ m: 2 }}>{hata}</Alert> : (
-        <Box ref={alan} sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 1.5, bgcolor: '#e2e8f0', textAlign: 'center' }}>
-          {(!pdf || ciziliyor) && <CircularProgress size={24} aria-label="PDF hazırlanıyor" sx={{ display: 'block', mx: 'auto', mb: 1 }} />}
-          <canvas ref={canvas} role="img" aria-label={`PDF sayfa ${sayfa}`} style={{ display: pdf ? 'block' : 'none', margin: '0 auto', maxWidth: '100%' }} />
+        <Box ref={alan} onScroll={kaydirildi} tabIndex={0} role="region" aria-label="PDF sayfaları"
+          sx={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'auto', p: 1.5, bgcolor: '#e2e8f0', textAlign: 'center', '&:focus-visible': { outline: '2px solid #2563eb', outlineOffset: -2 } }}>
+          {!pdf && <CircularProgress size={24} aria-label="PDF hazırlanıyor" sx={{ display: 'block', mx: 'auto', mb: 1 }} />}
+          {pdf && genislik > 0 && sayfaNolari.map((no) => (
+            <PdfTekSayfa key={no} pdf={pdf} no={no} toplam={pdf.numPages} genislik={genislik}
+              varsayilanOran={varsayilanOran} kok={alan} kutuAyarla={kutuAyarla} />
+          ))}
+          {pdf && pdf.numPages > 1 && (
+            <Typography variant="caption" sx={{ display: 'block', color: '#475569', pb: 1 }}>
+              Belgenin sonu · {pdf.numPages} sayfa
+            </Typography>
+          )}
         </Box>
       )}
     </Box>

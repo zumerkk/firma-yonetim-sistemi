@@ -63,6 +63,29 @@ test('PDF yetkili yükleyiciden alınır, canvas sayfaları gezinilir ve kapatı
   expect(dosya.yukle.mock.calls[0][0].aborted).toBe(true);
 });
 
+test('PDF sayfaları alt alta çizilir; en alta kaydırınca sayaç son sayfayı gösterir', async () => {
+  const getPage = jest.fn(async () => sayfa);
+  getDocument.mockImplementation(() => ({ promise: Promise.resolve({ numPages: 3, getPage }), destroy }));
+  const dosya = { ad: 'Uzun.pdf', mimeType: 'application/pdf', yukle: jest.fn(async () => new Blob(['%PDF'], { type: 'application/pdf' })) };
+  render(<DosyaOnizlemeDialog dosya={dosya} onClose={() => {}} />);
+  expect(await screen.findByText('Sayfa 1 / 3')).toBeInTheDocument();
+  expect(await screen.findAllByRole('img', { name: /^PDF sayfa \d$/ })).toHaveLength(3);
+  await waitFor(() => expect(sayfa.render).toHaveBeenCalledTimes(3));
+  [1, 2, 3].forEach((no) => expect(getPage).toHaveBeenCalledWith(no));
+  expect(screen.getByText('2. sayfa')).toBeInTheDocument();
+  expect(screen.getByText('Belgenin sonu · 3 sayfa')).toBeInTheDocument();
+  expect(screen.getByText('Sonraki sayfalar için aşağı kaydırın')).toBeInTheDocument();
+
+  const alan = screen.getByRole('region', { name: 'PDF sayfaları' });
+  Object.defineProperty(alan, 'clientHeight', { configurable: true, value: 500 });
+  Object.defineProperty(alan, 'scrollHeight', { configurable: true, value: 1500 });
+  alan.scrollTop = 1000;
+  fireEvent.scroll(alan);
+  expect(await screen.findByText('Sayfa 3 / 3')).toBeInTheDocument();
+  expect(screen.queryByText('Sonraki sayfalar için aşağı kaydırın')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Sonraki' })).toBeDisabled();
+});
+
 test('görsel mobilde tam ekran diyalogda gösterilir; indirme kendiliğinden başlamaz', async () => {
   useMediaQuery.mockReturnValue(true);
   const dosya = { ad: 'Fatura.png', mimeType: 'image/png', yukle: jest.fn(async () => ({ data: new Blob(['png'], { type: 'image/png' }) })) };
