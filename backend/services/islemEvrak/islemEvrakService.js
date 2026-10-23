@@ -11,7 +11,7 @@ const tokenService = require('../tesvikMakine/uploadTokenService');
 const storageService = require('../tesvikMakine/storageService');
 const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 const mailService = require('../tesvikMakine/mailService');
-const { mailIcerigi } = require('../../utils/mailHtml');
+const { mailIcerigi, htmlMi, htmlTemizle } = require('../../utils/mailHtml');
 const { ornekDosyalari, ornekDosyayiSec } = require('../../utils/islemEvrakOrnekleri');
 const engine = require('../tesvikMakine/mailTemplateEngine');
 const { DEFAULT_SIGNATURE } = require('../../constants/tesvikMakineMail');
@@ -396,7 +396,8 @@ async function topluZipYaz(talep, res, { icerikAl = zipDosyaIcerigi } = {}) {
 
 // 📤 Talebi mail olarak gönder (konu/gövde dışarıdan düzenlenmiş gelebilir)
 // serbestEkler: bu maile özel, saklanmayan dosyalar [{ filename, content }] (müşteri, 13.10.2026)
-async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbestEkler = [], user }) {
+// serbestDosyalar: aynı dosyaların multer kayıtları — gönderimden sonra depoya konur, linkte görünür
+async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbestEkler = [], serbestDosyalar = [], user }) {
   if (!Array.isArray(to) || to.length === 0) {
     const e = new Error('Gönderim için alıcı e-posta adresi yok.'); e.code = 'NO_RECIPIENT'; throw e;
   }
@@ -412,11 +413,31 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
 
   const gonderim = await mailService.sendMail({ to, cc, subject, text, html, attachments });
 
+  // Maile özel ekler linkte de indirilebilsin diye saklanır. Mail ÖNCE gider: depolama hatası gönderimi
+  // geri almaz, kullanıcıya hangi ekin linke eklenemediği söylenir.
+  const yeniEkler = [];
+  const linkeEklenemeyen = [];
+  for (const dosya of serbestDosyalar || []) {
+    try {
+      const kayit = await dosyaKaydet(talep, dosya, 'Mail_Ekleri');
+      talep.mailEkleri.push({
+        dosyaAdi: kayit.orijinalAd, fileUrl: kayit.fileUrl, filePath: kayit.filePath,
+        mimeType: kayit.mimeType, fileSize: kayit.fileSize, tarih: new Date()
+      });
+      yeniEkler.push(talep.mailEkleri[talep.mailEkleri.length - 1]._id);
+    } catch (e) {
+      console.error('🚨 [islemEvrak] mail eki linke kaydedilemedi:', e && e.message);
+      linkeEklenemeyen.push(dosyaAdiDuzelt(dosya.originalname));
+    }
+  }
+
   // İlk gönderimden sonraki her mail "devam" — aynı bağlantıyla giden ikinci, üçüncü mail
   talep.mailGecmisi = [...(talep.mailGecmisi || []), {
     tarih: new Date(), tur: (talep.mailGonderimSayisi || 0) > 0 ? 'devam' : 'ilk',
     konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || '',
-    smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300)
+    smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300),
+    govde: String(html || body || '').slice(0, 60000),
+    ekIdler: yeniEkler
   }].slice(-50);
   talep.sonGonderilenMail = { konu: subject, govde: html || body, tarih: new Date() };
   talep.mailKonusu = subject;
@@ -429,7 +450,33 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
   talep.sonMailGonderen = user ? user._id : talep.sonMailGonderen;
   talep.durumTazele();
   await talep.save();
-  return { sent: true, ekSayisi: attachments.length, atlananEkler };
+  return { sent: true, ekSayisi: attachments.length, atlananEkler, linkeEklenemeyen };
+}
+
+/**
+ * Firma linkinde görünen gönderilmiş mailler — en yeni önce. Ekranda en yenisi açık, öncekiler kapalı.
+ * İçeriği saklanmamış eski gönderimler (23.10.2026 öncesi) yalnız son mail olarak (sonGonderilenMail) gelir.
+ * Alıcılar, gönderen personel ve SMTP yanıtı firmaya gösterilmez.
+ */
+function firmaIcinGonderilenMailler(talep) {
+  const temizle = (g) => (htmlMi(g) ? htmlTemizle(g) : String(g || ''));
+  const ekAdi = new Map((talep.mailEkleri || []).map((e) => [String(e._id), e]));
+  const icerikli = (talep.mailGecmisi || []).filter((m) => m && m.govde);
+  const liste = icerikli.map((m) => ({
+    konu: m.konu || '', tarih: m.tarih, tur: m.tur || 'ilk', govde: temizle(m.govde),
+    ekler: (m.ekIdler || []).map((id) => ekAdi.get(String(id))).filter(Boolean)
+      .map((e) => ({ id: e._id, dosyaAdi: e.dosyaAdi || 'Ek' }))
+  }));
+  const son = talep.sonGonderilenMail;
+  if (!liste.length && son && son.tarih) {
+    liste.push({ konu: son.konu || '', tarih: son.tarih, tur: 'ilk', govde: temizle(son.govde), ekler: [] });
+  }
+  // Eskiden linke eklenmiş ama hiçbir maille eşleşmeyen ekler (olmamalı) en yeni mailin altında görünür
+  const bagli = new Set(liste.flatMap((m) => m.ekler.map((e) => String(e.id))));
+  const sahipsiz = (talep.mailEkleri || []).filter((e) => !bagli.has(String(e._id)));
+  liste.sort((a, b) => new Date(b.tarih) - new Date(a.tarih));
+  if (sahipsiz.length && liste.length) liste[0].ekler.push(...sahipsiz.map((e) => ({ id: e._id, dosyaAdi: e.dosyaAdi || 'Ek' })));
+  return liste;
 }
 
 // 📎 Dosyayı talebin klasörüne kaydet (örnek şablon veya firma yüklemesi)
@@ -637,6 +684,7 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
 }
 
 module.exports = {
+  firmaIcinGonderilenMailler,
   kosullaSuz,
   secimUygula,
   talepKlasoru,

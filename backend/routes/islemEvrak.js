@@ -14,6 +14,8 @@ router.get('/public/:token', ctrl.publicBilgi);
 router.get('/public/:token/ornek/:evrakId', ctrl.publicOrnekIndir);
 router.post('/public/:token/neden', ctrl.publicNedenKaydet);
 router.post('/public/:token/ek-belge', ctrl.publicEkBelgeEkle);
+router.delete('/public/:token/ek-belge/:ekId', ctrl.publicEkBelgeSil);
+router.get('/public/:token/mail-eki/:ekId', ctrl.publicMailEkiIndir);
 router.post('/public/:token', uploadMultiple('dosyalar'), ctrl.publicYukle);
 
 // ── Bundan sonrası giriş gerektirir
@@ -50,5 +52,7 @@ router.get('/talepler/:id/dosya/:dosyaId/indir', ctrl.talepDosyaIndir);
 // Firmadan gelen evrakların hepsi tek ZIP (müşteri, 21.09.2026: "toplu bir şekilde indirebilme")
 router.get('/talepler/:id/toplu-indir', ctrl.talepTopluIndir);
 router.delete('/talepler/:id/yuklenen/:dosyaId', editor, ctrl.talepYuklenenSil);
+router.delete('/talepler/:id/firma-eki/:ekId', editor, ctrl.talepFirmaEkiSil);
+router.delete('/talepler/:id/mail-eki/:ekId', editor, ctrl.talepMailEkiSil);
 
 module.exports = router;

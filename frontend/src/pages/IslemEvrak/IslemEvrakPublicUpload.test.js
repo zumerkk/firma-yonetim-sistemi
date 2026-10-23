@@ -4,7 +4,7 @@ import '@testing-library/jest-dom';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Upload from './IslemEvrakPublicUpload';
 import svc from '../../services/islemEvrakService';
-jest.mock('../../services/islemEvrakService', () => ({ __esModule: true, default: { publicBilgi: jest.fn(), publicYukle: jest.fn(), publicNedenKaydet: jest.fn(), publicOrnekIndir: jest.fn() } }));
+jest.mock('../../services/islemEvrakService', () => ({ __esModule: true, default: { publicBilgi: jest.fn(), publicYukle: jest.fn(), publicNedenKaydet: jest.fn(), publicOrnekIndir: jest.fn(), publicMailEkiIndir: jest.fn(), publicEkBelgeSil: jest.fn(), publicEkBelgeEkle: jest.fn() } }));
 const bilgi = { firmaAdi: 'Test Firma', islemAdi: 'Yeni Belge', maxUploadMB: 100, istenenEvraklar: [{ id: 'a', ad: 'Vergi Levhası' }, { id: 'b', ad: 'İmza Sirküleri' }] };
 const ac = () => render(<MemoryRouter initialEntries={['/evrak/token1']}><Routes><Route path="/evrak/:token" element={<Upload />} /></Routes></MemoryRouter>);
 beforeEach(() => { jest.clearAllMocks(); svc.publicBilgi.mockResolvedValue(bilgi); });
@@ -71,4 +71,41 @@ test('aynı evrakın birden fazla örneği kendi indeksiyle indirilir', async ()
     expect(screen.getByRole('button', { name: 'Şahıs.docx' })).toBeInTheDocument();
     await waitFor(() => expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:ornek'));
   } finally { URL.createObjectURL = create; URL.revokeObjectURL = revoke; click.mockRestore(); }
+});
+
+// Müşteri (23.10.2026): önceki mailler kapalı, en yenisi açık; maile özel ekler linkte indirilebilir
+test('gönderilen mailler: en yeni açık, öncekiler kapalı; ekler kendi mailinin altında', async () => {
+  svc.publicBilgi.mockResolvedValue({ ...bilgi, gonderilenMailler: [
+    { konu: 'Eksik evraklar', tur: 'devam', tarih: '2026-10-22T09:00:00Z', govde: '<p>İkinci mail</p>', ekler: [] },
+    { konu: 'Evrak talebi', tur: 'ilk', tarih: '2026-10-20T09:00:00Z', govde: '<p>Birinci mail</p>', ekler: [{ id: 'e1', dosyaAdi: 'Vekaletname.pdf' }] }
+  ] });
+  svc.publicMailEkiIndir.mockResolvedValue({ data: new Blob(['x']) });
+  const create = URL.createObjectURL; const revoke = URL.revokeObjectURL;
+  URL.createObjectURL = jest.fn(() => 'blob:ek'); URL.revokeObjectURL = jest.fn();
+  const click = jest.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+  try {
+    ac();
+    const bolum = await screen.findByRole('region', { name: 'Gönderilen mail' });
+    expect(bolum).toHaveTextContent('Gönderilen mailler (2)');
+    expect(screen.getByText('İkinci mail')).toBeVisible();
+    const eski = screen.getByRole('button', { name: /İlk talep · 20\.10\.2026 · Evrak talebi/ });
+    expect(eski).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(eski);
+    await waitFor(() => expect(eski).toHaveAttribute('aria-expanded', 'true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Vekaletname.pdf' }));
+    await waitFor(() => expect(svc.publicMailEkiIndir).toHaveBeenCalledWith('token1', 'e1'));
+  } finally { URL.createObjectURL = create; URL.revokeObjectURL = revoke; click.mockRestore(); }
+});
+
+test('firmanın eklediği belge onayla listeden kaldırılır', async () => {
+  svc.publicBilgi.mockResolvedValue({ ...bilgi, ekBelgeler: [{ id: 'k1', ad: 'Test belgesi', geldiMi: true }] });
+  svc.publicEkBelgeSil.mockResolvedValue({ message: 'Belge listeden kaldırıldı.' });
+  const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  try {
+    ac();
+    fireEvent.click(await screen.findByRole('button', { name: 'Test belgesi kaldır' }));
+    await waitFor(() => expect(svc.publicEkBelgeSil).toHaveBeenCalledWith('token1', 'k1'));
+    expect(onay.mock.calls[0][0]).toContain('danışmanınızda kalır');
+    await screen.findByText('Belge listeden kaldırıldı.');
+  } finally { onay.mockRestore(); }
 });

@@ -41,6 +41,8 @@ const islemEvrakService = {
   ornekDosyaYukle: (id, evrakId, formData, onProgress) =>
     uploadPost(`${base}/talepler/${id}/evrak/${evrakId}/ornek`, formData, { onProgress }).then(d),
   yuklenenSil: (id, dosyaId) => api.delete(`${base}/talepler/${id}/yuklenen/${dosyaId}`).then(d),
+  firmaEkiSil: (id, ekId) => api.delete(`${base}/talepler/${id}/firma-eki/${ekId}`).then(d),
+  mailEkiSil: (id, ekId) => api.delete(`${base}/talepler/${id}/mail-eki/${ekId}`).then(d),
   // 🔁 Gelen evrak eksik / hatalı → tekrar iste (müşteri, 09.10.2026); geri al
   tekrarIste: (id, evrakId, not) => api.post(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`, { not }).then(d),
   tekrarIstemeGeriAl: (id, evrakId) => api.delete(`${base}/talepler/${id}/evrak/${evrakId}/tekrar-iste`).then(d),
@@ -56,6 +58,8 @@ const islemEvrakService = {
   // Public (token — auth gerektirmez)
   publicNedenKaydet: (token, body) => api.post(`${base}/public/${token}/neden`, body).then(r => r.data),
   publicEkBelgeEkle: (token, body) => api.post(`${base}/public/${token}/ek-belge`, body).then(r => r.data),
+  publicEkBelgeSil: (token, ekId) => api.delete(`${base}/public/${token}/ek-belge/${ekId}`).then(r => r.data),
+  publicMailEkiIndir: (token, ekId) => api.get(`${base}/public/${token}/mail-eki/${ekId}`, { responseType: 'blob' }),
   publicBilgi: (token) => api.get(`${base}/public/${token}`).then(d),
   // Maile eklediğimiz örnek/şablon dosya — firma yükleme sayfasından da indirebilsin
   publicOrnekIndir: (token, evrakId, ornek = 0) =>

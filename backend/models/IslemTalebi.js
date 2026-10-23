@@ -138,8 +138,28 @@ const islemTalebiSchema = new mongoose.Schema({
       konu: { type: String, trim: true, default: '' },
       alicilar: { type: [String], default: [] },
       gonderenAdi: { type: String, trim: true, default: '' },
-      smtpYaniti: { type: String, trim: true, default: '' } // mail sunucusunun kabul cevabı (bkz. mailService)
+      smtpYaniti: { type: String, trim: true, default: '' }, // mail sunucusunun kabul cevabı (bkz. mailService)
+      // Gönderilen içerik — müşteri (23.10.2026): "Devam maili hazırladığımızda linkte en güncel mail içeriği
+      // görünüyor birde ama eski/önceki gönderilen mailleri de kapalı bir şekilde gösterme şansımız var mı
+      // acaba bir bütün olarak?" Bu alandan önceki gönderimlerde içerik yoktur (yalnız son mail ayrı tutuluyordu).
+      govde: { type: String, default: '', maxlength: 60000 },
+      ekIdler: { type: [mongoose.Schema.Types.ObjectId], default: [] } // bu mailde giden mailEkleri
     }, { _id: false })],
+    default: []
+  },
+
+  // 📎 Maile özel eklenen dosyalar (mail taslağındaki "Dosya Ekle") — gönderimden sonra saklanır ki yükleme
+  // linkinde de indirilebilsin. Müşteri (23.10.2026): "Dosya eklediğimizde yükleme linkinde görünmüyor sadece
+  // mailde ek olarak görünüyor, oraya eklediğimiz dosyaları da link'in içine dahil edebilir miyiz?"
+  mailEkleri: {
+    type: [new mongoose.Schema({
+      dosyaAdi: { type: String, trim: true, default: '' },   // görünen (onarılmış) ad
+      fileUrl: { type: String, trim: true, default: '' },
+      filePath: { type: String, trim: true, default: '' },
+      mimeType: { type: String, trim: true, default: '' },
+      fileSize: { type: Number, default: 0 },
+      tarih: { type: Date, default: Date.now }
+    }, { _id: true })],
     default: []
   },
 

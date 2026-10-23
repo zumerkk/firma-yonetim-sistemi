@@ -6,13 +6,17 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Paper, Typography, Stack, Button, TextField, Chip, Alert,
-  CircularProgress, Divider
+  CircularProgress, Divider,
+  Accordion, AccordionSummary, AccordionDetails, IconButton, Tooltip
 } from '@mui/material';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DownloadIcon from '@mui/icons-material/Download';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import AddIcon from '@mui/icons-material/Add';
 import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import UploadProgress from '../../components/common/UploadProgress';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import svc from '../../services/islemEvrakService';
@@ -69,6 +73,41 @@ const IslemEvrakPublicUpload = () => {
       setYukleniyor(false);
       setYukleme(null);
     }
+  };
+
+  // Blob'u tarayıcıda dosya olarak indir
+  const blobIndir = (data, ad) => {
+    const adres = URL.createObjectURL(new Blob([data]));
+    const bag = document.createElement('a');
+    bag.href = adres;
+    bag.download = ad;
+    document.body.appendChild(bag);
+    bag.click();
+    bag.remove();
+    URL.revokeObjectURL(adres);
+  };
+
+  // Mailde gönderilen (maile özel) ek — müşteri (23.10.2026): linkte de indirilebilsin
+  const mailEkiIndir = async (ek) => {
+    try {
+      const yanit = await svc.publicMailEkiIndir(token, ek.id);
+      blobIndir(yanit.data, ek.dosyaAdi || 'ek');
+    } catch (_) {
+      setHata('Ek indirilemedi. Lütfen yetkiliyle iletişime geçin.');
+    }
+  };
+
+  // Firmanın eklediği belge satırını kaldır (yüklediği dosya danışmanda kalır)
+  const ekBelgeSil = async (ek) => {
+    if (!window.confirm(`"${ek.ad}" listeden kaldırılsın mı?${ek.geldiMi ? ' Yüklediğiniz dosya danışmanınızda kalır.' : ''}`)) return;
+    setYukleniyor(true); setHata(''); setSonuc('');
+    try {
+      const r = await svc.publicEkBelgeSil(token, ek.id);
+      setSonuc(r.message || 'Belge kaldırıldı.');
+      await yukle(true);
+    } catch (err) {
+      setHata(err?.response?.data?.message || 'Belge kaldırılamadı.');
+    } finally { setYukleniyor(false); }
   };
 
   // Maildeki ek ile aynı dosya: tarayıcıda indir
@@ -134,6 +173,11 @@ const IslemEvrakPublicUpload = () => {
     );
   }
 
+  // Gönderilmiş mailler (en yeni önce); eski sunucu cevabında yalnız son mail var
+  const mailler = Array.isArray(bilgi.gonderilenMailler) && bilgi.gonderilenMailler.length
+    ? bilgi.gonderilenMailler
+    : (bilgi.gonderilenMail ? [{ ...bilgi.gonderilenMail, ekler: [] }] : []);
+
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 720, mx: 'auto' }}>
       <Paper sx={{ p: 3, mb: 2 }}>
@@ -146,14 +190,28 @@ const IslemEvrakPublicUpload = () => {
         </Typography>
       </Paper>
 
-      {bilgi.gonderilenMail && (
+      {mailler.length > 0 && (
+        // Müşteri (23.10.2026): "linkte en güncel mail içeriği görünüyor birde ama eski/önceki gönderilen
+        // mailleri de kapalı bir şekilde gösterme … bir bütün olarak" — en yenisi açık, öncekiler kapalı.
         <Paper component="section" aria-label="Gönderilen mail" sx={{ p: 3, mb: 2 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Gönderilen mail</Typography>
-          <Typography variant="body1" sx={{ fontWeight: 600, mt: 1, overflowWrap: 'anywhere' }}>
-            {bilgi.gonderilenMail.konu}
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            Gönderilen mail{mailler.length > 1 ? `ler (${mailler.length})` : ''}
           </Typography>
-          <Box sx={{ mt: 1.5, overflowWrap: 'anywhere', '& p': { my: 1 } }}
-            dangerouslySetInnerHTML={{ __html: htmlTemizle(editoreHazirla(bilgi.gonderilenMail.govde)) }} />
+          <MailIcerigi mail={mailler[0]} onEkIndir={mailEkiIndir} />
+          {mailler.slice(1).map((m, i) => (
+            <Accordion key={`${m.tarih}-${i}`} disableGutters elevation={0}
+              sx={{ mt: 1.5, border: '1px solid #e2e8f0', '&:before': { display: 'none' } }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2" sx={{ fontWeight: 600, overflowWrap: 'anywhere' }}>
+                  {m.tur === 'devam' ? 'Devam maili' : 'İlk talep'}
+                  {m.tarih ? ` · ${new Date(m.tarih).toLocaleDateString('tr-TR')}` : ''} · {m.konu}
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                <MailIcerigi mail={m} konuGizle onEkIndir={mailEkiIndir} />
+              </AccordionDetails>
+            </Accordion>
+          ))}
         </Paper>
       )}
 
@@ -232,6 +290,14 @@ const IslemEvrakPublicUpload = () => {
                 Dosya yükle
                 <input hidden type="file" multiple aria-label={`${e.ad} yükle`} onChange={(event) => dosyaSec(event, e.id)} />
               </Button>
+              {/* Müşteri (23.10.2026): "Burada eklediklerimizi silemiyoruz" */}
+              <Tooltip title="Listeden kaldır">
+                <span>
+                  <IconButton size="small" color="error" aria-label={`${e.ad} kaldır`} disabled={yukleniyor} onClick={() => ekBelgeSil(e)}>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Stack>
           ))}
           {ekFormAcik ? (
@@ -274,5 +340,30 @@ const IslemEvrakPublicUpload = () => {
     </Box>
   );
 };
+
+// Tek bir gönderilmiş mail: konu, (temizlenmiş) içerik ve linke konmuş ekleri
+function MailIcerigi({ mail, konuGizle = false, onEkIndir }) {
+  return (
+    <Box>
+      {!konuGizle && (
+        <Typography variant="body1" sx={{ fontWeight: 600, mt: 1, overflowWrap: 'anywhere' }}>
+          {mail.konu}
+        </Typography>
+      )}
+      <Box sx={{ mt: 1.5, overflowWrap: 'anywhere', '& p': { my: 1 } }}
+        dangerouslySetInnerHTML={{ __html: htmlTemizle(editoreHazirla(mail.govde)) }} />
+      {(mail.ekler || []).length > 0 && (
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+          {mail.ekler.map((ek) => (
+            <Button key={ek.id} size="small" variant="outlined" startIcon={<AttachFileIcon />}
+              sx={{ overflowWrap: 'anywhere', textTransform: 'none' }} onClick={() => onEkIndir(ek)}>
+              {ek.dosyaAdi}
+            </Button>
+          ))}
+        </Stack>
+      )}
+    </Box>
+  );
+}
 
 export default IslemEvrakPublicUpload;

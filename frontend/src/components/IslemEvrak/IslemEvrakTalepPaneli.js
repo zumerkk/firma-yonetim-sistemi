@@ -603,10 +603,26 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
       // Alınamayan örnek dosya atlanıp mail yine gidiyor; hangisinin gitmediği görünmeli
       if (sonuc.atlananEkler?.length) {
         notify(`Mail gönderildi ama ${sonuc.atlananEkler.length} ek eklenemedi: ${sonuc.atlananEkler.join(', ')} — dosyayı yeniden yükleyip gerekirse tekrar gönderin`, 'warning');
+      } else if (sonuc.linkeEklenemeyen?.length) {
+        // Mail ekle gitti ama yükleme linkine konamadı (depo hatası)
+        notify(`Mail gönderildi; şu ek(ler) yükleme linkine eklenemedi: ${sonuc.linkeEklenemeyen.join(', ')}`, 'warning');
       } else {
         notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
       }
     } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setMailYukleme(null); }
+  };
+
+  // Firmanın eklediği belge satırı (yüklenmiş dosya varsa o ayrıca durur)
+  const firmaEkiniKaldir = async (b) => {
+    if (!window.confirm(`Firmanın eklediği "${b.ad}" satırı kaldırılsın mı?`)) return;
+    try { setTalep(await svc.firmaEkiSil(id, b._id)); notify('Firmanın eklediği belge kaldırıldı'); }
+    catch (e) { notify(errMsg(e), 'error'); }
+  };
+
+  const mailEkiniLinktenKaldir = async (ek) => {
+    if (!window.confirm(`"${ek.dosyaAdi}" yükleme linkinden kaldırılsın mı? Gönderilmiş mail değişmez.`)) return;
+    try { setTalep(await svc.mailEkiSil(id, ek._id)); notify('Ek linkten kaldırıldı'); }
+    catch (e) { notify(errMsg(e), 'error'); }
   };
 
   const linkKopyala = async () => {
@@ -929,6 +945,19 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   Eklerin toplamı {(mailEkBoyutu / 1048576).toFixed(1)} MB — 20 MB'ı geçmesin.
                 </Typography>
               )}
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                Buradan eklenen dosyalar maille birlikte firmanın yükleme linkinde de indirilebilir.
+              </Typography>
+              {/* Müşteri (23.10.2026): maile özel ekler linke de dahil — daha önce gidenler buradan linkten kaldırılabilir */}
+              {(talep.mailEkleri || []).length > 0 && (
+                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700 }}>Linkte duran mail ekleri:</Typography>
+                  {talep.mailEkleri.map((ek) => (
+                    <Chip key={ek._id} size="small" variant="outlined" icon={<AttachFileIcon />} label={ek.dosyaAdi}
+                      onDelete={busy ? undefined : () => mailEkiniLinktenKaldir(ek)} />
+                  ))}
+                </Stack>
+              )}
               <UploadProgress active={busy === 'mail' && !!mailYukleme} {...(mailYukleme || {})} />
             </Box>
           </Stack>
@@ -1045,6 +1074,11 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   <Chip size="small" color="info" label="Firma ekledi" />
                   <Typography variant="body2" sx={{ flex: 1, minWidth: 160 }}>{b.ad} — dosyası henüz yüklenmedi</Typography>
                   {b.ekleyenAdi && <Typography variant="caption" color="text.secondary">{b.ekleyenAdi}</Typography>}
+                  <Tooltip title="Firmanın listesinden kaldır">
+                    <IconButton size="small" color="error" aria-label={`${b.ad} kaldır`} onClick={() => firmaEkiniKaldir(b)}>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
               ))}
             {(talep.yuklenenEvraklar || []).map((y) => (

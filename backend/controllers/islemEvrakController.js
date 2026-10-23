@@ -385,7 +385,8 @@ exports.talepMailGonder = wrap(async (req, res) => {
   // multer Türkçe adı latin1 çözüyor — alıcıya düzgün adla gitsin
   const serbestEkler = (req.uploadedFiles || []).map((f) => ({ filename: dosyaAdiDuzelt(f.originalname), content: f.buffer }));
   const sonuc = await svc.mailGonder(talep, {
-    to: parseList(to), cc: parseList(cc), subject, body, ekler, serbestEkler, user: req.user
+    to: parseList(to), cc: parseList(cc), subject, body, ekler, serbestEkler,
+    serbestDosyalar: req.uploadedFiles || [], user: req.user
   });
   res.json({ success: true, data: { ...sonuc, talep }, message: 'Mail gönderildi' });
 });
@@ -471,6 +472,26 @@ exports.talepYuklenenSil = wrap(async (req, res) => {
   res.json({ success: true, data: talep, message: 'Dosya silindi' });
 });
 
+// Personel firmanın eklediği belge satırını kaldırır (yüklenmiş dosyalar kalır, ayrıca silinebilir)
+exports.talepFirmaEkiSil = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const ek = talep.firmaEkBelgeleri.id(req.params.ekId);
+  if (!ek) { const e = new Error('Belge bulunamadı.'); e.code = 'TALEP_NOT_FOUND'; throw e; }
+  ek.deleteOne();
+  await talep.save();
+  res.json({ success: true, data: talep, message: 'Firmanın eklediği belge kaldırıldı' });
+});
+
+// Maile özel eki linkten kaldırır. Gönderilmiş mail değişmez; depodaki kopya iz olarak kalır.
+exports.talepMailEkiSil = wrap(async (req, res) => {
+  const talep = await talepBul(req.params.id);
+  const ek = talep.mailEkleri.id(req.params.ekId);
+  if (!ek) { const e = new Error('Ek bulunamadı.'); e.code = 'TALEP_NOT_FOUND'; throw e; }
+  ek.deleteOne();
+  await talep.save();
+  res.json({ success: true, data: talep, message: 'Ek linkten kaldırıldı' });
+});
+
 exports.talepSil = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   talep.aktif = false;
@@ -543,6 +564,8 @@ exports.publicBilgi = async (req, res) => {
           govde: htmlMi(gonderilenMail.govde) ? htmlTemizle(gonderilenMail.govde) : (gonderilenMail.govde || ''),
           tarih: gonderilenMail.tarih
         } : null,
+        // Bütün gönderilmiş mailler (en yeni önce) ve her birinin linke konmuş ekleri — müşteri (23.10.2026)
+        gonderilenMailler: svc.firmaIcinGonderilenMailler(talep),
         // Maile yazılmayan evrak firmaya da gösterilmez: aksi halde firma, mailde
         // hiç bahsedilmeyen bir belgeyi portalde görüp kafası karışıyordu.
         istenenEvraklar: (talep.istenenEvraklar || []).filter((e) => e.zorunlu !== false).map((e) => ({
@@ -706,6 +729,44 @@ exports.publicEkBelgeEkle = async (req, res) => {
   } catch (err) {
     console.error('🚨 [islemEvrak] publicEkBelgeEkle:', err && err.message);
     return res.status(500).json({ success: false, message: 'Belge eklenemedi. Lütfen tekrar deneyin.' });
+  }
+};
+
+// ➖ Firma kendi eklediği belge satırını kaldırır. Müşteri (23.10.2026): "Burada eklediklerimizi silemiyoruz".
+// Satıra yüklenmiş dosyalar SİLİNMEZ — personel tarafında kalır (adı ve "Firma eki" iziyle); firmanın
+// listesinden yalnız satır kalkar. Veri kaybı olmasın diye bilerek böyle.
+exports.publicEkBelgeSil = async (req, res) => {
+  try {
+    const sonuc = await svc.resolveByToken(req.params.token);
+    if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
+    if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş.' });
+    const { talep } = sonuc;
+    const ek = talep.firmaEkBelgeleri.id(req.params.ekId);
+    if (!ek) return res.status(404).json({ success: false, message: 'Belge bulunamadı.' });
+    ek.deleteOne();
+    await talep.save();
+    return res.json({ success: true, message: 'Belge listeden kaldırıldı.' });
+  } catch (err) {
+    console.error('🚨 [islemEvrak] publicEkBelgeSil:', err && err.message);
+    return res.status(500).json({ success: false, message: 'Belge kaldırılamadı. Lütfen tekrar deneyin.' });
+  }
+};
+
+// 📎 Mailde gönderilen (maile özel) eki linkten indir
+exports.publicMailEkiIndir = async (req, res) => {
+  try {
+    const sonuc = await svc.resolveByToken(req.params.token);
+    if (!sonuc) return res.status(404).json({ success: false, message: 'Bağlantı bulunamadı veya geçersiz.' });
+    if (sonuc.expired) return res.status(410).json({ success: false, message: 'Bağlantının süresi dolmuş.' });
+    const ek = sonuc.talep.mailEkleri.id(req.params.ekId);
+    if (!ek || !(ek.fileUrl || ek.filePath)) return res.status(404).json({ success: false, message: 'Ek bulunamadı.' });
+    return storageService.serveFile({
+      fileUrl: ek.fileUrl, filePath: ek.filePath, mimeType: ek.mimeType,
+      originalName: ek.dosyaAdi, fileName: ek.dosyaAdi
+    }, res);
+  } catch (err) {
+    console.error('🚨 [islemEvrak] publicMailEkiIndir:', err && err.message);
+    return res.status(500).json({ success: false, message: 'Ek indirilemedi.' });
   }
 };
 
