@@ -32,13 +32,11 @@ import {
   Folder as FolderIcon, // 📁 File Manager ikonu
   BugReport as BugReportIcon, // 🧪 Test sistemi ikonu
   Assignment as AssignmentIcon, // 📋 İş Akış Takip ikonu
-  ImportExport as ImportExportIcon, // 📥 Import/Export ikonu
-  PrecisionManufacturing as PrecisionManufacturingIcon, // 🏭 Makine Listesi ikonu
-  FactCheck as FactCheckIcon, // ✅ Ekipman Takip ikonu
   AccountBalanceWallet as AccountBalanceWalletIcon // 💳 Cari hesap / ödeme takip ikonu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { anaMenu, firmaMenusu, ayarlarMenusu, aktifMenuOgesi } from './menuOgeleri';
 
 // const SIDEBAR_WIDTH = 280; // unused
 
@@ -53,26 +51,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
   const [testMenuOpen, setTestMenuOpen] = React.useState(true);
 
-  // 🎯 Corporate Professional Menu Items
-  const menuItems = [
-    {
-      text: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: '/dashboard',
-      color: '#1e40af',
-      gradient: '#1e3a8a',
-      description: 'Ana kontrol paneli'
-    },
-    {
-      text: 'Akıllı Excel Yükleme',
-      icon: <ImportExportIcon />,
-      path: '/import',
-      color: '#7c3aed',
-      gradient: '#5b21b6',
-      description: 'Dosya analiz & toplu import',
-      isNew: true
-    }
-  ];
+  // Ana menü ve Firma grubu üst menüyle ortak listeden gelir (menuOgeleri.js)
+  const menuItems = anaMenu;
 
   // 🏆 Belge Teşvik Sistemi Menu Items
   const tesvikMenuItems = [
@@ -202,70 +182,8 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   // 🏢 Corporate Firma Menu Items
   // 🏢 FİRMA (konsolide grup) — müşteri krokisi: tek ana başlık altında
   // Yatırımcı Bilgileri / Teşvik Listesi / Makine Listesi / Ekipman Takip / Belge Takip
-  const firmaKonsolideMenuItems = [
-    {
-      text: 'Yatırımcı Bilgileri',
-      icon: <BusinessIcon />,
-      path: '/firmalar',
-      color: '#059669',
-      gradient: '#064e3b',
-      description: 'Firma listesi'
-    },
-    {
-      text: 'Teşvik Listesi',
-      icon: <EmojiEventsIcon />,
-      path: '/tesvik/liste',
-      color: '#dc2626',
-      gradient: '#7f1d1d',
-      description: 'Eski + yeni belgeler (firma araması birleşik)'
-    },
-    // Müşteri (13.10.2026): "makine listesi ve ekipman takip'in icon'unu değiştirebilir miyiz alt altalar
-    // ya karışıyor, renklerini de değiştirsek ok" — ikisi de kupa/mor idi.
-    {
-      text: 'Makine Listesi',
-      icon: <PrecisionManufacturingIcon />,
-      path: '/yeni-tesvik/makine-yonetimi',
-      color: '#7c3aed',
-      gradient: '#4c1d95',
-      description: 'Makine teçhizat yönetimi'
-    },
-    {
-      text: 'Ekipman Takip',
-      icon: <FactCheckIcon />,
-      path: '/tesvikler',
-      color: '#0d9488',
-      gradient: '#134e4a',
-      description: 'Süreç, mail, evrak takibi'
-    },
-    // "Ara Kontrol Maili" sayfası kaldırıldı (müşteri, 13.10.2026: "komple kaldırabiliriz"); mail Ekipman
-    // Takip › İşlem penceresindeki şablon listesinden gönderiliyor, firmanın elindeki linkler çalışıyor.
-    {
-      text: 'İşlem & Evrak',
-      icon: <AssignmentIcon />,
-      path: '/islem-evrak',
-      color: '#0891b2',
-      gradient: '#164e63',
-      description: 'Firmadan işlem bazlı evrak talebi'
-    },
-    {
-      text: 'Belge Takip',
-      icon: <ListIcon />,
-      path: '/dosya-takip/liste',
-      color: '#d97706',
-      gradient: '#92400e',
-      description: 'Dosya iş akış talepleri'
-    },
-    {
-      // müşteri: "Sol sütunda belge takip'in altına Cari hesaplar/faturalar-ödeme takip gibi bir modül"
-      text: 'Cari / Ödeme Takip',
-      icon: <AccountBalanceWalletIcon />,
-      path: '/cari-takip',
-      color: '#d97706',
-      gradient: '#92400e',
-      description: 'Firma bazlı fatura, ödeme ve bakiye',
-      isNew: true
-    }
-  ];
+  const firmaKonsolideMenuItems = firmaMenusu;
+
 
   const firmaMenuItems = [
     {
@@ -358,12 +276,9 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
   };
 
   // 🎨 Aktif sayfa kontrolü
-  const isActive = (path) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/' || location.pathname === '/dashboard';
-    }
-    return location.pathname.startsWith(path);
-  };
+  // Üst menüyle aynı kural: en uzun yol öneki kazanır ("/tesvikler" Teşvik Listesi'ni yakmaz)
+  const aktifOge = aktifMenuOgesi(location.pathname, [...anaMenu, ...firmaMenusu, ...ayarlarMenusu]);
+  const isActive = (path) => aktifOge?.path === path;
 
   // 👀 Yetki kontrolü
   const hasPermission = (permission) => {
@@ -1122,7 +1037,7 @@ const Sidebar = ({ open, onClose, variant = 'persistent' }) => {
 
         {/* ⚙️ Ayarlar - "Sistem & Analiz" gizlendi ama Ayarlar erişilebilir kalsın (müşteri: A) */}
         <List sx={{ px: 0, py: 0, mb: 1.5 }}>
-          {bottomMenuItems.filter((m) => m.path === '/ayarlar').map(renderMenuItem)}
+          {ayarlarMenusu.map(renderMenuItem)}
         </List>
 
         {/* 👤 Corporate User Info - OPTIMIZED SPACING */}

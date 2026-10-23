@@ -415,7 +415,7 @@ const YeniTesvikForm = () => {
   );
 
   // 📊 State Management
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -4967,8 +4967,8 @@ const YeniTesvikForm = () => {
     return (
       <Box sx={{
         display: 'grid',
-        gridTemplateRows: '64px 1fr',
-        gridTemplateColumns: { xs: '1fr', lg: sidebarOpen ? '280px 1fr' : '1fr' },
+        gridTemplateRows: 'auto 1fr',
+        gridTemplateColumns: { xs: '1fr', lg: '1fr' },
         height: '100vh',
         backgroundColor: '#f8fafc'
       }}>
@@ -4983,14 +4983,14 @@ const YeniTesvikForm = () => {
   return (
     <Box sx={{
       display: 'grid',
-      gridTemplateRows: '64px 1fr',
+      gridTemplateRows: 'auto 1fr',
       gridTemplateColumns: {
         xs: '1fr',
-        lg: sidebarOpen ? '280px 1fr' : '1fr'
+        lg: '1fr'
       },
       gridTemplateAreas: {
         xs: '"header" "content"',
-        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+        lg: '"header" "content"'
       },
       height: '100vh',
       backgroundColor: '#f8fafc'
@@ -5000,12 +5000,7 @@ const YeniTesvikForm = () => {
         <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
       </Box>
 
-      {/* Sidebar */}
-      {!isMobile && sidebarOpen && (
-        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
-          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
-        </Box>
-      )}
+      {/* Menü masaüstünde Header'ın içinde (üst menü); mobilde çekmece */}
 
       {isMobile && (
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />

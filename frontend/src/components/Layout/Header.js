@@ -27,6 +27,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import NotificationDropdown from '../Notifications/NotificationDropdown';
+import UstMenu, { masaustuSorgusu } from './UstMenu';
 
 const Header = ({ onSidebarToggle }) => {
   const { user, logout } = useAuth();
@@ -53,19 +54,21 @@ const Header = ({ onSidebarToggle }) => {
   };
 
   return (
+    // Sayfa ızgarasının ilk satırında akışta durur (sabit değil): üst menü dar ekranda
+    // iki satıra sarsa bile içerik altında kalmaz. İçerik kendi alanında kaydığı için
+    // üst bar her zaman görünür.
     <AppBar 
-      position="fixed" 
+      position="static" 
       elevation={0}
       sx={{ 
         backgroundColor: '#ffffff',
         borderBottom: '1px solid #e5e7eb',
         color: '#1f2937',
-        zIndex: 1400,
-        height: '64px',
       }}
     >
       <Toolbar sx={{ 
         minHeight: '64px !important',
+        [masaustuSorgusu]: { minHeight: '56px !important' },
         px: { xs: 2, sm: 3 },
         width: '100%',
         maxWidth: '100vw',
@@ -74,31 +77,45 @@ const Header = ({ onSidebarToggle }) => {
         justifyContent: 'space-between', // 🎯 Sol ve sağ arasında boşluk
         alignItems: 'center'
       }}>
-        {/* 🍔 Sol Taraf - Sadece Hamburger Menu */}
-        <IconButton
-          edge="start"
-          onClick={onSidebarToggle}
-          sx={{ 
-            color: '#4b5563',
-            p: 1,
-            '&:hover': {
-              backgroundColor: '#f3f4f6',
-            }
-          }}
-        >
-          <MenuIcon />
-        </IconButton>
+        {/* 🍔 Sol: mobilde menü düğmesi; masaüstünde menü üstte olduğundan yalnız marka */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+          <IconButton
+            edge="start"
+            onClick={onSidebarToggle}
+            aria-label="Menüyü aç"
+            sx={{ 
+              color: '#4b5563',
+              p: 1,
+              '&:hover': {
+                backgroundColor: '#f3f4f6',
+              },
+              [masaustuSorgusu]: { display: 'none' }
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+          <Box component="button" type="button" onClick={() => navigate('/dashboard')} aria-label="GM Planlama — Dashboard"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, border: 0, bgcolor: 'transparent', p: 0.5, borderRadius: 1, cursor: 'pointer', color: 'inherit', minWidth: 0,
+              '&:focus-visible': { outline: '2px solid #2563eb' } }}>
+            <Box component="img" src={`${process.env.PUBLIC_URL || ''}/favicon.svg`} alt="" sx={{ width: 30, height: 30, flexShrink: 0 }} />
+            <Typography component="span" sx={{ display: { xs: 'none', sm: 'block' }, fontWeight: 700, fontSize: '0.95rem', color: '#0f172a', whiteSpace: 'nowrap' }}>
+              GM Planlama
+            </Typography>
+          </Box>
+        </Box>
 
         {/* 🎯 Sağ Taraf - Bildirimler, Dashboard ve Profil */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {/* 🔔 Bildirimler - Enterprise Edition */}
           <NotificationDropdown />
 
-          {/* 🎯 Dashboard Hızlı Erişim */}
+          {/* 🎯 Dashboard Hızlı Erişim — masaüstünde üst menüde zaten var */}
           <Tooltip title="Dashboard'a Git" arrow>
             <IconButton 
               onClick={() => navigate('/dashboard')}
+              aria-label="Dashboard'a git"
               sx={{
+                [masaustuSorgusu]: { display: 'none' },
                 width: 48,
                 height: 48,
                 background: 'rgba(16, 185, 129, 0.1)',
@@ -338,6 +355,7 @@ const Header = ({ onSidebarToggle }) => {
           </MenuItem>
         </Menu>
       </Toolbar>
+      <UstMenu />
     </AppBar>
   );
 };

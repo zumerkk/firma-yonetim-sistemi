@@ -62,7 +62,7 @@ const Dashboard = () => {
   const [criticalAlerts, setCriticalAlerts] = useState([]);
   
   // 📊 Sidebar Management
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
 
   // 🕒 Belge Takip son işlemleri — müşteri (14.10.2026): "sağ alttaki son işlemleri vs kaldırıp onların yerine
@@ -276,14 +276,14 @@ const Dashboard = () => {
   return (
     <Box sx={{ 
       display: 'grid',
-      gridTemplateRows: '64px 1fr',
+      gridTemplateRows: 'auto 1fr',
       gridTemplateColumns: {
         xs: '1fr',
-        lg: sidebarOpen ? '280px 1fr' : '1fr'
+        lg: '1fr'
       },
       gridTemplateAreas: {
         xs: '"header" "content"',
-        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+        lg: '"header" "content"'
       },
       height: '100vh',
       backgroundColor: '#f8fafc'
@@ -293,12 +293,7 @@ const Dashboard = () => {
         <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
       </Box>
 
-      {/* Sidebar */}
-      {!isMobile && sidebarOpen && (
-        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
-          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
-        </Box>
-      )}
+      {/* Menü masaüstünde Header'ın içinde (üst menü); mobilde çekmece */}
 
       {isMobile && (
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />

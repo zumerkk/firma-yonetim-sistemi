@@ -53,7 +53,7 @@ import api from '../../utils/axios';
 
 const AdminPanel = () => {
   const { user } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -127,15 +127,12 @@ const AdminPanel = () => {
   // 🚫 Access control check
   if (user?.rol !== 'admin') {
     return (
-      <Box sx={{ display: 'flex', height: '100vh' }}>
-        <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
-        <Sidebar open={sidebarOpen} />
-        <Box sx={{ 
-          marginLeft: sidebarOpen && !isMobile ? '280px' : '0',
-          marginTop: '64px',
-          padding: 3,
-          flex: 1
-        }}>
+      <Box sx={{ display: 'grid', gridTemplateRows: 'auto 1fr', height: '100vh', backgroundColor: '#f8fafc' }}>
+        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+        {isMobile && (
+          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
+        )}
+        <Box sx={{ padding: 3, overflow: 'auto' }}>
           <Alert severity="error">
             <Typography variant="h6" sx={{ mb: 1 }}>
               🚫 Erişim Engellendi
@@ -436,14 +433,14 @@ const AdminPanel = () => {
   return (
     <Box sx={{ 
       display: 'grid',
-      gridTemplateRows: '64px 1fr',
+      gridTemplateRows: 'auto 1fr',
       gridTemplateColumns: {
         xs: '1fr',
-        lg: sidebarOpen ? '280px 1fr' : '1fr'
+        lg: '1fr'
       },
       gridTemplateAreas: {
         xs: '"header" "content"',
-        lg: sidebarOpen ? '"header header" "sidebar content"' : '"header" "content"'
+        lg: '"header" "content"'
       },
       height: '100vh',
       backgroundColor: '#f8fafc'
@@ -453,12 +450,7 @@ const AdminPanel = () => {
         <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
       </Box>
 
-      {/* Sidebar */}
-      {!isMobile && sidebarOpen && (
-        <Box sx={{ gridArea: 'sidebar', zIndex: 1200 }}>
-          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="persistent" />
-        </Box>
-      )}
+      {/* Menü masaüstünde Header'ın içinde (üst menü); mobilde çekmece */}
 
       {isMobile && (
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} variant="temporary" />
