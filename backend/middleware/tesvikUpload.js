@@ -1,12 +1,14 @@
 // 📎 TEŞVİK EVRAK UPLOAD MIDDLEWARE - multer (memory) + tür/boyut kontrolü
-// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, XLS, DOCX, DOC, XML. Maks boyut: MAX_UPLOAD_MB (varsayılan 100).
+// İzinli türler: PDF, JPG, JPEG, PNG, XLSX, XLS, DOCX, DOC, XML, TXT, ZIP, RAR, 7Z. Maks boyut: MAX_UPLOAD_MB (varsayılan 100).
 // XLS/DOC (22.09.2026): gümrük sisteminden alınan beyanname listesi eski Excel biçiminde geliyor
 // (müşterinin örneği "Gümrük Beyannameler.xls"); toplu beyanname mailine ek olarak konuyor.
 
 const multer = require('multer');
 const path = require('path');
 
-const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.xls', '.docx', '.doc', '.xml'];
+// TXT/ZIP/RAR/7Z (23.10.2026) — müşteri: "bu desteklenen dosya türlerine .txt, .zip, .rar gibi şeyleri de
+// ekleyebilir miyiz?" Belge Takip yükleme listesinde zaten vardı (utils/cloudinaryYukleme IZINLI_UZANTILAR).
+const ALLOWED_EXT = ['.pdf', '.jpg', '.jpeg', '.png', '.xlsx', '.xls', '.docx', '.doc', '.xml', '.txt', '.zip', '.rar', '.7z'];
 const ALLOWED_MIME = new Set([
   'application/pdf',
   'image/jpeg',
@@ -16,7 +18,12 @@ const ALLOWED_MIME = new Set([
   'application/vnd.ms-excel', // xls
   'application/msword', // doc
   'application/xml', 'text/xml', // xml (e-fatura XML)
-  'application/octet-stream' // bazı tarayıcılar xlsx/docx/xml'i böyle gönderir → uzantı ile doğrulanır
+  'text/plain', // txt
+  'application/zip', 'application/x-zip-compressed', 'multipart/x-zip', // zip
+  'application/vnd.rar', 'application/x-rar-compressed', 'application/x-rar', // rar
+  'application/x-7z-compressed', // 7z
+  'application/octet-stream', // bazı tarayıcılar xlsx/docx/xml/rar'ı böyle gönderir → uzantı ile doğrulanır
+  '' // tarayıcı türünü bilmediği dosyada (çoğunlukla .rar) boş gönderir → yine uzantı belirleyici
 ]);
 
 function maxBytes() {

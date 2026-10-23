@@ -251,6 +251,27 @@ function cloudinaryKaynakTipi(fileName) {
   return RESIM_UZANTILARI.includes(ext) ? 'image' : 'raw';
 }
 
+// 📏 Cloudinary public_id en fazla 255 karakter. Klasör = firma + belge + liste + makine adı + evrak türü;
+// uzun firma/makine adında dosya adı da uzunsa sınır aşılıyor ve yükleme reddediliyordu. Müşteri
+// (23.10.2026): ARMİN GRUP … / "Çapak Alma Makinesi{Aksesuarları ile birlikte komple}" klasöründe
+// "645A2AA3-CAC7-4A3F-9E66-9460F6C0E724~24254915" adlı dosya 260 karaktere çıktı → "Dosya yüklenemedi";
+// adı kısaltınca (233 karakter) yüklendi. Önce dosya adı, yetmezse klasör kısaltılır. Kayıttaki
+// görünen ad değişmez (originalName); kimlik yalnız depodaki anahtardır. Parçalı yüklemede eklenen
+// ".parca-001" / manifest son eki için pay bırakılır.
+const PUBLIC_ID_SINIRI = 230;
+function publicIdKur(folder, stem, sonek) {
+  let klasor = String(folder);
+  let ad = String(stem || 'dosya');
+  const boy = () => `${klasor}/${ad}${sonek}`.length;
+  if (boy() > PUBLIC_ID_SINIRI) {
+    ad = ad.slice(0, Math.max(12, ad.length - (boy() - PUBLIC_ID_SINIRI))).replace(/[._-]+$/g, '') || 'dosya';
+  }
+  if (boy() > PUBLIC_ID_SINIRI) {
+    klasor = klasor.slice(0, klasor.length - (boy() - PUBLIC_ID_SINIRI)).replace(/[/._-]+$/g, '');
+  }
+  return `${klasor}/${ad}${sonek}`;
+}
+
 // ─── Cloudinary upload ───
 async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, buffer, mimeType = '' }) {
   ensureCloudinaryInit();
@@ -267,7 +288,7 @@ async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, 
   // bulutDosyasiniIndir/deleteFile onu tanır (utils/parcaliDosya).
   if (buffer.length > parcaliDosya.TEK_DOSYA_SINIRI) {
     const sonuc = await parcaliDosya.bufferdanYukle(buffer, {
-      tabanPid: `${folder}/${stem}_${timestamp}${ext}`,
+      tabanPid: publicIdKur(folder, stem, `_${timestamp}${ext}`),
       tekYukle: () => { throw new Error('beklenmeyen tek parça yükleme'); },
       mimeType,
       ad: originalName
@@ -288,8 +309,8 @@ async function _saveToCloudinary({ folderRel, documentTypeFolder, originalName, 
     // raw dosyada uzantı public_id'nin parçasıdır: adres .pdf ile biter, içerik tipi ve
     // indirilen dosyanın adı doğru olur.
     const publicId = kaynakTipi === 'image'
-      ? `${folder}/${stem}_${timestamp}`
-      : `${folder}/${stem}_${timestamp}${ext}`;
+      ? publicIdKur(folder, stem, `_${timestamp}`)
+      : publicIdKur(folder, stem, `_${timestamp}${ext}`);
 
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -509,6 +530,7 @@ async function bulutDosyasiniIndir(url, mimeType = '') {
 }
 
 module.exports = {
+  publicIdKur, PUBLIC_ID_SINIRI,
   uyarUcucuDepolama,
   BASE_DIR,
   URL_BASE,

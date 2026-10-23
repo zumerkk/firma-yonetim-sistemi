@@ -23,6 +23,7 @@ import NotificationsOffIcon from '@mui/icons-material/NotificationsOff';
 import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import svc from '../../services/tesvikMakineService';
+import { EVRAK_ACCEPT } from '../../utils/yuklemeTurleri';
 import { StatusChip, formatDate, formatMoney, listTypeLabel, actionLabel } from './helpers';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
@@ -350,7 +351,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
               <Button variant="outlined" onClick={() => fileRef.current?.click()} disabled={busy === 'upload'} startIcon={<UploadFileIcon />}>
                 {busy === 'upload' ? 'Yükleniyor…' : 'Evrak Yükle'}
               </Button>
-              <input type="file" ref={fileRef} hidden multiple accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml" onChange={doUpload} />
+              <input type="file" ref={fileRef} hidden multiple accept={EVRAK_ACCEPT} onChange={doUpload} />
               <Button variant="outlined" color={proc.reminderStopped ? 'success' : 'warning'} onClick={toggleReminder} disabled={busy === 'rem'}
                 startIcon={proc.reminderStopped ? <NotificationsActiveIcon /> : <NotificationsOffIcon />}>
                 {proc.reminderStopped ? 'Hatırlatmayı Aç' : 'Hatırlatmayı Durdur'}
@@ -427,7 +428,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
                       label={<Typography variant="body2">Yerli makine listesini ekle (Excel)</Typography>} />
                     <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
                       Dosya Ekle
-                      <input hidden multiple type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.xml"
+                      <input hidden multiple type="file" accept={EVRAK_ACCEPT}
                         onChange={(e) => { const yeni = Array.from(e.target.files || []); e.target.value = ''; setAkEkler((o) => [...o, ...yeni]); }} />
                     </Button>
                     {akEkler.map((f, i) => (

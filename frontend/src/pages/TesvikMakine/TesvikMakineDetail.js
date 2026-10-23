@@ -14,6 +14,8 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import svc from '../../services/tesvikMakineService';
+import { EVRAK_ACCEPT } from '../../utils/yuklemeTurleri';
+import { turkceIcerir } from '../../utils/turkceKatla';
 import MakineDetailModal from './MakineDetailModal';
 import FaturaKalemleriDialog from './FaturaKalemleriDialog';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
@@ -123,7 +125,8 @@ export default function TesvikMakineDetail() {
   const now = Date.now();
   const filteredRows = useMemo(() => {
     let rows = localMachines;
-    if (q.trim()) { const s = q.toLocaleLowerCase('tr'); rows = rows.filter((r) => `${r.machineName} ${r.makineId} ${r.gtipNo} ${r.supplierCompanyName}`.toLocaleLowerCase('tr').includes(s)); }
+    // Türkçe harf duyarsız: "capak" → "Çapak", "ARMIN" → "ARMİN" (müşteri, 23.10.2026)
+    if (q.trim()) rows = rows.filter((r) => turkceIcerir(`${r.machineName} ${r.makineId} ${r.gtipNo} ${r.supplierCompanyName}`, q));
     if (fStatus) rows = rows.filter((r) => r.status === fStatus);
     if (fQuick === 'docs') rows = rows.filter((r) => r.statusBadge?.category === 'evrak');
     if (fQuick === 'overdue') rows = rows.filter((r) => r.nextReminderAt && new Date(r.nextReminderAt).getTime() < now && !(r.process?.reminderStopped));
@@ -441,7 +444,7 @@ export default function TesvikMakineDetail() {
                       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                         <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
                           Ek Dosya Ekle
-                          <input hidden multiple type="file" accept=".pdf,.xls,.xlsx,.doc,.docx,.jpg,.jpeg,.png,.xml"
+                          <input hidden multiple type="file" accept={EVRAK_ACCEPT}
                             onChange={(e) => {
                               const yeni = Array.from(e.target.files || []);
                               if (e.target) e.target.value = '';

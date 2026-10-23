@@ -30,6 +30,7 @@ const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
 const { evraklariGrupla, ayniYuklemeninKopyalari } = require('../services/tesvikMakine/ortakYukleme');
 const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
+const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // fetchBuffer artık sebep döndürüyor; mesajı ona göre seç.
 // Kullanıcıya "tekrar deneyin" demek DISKTE_YOK durumunda yanıltıcı: dosya
@@ -154,7 +155,10 @@ function certAggPipeline(match) {
 function buildCertMatch(q) {
   const m = {};
   if (q.q && q.q.trim()) {
-    const rx = new RegExp(q.q.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    // Türkçe harf duyarsız (genel aramalarla aynı yardımcı): "armin", "armın", "ARMIN" → "ARMİN".
+    // Müşteri (23.10.2026): "ekipman takip de arama yaparken büyük küçük harflerde sıkıntı oluyor … ARMİN
+    // yazınca çıkıyor sadece armın/armin/ARMIN olarak yazınca çıkmıyor" — düz 'i' bayrağı İ/ı'yı eşlemiyordu.
+    const rx = createTurkishInsensitiveRegex(q.q);
     m.$or = [{ yatirimciUnvan: rx }, { 'belgeYonetimi.belgeNo': rx }, { 'belgeYonetimi.belgeId': rx }];
   }
   if (q.belgeNo) m['belgeYonetimi.belgeNo'] = q.belgeNo;
@@ -904,3 +908,6 @@ exports.bulkMailSend = wrap(async (req, res) => {
     data: { mailLogId: r.mailLog._id, makineSayisi: surecler.length }
   });
 });
+
+// test için
+exports._buildCertMatch = buildCertMatch;
