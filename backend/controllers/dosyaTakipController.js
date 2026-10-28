@@ -12,6 +12,7 @@ const cloudinary = require('cloudinary').v2;
 const parcaliDosya = require('../utils/parcaliDosya');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dosyaTakip/listeSiralama');
+const { cariSuzgecleriniCoz, cariKosullari } = require('../services/dosyaTakip/cariSuzgeci');
 const notBildirimi = require('../services/dosyaTakip/notBildirimi');
 const { talepAcik } = require('../services/dosyaTakip/mukerrerTalep');
 
@@ -353,7 +354,10 @@ exports.getTumTalepler = async (req, res) => {
             // 💳 Ödemeler — müşteri: "seçimli ve süzmeli olsun ileride hangilerinin
             // harcını ödemişiz faturasını ödemiş mi ödememiş mi görebilelim"
             faturaDurumu = '',
-            harciOdeyen = ''
+            harciOdeyen = '',
+            // 💳 Arşivdeki cari süzgeçleri (müşteri, 27.10.2026) — bkz. services/dosyaTakip/cariSuzgeci.js
+            cariKaydi = '',
+            cariDurumu = ''
         } = req.query;
 
         const filter = { aktif: true };
@@ -423,6 +427,14 @@ exports.getTumTalepler = async (req, res) => {
                 : harciOdeyen;
         }
         if (firma) filter.firma = firma;
+        const cariSuzgec = cariSuzgecleriniCoz({ cariKaydi, cariDurumu });
+        if (cariSuzgec.cariKaydi || cariSuzgec.cariDurumu) {
+            const kapaliFirmalar = cariSuzgec.cariDurumu
+                ? await require('../models/Firma').find({ cariDurumu: 'kapandi' }).distinct('_id')
+                : [];
+            const kosullar = cariKosullari(cariSuzgec, kapaliFirmalar);
+            filter.$and = [...(filter.$and || []), ...kosullar];
+        }
 
         // 👤 Personel filtreleri. 'YOK' → hiç atanmamış talepler.
         // Geçersiz bir id URL'den elle verilirse CastError ile 500 dönmesin diye yok sayılır.

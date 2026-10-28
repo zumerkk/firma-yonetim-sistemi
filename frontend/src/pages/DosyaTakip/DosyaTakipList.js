@@ -31,6 +31,7 @@ import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip
 import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
 import CariKaydiSecimi from '../../components/Cari/CariKaydiSecimi';
 import CariDurumuSecimi from '../../components/Cari/CariDurumuSecimi';
+import { CARI_KAYDI_SECENEKLERI, CARI_DURUMU_SECENEKLERI } from '../../utils/cariFormat';
 import axios from '../../utils/axios';
 import { takipEdenAdlari } from '../../utils/takipEdenler';
 import { belgeTakipExcelIndir } from '../../utils/belgeTakipExcel';
@@ -138,6 +139,10 @@ const DosyaTakipList = () => {
     // 👤 Personel filtreleri (müşteri: "Müracaat hazırlayan ve Takibi yapanları isim isim filtreleyebilelim")
     const filterHazirlayan = searchParams.get('hazirlayan') || '';
     const filterTakipEden = searchParams.get('takipEden') || '';
+    // 💳 Arşiv cari süzgeçleri (müşteri, 27.10.2026: "cari çekemedikleri için ödeme talep edemiyoruz").
+    // Yalnız arşivde geçerli: URL'de kalmış olsa bile başka görünümde listeyi gizlice süzmez.
+    const filterCariKaydi = arsivModu ? (searchParams.get('cariKaydi') || '') : '';
+    const filterCariDurumu = arsivModu ? (searchParams.get('cariDurumu') || '') : '';
     const aramaTerimi = searchParams.get('q') || '';
     const sayfa = Math.max(0, (parseInt(searchParams.get('sayfa'), 10) || 1) - 1);
     const sayfaBoyutu = parseInt(searchParams.get('limit'), 10) || 50;
@@ -148,7 +153,10 @@ const DosyaTakipList = () => {
 
     // Sunucuda 'kapsam' arşiv modundan önce değerlendiriliyor; temizlenmezse
     // karttan gelindiğinde arşiv düğmesi hiçbir şey yapmıyormuş gibi görünür.
-    const setGorunum = (g) => parametreYaz({ arsiv: g === 'arsiv' ? '1' : '', kapama: g === 'kapama' ? '1' : '', kapsam: '' });
+    const setGorunum = (g) => parametreYaz({
+        arsiv: g === 'arsiv' ? '1' : '', kapama: g === 'kapama' ? '1' : '', kapsam: '',
+        ...(g === 'arsiv' ? {} : { cariKaydi: '', cariDurumu: '' }) // arşive özgü süzgeçler
+    });
     // Elle aşama seçmek kart kapsamını geçersiz kılar
     const setFilterAnaAsama = (deger) => parametreYaz({ anaAsama: deger, kapsam: '' });
 
@@ -247,6 +255,8 @@ const DosyaTakipList = () => {
         talepTuru: filterTalepTuru,
         hazirlayan: filterHazirlayan,
         takipEden: filterTakipEden,
+        cariKaydi: filterCariKaydi,
+        cariDurumu: filterCariDurumu,
         // arsiv=1 → yalnızca sonuçlanan/tamamlanan; boş → bunlar ana listeden gizli
         arsiv: arsivModu ? '1' : '',
         // kapama=1 → yalnız kapama talepleri; boş → ana liste bunları göstermez
@@ -254,7 +264,7 @@ const DosyaTakipList = () => {
         // 'tumu' / 'aktif' → dashboard kartlarından gelen kapsam
         kapsam,
         siralama: siralamaParam
-    }), [aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, arsivModu, kapamaModu, kapsam, siralamaParam]);
+    }), [aramaTerimi, filterAnaAsama, filterTalepTuru, filterHazirlayan, filterTakipEden, filterCariKaydi, filterCariDurumu, arsivModu, kapamaModu, kapsam, siralamaParam]);
 
     const loadData = useCallback(() => {
         fetchTalepler({ ...sorguParametreleri, page: sayfa + 1, limit: sayfaBoyutu });
@@ -334,6 +344,38 @@ const DosyaTakipList = () => {
         if (siralamaParam) sp.set('sirala', siralamaParam); // sıralama süzgeç değil, korunur
         setSearchParams(sp, { replace: true });
     };
+
+    // 💳 Müşteri (27.10.2026): "sonrasında sadece belge takip kısmında arşiv bölümünde bu seçenekler
+    // görünsün: cari yazıldı/cari kesildi ve cari açık/cari kapalı şeklinde". Yalnız arşivde; Ödemeler
+    // sekmesindeki seçimlerle aynı alanlar, buradan da değiştirilebilir. Durum'un hemen sağında: tablo
+    // ~2.200 px, en sağda kalınca normal ekranda kaydırmadan görünmüyordu.
+    const arsivCariSutunlari = arsivModu ? [{
+        field: 'cariKaydi',
+        headerName: 'Cari Kaydı',
+        description: 'Cari yazıldı / Cari kesildi — talebin Ödemeler sekmesindeki seçimle aynı',
+        width: 140,
+        valueGetter: (params) => params.row?.odeme?.cariKaydi || '',
+        renderCell: (params) => (
+            <CariKaydiSecimi kompakt talepId={params.row._id} value={params.value}
+                onDegis={(cariKaydi) => talepleriYamala((t) => (t._id === params.row._id
+                    ? { ...t, odeme: { ...(t.odeme || {}), cariKaydi } } : t))} />
+        )
+    }, {
+        field: 'cariDurumu',
+        headerName: 'Cari Durumu',
+        description: 'Cari açık / Cari kapandı — firma bazında: firmanın bütün taleplerinde aynı',
+        width: 140,
+        valueGetter: (params) => params.row?.firma?.cariDurumu || 'acik',
+        renderCell: (params) => {
+            const firmaId = params.row?.firma?._id;
+            // Firma bazında: aynı firmanın listedeki diğer satırları da güncellenir
+            return (
+                <CariDurumuSecimi kompakt firmaId={firmaId} value={params.value}
+                    onDegis={(cariDurumu) => talepleriYamala((t) => (t.firma?._id && t.firma._id === firmaId
+                        ? { ...t, firma: { ...t.firma, cariDurumu } } : t))} />
+            );
+        }
+    }] : [];
 
     const columns = [
         // müşteri: Takip ID kolonu kaldırıldı
@@ -417,6 +459,7 @@ const DosyaTakipList = () => {
                 );
             }
         },
+        ...arsivCariSutunlari,
         {
             field: 'ytbNo',
             headerName: 'Belge No',
@@ -546,36 +589,6 @@ const DosyaTakipList = () => {
             valueGetter: (params) => params.row?.odeme?.faturaDurumu || '',
             renderCell: (params) => <FaturaDurumuEtiketi durum={params.value} />
         },
-        // 💳 Müşteri (27.10.2026): "sonrasında sadece belge takip kısmında arşiv bölümünde bu seçenekler
-        // görünsün: cari yazıldı/cari kesildi ve cari açık/cari kapalı şeklinde". Yalnız arşivde; Ödemeler
-        // sekmesindeki seçimlerle aynı alanlar, buradan da değiştirilebilir.
-        ...(arsivModu ? [{
-            field: 'cariKaydi',
-            headerName: 'Cari Kaydı',
-            description: 'Cari yazıldı / Cari kesildi — talebin Ödemeler sekmesindeki seçimle aynı',
-            width: 140,
-            valueGetter: (params) => params.row?.odeme?.cariKaydi || '',
-            renderCell: (params) => (
-                <CariKaydiSecimi kompakt talepId={params.row._id} value={params.value}
-                    onDegis={(cariKaydi) => talepleriYamala((t) => (t._id === params.row._id
-                        ? { ...t, odeme: { ...(t.odeme || {}), cariKaydi } } : t))} />
-            )
-        }, {
-            field: 'cariDurumu',
-            headerName: 'Cari Durumu',
-            description: 'Cari açık / Cari kapandı — firma bazında: firmanın bütün taleplerinde aynı',
-            width: 140,
-            valueGetter: (params) => params.row?.firma?.cariDurumu || 'acik',
-            renderCell: (params) => {
-                const firmaId = params.row?.firma?._id;
-                // Firma bazında: aynı firmanın listedeki diğer satırları da güncellenir
-                return (
-                    <CariDurumuSecimi kompakt firmaId={firmaId} value={params.value}
-                        onDegis={(cariDurumu) => talepleriYamala((t) => (t.firma?._id && t.firma._id === firmaId
-                            ? { ...t, firma: { ...t.firma, cariDurumu } } : t))} />
-                );
-            }
-        }] : []),
         // ☑️ E-TUYS takip — yalnız 2. Kurum Değerlendirme satırlarında kutu çıkar (arşivde sütun yok)
         ...(arsivModu ? [] : [{
             field: 'etuysTakip',
@@ -763,6 +776,32 @@ const DosyaTakipList = () => {
                                 ))}
                             </TextField>
                         </Grid>
+                        {/* 💳 Yalnız arşivde: carisi yazılmamış / açık talepleri ayırmak için (müşteri, 27.10.2026) */}
+                        {arsivModu && (
+                            <>
+                                <Grid item xs={6} md={1.5}>
+                                    <TextField fullWidth size="small" select label="Cari Kaydı" value={filterCariKaydi}
+                                        onChange={(e) => parametreYaz({ cariKaydi: e.target.value })}
+                                        sx={FILTRE_SX} SelectProps={FILTRE_MENU_PROPS}>
+                                        <MenuItem value="">Tümü</MenuItem>
+                                        <MenuItem value="bos">Seçilmedi</MenuItem>
+                                        {CARI_KAYDI_SECENEKLERI.filter((c) => c.deger).map((c) => (
+                                            <MenuItem key={c.deger} value={c.deger}>{c.etiket}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Grid>
+                                <Grid item xs={6} md={1.5}>
+                                    <TextField fullWidth size="small" select label="Cari Durumu" value={filterCariDurumu}
+                                        onChange={(e) => parametreYaz({ cariDurumu: e.target.value })}
+                                        sx={FILTRE_SX} SelectProps={FILTRE_MENU_PROPS}>
+                                        <MenuItem value="">Tümü</MenuItem>
+                                        {CARI_DURUMU_SECENEKLERI.map((c) => (
+                                            <MenuItem key={c.deger} value={c.deger}>{c.etiket}</MenuItem>
+                                        ))}
+                                    </TextField>
+                                </Grid>
+                            </>
+                        )}
                         {/* 👤 müşteri: müracaat hazırlayan / takibi yapan isim isim filtrelenebilsin */}
                         <Grid item xs={12} sm={6} md={4}>
                             <TextField
@@ -809,7 +848,7 @@ const DosyaTakipList = () => {
                                     sx={{ textTransform: 'none', borderColor: '#e2e8f0', color: '#374151' }}>
                                     Yenile
                                 </Button>
-                                {(search || filterAnaAsama || kapsam || filterTalepTuru || filterHazirlayan || filterTakipEden) && (
+                                {(search || filterAnaAsama || kapsam || filterTalepTuru || filterHazirlayan || filterTakipEden || filterCariKaydi || filterCariDurumu) && (
                                     <Button size="small" onClick={clearFilters} sx={{ minWidth: 'auto', color: '#ef4444' }}>
                                         Temizle
                                     </Button>

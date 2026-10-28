@@ -35,7 +35,7 @@ export const BELGE_TAKIP_EXCEL_SUTUNLARI = [
     ['Takip No', (t) => t.takipId || '', 14]
 ];
 
-// Arşivde Fatura Durumu'nun ardından (listedeki gibi) — müşteri, 27.10.2026
+// Arşivde Durum'un ardından (listedeki gibi) — müşteri, 27.10.2026
 const ARSIV_CARI_SUTUNLARI = [
     ['Cari Kaydı', (t) => (t.odeme?.cariKaydi ? secenekEtiketi(CARI_KAYDI_SECENEKLERI, t.odeme.cariKaydi) : ''), 14],
     ['Cari Durumu', (t) => (t.firma ? secenekEtiketi(CARI_DURUMU_SECENEKLERI, t.firma.cariDurumu || 'acik') : ''), 14]
@@ -43,7 +43,7 @@ const ARSIV_CARI_SUTUNLARI = [
 
 export const excelSutunlari = (gorunum) => {
     if (gorunum !== 'arsiv') return BELGE_TAKIP_EXCEL_SUTUNLARI;
-    const i = BELGE_TAKIP_EXCEL_SUTUNLARI.findIndex(([baslik]) => baslik === 'Fatura Durumu') + 1;
+    const i = BELGE_TAKIP_EXCEL_SUTUNLARI.findIndex(([baslik]) => baslik === 'Durum') + 1;
     return [...BELGE_TAKIP_EXCEL_SUTUNLARI.slice(0, i), ...ARSIV_CARI_SUTUNLARI, ...BELGE_TAKIP_EXCEL_SUTUNLARI.slice(i)];
 };
 
