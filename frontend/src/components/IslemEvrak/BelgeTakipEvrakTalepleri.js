@@ -8,6 +8,10 @@
 // Pencerede İşlem & Evrak'ın talep ekranının KENDİSİ açılır (IslemEvrakTalepPaneli): istenen evraklar ve
 // "Mailde iste", örnek dosyalar, mail, yükleme linki, firmadan gelenler, ZIP. Talep Belge Takip talebine
 // bağlıdır; İşlem & Evrak listesinde de "Belge Takip" işaretiyle görünür.
+//
+// Müşteri (28.10.2026): "yeni evrak talebi dediğimde buradaki (işlem & evrak modülü) seçenekler gelsin
+// oradan istediğimizi göndertelim" — düğme 23.09'dan beri doğrudan "Yeni Belge Talebi" açıyordu; artık
+// İşlem & Evrak listesindeki pencerenin aynısı açılır (firma sabit, aktif işlem türlerinden seçim).
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -20,6 +24,7 @@ import AssignmentIcon from '@mui/icons-material/AssignmentOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import svc from '../../services/islemEvrakService';
 import IslemEvrakTalepPaneli from './IslemEvrakTalepPaneli';
+import YeniEvrakTalebiDialog from './YeniEvrakTalebiDialog';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import { talepDurumu } from './talepDurumlari';
 
@@ -35,6 +40,7 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
   const darEkran = useMediaQuery(tema.breakpoints.down('md'));
   const [talepler, setTalepler] = useState(null); // null = yükleniyor
   const [acikTalepId, setAcikTalepId] = useState(null);
+  const [yeniAcik, setYeniAcik] = useState(false);
   const [islemSuruyor, setIslemSuruyor] = useState(false);
   // Üst bileşen her çizimde yeni fonksiyon verebilir; bağımlılık olursa liste durmadan yeniden yüklenirdi
   const onMesajRef = useRef(onMesaj);
@@ -52,15 +58,11 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
 
   useEffect(() => { if (dosyaTakipId) yukle(); }, [dosyaTakipId, yukle]);
 
-  const yeniTalep = async () => {
-    if (islemSuruyor) return;
-    setIslemSuruyor(true);
-    try {
-      const talep = await svc.talepOlustur({ firmaId: firma._id, dosyaTakipId });
-      await yukle();
-      setAcikTalepId(talep._id);
-    } catch (e) { onMesajRef.current?.(e?.response?.data?.message || 'Talep oluşturulamadı', 'error'); }
-    finally { setIslemSuruyor(false); }
+  // Talep oluşunca listeye eklenir ve talep ekranı (istenen evraklar, mail) hemen açılır
+  const talepOlustu = async (talep) => {
+    setYeniAcik(false);
+    await yukle();
+    if (talep?._id) setAcikTalepId(talep._id);
   };
   const talepSil = async (t) => {
     if (!window.confirm('Bu evrak talebi listeden kaldırılacak ve yükleme bağlantısı kapanacak. Devam edilsin mi?')) return;
@@ -83,7 +85,7 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
         <Tooltip title={firma ? '' : 'Bu talebe bağlı firma yok'}>
           <span>
             <Button size="small" variant="contained" startIcon={<AddIcon />} disabled={!firma || islemSuruyor}
-              onClick={yeniTalep} sx={{ textTransform: 'none' }}>
+              onClick={() => setYeniAcik(true)} sx={{ textTransform: 'none' }}>
               Yeni Evrak Talebi
             </Button>
           </span>
@@ -130,6 +132,17 @@ export default function BelgeTakipEvrakTalepleri({ dosyaTakipId, firma, onMesaj 
           );
         })}
       </Stack>
+
+      {/* İşlem türü seçimi — İşlem & Evrak listesindeki "Yeni Evrak Talebi" penceresiyle aynı */}
+      {firma && (
+        <YeniEvrakTalebiDialog
+          open={yeniAcik}
+          onClose={() => setYeniAcik(false)}
+          sabitFirma={firma}
+          dosyaTakipId={dosyaTakipId}
+          onOlustu={talepOlustu}
+        />
+      )}
 
       {/* Talep ekranı — İşlem & Evrak sayfasıyla aynı bileşen */}
       <Dialog open={!!acikTalepId} onClose={pencereyiKapat} maxWidth="lg" fullWidth fullScreen={darEkran} scroll="paper">

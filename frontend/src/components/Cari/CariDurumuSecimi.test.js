@@ -9,8 +9,10 @@ const Sar = ({ baslangic }) => {
     const [durum, setDurum] = React.useState(baslangic);
     return <CariDurumuSecimi firmaId="firma-1" value={durum} onDegis={setDurum} />;
 };
+// Menü kapanırken liste de aynı etiketi taşır; seçim kutusunun kendisi alınır
+const kutu = () => screen.getAllByLabelText('Cari durumu').find((el) => el.getAttribute('role') === 'combobox');
 const sec = (etiket) => {
-    fireEvent.mouseDown(screen.getByLabelText('Cari durumu'));
+    fireEvent.mouseDown(kutu());
     fireEvent.click(screen.getByRole('option', { name: etiket }));
 };
 
@@ -19,12 +21,12 @@ beforeEach(() => jest.clearAllMocks());
 test('eski firma cari açık başlar; seçim firma alanına kaydedilir, yeniden açılabilir', async () => {
     cariService.firmaDurumuGuncelle.mockImplementation(async (id, cariDurumu) => ({ data: { cariDurumu } }));
     render(<Sar />);
-    expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari açık');
+    expect(kutu()).toHaveTextContent('Cari açık');
     sec('Cari kapandı');
     await waitFor(() => expect(cariService.firmaDurumuGuncelle).toHaveBeenLastCalledWith('firma-1', 'kapandi'));
-    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari kapandı'));
+    await waitFor(() => expect(kutu()).toHaveTextContent('Cari kapandı'));
     sec('Cari açık');
-    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari açık'));
+    await waitFor(() => expect(kutu()).toHaveTextContent('Cari açık'));
     expect(cariService.firmaDurumuGuncelle).toHaveBeenLastCalledWith('firma-1', 'acik');
 });
 
@@ -33,5 +35,5 @@ test('sunucu kaydetmezse eski durum korunur ve hata görünür', async () => {
     render(<Sar baslangic="acik" />);
     sec('Cari kapandı');
     expect(await screen.findByText('Kaydedilemedi')).toBeInTheDocument();
-    expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari açık');
+    expect(kutu()).toHaveTextContent('Cari açık');
 });

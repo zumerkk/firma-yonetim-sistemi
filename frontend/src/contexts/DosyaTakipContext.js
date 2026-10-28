@@ -147,6 +147,12 @@ export const DosyaTakipProvider = ({ children }) => {
         return result;
     }, []);
 
+    // Satır içi seçimlerden sonra (arşivdeki cari sütunları) listeyi yeniden yüklemeden yamala
+    const talepleriYamala = useCallback((yama) => {
+        setTalepler((liste) => (Array.isArray(liste) ? liste.map(yama) : liste));
+        setSeciliTalep((t) => (t ? yama(t) : t));
+    }, []);
+
     const eksikTamamla = useCallback(async (id) => {
         try {
             setLoading(true);
@@ -266,6 +272,7 @@ export const DosyaTakipProvider = ({ children }) => {
         durumGecmisiTarihDuzelt,
         durumGecmisiSil,
         etuysTakipIsaretle,
+        talepleriYamala,
         eksikTamamla,
         personelMailDusur,
         notEkle,

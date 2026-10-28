@@ -1,32 +1,14 @@
-import React, { useState } from 'react';
-import { Box, MenuItem, TextField } from '@mui/material';
+import React from 'react';
 import cariService from '../../services/cariService';
+import CariSecimKutusu from './CariSecimKutusu';
+import { CARI_DURUMU_SECENEKLERI } from '../../utils/cariFormat';
 
 /** Aynı firma alanını Cari ve Belge Takip ekranlarından düzenler. */
-export default function CariDurumuSecimi({ firmaId, value, onDegis, disabled = false }) {
-    const [kaydediliyor, setKaydediliyor] = useState(false);
-    const [hata, setHata] = useState('');
-    const degistir = async (e) => {
-        const durum = e.target.value;
-        setKaydediliyor(true);
-        setHata('');
-        try {
-            const r = await cariService.firmaDurumuGuncelle(firmaId, durum);
-            onDegis?.(r.data.cariDurumu);
-        } catch (err) {
-            setHata(err?.response?.data?.message || 'Cari durumu kaydedilemedi.');
-        } finally {
-            setKaydediliyor(false);
-        }
-    };
+export default function CariDurumuSecimi({ firmaId, value, onDegis, disabled = false, kompakt = false }) {
+    const kaydet = async (durum) => (await cariService.firmaDurumuGuncelle(firmaId, durum)).data.cariDurumu;
     return (
-        <Box onClick={(e) => e.stopPropagation()} sx={{ minWidth: 150 }}>
-            <TextField select fullWidth size="small" label="Cari durumu"
-                value={value === 'kapandi' ? 'kapandi' : 'acik'} onChange={degistir}
-                disabled={disabled || !firmaId || kaydediliyor} error={!!hata} helperText={hata || undefined}>
-                <MenuItem value="acik">Cari açık</MenuItem>
-                <MenuItem value="kapandi">Cari kapandı</MenuItem>
-            </TextField>
-        </Box>
+        <CariSecimKutusu etiket="Cari durumu" secenekler={CARI_DURUMU_SECENEKLERI}
+            value={value === 'kapandi' ? 'kapandi' : 'acik'} kaydet={kaydet} onDegis={onDegis}
+            disabled={disabled || !firmaId} kompakt={kompakt} />
     );
 }

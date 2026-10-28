@@ -14,6 +14,7 @@ import cariService from '../../services/cariService';
 import CariHareketFormu from './CariHareketFormu';
 import CariDefterTablosu from './CariDefterTablosu';
 import CariDurumuSecimi from './CariDurumuSecimi';
+import CariKaydiSecimi from './CariKaydiSecimi';
 import { hareketDosyasiAc } from './cariDosya';
 import { HAREKET_TURU, hareketBasligi, paraYaz, tarihYaz } from '../../utils/cariFormat';
 
@@ -34,6 +35,7 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
             const r = await cariService.talepDefteri(talepId);
             setDefter({
                 firma: r?.data?.firma || null,
+                talep: r?.data?.talep || null,
                 hareketler: Array.isArray(r?.data?.hareketler) ? r.data.hareketler : [],
                 ozet: r?.data?.ozet || null
             });
@@ -110,6 +112,9 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
                 </Box>
                 {firmaId && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                    {/* Müşteri (27.10.2026): cari açık/kapalı seçeneğinin SOLUNDA "Cari yazıldı / Cari kesildi" */}
+                    <CariKaydiSecimi talepId={talepId} value={defter.talep?.cariKaydi} disabled={yukleniyor || !!hata}
+                        onDegis={(cariKaydi) => setDefter((d) => ({ ...d, talep: { ...d.talep, cariKaydi } }))} />
                     <CariDurumuSecimi firmaId={firmaId} value={defter.firma?.cariDurumu} disabled={yukleniyor || !!hata}
                         onDegis={(cariDurumu) => setDefter((d) => ({ ...d, firma: { ...d.firma, cariDurumu } }))} />
                     <Button

@@ -290,6 +290,17 @@ const dosyaTakipSchema = new mongoose.Schema({
       enum: ['', 'firma', 'biz'],
       default: ''
     },
+    // Müşteri (27.10.2026): "ödeme kısmına cari açık/kapalı seçeneğinin soluna, cari yazıldı / cari
+    // kesildi diye iki seçenekli bir sekme daha" — arşivde de görünür. Cari açık/kapandı FİRMA
+    // bazındadır (Firma.cariDurumu); bu ise talebin kendi carisinin işlenip işlenmediği. Boş =
+    // henüz seçilmedi (eski talepler yanlışlıkla "yazıldı" sayılmasın).
+    cariKaydi: {
+      type: String,
+      enum: ['', 'yazildi', 'kesildi'],
+      default: ''
+    },
+    cariKaydiTarihi: { type: Date },
+    cariKaydiDegistirenAdi: { type: String, trim: true, default: '' },
     notlar: { type: String, trim: true, maxlength: 1000, default: '' },
     guncellemeTarihi: { type: Date }
   },
@@ -672,6 +683,8 @@ dosyaTakipSchema.statics.DOSYA_TURU_ESLESTIRME = DOSYA_TURU_ESLESTIRME;
 // server.js açılışta mevcut kayıtları bununla taşır; eşleşmeyen eski değer kalmamalı,
 // yoksa o talep yeni enum'a takılıp hiç kaydedilemez.
 dosyaTakipSchema.statics.FATURA_DURUMU_ESLESTIRME = { odendi: 'kesildi', odenmedi: 'kesilmedi', kismi_odendi: 'avans' };
+// Ödemeler › "Cari yazıldı / Cari kesildi" seçimi (boş = seçilmedi)
+dosyaTakipSchema.statics.CARI_KAYDI_DEGERLERI = ['yazildi', 'kesildi'];
 dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
 dosyaTakipSchema.statics.KAPAMA_TALEP_TURLERI = KAPAMA_TALEP_TURLERI;
 dosyaTakipSchema.statics.SONUC_DURUMLARI = SONUC_DURUMLARI;

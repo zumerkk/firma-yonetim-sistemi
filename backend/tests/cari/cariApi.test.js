@@ -123,6 +123,37 @@ describe('Hizmete dahil ödemeler ve ortak firma cari durumu', () => {
   });
 });
 
+describe('Cari yazıldı / Cari kesildi (talep bazında — müşteri 27.10.2026)', () => {
+  const uri = `/api/cari/talep/${talepA}/kayit`;
+  beforeEach(async () => {
+    await DosyaTakip.collection.updateOne({ _id: talepA }, { $unset: { 'odeme.cariKaydi': '' } });
+  });
+
+  test('alanı olmayan eski talep "seçilmedi" döner; seçim kalıcı, boş değer geri alır', async () => {
+    const oku = async () => (await request(app).get(`/api/cari/talep/${talepA}`)).body.data.talep;
+    expect(await oku()).toMatchObject({ cariKaydi: '' });
+
+    const once = (await DosyaTakip.collection.findOne({ _id: talepA })).updatedAt;
+    const r = await request(app).put(uri).send({ cariKaydi: 'yazildi' });
+    expect(r.status).toBe(200);
+    expect(r.body.data).toMatchObject({ cariKaydi: 'yazildi', cariKaydiDegistirenAdi: 'Test Danışman' });
+    expect(await oku()).toMatchObject({ cariKaydi: 'yazildi' });
+    // İşaretlemek talebin "son işlem" zamanını değiştirmez (liste sırası oynamasın)
+    expect((await DosyaTakip.collection.findOne({ _id: talepA })).updatedAt).toEqual(once);
+
+    expect((await request(app).put(uri).send({ cariKaydi: 'kesildi' })).body.data.cariKaydi).toBe('kesildi');
+    expect((await request(app).put(uri).send({ cariKaydi: '' })).body.data.cariKaydi).toBe('');
+    expect(await oku()).toMatchObject({ cariKaydi: '' });
+  });
+
+  test('geçersiz değer 400, olmayan talep 404; firma cari durumuna dokunmaz', async () => {
+    expect((await request(app).put(uri).send({ cariKaydi: 'odendi' })).status).toBe(400);
+    expect((await request(app).put(`/api/cari/talep/${new ObjectId()}/kayit`).send({ cariKaydi: 'yazildi' })).status).toBe(404);
+    await request(app).put(uri).send({ cariKaydi: 'kesildi' });
+    expect((await Firma.collection.findOne({ _id: firmaA })).cariDurumu).toBeUndefined();
+  });
+});
+
 describe('Ödemeler sekmesi (talebe bağlı mini cari)', () => {
   test('talepten girilen ödeme firmayı talepten alır, kullanıcı yazımını anlar', async () => {
     const r = await ekle({ dosyaTakip: String(talepA), tur: 'gelen', banka: 'Enpara', tarih: '15.09.2026', tutar: '24.000,50' });

@@ -29,6 +29,8 @@ import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 import useSutunSirasi from '../../hooks/useSutunSirasi';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
 import FaturaDurumuEtiketi from '../../components/Cari/FaturaDurumuEtiketi';
+import CariKaydiSecimi from '../../components/Cari/CariKaydiSecimi';
+import CariDurumuSecimi from '../../components/Cari/CariDurumuSecimi';
 import axios from '../../utils/axios';
 import { takipEdenAdlari } from '../../utils/takipEdenler';
 import { belgeTakipExcelIndir } from '../../utils/belgeTakipExcel';
@@ -88,7 +90,7 @@ const VARSAYILAN_GIZLI_SUTUNLAR = { createdAt: false };
 
 const DosyaTakipList = () => {
     const navigate = useNavigate();
-    const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil, etuysTakipIsaretle } = useDosyaTakip();
+    const { talepler: rawTalepler, pagination, loading, error, clearError, fetchTalepler, fetchEnums, enumDegerleri, talepSil, etuysTakipIsaretle, talepleriYamala } = useDosyaTakip();
     const [etuysHata, setEtuysHata] = useState('');
     const [personeller, setPersoneller] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
@@ -544,6 +546,36 @@ const DosyaTakipList = () => {
             valueGetter: (params) => params.row?.odeme?.faturaDurumu || '',
             renderCell: (params) => <FaturaDurumuEtiketi durum={params.value} />
         },
+        // 💳 Müşteri (27.10.2026): "sonrasında sadece belge takip kısmında arşiv bölümünde bu seçenekler
+        // görünsün: cari yazıldı/cari kesildi ve cari açık/cari kapalı şeklinde". Yalnız arşivde; Ödemeler
+        // sekmesindeki seçimlerle aynı alanlar, buradan da değiştirilebilir.
+        ...(arsivModu ? [{
+            field: 'cariKaydi',
+            headerName: 'Cari Kaydı',
+            description: 'Cari yazıldı / Cari kesildi — talebin Ödemeler sekmesindeki seçimle aynı',
+            width: 140,
+            valueGetter: (params) => params.row?.odeme?.cariKaydi || '',
+            renderCell: (params) => (
+                <CariKaydiSecimi kompakt talepId={params.row._id} value={params.value}
+                    onDegis={(cariKaydi) => talepleriYamala((t) => (t._id === params.row._id
+                        ? { ...t, odeme: { ...(t.odeme || {}), cariKaydi } } : t))} />
+            )
+        }, {
+            field: 'cariDurumu',
+            headerName: 'Cari Durumu',
+            description: 'Cari açık / Cari kapandı — firma bazında: firmanın bütün taleplerinde aynı',
+            width: 140,
+            valueGetter: (params) => params.row?.firma?.cariDurumu || 'acik',
+            renderCell: (params) => {
+                const firmaId = params.row?.firma?._id;
+                // Firma bazında: aynı firmanın listedeki diğer satırları da güncellenir
+                return (
+                    <CariDurumuSecimi kompakt firmaId={firmaId} value={params.value}
+                        onDegis={(cariDurumu) => talepleriYamala((t) => (t.firma?._id && t.firma._id === firmaId
+                            ? { ...t, firma: { ...t.firma, cariDurumu } } : t))} />
+                );
+            }
+        }] : []),
         // ☑️ E-TUYS takip — yalnız 2. Kurum Değerlendirme satırlarında kutu çıkar (arşivde sütun yok)
         ...(arsivModu ? [] : [{
             field: 'etuysTakip',

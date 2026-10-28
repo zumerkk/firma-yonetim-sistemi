@@ -25,6 +25,20 @@ export const FATURA_DURUMU = {
     avans: { etiket: 'Avans', renk: '#1d4ed8', zemin: '#eff6ff', kenar: '#93c5fd' }
 };
 
+// Firma bazında (Firma.cariDurumu; alanı olmayan eski firma "açık")
+export const CARI_DURUMU_SECENEKLERI = [
+    { deger: 'acik', etiket: 'Cari açık', renk: '#b45309' },
+    { deger: 'kapandi', etiket: 'Cari kapandı', renk: '#15803d' }
+];
+
+// Talep bazında (DosyaTakip.odeme.cariKaydi) — müşteri, 27.10.2026. '' = henüz seçilmedi.
+export const CARI_KAYDI_SECENEKLERI = [
+    { deger: '', etiket: 'Seçilmedi', renk: '#94a3b8' },
+    { deger: 'yazildi', etiket: 'Cari yazıldı', renk: '#1d4ed8' },
+    { deger: 'kesildi', etiket: 'Cari kesildi', renk: '#15803d' }
+];
+export const secenekEtiketi = (secenekler, deger) => secenekler.find((s) => s.deger === deger)?.etiket || '';
+
 const yuvarla = (n) => Math.round(n * 100) / 100;
 
 // "1.234.567" → "1234567"; gruplar 3'lü değilse null

@@ -1,4 +1,4 @@
-import { talepSatirlari, excelDosyaAdi, BELGE_TAKIP_EXCEL_SUTUNLARI } from './belgeTakipExcel';
+import { talepSatirlari, excelDosyaAdi, excelSutunlari, BELGE_TAKIP_EXCEL_SUTUNLARI } from './belgeTakipExcel';
 
 const kapama = {
     takipId: 'DT2026101', firmaUnvan: 'GLOBTEKS A.Ş.', talepTuru: 'Belge Kapama Talebi',
@@ -39,4 +39,21 @@ test('boş alanlar boş hücre olur (— ya da undefined değil)', () => {
 test('dosya adı görünümü söyler', () => {
     expect(excelDosyaAdi('kapama', new Date(2026, 9, 7))).toBe('Belge Takip - Kapama Talepleri - 07-10-2026.xlsx');
     expect(excelDosyaAdi('arsiv', new Date(2026, 9, 7))).toBe('Belge Takip - Arşiv - 07-10-2026.xlsx');
+});
+
+test('arşivde Fatura Durumu\'nun ardından Cari Kaydı ve Cari Durumu; diğer görünümlerde yok', () => {
+    const basliklar = (g) => excelSutunlari(g).map(([b]) => b);
+    expect(basliklar('aktif')).not.toContain('Cari Kaydı');
+    expect(basliklar('kapama')).not.toContain('Cari Durumu');
+    const arsiv = basliklar('arsiv');
+    expect(arsiv.slice(arsiv.indexOf('Fatura Durumu'), arsiv.indexOf('Fatura Durumu') + 3))
+        .toEqual(['Fatura Durumu', 'Cari Kaydı', 'Cari Durumu']);
+
+    const [satir] = talepSatirlari([{ ...kapama, odeme: { faturaDurumu: 'kesildi', cariKaydi: 'yazildi' },
+        firma: { ...kapama.firma, cariDurumu: 'kapandi' } }], 'arsiv');
+    expect(satir).toMatchObject({ 'Cari Kaydı': 'Cari yazıldı', 'Cari Durumu': 'Cari kapandı' });
+    // Seçilmemiş kayıt boş hücre; alanı olmayan eski firma "Cari açık" (ekranla aynı); firmasız talep boş
+    const [eski] = talepSatirlari([{ ...kapama }], 'arsiv');
+    expect(eski).toMatchObject({ 'Cari Kaydı': '', 'Cari Durumu': 'Cari açık' });
+    expect(talepSatirlari([{ _id: 'x' }], 'arsiv')[0]['Cari Durumu']).toBe('');
 });

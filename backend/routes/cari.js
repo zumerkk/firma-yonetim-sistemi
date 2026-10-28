@@ -15,6 +15,8 @@ router.get('/firma/:firmaId/talepler', cari.firmaTalepleri);
 router.put('/firma/:firmaId/durum', editor, cari.firmaDurumuGuncelle);
 // Belge Takip › Ödemeler sekmesindeki mini cari tablo
 router.get('/talep/:talepId', cari.talepDefteri);
+// Ödemeler › "Cari yazıldı / Cari kesildi" (talep bazında; arşiv listesinden de değişir)
+router.put('/talep/:talepId/kayit', editor, cari.talepCariKaydiGuncelle);
 
 router.post('/', editor, cari.hareketEkle);
 router.put('/:id', editor, cari.hareketGuncelle);

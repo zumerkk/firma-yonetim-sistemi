@@ -44,6 +44,12 @@ const cariService = {
         return data;
     },
 
+    // "Cari yazıldı / Cari kesildi" — talep bazında ('' = seçimi geri al)
+    talepCariKaydiGuncelle: async (talepId, cariKaydi) => {
+        const { data } = await axios.put(`${API_URL}/talep/${talepId}/kayit`, { cariKaydi });
+        return data;
+    },
+
     // Dosya varsa multipart (yükleme göstergesi ve uzun zaman aşımıyla), yoksa JSON
     hareketEkle: async (alanlar, dosya, onProgress) => {
         const { data } = dosya

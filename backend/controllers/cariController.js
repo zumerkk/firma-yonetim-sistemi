@@ -13,6 +13,7 @@ const {
 const {
     tekDosyaYukleyici, dosyaBilgisi, dosyaSil, dosyaCek, dosyaGonder
 } = require('../utils/cloudinaryYukleme');
+const { aktiviteKaydet } = require('../utils/aktiviteKaydi');
 
 const dosyaYukle = tekDosyaYukleyici('cari');
 
@@ -54,6 +55,13 @@ const dahilAl = (v) => {
     throw new IstekHatasi(400, 'Hizmete dahil seçimi geçersiz');
 };
 const firmaDurumuyla = (f) => f ? { ...f, cariDurumu: f.cariDurumu || 'acik' } : null;
+const CARI_KAYDI_ETIKETI = { '': 'Seçilmedi', yazildi: 'Cari yazıldı', kesildi: 'Cari kesildi' };
+const talepCariKaydi = (t) => ({
+    _id: t._id,
+    cariKaydi: t.odeme?.cariKaydi || '',
+    cariKaydiTarihi: t.odeme?.cariKaydiTarihi || null,
+    cariKaydiDegistirenAdi: t.odeme?.cariKaydiDegistirenAdi || ''
+});
 
 // Tutar/tarih kullanıcı yazımıyla gelebilir ("24.000,50", "15.09.2026"). Boşsa undefined
 // (model "zorunludur" der); anlaşılamıyorsa sessizce 0'a/bugüne çevirmek yerine reddedilir.
@@ -92,14 +100,63 @@ async function baglamCoz({ firma, dosyaTakip }) {
 // 📋 GET /api/cari/talep/:talepId — Ödemeler sekmesindeki mini cari tablo
 // ============================================================================
 exports.talepDefteri = sar(async (req, res) => {
-    const talep = await DosyaTakip.findById(req.params.talepId).select('_id firma').lean();
+    const talep = await DosyaTakip.findById(req.params.talepId)
+        .select('_id firma odeme.cariKaydi odeme.cariKaydiTarihi odeme.cariKaydiDegistirenAdi').lean();
     if (!talep) throw new IstekHatasi(404, 'Talep bulunamadı');
 
     const [hareketler, firma] = await Promise.all([
         CariHareket.find({ dosyaTakip: talep._id }).lean(),
         Firma.findById(talep.firma).select('tamUnvan cariDurumu').lean()
     ]);
-    res.json({ success: true, data: { firma: firmaDurumuyla(firma), hareketler: defterOlustur(hareketler), ozet: ozetHesapla(hareketler) } });
+    res.json({
+        success: true,
+        data: {
+            firma: firmaDurumuyla(firma),
+            talep: talepCariKaydi(talep),
+            hareketler: defterOlustur(hareketler),
+            ozet: ozetHesapla(hareketler)
+        }
+    });
+});
+
+// ============================================================================
+// ✍️ PUT /api/cari/talep/:talepId/kayit — "Cari yazıldı / Cari kesildi" (talep bazında)
+// Müşteri (27.10.2026): "ödeme kısmına cari açık/kapalı seçeneğinin soluna, cari yazıldı / cari kesildi
+// diye iki seçenekli bir sekme daha … sonrasında belge takip arşiv bölümünde bu seçenekler görünsün".
+// Boş değer seçimi geri alır. Talebin updatedAt'ine dokunulmaz: arşivde işaretlemek "son işlem"
+// sayılmasın, liste sırası oynamasın (E-TUYS takip kutusundaki gibi).
+// ============================================================================
+exports.talepCariKaydiGuncelle = sar(async (req, res) => {
+    const ham = req.body?.cariKaydi;
+    const cariKaydi = ham === null || ham === undefined ? '' : String(ham);
+    if (cariKaydi !== '' && !DosyaTakip.CARI_KAYDI_DEGERLERI.includes(cariKaydi)) {
+        throw new IstekHatasi(400, 'Geçersiz cari kaydı seçimi');
+    }
+    const onceki = await DosyaTakip.findById(req.params.talepId)
+        .select('takipId firmaUnvan firmaId odeme.cariKaydi').lean();
+    if (!onceki) throw new IstekHatasi(404, 'Talep bulunamadı');
+
+    const guncel = await DosyaTakip.findByIdAndUpdate(onceki._id, {
+        $set: {
+            'odeme.cariKaydi': cariKaydi,
+            'odeme.cariKaydiTarihi': new Date(),
+            'odeme.cariKaydiDegistirenAdi': req.user?.adSoyad || ''
+        }
+    }, { new: true, runValidators: true, timestamps: false })
+        .select('odeme.cariKaydi odeme.cariKaydiTarihi odeme.cariKaydiDegistirenAdi').lean();
+
+    const eskiDeger = onceki.odeme?.cariKaydi || '';
+    if (eskiDeger !== cariKaydi) {
+        await aktiviteKaydet(req, {
+            action: 'update',
+            category: 'dosyaTakip',
+            title: 'Cari Kaydı Değiştirildi',
+            description: `${req.user?.adSoyad || 'Kullanıcı'} cari kaydını değiştirdi: ${onceki.takipId || ''} → ${CARI_KAYDI_ETIKETI[cariKaydi]}`,
+            targetResource: { type: 'dosyaTakip', id: onceki._id, name: onceki.firmaUnvan, firmaId: onceki.firmaId },
+            changes: { fields: [{ field: 'odeme.cariKaydi', oldValue: CARI_KAYDI_ETIKETI[eskiDeger], newValue: CARI_KAYDI_ETIKETI[cariKaydi] }] }
+        });
+    }
+    res.json({ success: true, data: talepCariKaydi(guncel), message: 'Cari kaydı kaydedildi' });
 });
 
 // ============================================================================
