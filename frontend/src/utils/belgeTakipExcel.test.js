@@ -41,13 +41,12 @@ test('dosya adı görünümü söyler', () => {
     expect(excelDosyaAdi('arsiv', new Date(2026, 9, 7))).toBe('Belge Takip - Arşiv - 07-10-2026.xlsx');
 });
 
-test('arşivde Durum\'un ardından Cari Kaydı ve Cari Durumu (listedeki sıra); diğer görünümlerde yok', () => {
+test('arşivde ilk iki sütun Cari Kaydı ve Cari Durumu (listedeki sıra); diğer görünümlerde yok', () => {
     const basliklar = (g) => excelSutunlari(g).map(([b]) => b);
     expect(basliklar('aktif')).not.toContain('Cari Kaydı');
     expect(basliklar('kapama')).not.toContain('Cari Durumu');
     const arsiv = basliklar('arsiv');
-    expect(arsiv.slice(arsiv.indexOf('Durum'), arsiv.indexOf('Durum') + 4))
-        .toEqual(['Durum', 'Cari Kaydı', 'Cari Durumu', 'Belge No']);
+    expect(arsiv.slice(0, 3)).toEqual(['Cari Kaydı', 'Cari Durumu', 'Firma']);
 
     const [satir] = talepSatirlari([{ ...kapama, odeme: { faturaDurumu: 'kesildi', cariKaydi: 'yazildi' },
         firma: { ...kapama.firma, cariDurumu: 'kapandi' } }], 'arsiv');

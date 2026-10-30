@@ -35,17 +35,15 @@ export const BELGE_TAKIP_EXCEL_SUTUNLARI = [
     ['Takip No', (t) => t.takipId || '', 14]
 ];
 
-// Arşivde Durum'un ardından (listedeki gibi) — müşteri, 27.10.2026
+// Arşivde en başta (listedeki gibi) — müşteri, 27-28.10.2026
 const ARSIV_CARI_SUTUNLARI = [
     ['Cari Kaydı', (t) => (t.odeme?.cariKaydi ? secenekEtiketi(CARI_KAYDI_SECENEKLERI, t.odeme.cariKaydi) : ''), 14],
     ['Cari Durumu', (t) => (t.firma ? secenekEtiketi(CARI_DURUMU_SECENEKLERI, t.firma.cariDurumu || 'acik') : ''), 14]
 ];
 
-export const excelSutunlari = (gorunum) => {
-    if (gorunum !== 'arsiv') return BELGE_TAKIP_EXCEL_SUTUNLARI;
-    const i = BELGE_TAKIP_EXCEL_SUTUNLARI.findIndex(([baslik]) => baslik === 'Durum') + 1;
-    return [...BELGE_TAKIP_EXCEL_SUTUNLARI.slice(0, i), ...ARSIV_CARI_SUTUNLARI, ...BELGE_TAKIP_EXCEL_SUTUNLARI.slice(i)];
-};
+export const excelSutunlari = (gorunum) => (
+    gorunum === 'arsiv' ? [...ARSIV_CARI_SUTUNLARI, ...BELGE_TAKIP_EXCEL_SUTUNLARI] : BELGE_TAKIP_EXCEL_SUTUNLARI
+);
 
 export const talepSatirlari = (talepler = [], gorunum) => talepler.map((t) => Object.fromEntries(
     excelSutunlari(gorunum).map(([baslik, deger]) => [baslik, deger(t)])

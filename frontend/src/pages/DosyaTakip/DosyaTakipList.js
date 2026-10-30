@@ -347,8 +347,8 @@ const DosyaTakipList = () => {
 
     // 💳 Müşteri (27.10.2026): "sonrasında sadece belge takip kısmında arşiv bölümünde bu seçenekler
     // görünsün: cari yazıldı/cari kesildi ve cari açık/cari kapalı şeklinde". Yalnız arşivde; Ödemeler
-    // sekmesindeki seçimlerle aynı alanlar, buradan da değiştirilebilir. Durum'un hemen sağında: tablo
-    // ~2.200 px, en sağda kalınca normal ekranda kaydırmadan görünmüyordu.
+    // sekmesindeki seçimlerle aynı alanlar, buradan da değiştirilebilir. Tablonun EN BAŞINDA (müşteri,
+    // 28.10.2026: "arşivde sağ en sona koymuşsunuz, sol en başa alabilir miyiz?").
     const arsivCariSutunlari = arsivModu ? [{
         field: 'cariKaydi',
         headerName: 'Cari Kaydı',
@@ -378,6 +378,8 @@ const DosyaTakipList = () => {
     }] : [];
 
     const columns = [
+        // Arşivde ilk iki sütun: Cari Kaydı, Cari Durumu (diğer görünümlerde yok)
+        ...arsivCariSutunlari,
         // müşteri: Takip ID kolonu kaldırıldı
         // müşteri: Aşama ve Durum, Belge No'nun soluna alındı
         // Sıra: Firma → Talep Türü → Aşama → Durum → Belge No → İl/İlçe → ...
@@ -459,7 +461,6 @@ const DosyaTakipList = () => {
                 );
             }
         },
-        ...arsivCariSutunlari,
         {
             field: 'ytbNo',
             headerName: 'Belge No',
