@@ -35,13 +35,13 @@ import { hataMesaji } from '../../utils/hataMesaji';
 import YerTutucuCubugu from '../../components/YerTutucuCubugu';
 
 // Mail gövdesinde kullanılabilecek yer tutucular (islemEvrakService.mailOlustur ile aynı liste)
-const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{evrakListesi}', '{uploadLink}', '{formLink}', '{imza}'];
+const PLACEHOLDERLAR = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{belgeNo}', '{evrakListesi}', '{uploadLink}', '{formLink}', '{imza}'];
 
 // Konu satırına UYGUN olanlar. Gövdedekilerin tamamını buraya koymak yanlış
 // olurdu: {evrakListesi} numaralı ÇOK SATIRLI bir liste, {uploadLink} ve
 // {formLink} uzun URL'ler, {imza} kurum imzası — hiçbiri konu satırında iş
 // görmez, konuyu bozar. Konuda anlamlı olan yalnız kısa kimlik alanları.
-const KONU_PLACEHOLDERLARI = ['{firmaAdi}', '{islemAdi}', '{varyant}'];
+const KONU_PLACEHOLDERLARI = ['{firmaAdi}', '{islemAdi}', '{varyant}', '{belgeNo}'];
 
 const bosEvrak = () => ({ ad: '', aciklama: '', zorunlu: true });
 const bosVaryant = () => ({ kod: '', ad: '', mailKonusu: '', mailGovdesi: '', istenenEvraklar: [] });

@@ -165,6 +165,36 @@ function ekliOrnekler(evraklar) {
     .filter((e) => ornekDosyalari(e).length);
 }
 
+// Belge Takip'ten tür seçilmeden açılan evrak talebinin türü (talepOlustur) — maili sabit düzenle üretilir.
+const BELGE_TAKIP_VARSAYILAN_TURU = 'Yeni Belge Talebi';
+
+// Belge Takip'ten açılan talepte mail gövdesi sabit düzenle mi, türün şablon metniyle mi üretilir?
+// 23.09.2026 (aa5541f): Belge Takip'teki "Yeni Evrak Talebi" tür sormadan Yeni Belge Talebi ile açılıyor,
+// maili "Teşvik Belgesi … Talebi ile ilgili olarak" diye başlayan sabit düzenle üretiliyordu. 28.10.2026'da
+// tür seçimi geri geldi ama sabit düzen HER türe uygulanmaya devam etti. Müşteri (02.11.2026, Teşvik Kapama
+// Tamamlama Vizesi şablonunun ekran görüntüsüyle): "1. deki metin nedense evrak hazırlık sırasında gelmiyor".
+// Artık şablonunda mail metni olan tür kendi metniyle gelir (İşlem & Evrak sayfasındakiyle aynı). Sabit düzen
+// yalnız Yeni Belge Talebi'nde (müşterinin 23.09'da istediği biçim) ve metni boş bırakılmış türlerde kalır.
+function belgeTakipSabitDuzeniMi(talep, sablon) {
+  if (!talep.dosyaTakip) return false;
+  if (!String(sablon?.mailGovdesi || '').trim()) return true;
+  return String(talep.islemTuruAdi || '').trim() === BELGE_TAKIP_VARSAYILAN_TURU;
+}
+
+// "Talep metni" (evrak listesinin altındaki serbest metin) hitap satırının ("Sayın … Yetkilisi,") hemen
+// altına girer; şablon hitapla başlamıyorsa en üste. Eskiden hep en üste, hitabın ÖNÜNE yazılıyordu.
+function talepMetniniEkle(govde, talepMetni) {
+  const ek = String(talepMetni || '').trim();
+  const metin = String(govde || '');
+  if (!ek) return metin;
+  if (!/^\s*say[ıi]n\b/i.test(metin)) return `${ek}\n\n${metin}`;
+  const satirSonu = metin.indexOf('\n');
+  if (satirSonu === -1) return `${metin}\n\n${ek}`;
+  // Hitaptan sonraki boş satırlar atılır, metnin kendi girintisi korunur
+  const kalan = metin.slice(satirSonu).replace(/^\s*\n/, '');
+  return `${metin.slice(0, satirSonu)}\n\n${ek}\n\n${kalan}`;
+}
+
 // ✉️ Mail metnini işlem türü/varyant şablonundan üret (placeholder'lar doldurulur)
 function mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip }) {
   // Müşteri: "tikleri kaldırınca mailde otomatik silinsin, (opsiyonel) yazmak yerine."
@@ -185,11 +215,14 @@ function mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip }) {
     uploadLink: uploadLink || '',
     formLink: formLinkiUret(sablon, talep, firma),
     imza: getSignature(),
-    tarih: new Date().toLocaleDateString('tr-TR')
+    tarih: new Date().toLocaleDateString('tr-TR'),
+    // Belge Takip'ten açılan talepte firmaya giden belge no (ytbNo). DT… takip no iç kimlik: müşteri
+    // (15.09.2026) "firmanın görmesine gerek yok" dediği için yer tutucusu yok.
+    belgeNo: String(dosyaTakip?.ytbNo || '').trim()
   };
 
-  const konu = engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', data);
-  if (talep.dosyaTakip) {
+  const konu = konuyuIsle(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', data);
+  if (belgeTakipSabitDuzeniMi(talep, sablon)) {
     const referans = [dosyaTakip?.ytbNo, dosyaTakip?.takipId].filter(Boolean).join(' / ');
     const govde = [
       `Sayın ${talep.firmaAdi || ''} Yetkilisi,`,
@@ -201,8 +234,8 @@ function mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip }) {
     ].filter(Boolean).join('\n\n');
     return { konu, govde, data };
   }
-  const sablonGovdesi = sablonMetniniIsle(sablon.mailGovdesi || VARSAYILAN_GOVDE, data);
-  const govde = talep.talepMetni ? `${talep.talepMetni}\n\n${sablonGovdesi}` : sablonGovdesi;
+  const sablonMetni = String(sablon.mailGovdesi || '').trim() ? sablon.mailGovdesi : VARSAYILAN_GOVDE;
+  const govde = talepMetniniEkle(sablonMetniniIsle(sablonMetni, data), talep.talepMetni);
   return { konu, govde, data };
 }
 
@@ -229,7 +262,9 @@ function devamMailiOlustur({ talep, sablon = {}, uploadLink }) {
 
   const ilkMail = (talep.mailGecmisi || []).find((m) => m.tur === 'ilk');
   const ilkKonu = ilkMail?.konu || talep.mailKonusu
-    || engine.render(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', { islemAdi: talep.islemTuruAdi || '', firmaAdi: talep.firmaAdi || '' });
+    || konuyuIsle(sablon.mailKonusu || '{islemAdi} — Evrak Talebi ({firmaAdi})', {
+      islemAdi: talep.islemTuruAdi || '', firmaAdi: talep.firmaAdi || '', varyant: talep.varyantAd || ''
+    });
   const ilkTarih = (ilkMail?.tarih || talep.sonMailTarihi) ? new Date(ilkMail?.tarih || talep.sonMailTarihi).toLocaleDateString('tr-TR') : '';
   const konu = `${String(ilkKonu).replace(/\s*—\s*Eksik \/ Hatalı Evraklar$/, '')} — Eksik / Hatalı Evraklar`;
   const govde = [
@@ -266,10 +301,28 @@ function sablonMetniniIsle(sablonMetni, data = {}) {
       .join('\n');
   }
   return engine
-    .render(metin, data)
+    .render(bosSecimlikleriDusur(metin, data), data)
     // Düşen satırın bıraktığı çift boşluğu topla
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+}
+
+// Her talepte bulunmayan bilgiler: değeri boşsa "{x}" olarak kalmaz, iz bırakmadan düşer ("(…)" içindeyse
+// parantezleriyle). Varyantsız türde {varyant}, Belge Takip'ten açılmamış talepte {belgeNo}. Müşterinin
+// ekranında konu "…Tamamlama Vizesi{varyant}" diye çıkıyordu (02.11.2026).
+const BOSSA_DUSEN_YER_TUTUCULAR = ['varyant', 'belgeNo'];
+function bosSecimlikleriDusur(metin, data = {}) {
+  return BOSSA_DUSEN_YER_TUTUCULAR.reduce((m, anahtar) => (engine.hasValue(data[anahtar])
+    ? m
+    : m.replace(new RegExp(`[ \\t]*\\(\\{${anahtar}\\}\\)`, 'g'), '').replace(new RegExp(`\\{${anahtar}\\}`, 'g'), '')),
+  String(metin || ''));
+}
+
+// Konu satırı: tek satır, düşen yer tutucunun bıraktığı çift boşluk toplanır. Rozetlere art arda basınca
+// yer tutucular bitişik yazılıyor ("{firmaAdi}{islemAdi}" → "…ŞİRKETİTeşvik Kapama…", 02.11.2026): araya boşluk.
+function konuyuIsle(konuSablonu, data = {}) {
+  return engine.render(bosSecimlikleriDusur(konuSablonu, data).replace(/\}\{/g, '} {'), data)
+    .replace(/[ \t]{2,}/g, ' ').trim();
 }
 
 // İşlem türünde metin tanımlı değilse kullanılan iskelet
@@ -625,7 +678,7 @@ async function talepOlustur({ firmaId, islemTuruId, varyantKod = '', cevaplar = 
   }
 
   if (dosyaTakipId && !islemTuruId) {
-    const varsayilan = await IslemTuru.findOne({ aktif: true, ad: 'Yeni Belge Talebi' });
+    const varsayilan = await IslemTuru.findOne({ aktif: true, ad: BELGE_TAKIP_VARSAYILAN_TURU });
     if (!varsayilan) { const e = new Error('Yeni Belge Talebi şablonu bulunamadı. İşlem türlerinden bu şablonu tanımlayın.'); e.code = 'BAD_INPUT'; throw e; }
     islemTuruId = varsayilan._id;
   }
@@ -691,6 +744,8 @@ module.exports = {
   sablonKlasoru,
   sablonDosyaKaydet,
   sablonMetniniIsle,
+  konuyuIsle,
+  talepMetniniEkle,
   getSignature,
   maildeIstenenler,
   ekliOrnekler,

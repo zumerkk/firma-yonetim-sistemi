@@ -15,7 +15,8 @@ import { Box, Stack, Chip, Typography, Tooltip } from '@mui/material';
 export const YER_TUTUCU_ACIKLAMA = {
   '{firmaAdi}': 'Firmanın unvanı',
   '{islemAdi}': 'İşlem türünün adı (ör. ETUYS Yetkilendirme)',
-  '{varyant}': 'Seçili varyant (Şahıs / Şirket)',
+  '{varyant}': 'Seçili varyant (Şahıs / Şirket) — varyant yoksa kendiliğinden düşer',
+  '{belgeNo}': 'Teşvik belge no — Belge Takip\'ten açılan talepte dolar, değilse kendiliğinden düşer',
   '{evrakListesi}': 'İşaretli evrakların numaralı listesi',
   '{uploadLink}': 'Firmanın evrak yükleyeceği kişiye özel bağlantı',
   '{formLink}': 'Firmaya göre ön-doldurulmuş Google Form bağlantısı',

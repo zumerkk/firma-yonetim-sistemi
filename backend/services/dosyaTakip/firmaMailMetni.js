@@ -135,6 +135,7 @@ function sablonVerisi(talep, { imza = '', yuklemeLinki = '', tarih = new Date() 
     firmaAdi: String(talep?.firmaUnvan || talep?.firma?.tamUnvan || '').trim(),
     islemAdi: String(talep?.talepTuru || '').trim(),
     varyant: '',
+    belgeNo: belgeNoAl(talep),
     evrakListesi: evrakListesiMetni(talep),
     uploadLink: yuklemeLinki || '',
     formLink: '',
