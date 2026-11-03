@@ -115,8 +115,9 @@ export default function TalepCariPaneli({ talepId, firmaId, onMesaj }) {
                     {/* Müşteri (27.10.2026): cari açık/kapalı seçeneğinin SOLUNDA "Cari yazıldı / Cari kesildi" */}
                     <CariKaydiSecimi talepId={talepId} value={defter.talep?.cariKaydi} disabled={yukleniyor || !!hata}
                         onDegis={(cariKaydi) => setDefter((d) => ({ ...d, talep: { ...d.talep, cariKaydi } }))} />
-                    <CariDurumuSecimi firmaId={firmaId} value={defter.firma?.cariDurumu} disabled={yukleniyor || !!hata}
-                        onDegis={(cariDurumu) => setDefter((d) => ({ ...d, firma: { ...d.firma, cariDurumu } }))} />
+                    {/* Talep bazında (müşteri, 03.11.2026): firmanın diğer taleplerini değiştirmez */}
+                    <CariDurumuSecimi talepId={talepId} value={defter.talep?.cariDurumu} disabled={yukleniyor || !!hata}
+                        onDegis={(cariDurumu) => setDefter((d) => ({ ...d, talep: { ...d.talep, cariDurumu } }))} />
                     <Button
                         size="small" variant="outlined" startIcon={<CariIcon />}
                         // Müşteri (21.09.2026): cari hesaptaki "Geri" bu talebin Ödemeler sekmesine dönsün.

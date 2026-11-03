@@ -67,10 +67,10 @@ const SIRALANABILIR = {
     deger: (t, b) => tarih(t.sonuclanmaTarihi) ?? tarih(b.sonucaAlinmaTarihi(t))
   },
   faturaDurumu: { secim: 'odeme.faturaDurumu', tur: 'sayi', deger: (t) => sira(FATURA_DURUMU_SIRASI)(t.odeme?.faturaDurumu) },
-  // Arşiv sütunları (müşteri, 27.10.2026). Cari durumu firmada tutulur: değer bağlamdan okunur,
-  // kayıtta olmayan (eski) firma "açık" sayılır — ekranda da öyle görünüyor.
+  // Arşiv sütunları (müşteri, 27.10.2026). İkisi de talebin kendi alanı (cari durumu 03.11.2026'ya kadar
+  // firmadaydı); cari durumu alanı olmayan eski talep "açık" sayılır — ekranda da öyle görünüyor.
   cariKaydi: { secim: 'odeme.cariKaydi', tur: 'sayi', deger: (t) => sira(CARI_KAYDI_SIRASI)(t.odeme?.cariKaydi) },
-  cariDurumu: { secim: 'firma', tur: 'sayi', deger: (t, b) => sira(CARI_DURUMU_SIRASI)(b.firmaCariDurumu(t.firma)) }
+  cariDurumu: { secim: 'odeme.cariDurumu', tur: 'sayi', deger: (t) => sira(CARI_DURUMU_SIRASI)(t.odeme?.cariDurumu || 'acik') }
 };
 
 /** "faturaDurumu:asc" → { alan, yon: 1 | -1 }; tanınmayan istek → null */
@@ -85,11 +85,11 @@ const harfSirasi = new Intl.Collator('tr', { sensitivity: 'base', numeric: true 
 /**
  * Talepleri seçilen sütuna göre dizer. Boş değerler hangi yönde olursa olsun en sonda; eşitlikte
  * en yeni talep üstte. Girdiyi değiştirmez.
- * @param baglam { kisiAdi(id) → ad, sonucaAlinmaTarihi(talep) → Date|null, firmaCariDurumu(firmaId) → 'acik'|'kapandi' }
+ * @param baglam { kisiAdi(id) → ad, sonucaAlinmaTarihi(talep) → Date|null }
  */
 function talepleriSirala(talepler, { alan, yon }, baglam = {}) {
   const tanim = SIRALANABILIR[alan];
-  const b = { kisiAdi: () => '', sonucaAlinmaTarihi: () => null, firmaCariDurumu: () => 'acik', ...baglam };
+  const b = { kisiAdi: () => '', sonucaAlinmaTarihi: () => null, ...baglam };
   const karsilastir = tanim.tur === 'metin' ? (x, y) => harfSirasi.compare(x, y) : (x, y) => x - y;
   return talepler
     .map((t) => ({ t, d: tanim.deger(t, b), yeni: tarih(t.createdAt) || 0 }))

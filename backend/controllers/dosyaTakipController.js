@@ -429,11 +429,7 @@ exports.getTumTalepler = async (req, res) => {
         if (firma) filter.firma = firma;
         const cariSuzgec = cariSuzgecleriniCoz({ cariKaydi, cariDurumu });
         if (cariSuzgec.cariKaydi || cariSuzgec.cariDurumu) {
-            const kapaliFirmalar = cariSuzgec.cariDurumu
-                ? await require('../models/Firma').find({ cariDurumu: 'kapandi' }).distinct('_id')
-                : [];
-            const kosullar = cariKosullari(cariSuzgec, kapaliFirmalar);
-            filter.$and = [...(filter.$and || []), ...kosullar];
+            filter.$and = [...(filter.$and || []), ...cariKosullari(cariSuzgec)];
         }
 
         // 👤 Personel filtreleri. 'YOK' → hiç atanmamış talepler.
@@ -464,8 +460,7 @@ exports.getTumTalepler = async (req, res) => {
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const listeAlanlari = (sorgu) => sorgu
-            // cariDurumu: arşivdeki "Cari Durumu" sütunu (firma bazında, müşteri 27.10.2026)
-            .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce cariDurumu')
+            .populate('firma', 'tamUnvan firmaId firmaIl firmaIlce')
             .populate('olusturanKullanici', 'adSoyad')
             .populate('muraacatOncesi.muraacatHazirlayanPersonel', 'adSoyad')
             .populate('muraacatSonrasi.takibiYapanPersonel', 'adSoyad')
@@ -486,17 +481,8 @@ exports.getTumTalepler = async (req, res) => {
                 const adlar = new Map(kullanicilar.map((u) => [String(u._id), u.adSoyad]));
                 kisiAdi = (id) => (id ? adlar.get(String(id)) || '' : '');
             }
-            let firmaCariDurumu = () => 'acik';
-            if (siralama.alan === 'cariDurumu') {
-                const firmaKimlikleri = [...new Set(hafif.map((t) => String(t.firma || '')).filter(Boolean))];
-                const firmalar = await require('../models/Firma').find({ _id: { $in: firmaKimlikleri } }).select('cariDurumu').lean();
-                const durumlar = new Map(firmalar.map((f) => [String(f._id), f.cariDurumu || 'acik']));
-                // Firmasız talep en sonda kalsın (null); kayıtta alanı olmayan eski firma ekrandaki gibi "açık"
-                firmaCariDurumu = (id) => (id ? durumlar.get(String(id)) || 'acik' : null);
-            }
             const sirali = talepleriSirala(hafif, siralama, {
                 kisiAdi,
-                firmaCariDurumu,
                 sonucaAlinmaTarihi: (t) => DosyaTakip.sonucaAlinmaTarihi(t)
             });
             toplam = sirali.length;
@@ -514,8 +500,6 @@ exports.getTumTalepler = async (req, res) => {
         // Virtual alanları elle ekle (lean() virtual döndürmez)
         const enriched = talepler.map(t => ({
             ...t,
-            // Alanı hiç olmayan eski firma "Cari açık" (Firma şemasının varsayılanı, Cari ekranıyla aynı)
-            firma: t.firma && typeof t.firma === 'object' ? { ...t.firma, cariDurumu: t.firma.cariDurumu || 'acik' } : t.firma,
             durumEtiketi: getDurumEtiketi(t.durum),
             anaAsamaEtiketi: getAnaAsamaEtiketi(t.anaAsama),
             // "Sonuçlanma" sütunu: sonuclanmaTarihi yoksa talebin Sonuçlandı'ya alındığı tarih

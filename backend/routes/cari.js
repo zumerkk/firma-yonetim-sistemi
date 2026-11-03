@@ -17,6 +17,8 @@ router.put('/firma/:firmaId/durum', editor, cari.firmaDurumuGuncelle);
 router.get('/talep/:talepId', cari.talepDefteri);
 // Ödemeler › "Cari yazıldı / Cari kesildi" (talep bazında; arşiv listesinden de değişir)
 router.put('/talep/:talepId/kayit', editor, cari.talepCariKaydiGuncelle);
+// Ödemeler › "Cari açık / Cari kapandı" (talep bazında; arşiv listesinden de değişir)
+router.put('/talep/:talepId/durum', editor, cari.talepCariDurumuGuncelle);
 
 router.post('/', editor, cari.hareketEkle);
 router.put('/:id', editor, cari.hareketGuncelle);

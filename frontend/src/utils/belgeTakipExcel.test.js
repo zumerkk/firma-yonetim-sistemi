@@ -48,11 +48,12 @@ test('arşivde ilk iki sütun Cari Kaydı ve Cari Durumu (listedeki sıra); diğ
     const arsiv = basliklar('arsiv');
     expect(arsiv.slice(0, 3)).toEqual(['Cari Kaydı', 'Cari Durumu', 'Firma']);
 
-    const [satir] = talepSatirlari([{ ...kapama, odeme: { faturaDurumu: 'kesildi', cariKaydi: 'yazildi' },
-        firma: { ...kapama.firma, cariDurumu: 'kapandi' } }], 'arsiv');
+    // Cari durumu talepten (müşteri, 03.11.2026); firma alanı Excel'e karışmaz
+    const [satir] = talepSatirlari([{ ...kapama, odeme: { faturaDurumu: 'kesildi', cariKaydi: 'yazildi', cariDurumu: 'kapandi' },
+        firma: { ...kapama.firma, cariDurumu: 'acik' } }], 'arsiv');
     expect(satir).toMatchObject({ 'Cari Kaydı': 'Cari yazıldı', 'Cari Durumu': 'Cari kapandı' });
-    // Seçilmemiş kayıt boş hücre; alanı olmayan eski firma "Cari açık" (ekranla aynı); firmasız talep boş
-    const [eski] = talepSatirlari([{ ...kapama }], 'arsiv');
+    // Seçilmemiş kayıt boş hücre; alanı olmayan eski talep "Cari açık" (ekranla aynı)
+    const [eski] = talepSatirlari([{ ...kapama, firma: { ...kapama.firma, cariDurumu: 'kapandi' } }], 'arsiv');
     expect(eski).toMatchObject({ 'Cari Kaydı': '', 'Cari Durumu': 'Cari açık' });
-    expect(talepSatirlari([{ _id: 'x' }], 'arsiv')[0]['Cari Durumu']).toBe('');
+    expect(talepSatirlari([{ _id: 'x' }], 'arsiv')[0]['Cari Durumu']).toBe('Cari açık');
 });

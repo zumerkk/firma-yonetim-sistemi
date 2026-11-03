@@ -154,6 +154,59 @@ describe('Cari yazıldı / Cari kesildi (talep bazında — müşteri 27.10.2026
   });
 });
 
+// Müşteri (03.11.2026, acil): "Belge takip ekranında cari kapandı seçince o firmanın tüm işlemlerini kapatıyor"
+describe('Cari açık / Cari kapandı (talep bazında — müşteri 03.11.2026)', () => {
+  const talepB = new ObjectId();
+  const uri = `/api/cari/talep/${talepA}/durum`;
+  const oku = async (talep) => (await request(app).get(`/api/cari/talep/${talep}`)).body.data.talep;
+
+  beforeAll(async () => {
+    await DosyaTakip.collection.insertOne({
+      _id: talepB, takipId: 'DT2026998', firma: firmaA, firmaUnvan: 'ÇINAR GIDA A.Ş.',
+      talepTuru: 'Süre Revize Talebi', aktif: true, createdAt: new Date()
+    });
+  });
+  beforeEach(async () => {
+    await DosyaTakip.collection.updateMany({ _id: { $in: [talepA, talepB] } }, { $unset: { 'odeme.cariDurumu': '' } });
+  });
+  // Sonraki testler firmanın tek talebi olduğunu varsayıyor
+  afterAll(async () => {
+    await DosyaTakip.collection.deleteOne({ _id: talepB });
+    await DosyaTakip.collection.updateOne({ _id: talepA }, { $unset: { 'odeme.cariDurumu': '', 'odeme.cariKaydi': '' } });
+  });
+
+  test('kapandı yalnız seçilen talebe yazılır; firmanın diğer talebi ve firma alanı değişmez', async () => {
+    expect(await oku(talepA)).toMatchObject({ cariDurumu: 'acik' }); // alanı olmayan eski talep
+    const once = (await DosyaTakip.collection.findOne({ _id: talepA })).updatedAt;
+    const r = await request(app).put(uri).send({ cariDurumu: 'kapandi' });
+    expect(r.status).toBe(200);
+    expect(r.body.data).toMatchObject({ cariDurumu: 'kapandi', cariDurumuDegistirenAdi: 'Test Danışman' });
+    expect(await oku(talepA)).toMatchObject({ cariDurumu: 'kapandi' });
+    expect(await oku(talepB)).toMatchObject({ cariDurumu: 'acik' });
+    expect((await Firma.collection.findOne({ _id: firmaA })).cariDurumu).toBeUndefined();
+    expect((await DosyaTakip.collection.findOne({ _id: talepA })).updatedAt).toEqual(once);
+
+    expect((await request(app).put(uri).send({ cariDurumu: 'acik' })).body.data.cariDurumu).toBe('acik');
+    expect(await oku(talepA)).toMatchObject({ cariDurumu: 'acik' });
+  });
+
+  test('firma Cari Takip\'te kapandı yapılsa da talepler kendi seçimini gösterir', async () => {
+    expect((await request(app).put(`/api/cari/firma/${firmaA}/durum`).send({ cariDurumu: 'kapandi' })).status).toBe(200);
+    expect(await oku(talepA)).toMatchObject({ cariDurumu: 'acik' });
+    expect(await oku(talepB)).toMatchObject({ cariDurumu: 'acik' });
+  });
+
+  test('geçersiz / boş değer 400, olmayan talep 404; cari kaydı seçimine dokunmaz', async () => {
+    await request(app).put(`/api/cari/talep/${talepA}/kayit`).send({ cariKaydi: 'yazildi' });
+    for (const cariDurumu of ['bilinmiyor', '', null]) {
+      expect((await request(app).put(uri).send({ cariDurumu })).status).toBe(400);
+    }
+    expect((await request(app).put(`/api/cari/talep/${new ObjectId()}/durum`).send({ cariDurumu: 'acik' })).status).toBe(404);
+    await request(app).put(uri).send({ cariDurumu: 'kapandi' });
+    expect(await oku(talepA)).toMatchObject({ cariKaydi: 'yazildi', cariDurumu: 'kapandi' });
+  });
+});
+
 describe('Ödemeler sekmesi (talebe bağlı mini cari)', () => {
   test('talepten girilen ödeme firmayı talepten alır, kullanıcı yazımını anlar', async () => {
     const r = await ekle({ dosyaTakip: String(talepA), tur: 'gelen', banka: 'Enpara', tarih: '15.09.2026', tutar: '24.000,50' });

@@ -14,12 +14,11 @@ describe('cariKosullari (saf)', () => {
     expect(cariKosullari(cariSuzgecleriniCoz({}))).toEqual([]);
   });
 
-  test('seçilmedi = boş ya da alan yok; açık = kapalı listesinde olmayan ve firması olan', () => {
-    const k = new ObjectId();
+  test('seçilmedi = boş ya da alan yok; cari durumu talebin kendi alanı, alanı olmayan açık', () => {
     expect(cariKosullari({ cariKaydi: 'bos', cariDurumu: '' })).toEqual([{ 'odeme.cariKaydi': { $in: ['', null] } }]);
-    expect(cariKosullari({ cariKaydi: 'yazildi', cariDurumu: 'kapandi' }, [k]))
-      .toEqual([{ 'odeme.cariKaydi': 'yazildi' }, { firma: { $in: [k] } }]);
-    expect(cariKosullari({ cariKaydi: '', cariDurumu: 'acik' }, [k])).toEqual([{ firma: { $nin: [k, null] } }]);
+    expect(cariKosullari({ cariKaydi: 'yazildi', cariDurumu: 'kapandi' }))
+      .toEqual([{ 'odeme.cariKaydi': 'yazildi' }, { 'odeme.cariDurumu': 'kapandi' }]);
+    expect(cariKosullari({ cariKaydi: '', cariDurumu: 'acik' })).toEqual([{ 'odeme.cariDurumu': { $ne: 'kapandi' } }]);
   });
 });
 
@@ -49,13 +48,16 @@ describe('GET liste ?cariKaydi= &cariDurumu=', () => {
       anaAsama: 'TAMAMLANDI', durum: '2.3.5_SONUCLANDI', createdAt: new Date(2026, 9, Number(no)),
       ...(odeme ? { odeme } : {}), ...ek
     });
+    // Firma alanındaki "kapandı" (Cari / Ödeme Takip'teki firma listesi) Belge Takip süzgecine KARIŞMAZ:
+    // müşteri (03.11.2026) "cari kapandı seçince o firmanın tüm işlemlerini kapatıyor"
     await DosyaTakip.collection.insertMany([
-      t('01', kapali, { cariKaydi: 'yazildi' }),
-      t('02', acik, { cariKaydi: 'kesildi' }),
+      t('01', kapali, { cariKaydi: 'yazildi', cariDurumu: 'kapandi' }),
+      t('02', acik, { cariKaydi: 'kesildi', cariDurumu: 'acik' }),
       t('03', eski, null), // eski talep: odeme nesnesi yok
       t('04', acik, { cariKaydi: '' }),
-      t('05', null, { cariKaydi: '' }), // firmasız
-      t('06', kapali, { cariKaydi: '' }, { anaAsama: 'MURACAAT_ONCESI', durum: '1.1_GORUSULUYOR' }) // arşivde değil
+      t('05', null, { cariKaydi: '', cariDurumu: 'kapandi' }), // firmasız
+      t('06', kapali, { cariKaydi: '' }, { anaAsama: 'MURACAAT_ONCESI', durum: '1.1_GORUSULUYOR' }), // arşivde değil
+      t('07', kapali, { cariKaydi: '' }) // kapalı firmanın başka talebi: kendi durumu açık
     ]);
   });
   afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); });
@@ -63,19 +65,19 @@ describe('GET liste ?cariKaydi= &cariDurumu=', () => {
   const no = async (q) => (await request(app).get('/liste').query({ arsiv: '1', ...q })).body.data.map((x) => x.firmaUnvan).sort();
 
   test('cari kaydı: seçilmedi eski talepleri de kapsar; yazıldı / kesildi tek tek', async () => {
-    expect(await no({ cariKaydi: 'bos' })).toEqual(['T03', 'T04', 'T05']);
+    expect(await no({ cariKaydi: 'bos' })).toEqual(['T03', 'T04', 'T05', 'T07']);
     expect(await no({ cariKaydi: 'yazildi' })).toEqual(['T01']);
     expect(await no({ cariKaydi: 'kesildi' })).toEqual(['T02']);
   });
 
-  test('cari durumu firmadan: alanı olmayan firma açık, firmasız talep hiçbirinde', async () => {
-    expect(await no({ cariDurumu: 'kapandi' })).toEqual(['T01']);
-    expect(await no({ cariDurumu: 'acik' })).toEqual(['T02', 'T03', 'T04']);
+  test('cari durumu talepten: alanı olmayan talep açık, firmanın diğer talebi etkilenmez', async () => {
+    expect(await no({ cariDurumu: 'kapandi' })).toEqual(['T01', 'T05']);
+    expect(await no({ cariDurumu: 'acik' })).toEqual(['T02', 'T03', 'T04', 'T07']);
   });
 
   test('iki süzgeç ve arama birlikte; tanınmayan değer yok sayılır', async () => {
-    expect(await no({ cariKaydi: 'bos', cariDurumu: 'acik' })).toEqual(['T03', 'T04']);
+    expect(await no({ cariKaydi: 'bos', cariDurumu: 'acik' })).toEqual(['T03', 'T04', 'T07']);
     expect(await no({ cariKaydi: 'bos', cariDurumu: 'acik', search: 'T04' })).toEqual(['T04']);
-    expect(await no({ cariKaydi: 'odendi' })).toEqual(['T01', 'T02', 'T03', 'T04', 'T05']);
+    expect(await no({ cariKaydi: 'odendi' })).toEqual(['T01', 'T02', 'T03', 'T04', 'T05', 'T07']);
   });
 });

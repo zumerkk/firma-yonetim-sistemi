@@ -3,9 +3,10 @@
 // Müşteri (27.10.2026): "cari çekemedikleri için ödeme talep edemiyoruz". Arşivde "carisi henüz
 // yazılmamış" ya da "carisi açık" talepleri ayırabilmek için iki süzgeç:
 //   cariKaydi  → talebin kendi alanı (DosyaTakip.odeme.cariKaydi): bos | yazildi | kesildi
-//   cariDurumu → FİRMA bazında (Firma.cariDurumu): acik | kapandi. Alanı olmayan eski firma "açık"
-//                sayılır (ekranda da öyle görünüyor); firması olmayan talebin cari durumu yoktur.
-// Bu dosyada DB yok: kapalı firmaların kimlikleri dışarıdan verilir, sorgu koşulu döner.
+//   cariDurumu → talebin kendi alanı (DosyaTakip.odeme.cariDurumu): acik | kapandi. Alanı olmayan eski
+//                talep "açık" sayılır (ekranda da öyle görünüyor). 03.11.2026'ya kadar firmadan okunuyordu;
+//                müşteri: "cari kapandı seçince o firmanın tüm işlemlerini kapatıyor".
+// Bu dosyada DB yok: sorgu koşulu döner.
 
 const CARI_KAYDI = ['bos', 'yazildi', 'kesildi'];
 const CARI_DURUMU = ['acik', 'kapandi'];
@@ -18,10 +19,9 @@ const cariSuzgecleriniCoz = ({ cariKaydi, cariDurumu } = {}) => ({
 
 /**
  * @param {{cariKaydi: string, cariDurumu: string}} suzgec  cariSuzgecleriniCoz çıktısı
- * @param {Array} kapaliFirmalar  cariDurumu 'kapandi' olan firma kimlikleri (cariDurumu süzgeci varsa)
  * @returns {object[]} filter.$and'e eklenecek koşullar
  */
-function cariKosullari(suzgec, kapaliFirmalar = []) {
+function cariKosullari(suzgec) {
   const kosullar = [];
   if (suzgec.cariKaydi === 'bos') {
     // Eski talepte alan (hatta odeme nesnesi) hiç yok: null eksik alanı da kapsar
@@ -30,9 +30,10 @@ function cariKosullari(suzgec, kapaliFirmalar = []) {
     kosullar.push({ 'odeme.cariKaydi': suzgec.cariKaydi });
   }
   if (suzgec.cariDurumu === 'kapandi') {
-    kosullar.push({ firma: { $in: kapaliFirmalar } });
+    kosullar.push({ 'odeme.cariDurumu': 'kapandi' });
   } else if (suzgec.cariDurumu === 'acik') {
-    kosullar.push({ firma: { $nin: [...kapaliFirmalar, null] } });
+    // Alanı (hatta odeme nesnesi) olmayan eski talep de açık
+    kosullar.push({ 'odeme.cariDurumu': { $ne: 'kapandi' } });
   }
   return kosullar;
 }

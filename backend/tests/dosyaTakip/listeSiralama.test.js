@@ -21,18 +21,16 @@ describe('talepleriSirala (saf)', () => {
     expect(talepleriSirala(liste, { alan: 'faturaDurumu', yon: -1 }).map((x) => x._id)).toEqual(['2', '5', '3', '4', '1']);
   });
 
-  test('arşiv cari sütunları: cari kaydı yazıldı → kesildi; cari durumu firmadan, firmasız en sonda', () => {
+  test('arşiv cari sütunları: cari kaydı yazıldı → kesildi; cari durumu talepten, alanı olmayan açık', () => {
     const liste = [t('1', { odeme: { cariKaydi: 'kesildi' } }), t('2', {}), t('3', { odeme: { cariKaydi: 'yazildi' } })];
     expect(talepleriSirala(liste, { alan: 'cariKaydi', yon: 1 }).map((x) => x._id)).toEqual(['3', '1', '2']);
     expect(talepleriSirala(liste, { alan: 'cariKaydi', yon: -1 }).map((x) => x._id)).toEqual(['1', '3', '2']);
 
-    const durum = { fA: 'kapandi', fB: 'acik' };
-    const firmaCariDurumu = (id) => (id ? durum[id] || 'acik' : null);
-    const firmali = [t('1', { firma: 'fA' }), t('2', { firma: null }), t('3', { firma: 'fB' }), t('4', { firma: 'fC' })];
-    expect(talepleriSirala(firmali, { alan: 'cariDurumu', yon: 1 }, { firmaCariDurumu }).map((x) => x._id))
-      .toEqual(['4', '3', '1', '2']);
-    expect(talepleriSirala(firmali, { alan: 'cariDurumu', yon: -1 }, { firmaCariDurumu }).map((x) => x._id))
-      .toEqual(['1', '4', '3', '2']);
+    // Aynı firmanın iki talebi farklı durumda olabilir (müşteri, 03.11.2026)
+    const durumlu = [t('1', { firma: 'fA', odeme: { cariDurumu: 'kapandi' } }), t('2', { firma: 'fA' }),
+      t('3', { firma: null, odeme: { cariDurumu: 'acik' } }), t('4', { firma: 'fA', odeme: {} })];
+    expect(talepleriSirala(durumlu, { alan: 'cariDurumu', yon: 1 }).map((x) => x._id)).toEqual(['4', '3', '2', '1']);
+    expect(talepleriSirala(durumlu, { alan: 'cariDurumu', yon: -1 }).map((x) => x._id)).toEqual(['1', '4', '3', '2']);
   });
 
   test('firma adı Türkçe alfabe (Ç C\'den sonra, İ I\'dan sonra)', () => {
@@ -120,25 +118,22 @@ describe('GET /tum-talepler?siralama=', () => {
     expect(r.body.data.map((t) => t.firmaUnvan)).toEqual(['FİRMA 9', 'FİRMA 8']);
   });
 
-  test('arşiv: firma cari durumu listede gelir ve tüm kümede sıralanır', async () => {
+  test('arşiv: talebin cari durumu listede gelir ve tüm kümede sıralanır; firma durumu karışmaz', async () => {
     const Firma = mongoose.model('Firma');
-    const [kapali, acik, eski] = [new ObjectId(), new ObjectId(), new ObjectId()];
-    await Firma.collection.insertMany([
-      { _id: kapali, firmaId: 'A900001', tamUnvan: 'KAPALI A.Ş.', cariDurumu: 'kapandi' },
-      { _id: acik, firmaId: 'A900002', tamUnvan: 'AÇIK A.Ş.', cariDurumu: 'acik' },
-      { _id: eski, firmaId: 'A900003', tamUnvan: 'ESKİ A.Ş.' } // alan yok → açık
-    ]);
+    // Firma Cari / Ödeme Takip'te "kapandı" — Belge Takip talepleri bundan etkilenmez (müşteri, 03.11.2026)
+    const firma = new ObjectId();
+    await Firma.collection.insertOne({ _id: firma, firmaId: 'A900001', tamUnvan: 'KAPALI A.Ş.', cariDurumu: 'kapandi' });
     const tur = 'Süre Revize Talebi';
-    await DosyaTakip.collection.insertMany([kapali, acik, eski].map((firma, i) => ({
+    const odemeler = [{ cariKaydi: '', cariDurumu: 'kapandi' }, { cariKaydi: 'yazildi' }, { cariKaydi: '', cariDurumu: 'acik' }];
+    await DosyaTakip.collection.insertMany(odemeler.map((odeme, i) => ({
       takipId: `DT20268${i}`, firma, firmaUnvan: `CARİ ${i}`, talepTuru: tur, aktif: true,
-      anaAsama: 'TAMAMLANDI', durum: '4.1_SONUCLANDI', odeme: { cariKaydi: i === 1 ? 'yazildi' : '' },
-      createdAt: new Date(2026, 9, i + 1)
+      anaAsama: 'TAMAMLANDI', durum: '4.1_SONUCLANDI', odeme, createdAt: new Date(2026, 9, i + 1)
     })));
     const r = await request(app).get('/liste').query({ arsiv: '1', talepTuru: tur, siralama: 'cariDurumu:desc' });
     expect(r.status).toBe(200);
-    expect(r.body.data.map((t) => t.firma.cariDurumu)).toEqual(['kapandi', 'acik', 'acik']);
+    expect(r.body.data.map((t) => t.odeme.cariDurumu || 'acik')).toEqual(['kapandi', 'acik', 'acik']);
     expect(r.body.data.map((t) => t.firmaUnvan)).toEqual(['CARİ 0', 'CARİ 2', 'CARİ 1']);
-    expect(r.body.data[0].firmaUnvan).toBe('CARİ 0');
+    expect(r.body.data[0].firma).not.toHaveProperty('cariDurumu');
     const k = await request(app).get('/liste').query({ arsiv: '1', talepTuru: tur, siralama: 'cariKaydi:asc' });
     expect(k.body.data.map((t) => t.odeme.cariKaydi)).toEqual(['yazildi', '', '']);
   });

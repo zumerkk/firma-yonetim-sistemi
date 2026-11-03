@@ -363,18 +363,16 @@ const DosyaTakipList = () => {
     }, {
         field: 'cariDurumu',
         headerName: 'Cari Durumu',
-        description: 'Cari açık / Cari kapandı — firma bazında: firmanın bütün taleplerinde aynı',
+        description: 'Cari açık / Cari kapandı — talebin Ödemeler sekmesindeki seçimle aynı',
         width: 140,
-        valueGetter: (params) => params.row?.firma?.cariDurumu || 'acik',
-        renderCell: (params) => {
-            const firmaId = params.row?.firma?._id;
-            // Firma bazında: aynı firmanın listedeki diğer satırları da güncellenir
-            return (
-                <CariDurumuSecimi kompakt firmaId={firmaId} value={params.value}
-                    onDegis={(cariDurumu) => talepleriYamala((t) => (t.firma?._id && t.firma._id === firmaId
-                        ? { ...t, firma: { ...t.firma, cariDurumu } } : t))} />
-            );
-        }
+        valueGetter: (params) => params.row?.odeme?.cariDurumu || 'acik',
+        // Talep bazında (müşteri, 03.11.2026: "cari kapandı seçince o firmanın tüm işlemlerini kapatıyor").
+        // Yalnız bu satır güncellenir; aynı firmanın diğer talepleri değişmez.
+        renderCell: (params) => (
+            <CariDurumuSecimi kompakt talepId={params.row._id} value={params.value}
+                onDegis={(cariDurumu) => talepleriYamala((t) => (t._id === params.row._id
+                    ? { ...t, odeme: { ...(t.odeme || {}), cariDurumu } } : t))} />
+        )
     }] : [];
 
     const columns = [

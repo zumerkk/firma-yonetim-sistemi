@@ -77,6 +77,16 @@ test.each(['admin', 'kullanici'])('%s cari durumunu ve hareketleri değiştirebi
   expect(await CariHareket.findById(hareket).lean()).toMatchObject({ tutar: 250, hizmeteDahil: true });
 });
 
+test('talebin cari durumunu readonly değiştiremez, kullanıcı değiştirebilir', async () => {
+  const yol = `/cari/talep/${talep}/durum`;
+  const durum = async () => (await DosyaTakip.findById(talep).lean()).odeme?.cariDurumu;
+  expect((await request(app).put(yol).auth(tokenlar.readonly, { type: 'bearer' }).send({ cariDurumu: 'kapandi' })).status).toBe(403);
+  expect(await durum()).toBeUndefined();
+  expect((await request(app).put(yol).send({ cariDurumu: 'kapandi' })).status).toBe(401);
+  expect((await request(app).put(yol).auth(tokenlar.kullanici, { type: 'bearer' }).send({ cariDurumu: 'kapandi' })).status).toBe(200);
+  expect(await durum()).toBe('kapandi');
+});
+
 test('oturumsuz istek cari durumunu değiştiremez', async () => {
   expect((await request(app).put(`/cari/firma/${firma}/durum`).send({ cariDurumu: 'kapandi' })).status).toBe(401);
 });

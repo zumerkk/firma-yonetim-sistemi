@@ -50,6 +50,12 @@ const cariService = {
         return data;
     },
 
+    // "Cari açık / Cari kapandı" — talep bazında (müşteri, 03.11.2026: firmanın diğer taleplerini etkilemesin)
+    talepCariDurumuGuncelle: async (talepId, cariDurumu) => {
+        const { data } = await axios.put(`${API_URL}/talep/${talepId}/durum`, { cariDurumu });
+        return data;
+    },
+
     // Dosya varsa multipart (yükleme göstergesi ve uzun zaman aşımıyla), yoksa JSON
     hareketEkle: async (alanlar, dosya, onProgress) => {
         const { data } = dosya

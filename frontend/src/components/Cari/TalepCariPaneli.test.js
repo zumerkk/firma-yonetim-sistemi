@@ -7,9 +7,10 @@ import cariService from '../../services/cariService';
 jest.mock('../../services/cariService', () => ({ talepDefteri: jest.fn() }));
 
 test('Ödemeler: "Cari kaydı" (yazıldı/kesildi) cari durumunun SOLUNDA, ikisi de kayıtlı değeri gösterir', async () => {
+    // Cari durumu talepten okunur; firmanın "açık" olması talebin seçimini değiştirmez (müşteri, 03.11.2026)
     cariService.talepDefteri.mockResolvedValue({ data: {
-        firma: { _id: 'f1', tamUnvan: 'ÇINAR GIDA A.Ş.', cariDurumu: 'kapandi' },
-        talep: { _id: 't1', cariKaydi: 'yazildi' },
+        firma: { _id: 'f1', tamUnvan: 'ÇINAR GIDA A.Ş.', cariDurumu: 'acik' },
+        talep: { _id: 't1', cariKaydi: 'yazildi', cariDurumu: 'kapandi' },
         hareketler: [], ozet: null
     } });
     render(<MemoryRouter><TalepCariPaneli talepId="t1" firmaId="f1" /></MemoryRouter>);

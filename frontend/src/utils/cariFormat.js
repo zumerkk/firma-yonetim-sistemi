@@ -25,7 +25,8 @@ export const FATURA_DURUMU = {
     avans: { etiket: 'Avans', renk: '#1d4ed8', zemin: '#eff6ff', kenar: '#93c5fd' }
 };
 
-// Firma bazında (Firma.cariDurumu; alanı olmayan eski firma "açık")
+// Belge Takip'te talep bazında (DosyaTakip.odeme.cariDurumu), Cari / Ödeme Takip'teki firma listesinde firma
+// bazında (Firma.cariDurumu). İkisinde de alanı olmayan eski kayıt "açık".
 export const CARI_DURUMU_SECENEKLERI = [
     { deger: 'acik', etiket: 'Cari açık', renk: '#b45309' },
     { deger: 'kapandi', etiket: 'Cari kapandı', renk: '#15803d' }

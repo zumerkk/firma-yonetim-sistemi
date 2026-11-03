@@ -56,11 +56,18 @@ const dahilAl = (v) => {
 };
 const firmaDurumuyla = (f) => f ? { ...f, cariDurumu: f.cariDurumu || 'acik' } : null;
 const CARI_KAYDI_ETIKETI = { '': 'Seçilmedi', yazildi: 'Cari yazıldı', kesildi: 'Cari kesildi' };
+const CARI_DURUMU_ETIKETI = { acik: 'Cari açık', kapandi: 'Cari kapandı' };
+const TALEP_CARI_ALANLARI = 'odeme.cariKaydi odeme.cariKaydiTarihi odeme.cariKaydiDegistirenAdi '
+    + 'odeme.cariDurumu odeme.cariDurumuTarihi odeme.cariDurumuDegistirenAdi';
+// Talebin cari seçimleri. Alanı olmayan eski talep: cari kaydı "seçilmedi", cari durumu "açık".
 const talepCariKaydi = (t) => ({
     _id: t._id,
     cariKaydi: t.odeme?.cariKaydi || '',
     cariKaydiTarihi: t.odeme?.cariKaydiTarihi || null,
-    cariKaydiDegistirenAdi: t.odeme?.cariKaydiDegistirenAdi || ''
+    cariKaydiDegistirenAdi: t.odeme?.cariKaydiDegistirenAdi || '',
+    cariDurumu: t.odeme?.cariDurumu || 'acik',
+    cariDurumuTarihi: t.odeme?.cariDurumuTarihi || null,
+    cariDurumuDegistirenAdi: t.odeme?.cariDurumuDegistirenAdi || ''
 });
 
 // Tutar/tarih kullanıcı yazımıyla gelebilir ("24.000,50", "15.09.2026"). Boşsa undefined
@@ -101,7 +108,7 @@ async function baglamCoz({ firma, dosyaTakip }) {
 // ============================================================================
 exports.talepDefteri = sar(async (req, res) => {
     const talep = await DosyaTakip.findById(req.params.talepId)
-        .select('_id firma odeme.cariKaydi odeme.cariKaydiTarihi odeme.cariKaydiDegistirenAdi').lean();
+        .select(`_id firma ${TALEP_CARI_ALANLARI}`).lean();
     if (!talep) throw new IstekHatasi(404, 'Talep bulunamadı');
 
     const [hareketler, firma] = await Promise.all([
@@ -143,7 +150,7 @@ exports.talepCariKaydiGuncelle = sar(async (req, res) => {
             'odeme.cariKaydiDegistirenAdi': req.user?.adSoyad || ''
         }
     }, { new: true, runValidators: true, timestamps: false })
-        .select('odeme.cariKaydi odeme.cariKaydiTarihi odeme.cariKaydiDegistirenAdi').lean();
+        .select(TALEP_CARI_ALANLARI).lean();
 
     const eskiDeger = onceki.odeme?.cariKaydi || '';
     if (eskiDeger !== cariKaydi) {
@@ -157,6 +164,42 @@ exports.talepCariKaydiGuncelle = sar(async (req, res) => {
         });
     }
     res.json({ success: true, data: talepCariKaydi(guncel), message: 'Cari kaydı kaydedildi' });
+});
+
+// ============================================================================
+// 🔒 PUT /api/cari/talep/:talepId/durum — "Cari açık / Cari kapandı" (talep bazında)
+// Müşteri (03.11.2026, acil): "Belge takip ekranında cari kapandı seçince o firmanın tüm işlemlerini
+// kapatıyor". Seçim artık yalnız bu talebe yazılır; firmanın diğer talepleri ve Firma.cariDurumu (Cari /
+// Ödeme Takip'teki firma listesi) değişmez. Talebin updatedAt'ine dokunulmaz (cari kaydındaki gibi).
+// ============================================================================
+exports.talepCariDurumuGuncelle = sar(async (req, res) => {
+    const cariDurumu = req.body?.cariDurumu;
+    if (!DosyaTakip.CARI_DURUMU_DEGERLERI.includes(cariDurumu)) throw new IstekHatasi(400, 'Geçersiz cari durumu');
+    const onceki = await DosyaTakip.findById(req.params.talepId)
+        .select('takipId firmaUnvan firmaId odeme.cariDurumu').lean();
+    if (!onceki) throw new IstekHatasi(404, 'Talep bulunamadı');
+
+    const guncel = await DosyaTakip.findByIdAndUpdate(onceki._id, {
+        $set: {
+            'odeme.cariDurumu': cariDurumu,
+            'odeme.cariDurumuTarihi': new Date(),
+            'odeme.cariDurumuDegistirenAdi': req.user?.adSoyad || ''
+        }
+    }, { new: true, runValidators: true, timestamps: false })
+        .select(TALEP_CARI_ALANLARI).lean();
+
+    const eskiDeger = onceki.odeme?.cariDurumu || 'acik';
+    if (eskiDeger !== cariDurumu) {
+        await aktiviteKaydet(req, {
+            action: 'update',
+            category: 'dosyaTakip',
+            title: 'Cari Durumu Değiştirildi',
+            description: `${req.user?.adSoyad || 'Kullanıcı'} cari durumunu değiştirdi: ${onceki.takipId || ''} → ${CARI_DURUMU_ETIKETI[cariDurumu]}`,
+            targetResource: { type: 'dosyaTakip', id: onceki._id, name: onceki.firmaUnvan, firmaId: onceki.firmaId },
+            changes: { fields: [{ field: 'odeme.cariDurumu', oldValue: CARI_DURUMU_ETIKETI[eskiDeger], newValue: CARI_DURUMU_ETIKETI[cariDurumu] }] }
+        });
+    }
+    res.json({ success: true, data: talepCariKaydi(guncel), message: 'Cari durumu kaydedildi' });
 });
 
 // ============================================================================
@@ -241,7 +284,8 @@ exports.firmaOzetleri = sar(async (req, res) => {
         .map((f) => ({ ...f, cariDurumu: durumlar.get(f.firma) || 'acik' })) });
 });
 
-// Firma bazındaki seçim bütün taleplerde ve cari listesinde ortak görünür.
+// Firma bazındaki seçim yalnız Cari / Ödeme Takip'teki firma listesi ve firma carisi içindir. Belge Takip
+// talepleri kendi seçimini taşır (odeme.cariDurumu) — bkz. talepCariDurumuGuncelle (müşteri, 03.11.2026).
 exports.firmaDurumuGuncelle = sar(async (req, res) => {
     const cariDurumu = req.body?.cariDurumu;
     if (!['acik', 'kapandi'].includes(cariDurumu)) throw new IstekHatasi(400, 'Geçersiz cari durumu');

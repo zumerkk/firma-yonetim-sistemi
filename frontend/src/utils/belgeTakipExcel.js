@@ -38,7 +38,8 @@ export const BELGE_TAKIP_EXCEL_SUTUNLARI = [
 // Arşivde en başta (listedeki gibi) — müşteri, 27-28.10.2026
 const ARSIV_CARI_SUTUNLARI = [
     ['Cari Kaydı', (t) => (t.odeme?.cariKaydi ? secenekEtiketi(CARI_KAYDI_SECENEKLERI, t.odeme.cariKaydi) : ''), 14],
-    ['Cari Durumu', (t) => (t.firma ? secenekEtiketi(CARI_DURUMU_SECENEKLERI, t.firma.cariDurumu || 'acik') : ''), 14]
+    // Talep bazında (03.11.2026'ya kadar firmadan okunuyordu); alanı olmayan eski talep "Cari açık" (ekranla aynı)
+    ['Cari Durumu', (t) => secenekEtiketi(CARI_DURUMU_SECENEKLERI, t.odeme?.cariDurumu || 'acik'), 14]
 ];
 
 export const excelSutunlari = (gorunum) => (

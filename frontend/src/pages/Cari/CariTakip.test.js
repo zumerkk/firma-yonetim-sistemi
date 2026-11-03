@@ -6,12 +6,15 @@ import cariService from '../../services/cariService';
 
 jest.mock('../../components/Layout/LayoutWrapper', () => ({ children }) => children);
 jest.mock('../../services/cariService', () => ({
-    firmaOzetleri: jest.fn(), firmaDefteri: jest.fn(), firmaTalepleri: jest.fn(), talepDefteri: jest.fn(), firmaDurumuGuncelle: jest.fn()
+    firmaOzetleri: jest.fn(), firmaDefteri: jest.fn(), firmaTalepleri: jest.fn(), talepDefteri: jest.fn(),
+    firmaDurumuGuncelle: jest.fn(), talepCariDurumuGuncelle: jest.fn()
 }));
 
 beforeEach(() => { jest.clearAllMocks(); });
 
-test('firma listesindeki cari seçimi satırı açmaz; Belge Takip aynı firma durumunu okur ve değiştirir', async () => {
+// Müşteri (03.11.2026, acil): "Belge takip ekranında cari kapandı seçince o firmanın tüm işlemlerini kapatıyor".
+// Cari Takip'teki firma seçimi firmada kalır; Belge Takip › Ödemeler yalnız kendi talebini değiştirir.
+test('firma listesindeki cari seçimi satırı açmaz; Belge Takip talebi firma durumundan bağımsız', async () => {
     let cariDurumu = 'acik';
     cariService.firmaOzetleri.mockImplementation(async () => ({ data: [{
         firma: 'firma-1', firmaUnvan: 'TEST FİRMA', cariDurumu, bakiye: 0
@@ -21,8 +24,9 @@ test('firma listesindeki cari seçimi satırı açmaz; Belge Takip aynı firma d
         return { data: { cariDurumu } };
     });
     cariService.talepDefteri.mockImplementation(async () => ({
-        data: { firma: { _id: 'firma-1', cariDurumu }, hareketler: [], ozet: {} }
+        data: { firma: { _id: 'firma-1', cariDurumu }, talep: { _id: 'talep-1', cariDurumu: 'acik' }, hareketler: [], ozet: {} }
     }));
+    cariService.talepCariDurumuGuncelle.mockImplementation(async (id, durum) => ({ data: { _id: id, cariDurumu: durum } }));
 
     const liste = render(<MemoryRouter><CariTakip /></MemoryRouter>);
     expect(await screen.findByText('TEST FİRMA')).toBeInTheDocument();
@@ -33,12 +37,16 @@ test('firma listesindeki cari seçimi satırı açmaz; Belge Takip aynı firma d
     expect(cariService.firmaDefteri).not.toHaveBeenCalled();
     liste.unmount();
 
+    // Firma "kapandı" olsa da talep kendi seçimini gösterir ve yalnız kendini değiştirir
     render(<MemoryRouter><TalepCariPaneli talepId="talep-1" firmaId="firma-1" /></MemoryRouter>);
-    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari kapandı'));
+    await waitFor(() => expect(cariService.talepDefteri).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).not.toHaveAttribute('aria-disabled'));
+    expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari açık');
     fireEvent.mouseDown(screen.getByLabelText('Cari durumu'));
-    fireEvent.click(screen.getByRole('option', { name: 'Cari açık' }));
-    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari açık'));
-    expect(cariService.firmaDurumuGuncelle).toHaveBeenLastCalledWith('firma-1', 'acik');
+    fireEvent.click(screen.getByRole('option', { name: 'Cari kapandı' }));
+    await waitFor(() => expect(screen.getByLabelText('Cari durumu')).toHaveTextContent('Cari kapandı'));
+    expect(cariService.talepCariDurumuGuncelle).toHaveBeenLastCalledWith('talep-1', 'kapandi');
+    expect(cariService.firmaDurumuGuncelle).toHaveBeenCalledTimes(1);
 });
 
 function Konum() {

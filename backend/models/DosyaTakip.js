@@ -301,6 +301,13 @@ const dosyaTakipSchema = new mongoose.Schema({
     },
     cariKaydiTarihi: { type: Date },
     cariKaydiDegistirenAdi: { type: String, trim: true, default: '' },
+    // "Cari açık / Cari kapandı" TALEP bazında. Müşteri (03.11.2026, acil): "Belge takip ekranında cari
+    // kapandı seçince o firmanın tüm işlemlerini kapatıyor" — 17.10'dan beri firmada (Firma.cariDurumu)
+    // tutuluyordu. Firma alanı yalnız Cari / Ödeme Takip'teki firma listesinde kaldı. Alanı olmayan
+    // eski talep "açık" sayılır; varsayılan bilerek yok (eski taleplere toplu yazılmasın).
+    cariDurumu: { type: String, enum: ['acik', 'kapandi'] },
+    cariDurumuTarihi: { type: Date },
+    cariDurumuDegistirenAdi: { type: String, trim: true, default: '' },
     notlar: { type: String, trim: true, maxlength: 1000, default: '' },
     guncellemeTarihi: { type: Date }
   },
@@ -685,6 +692,8 @@ dosyaTakipSchema.statics.DOSYA_TURU_ESLESTIRME = DOSYA_TURU_ESLESTIRME;
 dosyaTakipSchema.statics.FATURA_DURUMU_ESLESTIRME = { odendi: 'kesildi', odenmedi: 'kesilmedi', kismi_odendi: 'avans' };
 // Ödemeler › "Cari yazıldı / Cari kesildi" seçimi (boş = seçilmedi)
 dosyaTakipSchema.statics.CARI_KAYDI_DEGERLERI = ['yazildi', 'kesildi'];
+// Ödemeler › "Cari açık / Cari kapandı" (talep bazında; alan yoksa açık)
+dosyaTakipSchema.statics.CARI_DURUMU_DEGERLERI = ['acik', 'kapandi'];
 dosyaTakipSchema.statics.SONUC_ZORUNLU_DOSYA_TURU = SONUC_ZORUNLU_DOSYA_TURU;
 dosyaTakipSchema.statics.KAPAMA_TALEP_TURLERI = KAPAMA_TALEP_TURLERI;
 dosyaTakipSchema.statics.SONUC_DURUMLARI = SONUC_DURUMLARI;
