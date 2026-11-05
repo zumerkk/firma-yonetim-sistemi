@@ -1,7 +1,7 @@
 // 🏢 Firma Context
 // Firma verilerini yönetir - Excel sisteminin modern React karşılığı
 
-import React, { createContext, useContext, useReducer, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useCallback, useRef } from 'react';
 import firmaService from '../services/firmaService';
 
 // 🎯 Initial State
@@ -36,6 +36,7 @@ const initialState = {
     firmaIl: '',
     firmaIlce: '',
     aktif: 'true',
+    yetkiDurumu: '',
     yabanciSermayeli: '',
     anaFaaliyetKonusu: '',
     siralamaSekli: 'createdAt',
@@ -166,6 +167,7 @@ const firmaReducer = (state, action) => {
     case ACTION_TYPES.CLEAR_SEARCH_RESULTS:
       return {
         ...state,
+        searchLoading: false,
         searchResults: []
       };
 
@@ -268,6 +270,8 @@ export const useFirma = () => {
 // 🌟 Provider Component
 export const FirmaProvider = ({ children }) => {
   const [state, dispatch] = useReducer(firmaReducer, initialState);
+  const listRequestRef = useRef(0);
+  const searchRequestRef = useRef(0);
 
   // 🧹 Error Management
   const clearError = useCallback(() => {
@@ -280,6 +284,7 @@ export const FirmaProvider = ({ children }) => {
 
   // 📋 Fetch Firmalar - Enterprise Level
   const fetchFirmalar = useCallback(async (customParams = {}) => {
+    const requestId = ++listRequestRef.current;
     dispatch({ type: ACTION_TYPES.SET_LOADING, payload: true });
     
     try {
@@ -291,6 +296,7 @@ export const FirmaProvider = ({ children }) => {
       };
       
       const result = await firmaService.getFirmalar(params);
+      if (requestId !== listRequestRef.current) return { success: false, stale: true };
       
       if (result.success) {
         dispatch({
@@ -302,6 +308,7 @@ export const FirmaProvider = ({ children }) => {
         throw new Error(result.message);
       }
     } catch (error) {
+      if (requestId !== listRequestRef.current) return { success: false, stale: true };
       const errorMessage = error.response?.data?.message || error.message || 'Firma listesi yüklenemedi';
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
       return { success: false, message: errorMessage };
@@ -439,6 +446,7 @@ export const FirmaProvider = ({ children }) => {
 
   // 🔍 Enhanced Search Firmalar
   const searchFirmalar = useCallback(async (searchTerm, field = null, aktif = 'true') => {
+    const requestId = ++searchRequestRef.current;
     const trimmedSearchTerm = searchTerm?.trim();
     
     if (!trimmedSearchTerm || trimmedSearchTerm.length < 2) {
@@ -450,6 +458,7 @@ export const FirmaProvider = ({ children }) => {
     
     try {
       const result = await firmaService.searchFirmalar(trimmedSearchTerm, field, aktif);
+      if (requestId !== searchRequestRef.current) return [];
       
       console.log('🔍 Context Search Result:', result);
       
@@ -474,6 +483,7 @@ export const FirmaProvider = ({ children }) => {
         return [];
       }
     } catch (error) {
+      if (requestId !== searchRequestRef.current) return [];
       console.error('🚨 Context Search Error:', error);
       // kullaniciMesaji ÖNCE: 401/timeout gibi durumlarda axios katmanı
       // anlaşılır bir açıklama koyuyor; ham 'Request failed' onu gizlemesin.
@@ -527,6 +537,10 @@ export const FirmaProvider = ({ children }) => {
 
   // 🔧 Filter Management
   const setFilters = useCallback((newFilters) => {
+    // Önceki durum filtresiyle başlayan arama yeni sekmenin sonuçlarını ezmesin.
+    listRequestRef.current += 1;
+    searchRequestRef.current += 1;
+    dispatch({ type: ACTION_TYPES.CLEAR_SEARCH_RESULTS });
     dispatch({
       type: ACTION_TYPES.SET_FILTERS,
       payload: newFilters
@@ -534,6 +548,9 @@ export const FirmaProvider = ({ children }) => {
   }, []);
 
   const resetFilters = useCallback(() => {
+    listRequestRef.current += 1;
+    searchRequestRef.current += 1;
+    dispatch({ type: ACTION_TYPES.CLEAR_SEARCH_RESULTS });
     dispatch({ type: ACTION_TYPES.RESET_FILTERS });
   }, []);
 
@@ -567,6 +584,7 @@ export const FirmaProvider = ({ children }) => {
   }, []);
 
   const clearSearchResults = useCallback(() => {
+    searchRequestRef.current += 1;
     dispatch({ type: ACTION_TYPES.CLEAR_SEARCH_RESULTS });
   }, []);
 

@@ -121,7 +121,7 @@ const DosyaTakipForm = () => {
         const timer = setTimeout(() => {
             if (firmaSearch.trim().length >= 2) {
                 setFirmaLoading(true);
-                firmaSecenekleriniAra(firmaSearch, { signal: controller.signal })
+                firmaSecenekleriniAra(firmaSearch, { signal: controller.signal, aktif: 'all' })
                     .then((liste) => { if (!iptal) setFirmalar(liste); })
                     .catch((err) => {
                         if (!iptal) setFirmaAramaHata(err?.kullaniciMesaji || err?.response?.data?.message || 'Firma araması tamamlanamadı. Lütfen tekrar deneyin.');

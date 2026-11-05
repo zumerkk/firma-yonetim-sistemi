@@ -50,6 +50,22 @@ test('firma ID ile bulunan sunucu sonucu ikinci bir etiket filtresinde kaybolmaz
     expect(await screen.findByText('AHMET ÖLMEZ')).toBeInTheDocument();
 });
 
+test('Belge Takip pasif firmayı da arar ve yeni talep için seçtirir', async () => {
+    const pasifFirma = { ...hedef, aktif: false };
+    api.get.mockImplementation((url, config) => {
+        if (url !== '/firma') return Promise.resolve({ data: { data: [] } });
+        return Promise.resolve(cevap(config.params.aktif === 'all' ? [pasifFirma] : []));
+    });
+    const input = ac();
+    fireEvent.change(input, { target: { value: 'Ölmez' } });
+    fireEvent.click(await screen.findByText('AHMET ÖLMEZ'));
+    expect(input).toHaveValue('AHMET ÖLMEZ');
+    expect(api.get).toHaveBeenCalledWith('/firma', expect.objectContaining({
+        params: expect.objectContaining({ arama: 'Ölmez', aktif: 'all' })
+    }));
+    await screen.findByText('Bu firmaya ait kayıtlı teşvik belgesi bulunamadı.');
+});
+
 test('geç dönen Ahmet yanıtı daha yeni Ölmez aramasını ezmez', async () => {
     let ilkAramayiBitir;
     api.get.mockImplementation((url, config) => {

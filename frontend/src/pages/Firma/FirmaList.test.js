@@ -1,0 +1,225 @@
+import React from 'react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import FirmaList from './FirmaList';
+import { FirmaProvider } from '../../contexts/FirmaContext';
+import firmaService from '../../services/firmaService';
+
+jest.mock('../../components/Layout/Header', () => () => null);
+jest.mock('../../components/Layout/Sidebar', () => () => null);
+jest.mock('../../components/common/UstKaydirmaCubugu', () => ({ children }) => <>{children}</>);
+jest.mock('exceljs', () => ({}));
+jest.mock('../../services/firmaService', () => ({
+  __esModule: true,
+  default: {
+    getFirmalar: jest.fn(), getFirmaStats: jest.fn(),
+    searchFirmalar: jest.fn(), updateFirma: jest.fn()
+  },
+  importExcel: jest.fn(), downloadTemplate: jest.fn()
+}));
+// Sanal tablo yerine yalnız satırları ve gerçek işlem düğmelerini gösteririz;
+// filtreler, Context ve sunucuya gönderilen parametreler gerçek akışta kalır.
+jest.mock('@mui/x-data-grid', () => ({
+  DataGrid: ({ rows, columns }) => <div data-testid="firma-satirlari">
+    {rows.map((row) => <div key={row._id}>
+      <span>{row.tamUnvan}</span>
+      {columns.find(({ field }) => field === 'actions').renderCell({ row })}
+    </div>)}
+  </div>,
+  GridToolbarContainer: () => null, GridToolbarFilterButton: () => null,
+  GridToolbarDensitySelector: () => null, GridToolbarColumnsButton: () => null
+}));
+
+let firmalar;
+const filtrele = (aktif) => firmalar.filter((firma) => aktif === 'all' || firma.aktif === (aktif === 'true'));
+const sonFiltre = () => firmaService.getFirmalar.mock.calls.at(-1)[0];
+const satirlar = () => within(screen.getByTestId('firma-satirlari'));
+const tikla = async (element) => act(async () => { fireEvent.click(element); });
+const ac = () => render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+  <FirmaProvider><FirmaList /></FirmaProvider>
+</MemoryRouter>);
+const durumSec = async (durum) => {
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Durum' }));
+  await tikla(await screen.findByRole('option', { name: durum }));
+};
+
+beforeEach(() => {
+  jest.clearAllMocks();
+  firmalar = [
+    { _id: 'aktif', tamUnvan: 'ORTAK AKTİF FİRMA', aktif: true },
+    { _id: 'pasif', tamUnvan: 'ORTAK PASİF FİRMA', aktif: false }
+  ];
+  firmaService.getFirmalar.mockImplementation(async ({ aktif }) => ({
+    success: true, data: { firmalar: filtrele(aktif) }
+  }));
+  firmaService.getFirmaStats.mockResolvedValue({ success: true, data: {} });
+  firmaService.searchFirmalar.mockImplementation(async (_terim, _alan, aktif) => ({
+    success: true, data: filtrele(aktif)
+  }));
+  firmaService.updateFirma.mockImplementation(async (id, data) => {
+    firmalar = firmalar.map((firma) => firma._id === id ? { ...firma, ...data } : firma);
+    return { success: true, data: { firma: firmalar.find((firma) => firma._id === id) } };
+  });
+});
+
+test('ilk açılışta hızlı sekme ve Durum gerçek Aktif filtresini gösterir', async () => {
+  ac();
+  await waitFor(() => expect(satirlar().getByText('ORTAK AKTİF FİRMA')).toBeInTheDocument());
+  expect(screen.getByRole('button', { name: 'Aktif', pressed: true })).toBeInTheDocument();
+  expect(screen.getByRole('combobox', { name: 'Durum' })).toHaveTextContent('Aktif');
+  expect(sonFiltre().aktif).toBe('true');
+  expect(satirlar().queryByText('ORTAK PASİF FİRMA')).not.toBeInTheDocument();
+});
+
+test.each([['Tümü', 'all'], ['Pasif', 'false'], ['Aktif', 'true']])(
+  '%s hızlı sekmesi Durum alanını ve yenileme isteğini aynı seçimde tutar', async (etiket, aktif) => {
+    ac();
+    await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
+    await tikla(screen.getByRole('button', { name: etiket }));
+    await waitFor(() => expect(sonFiltre().aktif).toBe(aktif));
+    expect(screen.getByRole('combobox', { name: 'Durum' })).toHaveTextContent(etiket);
+    expect(screen.getByRole('button', { name: etiket, pressed: true })).toBeInTheDocument();
+    const oncekiIstekSayisi = firmaService.getFirmalar.mock.calls.length;
+    await tikla(screen.getByRole('button', { name: 'Yenile' }));
+    await waitFor(() => expect(firmaService.getFirmalar.mock.calls.length).toBeGreaterThan(oncekiIstekSayisi));
+    expect(sonFiltre().aktif).toBe(aktif);
+    expect(sonFiltre().limit).toBe(2000);
+  }
+);
+
+test('Durum alanı hızlı sekmeyi günceller ve yetki sekmesinin geçici filtresini temizler', async () => {
+  ac();
+  await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
+  await tikla(screen.getByRole('button', { name: /Yetkisi Biten/ }));
+  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'all', yetkiDurumu: 'expired' }));
+  await tikla(screen.getByRole('button', { name: 'Yenile' }));
+  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'all', yetkiDurumu: 'expired' }));
+  await durumSec('Pasif');
+  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'false', yetkiDurumu: '' }));
+  expect(screen.getByRole('button', { name: 'Pasif', pressed: true })).toBeInTheDocument();
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+});
+
+test('hızlı sekme aramanın durum filtresini de değiştirir', async () => {
+  ac();
+  await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'true'));
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'false'));
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+});
+
+test('arama açıkken seçili Pasif sekmesine tekrar basılması sonuçları boş bırakmaz', async () => {
+  ac();
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenCalledTimes(1));
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+});
+
+test('Tümü seçiliyken firma pasife alındığında seçim ve satır korunur', async () => {
+  ac();
+  await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
+  await tikla(screen.getByRole('button', { name: 'Tümü' }));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await tikla(screen.getByRole('button', { name: 'Pasif Yap' }));
+  await waitFor(() => expect(firmaService.updateFirma).toHaveBeenCalledWith('aktif', { aktif: false }));
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Aktif Yap' })).toHaveLength(2));
+  expect(sonFiltre().aktif).toBe('all');
+  expect(screen.getByRole('button', { name: 'Tümü', pressed: true })).toBeInTheDocument();
+  expect(satirlar().getByText('ORTAK AKTİF FİRMA')).toBeInTheDocument();
+});
+
+test('aktif arama sonucundaki firma pasife alındığında arama yeniden yüklenir', async () => {
+  ac();
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenCalled());
+  await tikla(await screen.findByRole('button', { name: 'Pasif Yap' }));
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenCalledTimes(2));
+  expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'true');
+  await waitFor(() => expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument());
+});
+
+test('geç dönen Aktif arama yanıtı daha yeni Pasif sekmesinin sonuçlarını ezmez', async () => {
+  let aktifAramayiBitir;
+  firmaService.searchFirmalar.mockImplementation(async (_terim, _alan, aktif) => {
+    if (aktif === 'true') return new Promise((resolve) => { aktifAramayiBitir = resolve; });
+    return { success: true, data: filtrele(aktif) };
+  });
+  ac();
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(aktifAramayiBitir).toBeDefined());
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await act(async () => { aktifAramayiBitir({ success: true, data: filtrele('true') }); });
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Pasif', pressed: true })).toBeInTheDocument();
+});
+
+test('geç dönen ilk Aktif listesi yeni Pasif listesinin sonuçlarını ezmez', async () => {
+  let aktifListeyiBitir;
+  firmaService.getFirmalar.mockImplementation(async ({ aktif }) => {
+    if (aktif === 'true') return new Promise((resolve) => { aktifListeyiBitir = resolve; });
+    return { success: true, data: { firmalar: filtrele(aktif) } };
+  });
+  ac();
+  await waitFor(() => expect(aktifListeyiBitir).toBeDefined());
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await act(async () => { aktifListeyiBitir({ success: true, data: { firmalar: filtrele('true') } }); });
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+});
+
+test('bekleyen Yenile tamamlanınca yeni Pasif aramasını eski Aktif aramasıyla ezmez', async () => {
+  ac();
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenCalledTimes(1));
+  let yenilemeyiBitir;
+  firmaService.getFirmalar.mockImplementationOnce(() => new Promise((resolve) => { yenilemeyiBitir = resolve; }));
+  await tikla(screen.getByRole('button', { name: 'Yenile' }));
+  await waitFor(() => expect(yenilemeyiBitir).toBeDefined());
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'false'));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await act(async () => { yenilemeyiBitir({ success: true, data: { firmalar: filtrele('true') } }); });
+  expect(firmaService.searchFirmalar).toHaveBeenCalledTimes(2);
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+});
+
+test('bekleyen durum güncellemesi yeni seçilen Pasif sekmesinin güncel filtresiyle yeniler', async () => {
+  ac();
+  await waitFor(() => expect(satirlar().getByText('ORTAK AKTİF FİRMA')).toBeInTheDocument());
+  let durumGuncellemeyiBitir;
+  firmaService.updateFirma.mockImplementationOnce(() => new Promise((resolve) => { durumGuncellemeyiBitir = resolve; }));
+  await tikla(screen.getByRole('button', { name: 'Pasif Yap' }));
+  await waitFor(() => expect(durumGuncellemeyiBitir).toBeDefined());
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument());
+  await act(async () => {
+    firmalar = firmalar.map((firma) => firma._id === 'aktif' ? { ...firma, aktif: false } : firma);
+    durumGuncellemeyiBitir({ success: true, data: { firma: firmalar[0] } });
+  });
+  expect(sonFiltre().aktif).toBe('false');
+  expect(screen.getByRole('button', { name: 'Pasif', pressed: true })).toBeInTheDocument();
+  expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().getByText('ORTAK AKTİF FİRMA')).toBeInTheDocument();
+});

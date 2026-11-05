@@ -1,7 +1,7 @@
 // 🏢 Professional Firma Management System - COMPACT EDITION
 // Clean, efficient, and business-focused design
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Container,
@@ -90,42 +90,19 @@ const FirmaList = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('all');
+  // Hızlı sekmeler ve Durum alanı aynı filtreyi kullanır; yenileme ve arama da
+  // bu seçimi korur. Yetki sekmeleri de geçici istek parametresi değildir.
+  const activeTab = filters.yetkiDurumu || (
+    filters.aktif === 'false' ? 'passive' : filters.aktif === 'true' ? 'active' : 'all'
+  );
 
   // 🏷️ Tab click handler
-  const handleTabChange = useCallback(async (tabKey) => {
-    setActiveTab(tabKey);
-    setLocalLoading(true);
-    try {
-      const params = { sayfa: 1, limit: 1000 };
-      switch (tabKey) {
-        case 'active':
-          params.aktif = 'true';
-          break;
-        case 'passive':
-          params.aktif = 'false';
-          break;
-        case 'expired':
-          params.aktif = 'all';
-          params.yetkiDurumu = 'expired';
-          break;
-        case 'expiring7':
-          params.aktif = 'all';
-          params.yetkiDurumu = 'expiring7';
-          break;
-        case 'expiring30':
-          params.aktif = 'all';
-          params.yetkiDurumu = 'expiring30';
-          break;
-        default: // 'all'
-          params.aktif = 'all';
-          break;
-      }
-      await fetchFirmalar(params);
-    } finally {
-      setLocalLoading(false);
-    }
-  }, [fetchFirmalar]);
+  const handleTabChange = useCallback((tabKey) => {
+    setFilters({
+      aktif: tabKey === 'active' ? 'true' : tabKey === 'passive' ? 'false' : 'all',
+      yetkiDurumu: ['expired', 'expiring7', 'expiring30'].includes(tabKey) ? tabKey : ''
+    });
+  }, [setFilters]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -162,37 +139,43 @@ const FirmaList = () => {
     } finally {
       setLocalLoading(false);
     }
-  }, [searchQuery, searchFirmalar, showNotification, filters.aktif]);
+  }, [searchQuery, searchFirmalar, showNotification, filters]);
+
+  const currentViewRef = useRef({ fetchFirmalar, searchQuery, handleSearch });
+  currentViewRef.current = { fetchFirmalar, searchQuery, handleSearch };
+
+  // Bekleyen güncelleme veya yenileme bittiğinde kullanıcının son seçimini oku.
+  const refreshFirmalar = useCallback(async () => {
+    const result = await currentViewRef.current.fetchFirmalar();
+    if (result?.stale) return;
+    const currentView = currentViewRef.current;
+    if (currentView.searchQuery.trim().length >= 2) await currentView.handleSearch();
+  }, []);
 
   // 🔄 Data Loading
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([
-        fetchFirmalar(),
-        fetchStats()
-      ]);
-    };
-    loadData();
-  }, [fetchFirmalar, fetchStats]);
+    fetchFirmalar();
+  }, [fetchFirmalar]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   // 🔍 Real-time Search with Debouncing
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        handleSearch();
-      } else if (searchQuery.trim().length === 0) {
-        clearSearchResults(); // Arama sonuçlarını temizle
-        fetchFirmalar();
-      }
-    }, 500);
+    if (searchQuery.trim().length < 2) {
+      clearSearchResults();
+      return undefined;
+    }
+    const timeoutId = setTimeout(handleSearch, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, fetchFirmalar, handleSearch, clearSearchResults]);
+  }, [searchQuery, handleSearch, clearSearchResults]);
 
   // 🔄 Refresh Handler
   const handleRefresh = async () => {
     setLocalLoading(true);
-    await fetchFirmalar();
+    await refreshFirmalar();
     setLocalLoading(false);
     showNotification('Veriler yenilendi');
   };
@@ -206,7 +189,7 @@ const FirmaList = () => {
         showNotification(result.message || 'Firma silinemedi', 'error');
       } else {
         showNotification('Firma başarıyla silindi');
-        await fetchFirmalar();
+        await refreshFirmalar();
       }
     } catch (error) {
       setDeleteDialog({ open: false, firmaId: null, firmaAdi: '' });
@@ -241,7 +224,7 @@ const FirmaList = () => {
       const result = await importExcel(file);
       if (result.success) {
         showNotification(result.message || 'Veriler başarıyla içe aktarıldı');
-        await fetchFirmalar(); // Listeyi yenile
+        await refreshFirmalar(); // Listeyi yenile
         setImportDialog(false);
       } else {
         showNotification(result.message || 'İçe aktarım başarısız', 'error');
@@ -738,7 +721,7 @@ const FirmaList = () => {
                     `${params.row.tamUnvan} ${newStatus ? 'aktif' : 'pasif'} yapıldı${belgeNotu ? ` · ${belgeNotu}` : ''}`,
                     'success'
                   );
-                  await fetchFirmalar();
+                  await refreshFirmalar();
                 } catch (error) {
                   showNotification('Durum güncellenemedi: ' + error.message, 'error');
                 }
@@ -868,6 +851,7 @@ const FirmaList = () => {
                 <Button
                   key={tab.key}
                   onClick={() => handleTabChange(tab.key)}
+                  aria-pressed={activeTab === tab.key}
                   sx={{
                     px: 2.5, py: 1.2,
                     textTransform: 'none',
@@ -912,11 +896,12 @@ const FirmaList = () => {
 
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Durum</InputLabel>
+                  <InputLabel id="firma-durum-label">Durum</InputLabel>
                   <Select
+                    labelId="firma-durum-label"
                     value={filters.aktif || 'all'}
                     label="Durum"
-                    onChange={(e) => setFilters({ ...filters, aktif: e.target.value })}
+                    onChange={(e) => setFilters({ aktif: e.target.value, yetkiDurumu: '' })}
                     sx={{ fontSize: '0.875rem' }}
                   >
                     <MenuItem value="all">Tümü</MenuItem>
