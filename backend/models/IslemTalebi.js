@@ -196,8 +196,7 @@ islemTalebiSchema.pre('save', function () {
   this.$locals.dashboardDegisimi = this.isNew ? {} : degisim;
   if (!this.isNew) Object.entries(degisim).forEach(([alan, tarih]) => this.set(`sonDegisiklikler.${alan}`, tarih));
 });
-islemTalebiSchema.post('save', async function () {
-  const degisim = this.$locals.dashboardDegisimi || {};
+islemTalebiSchema.methods.dashboardDegisiminiYansit = async function (degisim) {
   if (!this.dosyaTakip || !Object.keys(degisim).length) return;
   try {
     await require('./DosyaTakip').updateOne({ _id: this.dosyaTakip }, {
@@ -206,6 +205,9 @@ islemTalebiSchema.post('save', async function () {
   } catch (err) {
     console.error('İşlem evrak Dashboard özeti güncellenemedi:', err.message);
   }
+};
+islemTalebiSchema.post('save', async function () {
+  await this.dashboardDegisiminiYansit(this.$locals.dashboardDegisimi || {});
 });
 
 // Yüklenen evraklara göre "geldi" işaretlerini ve genel durumu tazele

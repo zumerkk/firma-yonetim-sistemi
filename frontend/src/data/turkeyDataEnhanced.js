@@ -166,7 +166,7 @@ export const TURKEY_DATA = {
       "GÜDÜL",
       "HAYMANA",
       "KALECIK",
-      "KAZAN",
+      "KAHRAMANKAZAN",
       "KEÇIÖREN",
       "KIZILCAHAMAM",
       "MAMAK",

@@ -7,6 +7,7 @@ require('dotenv').config();
 // Model'i direkt tanımla (validation bypass için)
 const Firma = require('./models/Firma');
 const User = require('./models/User');
+const { guncelIlceAdi } = require('./utils/ilceAdi');
 
 function parseCSVLine(line) {
   const result = [];
@@ -116,7 +117,7 @@ async function importFirmalar() {
           tamUnvan,
           adres,
           firmaIl,
-          firmaIlce,
+          firmaIlce: guncelIlceAdi(firmaIl, firmaIlce),
           kepAdresi,
           yabanciIsareti: yabanciSermaye,
           anaFaaliyetKonusu,

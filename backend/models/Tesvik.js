@@ -3,6 +3,7 @@
 // Devlet standartlarına uygun renk kodlaması + durum takibi
 
 const mongoose = require('mongoose');
+const { ilceAdiNormalizasyonu } = require('../utils/ilceAdi');
 const { BELGE_DURUM_DEGERLERI, durumRengi } = require('../constants/belgeDurumlari');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 const { kapasiteToplami } = require('../utils/urunKapasite');
@@ -1024,5 +1025,7 @@ tesvikSchema.statics.searchTesvikler = function(searchTerm) {
     aktif: true
   }).sort({ createdAt: -1 });
 };
+
+tesvikSchema.plugin(ilceAdiNormalizasyonu, { il: 'yatirimBilgileri.yerinIl', ilce: 'yatirimBilgileri.yerinIlce' });
 
 module.exports = mongoose.model('Tesvik', tesvikSchema);

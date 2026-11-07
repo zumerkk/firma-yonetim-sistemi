@@ -1,305 +1,220 @@
-// 🔐 Authentication Context - FIXED VERSION
-// JWT tabanlı kimlik doğrulama ve kullanıcı durumu yönetimi
-// Centralized axios instance kullanımı
-
-import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
-import api from '../utils/axios'; // 🎯 Centralized axios instance kullan
-// Depo dolu olsa bile giriş bozulmasın: kota hatasında eski önbellekler atılıp tekrar denenir
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import { Alert, Snackbar } from '@mui/material';
+import api from '../utils/axios';
 import { yerelYaz } from '../utils/yerelDepo';
+import {
+  EXPIRED_MESSAGE, IDLE_MESSAGE, LAST_ACTIVITY_KEY, SESSION_EVENT, SESSION_MESSAGE_KEY,
+  getLastActivity, isSessionIdle, saveActivity, watchSessionIdle
+} from '../utils/authSession';
 
-// 🔧 Token'ı localStorage ve axios headers'ına ekle
-const setAuthToken = (token) => {
-  if (token) {
-    // Centralized axios instance'a token ekle
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    yerelYaz('token', token);
-  } else {
-    delete api.defaults.headers.common['Authorization'];
-    localStorage.removeItem('token');
-    localStorage.removeItem('user'); // User data da temizle
-  }
-};
-
-// 📊 Initial State
 const initialState = {
-  user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: false,
-  loading: true,
-  error: null
+  user: null, token: null, isAuthenticated: false, loading: true, error: null,
+  sessionMessage: '', connectionIssue: ''
 };
+const CACHED_USER_TOKEN_KEY = 'auth:cachedUserFor';
 
-// 🔄 Action Types
-const AUTH_ACTIONS = {
-  LOGIN_START: 'LOGIN_START',
-  LOGIN_SUCCESS: 'LOGIN_SUCCESS',
-  LOGIN_FAILURE: 'LOGIN_FAILURE',
-  LOGOUT: 'LOGOUT',
-  LOAD_USER_START: 'LOAD_USER_START',
-  LOAD_USER_SUCCESS: 'LOAD_USER_SUCCESS',
-  LOAD_USER_FAILURE: 'LOAD_USER_FAILURE',
-  CLEAR_ERROR: 'CLEAR_ERROR',
-  UPDATE_PROFILE: 'UPDATE_PROFILE'
-};
-
-// 🎯 Reducer
 const authReducer = (state, action) => {
   switch (action.type) {
-    case AUTH_ACTIONS.LOGIN_START:
-    case AUTH_ACTIONS.LOAD_USER_START:
+    case 'LOGIN_START':
+      return { ...state, loading: true, error: null };
+    case 'LOAD_USER_START':
       return {
-        ...state,
-        loading: true,
-        error: null
+        ...state, token: action.token, user: null, isAuthenticated: false,
+        loading: true, error: null, connectionIssue: ''
       };
-
-    case AUTH_ACTIONS.LOGIN_SUCCESS:
+    case 'LOGIN_SUCCESS':
+    case 'LOAD_USER_SUCCESS':
       return {
-        ...state,
-        user: action.payload.user,
-        token: action.payload.token,
-        isAuthenticated: true,
-        loading: false,
-        error: null
+        ...state, user: action.user, token: action.token, isAuthenticated: true,
+        loading: false, error: null, sessionMessage: '',
+        connectionIssue: action.connectionIssue || ''
       };
-
-    case AUTH_ACTIONS.LOAD_USER_SUCCESS:
-      return {
-        ...state,
-        user: action.payload,
-        isAuthenticated: true,
-        loading: false,
-        error: null
-      };
-
-    case AUTH_ACTIONS.LOGIN_FAILURE:
-    case AUTH_ACTIONS.LOAD_USER_FAILURE:
-      return {
-        ...state,
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        loading: false,
-        error: action.payload
-      };
-
-    case AUTH_ACTIONS.LOGOUT:
-      return {
-        ...state,
-        user: null,
-        token: null,
-        isAuthenticated: false,
-        loading: false,
-        error: null
-      };
-
-    case AUTH_ACTIONS.UPDATE_PROFILE:
-      return {
-        ...state,
-        user: { ...state.user, ...action.payload },
-        error: null
-      };
-
-    case AUTH_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null
-      };
-
+    case 'LOGIN_FAILURE':
+      return { ...state, user: null, isAuthenticated: false, loading: false, error: action.message };
+    case 'LOAD_USER_FAILURE':
+      return { ...state, loading: false, sessionMessage: action.message };
+    case 'LOGOUT':
+      return { ...initialState, loading: false, sessionMessage: action.message || '' };
+    case 'UPDATE_PROFILE':
+      return { ...state, user: { ...state.user, ...action.user }, error: null };
+    case 'CLEAR_ERROR':
+      return { ...state, error: null };
+    case 'CLEAR_SESSION_MESSAGE':
+      return { ...state, sessionMessage: '' };
+    case 'CONNECTION_ISSUE':
+      return state.connectionIssue === action.message ? state : { ...state, connectionIssue: action.message };
     default:
       return state;
   }
 };
 
-// 🏗️ Context oluştur
 const AuthContext = createContext();
 
-// 🎣 Custom hook
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
 
-// 🌟 Provider Component
+const readCachedUser = (token, allowLegacyCache) => {
+  const cachedToken = localStorage.getItem(CACHED_USER_TOKEN_KEY);
+  if (cachedToken !== token && (cachedToken || !allowLegacyCache)) return null;
+  try {
+    return JSON.parse(localStorage.getItem('user'));
+  } catch (_) {
+    return null;
+  }
+};
+
+const cacheUser = (token, user) => {
+  if (!yerelYaz(CACHED_USER_TOKEN_KEY, token)) return;
+  if (!yerelYaz('user', JSON.stringify(user))) {
+    localStorage.removeItem('user');
+    localStorage.removeItem(CACHED_USER_TOKEN_KEY);
+  }
+};
+
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
+  const authRequest = useRef(0);
 
-  // 🚀 Uygulama başladığında token kontrolü - ENHANCED
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    console.log('🚀 AuthContext initializing...', { hasToken: !!token, hasUser: !!userData });
-    
-    if (token) {
-      try {
-        setAuthToken(token);
-        // Stored user data varsa kullan, yoksa API'den yükle
-        if (userData) {
-          const user = JSON.parse(userData);
-          dispatch({ 
-            type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
-            payload: user 
-          });
-          console.log('✅ User loaded from localStorage');
-        } else {
-          loadUser();
-        }
-      } catch (error) {
-        console.error('❌ Token initialization error:', error);
-        // Token hatası olsa bile kullanıcıyı atma, sadece logla
-        if (userData) {
-          try {
-            const user = JSON.parse(userData);
-            dispatch({ 
-              type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
-              payload: user 
-            });
-          } catch (e) {
-            dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
-          }
-        } else {
-          dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
-        }
-      }
-    } else {
-      // Token yok ama kullanıcı verisi varsa yine de göster
-      if (userData) {
-        try {
-          const user = JSON.parse(userData);
-          dispatch({ 
-            type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
-            payload: user 
-          });
-          console.log('✅ User loaded from localStorage (no token)');
-        } catch (e) {
-          dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
-        }
-      } else {
-        dispatch({ type: AUTH_ACTIONS.LOAD_USER_FAILURE, payload: null });
-      }
-    }
+  const endSession = useCallback((message, expectedToken) => {
+    if (expectedToken && localStorage.getItem('token') !== expectedToken) return;
+
+    authRequest.current += 1;
+    if (message) yerelYaz(SESSION_MESSAGE_KEY, message);
+    else localStorage.removeItem(SESSION_MESSAGE_KEY);
+    localStorage.removeItem('user');
+    localStorage.removeItem(CACHED_USER_TOKEN_KEY);
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
+    localStorage.removeItem('token');
+    dispatch({ type: 'LOGOUT', message });
   }, []);
 
-  // 👤 Kullanıcı bilgilerini yükle - ENHANCED
-  const loadUser = async () => {
-    dispatch({ type: AUTH_ACTIONS.LOAD_USER_START });
-    
+  const loadUser = useCallback(async (token = localStorage.getItem('token'), cachedUser = null) => {
+    if (!token) return;
+    const request = ++authRequest.current;
+    dispatch({ type: 'LOAD_USER_START', token });
+    const isCurrent = () => request === authRequest.current && token === localStorage.getItem('token');
+
     try {
       const response = await api.get('/auth/profile');
+      if (!isCurrent()) return;
       const user = response.data.data.user;
-      
-      // User data'yı localStorage'a da kaydet
-      yerelYaz('user', JSON.stringify(user));
-      
-      dispatch({ 
-        type: AUTH_ACTIONS.LOAD_USER_SUCCESS, 
-        payload: user 
-      });
-      
-      console.log('✅ User profile loaded and saved');
+      if (!user) throw new Error('Kullanıcı bilgileri alınamadı. Lütfen tekrar deneyin.');
+      cacheUser(token, user);
+      dispatch({ type: 'LOAD_USER_SUCCESS', user, token });
     } catch (error) {
-      console.error('❌ Load user error:', error);
-      const errorMessage = error.response?.data?.message || 'Kullanıcı bilgileri yüklenemedi';
-      
-      dispatch({ 
-        type: AUTH_ACTIONS.LOAD_USER_FAILURE, 
-        payload: errorMessage 
-      });
-      
-      // Token geçersizse temizle
+      if (!isCurrent()) return;
       if (error.response?.status === 401) {
-        setAuthToken(null);
+        endSession(EXPIRED_MESSAGE, token);
+        return;
+      }
+
+      const message = error.kullaniciMesaji || error.response?.data?.message || 'Kullanıcı bilgileri yüklenemedi. Lütfen tekrar deneyin.';
+      // Geçici bağlantı hatası, bu tarayıcıda açık ve önbellekte olan oturumu bitirmez.
+      if (cachedUser) {
+        dispatch({ type: 'LOAD_USER_SUCCESS', user: cachedUser, token, connectionIssue: message });
+      } else {
+        dispatch({ type: 'LOAD_USER_FAILURE', message });
       }
     }
-  };
+  }, [endSession]);
 
-  // 🔑 Giriş yapma - ENHANCED
-  const login = async (credentials) => {
-    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-    
+  const restoreSession = useCallback((allowLegacyCache = false) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      authRequest.current += 1;
+      dispatch({ type: 'LOGOUT', message: localStorage.getItem(SESSION_MESSAGE_KEY) });
+      return;
+    }
+
+    const lastActivity = getLastActivity();
+    if (isSessionIdle(lastActivity)) {
+      endSession(IDLE_MESSAGE, token);
+      return;
+    }
+    // İlk açılışta eski sürümden kalan oturum için bir kez başlangıç noktası koy.
+    if (lastActivity === null) saveActivity();
+    loadUser(token, readCachedUser(token, allowLegacyCache));
+  }, [endSession, loadUser]);
+
+  useEffect(() => {
+    const onStorage = (event) => {
+      if (event.key === 'token' || event.key === null) restoreSession();
+    };
+    const onSessionEvent = ({ detail }) => {
+      if (!detail?.token || detail.token !== localStorage.getItem('token')) return;
+      if (detail.type === 'expired') endSession(EXPIRED_MESSAGE, detail.token);
+      if (detail.type === 'idle') endSession(IDLE_MESSAGE, detail.token);
+      if (detail.type === 'connection') dispatch({ type: 'CONNECTION_ISSUE', message: detail.message });
+    };
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener(SESSION_EVENT, onSessionEvent);
+    restoreSession(true);
+    return () => {
+      authRequest.current += 1;
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(SESSION_EVENT, onSessionEvent);
+    };
+  }, [endSession, restoreSession]);
+
+  useEffect(() => {
+    if (!state.token) return undefined;
+    return watchSessionIdle(state.token, {
+      onExpire: (token) => endSession(IDLE_MESSAGE, token),
+      onTokenChange: restoreSession
+    });
+  }, [state.token, endSession, restoreSession]);
+
+  const login = useCallback(async (credentials) => {
+    const request = ++authRequest.current;
+    dispatch({ type: 'LOGIN_START' });
     try {
       const response = await api.post('/auth/login', credentials);
+      if (request !== authRequest.current) return { success: false };
       const { user, token } = response.data.data;
-      
-      // Token ve user data'yı set et
-      setAuthToken(token);
-      yerelYaz('user', JSON.stringify(user)); // User data'yı da kaydet
-      
-      dispatch({ 
-        type: AUTH_ACTIONS.LOGIN_SUCCESS, 
-        payload: { user, token } 
-      });
-      
-      console.log('✅ Login successful, user data saved');
+      if (!user || !token) throw new Error('Oturum bilgileri alınamadı. Lütfen tekrar deneyin.');
+      saveActivity();
+      cacheUser(token, user);
+      if (!yerelYaz('token', token)) throw new Error('Tarayıcı oturum bilgisini kaydedemedi. Lütfen tekrar deneyin.');
+      localStorage.removeItem(SESSION_MESSAGE_KEY);
+      dispatch({ type: 'LOGIN_SUCCESS', user, token });
       return { success: true, message: 'Giriş başarılı' };
     } catch (error) {
-      console.error('❌ Login error:', error);
-      const errorMessage = error.response?.data?.message || 'Giriş yapılamadı';
-      dispatch({ 
-        type: AUTH_ACTIONS.LOGIN_FAILURE, 
-        payload: errorMessage 
-      });
-      return { success: false, message: errorMessage };
+      if (request !== authRequest.current) return { success: false };
+      const message = error.response?.data?.message || error.kullaniciMesaji || error.message || 'Giriş yapılamadı';
+      dispatch({ type: 'LOGIN_FAILURE', message });
+      return { success: false, message };
     }
-  };
+  }, []);
 
-  // 🚪 Çıkış yapma
   const logout = useCallback(async () => {
+    endSession();
     try {
-      // API call (opsiyonel - çoğunlukla client-side)
       await api.post('/auth/logout');
-    } catch (error) {
-      // Logout hatası önemli değil, devam et
-      console.warn('Logout API call failed:', error);
-    } finally {
-      // Her durumda client-side cleanup yap
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      
-      dispatch({ type: AUTH_ACTIONS.LOGOUT });
-      console.log('🚪 User logged out successfully');
+    } catch (_) {
+      // Çıkış, sunucuya ulaşılamadığında da tamamlanır.
     }
-  }, []);
+  }, [endSession]);
 
-  // ✏️ Profil güncelleme - ENHANCED
-  const updateUser = useCallback((userData) => {
-    try {
-      // Local storage'ı da güncelle
-      yerelYaz('user', JSON.stringify(userData));
-      
-      dispatch({ 
-        type: AUTH_ACTIONS.UPDATE_PROFILE, 
-        payload: userData 
-      });
-      
-      console.log('✅ User profile updated successfully');
-    } catch (error) {
-      console.error('❌ Update user error:', error);
-    }
-  }, []);
+  const updateUser = useCallback((user) => {
+    if (!state.token || state.token !== localStorage.getItem('token')) return;
+    cacheUser(state.token, user);
+    dispatch({ type: 'UPDATE_PROFILE', user });
+  }, [state.token]);
 
-  // 🧹 Hata temizleme
-  const clearError = useCallback(() => {
-    dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
+  const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), []);
+  const clearSessionMessage = useCallback(() => {
+    localStorage.removeItem(SESSION_MESSAGE_KEY);
+    dispatch({ type: 'CLEAR_SESSION_MESSAGE' });
   }, []);
+  const dismissConnectionIssue = () => dispatch({ type: 'CONNECTION_ISSUE', message: '' });
 
-  // 🎯 Context Value
   const contextValue = {
-    // State
     ...state,
-    
-    // Actions
-    login,
-    logout,
-    loadUser,
-    updateUser,
-    clearError,
-    
-    // Computed Values
+    login, logout, loadUser, updateUser, clearError, clearSessionMessage,
     hasUser: Boolean(state.user),
     isLoggedIn: state.isAuthenticated && Boolean(state.user),
     hasError: Boolean(state.error)
@@ -308,8 +223,14 @@ export const AuthProvider = ({ children }) => {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
+      <Snackbar
+        open={state.isAuthenticated && Boolean(state.connectionIssue)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity="warning" onClose={dismissConnectionIssue}>{state.connectionIssue}</Alert>
+      </Snackbar>
     </AuthContext.Provider>
   );
 };
 
-export default AuthContext; 
+export default AuthContext;

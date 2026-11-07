@@ -41,7 +41,8 @@ const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((err) => 
   }
   const kod = err.code || '';
   const durum = ['FIRMA_NOT_FOUND', 'TUR_NOT_FOUND', 'TALEP_NOT_FOUND'].includes(kod) ? 404
-    : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500;
+    : kod === 'ORNEK_KAYIT_CAKISMASI' ? 409
+      : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500;
   if (durum === 500) console.error('🚨 [islemEvrak]', err && (err.stack || err.message));
   res.status(durum).json({ success: false, message: err.message || 'İşlem başarısız', code: kod });
 });
@@ -254,6 +255,8 @@ exports.talepGuncelle = wrap(async (req, res) => {
     const mevcutEvraklar = new Map(talep.istenenEvraklar.map(e => [String(e._id), e]));
     talep.istenenEvraklar = istenenEvraklar.map((e) => ({
       ...e,
+      // Boş dizi de kullanıcının seçimidir. İlk örneği tutan eski alanı eşitle.
+      ...(Array.isArray(e.ornekDosyalar) ? { ornekDosya: svc.ornekDosyalari(e)[0] } : {}),
       // Firmadan gelen yanıtı ve "tekrar istendi" işaretini eski bir düzenleme ekranının kaydıyla silme —
       // bu alanlar yalnız kendi uçlarından değişir.
       ...tekrarIstemeAlanlari(mevcutEvraklar.get(String(e._id))),
@@ -407,10 +410,32 @@ exports.talepOrnekDosyaYukle = wrap(async (req, res) => {
       mimeType: kayit.mimeType, fileSize: kayit.fileSize
     });
   }
-  evrak.ornekDosyalar = [...svc.ornekDosyalari(evrak), ...eklenenler];
-  evrak.ornekDosya = evrak.ornekDosyalar[0];
-  await talep.save();
-  res.json({ success: true, data: talep, message: 'Örnek dosya yüklendi' });
+  // Dosya depolanırken evrak listesi değişebilir. Örnekleri güncel satırdan oku ve
+  // sürüm tutuyorsa yalnız o satıra yaz. Başka bir yükleme aynı anda gelirse yeniden oku.
+  for (let deneme = 0; deneme < 3; deneme += 1) {
+    const guncelTalep = await talepBul(talep.id);
+    const guncelEvrak = guncelTalep.istenenEvraklar.id(evrak._id);
+    if (!guncelEvrak) break;
+    const ornekler = [...svc.ornekDosyalari(guncelEvrak), ...eklenenler];
+    const degisimTarihi = new Date();
+    const guncellenen = await IslemTalebi.findOneAndUpdate({
+      _id: guncelTalep._id,
+      aktif: { $ne: false },
+      'istenenEvraklar._id': guncelEvrak._id,
+      __v: guncelTalep.__v ?? { $exists: false }
+    }, {
+      $set: { 'istenenEvraklar.$.ornekDosyalar': ornekler, 'istenenEvraklar.$.ornekDosya': ornekler[0] },
+      $max: { 'sonDegisiklikler.not': degisimTarihi },
+      $inc: { __v: 1 }
+    }, { new: true });
+    if (guncellenen) {
+      await guncellenen.dashboardDegisiminiYansit({ not: guncellenen.sonDegisiklikler.not });
+      return res.json({ success: true, data: guncellenen, message: 'Örnek dosya yüklendi' });
+    }
+  }
+  const e = new Error('Evrak listesi değişti. Listeyi yenileyip örneği tekrar yükleyin.');
+  e.code = 'ORNEK_KAYIT_CAKISMASI';
+  throw e;
 });
 
 // Firma yüklemesini sil (yanlış/mükerrer dosya)

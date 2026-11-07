@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { ilceAdiNormalizasyonu } = require('../utils/ilceAdi');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 
 // 👥 Yetkili Kişi Schema - Enterprise Format
@@ -374,5 +375,7 @@ firmaSchema.statics.getStatistics = async function() {
     dysYetkili
   };
 };
+
+firmaSchema.plugin(ilceAdiNormalizasyonu, { il: 'firmaIl', ilce: 'firmaIlce' });
 
 module.exports = mongoose.model('Firma', firmaSchema);

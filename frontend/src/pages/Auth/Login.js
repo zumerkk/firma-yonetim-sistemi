@@ -44,7 +44,7 @@ const loginSchema = yup.object({
 });
 
 const Login = () => {
-  const { login, isAuthenticated, loading, error, clearError } = useAuth();
+  const { login, isAuthenticated, loading, error, clearError, sessionMessage, clearSessionMessage } = useAuth();
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -146,6 +146,12 @@ const Login = () => {
             </Box>
 
             <Divider sx={{ mb: 4 }} />
+
+            {sessionMessage && (
+              <Alert severity="info" sx={{ mb: 3 }} onClose={clearSessionMessage}>
+                {sessionMessage}
+              </Alert>
+            )}
 
             {/* 🚨 Hata Mesajı */}
             {error && (
@@ -266,4 +272,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

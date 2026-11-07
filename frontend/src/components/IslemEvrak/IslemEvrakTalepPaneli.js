@@ -118,19 +118,19 @@ const EvrakSatiri = memo(function EvrakSatiri({
           : <RadioButtonUncheckedIcon sx={{ color: '#cbd5e1', mt: 1 }} />}
       </Tooltip>
       <TextField
-        size="small" placeholder="Evrak adı" value={e.ad || ''}
+        size="small" placeholder="Evrak adı" value={e.ad || ''} disabled={ornekKilitli}
         onChange={(ev) => onDegistir(i, 'ad', ev.target.value)}
         sx={{ flex: 1, minWidth: 200 }}
       />
       <TextField
-        size="small" placeholder="Açıklama (opsiyonel)" value={e.aciklama || ''}
+        size="small" placeholder="Açıklama (opsiyonel)" value={e.aciklama || ''} disabled={ornekKilitli}
         onChange={(ev) => onDegistir(i, 'aciklama', ev.target.value)}
         sx={{ flex: 1.4, minWidth: 220 }}
       />
       {/* Müşteri (15.09.2026): "mailde iste diyince otomatik kaydedebilir" — işaret arka planda kaydedilir */}
       <Tooltip title="İşaret kaldırılırsa bu evrak mailde listelenmez ve firma portalinde de görünmez. Değişiklik otomatik kaydedilir.">
         <FormControlLabel
-          control={<Checkbox size="small" checked={e.zorunlu !== false}
+          control={<Checkbox size="small" checked={e.zorunlu !== false} disabled={ornekKilitli}
             onChange={(ev) => onMaildeIste(i, ev.target.checked)} />}
           label={<Typography variant="caption">Mailde iste</Typography>}
         />
@@ -143,7 +143,7 @@ const EvrakSatiri = memo(function EvrakSatiri({
           color={ornekler.length ? 'success' : 'primary'}
           startIcon={<AttachFileIcon />} disabled={ornekKilitli}>
           {ornekler.length ? `Örnek (${ornekler.length}) +` : 'Örnek'}
-          <input hidden type="file" multiple aria-label={`${e.ad || 'Yeni evrak'} örnek ekle`}
+          <input hidden type="file" multiple aria-label={`${e.ad || 'Yeni evrak'} örnek ekle`} disabled={ornekKilitli}
             onChange={(ev) => onOrnekSec(i, Array.from(ev.target.files || []), ev)} />
         </Button>
       </Tooltip>
@@ -161,21 +161,21 @@ const EvrakSatiri = memo(function EvrakSatiri({
       <Stack direction="row" spacing={0} alignItems="center">
         <Tooltip title="Yukarı taşı">
           <span>
-            <IconButton size="small" disabled={i === 0} onClick={() => onTasi(i, -1)} sx={{ p: 0.25 }}>
+            <IconButton size="small" disabled={ornekKilitli || i === 0} onClick={() => onTasi(i, -1)} sx={{ p: 0.25 }}>
               <ArrowUpwardIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
         <Tooltip title="Aşağı taşı">
           <span>
-            <IconButton size="small" disabled={sonSatir} onClick={() => onTasi(i, 1)} sx={{ p: 0.25 }}>
+            <IconButton size="small" disabled={ornekKilitli || sonSatir} onClick={() => onTasi(i, 1)} sx={{ p: 0.25 }}>
               <ArrowDownwardIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </span>
         </Tooltip>
       </Stack>
       <Tooltip title="Satırı sil">
-        <IconButton size="small" color="error" onClick={() => onSil(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
+        <IconButton size="small" color="error" disabled={ornekKilitli} onClick={() => onSil(i)}><DeleteOutlineIcon fontSize="small" /></IconButton>
       </Tooltip>
       {e.isteyenAdi && (
         <Typography variant="caption" color="text.secondary" sx={{ width: '100%', pl: 4.5 }}>
@@ -210,6 +210,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const [tur, setTur] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const ornekIslemiSuruyorRef = useRef(false);
+  const ornekIslemiSuruyor = busy === 'ornek' || busy === 'toplu';
   const [yukleme, setYukleme] = useState(null); // örnek dosya yükleme göstergesi
   const [snack, setSnack] = useState(null);
   const [onizleme, setOnizleme] = useState(null);
@@ -241,6 +243,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const evraklarRef = useRef(evraklar);
   useEffect(() => { evraklarRef.current = evraklar; }, [evraklar]);
   const kayitSuruyorRef = useRef(false);
+  const kayitTamamlandiRef = useRef(null);
   const tekrarKaydetRef = useRef(false);
   const otomatikZamanlayiciRef = useRef(null);
   const kaydedildiZamanlayiciRef = useRef(null);
@@ -305,33 +308,35 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   useEffect(() => { yukle(); }, [yukle]);
 
   // ── İstenen evraklar
+  const yerelEvraklariDegistir = useCallback((degistir) => {
+    if (ornekIslemiSuruyorRef.current) return;
+    const yeni = degistir(evraklarRef.current);
+    evraklarRef.current = yeni;
+    setEvraklar(yeni);
+    setKaydedilmemis(true);
+  }, []);
   // İşleyicilerin kimliği sabit: EvrakSatiri memo'su ancak böyle işe yarıyor
   const evrakEkle = useCallback(() => {
-    setEvraklar((p) => [...p, anahtarla({ ad: '', aciklama: '', zorunlu: true })]);
-    setKaydedilmemis(true);
+    yerelEvraklariDegistir((p) => [...p, anahtarla({ ad: '', aciklama: '', zorunlu: true })]);
     setEvrakListesiAcik(true); // kapalı listeye satır eklenip görünmez kalmasın
-  }, []);
+  }, [yerelEvraklariDegistir]);
   const evrakSil = useCallback((i) => {
-    setEvraklar((p) => p.filter((_, j) => j !== i));
-    setKaydedilmemis(true);
-  }, []);
+    yerelEvraklariDegistir((p) => p.filter((_, j) => j !== i));
+  }, [yerelEvraklariDegistir]);
   const evrakDegistir = useCallback((i, alan, deger) => {
-    setEvraklar((p) => p.map((e, j) => (j === i ? { ...e, [alan]: deger } : e)));
-    setKaydedilmemis(true);
-  }, []);
+    yerelEvraklariDegistir((p) => p.map((e, j) => (j === i ? { ...e, [alan]: deger } : e)));
+  }, [yerelEvraklariDegistir]);
 
   // Müşteri: "istenen evrakları sıralayabilelim önem sırasına vs göre."
   // Sıra = dizi sırası; mail listesi de aynı sırayla numaralanıyor. Taşımadan sonra
   // "Kaydet" gerekiyor — evraklariKaydet tüm diziyi gönderdiği için sıra korunuyor.
   const evrakTasi = useCallback((i, yon) => {
-    setEvraklar((p) => tasi(p, i, yon));
-    setKaydedilmemis(true);
-  }, []);
+    yerelEvraklariDegistir((p) => tasi(p, i, yon));
+  }, [yerelEvraklariDegistir]);
   // Sürükle-bırak sıralama (oklar ince ayar için duruyor)
   const siralamaDegisti = useCallback((yeni) => {
-    setEvraklar(yeni);
-    setKaydedilmemis(true);
-  }, []);
+    yerelEvraklariDegistir(() => yeni);
+  }, [yerelEvraklariDegistir]);
   const { satirProps } = useSurukleSirala(evraklar, siralamaDegisti);
 
   // Evrak listesi değişince mail gövdesindeki {evrakListesi} bayatlar.
@@ -352,10 +357,17 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // Elle ya da "Mailde iste" işaretiyle otomatik kayıt. Otomatik kayıt arka planda çalışır: kullanıcı bu
   // sırada yazmaya devam edebildiği için yanıt listeyi ezmez, yalnız değişmemiş satırlara işlenir.
-  const evraklariKaydet = async ({ otomatik = false } = {}) => {
+  const evraklariKaydet = async ({ otomatik = false, yuklemeOncesi = false } = {}) => {
+    if (ornekIslemiSuruyorRef.current && !yuklemeOncesi) return;
     // Süren kayıt varken yenisini sıraya al: iki istek aynı listeyi birbirinin üstüne yazmasın
-    if (kayitSuruyorRef.current) { tekrarKaydetRef.current = true; return; }
+    if (kayitSuruyorRef.current) {
+      if (!yuklemeOncesi) { tekrarKaydetRef.current = true; return; }
+      await kayitTamamlandiRef.current;
+      return evraklariKaydet({ otomatik, yuklemeOncesi });
+    }
     kayitSuruyorRef.current = true;
+    let kaydiBitir;
+    kayitTamamlandiRef.current = new Promise((resolve) => { kaydiBitir = resolve; });
     const gonderimListesi = evraklarRef.current;
     const gonderilen = gonderimListesi.filter((e) => String(e.ad || '').trim());
     if (otomatik) setOtomatikKayit('kaydediliyor'); else setBusy('evrak');
@@ -379,12 +391,15 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
         notify('İstenen evrak listesi kaydedildi');
       }
       await mailMetniniTazele(g);
+      return g;
     } catch (e) {
       if (otomatik) setOtomatikKayit('');
       setKaydedilmemis(true);
+      if (yuklemeOncesi) throw e;
       notify(errMsg(e), 'error');
     } finally {
       kayitSuruyorRef.current = false;
+      kaydiBitir();
       if (!otomatik) setBusy('');
       if (tekrarKaydetRef.current) {
         tekrarKaydetRef.current = false;
@@ -397,12 +412,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // "Mailde iste": işaret anında değişir, kayıt kısa bir beklemeyle arka planda yapılır — art arda
   // birkaç satır işaretlenirse tek istek gider
   const maildeIsteDegisti = useCallback((i, deger) => {
+    if (ornekIslemiSuruyorRef.current) return;
     evrakDegistir(i, 'zorunlu', deger);
     clearTimeout(otomatikZamanlayiciRef.current);
     otomatikZamanlayiciRef.current = setTimeout(() => evraklariKaydetSabit({ otomatik: true }), 600);
   }, [evrakDegistir, evraklariKaydetSabit]);
 
   const varyantDegistir = async (kod) => {
+    if (ornekIslemiSuruyorRef.current) return;
     if (!window.confirm('Evrak listesi bu türün şablonuyla yeniden oluşturulacak. Devam edilsin mi?')) return;
     setBusy('varyant');
     try {
@@ -418,50 +435,63 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
-  // Satırdan örnek dosya seçildi. Satır henüz kaydedilmemişse (_id yok) önce listeyi
-  // kaydedip sunucudan _id alırız; kullanıcı "önce Kaydet'e bas" diye uğraşmasın.
+  // Örnek yükleme sunucudaki kayıtlı listeye ekler. Çipten kaldırılan örneğin
+  // geri gelmemesi ve yeni satırların kimlik alması için önce bekleyen listeyi kaydet.
+  const ornekIsleminiYurut = async (islemTuru, islem) => {
+    if (busy || ornekIslemiSuruyorRef.current) return;
+    ornekIslemiSuruyorRef.current = true;
+    setBusy(islemTuru);
+    clearTimeout(otomatikZamanlayiciRef.current);
+    try {
+      if (kaydedilmemis || kayitSuruyorRef.current) {
+        await evraklariKaydet({ otomatik: true, yuklemeOncesi: true });
+      }
+      await islem();
+    } catch (e) {
+      notify(e?.kullaniciMesaji || errMsg(e), 'error');
+    } finally {
+      ornekIslemiSuruyorRef.current = false;
+      setBusy('');
+      setYukleme(null);
+    }
+  };
+
   const ornekSecildi = async (index, files, ev) => {
     if (ev?.target) ev.target.value = ''; // aynı dosya tekrar seçilebilsin
     if (!files.length) return;
 
-    const satir = evraklar[index];
-    if (satir?._id) return ornekYukle(satir._id, files);
+    const satir = evraklarRef.current[index];
 
     if (!String(satir?.ad || '').trim()) {
       notify('Örnek eklemeden önce evrak adını yazın.', 'warning');
       return;
     }
 
-    setBusy(`ornek-yeni-${index}`);
-    try {
-      // Kaydetmede adı boş satırlar elenir; hedef satırın kaydedilmiş listedeki
-      // konumunu referans eşitliğiyle buluruz (indeks kayması olmasın).
-      const temiz = evraklar.filter((x) => String(x.ad || '').trim());
-      const hedefIndex = temiz.indexOf(satir);
-      const g = await svc.talepGuncelle(id, { istenenEvraklar: gonderilecekSatirlar(temiz) });
-      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
-
-      const yeniId = g.istenenEvraklar?.[hedefIndex]?._id;
-      if (!yeniId) { notify('Satır kaydedildi ama kimliği alınamadı, tekrar deneyin.', 'error'); return; }
-      await ornekYukle(yeniId, files);
-    } catch (e) {
-      notify(errMsg(e), 'error');
-    } finally { setBusy(''); }
-  };
-
-  const ornekYukle = async (evrakId, files) => {
-    if (!files.length) return;
-    setBusy(`ornek-${evrakId}`);
-    setYukleme({ fileName: files.length > 1 ? `${files.length} örnek dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((n, f) => n + f.size, 0) });
-    try {
-      const fd = new FormData();
-      files.forEach((file) => fd.append('dosyalar', file));
-      const g = await svc.ornekDosyaYukle(id, evrakId, fd,
-        (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
-      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
+    return ornekIsleminiYurut('ornek', async () => {
+      const evrakId = evraklarRef.current.find((e) => e._anahtar === satir._anahtar)?._id;
+      if (!evrakId) throw new Error('Satırın kimliği alınamadı, tekrar deneyin.');
+      const g = await ornekYukle(evrakId, files);
       await mailMetniniTazele(g);
       notify('Örnek dosya eklendi — maile ek olarak eklenecek');
-    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setYukleme(null); }
+    });
+  };
+
+  const ornekYukle = async (evrakId, files, sira = {}) => {
+    setYukleme({ fileName: files.length > 1 ? `${files.length} örnek dosya` : files[0].name, pct: 0, loaded: 0, total: files.reduce((n, f) => n + f.size, 0), ...sira });
+    const fd = new FormData();
+    files.forEach((file) => fd.append('dosyalar', file));
+    const g = await svc.ornekDosyaYukle(id, evrakId, fd,
+      (p) => setYukleme((o) => (o ? { ...o, ...p } : o)));
+    const guncelSatir = g.istenenEvraklar?.find((e) => e._id === evrakId);
+    if (guncelSatir) {
+      const yeniListe = evraklarRef.current.map((e) => e._id === evrakId
+        ? { ...e, ornekDosyalar: ornekDosyalari(guncelSatir), ornekDosya: guncelSatir.ornekDosya }
+        : e);
+      evraklarRef.current = yeniListe;
+      setEvraklar(yeniListe);
+    }
+    setTalep(g);
+    return g;
   };
   const ornekSecildiSabit = useSabitFonksiyon(ornekSecildi);
   const ornekAcSabit = useSabitFonksiyon((evrak, ornek, indeks) => setOnizleme({
@@ -471,6 +501,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // ── 📎 Toplu örnek yükleme
   const topluDosyaSecildi = (dosyalar) => {
+    if (busy || ornekIslemiSuruyorRef.current) return;
     const liste = Array.from(dosyalar || []);
     if (!liste.length) return;
     const adliSatirlar = evraklar.filter((e) => String(e.ad || '').trim());
@@ -490,45 +521,37 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const topluYukle = async () => {
     const secililer = topluDialog.eslesmeler.filter((x) => x.evrakIndex >= 0);
     if (!secililer.length) { notify('Eşleştirilmiş dosya yok.', 'warning'); return; }
+    const eslesmeler = secililer.map(({ file, evrakIndex }) => ({
+      file, anahtar: evraklar[evrakIndex]?._anahtar
+    }));
     setTopluDialog({ open: false, eslesmeler: [] });
-    setBusy('toplu');
-    try {
-      // Satırların _id'si olmadan örnek yüklenemiyor → önce hepsini kaydet
-      const temiz = evraklar.filter((x) => String(x.ad || '').trim());
-      const g = await svc.talepGuncelle(id, { istenenEvraklar: gonderilecekSatirlar(temiz) });
-      setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
-
+    return ornekIsleminiYurut('toplu', async () => {
       let basarili = 0; let hatali = 0;
-      for (let i = 0; i < secililer.length; i++) {
-        const { file, evrakIndex } = secililer[i];
-        // Kaydetmede adsız satırlar elendiği için hedefi ada göre buluyoruz
-        const hedefAd = evraklar[evrakIndex]?.ad;
-        const kayitli = (g.istenenEvraklar || []).find((e) => e.ad === hedefAd);
-        if (!kayitli?._id) { hatali += 1; continue; }
-        setYukleme({ fileName: file.name, pct: 0, loaded: 0, total: file.size, index: i + 1, count: secililer.length });
+      let sonTalep;
+      for (let i = 0; i < eslesmeler.length; i++) {
+        const { file, anahtar } = eslesmeler[i];
+        const evrakId = evraklarRef.current.find((e) => e._anahtar === anahtar)?._id;
+        if (!evrakId) { hatali += 1; continue; }
         try {
-          const sonuc = await svc.ornekDosyaYukle(id, kayitli._id, (() => {
-            const fd = new FormData(); fd.append('dosyalar', file); return fd;
-          })(), (pr) => setYukleme((o) => (o ? { ...o, ...pr } : o)));
-          setTalep(sonuc); setEvraklar(listeyiAnahtarla(sonuc.istenenEvraklar));
+          sonTalep = await ornekYukle(evrakId, [file], { index: i + 1, count: eslesmeler.length });
           basarili += 1;
         } catch (_) { hatali += 1; }
       }
-      await yukle();
+      if (sonTalep) await mailMetniniTazele(sonTalep);
       notify(
         hatali === 0
           ? `${basarili} örnek dosya eklendi — maile ek olarak gidecek`
           : `${basarili} eklendi, ${hatali} başarısız.`,
         hatali === 0 ? 'success' : (basarili ? 'warning' : 'error')
       );
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); setYukleme(null); }
+    });
   };
 
   // Panodan yapıştırarak da örnek eklenebilsin (ekran görüntüsü/kopyalanan dosya)
   usePanoDosyaYapistir((dosyalar) => topluDosyaSecildi(dosyalar), { aktif: !loading && !busy });
 
   const taslagiHazirla = async () => {
-    if (kayitSuruyorRef.current || busy) return;
+    if (kayitSuruyorRef.current || ornekIslemiSuruyorRef.current || busy) return;
     if (devamModu) { // devam maili metni duruyorsa ilk talep metnine dön
       setDevamModu(false);
       setMail((p) => ({ ...p, body: '', subject: '' }));
@@ -560,6 +583,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const virgullu = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
   const mailTaslakKaydet = async () => {
+    if (ornekIslemiSuruyorRef.current) return;
     setBusy('mail-kaydet');
     try {
       const g = await svc.talepGuncelle(id, {
@@ -575,6 +599,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // Taslağı sil → konu/gövde boşaltılır, önizleme tekrar şablondan üretilir
   const mailTaslakSil = async () => {
+    if (ornekIslemiSuruyorRef.current) return;
     if (!window.confirm('Kaydedilmiş mail taslağı silinecek ve metin şablondan yeniden üretilecek. Devam edilsin mi?')) return;
     setBusy('mail-kaydet');
     try {
@@ -590,6 +615,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   // ── Mail
   const mailGonder = async () => {
+    if (ornekIslemiSuruyorRef.current) return;
     if (mailEkBoyutu > MAIL_EK_SINIRI) { notify('Eklerin toplamı 20 MB\'ı geçmesin — mail sunucusu büyük maili reddeder.', 'warning'); return; }
     setBusy('mail');
     if (mailEkleri.length) setMailYukleme({ fileName: mailEkleri.length > 1 ? `${mailEkleri.length} ek` : mailEkleri[0].name, pct: 0, loaded: 0, total: mailEkBoyutu });
@@ -644,6 +670,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // 📦 Müşteri (21.09.2026): "Yüklenen evrakları tek tek değil de toplu bir şekilde indirebilme özelliği
   // ekleyebilirsek çok işimize yarar." Sunucu hepsini evrak adına göre klasörlü tek ZIP yapıyor.
   const topluIndir = async () => {
+    if (ornekIslemiSuruyorRef.current) return;
     setBusy('toplu-indir');
     try {
       const res = await svc.topluIndir(id);
@@ -670,6 +697,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // 🔁 Eksik / hatalı — tekrar iste: evrak "gelmedi"ye döner (dosya silinmez), firma yükleme sayfasında
   // notu görür; devam maili bu evrakları notuyla listeler.
   const tekrarIste = async (evrakId, evrakAdi) => {
+    if (ornekIslemiSuruyorRef.current) return;
     const not = window.prompt(`"${evrakAdi}" tekrar istenecek. Firmaya iletilecek not (ör. "Kaşe/imza eksik", "Güncel tarihli olmalı"):`, '');
     if (not === null) return;
     setBusy(`tekrar-${evrakId}`);
@@ -680,6 +708,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
   const tekrarIstemeGeriAl = async (evrakId, evrakAdi) => {
+    if (ornekIslemiSuruyorRef.current) return;
     setBusy(`tekrar-${evrakId}`);
     try {
       const g = await svc.tekrarIstemeGeriAl(id, evrakId);
@@ -689,7 +718,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   };
   // Devam maili: aynı bağlantı, yalnız bekleyen / eksik-hatalı evraklar. Metin gönderilmeden düzenlenebilir.
   const devamMailiHazirla = async () => {
-    if (busy) return;
+    if (ornekIslemiSuruyorRef.current || busy) return;
     setBusy('devam');
     try {
       const m = await svc.mailOnizle(id, { devam: true });
@@ -747,7 +776,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             <TextField
               select size="small" label="Tür" value={talep.varyantKod || ''}
               onChange={(e) => varyantDegistir(e.target.value)}
-              disabled={busy === 'varyant'} sx={{ minWidth: 150 }}
+              disabled={!!busy} sx={{ minWidth: 150 }}
             >
               {tur.varyantlar.map((v) => <MenuItem key={v.kod} value={v.kod}>{v.ad}</MenuItem>)}
             </TextField>
@@ -755,7 +784,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           <Tooltip title={mail.uploadLink || 'Link üretilecek'}>
             <Chip icon={<ContentCopyIcon />} label="Yükleme linki" onClick={linkKopyala} color="info" size="small" />
           </Tooltip>
-          <Tooltip title="Yenile"><IconButton onClick={yukle}><RefreshIcon /></IconButton></Tooltip>
+          <Tooltip title="Yenile"><span><IconButton onClick={yukle} disabled={ornekIslemiSuruyor}><RefreshIcon /></IconButton></span></Tooltip>
         </Paper>
 
         {/* 1) İstenen evraklar — açılır/kapanır (müşteri, 21.09.2026) */}
@@ -779,9 +808,9 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>
-              <Button size="small" startIcon={<AddIcon />} onClick={evrakEkle}>Satır Ekle</Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={evrakEkle} disabled={ornekIslemiSuruyor}>Satır Ekle</Button>
               <Button size="small" variant="contained" startIcon={<SaveIcon />}
-                onClick={() => evraklariKaydet()} disabled={busy === 'evrak'}>Kaydet</Button>
+                onClick={() => evraklariKaydet()} disabled={!!busy}>Kaydet</Button>
             </Stack>
           </Stack>
 
@@ -797,8 +826,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
               gap: 0.25, py: 1.5, px: 2, mb: 1.5, textAlign: 'center',
               border: '2px dashed #e2e8f0', background: '#fafafa',
-              cursor: busy === 'toplu' ? 'not-allowed' : 'pointer',
-              opacity: busy === 'toplu' ? 0.6 : 1
+              cursor: ornekIslemiSuruyor ? 'not-allowed' : 'pointer',
+              opacity: ornekIslemiSuruyor ? 0.6 : 1
             }}
           >
             <Typography variant="body2" sx={{ color: '#475569', fontWeight: 500 }}>
@@ -811,7 +840,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             </Typography>
             <input hidden multiple type="file"
               onChange={(ev) => { topluDosyaSecildi(ev.target.files); if (ev.target) ev.target.value = ''; }}
-              disabled={busy === 'toplu'} />
+              disabled={!!busy} />
           </Box>
 
           {/* 📤 Örnek/şablon dosya yükleme göstergesi */}
@@ -824,8 +853,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 e={e}
                 i={i}
                 sonSatir={i === evraklar.length - 1}
-                ornekKilitli={busy.startsWith('ornek-')}
-                indirmeKilitli={kaydedilmemis}
+                ornekKilitli={ornekIslemiSuruyor}
+                indirmeKilitli={kaydedilmemis || ornekIslemiSuruyor}
                 suruklemeProps={satirProps(i)}
                 onDegistir={evrakDegistir}
                 onMaildeIste={maildeIsteDegisti}
@@ -975,15 +1004,15 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               ))}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={busy === 'mail-kaydet'}>
+              <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={ornekIslemiSuruyor || busy === 'mail-kaydet'}>
                 Taslağı Kaydet
               </Button>
               <Button size="small" color="error" startIcon={<DeleteOutlineIcon />} onClick={mailTaslakSil}
-                disabled={busy === 'mail-kaydet' || !talep.mailGovdesi}>
+                disabled={ornekIslemiSuruyor || busy === 'mail-kaydet' || !talep.mailGovdesi}>
                 Taslağı Sil
               </Button>
               <Button variant="contained" startIcon={busy === 'mail' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-                onClick={mailGonder} disabled={busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(mail.body).trim()}>
+                onClick={mailGonder} disabled={ornekIslemiSuruyor || busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(mail.body).trim()}>
                 SMTP ile Gönder
               </Button>
             </Stack>
@@ -1002,14 +1031,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             {talep.mailGonderimSayisi > 0 && (
               <Tooltip title="Eksik ya da hatalı gelenleri ve hâlâ beklenenleri AYNI bağlantıyla yeniden iste">
                 <Button size="small" variant="contained" color="warning" onClick={devamMailiHazirla}
-                  disabled={busy === 'devam'} startIcon={busy === 'devam' ? <CircularProgress size={14} color="inherit" /> : <ForwardToInboxIcon />}
+                  disabled={ornekIslemiSuruyor || busy === 'devam'} startIcon={busy === 'devam' ? <CircularProgress size={14} color="inherit" /> : <ForwardToInboxIcon />}
                   sx={{ textTransform: 'none' }}>
                   Devam Maili Hazırla
                 </Button>
               </Tooltip>
             )}
             {(talep.yuklenenEvraklar || []).length > 0 && (
-              <Button size="small" variant="outlined" onClick={topluIndir} disabled={busy === 'toplu-indir'}
+              <Button size="small" variant="outlined" onClick={topluIndir} disabled={ornekIslemiSuruyor || busy === 'toplu-indir'}
                 startIcon={busy === 'toplu-indir' ? <CircularProgress size={14} /> : <FolderZipIcon />}
                 sx={{ textTransform: 'none' }}>
                 {busy === 'toplu-indir' ? 'Hazırlanıyor…' : 'Tümünü İndir (ZIP)'}
@@ -1037,7 +1066,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                         {' · '}{new Date(e.tekrarIstemeTarihi).toLocaleString('tr-TR')}{e.tekrarIsteyenAdi ? ` · ${e.tekrarIsteyenAdi}` : ''}
                       </Typography>
                     </Typography>
-                    <Button size="small" onClick={() => tekrarIstemeGeriAl(e._id, e.ad)} disabled={busy === `tekrar-${e._id}`}
+                    <Button size="small" onClick={() => tekrarIstemeGeriAl(e._id, e.ad)} disabled={ornekIslemiSuruyor || busy === `tekrar-${e._id}`}
                       sx={{ textTransform: 'none' }}>
                       Geri al
                     </Button>
@@ -1060,7 +1089,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 </Typography>
                 {(!e.tekrarIstemeTarihi || new Date(e.nedenBildirimTarihi) > new Date(e.tekrarIstemeTarihi)) && (
                   <Button size="small" color="warning" startIcon={<ReplayIcon />} onClick={() => tekrarIste(e._id, e.ad)}
-                    disabled={busy === `tekrar-${e._id}`} sx={{ textTransform: 'none' }}>
+                    disabled={ornekIslemiSuruyor || busy === `tekrar-${e._id}`} sx={{ textTransform: 'none' }}>
                     Kabul etme, tekrar iste
                   </Button>
                 )}
@@ -1104,7 +1133,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   return (
                     <Tooltip title="Dosya eksik ya da yanlış: evrak yeniden istenir, firma aynı bağlantıdan yükler">
                       <Button size="small" color="warning" startIcon={<ReplayIcon />} onClick={() => tekrarIste(ev._id, ev.ad)}
-                        disabled={busy === `tekrar-${ev._id}`} sx={{ textTransform: 'none' }}>
+                        disabled={ornekIslemiSuruyor || busy === `tekrar-${ev._id}`} sx={{ textTransform: 'none' }}>
                         Eksik / Hatalı
                       </Button>
                     </Tooltip>
@@ -1143,7 +1172,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           {kaydedilmemis && (
             <Button size="small" variant="contained" startIcon={<SaveIcon />}
               onClick={() => evraklariKaydet()}
-              disabled={busy === 'evrak' || otomatikKayit === 'kaydediliyor'}>
+              disabled={!!busy || otomatikKayit === 'kaydediliyor'}>
               Kaydet
             </Button>
           )}

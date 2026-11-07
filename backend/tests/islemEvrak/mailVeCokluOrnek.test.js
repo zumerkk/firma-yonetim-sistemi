@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const IslemTalebi = require('../../models/IslemTalebi');
+const DosyaTakip = require('../../models/DosyaTakip');
 const IslemTuru = require('../../models/IslemTuru');
 const svc = require('../../services/islemEvrak/islemEvrakService');
 const ctrl = require('../../controllers/islemEvrakController');
@@ -50,7 +51,8 @@ test('SMTP başarısızsa public mail değişmez; gönderilmemiş talebin tasla�
 });
 
 test('eski tekli örneğe çoklu yükleme eklenir; public bilgiler dosya yollarını paylaşmaz', async () => {
-  const t = await talepKur();
+  const { insertedId: dosyaTakip } = await DosyaTakip.collection.insertOne({});
+  const t = await talepKur({ dosyaTakip });
   jest.spyOn(svc, 'dosyaKaydet').mockImplementation(async (_talep, f) => ({ orijinalAd: f.originalname, filePath: `ornek/${f.originalname}`, fileSize: 1 }));
   const r = await cagir(ctrl.talepOrnekDosyaYukle, {
     params: { id: t.id, evrakId: t.istenenEvraklar[0].id },
@@ -58,6 +60,9 @@ test('eski tekli örneğe çoklu yükleme eklenir; public bilgiler dosya yollar�
   });
   expect(r.statusCode).toBe(200);
   expect(r.body.data.istenenEvraklar[0].ornekDosyalar.map((o) => o.dosyaAdi)).toEqual(['eski.docx', 'yeni1.pdf', 'yeni2.docx']);
+  const sonDegisim = r.body.data.sonDegisiklikler.not;
+  expect(sonDegisim).toBeInstanceOf(Date);
+  expect((await DosyaTakip.findById(dosyaTakip).lean()).sonDegisiklikler.not).toEqual(sonDegisim);
   const bilgi = (await cagir(ctrl.publicBilgi, { params: { token: t.uploadToken } })).body.data;
   expect(bilgi.istenenEvraklar[0].ornekDosyalar).toEqual([
     { indeks: 0, dosyaAdi: 'eski.docx' }, { indeks: 1, dosyaAdi: 'yeni1.pdf' }, { indeks: 2, dosyaAdi: 'yeni2.docx' }
@@ -70,6 +75,48 @@ test('eski tekli örneğe çoklu yükleme eklenir; public bilgiler dosya yollar�
   const yok = await cagir(ctrl.publicOrnekIndir, { params: { token: t.uploadToken, evrakId: t.istenenEvraklar[0].id }, query: { ornek: '../private' } });
   expect(yok.statusCode).toBe(404);
   expect(serve).not.toHaveBeenCalled();
+});
+
+test('yükleme sırasında kaldırılan eski örnek mail taslağına geri gelmez', async () => {
+  const t = await talepKur({ istenenEvraklar: [
+    { ad: 'Taahhütname', ornekDosya: ornek('yanlis.pdf') },
+    { ad: 'Vergi Levhası', ornekDosyalar: [ornek('kalacak.pdf')] }
+  ] });
+  const evrakId = t.istenenEvraklar[0].id;
+  let depolamaBasladi;
+  let depolamayiBitir;
+  const basladi = new Promise((resolve) => { depolamaBasladi = resolve; });
+  const bitis = new Promise((resolve) => { depolamayiBitir = resolve; });
+  jest.spyOn(svc, 'dosyaKaydet').mockImplementation(async (_talep, f) => {
+    depolamaBasladi();
+    await bitis;
+    return { orijinalAd: f.originalname, filePath: `ornek/${f.originalname}`, fileSize: 1 };
+  });
+  const yukleme = cagir(ctrl.talepOrnekDosyaYukle, {
+    params: { id: t.id, evrakId }, uploadedFiles: [{ originalname: 'dogru.pdf' }]
+  });
+  await basladi;
+  let duzenleme;
+  try {
+    duzenleme = await cagir(ctrl.talepGuncelle, { params: { id: t.id }, body: {
+      istenenEvraklar: [
+        { ...t.istenenEvraklar[0].toObject(), ornekDosyalar: [] },
+        { ...t.istenenEvraklar[1].toObject(), aciklama: 'Korunan açıklama' }
+      ]
+    } });
+  } finally {
+    depolamayiBitir();
+  }
+  expect(duzenleme.statusCode).toBe(200);
+  expect(duzenleme.body.data.istenenEvraklar[0].ornekDosya?.dosyaAdi).toBeUndefined();
+  expect((await yukleme).statusCode).toBe(200);
+
+  const kayit = await IslemTalebi.findById(t._id);
+  expect(kayit.istenenEvraklar[0].ornekDosyalar.map((o) => o.dosyaAdi)).toEqual(['dogru.pdf']);
+  expect(kayit.istenenEvraklar[1].aciklama).toBe('Korunan açıklama');
+  const taslak = await cagir(ctrl.talepMailOnizle, { params: { id: t.id } });
+  expect(taslak.statusCode).toBe(200);
+  expect(taslak.body.data.ornekDosyalar.map((o) => o.dosyaAdi)).toEqual(['dogru.pdf', 'kalacak.pdf']);
 });
 
 test('seçili evrakın tüm örnekleri maile eklenir; istenmeyen evrakın örnekleri paylaşılmaz', async () => {

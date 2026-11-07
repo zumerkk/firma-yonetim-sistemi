@@ -52,10 +52,13 @@ export function eslesenSecenek(kayitli, secenekler, { deger = (s) => s?.value ??
  * @returns {number} eşleşen ilçenin sırası; yoksa -1
  */
 export function eslesenIlce(kayitliIlce, ilceler, ilAdi, { ad = (d) => d?.ad ?? d } = {}) {
-  const i = eslesenSecenek(kayitliIlce, ilceler, { deger: ad, etiket: ad });
+  const il = esleAnahtari(ilAdi);
+  const ilce = il === 'ANKARA' && /^\s*kazan\s*$/i.test(String(kayitliIlce ?? ''))
+    ? 'Kahramankazan'
+    : kayitliIlce;
+  const i = eslesenSecenek(ilce, ilceler, { deger: ad, etiket: ad });
   if (i >= 0) return i;
   if (esleAnahtari(kayitliIlce) !== 'MERKEZ') return -1;
-  const il = esleAnahtari(ilAdi);
   const liste = Array.isArray(ilceler) ? ilceler : [];
   const merkez = liste.findIndex((d) => esleAnahtari(ad(d)) === `${il}MERKEZ`);
   return merkez >= 0 ? merkez : liste.findIndex((d) => esleAnahtari(ad(d)).endsWith('MERKEZ'));

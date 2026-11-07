@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { EXPIRED_MESSAGE, IDLE_MESSAGE, isSessionIdle, notifySession } from './authSession';
 
 // 🚨 Backend API base URL - /api PATH İLE birlikte (çift /api sorununu çöz)
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -12,16 +13,26 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - her istekte token kontrol et
+// Müşteri bağlantıları kendi URL anahtarıyla çalışır. Bu istekler personel
+// oturumunu taşımaz ve bir bağlantı hatası açık personel oturumunu etkilemez.
+const isPublicRequest = (url = '') => {
+  const path = new URL(url, window.location.origin).pathname.replace(/^\/api(?=\/)/, '');
+  return /^\/(?:auth\/(?:login|logout|register)|tesvik-evrak|belge-takip-yukleme|islem-evrak\/public)(?:\/|$)/.test(path)
+    || /^\/musteri-belge\/[^/]+(?:\/fatura-kalemi)?\/?$/.test(path);
+};
+
 api.interceptors.request.use(
   (config) => {
-    // Eğer Authorization header zaten set edilmişse, tekrar ekleme
-    if (!config.headers.Authorization) {
-      const token = localStorage.getItem('token');
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+    const publicRequest = isPublicRequest(config.url);
+    const token = publicRequest ? null : localStorage.getItem('token');
+    if (token && isSessionIdle()) {
+      notifySession('idle', token);
+      throw new axios.CanceledError(IDLE_MESSAGE, config);
     }
+    if (publicRequest) config.headers.delete('Authorization');
+    else if (token && !config.headers.has('Authorization')) config.headers.set('Authorization', `Bearer ${token}`);
+    // Yanıt geldiğinde başka bir oturum açılmışsa eski isteğin 401'i etkisiz kalır.
+    config.sessionToken = token && config.headers.get('Authorization') === `Bearer ${token}` ? token : null;
 
     // 🔍 Debug log – only in development
     if (process.env.NODE_ENV === 'development') {
@@ -38,7 +49,10 @@ api.interceptors.request.use(
 
 // Response interceptor - gelişmiş hata yönetimi
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    notifySession('connection', response.config?.sessionToken, '');
+    return response;
+  },
   (error) => {
     // Konsol gürültüsünü azalt: object dump yerine kısa satır
     const msg = error.response?.data?.message || error.message;
@@ -46,26 +60,25 @@ api.interceptors.response.use(
       console.error('❌ API Error', error.config?.url, error.response?.status || '-', msg);
     }
 
-    // 401 Unauthorized — kullanıcı BİLEREK login'e atılmıyor (ani veri kaybı
-    // yaşamasın diye). Ama sessiz kalmak da zarar veriyordu:
-    //
-    // Ekranda duran liste React state'inde olduğu için görünmeye devam eder;
-    // o andan sonraki HER yeni istek sessizce boş döner. Kullanıcı "firma
-    // listede var ama aramada gelmiyor" görür, sebebini anlayamaz ve ancak
-    // çıkıp girince düzelir. (Müşteri 8 Eylül 2026'da bunu bildirdi.)
-    //
-    // Çözüm: yönlendirme yok, ama ne olduğunu SÖYLEYEN bir mesaj var.
-    // Ekranlar hata gösterirken `kullaniciMesaji` varsa onu kullanıyor.
-    if (error.response?.status === 401) {
-      console.log('⚠️ 401 hatası alındı, oturum devam ediyor...');
-      error.kullaniciMesaji =
-        'Oturumunuz doğrulanamadı. Çıkış yapıp tekrar giriş yapın — o zamana kadar ekrandaki veriler güncellenmeyecek.';
+    const status = error.response?.status;
+    const token = error.config?.sessionToken;
+    if (status === 401 && token) {
+      error.kullaniciMesaji = EXPIRED_MESSAGE;
+      notifySession('expired', token);
     }
 
     // ⏱️ Zaman aşımı ayırt edilebilsin: ekranlar "Dosya yüklenemedi" yerine
     // gerçek sebebi gösterebilsin (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
     if (error.code === 'ECONNABORTED') {
       error.kullaniciMesaji = 'Bağlantı yavaş olduğu için işlem zaman aşımına uğradı. Lütfen tekrar deneyin.';
+    }
+
+    if (!axios.isCancel(error) && (status >= 500 || error.code === 'ERR_NETWORK' || error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')) {
+      const message = error.kullaniciMesaji || (status >= 500
+        ? 'Sunucu işlemi tamamlayamadı. Lütfen tekrar deneyin.'
+        : 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.');
+      if (!status) error.kullaniciMesaji = message;
+      notifySession('connection', token, message);
     }
 
     // 📦 Çok büyük dosya: sunucunun kendi mesajı varsa o (multer sınırı), yoksa (Cloudflare'in 100 MB

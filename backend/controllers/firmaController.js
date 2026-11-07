@@ -13,6 +13,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
 const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
+const { guncelIlceAdi } = require('../utils/ilceAdi');
 
 // 🎯 Success Response Helper
 const sendSuccess = (res, data, message = 'İşlem başarılı', statusCode = 200) => {
@@ -252,7 +253,7 @@ const getFirmalar = async (req, res) => {
     }
 
     if (firmaIlce) {
-      filter.firmaIlce = firmaIlce.toUpperCase();
+      filter.firmaIlce = guncelIlceAdi(firmaIl, firmaIlce).toUpperCase();
     }
 
     if (yabanciSermayeli !== '') {
@@ -411,6 +412,9 @@ const updateFirma = async (req, res) => {
     if (updateData.firmaIlce) {
       updateData.firmaIlce = updateData.firmaIlce.toUpperCase();
     }
+    const { firmaIl: il = oldFirma.firmaIl, firmaIlce: ilce = oldFirma.firmaIlce } = updateData;
+    const yeniIlce = guncelIlceAdi(il, ilce);
+    if (yeniIlce !== ilce) updateData.firmaIlce = yeniIlce;
     if (updateData.kepAdresi) {
       updateData.kepAdresi = updateData.kepAdresi.toLowerCase();
     }

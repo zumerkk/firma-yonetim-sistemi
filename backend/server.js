@@ -453,6 +453,14 @@ const startServer = async () => {
   try {
     await connectDB();
 
+    try {
+      const { eskiIlceKayitlariniGuncelle } = require('./services/kahramankazanMigrasyonu');
+      const adet = await eskiIlceKayitlariniGuncelle();
+      if (adet > 0) console.log(`✅ Kahramankazan: ${adet} kaydın ilçe adı güncellendi`);
+    } catch (err) {
+      console.error('⚠️ Kahramankazan ilçe güncellemesi başarısız:', err.message);
+    }
+
     // 🧹 Yarım kalan ekran görüntüsü analizleri: süreç belleğinde yürüdükleri için
     // yeniden başlatmadan sonra devam edemezler; arayüz sonsuza dek beklemesin.
     try {

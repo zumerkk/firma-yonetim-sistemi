@@ -47,11 +47,9 @@ import {
   CardGiftcard as DestekIcon,
   Category as UrunIcon,
 } from '@mui/icons-material';
-import axios from 'axios';
+import api, { uploadPost } from '../../utils/axios';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import { yerelYaz } from '../../utils/yerelDepo';
-
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 // Tab tipi meta bilgileri
 const TAB_META = {
@@ -211,10 +209,7 @@ const ScreenshotImport = () => {
     if (currentJobId && analyzing) {
       interval = setInterval(async () => {
         try {
-          const token = localStorage.getItem('token');
-          const res = await axios.get(`${API_BASE}/screenshot-import/job/${currentJobId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const res = await api.get(`/screenshot-import/job/${currentJobId}`, { timeout: 0 });
           
           if (res.data.success) {
             const job = res.data.data;
@@ -261,13 +256,11 @@ const ScreenshotImport = () => {
       errors: combinedErrors,
     });
 
-    const token = localStorage.getItem('token');
-    
     if (allScreenshots.length > 0) {
       try {
-        const mergeRes = await axios.post(`${API_BASE}/screenshot-import/merge`, {
+        const mergeRes = await api.post('/screenshot-import/merge', {
           screenshots: combinedScreenshots
-        }, { headers: { Authorization: `Bearer ${token}` } });
+        }, { timeout: 0 });
         
         if (mergeRes.data.success) {
           setEditedData(JSON.parse(JSON.stringify(mergeRes.data.data.merged)));
@@ -301,14 +294,8 @@ const ScreenshotImport = () => {
         formData.append('screenshots', file);
       });
 
-      const token = localStorage.getItem('token');
       // Direkt analyze yerine analyze-async endpoint'ine gidiyoruz
-      const response = await axios.post(`${API_BASE}/screenshot-import/analyze-async`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await uploadPost('/screenshot-import/analyze-async', formData);
 
       if (response.data.success && response.data.jobId) {
          // İşlem başladı, Job ID'yi state ve localStorage'a kaydet
@@ -321,7 +308,7 @@ const ScreenshotImport = () => {
          setAnalyzing(false);
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'İşlem başlatılırken hata oluştu.';
+      const msg = err.kullaniciMesaji || err.response?.data?.message || err.message || 'İşlem başlatılırken hata oluştu.';
       setError(msg);
       setAnalyzing(false);
     }
@@ -335,19 +322,10 @@ const ScreenshotImport = () => {
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await axios.post(
-        `${API_BASE}/screenshot-import/commit`,
-        {
-          mergedData: editedData,
-          belgeFormati: editedData.belgeFormati || 'eski',
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const response = await api.post('/screenshot-import/commit', {
+        mergedData: editedData,
+        belgeFormati: editedData.belgeFormati || 'eski',
+      }, { timeout: 0 });
 
       if (response.data.success) {
         setCommitResult(response.data.data);
@@ -355,7 +333,7 @@ const ScreenshotImport = () => {
         setError(response.data.message || 'Kayıt başarısız oldu.');
       }
     } catch (err) {
-      const msg = err.response?.data?.message || err.message || 'Kayıt sırasında hata oluştu.';
+      const msg = err.kullaniciMesaji || err.response?.data?.message || err.message || 'Kayıt sırasında hata oluştu.';
       setError(msg);
     } finally {
       setCommitting(false);
