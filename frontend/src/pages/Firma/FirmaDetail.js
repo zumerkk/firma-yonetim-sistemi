@@ -393,8 +393,8 @@ const FirmaDetail = () => {
             })()
           ) : (
             (() => {
-              const etuysStatus = getYetkiStatus(firma.etuysYetkiBitisTarihi);
-              const dysStatus = getYetkiStatus(firma.dysYetkiBitisTarihi);
+              const etuysStatus = firma.aktif === false ? null : getYetkiStatus(firma.etuysYetkiBitisTarihi);
+              const dysStatus = firma.aktif === false ? null : getYetkiStatus(firma.dysYetkiBitisTarihi);
               
               return (
                 <>
@@ -630,16 +630,18 @@ const FirmaDetail = () => {
                                   <Typography variant="body2" sx={{ mb: 1 }}>
                                     {formatDate(firma.etuysYetkiBitisTarihi)}
                                   </Typography>
-                                  <Chip
-                                    label={etuysStatus.label}
-                                    color={etuysStatus.color}
-                                    size="small"
-                                    icon={
-                                      etuysStatus.status === 'expired' ? <ErrorIcon /> :
-                                      etuysStatus.status === 'expiring' ? <WarningIcon /> :
-                                      etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                                    }
-                                  />
+                                  {etuysStatus && (
+                                    <Chip
+                                      label={etuysStatus.label}
+                                      color={etuysStatus.color}
+                                      size="small"
+                                      icon={
+                                        etuysStatus.status === 'expired' ? <ErrorIcon /> :
+                                        etuysStatus.status === 'expiring' ? <WarningIcon /> :
+                                        etuysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                                      }
+                                    />
+                                  )}
                                 </Box>
                               </ListItem>
 
@@ -654,16 +656,18 @@ const FirmaDetail = () => {
                                   <Typography variant="body2" sx={{ mb: 1 }}>
                                     {formatDate(firma.dysYetkiBitisTarihi)}
                                   </Typography>
-                                  <Chip
-                                    label={dysStatus.label}
-                                    color={dysStatus.color}
-                                    size="small"
-                                    icon={
-                                      dysStatus.status === 'expired' ? <ErrorIcon /> :
-                                      dysStatus.status === 'expiring' ? <WarningIcon /> :
-                                      dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
-                                    }
-                                  />
+                                  {dysStatus && (
+                                    <Chip
+                                      label={dysStatus.label}
+                                      color={dysStatus.color}
+                                      size="small"
+                                      icon={
+                                        dysStatus.status === 'expired' ? <ErrorIcon /> :
+                                        dysStatus.status === 'expiring' ? <WarningIcon /> :
+                                        dysStatus.status === 'active' ? <CheckCircleIcon /> : <InfoIcon />
+                                      }
+                                    />
+                                  )}
                                 </Box>
                               </ListItem>
                             </List>

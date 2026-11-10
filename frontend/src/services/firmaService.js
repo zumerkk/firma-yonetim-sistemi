@@ -137,7 +137,7 @@ export const deleteFirma = async (id) => {
 // `aktif`: liste ekranındaki filtreyle AYNI olmalı. Aksi halde kullanıcı
 // listeyi "Tümü"ne alıp pasif bir firmayı görür ama arayınca bulamaz —
 // müşteri 8 Eylül 2026'da tam olarak bunu bildirdi.
-export const searchFirmalar = async (searchTerm, field = null, aktif = 'true') => {
+export const searchFirmalar = async (searchTerm, field = null, aktif = 'true', yetkiDurumu = '') => {
   try {
     const trimmedSearchTerm = searchTerm?.trim();
     
@@ -155,6 +155,9 @@ export const searchFirmalar = async (searchTerm, field = null, aktif = 'true') =
     }
     if (aktif) {
       url += `&aktif=${encodeURIComponent(aktif)}`;
+    }
+    if (yetkiDurumu) {
+      url += `&yetkiDurumu=${encodeURIComponent(yetkiDurumu)}`;
     }
     
     console.log('🔍 API Search URL:', url);

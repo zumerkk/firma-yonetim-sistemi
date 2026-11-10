@@ -98,9 +98,11 @@ const FirmaList = () => {
 
   // 🏷️ Tab click handler
   const handleTabChange = useCallback((tabKey) => {
+    const yetkiDurumu = ['expired', 'expiring7', 'expiring30'].includes(tabKey) ? tabKey : '';
+    const yalnizAktif = tabKey === 'active' || Boolean(yetkiDurumu);
     setFilters({
-      aktif: tabKey === 'active' ? 'true' : tabKey === 'passive' ? 'false' : 'all',
-      yetkiDurumu: ['expired', 'expiring7', 'expiring30'].includes(tabKey) ? tabKey : ''
+      aktif: tabKey === 'passive' ? 'false' : yalnizAktif ? 'true' : 'all',
+      yetkiDurumu
     });
   }, [setFilters]);
 
@@ -118,7 +120,8 @@ const FirmaList = () => {
   }, []);
 
   // 📊 Arama durumuna göre doğru veriyi seç
-  const displayData = searchQuery.trim().length >= 2 ? (searchResults || []) : (firmalar || []);
+  const gorunumSatirlari = searchQuery.trim().length >= 2 ? (searchResults || []) : (firmalar || []);
+  const displayData = filters.yetkiDurumu ? gorunumSatirlari.filter((firma) => firma.aktif !== false) : gorunumSatirlari;
 
   // 📢 Notification Helper
   const showNotification = useCallback((message, severity = 'success') => {
@@ -131,9 +134,8 @@ const FirmaList = () => {
 
     setLocalLoading(true);
     try {
-      // Aramaya ekranda SEÇİLİ olan aktiflik filtresini ver; liste ne
-      // gösteriyorsa arama da onu bulsun.
-      await searchFirmalar(searchQuery, null, filters.aktif || 'true');
+      // Arama, ekranda seçili aktiflik ve yetki süzgecini birlikte kullanır.
+      await searchFirmalar(searchQuery, null, filters.aktif || 'true', filters.yetkiDurumu);
     } catch (error) {
       showNotification('Arama işlemi başarısız: ' + error.message, 'error');
     } finally {
@@ -530,6 +532,9 @@ const FirmaList = () => {
           return <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>;
         }
         const tarih = new Date(params.value);
+        if (params.row.aktif === false) {
+          return <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{tarih.toLocaleDateString('tr-TR')}</Typography>;
+        }
         const kalanGun = Math.ceil((tarih - new Date()) / (1000 * 60 * 60 * 24));
         // Yaklaşan/geçmiş yetki bitişleri renkle öne çıkar
         const renk = kalanGun < 0 ? '#dc2626' : (kalanGun <= 30 ? '#d97706' : '#059669');
@@ -575,6 +580,9 @@ const FirmaList = () => {
         if (!params.value) return <Typography variant="body2" sx={{ fontSize: '0.8rem' }}>-</Typography>;
 
         const date = new Date(params.value);
+        if (params.row.aktif === false) {
+          return <Typography variant="body2" sx={{ fontSize: '0.7rem', color: 'text.secondary' }}>{date.toLocaleDateString('tr-TR')}</Typography>;
+        }
         const today = new Date();
         const diffTime = date - today;
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -624,7 +632,7 @@ const FirmaList = () => {
         const now = new Date();
         const etuysExpired = params.row.etuysYetkiBitisTarihi && new Date(params.row.etuysYetkiBitisTarihi) < now;
         const dysExpired = params.row.dysYetkiBitisTarihi && new Date(params.row.dysYetkiBitisTarihi) < now;
-        const yetkiBitik = etuysExpired || dysExpired;
+        const yetkiBitik = isAktif && (etuysExpired || dysExpired);
 
         return (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>

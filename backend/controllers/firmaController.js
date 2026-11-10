@@ -224,6 +224,30 @@ const createFirma = async (req, res) => {
   }
 };
 
+// Yetki uyarıları yalnız aktif firmalar içindir. Tarih koşulunu arama
+// alanlarının $or grubundan ayrı tutarak iki filtrenin birlikte işlemesini sağla.
+const yetkiUyariFiltresi = (yetkiDurumu) => {
+  if (!['expired', 'expiring7', 'expiring30'].includes(yetkiDurumu)) return {};
+
+  const bugun = new Date();
+  bugun.setHours(0, 0, 0, 0);
+  const sonGun = new Date(bugun);
+  sonGun.setDate(sonGun.getDate() + (yetkiDurumu === 'expiring7' ? 7 : 30));
+  const tarihAraligi = yetkiDurumu === 'expired'
+    ? { $lt: bugun, $ne: null }
+    : { $gte: bugun, $lte: sonGun };
+
+  return {
+    $and: [{
+      aktif: true,
+      $or: [
+        { etuysYetkiBitisTarihi: tarihAraligi },
+        { dysYetkiBitisTarihi: tarihAraligi }
+      ]
+    }]
+  };
+};
+
 // 📋 Firma Listesi
 const getFirmalar = async (req, res) => {
   try {
@@ -242,7 +266,7 @@ const getFirmalar = async (req, res) => {
     } = req.query;
 
     // Filtreleme kriterleri
-    const filter = {};
+    const filter = yetkiUyariFiltresi(yetkiDurumu);
 
     if (aktif !== 'all') {
       filter.aktif = aktif === 'true';
@@ -262,34 +286,6 @@ const getFirmalar = async (req, res) => {
 
     if (anaFaaliyetKonusu) {
       filter.anaFaaliyetKonusu = anaFaaliyetKonusu;
-    }
-
-    // Yetki durumu filtresi
-    if (yetkiDurumu) {
-      const now = new Date();
-      now.setHours(0, 0, 0, 0);
-
-      if (yetkiDurumu === 'expired') {
-        // Yetkisi bitenler (etuys VEYA dys bitiş tarihi bugünden önce)
-        filter.$or = [
-          { etuysYetkiBitisTarihi: { $lt: now, $ne: null } },
-          { dysYetkiBitisTarihi: { $lt: now, $ne: null } }
-        ];
-      } else if (yetkiDurumu === 'expiring7') {
-        const in7Days = new Date(now);
-        in7Days.setDate(in7Days.getDate() + 7);
-        filter.$or = [
-          { etuysYetkiBitisTarihi: { $gte: now, $lte: in7Days } },
-          { dysYetkiBitisTarihi: { $gte: now, $lte: in7Days } }
-        ];
-      } else if (yetkiDurumu === 'expiring30') {
-        const in30Days = new Date(now);
-        in30Days.setDate(in30Days.getDate() + 30);
-        filter.$or = [
-          { etuysYetkiBitisTarihi: { $gte: now, $lte: in30Days } },
-          { dysYetkiBitisTarihi: { $gte: now, $lte: in30Days } }
-        ];
-      }
     }
 
     // Arama filtresi - Türkçe karakter duyarsız
@@ -580,22 +576,21 @@ const searchFirmalar = async (req, res) => {
     // hiçbir şey bulamıyordu. Üretimde 66 firma bu durumda (1257 kayıttan).
     //
     // Artık liste ile aynı sözleşme: varsayılan 'true' (davranış korunuyor),
-    // 'all' geçilirse pasifler de aranır.
-    const { q, field, aktif = 'true' } = req.query;
+    // yetki uyarısı seçilmemişse 'all' ile pasifler de aranır.
+    const { q, field, aktif = 'true', yetkiDurumu = '' } = req.query;
 
     if (!q || q.length < 2) {
       return sendError(res, 'Arama terimi en az 2 karakter olmalıdır', 400);
     }
 
-    const aktifFiltresi = aktif === 'all' ? {} : { aktif: aktif === 'true' };
+    const filter = yetkiUyariFiltresi(yetkiDurumu);
+    if (aktif !== 'all') filter.aktif = aktif === 'true';
 
     let firmalar = [];
     const turkishRegex = createTurkishInsensitiveRegex(q);
 
     if (field) {
       // Belirli alanda arama - Türkçe karakter duyarsız
-      const filter = { ...aktifFiltresi };
-
       if (field === 'vergiNoTC') {
         filter.vergiNoTC = turkishRegex;
       } else if (field === 'tamUnvan') {
@@ -613,7 +608,7 @@ const searchFirmalar = async (req, res) => {
         .lean();
     } else {
       // Genel arama - Türkçe karakter duyarsız
-      firmalar = await Firma.searchFirmalar(q, aktifFiltresi)
+      firmalar = await Firma.searchFirmalar(q, filter)
         .select('firmaId tamUnvan vergiNoTC firmaIl firmaIlce ilkIrtibatKisi yetkiliKisiler etuysYetkiBitisTarihi dysYetkiBitisTarihi aktif')
         .limit(20)
         .lean();
@@ -686,6 +681,7 @@ const getFirmaStats = async (req, res) => {
       faaliyetlereBolum,
       sonEklenenler,
       yaklasanYetkiler,
+      suresiGecmisFirmaSayisi,
       buAyEklenenler,
       ilSayilari
     ] = await Promise.all([
@@ -726,6 +722,8 @@ const getFirmaStats = async (req, res) => {
         .sort({ etuysYetkiBitisTarihi: 1 })
         .limit(10)
         .lean(),
+
+      Firma.countDocuments(yetkiUyariFiltresi('expired')),
 
       // Bu ay eklenen firmalar
       Firma.countDocuments({
@@ -786,7 +784,8 @@ const getFirmaStats = async (req, res) => {
       faaliyetlereBolum,
       sonEklenenler,
 
-      // ETUYS uyarıları
+      // Yetki uyarıları
+      suresiGecmisFirmaSayisi,
       etuysUyarilari: {
         yaklaşanSüreler: yaklasanYetkiler,
         count: yaklasanYetkiler.length

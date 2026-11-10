@@ -248,7 +248,7 @@ const Dashboard = () => {
     },
     {
       title: 'Süresi Geçmiş',
-      value: (stats?.toplamFirma || 0) - (stats?.etuysYetkili || 0) - (stats?.etuysUyarilari?.count || 0),
+      value: stats?.suresiGecmisFirmaSayisi || 0,
       icon: <LocationIcon />,
       vurgu: 'red',
       action: () => navigate('/firmalar?etuysGecmis=true')

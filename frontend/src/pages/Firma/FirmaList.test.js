@@ -23,6 +23,9 @@ jest.mock('@mui/x-data-grid', () => ({
   DataGrid: ({ rows, columns }) => <div data-testid="firma-satirlari">
     {rows.map((row) => <div key={row._id}>
       <span>{row.tamUnvan}</span>
+      {['etuysYetkiBitisTarihi', 'dysYetkiBitisTarihi', 'aktif'].map((field) => (
+        <div key={field}>{columns.find((column) => column.field === field).renderCell({ row, value: row[field] })}</div>
+      ))}
       {columns.find(({ field }) => field === 'actions').renderCell({ row })}
     </div>)}
   </div>,
@@ -87,18 +90,60 @@ test.each([['Tümü', 'all'], ['Pasif', 'false'], ['Aktif', 'true']])(
   }
 );
 
-test('Durum alanı hızlı sekmeyi günceller ve yetki sekmesinin geçici filtresini temizler', async () => {
+test.each([[/Yetkisi Biten/, 'expired'], ['7 Gün İçinde', 'expiring7'], ['30 Gün İçinde', 'expiring30']])(
+  '%s yetki sekmesi yalnız aktif firmaları gösterir, Pasif seçilince tarih filtresi temizlenir', async (etiket, yetkiDurumu) => {
+    ac();
+    await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
+    await tikla(screen.getByRole('button', { name: etiket }));
+    await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'true', yetkiDurumu }));
+    expect(screen.getByRole('combobox', { name: 'Durum' })).toHaveTextContent('Aktif');
+    expect(satirlar().queryByText('ORTAK PASİF FİRMA')).not.toBeInTheDocument();
+    const oncekiIstekSayisi = firmaService.getFirmalar.mock.calls.length;
+    await tikla(screen.getByRole('button', { name: 'Yenile' }));
+    await waitFor(() => expect(firmaService.getFirmalar.mock.calls.length).toBeGreaterThan(oncekiIstekSayisi));
+    expect(sonFiltre()).toMatchObject({ aktif: 'true', yetkiDurumu });
+    await durumSec('Pasif');
+    await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'false', yetkiDurumu: '' }));
+    expect(screen.getByRole('button', { name: 'Pasif', pressed: true })).toBeInTheDocument();
+    expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
+    expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+  }
+);
+
+test('yetki sekmesinde arama tarih filtresini korur, Pasif sekmesinde normal aramaya döner', async () => {
+  firmalar.push({ _id: 'guncel', tamUnvan: 'ORTAK YETKİSİ GÜNCEL FİRMA', aktif: true });
+  firmaService.searchFirmalar.mockImplementation(async (_terim, _alan, aktif, yetkiDurumu) => ({
+    success: true, data: filtrele(aktif).filter((firma) => !yetkiDurumu || firma._id !== 'guncel')
+  }));
   ac();
-  await waitFor(() => expect(firmaService.getFirmalar).toHaveBeenCalled());
-  await tikla(screen.getByRole('button', { name: /Yetkisi Biten/ }));
-  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'all', yetkiDurumu: 'expired' }));
-  await tikla(screen.getByRole('button', { name: 'Yenile' }));
-  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'all', yetkiDurumu: 'expired' }));
-  await durumSec('Pasif');
-  await waitFor(() => expect(sonFiltre()).toMatchObject({ aktif: 'false', yetkiDurumu: '' }));
-  expect(screen.getByRole('button', { name: 'Pasif', pressed: true })).toBeInTheDocument();
+  await tikla(screen.getByRole('button', { name: '7 Gün İçinde' }));
+  fireEvent.change(screen.getByPlaceholderText('Vergi No, Tam Ünvan veya Firma ID ile ara...'), {
+    target: { value: 'ORTAK' }
+  });
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'true', 'expiring7'));
+  expect(satirlar().getByText('ORTAK AKTİF FİRMA')).toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK YETKİSİ GÜNCEL FİRMA')).not.toBeInTheDocument();
+  expect(satirlar().queryByText('ORTAK PASİF FİRMA')).not.toBeInTheDocument();
+
+  await tikla(screen.getByRole('button', { name: 'Pasif' }));
+  await waitFor(() => expect(firmaService.searchFirmalar).toHaveBeenLastCalledWith('ORTAK', null, 'false'));
   expect(satirlar().getByText('ORTAK PASİF FİRMA')).toBeInTheDocument();
-  expect(satirlar().queryByText('ORTAK AKTİF FİRMA')).not.toBeInTheDocument();
+});
+
+test('Tümü görünümünde pasif firmanın ETUYS ve DYS tarihleri uyarı rozetleri olmadan okunur', async () => {
+  const etuys = '2020-11-05T12:00:00Z';
+  const dys = '2020-11-06T12:00:00Z';
+  firmalar = firmalar.map((firma) => ({ ...firma, etuysYetkiBitisTarihi: etuys, dysYetkiBitisTarihi: dys }));
+  ac();
+  await tikla(screen.getByRole('button', { name: 'Tümü' }));
+  const pasifSatir = within((await satirlar().findByText('ORTAK PASİF FİRMA')).parentElement);
+  expect(pasifSatir.getByText(new Date(etuys).toLocaleDateString('tr-TR'))).toBeInTheDocument();
+  expect(pasifSatir.getByText(new Date(dys).toLocaleDateString('tr-TR'))).toBeInTheDocument();
+  expect(pasifSatir.queryByText('Doldu')).not.toBeInTheDocument();
+  expect(pasifSatir.queryByText(/Yetki Bitti/)).not.toBeInTheDocument();
+  const aktifSatir = within(satirlar().getByText('ORTAK AKTİF FİRMA').parentElement);
+  expect(aktifSatir.getByText('Doldu')).toBeInTheDocument();
+  expect(aktifSatir.getByText(/Yetki Bitti/)).toBeInTheDocument();
 });
 
 test('hızlı sekme aramanın durum filtresini de değiştirir', async () => {

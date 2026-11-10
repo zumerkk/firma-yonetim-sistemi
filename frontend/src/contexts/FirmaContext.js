@@ -445,7 +445,7 @@ export const FirmaProvider = ({ children }) => {
   }, [setError]);
 
   // 🔍 Enhanced Search Firmalar
-  const searchFirmalar = useCallback(async (searchTerm, field = null, aktif = 'true') => {
+  const searchFirmalar = useCallback(async (searchTerm, field = null, aktif = 'true', yetkiDurumu = '') => {
     const requestId = ++searchRequestRef.current;
     const trimmedSearchTerm = searchTerm?.trim();
     
@@ -457,7 +457,9 @@ export const FirmaProvider = ({ children }) => {
     dispatch({ type: ACTION_TYPES.SET_SEARCH_LOADING, payload: true });
     
     try {
-      const result = await firmaService.searchFirmalar(trimmedSearchTerm, field, aktif);
+      const result = yetkiDurumu
+        ? await firmaService.searchFirmalar(trimmedSearchTerm, field, aktif, yetkiDurumu)
+        : await firmaService.searchFirmalar(trimmedSearchTerm, field, aktif);
       if (requestId !== searchRequestRef.current) return [];
       
       console.log('🔍 Context Search Result:', result);
