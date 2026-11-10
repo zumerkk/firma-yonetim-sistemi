@@ -17,19 +17,22 @@ const durumlar = require('../../constants/belgeDurumlari');
 const pasif = require('../../services/tesvik/firmaPasifBelgeleri');
 
 const yeniId = () => new mongoose.Types.ObjectId();
+const kapamaHazirlikDurumlari = ['kapatma_irtibat', 'kapama_calisma'];
 
 // ─────────────────────────────────────────────────────────────────────────────
 describe('1) Yeni durumlar her katmanda tanınıyor', () => {
-  test('sabit listede Kapama Talepli ve Pasife Alındı var, Kapandı yerinde', () => {
+  test('kapama durumları ve pasif durum Türkçe etiketleriyle listelenir', () => {
     const etiketler = Object.fromEntries(durumlar.BELGE_DURUMLARI.map((d) => [d.value, d.label]));
+    expect(etiketler.kapatma_irtibat).toBe('Kapatma İrtibat');
+    expect(etiketler.kapama_calisma).toBe('Kapama Çalışma');
     expect(etiketler.kapama_talepli).toBe('Kapama Talepli');
     expect(etiketler.pasife_alindi).toBe('Pasife Alındı');
     expect(etiketler.kapandi).toBe('Kapandı');
   });
 
-  test.each([['Tesvik', Tesvik], ['YeniTesvik', YeniTesvik]])('%s şeması iki durumu da kabul eder', (_ad, Model) => {
+  test.each([['Tesvik', Tesvik], ['YeniTesvik', YeniTesvik]])('%s şeması kapama ve pasif durumlarını kabul eder', (_ad, Model) => {
     expect(Model.schema.path('durumBilgileri.genelDurum').enumValues).toEqual(durumlar.BELGE_DURUM_DEGERLERI);
-    for (const genelDurum of ['kapama_talepli', 'pasife_alindi']) {
+    for (const genelDurum of [...kapamaHazirlikDurumlari, 'kapama_talepli', 'pasife_alindi']) {
       const doc = new Model({ durumBilgileri: { genelDurum } });
       const hata = doc.validateSync();
       expect(hata?.errors?.['durumBilgileri.genelDurum']).toBeUndefined();
@@ -50,13 +53,16 @@ describe('1) Yeni durumlar her katmanda tanınıyor', () => {
       for (const kural of validateDurumUpdate) await kural.run(req);
       return validationResult(req).isEmpty();
     };
-    expect(await calistir('kapama_talepli')).toBe(true);
-    expect(await calistir('pasife_alindi')).toBe(true);
+    for (const durum of [...kapamaHazirlikDurumlari, 'kapama_talepli', 'pasife_alindi']) {
+      expect(await calistir(durum)).toBe(true);
+    }
     expect(await calistir('kapali_gibi')).toBe(false);
   });
 
-  test('revizyon geçmişinden durum türetme iki yeni durumu ezmez', () => {
-    expect(durumlar.OTO_SENKRON_DISI_DURUMLAR).toEqual(expect.arrayContaining(['kapama_talepli', 'pasife_alindi', 'kapandi']));
+  test('kapama aşamaları revizyon senkronundan ve tümünü güncellemeden korunur', () => {
+    const korunan = expect.arrayContaining([...kapamaHazirlikDurumlari, 'kapama_talepli', 'pasife_alindi', 'kapandi']);
+    expect(durumlar.OTO_SENKRON_DISI_DURUMLAR).toEqual(korunan);
+    expect(durumlar.TOPLU_KORUNAN_DURUMLAR).toEqual(korunan);
   });
 
   test('renk: pasife alınan gri, kapama talepli şemadaki renk listesinde', () => {
@@ -212,14 +218,19 @@ describe('2b) Firma pasif/aktif → belgeler (bellek içi Mongo)', () => {
     expect((await durumu(Tesvik, b2)).genelDurum).toBe('onaylandi');
   });
 
-  test('durum menüsünden "Kapama Talepli" seçilebiliyor ve renk yazılıyor', async () => {
+  test.each([
+    ['Tesvik', Tesvik, '../../controllers/tesvikController'],
+    ['YeniTesvik', YeniTesvik, '../../controllers/yeniTesvikController']
+  ])('%s: durum menüsünden kapama aşamaları elle seçilip kaydedilir', async (_ad, Model, yol) => {
     const firma = await firmaEkle(true);
-    const belge = await belgeEkle(YeniTesvik, firma, 'onaylandi');
-    const { updateTesvikDurum } = require('../../controllers/yeniTesvikController');
+    const belge = await belgeEkle(Model, firma, 'onaylandi');
+    const { updateTesvikDurum } = require(yol);
     const res = { statusCode: 200, status(c) { this.statusCode = c; return this; }, json(d) { this.body = d; return this; } };
-    await updateTesvikDurum({ params: { id: String(belge) }, body: { yeniDurum: 'kapama_talepli' }, user: kullanici }, res);
-    expect(res.statusCode).toBe(200);
-    expect(await durumu(YeniTesvik, belge)).toMatchObject({ genelDurum: 'kapama_talepli', durumRengi: 'mavi', durumManuelSecildi: true });
+    for (const yeniDurum of [...kapamaHazirlikDurumlari, 'kapama_talepli']) {
+      await updateTesvikDurum({ params: { id: String(belge) }, body: { yeniDurum }, user: kullanici }, res);
+      expect(res.statusCode).toBe(200);
+      expect(await durumu(Model, belge)).toMatchObject({ genelDurum: yeniDurum, durumRengi: 'mavi', durumManuelSecildi: true });
+    }
   });
 });
 
@@ -244,7 +255,7 @@ describe('3) Teşvik listesi arşivi', () => {
 
     const liste = async (Model, ctrlYolu, query) => {
       await Model.deleteMany({});
-      await Model.collection.insertMany(['onaylandi', 'kapandi', 'pasife_alindi', 'kapama_talepli'].map((genelDurum, i) => ({
+      await Model.collection.insertMany(['onaylandi', 'kapandi', 'pasife_alindi', 'kapama_talepli', ...kapamaHazirlikDurumlari].map((genelDurum, i) => ({
         _id: yeniId(), tesvikId: `TES2026900${i}`, firma: yeniId(), firmaId: 'A1', yatirimciUnvan: `FİRMA ${i}`,
         aktif: true, durumBilgileri: { genelDurum }, createdAt: new Date(2026, 9, i + 1)
       })));
@@ -256,11 +267,14 @@ describe('3) Teşvik listesi arşivi', () => {
     test.each([
       ['Tesvik', Tesvik, '../../controllers/tesvikController'],
       ['YeniTesvik', YeniTesvik, '../../controllers/yeniTesvikController']
-    ])('%s: ana liste kapananları göstermez, arşiv yalnız onları, "Kapandı" süzgeci her yerde çalışır', async (_ad, Model, yol) => {
-      expect(await liste(Model, yol, { arsiv: '0' })).toEqual(['kapama_talepli', 'onaylandi', 'pasife_alindi']);
+    ])('%s: kapama süreci ana listede, yalnız kapananlar arşivde görünür', async (_ad, Model, yol) => {
+      expect(await liste(Model, yol, { arsiv: '0' })).toEqual(['kapama_calisma', 'kapama_talepli', 'kapatma_irtibat', 'onaylandi', 'pasife_alindi']);
       expect(await liste(Model, yol, { arsiv: '1' })).toEqual(['kapandi']);
       expect(await liste(Model, yol, { arsiv: '0', durum: 'kapandi' })).toEqual(['kapandi']);
-      expect(await liste(Model, yol, {})).toHaveLength(4);
+      for (const durum of kapamaHazirlikDurumlari) {
+        expect(await liste(Model, yol, { arsiv: '0', durum })).toEqual([durum]);
+      }
+      expect(await liste(Model, yol, {})).toHaveLength(6);
     });
   });
 });

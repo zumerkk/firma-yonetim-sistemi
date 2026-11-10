@@ -1890,6 +1890,8 @@ const getDurumRenkleri = async (req, res) => {
       'onaylandi': { renk: 'yesil', hex: '#10B981', aciklama: 'Onaylandı - Başarıyla tamamlandı' },
       'reddedildi': { renk: 'kirmizi', hex: '#EF4444', aciklama: 'Reddedildi - Başvuru kabul edilmedi' },
       'iptal_edildi': { renk: 'gri', hex: '#6B7280', aciklama: 'İptal Edildi - İşlem durduruldu' },
+      'kapatma_irtibat': { renk: 'mavi', hex: '#0D9488', aciklama: 'Kapatma İrtibat - Kapatma için irtibat aşaması' },
+      'kapama_calisma': { renk: 'mavi', hex: '#4F46E5', aciklama: 'Kapama Çalışma - Kapama hazırlıkları yürütülüyor' },
       'kapama_talepli': { renk: 'mavi', hex: '#7C3AED', aciklama: 'Kapama Talepli - Kapama başvurusu yapıldı' },
       'kapandi': { renk: 'gri', hex: '#6B7280', aciklama: 'Kapandı - Belge kapatıldı' },
       'pasife_alindi': { renk: 'gri', hex: '#94A3B8', aciklama: 'Pasife Alındı - Firma pasif / takip dışı' }
@@ -2866,8 +2868,8 @@ const bulkUpdateDurum = async (req, res) => {
     // müşteri isteği: "'Tümünü onaylandı yap' sadece taslakları onaylandı yapsın."
     // → tumu:true ile toplu onayda YALNIZCA taslak belgeler değişir; kapanmış, iptal edilmiş
     //   veya süreçte olan (inceleniyor/onay_bekliyor/reddedildi...) belgelere dokunulmaz.
-    // Diğer toplu durum değişikliklerinde ise yalnızca kapanmış/iptal edilmiş belgeler korunur.
-    const KORUNAN_DURUMLAR = TOPLU_KORUNAN_DURUMLAR; // kapama talepli, kapandı, iptal, pasife alındı
+    // Diğer toplu değişikliklerde merkezi listede korunan kapanış, iptal ve pasif durumlar atlanır.
+    const KORUNAN_DURUMLAR = TOPLU_KORUNAN_DURUMLAR;
     const tumuFiltresi = yeniDurum === 'onaylandi'
       ? { aktif: true, 'durumBilgileri.genelDurum': 'taslak' }
       : { aktif: true, 'durumBilgileri.genelDurum': { $nin: KORUNAN_DURUMLAR } };
@@ -3281,7 +3283,7 @@ const deriveDurumFromRevision = (rev) => {
 
 // Otomatik türetmenin ASLA ezmemesi gereken durumlar — kullanıcının bilinçli seçimidir
 // ve revizyon metninden türetilemez ('kapandi'/'iptal_edildi' için çıkarım kuralı yok).
-// (liste: constants/belgeDurumlari.js — kapama talepli, kapandı, iptal edildi, pasife alındı)
+// Kapanış ve takip dışı durumların listesi constants/belgeDurumlari.js içindedir.
 
 // 🔄 Revizyon geçmişine göre durumu otomatik senkronize et
 // ⚠️ Yalnızca durumu hiç elle seçilmemiş kayıtlar için. Aksi halde kullanıcı belgeyi

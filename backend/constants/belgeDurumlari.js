@@ -20,6 +20,8 @@ const BELGE_DURUMLARI = [
   { value: 'onaylandi', label: 'Onaylandı', renk: 'yesil', hex: '#10B981' },
   { value: 'reddedildi', label: 'Reddedildi', renk: 'kirmizi', hex: '#EF4444' },
   { value: 'iptal_edildi', label: 'İptal Edildi', renk: 'gri', hex: '#6B7280' },
+  { value: 'kapatma_irtibat', label: 'Kapatma İrtibat', renk: 'mavi', hex: '#0D9488' },
+  { value: 'kapama_calisma', label: 'Kapama Çalışma', renk: 'mavi', hex: '#4F46E5' },
   { value: 'kapama_talepli', label: 'Kapama Talepli', renk: 'mavi', hex: '#7C3AED' },
   { value: 'kapandi', label: 'Kapandı', renk: 'gri', hex: '#6B7280' },
   { value: 'pasife_alindi', label: 'Pasife Alındı', renk: 'gri', hex: '#94A3B8' }
@@ -27,16 +29,17 @@ const BELGE_DURUMLARI = [
 
 const BELGE_DURUM_DEGERLERI = BELGE_DURUMLARI.map((d) => d.value);
 const PASIF_DURUM = 'pasife_alindi';
+const KAPAMA_SURECI_DURUMLARI = ['kapatma_irtibat', 'kapama_calisma', 'kapama_talepli'];
 
 const durumRengi = (deger) => BELGE_DURUMLARI.find((d) => d.value === deger)?.renk || 'gri';
 const durumEtiketi = (deger) => BELGE_DURUMLARI.find((d) => d.value === deger)?.label || deger || '';
 
 // Revizyon geçmişinden durum türetme bunları ASLA ezmez: kullanıcının bilinçli seçimidir ve
 // revizyon metninden türetilemez (bkz. autoSyncDurumFromRevisions).
-const OTO_SENKRON_DISI_DURUMLAR = ['kapama_talepli', 'kapandi', 'iptal_edildi', PASIF_DURUM];
+const OTO_SENKRON_DISI_DURUMLAR = [...KAPAMA_SURECI_DURUMLARI, 'kapandi', 'iptal_edildi', PASIF_DURUM];
 
 // "Tümü" kapsamlı toplu durum değişikliğinde dokunulmayanlar
-const TOPLU_KORUNAN_DURUMLAR = ['kapama_talepli', 'kapandi', 'iptal_edildi', PASIF_DURUM];
+const TOPLU_KORUNAN_DURUMLAR = [...KAPAMA_SURECI_DURUMLARI, 'kapandi', 'iptal_edildi', PASIF_DURUM];
 
 // Firma pasife alınınca belge bu durumlardaysa olduğu gibi kalır: sonuçlanmış belgedir,
 // "Kapandı"yı "Pasife Alındı" yapmak kapanış bilgisini siler.

@@ -3,6 +3,7 @@
 // Devlet standartları + renk kodlaması + durum takibi
 
 const express = require('express');
+const { BELGE_DURUMLARI, listeDurumKosulu } = require('../constants/belgeDurumlari');
 const router = express.Router();
 
 // Controllers
@@ -276,7 +277,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
     // 🔧 FIX: durum alanı modelde durumBilgileri.genelDurum (durum diye alan yok —
     // bu yüzden Excel'de her şey "taslak" görünüyordu)
     // Listede seçili görünüm (ana liste / arşiv) Excel'e de uygulanır — constants/belgeDurumlari.js
-    Object.assign(filter, require('../constants/belgeDurumlari').listeDurumKosulu({ durum, arsiv }));
+    Object.assign(filter, listeDurumKosulu({ durum, arsiv }));
     if (il) filter['firma.il'] = il;
     if (firma) filter.firma = firma;
     if (search) {
@@ -344,8 +345,9 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       }
     };
     
-    // Durum renk kodlaması (genelDurum enum değerleri)
+    // Yeni durumlar genel paleti kullanır; mevcut Excel renkleri önceliklidir.
     const durumRenkleri = {
+      ...Object.fromEntries(BELGE_DURUMLARI.map(({ value, hex }) => [value, `FF${hex.slice(1)}`])),
       'taslak': 'FFFFD700',              // Altın
       'hazirlaniyor': 'FFFF8C00',        // Turuncu
       'başvuru_yapildi': 'FF9370DB',     // Mor
@@ -368,8 +370,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
       'inceleniyor': 'İnceleniyor', 'ek_belge_istendi': 'Ek Belge İstendi', 'beklemede': 'Beklemede',
       'onay_bekliyor': 'Onay Bekliyor', 'onaylandi': 'Onaylandı', 'reddedildi': 'Reddedildi',
       'revize_talep_edildi': 'Revize Talep Edildi', 'iptal_edildi': 'İptal Edildi', 'tamamlandi': 'Tamamlandı',
-      // tek kaynak: constants/belgeDurumlari.js (kapama talepli, kapandı, pasife alındı …)
-      ...Object.fromEntries(require('../constants/belgeDurumlari').BELGE_DURUMLARI.map((d) => [d.value, d.label]))
+      ...Object.fromEntries(BELGE_DURUMLARI.map(({ value, label }) => [value, label]))
     };
 
     // Ana başlık
@@ -432,7 +433,7 @@ router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule')
             font: {
               ...dataStyle.font,
               bold: true,
-              color: { argb: durum === 'onaylandi' || durum === 'tamamlandi' ? 'FFFFFFFF' : 'FF000000' }
+              color: { argb: ['onaylandi', 'tamamlandi', 'kapama_calisma'].includes(durum) ? 'FFFFFFFF' : 'FF000000' }
             }
           };
         } else {

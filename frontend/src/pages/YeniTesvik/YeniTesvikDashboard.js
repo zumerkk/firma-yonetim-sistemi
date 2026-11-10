@@ -30,6 +30,7 @@ import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
 import axios from '../../utils/axios';
+import { belgeDurumLabel } from '../../utils/belgeDurum';
 import {
   renk, yazi, aralik,
   Panel, SayiKutusu, VeriTablosu, DurumRozeti
@@ -48,10 +49,12 @@ const DURUM_ROZET = {
   basvuru_yapildi: 'beklemede',
   inceleniyor: 'beklemede',
   ek_belge_istendi: 'beklemede',
-  onay_bekliyor: 'beklemede'
+  onay_bekliyor: 'beklemede',
+  kapatma_irtibat: 'beklemede',
+  kapama_calisma: 'beklemede'
 };
 
-const durumEtiketi = (d) => (d ? String(d).replace(/_/g, ' ') : '—');
+const durumEtiketi = (d) => (d ? belgeDurumLabel(d) : '—');
 
 const YeniTesvikDashboard = () => {
   const navigate = useNavigate();

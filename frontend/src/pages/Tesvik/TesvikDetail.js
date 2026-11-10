@@ -26,7 +26,7 @@ import KdvMuafiyetYazisi from '../../components/Tesvik/KdvMuafiyetYazisi';
 
 // API Utils
 import api from '../../utils/axios';
-import { BELGE_DURUM_SECENEKLERI, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
+import { BELGE_DURUM_SECENEKLERI, belgeDurumIlerlemesi, belgeDurumLabel, belgeDurumRengi } from '../../utils/belgeDurum';
 import { revAlanEtiketi, revDegerYaz, revGercekDegisiklikMi } from '../../utils/revizyonGosterim';
 import { useOecdEtiket } from '../../utils/belgeGosterim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
@@ -135,19 +135,6 @@ const TesvikDetail = () => {
 
   // Helper functions
   const getDurumColor = belgeDurumRengi; // tek renk tablosu: utils/belgeDurum.js
-
-  const getDurumProgress = (durum) => {
-    const progress = {
-      'hazirlaniyor': 25,
-      'inceleniyor': 50,
-      'onaylandi': 100,
-      'kapama_talepli': 100,
-      'kapandi': 100,
-      'reddedildi': 0,
-      'beklemede': 10
-    };
-    return progress[durum] || 0;
-  };
 
   const formatDateTime = (date) => {
     if (!date) return '-';
@@ -847,12 +834,12 @@ const TesvikDetail = () => {
                 Belge İlerleme Durumu
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 500, fontSize: '0.8rem' }}>
-                %{getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
+                %{belgeDurumIlerlemesi(tesvik.durumBilgileri?.genelDurum)}
               </Typography>
             </Box>
             <LinearProgress
               variant="determinate"
-              value={getDurumProgress(tesvik.durumBilgileri?.genelDurum)}
+              value={belgeDurumIlerlemesi(tesvik.durumBilgileri?.genelDurum)}
               sx={{
                 height: 6,
                 backgroundColor: 'rgba(255,255,255,0.2)',
@@ -913,7 +900,7 @@ const TesvikDetail = () => {
                     ))}
                   </Select>
                   <Chip
-                    label={`%${getDurumProgress(tesvik.durumBilgileri?.genelDurum)}`}
+                    label={`%${belgeDurumIlerlemesi(tesvik.durumBilgileri?.genelDurum)}`}
                     size="small"
                     sx={{
                       backgroundColor: `${getDurumColor(tesvik.durumBilgileri?.genelDurum)}20`,

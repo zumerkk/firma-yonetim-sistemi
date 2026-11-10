@@ -15,6 +15,8 @@ export const BELGE_DURUM_SECENEKLERI = [
   { value: 'onaylandi', label: 'Onaylandı', renk: '#10B981' },
   { value: 'reddedildi', label: 'Reddedildi', renk: '#EF4444' },
   { value: 'iptal_edildi', label: 'İptal Edildi', renk: '#6B7280' },
+  { value: 'kapatma_irtibat', label: 'Kapatma İrtibat', renk: '#0D9488' },
+  { value: 'kapama_calisma', label: 'Kapama Çalışma', renk: '#4F46E5' },
   { value: 'kapama_talepli', label: 'Kapama Talepli', renk: '#7C3AED' },
   { value: 'kapandi', label: 'Kapandı', renk: '#6B7280' },
   { value: 'pasife_alindi', label: 'Pasife Alındı', renk: '#94A3B8' }
@@ -30,3 +32,17 @@ export const belgeDurumLabel = (deger) => {
 // Durumun ekran rengi (bilinmeyen durum gri)
 export const belgeDurumRengi = (deger) =>
   BELGE_DURUM_SECENEKLERI.find((o) => o.value === deger)?.renk || '#6B7280';
+
+// Başvuru ilerlemesi kapanış sürecine girildiğinde tamamlanmış kalır.
+const BASVURU_ILERLEMESI = {
+  hazirlaniyor: 25,
+  inceleniyor: 50,
+  onaylandi: 100,
+  kapatma_irtibat: 100,
+  kapama_calisma: 100,
+  kapama_talepli: 100,
+  kapandi: 100,
+  beklemede: 10
+};
+
+export const belgeDurumIlerlemesi = (deger) => BASVURU_ILERLEMESI[deger] || 0;
