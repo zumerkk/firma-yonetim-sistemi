@@ -2,7 +2,7 @@
 // Excel benzeri liste görünümü + advanced filtering
 // Renk kodlaması + bulk operations
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Container,
@@ -54,6 +54,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useAuth } from '../../contexts/AuthContext';
+import useTesvikListeGorunumu from '../../hooks/useTesvikListeGorunumu';
 import axios from '../../utils/axios';
 import { BELGE_DURUM_SECENEKLERI } from '../../utils/belgeDurum';
 import BelgeDurumSecici from '../../components/Tesvik/BelgeDurumSecici';
@@ -66,7 +67,15 @@ const YeniTesvikList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [loading, setLoading] = useState(true);
+  const [islemYukleniyor, setIslemYukleniyor] = useState(false);
   const [error, setError] = useState(null);
+  const [listeYenileme, setListeYenileme] = useState(0);
+  const listeIstegi = useRef(0);
+  const yukleniyor = loading || islemYukleniyor;
+  const {
+    filters, siralama, sayfa, anaAlanRef, tabloRef,
+    filtreleriGuncelle, siralamayaGec, sayfayaGec, listedenGit
+  } = useTesvikListeGorunumu(loading);
   
   // 📋 Data States
   const [tesvikler, setTesvikler] = useState([]);
@@ -95,23 +104,10 @@ const YeniTesvikList = () => {
     }
   });
   
-  // 🔍 Filter States
-  // arsiv: '0' ana liste (kapananlar hariç), '1' arşiv — Teşvik Listesi ile aynı (müşteri, 09.10.2026)
-  const [filters, setFilters] = useState({
-    search: '',
-    durum: '',
-    il: '',
-    arsiv: '0'
-  });
-  const [siralama, setSiralama] = useState({ alan: 'belgeYonetimi.uzatimTarihi', yon: 'asc' });
-  const siralamayaGec = (alan) => setSiralama((onceki) => ({
-    alan, yon: onceki.alan === alan && onceki.yon === 'asc' ? 'desc' : 'asc'
-  }));
-
   // 📝 Revizyon İşlemleri
   const handleRevizyonClick = (tesvik) => {
     // Liste modali yerine detay sayfasına git ve revizyon modalini otomatik aç
-    navigate(`/yeni-tesvik/${tesvik._id}?revizyon=1`);
+    listedenGit(`/yeni-tesvik/${tesvik._id}?revizyon=1`);
   };
 
   const handleRevizyonClose = () => {
@@ -144,7 +140,7 @@ const YeniTesvikList = () => {
         handleRevizyonClose();
         
         // Düzenleme sayfasına yönlendir
-        navigate(`/yeni-tesvik/${revizyonDialog.tesvik._id}/duzenle`);
+        listedenGit(`/yeni-tesvik/${revizyonDialog.tesvik._id}/duzenle`);
       }
     } catch (error) {
       console.error('❌ Revizyon ekleme hatası:', error);
@@ -168,38 +164,40 @@ const YeniTesvikList = () => {
   }, []);
 
   // 📊 Teşvik Verilerini Yükle
-  const loadTesvikler = async (page = 1) => {
-    try {
-      setLoading(true);
-      
-      // Teşvik Listesi ile aynı varsayılan: süre uzatım tarihi eskiden yeniye (müşteri, 13.10.2026)
-      const params = new URLSearchParams({
-        sayfa: page,
-        limit: 20,
-        siraBy: siralama.alan,
-        siraSekli: siralama.yon,
-        ...filters
-      });
-
-      const response = await axios.get(`/yeni-tesvik?${params}`);
-      
-      if (response.data.success) {
-        setTesvikler(response.data.data.tesvikler);
-        setPagination(response.data.data.pagination);
-      } else {
-        setError('Teşvikler yüklenemedi');
-      }
-    } catch (error) {
-      console.error('🚨 Teşvik list hatası:', error);
-      setError('Veriler yüklenirken hata oluştu');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const istekNo = ++listeIstegi.current;
+    const loadTesvikler = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const params = new URLSearchParams({
+          sayfa,
+          limit: 20,
+          siraBy: siralama.alan,
+          siraSekli: siralama.yon,
+          ...filters
+        });
+
+        const response = await axios.get(`/yeni-tesvik?${params}`);
+        if (istekNo !== listeIstegi.current) return;
+
+        if (response.data.success) {
+          setTesvikler(response.data.data.tesvikler);
+          setPagination(response.data.data.pagination);
+        } else {
+          setError('Teşvikler yüklenemedi');
+        }
+      } catch (error) {
+        if (istekNo !== listeIstegi.current) return;
+        console.error('🚨 Teşvik list hatası:', error);
+        setError('Veriler yüklenirken hata oluştu');
+      } finally {
+        if (istekNo === listeIstegi.current) setLoading(false);
+      }
+    };
     loadTesvikler();
-  }, [filters, siralama]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { listeIstegi.current += 1; };
+  }, [filters, siralama, sayfa, listeYenileme]);
 
   // 🗑️ SİLME FONKSİYONLARI
   const handleDeleteClick = (tesvik) => {
@@ -238,7 +236,7 @@ const YeniTesvikList = () => {
         handleDeleteCancel();
         
         // Listeyi yenile
-        loadTesvikler(pagination.currentPage);
+        setListeYenileme((sayi) => sayi + 1);
       }
     } catch (error) {
       console.error('🚨 Teşvik silme hatası:', error);
@@ -248,14 +246,11 @@ const YeniTesvikList = () => {
   };
 
   const handleFilterChange = (field, value) => {
-    setFilters(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    filtreleriGuncelle({ [field]: value });
   };
 
   const handlePageChange = (event, newPage) => {
-    loadTesvikler(newPage);
+    sayfayaGec(newPage);
   };
 
   // ✅ Taslak belgeleri toplu 'Onaylandı' yap
@@ -263,24 +258,25 @@ const YeniTesvikList = () => {
   const handleTumunuOnayla = async () => {
     if (!window.confirm('Sadece "Taslak" durumundaki belgeler "Onaylandı" yapılacak.\nKapanmış, iptal edilmiş ve süreçte olan belgelere dokunulmayacak.\n\nDevam edilsin mi?')) return;
     try {
-      setLoading(true);
+      setIslemYukleniyor(true);
       const res = await axios.patch('/yeni-tesvik/bulk-durum', { tumu: true, yeniDurum: 'onaylandi', aciklama: 'Toplu onay' });
       if (res?.data?.success) {
-        await loadTesvikler(1);
+        sayfayaGec(1);
+        setListeYenileme((sayi) => sayi + 1);
         alert(res.data.message || 'Belgeler onaylandı.');
       }
     } catch (error) {
       console.error('Toplu onay hatası:', error);
       alert('Toplu onay başarısız: ' + (error.response?.data?.message || error.message));
     } finally {
-      setLoading(false);
+      setIslemYukleniyor(false);
     }
   };
 
   // 🔧 YENİ EKLENDİ - Toplu Excel Export Handler
   const handleBulkExcelExport = async () => {
     try {
-      setLoading(true);
+      setIslemYukleniyor(true);
       console.log('📊 Toplu Excel export başlatılıyor...');
       
       const response = await axios.get('/yeni-tesvik/bulk-excel-export', {
@@ -313,7 +309,7 @@ const YeniTesvikList = () => {
       console.error('🚨 Toplu Excel export hatası:', error);
       setError('Excel çıktı alınırken hata oluştu: ' + (error.response?.data?.message || error.message || 'Bilinmeyen hata'));
     } finally {
-      setLoading(false);
+      setIslemYukleniyor(false);
     }
   };
 
@@ -350,7 +346,7 @@ const YeniTesvikList = () => {
       )}
 
       {/* Main Content */}
-      <Box component="main" sx={{ 
+      <Box component="main" ref={anaAlanRef} sx={{
         gridArea: 'content',
         overflow: 'auto',
         p: 3
@@ -391,7 +387,7 @@ const YeniTesvikList = () => {
                 size="small"
                 exclusive
                 value={filters.arsiv}
-                onChange={(e, deger) => deger && setFilters((onceki) => ({ ...onceki, arsiv: deger, durum: '' }))}
+                onChange={(e, deger) => deger && filtreleriGuncelle({ arsiv: deger, durum: '' })}
                 sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5, fontWeight: 600, color: '#475569' },
                   '& .Mui-selected': { color: '#fff !important', background: '#047857 !important' } }}
               >
@@ -402,7 +398,7 @@ const YeniTesvikList = () => {
                 variant="outlined"
                 startIcon={<DoneAllIcon />}
                 onClick={handleTumunuOnayla}
-                disabled={loading}
+                disabled={yukleniyor}
                 sx={{
                   color: '#15803d',
                   borderColor: '#16a34a',
@@ -416,7 +412,7 @@ const YeniTesvikList = () => {
                 variant="outlined"
                 startIcon={<TableViewIcon />}
                 onClick={handleBulkExcelExport}
-                disabled={loading}
+                disabled={yukleniyor}
                 sx={{
                   color: '#16a34a',
                   borderColor: '#16a34a',
@@ -433,7 +429,7 @@ const YeniTesvikList = () => {
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
-                onClick={() => navigate('/yeni-tesvik/yeni')}
+                onClick={() => listedenGit('/yeni-tesvik/yeni')}
               >
                 Yeni Teşvik
               </Button>
@@ -502,7 +498,7 @@ const YeniTesvikList = () => {
 
           {/* Table */}
           <Card>
-            <TableContainer component={Paper}>
+            <TableContainer component={Paper} ref={tabloRef}>
               <Table>
                 <TableHead>
                   <TableRow>
@@ -530,7 +526,7 @@ const YeniTesvikList = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {loading ? (
+                  {yukleniyor ? (
                     Array.from({ length: 10 }).map((_, index) => (
                       <TableRow key={index}>
                         {Array.from({ length: 10 }).map((_, cellIndex) => (
@@ -546,7 +542,7 @@ const YeniTesvikList = () => {
                         key={tesvik._id} 
                         hover 
                         // müşteri: "işlemin üstüne tıklayınca açılsın" — küçük ekranlarda düğme aramak zor
-                        onClick={() => navigate(`/yeni-tesvik/${tesvik._id}`)}
+                        onClick={() => listedenGit(`/yeni-tesvik/${tesvik._id}`)}
                         sx={{ cursor: 'pointer', '&:hover': { backgroundColor: '#f8fafc' } }}
                       >
                         <TableCell>
@@ -555,7 +551,7 @@ const YeniTesvikList = () => {
                             <Tooltip title="Görüntüle">
                               <IconButton 
                                 size="small"
-                                onClick={() => navigate(`/yeni-tesvik/${tesvik._id}`)}
+                                onClick={() => listedenGit(`/yeni-tesvik/${tesvik._id}`)}
                               >
                                 <VisibilityIcon fontSize="small" />
                               </IconButton>
@@ -672,7 +668,7 @@ const YeniTesvikList = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
                 <Pagination
                   count={pagination.totalPages}
-                  page={pagination.currentPage}
+                  page={sayfa}
                   onChange={handlePageChange}
                   color="primary"
                 />
