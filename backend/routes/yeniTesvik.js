@@ -3,7 +3,8 @@
 // Dijital dönüşüm + yeşil teknoloji + stratejik yatırım desteği
 
 const express = require('express');
-const { BELGE_DURUMLARI, listeDurumKosulu } = require('../constants/belgeDurumlari');
+const { BELGE_DURUMLARI } = require('../constants/belgeDurumlari');
+const { excelTesvikleriniGetir } = require('../services/tesvik/tesvikListesi');
 const router = express.Router();
 
 // Controllers
@@ -263,40 +264,9 @@ router.get('/:id/revizyon-excel-export', authenticate, checkPermission('raporGor
 // Query params: durum, il, firma, tarihBaslangic, tarihBitis
 router.get('/bulk-excel-export', authenticate, checkPermission('raporGoruntule'), async (req, res) => {
   try {
-    const { durum, arsiv, il, firma, tarihBaslangic, tarihBitis, search, sureDurumu } = req.query;
-    
-    // Filtreleme kriterlerini oluştur
-    let filter = { aktif: true };
-    // ⏳ Listede seçili "süresi dolanlar" süzgeci Excel'e de uygulanır
-    require('../utils/belgeSureFiltresi').sureFiltresiEkle(filter, sureDurumu);
-    
-    // 🔧 FIX: durum alanı modelde durumBilgileri.genelDurum (durum diye alan yok —
-    // bu yüzden Excel'de her şey "taslak" görünüyordu)
-    // Listede seçili görünüm (ana liste / arşiv) Excel'e de uygulanır — constants/belgeDurumlari.js
-    Object.assign(filter, listeDurumKosulu({ durum, arsiv }));
-    if (il) filter['firma.il'] = il;
-    if (firma) filter.firma = firma;
-    if (search) {
-      filter.$or = [
-        { gmId: { $regex: search, $options: 'i' } },
-        { tesvikId: { $regex: search, $options: 'i' } }
-      ];
-    }
-    if (tarihBaslangic || tarihBitis) {
-      filter.olusturmaTarihi = {};
-      if (tarihBaslangic) filter.olusturmaTarihi.$gte = new Date(tarihBaslangic);
-      if (tarihBitis) filter.olusturmaTarihi.$lte = new Date(tarihBitis);
-    }
-
-    const YeniTesvikModel = require('../models/YeniTesvik');
     const ExcelJS = require('exceljs');
+    const tesvikler = await excelTesvikleriniGetir(req.query, 'Yeni');
 
-    // Filtrelenmiş yeni teşvikleri getir (Firma modelindeki gerçek alan adları: tamUnvan/firmaIl)
-    const tesvikler = await YeniTesvikModel.find(filter)
-      .populate('firma', 'tamUnvan vergiNoTC firmaIl')
-      .lean()
-      .limit(1000); // Performans için limit
-    
     if (tesvikler.length === 0) {
       return res.status(404).json({ success: false, message: 'Filtreye uygun teşvik bulunamadı' });
     }

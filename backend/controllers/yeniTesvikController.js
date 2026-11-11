@@ -3,8 +3,9 @@
 // Bonus hesaplamaları + yeni alanlar + mali hesaplamalar + durum yönetimi
 
 const YeniTesvik = require('../models/YeniTesvik');
-const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi, listeDurumKosulu } = require('../constants/belgeDurumlari');
+const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi } = require('../constants/belgeDurumlari');
 const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
+const { tesvikListeFiltresi } = require('../services/tesvik/tesvikListesi');
 const makineRevizyonDeposu = require('../services/makineRevizyonDeposu');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
@@ -296,51 +297,8 @@ const createTesvik = async (req, res) => {
 // 📋 TEŞVİK LİSTESİ (Advanced Filtering + Pagination)
 const getTesvikler = async (req, res) => {
   try {
-    const {
-      sayfa = 1,
-      limit = 20,
-      durum,
-      arsiv, // '1' → kapanan belgeler (Arşiv), '0' → ana liste (bkz. listeDurumKosulu)
-      il,
-      firma,
-      siraBy = 'createdAt',
-      siraSekli = 'desc',
-      tarihBaslangic,
-      tarihBitis,
-      destekSinifi,
-      search,
-      // ⏳ 'gecen' | 'hakki_var' | 'hakki_yok' — süresi dolan belgeler (bkz. utils/belgeSureFiltresi)
-      sureDurumu
-    } = req.query;
-
-    // Build query
-    const query = { aktif: true };
-    require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
-
-    Object.assign(query, listeDurumKosulu({ durum, arsiv }));
-    if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
-    if (firma) query.firma = firma;
-    if (destekSinifi) query['yatirimBilgileri.destekSinifi'] = destekSinifi;
-
-    // Tarih filtresi
-    if (tarihBaslangic || tarihBitis) {
-      query.createdAt = {};
-      if (tarihBaslangic) query.createdAt.$gte = new Date(tarihBaslangic);
-      if (tarihBitis) query.createdAt.$lte = new Date(tarihBitis);
-    }
-
-    // Arama filtresi - Türkçe karakter duyarsız
-    if (search) {
-      const turkishRegex = createTurkishInsensitiveRegex(search);
-      query.$or = [
-        { tesvikId: turkishRegex },
-        { gmId: turkishRegex },
-        { yatirimciUnvan: turkishRegex },
-        { 'yatirimBilgileri.yatirimKonusu': turkishRegex },
-        { 'belgeYonetimi.belgeId': turkishRegex },
-        { 'belgeYonetimi.belgeNo': turkishRegex }
-      ];
-    }
+    const { sayfa = 1, limit = 20, siraBy = 'createdAt', siraSekli = 'desc' } = req.query;
+    const query = tesvikListeFiltresi(req.query);
 
     // Sıralanabilir alanlar — istekten gelen anahtar doğrudan Mongo sort'una konmaz.
     // Müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını, tarihe göre

@@ -137,6 +137,8 @@ const islemTalebiSchema = new mongoose.Schema({
       tur: { type: String, enum: ['ilk', 'devam'], default: 'ilk' },
       konu: { type: String, trim: true, default: '' },
       alicilar: { type: [String], default: [] },
+      cc: { type: [String], default: [] },
+      reddedilenler: { type: [String], default: [] },
       gonderenAdi: { type: String, trim: true, default: '' },
       smtpYaniti: { type: String, trim: true, default: '' }, // mail sunucusunun kabul cevabı (bkz. mailService)
       // Gönderilen içerik — müşteri (23.10.2026): "Devam maili hazırladığımızda linkte en güncel mail içeriği

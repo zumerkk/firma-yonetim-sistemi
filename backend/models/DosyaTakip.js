@@ -319,6 +319,7 @@ const dosyaTakipSchema = new mongoose.Schema({
   firmaMailleri: [new mongoose.Schema({
     alicilar: [{ type: String, trim: true }],
     cc: [{ type: String, trim: true }],
+    reddedilenler: [{ type: String, trim: true }],
     konu: { type: String, trim: true, maxlength: 300 },
     govde: { type: String, maxlength: 8000 },
     ekDosyaAdlari: [{ type: String, trim: true }],

@@ -226,7 +226,7 @@ const createFirma = async (req, res) => {
 
 // Yetki uyarıları yalnız aktif firmalar içindir. Tarih koşulunu arama
 // alanlarının $or grubundan ayrı tutarak iki filtrenin birlikte işlemesini sağla.
-const yetkiUyariFiltresi = (yetkiDurumu) => {
+const yetkiUyariFiltresi = (yetkiDurumu, yetkiTuru) => {
   if (!['expired', 'expiring7', 'expiring30'].includes(yetkiDurumu)) return {};
 
   const bugun = new Date();
@@ -237,15 +237,21 @@ const yetkiUyariFiltresi = (yetkiDurumu) => {
     ? { $lt: bugun, $ne: null }
     : { $gte: bugun, $lte: sonGun };
 
-  return {
-    $and: [{
-      aktif: true,
-      $or: [
-        { etuysYetkiBitisTarihi: tarihAraligi },
-        { dysYetkiBitisTarihi: tarihAraligi }
-      ]
-    }]
-  };
+  const alanlar = yetkiTuru === 'etuys' ? ['etuysYetkiBitisTarihi']
+    : yetkiTuru === 'dys' ? ['dysYetkiBitisTarihi'] : ['etuysYetkiBitisTarihi', 'dysYetkiBitisTarihi'];
+  return { $and: [{ aktif: true, $or: alanlar.map((alan) => ({ [alan]: tarihAraligi })) }] };
+};
+
+const firmaListeFiltresi = ({ aktif = 'true', yetkiDurumu, yetkiTuru, firmaIl, firmaIlce, yabanciSermayeli, anaFaaliyetKonusu }) => {
+  const filter = yetkiUyariFiltresi(yetkiDurumu, yetkiTuru);
+  if (aktif !== 'all') filter.aktif = aktif === 'true';
+  if (typeof firmaIl === 'string' && firmaIl) filter.firmaIl = firmaIl.toUpperCase();
+  if (typeof firmaIlce === 'string' && firmaIlce) filter.firmaIlce = guncelIlceAdi(filter.firmaIl, firmaIlce).toUpperCase();
+  if (yabanciSermayeli === 'true' || yabanciSermayeli === 'false') {
+    filter.yabanciSermayeli = yabanciSermayeli === 'true';
+  }
+  if (typeof anaFaaliyetKonusu === 'string' && anaFaaliyetKonusu) filter.anaFaaliyetKonusu = anaFaaliyetKonusu;
+  return filter;
 };
 
 // 📋 Firma Listesi
@@ -255,38 +261,12 @@ const getFirmalar = async (req, res) => {
       sayfa = 1,
       limit = 10,
       arama = '',
-      firmaIl = '',
-      firmaIlce = '',
-      aktif = 'true',
-      yabanciSermayeli = '',
-      anaFaaliyetKonusu = '',
-      yetkiDurumu = '',
       siralamaSekli = 'createdAt',
       siralamaYonu = 'desc'
     } = req.query;
 
     // Filtreleme kriterleri
-    const filter = yetkiUyariFiltresi(yetkiDurumu);
-
-    if (aktif !== 'all') {
-      filter.aktif = aktif === 'true';
-    }
-
-    if (firmaIl) {
-      filter.firmaIl = firmaIl.toUpperCase();
-    }
-
-    if (firmaIlce) {
-      filter.firmaIlce = guncelIlceAdi(firmaIl, firmaIlce).toUpperCase();
-    }
-
-    if (yabanciSermayeli !== '') {
-      filter.yabanciSermayeli = yabanciSermayeli === 'true';
-    }
-
-    if (anaFaaliyetKonusu) {
-      filter.anaFaaliyetKonusu = anaFaaliyetKonusu;
-    }
+    const filter = firmaListeFiltresi(req.query);
 
     // Arama filtresi - Türkçe karakter duyarsız
     if (arama) {
@@ -302,6 +282,7 @@ const getFirmalar = async (req, res) => {
     // Sıralama
     const sort = {};
     sort[siralamaSekli] = siralamaYonu === 'desc' ? -1 : 1;
+    if (siralamaSekli !== '_id') sort._id = sort[siralamaSekli];
 
     // Sayfalama
     const skip = (parseInt(sayfa) - 1) * parseInt(limit);
@@ -577,14 +558,13 @@ const searchFirmalar = async (req, res) => {
     //
     // Artık liste ile aynı sözleşme: varsayılan 'true' (davranış korunuyor),
     // yetki uyarısı seçilmemişse 'all' ile pasifler de aranır.
-    const { q, field, aktif = 'true', yetkiDurumu = '' } = req.query;
+    const { q, field } = req.query;
 
     if (!q || q.length < 2) {
       return sendError(res, 'Arama terimi en az 2 karakter olmalıdır', 400);
     }
 
-    const filter = yetkiUyariFiltresi(yetkiDurumu);
-    if (aktif !== 'all') filter.aktif = aktif === 'true';
+    const filter = firmaListeFiltresi(req.query);
 
     let firmalar = [];
     const turkishRegex = createTurkishInsensitiveRegex(q);
@@ -672,15 +652,50 @@ const searchByField = async (req, res) => {
   }
 };
 
+// Ana sayfa için tüm personelin görebildiği firma listesinden sınırlı bir özet.
+const getFirmaDashboard = async (req, res) => {
+  try {
+    const uyarilariGetir = async (yetkiTuru, yetkiDurumu) => {
+      const filter = yetkiUyariFiltresi(yetkiDurumu, yetkiTuru);
+      const tarihAlani = yetkiTuru === 'etuys' ? 'etuysYetkiBitisTarihi' : 'dysYetkiBitisTarihi';
+      const [sayi, firmalar] = await Promise.all([
+        Firma.countDocuments(filter),
+        Firma.find(filter).select('firmaId tamUnvan').sort({ [tarihAlani]: 1, _id: 1 }).limit(3).lean()
+      ]);
+      return { yetkiTuru, yetkiDurumu, sayi, firmalar };
+    };
+
+    const [toplamFirma, aktifFirma, yaklasanYetki, suresiGecmisFirmaSayisi, sonEklenenler, yetkiUyarilari] = await Promise.all([
+      Firma.countDocuments(),
+      Firma.countDocuments({ aktif: true }),
+      Firma.countDocuments(yetkiUyariFiltresi('expiring30')),
+      Firma.countDocuments(yetkiUyariFiltresi('expired')),
+      Firma.find({ aktif: true }).select('firmaId tamUnvan firmaIl').sort({ createdAt: -1, firmaId: -1, _id: -1 }).limit(5).lean(),
+      Promise.all([
+        uyarilariGetir('etuys', 'expired'),
+        uyarilariGetir('dys', 'expired'),
+        uyarilariGetir('etuys', 'expiring30'),
+        uyarilariGetir('dys', 'expiring30')
+      ])
+    ]);
+    sendSuccess(res, { toplamFirma, aktifFirma, yaklasanYetki, suresiGecmisFirmaSayisi, sonEklenenler, yetkiUyarilari });
+  } catch (error) {
+    console.error('🚨 Firma ana sayfa özeti hatası:', error);
+    sendError(res, 'Firma özeti yüklenemedi.', 500);
+  }
+};
+
 // 📊 Firma İstatistikleri - ENHANCED VERSION
 const getFirmaStats = async (req, res) => {
   try {
+    const etuysYaklasanFiltresi = yetkiUyariFiltresi('expiring30', 'etuys');
     const [
       basicStats,
       illereBolum,
       faaliyetlereBolum,
       sonEklenenler,
       yaklasanYetkiler,
+      yaklasanYetkiSayisi,
       suresiGecmisFirmaSayisi,
       buAyEklenenler,
       ilSayilari
@@ -711,18 +726,13 @@ const getFirmaStats = async (req, res) => {
         .lean(),
 
       // ETUYS yetkileri yaklaşan firmalar (30 gün içinde)
-      Firma.find({
-        aktif: true,
-        etuysYetkiBitisTarihi: {
-          $gte: new Date(),
-          $lte: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        }
-      })
+      Firma.find(etuysYaklasanFiltresi)
         .select('firmaId tamUnvan etuysYetkiBitisTarihi')
         .sort({ etuysYetkiBitisTarihi: 1 })
         .limit(10)
         .lean(),
 
+      Firma.countDocuments(etuysYaklasanFiltresi),
       Firma.countDocuments(yetkiUyariFiltresi('expired')),
 
       // Bu ay eklenen firmalar
@@ -788,7 +798,7 @@ const getFirmaStats = async (req, res) => {
       suresiGecmisFirmaSayisi,
       etuysUyarilari: {
         yaklaşanSüreler: yaklasanYetkiler,
-        count: yaklasanYetkiler.length
+        count: yaklasanYetkiSayisi
       }
     });
 
@@ -1546,6 +1556,7 @@ module.exports = {
   deleteFirma,
   searchFirmalar,
   searchByField,
+  getFirmaDashboard,
   getFirmaStats,
   getIlIlceListesi,
   getExcelData,

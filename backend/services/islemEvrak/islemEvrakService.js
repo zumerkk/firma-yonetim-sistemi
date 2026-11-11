@@ -15,6 +15,7 @@ const { mailIcerigi, htmlMi, htmlTemizle } = require('../../utils/mailHtml');
 const { ornekDosyalari, ornekDosyayiSec } = require('../../utils/islemEvrakOrnekleri');
 const engine = require('../tesvikMakine/mailTemplateEngine');
 const { DEFAULT_SIGNATURE } = require('../../constants/tesvikMakineMail');
+const { gonderimiYurut, smtpSonucu, ozet } = require('../mailGonderimKaydi');
 
 const KLASOR_KOKU = 'Islem_Evrak';
 
@@ -450,7 +451,9 @@ async function topluZipYaz(talep, res, { icerikAl = zipDosyaIcerigi } = {}) {
 // 📤 Talebi mail olarak gönder (konu/gövde dışarıdan düzenlenmiş gelebilir)
 // serbestEkler: bu maile özel, saklanmayan dosyalar [{ filename, content }] (müşteri, 13.10.2026)
 // serbestDosyalar: aynı dosyaların multer kayıtları — gönderimden sonra depoya konur, linkte görünür
-async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbestEkler = [], serbestDosyalar = [], user }) {
+async function mailGonder(talep, {
+  to, cc = [], subject, body, ekler = [], serbestEkler = [], serbestDosyalar = [], user, istekId, secilen, ekOrnekler, ekleriSec
+}) {
   if (!Array.isArray(to) || to.length === 0) {
     const e = new Error('Gönderim için alıcı e-posta adresi yok.'); e.code = 'NO_RECIPIENT'; throw e;
   }
@@ -460,12 +463,35 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
     const e = new Error('Konu ve içerik boş olamaz.'); e.code = 'EMPTY_CONTENT'; throw e;
   }
 
-  // Ekler: istenen evrakların örnek dosyaları (bkz. ekleriHazirla) + bu maile özel dosyalar
-  const { attachments, atlananEkler } = await ekleriHazirla(ekler);
-  attachments.push(...serbestEkler);
+  return gonderimiYurut({
+    kapsam: 'islem-evrak', talepId: talep._id, istekId,
+    icerik: {
+      to, cc, subject, body, secilen, ekOrnekler,
+      serbestEkler: serbestEkler.map((e) => [e.filename, ozet(e.content)])
+    },
+    hazirla: async () => {
+      const hazir = await ekleriHazirla(ekleriSec ? ekleriSec() : ekler);
+      // Bir ek açıkça seçildiyse okunamadığında kullanıcı seçimi değiştirebilsin.
+      // Eski istemcilerin hiç seçim göndermediği akışta mevcut otomatik ek davranışı sürer.
+      if (Array.isArray(secilen) && hazir.atlananEkler.length) {
+        throw Object.assign(new Error(`Şu ek(ler) kaynaktan alınamadı, mail gönderilmedi: ${hazir.atlananEkler.join(', ')}`), { status: 502 });
+      }
+      hazir.attachments.push(...serbestEkler);
+      return hazir;
+    },
+    gonder: async ({ attachments, atlananEkler }) => {
+      const gonderim = await mailService.sendMail({ to, cc, subject, text, html, attachments });
+      const { alicilar, cc: kabulCc, kabulEdilenler, reddedilenler } = smtpSonucu(gonderim, to, cc);
+      return {
+        alicilar, kabulCc, gonderim,
+        sonuc: { sent: true, ekSayisi: attachments.length, atlananEkler, kabulEdilenler, reddedilenler }
+      };
+    },
+    kaydet: async (teslim) => mailGecmisiniKaydet(talep, { subject, body, html, serbestDosyalar, user, ...teslim })
+  });
+}
 
-  const gonderim = await mailService.sendMail({ to, cc, subject, text, html, attachments });
-
+async function mailGecmisiniKaydet(talep, { subject, body, html, serbestDosyalar, user, alicilar, kabulCc, gonderim, sonuc }) {
   // Maile özel ekler linkte de indirilebilsin diye saklanır. Mail ÖNCE gider: depolama hatası gönderimi
   // geri almaz, kullanıcıya hangi ekin linke eklenemediği söylenir.
   const yeniEkler = [];
@@ -473,37 +499,52 @@ async function mailGonder(talep, { to, cc = [], subject, body, ekler = [], serbe
   for (const dosya of serbestDosyalar || []) {
     try {
       const kayit = await dosyaKaydet(talep, dosya, 'Mail_Ekleri');
-      talep.mailEkleri.push({
+      yeniEkler.push({
         dosyaAdi: kayit.orijinalAd, fileUrl: kayit.fileUrl, filePath: kayit.filePath,
         mimeType: kayit.mimeType, fileSize: kayit.fileSize, tarih: new Date()
       });
-      yeniEkler.push(talep.mailEkleri[talep.mailEkleri.length - 1]._id);
     } catch (e) {
       console.error('🚨 [islemEvrak] mail eki linke kaydedilemedi:', e && e.message);
       linkeEklenemeyen.push(dosyaAdiDuzelt(dosya.originalname));
     }
   }
 
-  // İlk gönderimden sonraki her mail "devam" — aynı bağlantıyla giden ikinci, üçüncü mail
-  talep.mailGecmisi = [...(talep.mailGecmisi || []), {
-    tarih: new Date(), tur: (talep.mailGonderimSayisi || 0) > 0 ? 'devam' : 'ilk',
-    konu: String(subject).slice(0, 300), alicilar: to, gonderenAdi: user?.adSoyad || '',
-    smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300),
-    govde: String(html || body || '').slice(0, 60000),
-    ekIdler: yeniEkler
-  }].slice(-50);
-  talep.sonGonderilenMail = { konu: subject, govde: html || body, tarih: new Date() };
-  talep.mailKonusu = subject;
-  talep.mailGovdesi = html || body;
-  talep.mailAlicilar = to;
-  talep.mailCc = cc;
-  talep.sonMailTarihi = new Date();
-  talep.mailGonderimSayisi = (talep.mailGonderimSayisi || 0) + 1;
-  talep.sonGuncelleyen = user ? user._id : talep.sonGuncelleyen;
-  talep.sonMailGonderen = user ? user._id : talep.sonMailGonderen;
-  talep.durumTazele();
-  await talep.save();
-  return { sent: true, ekSayisi: attachments.length, atlananEkler, linkeEklenemeyen };
+  const tarih = new Date();
+  try {
+    for (let deneme = 0; deneme < 3; deneme += 1) {
+      const guncel = deneme === 0 ? talep : await IslemTalebi.findById(talep._id);
+      const ekIdler = yeniEkler.map((ek) => {
+        const kayit = guncel.mailEkleri.create(ek);
+        guncel.mailEkleri.push(kayit);
+        return kayit._id;
+      });
+      guncel.mailGecmisi = [...guncel.mailGecmisi, {
+        tarih, tur: (guncel.mailGonderimSayisi || 0) > 0 ? 'devam' : 'ilk',
+        konu: String(subject).slice(0, 300), alicilar, cc: kabulCc, reddedilenler: sonuc.reddedilenler,
+        gonderenAdi: user?.adSoyad || '', smtpYaniti: String(gonderim?.response || '').slice(0, 300),
+        govde: String(html || body || '').slice(0, 60000), ekIdler
+      }].slice(-50);
+      guncel.sonGonderilenMail = { konu: subject, govde: html || body, tarih };
+      guncel.mailKonusu = subject;
+      guncel.mailGovdesi = html || body;
+      guncel.mailAlicilar = alicilar;
+      guncel.mailCc = kabulCc;
+      guncel.sonMailTarihi = tarih;
+      guncel.mailGonderimSayisi = (guncel.mailGonderimSayisi || 0) + 1;
+      if (user) guncel.sonGuncelleyen = guncel.sonMailGonderen = user._id;
+      guncel.durumTazele();
+      try {
+        await guncel.save();
+        return { linkeEklenemeyen };
+      } catch (error) {
+        if (error.name !== 'VersionError' || deneme === 2) throw error;
+      }
+    }
+  } catch (error) {
+    // Mongo yazımı onaylanmamış olabilir. Eki silmek olası bir linki kırar.
+    error.linkeEklenemeyen = [...linkeEklenemeyen, ...yeniEkler.map((e) => e.dosyaAdi)];
+    throw error;
+  }
 }
 
 /**

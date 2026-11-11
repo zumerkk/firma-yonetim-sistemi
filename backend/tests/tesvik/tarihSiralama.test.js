@@ -89,8 +89,12 @@ test('birleşik arama uçtan uca iki sistemde tarih sırasını limitten önce u
   });
   await Tesvik.collection.insertMany([kayit('ESKI-GEC', '2028-01-01'), kayit('ESKI-YAKIN', '2026-01-01'), kayit('ESKI-BOS')]);
   await YeniTesvik.collection.insertMany([kayit('YENI-YAKIN', '2027-01-01'), kayit('YENI-BOS')]);
-  const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
-  await birlesikFirmaArama({ query: { q: 'SIRALAMA', limit: '1', siraBy: 'belgeYonetimi.uzatimTarihi', siraSekli: 'asc' } }, res);
-  expect(res.status).not.toHaveBeenCalled();
-  expect(res.json.mock.calls[0][0].data.tesvikler.map((b) => b.tesvikId)).toEqual(['ESKI-YAKIN', 'YENI-YAKIN']);
+  for (const [sayfa, belge] of [[1, 'ESKI-YAKIN'], [2, 'YENI-YAKIN'], [3, 'ESKI-GEC']]) {
+    const res = { status: jest.fn().mockReturnThis(), json: jest.fn() };
+    await birlesikFirmaArama({ query: { q: 'SIRALAMA', sayfa, limit: '1', siraBy: 'belgeYonetimi.uzatimTarihi', siraSekli: 'asc' } }, res);
+    expect(res.status).not.toHaveBeenCalled();
+    const { tesvikler, pagination } = res.json.mock.calls[0][0].data;
+    expect(tesvikler.map((b) => b.tesvikId)).toEqual([belge]);
+    expect(pagination).toMatchObject({ currentPage: sayfa, totalCount: 5, totalPages: 5 });
+  }
 });

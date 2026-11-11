@@ -40,9 +40,9 @@ const wrap = (fn) => (req, res) => Promise.resolve(fn(req, res)).catch((err) => 
     return res.status(400).json({ success: false, message: dogrulamaMesaji(err), code: 'BAD_INPUT' });
   }
   const kod = err.code || '';
-  const durum = ['FIRMA_NOT_FOUND', 'TUR_NOT_FOUND', 'TALEP_NOT_FOUND'].includes(kod) ? 404
+  const durum = err.status || (['FIRMA_NOT_FOUND', 'TUR_NOT_FOUND', 'TALEP_NOT_FOUND'].includes(kod) ? 404
     : kod === 'ORNEK_KAYIT_CAKISMASI' ? 409
-      : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500;
+      : ['NO_RECIPIENT', 'EMPTY_CONTENT', 'BAD_INPUT'].includes(kod) ? 400 : 500);
   if (durum === 500) console.error('🚨 [islemEvrak]', err && (err.stack || err.message));
   res.status(durum).json({ success: false, message: err.message || 'İşlem başarısız', code: kod });
 });
@@ -349,11 +349,12 @@ exports.talepMailOnizle = wrap(async (req, res) => {
   const firma = await Firma.findById(talep.firma).select('tamUnvan vergiNoTC firmaEmail').lean();
   const dosyaTakip = talep.dosyaTakip ? await require('../models/DosyaTakip').findById(talep.dosyaTakip).select('ytbNo takipId').lean() : null;
   const { konu, govde } = svc.mailOlustur({ talep, sablon, uploadLink, firma, dosyaTakip });
+  const sablondan = String(req.query.sablon) === '1';
   res.json({
     success: true,
     data: {
-      subject: talep.mailKonusu || konu,
-      body: talep.mailGovdesi || govde,
+      subject: (!sablondan && talep.mailKonusu) || konu,
+      body: (!sablondan && talep.mailGovdesi) || govde,
       to: talep.mailAlicilar || [],
       cc: talep.mailCc || [],
       uploadLink,
@@ -367,12 +368,18 @@ exports.talepMailOnizle = wrap(async (req, res) => {
 
 exports.talepMailGonder = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
-  const { to, cc, subject, body } = req.body || {};
+  const { to, cc, subject, body, istekId } = req.body || {};
   // Bu maile özel dosya eklenince istek çok parçalı gelir; dizi alanı metin (JSON) olarak taşınır
-  let { ekEvrakIdler } = req.body || {};
-  if (typeof ekEvrakIdler === 'string') {
-    try { ekEvrakIdler = JSON.parse(ekEvrakIdler); } catch (_) { ekEvrakIdler = null; }
-  }
+  const diziOku = (deger) => {
+    if (deger === undefined) return null;
+    if (typeof deger === 'string') {
+      try { deger = JSON.parse(deger); } catch (_) { deger = null; }
+    }
+    if (Array.isArray(deger) && deger.every((item) => typeof item === 'string')) return [...new Set(deger)].sort();
+    throw Object.assign(new Error('Ek dosya seçimi geçersiz.'), { code: 'BAD_INPUT' });
+  };
+  const secilen = diziOku(req.body?.ekEvrakIdler);
+  const ekOrnekler = diziOku(req.body?.ekOrnekler);
   const parseList = (v) => (Array.isArray(v) ? v : String(v || '').split(/[;,\s]+/))
     .map((s) => String(s).trim()).filter((s) => s.includes('@'));
 
@@ -380,18 +387,31 @@ exports.talepMailGonder = wrap(async (req, res) => {
   // Müşteri (21.09.2026): "Sisteme örneği yüklenmiş bir evrağı mailde istemesek bile, o örnek dosya
   // maile ek olarak gitmeye devam ediyor. İstenmeyen evrakların örnekleri maile eklenmemeli."
   // "Mailde iste" işareti kalkmış evrakın örneği, arayüz ne gönderirse göndersin eklenmez.
-  const secilen = Array.isArray(ekEvrakIdler) ? ekEvrakIdler.map(String) : null;
-  const ekler = svc.ekliOrnekler(talep.istenenEvraklar)
-    .filter((e) => !secilen || secilen.includes(String(e._id)))
-    .flatMap((e) => svc.ornekDosyalari(e));
+  const ekleriSec = () => {
+    const evraklar = talep.istenenEvraklar || [];
+    const satirDegisti = secilen?.some((id) => {
+      const evrak = evraklar.find((e) => String(e._id) === id);
+      return !evrak || (evrak.zorunlu !== false && !svc.ornekDosyalari(evrak).length);
+    });
+    const ekli = svc.ekliOrnekler(evraklar).filter((e) => !secilen || secilen.includes(String(e._id)));
+    const kayitliOrnekler = [...new Set(ekli.flatMap((e) => svc.ornekDosyalari(e)
+      .map((o) => JSON.stringify([String(e._id), o.fileUrl || '', o.filePath || '', o.dosyaAdi || '']))))].sort();
+    if (satirDegisti || (ekOrnekler && JSON.stringify(ekOrnekler) !== JSON.stringify(kayitliOrnekler))) {
+      throw Object.assign(new Error('Seçilen örneklerden biri değişmiş. Ek listesini kontrol edin. Mail gönderilmedi.'), {
+        status: 409, code: 'MAIL_EK_DEGISTI'
+      });
+    }
+    return ekli.flatMap((e) => svc.ornekDosyalari(e));
+  };
 
   // multer Türkçe adı latin1 çözüyor — alıcıya düzgün adla gitsin
   const serbestEkler = (req.uploadedFiles || []).map((f) => ({ filename: dosyaAdiDuzelt(f.originalname), content: f.buffer }));
   const sonuc = await svc.mailGonder(talep, {
-    to: parseList(to), cc: parseList(cc), subject, body, ekler, serbestEkler,
+    to: parseList(to), cc: parseList(cc), subject, body, istekId, secilen, ekOrnekler, ekleriSec, serbestEkler,
     serbestDosyalar: req.uploadedFiles || [], user: req.user
   });
-  res.json({ success: true, data: { ...sonuc, talep }, message: 'Mail gönderildi' });
+  const guncelTalep = await IslemTalebi.findById(talep._id).catch(() => null);
+  res.json({ success: true, data: { ...sonuc, talep: guncelTalep }, message: 'SMTP maili kabul etti' });
 });
 
 // İstenen evraka örnek/şablon dosya yükle (firmaya bu dosya gönderilir)
@@ -488,12 +508,12 @@ exports.talepYuklenenSil = wrap(async (req, res) => {
   const talep = await talepBul(req.params.id);
   const dosya = talep.yuklenenEvraklar.id(req.params.dosyaId);
   if (!dosya) { const e = new Error('Dosya bulunamadı.'); e.code = 'BAD_INPUT'; throw e; }
-  try {
-    await storageService.deleteFile({ fileUrl: dosya.fileUrl, filePath: dosya.filePath });
-  } catch (err) { console.warn('⚠️ [islemEvrak] dosya silinemedi:', err && err.message); }
   dosya.deleteOne();
   talep.durumTazele();
   await talep.save();
+  try {
+    await storageService.deleteFile({ fileUrl: dosya.fileUrl, filePath: dosya.filePath });
+  } catch (err) { console.warn('⚠️ [islemEvrak] dosya silinemedi:', err && err.message); }
   res.json({ success: true, data: talep, message: 'Dosya silindi' });
 });
 

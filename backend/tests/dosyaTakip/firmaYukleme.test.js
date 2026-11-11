@@ -57,6 +57,8 @@ const belgeTakipYuklemeRoutes = require('../../routes/belgeTakipYukleme');
 const DosyaTakip = require('../../models/DosyaTakip');
 const Firma = require('../../models/Firma');
 const Notification = require('../../models/Notification');
+const mail = require('../../services/tesvikMakine/mailService');
+const parcaliDosya = require('../../utils/parcaliDosya');
 
 jest.setTimeout(60000);
 
@@ -256,4 +258,44 @@ describe('firma yükleme sayfası (herkese açık)', () => {
     const personelDosyasi = new DosyaTakip({ firma: firmaA, talepTuru: 'Belge Başvuru Talebi', dosyalar: [{ dosyaAdi: 'a.pdf', dosyaYolu: 'x' }] });
     expect(personelDosyasi.dosyalar[0].firmaYukledi).toBe(false);
   });
+});
+
+test('silinmiş ek maili durdurur, kısmi SMTP kabulü ve tekrar istek doğru kaydedilir', async () => {
+  const config = jest.spyOn(mail, 'isConfigured').mockReturnValue(true);
+  mail.sendMail.mockResolvedValue({ accepted: ['firma@example.invalid'], rejected: ['red@example.invalid'], response: '250 OK' });
+  const gonder = (ekler) => request(app).post(`/api/dosya-takip/${talepA}/firma-mail`).send({
+    alici: 'firma@example.invalid', cc: 'red@example.invalid', konu: 'Son durum', govde: 'Belge Takip maili',
+    istekId: 'belge-takip-istek-1', dosyaIdler: ekler
+  });
+  try {
+    const eksik = await gonder([new ObjectId().toString()]).expect(409);
+    expect(eksik.body.code).toBe('MAIL_EK_DEGISTI');
+    expect(mail.sendMail).not.toHaveBeenCalled();
+    const sonuc = await gonder([]).expect(200);
+    expect(sonuc.body).toMatchObject({
+      sent: true, kabulEdilenler: ['firma@example.invalid'], reddedilenler: ['red@example.invalid'], gecmisKaydedildi: true
+    });
+    await gonder([]).expect(200);
+    expect(mail.sendMail).toHaveBeenCalledTimes(1);
+    const gecmis = (await DosyaTakip.findById(talepA).lean()).firmaMailleri;
+    expect(gecmis).toHaveLength(1);
+    expect(gecmis[0]).toMatchObject({ alicilar: ['firma@example.invalid'], cc: [], reddedilenler: ['red@example.invalid'] });
+  } finally { config.mockRestore(); mail.sendMail.mockReset(); }
+});
+
+test('dosya kaydı silinemediğinde depo kopyası ve veritabanı kaydı durur', async () => {
+  const dosya = (await DosyaTakip.findById(talepA).lean()).dosyalar[0];
+  const depo = jest.spyOn(parcaliDosya, 'sil').mockResolvedValue();
+  const kayit = jest.spyOn(DosyaTakip.prototype, 'save').mockRejectedValueOnce(new Error('DB yazma hatası'));
+  const log = jest.spyOn(console, 'error').mockImplementation(() => {});
+  try {
+    const yol = `/api/dosya-takip/${talepA}/dosya`;
+    const govde = { alan: 'dosyalar', dosyaId: String(dosya._id) };
+    await request(app).delete(yol).send(govde).expect(500);
+    expect(depo).not.toHaveBeenCalled();
+    expect((await DosyaTakip.findById(talepA)).dosyalar.id(dosya._id)).toBeTruthy();
+    await request(app).delete(yol).send(govde).expect(200);
+    expect(depo).toHaveBeenCalledWith(dosya.cloudinaryPublicId, { resourceType: 'raw' });
+    expect((await DosyaTakip.findById(talepA)).dosyalar.id(dosya._id)).toBeNull();
+  } finally { depo.mockRestore(); kayit.mockRestore(); log.mockRestore(); }
 });

@@ -15,6 +15,7 @@ const { SIRALANABILIR, siralamaCoz, talepleriSirala } = require('../services/dos
 const { cariSuzgecleriniCoz, cariKosullari } = require('../services/dosyaTakip/cariSuzgeci');
 const notBildirimi = require('../services/dosyaTakip/notBildirimi');
 const { talepAcik } = require('../services/dosyaTakip/mukerrerTalep');
+const { gonderimiYurut, smtpSonucu } = require('../services/mailGonderimKaydi');
 
 const mukerrerCevabi = (res, mevcut) => res.status(409).json({
     success: false, kod: 'MUKERRER_ACIK_TALEP',
@@ -1517,21 +1518,22 @@ exports.dosyaSil = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Dosya bulunamadı' });
         }
 
-        // Cloudinary'den sil (varsa public_id). resource_type, dosya tipinden çıkarılır
-        // (destroy 'auto' desteklemez; resim → image, diğerleri → raw). Parçalı dosyada parçalar da gider.
-        if (silinecek.cloudinaryPublicId) {
-            await parcaliDosya.sil(silinecek.cloudinaryPublicId, {
-                resourceType: /^image\//.test(silinecek.dosyaTipi || '') ? 'image' : 'raw'
-            });
-        }
-
-        target[lastPart] = target[lastPart].filter(d => d._id?.toString() !== dosyaId);
+        target[lastPart].pull(silinecek._id);
 
         talep.sonGuncelleyen = req.user._id;
         talep.sonGuncelleyenAdi = req.user.adSoyad;
         await talep.save();
 
-        res.json({ success: true, data: await populateTalep(talep._id), message: 'Dosya silindi' });
+        // Depo kopyası yalnız kayıt başarıyla kaldırıldıktan sonra silinir.
+        if (silinecek.cloudinaryPublicId) {
+            try {
+                await parcaliDosya.sil(silinecek.cloudinaryPublicId, {
+                    resourceType: /^image\//.test(silinecek.dosyaTipi || '') ? 'image' : 'raw'
+                });
+            } catch (error) { console.warn('Dosyanın depo kopyası silinemedi:', error.message); }
+        }
+        const data = await populateTalep(talep._id).catch(() => null);
+        res.json({ success: true, data: data || talep, message: 'Dosya silindi' });
     } catch (error) {
         console.error('Dosya silme hatası:', error);
         res.status(500).json({ success: false, message: 'Dosya silinirken hata oluştu', error: error.message });
@@ -1822,10 +1824,6 @@ exports.firmaMailTaslak = async (req, res) => {
 exports.firmaMailGonder = async (req, res) => {
     try {
         const mailService = require('../services/tesvikMakine/mailService');
-        if (!mailService.isConfigured()) {
-            return res.status(400).json({ success: false, message: 'SMTP yapılandırması eksik. Sunucu ayarlarını kontrol edin.' });
-        }
-
         const talep = await DosyaTakip.findById(req.params.id);
         if (!talep) return res.status(404).json({ success: false, message: 'Talep bulunamadı' });
 
@@ -1839,47 +1837,68 @@ exports.firmaMailGonder = async (req, res) => {
         if (!konu) return res.status(400).json({ success: false, message: 'Mail konusu boş olamaz.' });
         if (!govde) return res.status(400).json({ success: false, message: 'Mail metni boş olamaz.' });
 
-        // Ekler: talebin MEVCUT dosyalarından seçilenler
-        const seciliIdler = Array.isArray(req.body.dosyaIdler) ? req.body.dosyaIdler.map(String) : [];
-        const attachments = [];
-        const eklenemeyenler = [];
-        for (const dosya of (talep.dosyalar || [])) {
-            if (!seciliIdler.includes(String(dosya._id))) continue;
-            const icerik = await ekIcinDosyaCek(dosya);
-            // Ek çekilemezse SESSİZ geçmiyoruz: kullanıcı "ek gitti" sanmasın
-            if (icerik) attachments.push({ filename: dosya.dosyaAdi, content: icerik });
-            else eklenemeyenler.push(dosya.dosyaAdi);
+        if (konu.length > 300 || govde.length > 8000) {
+            return res.status(400).json({ success: false, message: 'Konu en fazla 300, mail metni en fazla 8000 karakter olabilir.' });
         }
-        if (eklenemeyenler.length) {
-            return res.status(502).json({
-                success: false,
-                message: `Şu ek(ler) kaynaktan alınamadı, mail gönderilmedi: ${eklenemeyenler.join(', ')}`
-            });
+        if (req.body.dosyaIdler !== undefined && !Array.isArray(req.body.dosyaIdler)) {
+            return res.status(400).json({ success: false, message: 'Ek dosya seçimi geçersiz.' });
         }
-
-        const gonderim = await mailService.sendMail({ to: alicilar, cc, subject: konu, text: govde, attachments });
-
-        // İz kaydı — "firmaya ne yazmıştık, ne zaman" sonradan cevaplanabilsin
-        talep.firmaMailleri.push({
-            alicilar, cc, konu, govde,
-            ekDosyaAdlari: attachments.map((a) => a.filename),
-            gonderen: req.user._id,
-            gonderenAdi: req.user.adSoyad,
-            tarih: new Date(),
-            smtpYaniti: String((gonderim && gonderim.response) || '').slice(0, 300)
+        const seciliIdler = [...new Set((req.body.dosyaIdler || []).map(String))].sort();
+        const sonuc = await gonderimiYurut({
+            kapsam: 'dosya-takip', talepId: talep._id, istekId: req.body.istekId,
+            icerik: { alicilar, cc, konu, govde, seciliIdler },
+            hazirla: async () => {
+                if (!mailService.isConfigured()) {
+                    throw Object.assign(new Error('SMTP yapılandırması eksik. Sunucu ayarlarını kontrol edin.'), { status: 400 });
+                }
+                const dosyalar = (talep.dosyalar || []).filter((d) => seciliIdler.includes(String(d._id)));
+                if (dosyalar.length !== seciliIdler.length) {
+                    throw Object.assign(new Error('Seçilen eklerden biri artık talepte bulunmuyor. Ek listesini kontrol edin. Mail gönderilmedi.'), {
+                        status: 409, code: 'MAIL_EK_DEGISTI'
+                    });
+                }
+                const attachments = [];
+                const eklenemeyenler = [];
+                for (const dosya of dosyalar) {
+                    const icerik = await ekIcinDosyaCek(dosya);
+                    if (icerik) attachments.push({ filename: dosya.dosyaAdi, content: icerik });
+                    else eklenemeyenler.push(dosya.dosyaAdi);
+                }
+                if (eklenemeyenler.length) {
+                    throw Object.assign(new Error(`Şu ek(ler) kaynaktan alınamadı, mail gönderilmedi: ${eklenemeyenler.join(', ')}`), { status: 502 });
+                }
+                return attachments;
+            },
+            gonder: async (attachments) => {
+                const gonderim = await mailService.sendMail({ to: alicilar, cc, subject: konu, text: govde, attachments });
+                const { alicilar: kabulAlicilar, cc: kabulCc, kabulEdilenler, reddedilenler } = smtpSonucu(gonderim, alicilar, cc);
+                return {
+                    kabulAlicilar, kabulCc, gonderim,
+                    sonuc: { sent: true, kabulEdilenler, reddedilenler, ekSayisi: attachments.length }
+                };
+            },
+            kaydet: async ({ kabulAlicilar, kabulCc, gonderim, sonuc }, attachments) => {
+                talep.firmaMailleri.push({
+                    alicilar: kabulAlicilar, cc: kabulCc, reddedilenler: sonuc.reddedilenler, konu, govde,
+                    ekDosyaAdlari: attachments.map((a) => a.filename),
+                    gonderen: req.user._id, gonderenAdi: req.user.adSoyad, tarih: new Date(),
+                    smtpYaniti: String(gonderim?.response || '').slice(0, 300)
+                });
+                talep.sonGuncelleyen = req.user._id;
+                talep.sonGuncelleyenAdi = req.user.adSoyad;
+                await talep.save();
+            }
         });
-        talep.sonGuncelleyen = req.user._id;
-        talep.sonGuncelleyenAdi = req.user.adSoyad;
-        await talep.save();
 
         res.json({
-            success: true,
-            message: `Mail gönderildi (${alicilar.length} alıcı${attachments.length ? `, ${attachments.length} ek` : ''})`,
-            data: await populateTalep(talep._id)
+            success: true, ...sonuc,
+            message: `SMTP maili kabul etti (${sonuc.kabulEdilenler.length} adres${sonuc.ekSayisi ? `, ${sonuc.ekSayisi} ek` : ''})`,
+            data: await populateTalep(talep._id).catch(() => null)
         });
     } catch (error) {
-        console.error('Firma mail gönderme hatası:', error);
-        res.status(500).json({ success: false, message: error.message || 'Mail gönderilemedi' });
+        const durum = error.status || 500;
+        if (durum === 500) console.error('Firma mail gönderme hatası:', error);
+        res.status(durum).json({ success: false, code: error.code, message: error.message || 'Mail gönderilemedi' });
     }
 };
 

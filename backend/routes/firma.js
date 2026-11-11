@@ -13,6 +13,7 @@ const {
   updateFirma,
   deleteFirma,
   searchFirmalar,
+  getFirmaDashboard,
   getFirmaStats,
   getExcelData,
   exportExcel,
@@ -33,6 +34,8 @@ router.get('/next-id', authenticate, getNextFirmaId);
 
 // 📊 GET /api/firma/stats - Firma istatistikleri (Admin)
 router.get('/stats', authenticate, authorize('admin'), getFirmaStats);
+
+router.get('/dashboard', authenticate, getFirmaDashboard);
 
 // 📤 GET /api/firma/excel-data - Excel Export Data (Admin) - ESKİ VERSION
 router.get('/excel-data', authenticate, authorize('admin'), getExcelData);
@@ -73,4 +76,4 @@ router.delete('/:id',
   deleteFirma
 );
 
-module.exports = router; 
+module.exports = router;

@@ -105,6 +105,10 @@ async function sendMail({ to, cc, subject, text, html, attachments = [] }) {
     const friendly = new Error(humanizeSmtpError(error));
     friendly.code = error && error.code ? error.code : 'SMTP_SEND_FAILED';
     friendly.original = error && error.message;
+    // Açık SMTP reddi veya DATA'dan önceki hata, mesajın kabul edilmediğini gösterir.
+    const command = String(error?.command || '').toUpperCase();
+    friendly.kesinGonderilmedi = Number(error?.responseCode) >= 400
+      || /^(CONN|EHLO|HELO|STARTTLS|AUTH(?: .*)?|MAIL FROM|RCPT TO)$/.test(command);
     throw friendly;
   }
 

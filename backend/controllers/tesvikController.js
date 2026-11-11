@@ -3,8 +3,9 @@
 // Mali hesaplamalar + renk kodlaması + durum yönetimi + revizyon takibi
 
 const Tesvik = require('../models/Tesvik');
-const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi, listeDurumKosulu } = require('../constants/belgeDurumlari');
+const { BELGE_DURUMLARI, OTO_SENKRON_DISI_DURUMLAR, TOPLU_KORUNAN_DURUMLAR, durumRengi } = require('../constants/belgeDurumlari');
 const firmaPasifBelgeleri = require('../services/tesvik/firmaPasifBelgeleri');
+const { tesvikListeFiltresi, birlesikSistemler, birlesikTesvikleriGetir } = require('../services/tesvik/tesvikListesi');
 const makineRevizyonDeposu = require('../services/makineRevizyonDeposu');
 const Firma = require('../models/Firma');
 const Activity = require('../models/Activity');
@@ -243,51 +244,8 @@ const createTesvik = async (req, res) => {
 // 📋 TEŞVİK LİSTESİ (Advanced Filtering + Pagination)
 const getTesvikler = async (req, res) => {
   try {
-    const {
-      sayfa = 1,
-      limit = 20,
-      durum,
-      arsiv, // '1' → kapanan belgeler (Arşiv), '0' → ana liste (bkz. listeDurumKosulu)
-      il,
-      firma,
-      siraBy = 'createdAt',
-      siraSekli = 'desc',
-      tarihBaslangic,
-      tarihBitis,
-      destekSinifi,
-      search,
-      // ⏳ 'gecen' | 'hakki_var' | 'hakki_yok' — süresi dolan belgeler (bkz. utils/belgeSureFiltresi)
-      sureDurumu
-    } = req.query;
-
-    // Build query
-    const query = { aktif: true };
-    require('../utils/belgeSureFiltresi').sureFiltresiEkle(query, sureDurumu);
-
-    Object.assign(query, listeDurumKosulu({ durum, arsiv }));
-    if (il) query['yatirimBilgileri.yerinIl'] = il.toUpperCase();
-    if (firma) query.firma = firma;
-    if (destekSinifi) query['yatirimBilgileri.destekSinifi'] = destekSinifi;
-
-    // Tarih filtresi
-    if (tarihBaslangic || tarihBitis) {
-      query.createdAt = {};
-      if (tarihBaslangic) query.createdAt.$gte = new Date(tarihBaslangic);
-      if (tarihBitis) query.createdAt.$lte = new Date(tarihBitis);
-    }
-
-    // Arama filtresi - Türkçe karakter duyarsız
-    if (search) {
-      const turkishRegex = createTurkishInsensitiveRegex(search);
-      query.$or = [
-        { tesvikId: turkishRegex },
-        { gmId: turkishRegex },
-        { yatirimciUnvan: turkishRegex },
-        { 'yatirimBilgileri.yatirimKonusu': turkishRegex },
-        { 'belgeYonetimi.belgeId': turkishRegex },
-        { 'belgeYonetimi.belgeNo': turkishRegex }
-      ];
-    }
+    const { sayfa = 1, limit = 20, siraBy = 'createdAt', siraSekli = 'desc' } = req.query;
+    const query = tesvikListeFiltresi(req.query);
 
     // Sıralanabilir alanlar — istekten gelen anahtar doğrudan Mongo sort'una konmaz.
     // Müşteri (29.09.2026): "Süre uzatım ve belge bitiş tarihi kısımlarını, tarihe göre
@@ -1975,32 +1933,26 @@ const birlesikFirmaArama = async (req, res) => {
       return res.json({ success: true, data: { tesvikler: [], pagination: { totalCount: 0, currentPage: 1, totalPages: 1, limit: 0 } } });
     }
 
-    const YeniTesvik = require('../models/YeniTesvik');
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    // Makine seçicileri sayfa istemez ve her sistemden ilk 50 adayı kullanır.
+    const seciciIstegi = req.query.sayfa === undefined && req.query.limit === undefined;
+    const sayfa = Math.max(1, parseInt(req.query.sayfa, 10) || 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || (seciciIstegi ? 100 : 20), 1), 100);
     const select = 'tesvikId gmId yatirimciUnvan durumBilgileri belgeYonetimi yatirimBilgileri.yerinIl olusturanKullanici createdAt';
-
-    // Süre süzgeci aramayla birlikte de çalışsın (müşteri: süresi dolanları firma bazında da görebilmek)
-    const sureKosulu = require('../utils/belgeSureFiltresi').sureFiltresi(req.query.sureDurumu);
-    // Arşiv görünümü firma aramasında da geçerli (Belge Takip'teki arama gibi)
-    const durumKosulu = listeDurumKosulu({ durum: req.query.durum, arsiv: req.query.arsiv });
-    const kosullar = [sureKosulu, Object.keys(durumKosulu).length ? durumKosulu : null].filter(Boolean);
-    const sure = (sorgu) => (kosullar.length ? sorgu.and(kosullar) : sorgu);
-    const { siralamaCoz, sayfaliListe, kayitlariSirala } = require('../utils/tarihSiralama');
+    const filtre = tesvikListeFiltresi({ ...req.query, search: q });
+    const { siralamaCoz } = require('../utils/tarihSiralama');
     const siralama = siralamaCoz(req.query.siraBy || 'belgeYonetimi.uzatimTarihi', req.query.siraSekli || 'asc');
-    const ara = (Model) => sayfaliListe(Model, sure(Model.searchTesvikler(q)).getFilter(), {
-      ...siralama, skip: 0, limit, select,
+    const skip = (sayfa - 1) * limit;
+    const { tesvikler, toplam } = await birlesikTesvikleriGetir(birlesikSistemler(req.query.sistem), filtre, {
+      ...siralama, skip, limit, select, sistemBasinaLimit: seciciIstegi ? 50 : undefined,
       populate: [['olusturanKullanici', 'adSoyad rol'], ['firma', 'tamUnvan firmaId']]
     });
-    const [eski, yeni] = await Promise.all([ara(Tesvik), ara(YeniTesvik)]);
-
-    const merged = kayitlariSirala([
-      ...eski.map((t) => ({ ...t, sistem: 'Eski' })),
-      ...yeni.map((t) => ({ ...t, sistem: 'Yeni' }))
-    ], siralama);
 
     res.json({
       success: true,
-      data: { tesvikler: merged, pagination: { totalCount: merged.length, currentPage: 1, totalPages: 1, limit: merged.length } }
+      data: { tesvikler, pagination: {
+        totalCount: toplam, currentPage: sayfa, totalPages: Math.ceil(toplam / limit), limit,
+        hasNext: skip + tesvikler.length < toplam, hasPrev: sayfa > 1
+      } }
     });
   } catch (error) {
     console.error('🚨 Birleşik arama hatası:', error);

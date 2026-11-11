@@ -138,6 +138,33 @@ test('seçili evrakın tüm örnekleri maile eklenir; istenmeyen evrakın örnek
   expect((await cagir(ctrl.publicOrnekIndir, { params: { token: t.uploadToken, evrakId: t.istenenEvraklar[1].id } })).statusCode).toBe(404);
 });
 
+test('eski, bozuk veya okunamayan örnek seçimi SMTP çağırmaz, güncel seçimde kısmi kabul kaydedilir', async () => {
+  const indir = jest.spyOn(storage, 'bulutDosyasiniIndir').mockResolvedValue({ buffer: Buffer.from('dosya') });
+  const send = jest.spyOn(mail, 'sendMail').mockResolvedValue({ accepted: ['firma@test.com'], rejected: ['red@test.com'] });
+  const t = await talepKur({ istenenEvraklar: [{ ad: 'Örnek', ornekDosyalar: [ornek('secili.pdf'), ornek('sonradan.pdf')] }] });
+  const evrakId = t.istenenEvraklar[0].id;
+  const gonder = (degisiklik) => cagir(ctrl.talepMailGonder, { params: { id: t.id }, body: {
+    to: 'firma@test.com', cc: 'red@test.com', subject: 'Ekli evrak', body: 'Merhaba',
+    istekId: 'islem-evrak-istek-1', ekEvrakIdler: [evrakId], ...degisiklik
+  } });
+  const secim = (ad) => JSON.stringify([evrakId, ornek(ad).fileUrl, '', ad]);
+  expect((await gonder({ ekEvrakIdler: '[bozuk-json' })).statusCode).toBe(400);
+  const eski = await gonder({ ekOrnekler: [secim('secili.pdf')] });
+  expect(eski.statusCode).toBe(409);
+  expect(eski.body.code).toBe('MAIL_EK_DEGISTI');
+  const ekOrnekler = [secim('secili.pdf'), secim('sonradan.pdf')];
+  indir.mockResolvedValueOnce(null);
+  const okunamayan = await gonder({ ekOrnekler });
+  expect(okunamayan.statusCode).toBe(502);
+  expect(okunamayan.body.message).toContain('secili.pdf');
+  expect(send).not.toHaveBeenCalled();
+  const sonuc = await gonder({ ekOrnekler });
+  expect(sonuc.statusCode).toBe(200);
+  expect(sonuc.body.data).toMatchObject({ kabulEdilenler: ['firma@test.com'], reddedilenler: ['red@test.com'], gecmisKaydedildi: true });
+  expect(sonuc.body.data.talep.mailGecmisi[0]).toMatchObject({ alicilar: ['firma@test.com'], cc: [], reddedilenler: ['red@test.com'] });
+  expect(send.mock.calls[0][0].attachments.map((o) => o.filename)).toEqual(['secili.pdf', 'sonradan.pdf']);
+});
+
 test('şablon ve varyanttaki çoklu örnekler yeni talebe kopyalanır ve ayrı ayrı indirilir', async () => {
   const firmaId = new mongoose.Types.ObjectId();
   await mongoose.connection.db.collection('firmas').insertOne({ _id: firmaId, tamUnvan: 'Test Firma', firmaEmail: 'firma@test.com' });

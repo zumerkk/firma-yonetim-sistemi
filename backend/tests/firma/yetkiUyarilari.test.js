@@ -3,7 +3,7 @@ const request = require('supertest');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const Firma = require('../../models/Firma');
-const { getFirmalar, searchFirmalar, getFirmaStats } = require('../../controllers/firmaController');
+const { getFirmalar, searchFirmalar, getFirmaStats, getFirmaDashboard } = require('../../controllers/firmaController');
 
 jest.setTimeout(60000);
 
@@ -11,6 +11,7 @@ const app = express();
 app.get('/firma', getFirmalar);
 app.get('/firma/search', searchFirmalar);
 app.get('/firma/stats', getFirmaStats);
+app.get('/firma/dashboard', getFirmaDashboard);
 
 const tarihte = (gun) => {
   const tarih = new Date();
@@ -31,7 +32,8 @@ beforeAll(async () => {
     { firmaId: 'A5', tamUnvan: 'Ortak Aktif Bu Ay', aktif: true, etuysYetkiBitisTarihi: tarihte(15) },
     { firmaId: 'A6', tamUnvan: 'Ortak Pasif Bu Ay', aktif: false, etuysYetkiBitisTarihi: tarihte(15) },
     { firmaId: 'A7', tamUnvan: 'Başka Aktif Eski', aktif: true, dysYetkiBitisTarihi: tarihte(-10) },
-    { firmaId: 'A8', tamUnvan: 'Ortak Aktif Tarihsiz', aktif: true }
+    { firmaId: 'A8', tamUnvan: 'Ortak Aktif Tarihsiz', aktif: true, firmaIl: 'ANKARA', yabanciSermayeli: true,
+      anaFaaliyetKonusu: 'Makine', firmaWebsite: 'https://example.test' }
   ]);
 });
 
@@ -72,4 +74,41 @@ test('Pasif sekmesinde firma ve tarih bulunur; Yetkisi Biten ile birleşince gö
 test('ana panel, birden fazla süresi geçmiş yetkisi olsa da aktif firmayı bir kez sayar', async () => {
   const stats = await request(app).get('/firma/stats').expect(200);
   expect(stats.body.data.suresiGecmisFirmaSayisi).toBe(2);
+});
+
+test('arama ile sermaye/il/faaliyet birleşir ve liste Excel için tam firma kaydını döndürür', async () => {
+  const filtre = { yabanciSermayeli: 'true', firmaIl: 'ANKARA', anaFaaliyetKonusu: 'Makine' };
+  const liste = await request(app).get('/firma').query({ ...filtre, arama: 'ortak' }).expect(200);
+  expect(idler(liste)).toEqual(['A8']);
+  expect(liste.body.data.firmalar[0]).toMatchObject({ yabanciSermayeli: true, firmaWebsite: 'https://example.test' });
+  const arama = await request(app).get('/firma/search').query({ ...filtre, q: 'ortak' }).expect(200);
+  expect(idler(arama)).toEqual(['A8']);
+  const tumu = await request(app).get('/firma').query({ yabanciSermayeli: 'all' }).expect(200);
+  expect(idler(tumu)).toEqual(['A1', 'A3', 'A5', 'A7', 'A8']);
+});
+
+test('ana sayfa özeti genel sayaçları ve karttan gidilen yetki türüne ait listeyi eşler', async () => {
+  const { body } = await request(app).get('/firma/dashboard').expect(200);
+  expect(body.data).toMatchObject({ toplamFirma: 8, aktifFirma: 5, yaklasanYetki: 2, suresiGecmisFirmaSayisi: 2 });
+  expect(body.data.sonEklenenler).toHaveLength(5);
+  expect(body.data.sonEklenenler.find((firma) => firma.firmaId === 'A8')).not.toHaveProperty('firmaWebsite');
+  const etuys = body.data.yetkiUyarilari.find((uyari) => uyari.yetkiTuru === 'etuys' && uyari.yetkiDurumu === 'expired');
+  expect(etuys).toMatchObject({ sayi: 1, firmalar: [{ firmaId: 'A1' }] });
+  const liste = await request(app).get('/firma').query({ yetkiTuru: etuys.yetkiTuru, yetkiDurumu: etuys.yetkiDurumu }).expect(200);
+  expect(idler(liste)).toEqual(['A1']);
+  expect(liste.body.data.pagination.toplamSayisi).toBe(etuys.sayi);
+});
+
+test('yaklaşan yetki sayacı önizleme limitiyle kesilmez ve bugünkü tarihler yaklaşan grupta kalır', async () => {
+  const firmaIdleri = Array.from({ length: 13 }, (_, index) => `YAKIN-${index}`);
+  await Firma.collection.insertMany(firmaIdleri.map((firmaId) => ({ firmaId, aktif: true, etuysYetkiBitisTarihi: tarihte(0) })));
+  try {
+    const stats = await request(app).get('/firma/stats').expect(200);
+    expect(stats.body.data.etuysUyarilari.yaklaşanSüreler).toHaveLength(10);
+    expect(stats.body.data.etuysUyarilari.count).toBe(14);
+    const dashboard = await request(app).get('/firma/dashboard').expect(200);
+    expect(dashboard.body.data).toMatchObject({ yaklasanYetki: 15, suresiGecmisFirmaSayisi: 2 });
+  } finally {
+    await Firma.deleteMany({ firmaId: { $in: firmaIdleri } });
+  }
 });
