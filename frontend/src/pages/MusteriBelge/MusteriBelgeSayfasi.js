@@ -15,11 +15,12 @@ import AddIcon from '@mui/icons-material/Add';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import LockIcon from '@mui/icons-material/Lock';
 import api, { uploadPost } from '../../utils/axios';
+import { birimEtiketi } from '../../utils/makineFormat';
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
 import TutarAlani from '../../components/common/TutarAlani';
-import UploadProgress from '../../components/common/UploadProgress';
+import KalemEvrakPaneli from '../../components/Tesvik/KalemEvrakPaneli';
 
 // Belge ekranının sekme sırası (ETUYS) — "Evrak Listesi" firmaya açılmaz
 const BOLUMLER = [
@@ -38,16 +39,17 @@ const para = (v, kod = 'TRY') => {
   catch (_) { return `${(Number(v) || 0).toLocaleString('tr-TR')} ${kod}`; }
 };
 const tarih = (v) => (v ? new Date(v).toLocaleDateString('tr-TR') : '-');
+const miktarMetni = (m) => `${m.miktar || 0} ${birimEtiketi(m.birim, m.birimAciklamasi)}`.trimEnd();
+const kalemToplamMetni = (m) => {
+  const { TRY, ...dovizler } = m.faturaTutarToplamlari || {};
+  const toplamlar = Object.entries(dovizler);
+  if (TRY != null) toplamlar.unshift(['TRY', TRY]);
+  return toplamlar.length
+    ? toplamlar.map(([kod, tutar]) => para(tutar, kod)).join(' · ')
+    : para(m.faturaToplami, m.listType === 'import' ? 'USD' : 'TRY');
+};
 const BOS_KALEM = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
 const GIREN_ANAHTARI = 'musteriBelge.giren';
-const FATURA_EVRAK_TURLERI = [
-  { alan: 'faturaPdf', tur: 'fatura_pdf', etiket: 'Fatura PDF', uzanti: '.pdf' },
-  { alan: 'faturaXml', tur: 'fatura_xml', etiket: 'Fatura XML', uzanti: '.xml' },
-  { alan: 'yevmiyePdf', tur: 'yevmiye_pdf', etiket: 'Yevmiye Kayıt PDF', uzanti: '.pdf' }
-];
-const EVRAK_SAYI_SINIRI = 6;
-const EVRAK_BOYUT_SINIRI = 10 * 1024 * 1024;
-const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default function MusteriBelgeSayfasi() {
   const { token } = useParams();
@@ -140,7 +142,7 @@ function MakineListesi({ ithal, satirlar, onSec }) {
     { anahtar: 'makineId', baslik: 'Makine ID', genislik: 100, bicim: (v) => v || '-' },
     ...(ithal ? [{ anahtar: 'gtipNo', baslik: 'GTİP', genislik: 120, bicim: (v) => v || '-' }] : []),
     { anahtar: 'adi', baslik: 'Adı ve Özelliği', sar: true, bicim: (v) => v || '-' },
-    { anahtar: 'miktar', baslik: 'Miktar', genislik: 110, bicim: (_, m) => `${m.miktar || 0} ${m.birim || ''}` },
+    { anahtar: 'miktar', baslik: 'Miktar', genislik: 110, bicim: (_, m) => miktarMetni(m) },
     { anahtar: 'birimFiyat', baslik: 'Birim Fiyatı', genislik: 140, sayi: true, bicim: (v, m) => para(v, m.birimParaBirimi || kod) },
     { anahtar: 'toplam', baslik: ithal ? 'FOB Toplam ($)' : 'Toplam (TL)', genislik: 150, sayi: true, bicim: (v) => para(v, kod) },
     {
@@ -148,7 +150,7 @@ function MakineListesi({ ithal, satirlar, onSec }) {
       bicim: (_, m) => (
         <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
           <Typography variant="body2" sx={{ fontSize: 12 }}>
-            {m.kalemler.length ? `${m.kalemler.length} kalem · ${para(m.faturaToplami, kod)}` : '—'}
+            {m.kalemler.length ? `${m.kalemler.length} kalem · ${kalemToplamMetni(m)}` : '—'}
           </Typography>
           <Button size="small" variant="outlined" startIcon={<AddIcon />} sx={{ py: 0, fontSize: 11, whiteSpace: 'nowrap' }}
             onClick={(e) => { e.stopPropagation(); onSec(m); }}>
@@ -213,13 +215,14 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
   const kaydet = async () => {
     if (devamEdenIstek.current) return;
     // Firma kaydettiği kalemi düzeltemez — gönderimden önce son kez sorulur
-    if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\nTutar: ${para(form.tutar, kod)}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
+    if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\n${ithal ? 'Mal Bedeli TL' : 'Tutar'}: ${para(form.tutar)}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
     const denetim = islemiBaslat('kalem');
     if (!denetim) return;
     setHata(''); setBilgi('');
     try {
       const r = await api.post(`/musteri-belge/${token}/fatura-kalemi`, {
-        listType: makine.listType, rowId: makine.rowId, ...form, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren
+        listType: makine.listType, rowId: makine.rowId, ...form, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren,
+        ...(ithal ? { tutarParaBirimi: 'TRY' } : {})
       }, { signal: denetim.signal });
       if (denetim.signal.aborted) return;
       const guncel = makineYaniti(r);
@@ -227,7 +230,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
       setForm(BOS_KALEM);
       setBilgi('Kalem kaydedildi. Teşekkür ederiz.');
       onKaydedildi(guncel);
-      if (!ithal && guncel.yeniKalemId) setEvrakKalemiId(guncel.yeniKalemId);
+      if (guncel.yeniKalemId) setEvrakKalemiId(guncel.yeniKalemId);
     } catch (e) {
       if (!denetim.signal.aborted) setHata(e?.response?.data?.message || e?.message || 'Kaydedilemedi. Lütfen tekrar deneyin.');
     } finally { islemiBitir(denetim); }
@@ -259,7 +262,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{makine.siraNo}. {makine.adi}</Typography>
           <Typography variant="caption" color="text.secondary">
             {makine.makineId ? `Makine ID ${makine.makineId} · ` : ''}{ithal && makine.gtipNo ? `GTİP ${makine.gtipNo} · ` : ''}
-            {makine.miktar} {makine.birim} · Birim: {para(makine.birimFiyat, makine.birimParaBirimi || kod)} · Toplam: {para(makine.toplam, kod)}
+            {miktarMetni(makine)} · Birim: {para(makine.birimFiyat, makine.birimParaBirimi || kod)} · {ithal ? 'FOB Toplam' : 'Toplam'}: {para(makine.toplam, kod)}
           </Typography>
         </Box>
 
@@ -273,12 +276,12 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                 <TableRow>
                   <TableCell>{etiket.tarih}</TableCell><TableCell>{etiket.no}</TableCell><TableCell>Kalem İçeriği</TableCell>
                   <TableCell align="right">Tutar</TableCell><TableCell align="right">Adet</TableCell><TableCell>Durum</TableCell>
-                  {!ithal && <TableCell>Evraklar</TableCell>}
+                  <TableCell>Evraklar</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {makine.kalemler.map((k) => {
-                  const yuklenebilir = !ithal && k.kaynak === 'firma' && !!k._id;
+                  const yuklenebilir = k.kaynak === 'firma' && !!k._id;
                   const evraklarAcik = yuklenebilir && String(evrakKalemiId) === String(k._id);
                   return (
                     <React.Fragment key={k._id}>
@@ -286,27 +289,25 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
                         <TableCell>{k.no || '-'}</TableCell>
                         <TableCell sx={{ wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{para(k.tutar, kod)}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{para(k.tutar, k.tutarParaBirimi || kod)}</TableCell>
                         <TableCell align="right">{k.adet || 0}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <Chip size="small" icon={<LockIcon sx={{ fontSize: 14 }} />} color={k.kaynak === 'firma' ? 'success' : 'default'}
                             label={k.kaynak === 'firma' ? `Onaylandı${k.girenAdi ? ` · ${k.girenAdi}` : ''}` : 'Danışman girdi'} />
                         </TableCell>
-                        {!ithal && (
-                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                            {yuklenebilir && (
-                              <Button size="small" startIcon={<AttachFileIcon />} disabled={!!islem} aria-expanded={evraklarAcik}
-                                onClick={() => setEvrakKalemiId(evraklarAcik ? null : k._id)}>
-                                {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
-                              </Button>
-                            )}
-                          </TableCell>
-                        )}
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          {yuklenebilir && (
+                            <Button size="small" startIcon={<AttachFileIcon />} disabled={!!islem} aria-expanded={evraklarAcik}
+                              onClick={() => setEvrakKalemiId(evraklarAcik ? null : k._id)}>
+                              {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                       {evraklarAcik && (
                         <TableRow>
                           <TableCell colSpan={7}>
-                            <FaturaEvrakPaneli kalem={k} rowId={makine.rowId} islem={islem} onYukle={evrakYukle} />
+                            <KalemEvrakPaneli kalem={k} rowId={makine.rowId} ithal={ithal} islem={islem} onYukle={evrakYukle} />
                           </TableCell>
                         </TableRow>
                       )}
@@ -315,10 +316,10 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                 })}
                 <TableRow>
                   <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Toplam</TableCell>
-                  <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{para(makine.faturaToplami, kod)}</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{kalemToplamMetni(makine)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{makine.faturaAdedi}</TableCell>
                   <TableCell />
-                  {!ithal && <TableCell />}
+                  <TableCell />
                 </TableRow>
               </TableBody>
             </Table>
@@ -338,7 +339,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
               <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} />
             </Grid>
             <Grid item xs={8} sm={4}>
-              <TutarAlani fullWidth size="small" required label="Kalem Tutarı" value={form.tutar} simge={ithal ? '$' : '₺'}
+              <TutarAlani fullWidth size="small" required label={ithal ? 'Kalem Tutarı – Mal Bedeli TL' : 'Kalem Tutarı'} value={form.tutar}
                 onChange={(v) => setForm((f) => ({ ...f, tutar: v }))} />
             </Grid>
             <Grid item xs={4} sm={2}>
@@ -364,106 +365,5 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
         </Button>
       </DialogActions>
     </Dialog>
-  );
-}
-
-function FaturaEvrakPaneli({ kalem, rowId, islem, onYukle }) {
-  const [dosyalar, setDosyalar] = useState({});
-  const [hata, setHata] = useState('');
-  const [bilgi, setBilgi] = useState('');
-  const [ilerleme, setIlerleme] = useState(null);
-  const istekId = useRef(null);
-  const panel = useRef(null);
-  const adet = Object.values(dosyalar).reduce((toplam, liste) => toplam + liste.length, 0);
-
-  useEffect(() => { panel.current?.scrollIntoView?.({ block: 'nearest' }); }, []);
-
-  const secimiGuncelle = (alan, liste) => {
-    setDosyalar((onceki) => ({ ...onceki, [alan]: liste }));
-    istekId.current = null;
-    setHata('');
-    setBilgi('');
-  };
-
-  const dosyaSec = (tur, e) => {
-    const secilen = Array.from(e.target.files || []);
-    e.target.value = '';
-    if (islem || !secilen.length) return;
-    if (adet + secilen.length > EVRAK_SAYI_SINIRI) {
-      setHata(`Bir seferde en fazla ${EVRAK_SAYI_SINIRI} dosya yükleyebilirsiniz.`);
-      return;
-    }
-    const yanlisUzanti = secilen.find((dosya) => !dosya.name.toLowerCase().endsWith(tur.uzanti));
-    if (yanlisUzanti) {
-      setHata(`${tur.etiket} için ${tur.uzanti.toUpperCase()} dosyası seçin.`);
-      return;
-    }
-    const buyukDosya = secilen.find((dosya) => dosya.size > EVRAK_BOYUT_SINIRI);
-    if (buyukDosya) {
-      setHata(`${buyukDosya.name} 10 MB sınırını aşıyor.`);
-      return;
-    }
-    secimiGuncelle(tur.alan, [...(dosyalar[tur.alan] || []), ...secilen]);
-  };
-
-  const yukle = async () => {
-    if (islem || !adet) return;
-    setHata('');
-    setBilgi('');
-    setIlerleme({ pct: 0 });
-    const fd = new FormData();
-    fd.append('rowId', rowId);
-    // Aynı seçimle tekrar denendiğinde, yanıt kaybolsa bile yükleme yinelenmez.
-    if (!istekId.current) istekId.current = yeniIstekId();
-    fd.append('istekId', istekId.current);
-    FATURA_EVRAK_TURLERI.forEach(({ alan }) => (dosyalar[alan] || []).forEach((dosya) => fd.append(alan, dosya)));
-    try {
-      if (!await onYukle(kalem._id, fd, setIlerleme)) return;
-      setDosyalar({});
-      istekId.current = null;
-      setBilgi('Evraklar yüklendi.');
-    } catch (e) {
-      setHata(e?.kullaniciMesaji || e?.response?.data?.message || e?.message || 'Evraklar yüklenemedi. Lütfen tekrar deneyin.');
-    } finally { setIlerleme(null); }
-  };
-
-  return (
-    <Box ref={panel} sx={{ p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 1 }}>
-      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Fatura Evrakları · {kalem.no || 'Fatura'}</Typography>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-        Bir seferde en fazla 6 dosya, dosya başına en fazla 10 MB yükleyebilirsiniz.
-      </Typography>
-      <Grid container spacing={1}>
-        {FATURA_EVRAK_TURLERI.map((tur) => {
-          const yuklenenler = (kalem.evraklar || []).filter((evrak) => evrak.tur === tur.tur);
-          return (
-            <Grid item key={tur.alan} xs={12} sm={4}>
-              <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} disabled={!!islem}>
-                {tur.etiket}
-                <input hidden type="file" multiple accept={tur.uzanti} aria-label={tur.etiket}
-                  disabled={!!islem} onChange={(e) => dosyaSec(tur, e)} />
-              </Button>
-              {yuklenenler.length > 0 && (
-                <Box component="ul" aria-label={`${tur.etiket} yüklenen dosyalar`} sx={{ m: 0, mt: 0.5, pl: 2 }}>
-                  {yuklenenler.map((evrak) => (
-                    <Typography key={evrak._id} component="li" variant="caption" sx={{ overflowWrap: 'anywhere' }}>{evrak.dosyaAdi}</Typography>
-                  ))}
-                </Box>
-              )}
-              {(dosyalar[tur.alan] || []).map((dosya, indeks) => (
-                <Chip key={`${dosya.name}:${indeks}`} size="small" label={dosya.name} title={dosya.name} sx={{ mt: 0.5, mr: 0.5, maxWidth: '100%' }}
-                  onDelete={islem ? undefined : () => secimiGuncelle(tur.alan, dosyalar[tur.alan].filter((_, i) => i !== indeks))} />
-              ))}
-            </Grid>
-          );
-        })}
-      </Grid>
-      <Button size="small" variant="contained" onClick={yukle} disabled={!!islem || !adet} sx={{ mt: 1 }}>
-        Dosyaları Yükle
-      </Button>
-      <UploadProgress active={islem === 'evrak'} {...(ilerleme || {})} fileName={`${adet} dosya`} />
-      {hata && <Alert severity="error" sx={{ mt: 1 }}>{hata}</Alert>}
-      {bilgi && <Alert severity="success" sx={{ mt: 1 }}>{bilgi}</Alert>}
-    </Box>
   );
 }

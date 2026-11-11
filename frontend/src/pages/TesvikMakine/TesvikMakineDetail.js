@@ -13,7 +13,9 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
+import { useAuth } from '../../contexts/AuthContext';
 import svc from '../../services/tesvikMakineService';
+import { birimEtiketi } from '../../utils/makineFormat';
 import { EVRAK_ACCEPT } from '../../utils/yuklemeTurleri';
 import { turkceIcerir } from '../../utils/turkceKatla';
 import MakineDetailModal from './MakineDetailModal';
@@ -21,12 +23,20 @@ import FaturaKalemleriDialog from './FaturaKalemleriDialog';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
 import { LISTE_ADRESI_ANAHTARI } from './TesvikMakineList';
 import {
-  StatusChip, formatDate, formatMoney, listTypeLabel,
+  StatusChip, formatDate, formatMoney, formatFaturaToplamlari, listTypeLabel,
   mailStatusLabel, templateLabel, docTypeLabel, uploaderLabel, reminderStatusLabel, actionLabel, saveBlobResponse
 } from './helpers';
 
+const miktarSutunu = {
+  field: 'quantity', headerName: 'Miktar', width: 130,
+  valueGetter: ({ row }) => `${row.quantity || 0} ${birimEtiketi(row.unit, row.unitDescription)}`.trim()
+};
+
+const planlananTutar = ({ row }) => formatMoney(row.totalPrice, row.listType === 'import' ? 'USD' : 'TRY');
+
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [tab, setTab] = useState(3); // Makine Talepleri varsayılan
@@ -141,10 +151,13 @@ export default function TesvikMakineDetail() {
   const [faturaMakinesi, setFaturaMakinesi] = useState(null);
   const makineleriTazele = () => svc.getMachines(tesvikModel, tesvikId).then((mc) => setMachines(mc.rows || [])).catch(() => {});
   const kalemSutunlari = (ithal) => [
-    {
-      field: 'invoiceRealizedValue', headerName: ithal ? 'Gümrük Gerçekleşen Değer' : 'Fatura Gerçekleşen Değer', width: 190,
+    ithal ? {
+      field: 'faturaTutarToplamlari', headerName: 'Gümrük Mal Bedeli', width: 230, cellClassName: 'fatura-cell',
+      sortable: false, valueGetter: ({ row }) => formatFaturaToplamlari(row.faturaTutarToplamlari)
+    } : {
+      field: 'invoiceRealizedValue', headerName: 'Fatura Gerçekleşen Değer', width: 190,
       cellClassName: 'fatura-cell', type: 'number',
-      valueFormatter: (p) => (p.value ? formatMoney(p.value, ithal ? 'USD' : 'TRY') : '-')
+      valueFormatter: (p) => (p.value ? formatMoney(p.value, 'TRY') : '-')
     },
     { field: 'invoiceRealizedQty', headerName: ithal ? 'Gümrük Gerçekleşen Adet' : 'Fatura Gerçekleşen Adet', width: 180, cellClassName: 'fatura-cell', type: 'number' },
     { field: 'kalemSayisi', headerName: 'Kalem', width: 80, cellClassName: 'fatura-cell', type: 'number', valueGetter: (p) => (p.row.faturalar || []).length },
@@ -158,8 +171,8 @@ export default function TesvikMakineDetail() {
     { field: 'makineId', headerName: 'Makine ID', width: 100 },
     { field: 'gtipNo', headerName: 'GTİP', width: 120 },
     { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
-    { field: 'quantity', headerName: 'Adet', width: 80, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
-    { field: 'totalPrice', headerName: 'Tutar', width: 130, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
+    miktarSutunu,
+    { field: 'totalPrice', headerName: 'Tutar', width: 130, valueGetter: planlananTutar },
     { field: 'kdvExempt', headerName: 'KDV İst.', width: 90, renderCell: (p) => p.value ? <Chip size="small" color="success" label="Evet" /> : <Chip size="small" label="Hayır" variant="outlined" /> },
     { field: 'supplierCompanyName', headerName: 'Tedarikçi', width: 150, valueGetter: (p) => p.row.supplierCompanyName || '-' },
     { field: 'status', headerName: 'Durum', width: 200, renderCell: (p) => <StatusChip badge={p.row.statusBadge} /> },
@@ -312,15 +325,15 @@ export default function TesvikMakineDetail() {
                   { field: 'siraNo', headerName: 'Sıra', width: 64 },
                   { field: 'makineId', headerName: 'Makine ID', width: 100 },
                   { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
-                  { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
-                  { field: 'totalPrice', headerName: 'Toplam', width: 130, valueGetter: (p) => formatMoney(p.row.totalPrice, p.row.currency) },
+                  miktarSutunu,
+                  { field: 'totalPrice', headerName: 'Toplam', width: 130, valueGetter: planlananTutar },
                   ...kalemSutunlari(false)
                 ] : [
                   { field: 'siraNo', headerName: 'Sıra', width: 64 },
                   { field: 'gtipNo', headerName: 'GTİP', width: 130 },
                   { field: 'machineName', headerName: 'Makine Adı', flex: 1, minWidth: 200 },
-                  { field: 'quantity', headerName: 'Adet', width: 90, valueGetter: (p) => `${p.row.quantity || 0} ${p.row.unit || ''}` },
-                  { field: 'totalPrice', headerName: 'FOB Toplam', width: 140, valueGetter: (p) => formatMoney(p.row.totalPrice, 'USD') },
+                  miktarSutunu,
+                  { field: 'totalPrice', headerName: 'FOB Toplam', width: 140, valueGetter: planlananTutar },
                   { field: 'status', headerName: 'Durum', width: 190, renderCell: (p) => <StatusChip badge={p.row.statusBadge} /> },
                   ...kalemSutunlari(true)
                 ]}
@@ -581,6 +594,7 @@ export default function TesvikMakineDetail() {
       <MakineDetailModal open={!!modalTarget} target={modalTarget} meta={meta}
         onClose={() => setModalTarget(null)} onChanged={makineleriTazele} />
       <FaturaKalemleriDialog open={!!faturaMakinesi} makine={faturaMakinesi} tesvikModel={tesvikModel} tesvikId={tesvikId}
+        duzenlenebilir={['admin', 'kullanici'].includes(user?.rol)}
         onClose={() => setFaturaMakinesi(null)} onChanged={makineleriTazele} />
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

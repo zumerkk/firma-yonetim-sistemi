@@ -289,7 +289,7 @@ export default function MakineDetailModal({ open, onClose, target, meta: metaPro
                 <Info label="Makine ID" value={proc.makineId || '-'} xs={6} sm={3} />
                 <Info label="GTİP" value={proc.gtipNo || '-'} xs={6} sm={3} />
                 <Info label="Makine Adı" value={proc.machineName} xs={12} sm={8} />
-                <Info label="Tutar" value={`${formatMoney(proc.totalPrice, proc.currency)}`} xs={12} sm={4} />
+                <Info label="Tutar" value={formatMoney(proc.totalPrice, proc.listType === 'import' ? 'USD' : 'TRY')} xs={12} sm={4} />
               </Grid>
             </Box>
 

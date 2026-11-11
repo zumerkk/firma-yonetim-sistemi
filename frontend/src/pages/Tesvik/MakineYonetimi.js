@@ -4173,7 +4173,7 @@ const MakineYonetimi = () => {
                     </Typography>
                     <Stack direction="row" justifyContent="space-between">
                       <Typography variant="body2">
-                        Miktar: {manuelKurEditingRow?.miktar || 0} {manuelKurEditingRow?.birim || 'ADET'}
+                        Miktar: {manuelKurEditingRow?.miktar || 0} {birimEtiketi(manuelKurEditingRow?.birim, manuelKurEditingRow?.birimAciklamasi) || 'ADET'}
                       </Typography>
                       <Typography variant="body2" fontWeight="bold">
                         x {manuelKurEditingRow?.birimFiyatiFob || 0} {manuelKurEditingRow?.doviz}

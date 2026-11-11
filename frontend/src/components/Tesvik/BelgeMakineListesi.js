@@ -18,7 +18,7 @@ export default function BelgeMakineListesi({ satirlar = [], ithal = false }) {
     ...(ithal ? [{ anahtar: 'gtipKodu', baslik: 'GTİP', bicim: (v) => v || '-' }] : []),
     { anahtar: 'adiVeOzelligi', baslik: 'Adı ve Özelliği', sar: true },
     { anahtar: 'miktar', baslik: 'Miktar', sayi: true, bicim: sayi },
-    { anahtar: 'birim', baslik: 'Birim', bicim: (v) => birimEtiketi(v) || '-' },
+    { anahtar: 'birim', baslik: 'Birim', bicim: (v, r) => birimEtiketi(v, r.birimAciklamasi) || '-' },
     { anahtar: 'birimFiyat', baslik: 'Birim Fiyat', sayi: true,
       bicim: (_, r) => ithal ? para(r.birimFiyatiFob, r.gumrukDovizKodu || 'USD') : para(r.birimFiyatiTl, 'TL') },
     { anahtar: 'toplam', baslik: ithal ? 'FOB Toplam ($)' : 'Toplam (TL)', sayi: true,

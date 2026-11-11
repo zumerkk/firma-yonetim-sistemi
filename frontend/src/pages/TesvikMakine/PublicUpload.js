@@ -10,7 +10,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import UploadProgress from '../../components/common/UploadProgress';
 import svc from '../../services/tesvikMakineService';
 import islemEvrakSvc from '../../services/islemEvrakService';
-import { listTypeLabel, formatMoney } from './helpers';
+import { listTypeLabel, formatMoney, formatFaturaToplamlari } from './helpers';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 
 // Component DIŞINDA tanımlı olmalı: içeride tanımlanırsa her render'da yeni component
@@ -177,7 +177,8 @@ function FaturaOzeti({ fatura }) {
   if (!fatura) return null;
   return (
     <Typography variant="caption" sx={{ display: 'block', color: '#166534' }}>
-      Kayıtlı fatura: {fatura.kalemSayisi} kalem · {fatura.toplamAdet} adet · {formatMoney(fatura.toplamTutar, fatura.paraBirimi)}
+      Kayıtlı fatura: {fatura.kalemSayisi} kalem · {fatura.toplamAdet} adet · {fatura.faturaTutarToplamlari
+        ? formatFaturaToplamlari(fatura.faturaTutarToplamlari) : formatMoney(fatura.toplamTutar, fatura.paraBirimi)}
     </Typography>
   );
 }

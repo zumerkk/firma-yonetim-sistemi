@@ -8,7 +8,24 @@
 // sütun dolu olsa bile ekranda boş çıkıyordu; sütun yoksa yazılan 'HAYIR' de kod
 // değil etiket olduğu için yine boştu.
 
-import { kullanilmisKoduNormalle, kullanilmisKoduIceAktar, kullanilmisMi } from './makineFormat';
+import { birimEtiketi, kullanilmisKoduNormalle, kullanilmisKoduIceAktar, kullanilmisMi } from './makineFormat';
+
+describe('birimEtiketi', () => {
+  test.each([[142, 'ADET'], ['151', 'KİLOGRAM'], ['166', 'KİLOGRAM-ADET'], ['178', 'SET']])(
+    'ETUYS kodu %s kayıt açıklamasından önce çözülür', (kod, etiket) => {
+      expect(birimEtiketi(kod, 'Eski açıklama')).toBe(etiket);
+    }
+  );
+
+  test('eski metni, özel birim açıklamasını ve tanınmayan kodu gösterir', () => {
+    expect(birimEtiketi('ADET(UNIT)')).toBe('ADET');
+    expect(birimEtiketi('SET')).toBe('SET');
+    expect(birimEtiketi('901', 'KOLİ')).toBe('KOLİ');
+    expect(birimEtiketi('901')).toBe('901');
+    expect(birimEtiketi('constructor')).toBe('constructor');
+    expect(birimEtiketi(null)).toBe('');
+  });
+});
 
 describe('kullanilmisKoduIceAktar - içe aktarmada boş kalmamalı', () => {
   test('boş değer HAYIR koduna düşer', () => {

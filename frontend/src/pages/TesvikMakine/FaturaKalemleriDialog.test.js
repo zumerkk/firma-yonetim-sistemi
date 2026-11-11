@@ -1,7 +1,7 @@
 import React, { act } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import FaturaKalemleriDialog from './FaturaKalemleriDialog';
-import api from '../../utils/axios';
+import api, { uploadPost } from '../../utils/axios';
 
 jest.mock('../../utils/axios', () => ({
   __esModule: true,
@@ -126,8 +126,50 @@ test('pencere kapandığında bekleyen evrak iptal olur ve geç yanıt açılmaz
   expect(URL.createObjectURL).not.toHaveBeenCalled();
 });
 
-test('ithal beyannamede fatura evrakları sütunu açılmaz', async () => {
-  kur({ makine: { ...makine, listType: 'import' } });
+test('ithal beyannamede yeni TL kalemi kaydedilince evrak alanları o kalem için açılır', async () => {
+  const eski = { _id: 'eski', no: 'B-ESKI', tutar: 75, tutarParaBirimi: 'EUR', kaynak: 'personel' };
+  const yeni = { _id: 'yeni', no: 'B-YENI', tutar: 1250.25, tutarParaBirimi: 'TRY', kaynak: 'personel' };
+  api.post.mockResolvedValueOnce({ data: { data: { _id: 'surec-1', currency: 'EUR', faturalar: [eski] } } });
+  api.post.mockResolvedValueOnce({ data: { data: { yeniKalemId: yeni._id, faturalar: [eski, yeni], faturaTutarToplamlari: { EUR: 75, TRY: 1250.25 } } } });
+  const yuklenen = { ...yeni, evraklar: [
+    { _id: 'beyanname', tur: 'beyanname_pdf', dosyaAdi: 'beyanname.pdf' },
+    { _id: 'beyanname-2', tur: 'beyanname_pdf', dosyaAdi: 'beyanname-2.pdf' }
+  ] };
+  uploadPost.mockResolvedValueOnce({ data: { data: { faturalar: [eski, yuklenen] } } });
+  kur({ makine: { ...makine, listType: 'import', currency: 'EUR', totalPrice: 1800, unit: '142', quantity: 4 } });
   expect(await screen.findByRole('columnheader', { name: 'Beyanname No' })).toBeInTheDocument();
-  expect(screen.queryByRole('columnheader', { name: 'Evraklar' })).not.toBeInTheDocument();
+  expect(screen.getByText('4 ADET')).toBeInTheDocument();
+  expect(screen.getByText(/\$1\.800,00/)).toBeInTheDocument();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Beyanname No' }), { target: { value: 'B-YENI' } });
+  fireEvent.change(screen.getByRole('textbox', { name: 'Kalem Tutarı – Mal Bedeli TL' }), { target: { value: '1.250,25' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const evrak = within(await screen.findByRole('region', { name: 'B-YENI evrak listesi' }));
+  expect(screen.queryByRole('region', { name: 'B-ESKI evrak listesi' })).not.toBeInTheDocument();
+  expect(api.post.mock.calls[1][1]).toMatchObject({ no: 'B-YENI', tutar: 1250.25, tutarParaBirimi: 'TRY' });
+  expect(screen.getByText(/₺1\.250,25.*€75,00/)).toBeInTheDocument();
+
+  const pdfler = ['beyanname.pdf', 'beyanname-2.pdf'].map((ad) => new File(['%PDF-1.4'], ad, { type: 'application/pdf' }));
+  fireEvent.change(evrak.getByLabelText('Beyanname PDF'), { target: { files: pdfler } });
+  expect(evrak.getByLabelText('Yurt Dışı Fatura PDF')).toHaveAttribute('multiple');
+  expect(evrak.getByLabelText('Yevmiye Kaydı PDF')).toHaveAttribute('multiple');
+  fireEvent.click(evrak.getByRole('button', { name: 'Dosyaları Yükle' }));
+  expect(await evrak.findByRole('button', { name: 'beyanname.pdf aç' })).toBeInTheDocument();
+  const [url, form] = uploadPost.mock.calls[0];
+  expect(url).toBe('/tesvik-makine/process/surec-1/fatura-kalemleri/yeni/evrak');
+  expect(form.getAll('beyannamePdf').map((file) => file.name)).toEqual(pdfler.map((file) => file.name));
+  expect(form.has('rowId')).toBe(false);
+});
+
+test('salt okunur personel beyanname ekini açabilir ve yükleme alanını görmez', async () => {
+  const ithal = { _id: 'surec-1', faturalar: [{
+    _id: 'b1', no: 'B-1', evraklar: [{ _id: 'evrak-1', tur: 'beyanname_pdf', dosyaAdi: 'beyanname.pdf' }]
+  }] };
+  api.get.mockResolvedValueOnce({ data: { data: { process: ithal } } }).mockResolvedValueOnce({ data: pdf() });
+  kur({ duzenlenebilir: false, makine: { ...makine, listType: 'import', process: { _id: 'surec-1' } } });
+  fireEvent.click(await screen.findByRole('button', { name: 'B-1 evrakları' }));
+  fireEvent.click(screen.getByRole('button', { name: 'beyanname.pdf aç' }));
+  await waitFor(() => expect(pencere.location.replace).toHaveBeenCalledWith('blob:evrak'));
+  expect(api.post).not.toHaveBeenCalled();
+  expect(screen.queryByRole('button', { name: 'Kaydet' })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('Beyanname PDF')).not.toBeInTheDocument();
 });

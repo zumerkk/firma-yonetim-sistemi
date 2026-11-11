@@ -12,9 +12,10 @@ import { Box, Stack, Typography, Button, Chip, IconButton, Skeleton } from '@mui
 import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import CloseIcon from '@mui/icons-material/Close';
 import svc from '../../services/tesvikMakineService';
-import { formatDate, formatMoney, StatusChip, listTypeLabel } from '../../pages/TesvikMakine/helpers';
+import { birimEtiketi } from '../../utils/makineFormat';
+import { formatDate, formatMoney, formatFaturaToplamlari, StatusChip, listTypeLabel } from '../../pages/TesvikMakine/helpers';
 
-export default function EkipmanSatiri({ tesvikModel, tesvikId, rowId, listType, makine, onKapat, onIslem }) {
+export default function EkipmanSatiri({ tesvikModel, tesvikId, rowId, listType, machine: makine, onKapat, onIslem }) {
   const [satir, setSatir] = useState(null);
   const [yukleniyor, setYukleniyor] = useState(true);
 
@@ -33,6 +34,11 @@ export default function EkipmanSatiri({ tesvikModel, tesvikId, rowId, listType, 
 
   const g = satir || {};
   const ad = g.machineName || makine?.adiVeOzelligi || makine?.adi || '-';
+  const miktar = g.quantity ?? makine?.miktar ?? 0;
+  const birim = birimEtiketi(g.unit, g.unitDescription) || birimEtiketi(makine?.birim, makine?.birimAciklamasi);
+  const ithal = listType === 'import';
+  const faturaTutari = ithal ? formatFaturaToplamlari(g.faturaTutarToplamlari)
+    : (g.invoiceRealizedValue ? formatMoney(g.invoiceRealizedValue, 'TRY') : '-');
 
   return (
     <Box sx={{ mt: 1, border: '1px solid #cbd5e1', borderRadius: 1, bgcolor: '#f8fafc', p: 1 }}>
@@ -49,13 +55,13 @@ export default function EkipmanSatiri({ tesvikModel, tesvikId, rowId, listType, 
           <Chip size="small" label={`${g.siraNo || makine?.siraNo || '-'}. sıra`} />
           {(g.makineId || makine?.makineId) && <Chip size="small" variant="outlined" label={`ID ${g.makineId || makine.makineId}`} />}
           <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 180 }} noWrap>{ad}</Typography>
-          <Typography variant="body2">{g.quantity || makine?.miktar || 0} {g.unit || ''}</Typography>
-          <Typography variant="body2">{formatMoney(g.totalPrice, g.currency)}</Typography>
+          <Typography variant="body2">{miktar} {birim}</Typography>
+          <Typography variant="body2">{formatMoney(g.totalPrice, ithal ? 'USD' : 'TRY')}</Typography>
           <StatusChip badge={g.statusBadge} />
           <Typography variant="caption" color="text.secondary">Son mail: {formatDate(g.lastMailAt)}</Typography>
           <Typography variant="caption" color="text.secondary">Evrak: {g.documentCount || 0}</Typography>
           <Typography variant="caption" color="text.secondary">
-            Fatura: {g.invoiceRealizedValue ? formatMoney(g.invoiceRealizedValue, g.currency) : '-'}
+            {ithal ? 'Gümrük Mal Bedeli' : 'Fatura'}: {faturaTutari}
           </Typography>
           <Button size="small" variant="contained" startIcon={<BuildCircleIcon />} onClick={onIslem}>
             İşlem

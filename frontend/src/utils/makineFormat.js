@@ -66,7 +66,7 @@ const parantezsiz = (metin) => String(metin ?? '').replace(/\s*\([^)]*\)\s*/g, '
 export const birimEtiketi = (kod, aciklama) => {
   const k = String(kod ?? '').trim();
   // 1) Sayısal kod → bakanlık tablosundan çöz
-  if (k && BIRIM_KODLARI[k]) return parantezsiz(BIRIM_KODLARI[k]) || BIRIM_KODLARI[k];
+  if (Object.prototype.hasOwnProperty.call(BIRIM_KODLARI, k)) return parantezsiz(BIRIM_KODLARI[k]) || BIRIM_KODLARI[k];
   // 2) Kayıttaki açıklama
   const a = String(aciklama ?? '').trim();
   if (a) return parantezsiz(a) || a;

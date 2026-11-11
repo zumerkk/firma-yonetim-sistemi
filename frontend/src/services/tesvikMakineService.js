@@ -28,6 +28,8 @@ const tesvikMakineService = {
   faturaKalemiEkle: (id, kalem) => api.post(`${base}/process/${id}/fatura-kalemleri`, kalem).then(d),
   faturaKalemiGuncelle: (id, kalemId, kalem) => api.patch(`${base}/process/${id}/fatura-kalemleri/${kalemId}`, kalem).then(d),
   faturaKalemiSil: (id, kalemId) => api.delete(`${base}/process/${id}/fatura-kalemleri/${kalemId}`).then(d),
+  faturaKalemiEvrakYukle: (id, kalemId, formData, options) =>
+    uploadPost(`${base}/process/${id}/fatura-kalemleri/${kalemId}/evrak`, formData, options).then(d),
   faturaKalemiEvrakGetir: (id, kalemId, evrakId, { signal } = {}) =>
     api.get(`${base}/process/${id}/fatura-kalemleri/${kalemId}/evrak/${evrakId}`, {
       responseType: 'blob', signal, timeout: 120000

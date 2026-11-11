@@ -23,6 +23,14 @@ export function formatMoney(value, currency = 'TRY') {
   }
 }
 
+export function formatFaturaToplamlari(toplamlar) {
+  const { TRY, ...digerleri } = toplamlar || {};
+  return Object.entries({ TRY, ...digerleri })
+    .filter(([, tutar]) => Number.isFinite(tutar))
+    .map(([doviz, tutar]) => formatMoney(tutar, doviz))
+    .join(' · ') || '-';
+}
+
 // MUI Chip color adı (backend muiColor döndürür; fallback kategori→renk)
 const CATEGORY_COLOR = {
   bekliyor: 'default', islemde: 'info', evrak: 'warning', sorunlu: 'error', tamamlandi: 'success'
