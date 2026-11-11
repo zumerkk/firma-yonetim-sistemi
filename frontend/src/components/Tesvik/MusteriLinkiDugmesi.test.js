@@ -16,6 +16,42 @@ const ertelenen = () => {
 
 beforeEach(() => jest.resetAllMocks());
 
+const eskiClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+afterEach(() => {
+  if (eskiClipboard) Object.defineProperty(navigator, 'clipboard', eskiClipboard);
+  else delete navigator.clipboard;
+});
+
+const clipboardAyarla = (writeText) => Object.defineProperty(navigator, 'clipboard', {
+  configurable: true, value: { writeText }
+});
+
+test('kopyalama başarılı olunca onay gösterir', async () => {
+  const bekleyen = ertelenen();
+  const writeText = jest.fn(() => bekleyen.promise);
+  clipboardAyarla(writeText);
+  api.get.mockResolvedValueOnce(cevap(bilgi));
+  kur(); ac();
+  fireEvent.click(await screen.findByRole('button', { name: 'Kopyala' }));
+  expect(writeText).toHaveBeenCalledWith(bilgi.link);
+  expect(screen.queryByText('Link kopyalandı')).not.toBeInTheDocument();
+  await act(async () => { bekleyen.resolve(); });
+  expect(await screen.findByText('Link kopyalandı')).toBeInTheDocument();
+});
+
+test('panoya yazma reddedilirse link seçili kalır ve kullanıcı elle kopyalayabilir', async () => {
+  clipboardAyarla(jest.fn().mockRejectedValue(new Error('Pano izni verilmedi')));
+  api.get.mockResolvedValueOnce(cevap(bilgi));
+  kur(); ac();
+  const alan = await screen.findByDisplayValue(bilgi.link);
+  fireEvent.click(screen.getByRole('button', { name: 'Kopyala' }));
+  expect(await screen.findByText('Linki seçili alandan kopyalayabilirsiniz.')).toBeInTheDocument();
+  expect(alan.selectionStart).toBe(0);
+  expect(alan.selectionEnd).toBe(bilgi.link.length);
+  expect(screen.queryByText('Link kopyalandı')).not.toBeInTheDocument();
+  expect(screen.getByRole('link', { name: 'Yeni sekmede aç' })).toHaveAttribute('href', bilgi.link);
+});
+
 test('soğuk sunucunun geçici okuma hatası bir kez tekrar edilir; mevcut link korunur, POST yapılmaz', async () => {
   api.get.mockRejectedValueOnce({ code: 'ECONNABORTED' }).mockResolvedValueOnce(cevap(bilgi));
   kur(); ac();

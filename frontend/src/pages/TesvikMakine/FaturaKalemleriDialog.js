@@ -8,7 +8,7 @@
 //
 // Firmanın belge linkinden girdiği kalemler firmaya kilitlidir ("Onaylandı"); personel buradan
 // düzeltir/siler. İthal makinede aynı pencere beyanname kalemleri içindir.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Grid, Typography, TextField, Stack,
   Table, TableHead, TableBody, TableRow, TableCell, IconButton, Tooltip, Chip, Alert, CircularProgress
@@ -17,12 +17,56 @@ import CloseIcon from '@mui/icons-material/Close';
 import SaveIcon from '@mui/icons-material/Save';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
+import DownloadIcon from '@mui/icons-material/Download';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import TutarAlani from '../../components/common/TutarAlani';
 import svc from '../../services/tesvikMakineService';
+import { hataMesaji } from '../../utils/hataMesaji';
 import { formatDate, formatMoney } from './helpers';
 
 const BOS = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
 const PARA_SIMGESI = { TRY: '₺', USD: '$', EUR: '€' };
+const EVRAK_TURLERI = [
+  { tur: 'fatura_pdf', etiket: 'Fatura PDF' },
+  { tur: 'fatura_xml', etiket: 'Fatura XML' },
+  { tur: 'yevmiye_pdf', etiket: 'Yevmiye Kayıt PDF' }
+];
+
+const kalemEvraklari = (kalem) => (Array.isArray(kalem.evraklar) ? kalem.evraklar : [])
+  .filter((evrak) => evrak?._id && EVRAK_TURLERI.some(({ tur }) => tur === evrak.tur));
+const evrakAnahtari = (kalemId, evrakId) => `${kalemId}/${evrakId}`;
+const dosyaAdi = (evrak) => {
+  const uzanti = evrak.tur === 'fatura_xml' ? '.xml' : '.pdf';
+  const ad = evrak.dosyaAdi?.trim().replace(/[\\/]/g, '_') || evrak.tur;
+  return ad.toLowerCase().endsWith(uzanti) ? ad : `${ad}${uzanti}`;
+};
+
+function evrakiGoster(veri, evrak, pencere) {
+  const pdf = evrak.tur !== 'fatura_xml';
+  const mime = veri?.type?.split(';')[0];
+  const tipler = pdf ? ['application/pdf'] : ['application/xml', 'text/xml', 'text/plain'];
+  if (!(veri instanceof Blob) || !veri.size || (mime && mime !== 'application/octet-stream' && !tipler.includes(mime))) {
+    throw new Error('Sunucu geçerli bir evrak göndermedi.');
+  }
+  if (pencere?.closed) return;
+
+  const url = URL.createObjectURL(new Blob([veri], { type: pdf ? 'application/pdf' : 'application/octet-stream' }));
+  try {
+    if (pencere) pencere.location.replace(url);
+    else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = dosyaAdi(evrak);
+      document.body.appendChild(link);
+      try { link.click(); } finally { link.remove(); }
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
+  }
+}
 
 export const kalemEtiketleri = (listType) => (listType === 'import'
   ? { tarih: 'Beyanname Tarihi', no: 'Beyanname No', baslik: 'Beyanname Kalemleri' }
@@ -36,6 +80,10 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   const [mesgul, setMesgul] = useState(false);
   const [hata, setHata] = useState('');
   const [bilgi, setBilgi] = useState('');
+  const [evrakiAcikKalem, setEvrakiAcikKalem] = useState(null);
+  const [yuklenenEvraklar, setYuklenenEvraklar] = useState([]);
+  const [evrakHatasi, setEvrakHatasi] = useState(null);
+  const evrakIstekleri = useRef(new Map());
 
   const etiket = kalemEtiketleri(makine?.listType);
   const paraBirimi = makine?.currency || (makine?.listType === 'import' ? 'USD' : 'TRY');
@@ -43,17 +91,27 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   useEffect(() => {
     if (!open || !makine) return undefined;
     let iptal = false;
+    const istekler = evrakIstekleri.current;
     setProc(null); setForm(BOS); setDuzenlenen(null); setHata(''); setBilgi('');
+    setEvrakiAcikKalem(null); setEvrakHatasi(null); setYuklenenEvraklar([]);
     setYukleniyor(true);
     // Süreç yoksa oluşturulur (makineye ilk kez fatura giriliyor olabilir)
     svc.ensureProcess({ tesvikModel, tesvikId, listType: makine.listType, rowId: makine.rowId })
       .then((p) => { if (!iptal) setProc(p); })
       .catch((e) => { if (!iptal) setHata(e?.response?.data?.message || 'Makine bilgisi alınamadı'); })
       .finally(() => { if (!iptal) setYukleniyor(false); });
-    return () => { iptal = true; };
+    return () => {
+      iptal = true;
+      istekler.forEach(({ controller, pencere }) => {
+        controller.abort();
+        pencere?.close();
+      });
+      istekler.clear();
+    };
   }, [open, makine, tesvikModel, tesvikId]);
 
   const kalemler = proc?.faturalar || [];
+  const evrakSutunu = makine?.listType === 'local' && kalemler.some((kalem) => kalemEvraklari(kalem).length);
   const toplamTutar = kalemler.reduce((t, k) => t + (Number(k.tutar) || 0), 0);
   const toplamAdet = kalemler.reduce((t, k) => t + (Number(k.adet) || 0), 0);
 
@@ -96,6 +154,50 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
     finally { setMesgul(false); }
   };
 
+  const evrakiAc = async (kalem, evrak) => {
+    if (!proc?._id) return;
+    const anahtar = evrakAnahtari(kalem._id, evrak._id);
+    const istekler = evrakIstekleri.current;
+    if (istekler.has(anahtar)) return;
+
+    // PDF sekmesini doğrudan tıklamada aç. Sonradan yalnız doğrulanan blob'a yönlendir.
+    let pencere = null;
+    if (evrak.tur !== 'fatura_xml') {
+      try {
+        pencere = window.open('', '_blank');
+        if (pencere) {
+          pencere.opener = null;
+          pencere.document.title = 'Evrak açılıyor';
+          pencere.document.body.textContent = 'Evrak açılıyor…';
+        }
+      } catch (_) {
+        pencere?.close();
+        pencere = null;
+      }
+    }
+    const controller = new AbortController();
+    const istek = { controller, pencere };
+    istekler.set(anahtar, istek);
+    setYuklenenEvraklar([...istekler.keys()]);
+    setEvrakHatasi(null);
+
+    try {
+      const veri = await svc.faturaKalemiEvrakGetir(proc._id, kalem._id, evrak._id, { signal: controller.signal });
+      if (!controller.signal.aborted) evrakiGoster(veri, evrak, pencere);
+    } catch (error) {
+      if (!controller.signal.aborted) {
+        pencere?.close();
+        const mesaj = await hataMesaji(error, 'Evrak yüklenemedi.');
+        if (!controller.signal.aborted) setEvrakHatasi({ kalemId: kalem._id, mesaj });
+      }
+    } finally {
+      if (istekler.get(anahtar) === istek) {
+        istekler.delete(anahtar);
+        setYuklenenEvraklar([...istekler.keys()]);
+      }
+    }
+  };
+
   const formDolu = form.no || form.icerik || form.tarih || Number(form.tutar) || Number(form.adet);
 
   return (
@@ -136,35 +238,57 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                       <TableCell align="right">Kalem Tutarı</TableCell>
                       <TableCell align="right">Adet</TableCell>
                       <TableCell>Giren</TableCell>
+                      {evrakSutunu && <TableCell>Evraklar</TableCell>}
                       <TableCell />
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {kalemler.map((k) => (
-                      <TableRow key={k._id} selected={duzenlenen === k._id}>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(k.tarih)}</TableCell>
-                        <TableCell>{k.no || '-'}</TableCell>
-                        <TableCell sx={{ maxWidth: 220, wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar, paraBirimi)}</TableCell>
-                        <TableCell align="right">{k.adet || 0}</TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          {k.kaynak === 'firma'
-                            ? <Tooltip title={`Firma linkinden girildi${k.girenAdi ? ` — ${k.girenAdi}` : ''} · ${formatDate(k.girisTarihi, true)}`}>
-                                <Chip size="small" color="success" label="Onaylandı · Firma" />
-                              </Tooltip>
-                            : <Typography variant="caption" color="text.secondary">{k.girenAdi || 'Personel'}</Typography>}
-                        </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <Tooltip title="Düzelt"><span><IconButton size="small" aria-label={`${k.no || 'Kalem'} düzelt`} disabled={mesgul} onClick={() => duzenle(k)}><EditIcon fontSize="small" /></IconButton></span></Tooltip>
-                          <Tooltip title="Sil"><span><IconButton size="small" color="error" aria-label={`${k.no || 'Kalem'} sil`} disabled={mesgul} onClick={() => sil(k)}><DeleteOutlineIcon fontSize="small" /></IconButton></span></Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {kalemler.map((k) => {
+                      const evraklar = evrakSutunu ? kalemEvraklari(k) : [];
+                      const evrakVar = evraklar.length > 0;
+                      const evrakAcik = evrakVar && evrakiAcikKalem === k._id;
+                      const evrakPaneli = `fatura-evrak-${k._id}`;
+                      const evrakGorunumunuDegistir = () => setEvrakiAcikKalem(evrakAcik ? null : k._id);
+                      return (
+                        <React.Fragment key={k._id}>
+                          <TableRow selected={duzenlenen === k._id || evrakAcik}
+                            hover={evrakVar} onClick={evrakVar ? evrakGorunumunuDegistir : undefined}
+                            sx={evrakVar ? { cursor: 'pointer' } : undefined}>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(k.tarih)}</TableCell>
+                            <TableCell>{k.no || '-'}</TableCell>
+                            <TableCell sx={{ maxWidth: 220, wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar, paraBirimi)}</TableCell>
+                            <TableCell align="right">{k.adet || 0}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                              {k.kaynak === 'firma'
+                                ? <Tooltip title={`Firma linkinden girildi${k.girenAdi ? ` — ${k.girenAdi}` : ''} · ${formatDate(k.girisTarihi, true)}`}>
+                                    <Chip size="small" color="success" label="Onaylandı · Firma" />
+                                  </Tooltip>
+                                : <Typography variant="caption" color="text.secondary">{k.girenAdi || 'Personel'}</Typography>}
+                            </TableCell>
+                            {evrakSutunu && <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                              {evrakVar ? <Button size="small" startIcon={<AttachFileIcon />} aria-expanded={evrakAcik}
+                                aria-controls={evrakAcik ? evrakPaneli : undefined} aria-label={`${k.no || 'Fatura'} evrakları`}
+                                onClick={(event) => { event.stopPropagation(); evrakGorunumunuDegistir(); }}>
+                                Evraklar ({evraklar.length})
+                              </Button> : '—'}
+                            </TableCell>}
+                            <TableCell sx={{ whiteSpace: 'nowrap' }} onClick={(event) => event.stopPropagation()}>
+                              <Tooltip title="Düzelt"><span><IconButton size="small" aria-label={`${k.no || 'Kalem'} düzelt`} disabled={mesgul} onClick={() => duzenle(k)}><EditIcon fontSize="small" /></IconButton></span></Tooltip>
+                              <Tooltip title="Sil"><span><IconButton size="small" color="error" aria-label={`${k.no || 'Kalem'} sil`} disabled={mesgul} onClick={() => sil(k)}><DeleteOutlineIcon fontSize="small" /></IconButton></span></Tooltip>
+                            </TableCell>
+                          </TableRow>
+                          {evrakAcik && <KalemEvraklari id={evrakPaneli} kalem={k} evraklar={evraklar}
+                            yuklenenler={yuklenenEvraklar} onAc={evrakiAc}
+                            hata={evrakHatasi?.kalemId === k._id ? evrakHatasi.mesaj : ''} />}
+                        </React.Fragment>
+                      );
+                    })}
                     <TableRow>
                       <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Toplam</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatMoney(toplamTutar, paraBirimi)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{toplamAdet}</TableCell>
-                      <TableCell colSpan={2} />
+                      <TableCell colSpan={evrakSutunu ? 3 : 2} />
                     </TableRow>
                   </TableBody>
                 </Table>
@@ -214,6 +338,36 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
       <DialogActions><Button onClick={onClose}>Kapat</Button></DialogActions>
     </Dialog>
   );
+}
+
+function KalemEvraklari({ id, kalem, evraklar, yuklenenler, onAc, hata }) {
+  return <TableRow>
+    <TableCell colSpan={8} sx={{ bgcolor: 'action.hover' }}>
+      <Stack id={id} spacing={1} role="region" aria-label={`${kalem.no || 'Fatura'} evrak listesi`}>
+        {EVRAK_TURLERI.map(({ tur, etiket }) => {
+          const ayniTur = evraklar.filter((evrak) => evrak.tur === tur);
+          if (!ayniTur.length) return null;
+          const xml = tur === 'fatura_xml';
+          return <Box key={tur}>
+            <Typography variant="caption" component="div" sx={{ fontWeight: 700 }}>{etiket}</Typography>
+            <Stack direction="row" flexWrap="wrap" gap={0.5}>
+              {ayniTur.map((evrak) => {
+                const bekliyor = yuklenenler.includes(evrakAnahtari(kalem._id, evrak._id));
+                const ad = dosyaAdi(evrak);
+                return <Button key={evrak._id} size="small" disabled={bekliyor}
+                  startIcon={bekliyor ? <CircularProgress size={14} /> : (xml ? <DownloadIcon /> : <OpenInNewIcon />)}
+                  sx={{ textTransform: 'none', overflowWrap: 'anywhere' }}
+                  aria-label={`${ad} ${xml ? 'indir' : 'aç'}`} onClick={() => onAc(kalem, evrak)}>
+                  {ad}
+                </Button>;
+              })}
+            </Stack>
+          </Box>;
+        })}
+        {hata && <Alert severity="error">{hata}</Alert>}
+      </Stack>
+    </TableCell>
+  </TableRow>;
 }
 
 function Bilgi({ etiket, deger, xs, sm }) {

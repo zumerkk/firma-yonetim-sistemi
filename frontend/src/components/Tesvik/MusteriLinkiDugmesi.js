@@ -46,9 +46,12 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   const [mesgul, setMesgul] = useState(false);
   const [hata, setHata] = useState('');
   const [kopyalandi, setKopyalandi] = useState(false);
+  const [kopyalamaHatasi, setKopyalamaHatasi] = useState(false);
   const [okundu, setOkundu] = useState(false);
   const kontrol = useRef({ sira: 0, iptal: null, mesgul: false });
   const sonIstek = useRef(null);
+  const linkAlani = useRef(null);
+  const kopyalamaSayaci = useRef(0);
   const adres = `/musteri-belge/yonetim/${tesvikModel}/${tesvikId}`;
 
   // Belge değiştiğinde/kapanınca eski yanıt yeni belgenin linkini ezmesin.
@@ -77,7 +80,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
     kontrol.current.iptal = iptal;
     kontrol.current.mesgul = true;
     sonIstek.current = islem;
-    setMesgul(true); setHata(''); setKopyalandi(false);
+    setMesgul(true); setHata(''); setKopyalandi(false); setKopyalamaHatasi(false);
     const guncel = () => sira === kontrol.current.sira && !iptal.signal.aborted;
     try {
       let cevap;
@@ -136,10 +139,22 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
     if (!window.confirm('Link kapatılsın mı? Firma bu belgeyi artık göremez ve fatura kalemi giremez.')) return;
     istek({ yontem: 'delete' });
   };
-  const kopyala = () => {
+  const kopyala = async () => {
     if (!bilgi?.link) return;
-    navigator.clipboard?.writeText(bilgi.link);
-    setKopyalandi(true);
+    const sira = kontrol.current.sira;
+    const kopyalama = ++kopyalamaSayaci.current;
+    const guncel = () => sira === kontrol.current.sira && kopyalama === kopyalamaSayaci.current;
+    setKopyalandi(false);
+    setKopyalamaHatasi(false);
+    try {
+      await navigator.clipboard.writeText(bilgi.link);
+      if (guncel()) setKopyalandi(true);
+    } catch (_) {
+      if (!guncel()) return;
+      linkAlani.current?.focus();
+      linkAlani.current?.select();
+      setKopyalamaHatasi(true);
+    }
   };
 
   if (!tesvikId) return null;
@@ -166,7 +181,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
           </Stack>}
           {!mesgul && !hata && bilgi?.link && (
             <>
-              <TextField fullWidth size="small" value={bilgi.link} InputProps={{
+              <TextField fullWidth size="small" value={bilgi.link} inputRef={linkAlani} InputProps={{
                 readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
@@ -176,6 +191,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
                 )
               }} />
               {kopyalandi && <Alert severity="success" sx={{ mt: 1, py: 0 }}>Link kopyalandı</Alert>}
+              {kopyalamaHatasi && <Alert severity="info" sx={{ mt: 1, py: 0 }}>Linki seçili alandan kopyalayabilirsiniz.</Alert>}
               {bilgi.olusturmaTarihi && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                   Oluşturma: {tarihYaz(bilgi.olusturmaTarihi)}{bilgi.olusturanAdi ? ` · ${bilgi.olusturanAdi}` : ''}

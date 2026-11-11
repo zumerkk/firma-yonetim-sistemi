@@ -255,6 +255,8 @@ test('müşteri belgesinin yönetim isteği personel tokenını gönderir', asyn
   expect(config.headers.get('Authorization')).toBe(`Bearer ${TOKEN_A}`);
   await act(async () => { await api.get('/musteri-belge/link-token'); });
   expect(api.defaults.adapter.mock.calls.at(-1)[0].headers.has('Authorization')).toBe(false);
+  await act(async () => { await api.post('/musteri-belge/link-token/fatura-kalemi/kalem-id/evrak', {}); });
+  expect(api.defaults.adapter.mock.calls.at(-1)[0].headers.has('Authorization')).toBe(false);
 });
 
 test.each([

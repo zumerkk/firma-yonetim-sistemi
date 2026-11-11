@@ -28,6 +28,10 @@ const tesvikMakineService = {
   faturaKalemiEkle: (id, kalem) => api.post(`${base}/process/${id}/fatura-kalemleri`, kalem).then(d),
   faturaKalemiGuncelle: (id, kalemId, kalem) => api.patch(`${base}/process/${id}/fatura-kalemleri/${kalemId}`, kalem).then(d),
   faturaKalemiSil: (id, kalemId) => api.delete(`${base}/process/${id}/fatura-kalemleri/${kalemId}`).then(d),
+  faturaKalemiEvrakGetir: (id, kalemId, evrakId, { signal } = {}) =>
+    api.get(`${base}/process/${id}/fatura-kalemleri/${kalemId}/evrak/${evrakId}`, {
+      responseType: 'blob', signal, timeout: 120000
+    }).then((r) => r.data),
   updateStatus: (id, body) => api.patch(`${base}/process/${id}/status`, body).then((r) => r.data),
   setBarcode: (id, body) => api.post(`${base}/process/${id}/barcode`, body).then(d),
   previewMail: (id, body) => api.post(`${base}/process/${id}/mail/preview`, body).then(d),

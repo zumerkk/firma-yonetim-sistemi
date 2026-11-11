@@ -4,7 +4,7 @@
 // hariç), yerli ve ithal listede makinelerine fatura (ithalde beyanname) kalemi girer. Kaydedilen kalem
 // firmaya kilitlidir ("Onaylandı"); düzeltmeyi personel yapar. Sekmeler belge ekranıyla AYNI
 // bileşenlerden çizilir — ekran ile müşteri linki ayrışmasın.
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Box, Paper, Typography, Alert, CircularProgress, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -12,12 +12,14 @@ import {
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
+import AttachFileIcon from '@mui/icons-material/AttachFile';
 import LockIcon from '@mui/icons-material/Lock';
-import api from '../../utils/axios';
+import api, { uploadPost } from '../../utils/axios';
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
 import TutarAlani from '../../components/common/TutarAlani';
+import UploadProgress from '../../components/common/UploadProgress';
 
 // Belge ekranının sekme sırası (ETUYS) — "Evrak Listesi" firmaya açılmaz
 const BOLUMLER = [
@@ -38,9 +40,21 @@ const para = (v, kod = 'TRY') => {
 const tarih = (v) => (v ? new Date(v).toLocaleDateString('tr-TR') : '-');
 const BOS_KALEM = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
 const GIREN_ANAHTARI = 'musteriBelge.giren';
+const FATURA_EVRAK_TURLERI = [
+  { alan: 'faturaPdf', tur: 'fatura_pdf', etiket: 'Fatura PDF', uzanti: '.pdf' },
+  { alan: 'faturaXml', tur: 'fatura_xml', etiket: 'Fatura XML', uzanti: '.xml' },
+  { alan: 'yevmiyePdf', tur: 'yevmiye_pdf', etiket: 'Yevmiye Kayıt PDF', uzanti: '.pdf' }
+];
+const EVRAK_SAYI_SINIRI = 6;
+const EVRAK_BOYUT_SINIRI = 10 * 1024 * 1024;
+const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
 export default function MusteriBelgeSayfasi() {
   const { token } = useParams();
+  return <BelgeGorunumu key={token} token={token} />;
+}
+
+function BelgeGorunumu({ token }) {
   const [veri, setVeri] = useState(null);
   const [hata, setHata] = useState('');
   const [aktif, setAktif] = useState('kunye');
@@ -62,7 +76,7 @@ export default function MusteriBelgeSayfasi() {
       const anahtar = m.listType === 'import' ? 'ithal' : 'yerli';
       return { ...v, makineler: { ...v.makineler, [anahtar]: v.makineler[anahtar].map((x) => (x.rowId === m.rowId ? m : x)) } };
     });
-    setSecili(m);
+    setSecili((onceki) => onceki?.listType === m.listType && onceki?.rowId === m.rowId ? m : onceki);
   };
 
   if (hata) return <Kabuk><Alert severity="error">{hata}</Alert></Kabuk>;
@@ -104,7 +118,8 @@ export default function MusteriBelgeSayfasi() {
       </Typography>
 
       {secili && (
-        <KalemPenceresi token={token} makine={secili} onClose={() => setSecili(null)} onKaydedildi={makineyiGuncelle} />
+        <KalemPenceresi key={`${secili.listType}:${secili.rowId}`} token={token} makine={secili}
+          onClose={() => setSecili(null)} onKaydedildi={makineyiGuncelle} />
       )}
     </Kabuk>
   );
@@ -163,33 +178,81 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
   const etiket = ithal ? { tarih: 'Beyanname Tarihi', no: 'Beyanname No' } : { tarih: 'Fatura Tarihi', no: 'Fatura Sayısı' };
   const [form, setForm] = useState(BOS_KALEM);
   const [giren, setGiren] = useState(() => { try { return localStorage.getItem(GIREN_ANAHTARI) || ''; } catch (_) { return ''; } });
-  const [mesgul, setMesgul] = useState(false);
+  const [islem, setIslem] = useState('');
+  const devamEdenIstek = useRef(null);
+  const [evrakKalemiId, setEvrakKalemiId] = useState(null);
   const [hata, setHata] = useState('');
   const [bilgi, setBilgi] = useState('');
   const alan = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  useEffect(() => () => devamEdenIstek.current?.abort(), []);
+
+  const islemiBaslat = (tur) => {
+    if (devamEdenIstek.current) return null;
+    const denetim = new AbortController();
+    devamEdenIstek.current = denetim;
+    setIslem(tur);
+    return denetim;
+  };
+
+  const islemiBitir = (denetim) => {
+    if (devamEdenIstek.current !== denetim) return;
+    devamEdenIstek.current = null;
+    if (!denetim.signal.aborted) setIslem('');
+  };
+
+  const kapat = () => { if (!devamEdenIstek.current) onClose(); };
+
+  const makineYaniti = (r) => {
+    const guncel = r.data?.data;
+    if (guncel?.rowId !== makine.rowId || guncel?.listType !== makine.listType || !Array.isArray(guncel?.kalemler)) {
+      throw new Error('Makine bilgileri güncellenemedi. Lütfen tekrar deneyin.');
+    }
+    return guncel;
+  };
 
   const kaydet = async () => {
+    if (devamEdenIstek.current) return;
     // Firma kaydettiği kalemi düzeltemez — gönderimden önce son kez sorulur
     if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\nTutar: ${para(form.tutar, kod)}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
-    setMesgul(true); setHata(''); setBilgi('');
+    const denetim = islemiBaslat('kalem');
+    if (!denetim) return;
+    setHata(''); setBilgi('');
     try {
       const r = await api.post(`/musteri-belge/${token}/fatura-kalemi`, {
         listType: makine.listType, rowId: makine.rowId, ...form, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren
-      });
+      }, { signal: denetim.signal });
+      if (denetim.signal.aborted) return;
+      const guncel = makineYaniti(r);
       try { localStorage.setItem(GIREN_ANAHTARI, giren); } catch (_) { /* gizli sekme */ }
       setForm(BOS_KALEM);
       setBilgi('Kalem kaydedildi. Teşekkür ederiz.');
-      onKaydedildi(r.data?.data);
+      onKaydedildi(guncel);
+      if (!ithal && guncel.yeniKalemId) setEvrakKalemiId(guncel.yeniKalemId);
     } catch (e) {
-      setHata(e?.response?.data?.message || 'Kaydedilemedi. Lütfen tekrar deneyin.');
-    } finally { setMesgul(false); }
+      if (!denetim.signal.aborted) setHata(e?.response?.data?.message || e?.message || 'Kaydedilemedi. Lütfen tekrar deneyin.');
+    } finally { islemiBitir(denetim); }
+  };
+
+  const evrakYukle = async (kalemId, formData, onProgress) => {
+    const denetim = islemiBaslat('evrak');
+    if (!denetim) return false;
+    try {
+      const r = await uploadPost(`/musteri-belge/${encodeURIComponent(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}/evrak`,
+        formData, { onProgress, signal: denetim.signal });
+      if (denetim.signal.aborted) return false;
+      onKaydedildi(makineYaniti(r));
+      return true;
+    } catch (e) {
+      if (denetim.signal.aborted) return false;
+      throw e;
+    } finally { islemiBitir(denetim); }
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+    <Dialog open onClose={kapat} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle sx={{ pr: 6, fontWeight: 700 }}>
         {ithal ? 'Beyanname Kalemleri' : 'Fatura Kalemleri'}
-        <IconButton onClick={onClose} sx={{ position: 'absolute', right: 8, top: 8 }} aria-label="Kapat"><CloseIcon /></IconButton>
+        <IconButton onClick={kapat} disabled={!!islem} sx={{ position: 'absolute', right: 8, top: 8 }} aria-label="Kapat"><CloseIcon /></IconButton>
       </DialogTitle>
       <DialogContent dividers>
         <Box sx={{ bgcolor: '#f8fafc', p: 1.5, mb: 2 }}>
@@ -210,27 +273,52 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                 <TableRow>
                   <TableCell>{etiket.tarih}</TableCell><TableCell>{etiket.no}</TableCell><TableCell>Kalem İçeriği</TableCell>
                   <TableCell align="right">Tutar</TableCell><TableCell align="right">Adet</TableCell><TableCell>Durum</TableCell>
+                  {!ithal && <TableCell>Evraklar</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {makine.kalemler.map((k) => (
-                  <TableRow key={k._id}>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
-                    <TableCell>{k.no || '-'}</TableCell>
-                    <TableCell sx={{ wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{para(k.tutar, kod)}</TableCell>
-                    <TableCell align="right">{k.adet || 0}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      <Chip size="small" icon={<LockIcon sx={{ fontSize: 14 }} />} color={k.kaynak === 'firma' ? 'success' : 'default'}
-                        label={k.kaynak === 'firma' ? `Onaylandı${k.girenAdi ? ` · ${k.girenAdi}` : ''}` : 'Danışman girdi'} />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {makine.kalemler.map((k) => {
+                  const yuklenebilir = !ithal && k.kaynak === 'firma' && !!k._id;
+                  const evraklarAcik = yuklenebilir && String(evrakKalemiId) === String(k._id);
+                  return (
+                    <React.Fragment key={k._id}>
+                      <TableRow>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
+                        <TableCell>{k.no || '-'}</TableCell>
+                        <TableCell sx={{ wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{para(k.tutar, kod)}</TableCell>
+                        <TableCell align="right">{k.adet || 0}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                          <Chip size="small" icon={<LockIcon sx={{ fontSize: 14 }} />} color={k.kaynak === 'firma' ? 'success' : 'default'}
+                            label={k.kaynak === 'firma' ? `Onaylandı${k.girenAdi ? ` · ${k.girenAdi}` : ''}` : 'Danışman girdi'} />
+                        </TableCell>
+                        {!ithal && (
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                            {yuklenebilir && (
+                              <Button size="small" startIcon={<AttachFileIcon />} disabled={!!islem} aria-expanded={evraklarAcik}
+                                onClick={() => setEvrakKalemiId(evraklarAcik ? null : k._id)}>
+                                {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
+                              </Button>
+                            )}
+                          </TableCell>
+                        )}
+                      </TableRow>
+                      {evraklarAcik && (
+                        <TableRow>
+                          <TableCell colSpan={7}>
+                            <FaturaEvrakPaneli kalem={k} rowId={makine.rowId} islem={islem} onYukle={evrakYukle} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
                 <TableRow>
                   <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Toplam</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{para(makine.faturaToplami, kod)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{makine.faturaAdedi}</TableCell>
                   <TableCell />
+                  {!ithal && <TableCell />}
                 </TableRow>
               </TableBody>
             </Table>
@@ -268,13 +356,114 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
         {bilgi && <Alert severity="success" sx={{ mt: 2 }}>{bilgi}</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3 }}>
-        <Button onClick={onClose}>Kapat</Button>
+        <Button onClick={kapat} disabled={!!islem}>Kapat</Button>
         <Button variant="contained" onClick={kaydet}
-          disabled={mesgul || !form.tarih || !form.no.trim() || !(Number(form.tutar) > 0) || !giren.trim()}
-          startIcon={mesgul ? <CircularProgress size={16} color="inherit" /> : null}>
+          disabled={!!islem || !form.tarih || !form.no.trim() || !(Number(form.tutar) > 0) || !giren.trim()}
+          startIcon={islem === 'kalem' ? <CircularProgress size={16} color="inherit" /> : null}>
           Kaydet
         </Button>
       </DialogActions>
     </Dialog>
+  );
+}
+
+function FaturaEvrakPaneli({ kalem, rowId, islem, onYukle }) {
+  const [dosyalar, setDosyalar] = useState({});
+  const [hata, setHata] = useState('');
+  const [bilgi, setBilgi] = useState('');
+  const [ilerleme, setIlerleme] = useState(null);
+  const istekId = useRef(null);
+  const panel = useRef(null);
+  const adet = Object.values(dosyalar).reduce((toplam, liste) => toplam + liste.length, 0);
+
+  useEffect(() => { panel.current?.scrollIntoView?.({ block: 'nearest' }); }, []);
+
+  const secimiGuncelle = (alan, liste) => {
+    setDosyalar((onceki) => ({ ...onceki, [alan]: liste }));
+    istekId.current = null;
+    setHata('');
+    setBilgi('');
+  };
+
+  const dosyaSec = (tur, e) => {
+    const secilen = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (islem || !secilen.length) return;
+    if (adet + secilen.length > EVRAK_SAYI_SINIRI) {
+      setHata(`Bir seferde en fazla ${EVRAK_SAYI_SINIRI} dosya yükleyebilirsiniz.`);
+      return;
+    }
+    const yanlisUzanti = secilen.find((dosya) => !dosya.name.toLowerCase().endsWith(tur.uzanti));
+    if (yanlisUzanti) {
+      setHata(`${tur.etiket} için ${tur.uzanti.toUpperCase()} dosyası seçin.`);
+      return;
+    }
+    const buyukDosya = secilen.find((dosya) => dosya.size > EVRAK_BOYUT_SINIRI);
+    if (buyukDosya) {
+      setHata(`${buyukDosya.name} 10 MB sınırını aşıyor.`);
+      return;
+    }
+    secimiGuncelle(tur.alan, [...(dosyalar[tur.alan] || []), ...secilen]);
+  };
+
+  const yukle = async () => {
+    if (islem || !adet) return;
+    setHata('');
+    setBilgi('');
+    setIlerleme({ pct: 0 });
+    const fd = new FormData();
+    fd.append('rowId', rowId);
+    // Aynı seçimle tekrar denendiğinde, yanıt kaybolsa bile yükleme yinelenmez.
+    if (!istekId.current) istekId.current = yeniIstekId();
+    fd.append('istekId', istekId.current);
+    FATURA_EVRAK_TURLERI.forEach(({ alan }) => (dosyalar[alan] || []).forEach((dosya) => fd.append(alan, dosya)));
+    try {
+      if (!await onYukle(kalem._id, fd, setIlerleme)) return;
+      setDosyalar({});
+      istekId.current = null;
+      setBilgi('Evraklar yüklendi.');
+    } catch (e) {
+      setHata(e?.kullaniciMesaji || e?.response?.data?.message || e?.message || 'Evraklar yüklenemedi. Lütfen tekrar deneyin.');
+    } finally { setIlerleme(null); }
+  };
+
+  return (
+    <Box ref={panel} sx={{ p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 1 }}>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Fatura Evrakları · {kalem.no || 'Fatura'}</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        Bir seferde en fazla 6 dosya, dosya başına en fazla 10 MB yükleyebilirsiniz.
+      </Typography>
+      <Grid container spacing={1}>
+        {FATURA_EVRAK_TURLERI.map((tur) => {
+          const yuklenenler = (kalem.evraklar || []).filter((evrak) => evrak.tur === tur.tur);
+          return (
+            <Grid item key={tur.alan} xs={12} sm={4}>
+              <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} disabled={!!islem}>
+                {tur.etiket}
+                <input hidden type="file" multiple accept={tur.uzanti} aria-label={tur.etiket}
+                  disabled={!!islem} onChange={(e) => dosyaSec(tur, e)} />
+              </Button>
+              {yuklenenler.length > 0 && (
+                <Box component="ul" aria-label={`${tur.etiket} yüklenen dosyalar`} sx={{ m: 0, mt: 0.5, pl: 2 }}>
+                  {yuklenenler.map((evrak) => (
+                    <Typography key={evrak._id} component="li" variant="caption" sx={{ overflowWrap: 'anywhere' }}>{evrak.dosyaAdi}</Typography>
+                  ))}
+                </Box>
+              )}
+              {(dosyalar[tur.alan] || []).map((dosya, indeks) => (
+                <Chip key={`${dosya.name}:${indeks}`} size="small" label={dosya.name} title={dosya.name} sx={{ mt: 0.5, mr: 0.5, maxWidth: '100%' }}
+                  onDelete={islem ? undefined : () => secimiGuncelle(tur.alan, dosyalar[tur.alan].filter((_, i) => i !== indeks))} />
+              ))}
+            </Grid>
+          );
+        })}
+      </Grid>
+      <Button size="small" variant="contained" onClick={yukle} disabled={!!islem || !adet} sx={{ mt: 1 }}>
+        Dosyaları Yükle
+      </Button>
+      <UploadProgress active={islem === 'evrak'} {...(ilerleme || {})} fileName={`${adet} dosya`} />
+      {hata && <Alert severity="error" sx={{ mt: 1 }}>{hata}</Alert>}
+      {bilgi && <Alert severity="success" sx={{ mt: 1 }}>{bilgi}</Alert>}
+    </Box>
   );
 }
