@@ -141,6 +141,7 @@ async function ensureProcess({ tesvikModel, tesvikId, listType, rowId, user }) {
   }
   let proc = await MachineProcess.findOne({ tesvikModel, tesvikId, rowId });
   if (proc) {
+    if (proc.listType !== listType) throw Object.assign(new Error('Makine satırı bu listede bulunamadı.'), { code: 'ROW_NOT_FOUND' });
     await eskiFaturaOzetiniKalemeCevir(proc);
     return proc;
   }
@@ -176,10 +177,10 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
   const identity = resolver.extractCertIdentity(cert);
   const machines = resolver.listAllMachines(cert);
   const procs = await MachineProcess.find({ tesvikModel, tesvikId }).lean();
-  const procByRow = new Map(procs.map((p) => [String(p.rowId), p]));
+  const procByRow = new Map(procs.map((p) => [`${p.listType}:${p.rowId}`, p]));
 
   const rows = machines.map((m) => {
-    const p = procByRow.get(String(m.rowId)) || null;
+    const p = procByRow.get(`${m.listType}:${m.rowId}`) || null;
     const st = p ? p.status : MACHINE_STATUS.NOT_STARTED;
     return {
       ...m,
@@ -199,6 +200,7 @@ async function listForCertificate({ tesvikModel, tesvikId }) {
       // 🧾 Fatura gerçekleşme alanları (Yerli Liste düzenlenebilir kolonları)
       faturalar: p ? faturaKalemleriniOku(p) : [],
       invoiceRealizedValue: p ? p.invoiceRealizedValue : 0,
+      faturaTutarToplamlari: p ? faturaTutarToplamlari(p) : {},
       invoiceRealizedQty: p ? p.invoiceRealizedQty : 0,
       invoiceNo: p ? p.invoiceNo : '',
       invoiceDate: p ? p.invoiceDate : null
@@ -219,7 +221,7 @@ const EDITABLE_FIELDS = [
 // 🔄 Fatura gerçekleşme bilgilerini ana teşvik belgesinin gömülü makine satırına geri yaz.
 // MachineProcess'teki invoiceRealizedValue/Qty → YeniTesvik.makineListeleri.yerli[].gerceklesenTutar/Adet
 // Pre-save hook'ları tetiklememek için doğrudan $set ile yazar.
-async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar }) {
+async function syncInvoiceToMasterList(proc) {
   try {
     const M = resolver.modelFor(proc.tesvikModel);
     const lk = proc.listType === 'import' ? 'ithal' : 'yerli';
@@ -259,6 +261,23 @@ async function syncInvoiceToMasterList(proc, { gerceklesenAdet, gerceklesenTutar
  */
 const faturaSayi = (v) => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
+function faturaKalemiParaBirimi(kalem, proc) {
+  if (proc.listType !== 'import') return 'TRY';
+  const kod = String(kalem.tutarParaBirimi || proc.currency || 'USD').trim().toUpperCase();
+  if (kod === 'TL') return 'TRY';
+  return /^[A-Z0-9]{1,10}$/.test(kod) ? kod : 'USD';
+}
+
+function faturaTutarToplamlari(proc, kalemler = faturaKalemleriniOku(proc)) {
+  const kurus = new Map();
+  for (const kalem of kalemler) {
+    const paraBirimi = faturaKalemiParaBirimi(kalem, proc);
+    const tutar = faturaSayi(kalem.tutar);
+    if (tutar) kurus.set(paraBirimi, (kurus.get(paraBirimi) || 0) + Math.round(tutar * 100));
+  }
+  return Object.fromEntries(Array.from(kurus, ([kod, tutar]) => [kod, tutar / 100]));
+}
+
 /**
  * Tek bir fatura kalemini doğrular/temizler. Tamamen boşsa null döner.
  * Kimlik ve kaynak bilgisi (kim, ne zaman, personel mi firma mı) korunur — eskiden bu eşleme
@@ -271,6 +290,7 @@ function faturaKalemiTemizle(k = {}) {
     no: String(k.no || '').trim().slice(0, 100),
     icerik: String(k.icerik || '').trim().slice(0, 500),
     tutar: faturaSayi(k.tutar),
+    tutarParaBirimi: k.tutarParaBirimi,
     adet: faturaSayi(k.adet),
     kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
     girenAdi: String(k.girenAdi || '').trim().slice(0, 120),
@@ -285,7 +305,9 @@ function faturaKalemiTemizle(k = {}) {
 /** Sürecin mevcut kalemlerinden özet alanları (invoice*) yeniden hesaplar. */
 function faturaOzetiniYenile(proc) {
   const kalemler = proc.faturalar || [];
-  proc.invoiceRealizedValue = kalemler.reduce((t, k) => t + faturaSayi(k.tutar), 0);
+  // Ana listedeki gerçekleşen mal bedeli TL'dir. Önceki dövizli kalemler
+  // kendi para birimlerinde kalır ve ayrı gösterilir.
+  proc.invoiceRealizedValue = faturaTutarToplamlari(proc, kalemler).TRY || 0;
   proc.invoiceRealizedQty = kalemler.reduce((t, k) => t + faturaSayi(k.adet), 0);
   // Özet alanlar: tek kalemde o kalemin no'su, çoklu kalemde virgülle ilk üçü
   const nolar = kalemler.map((k) => k.no).filter(Boolean);
@@ -379,10 +401,7 @@ async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, k
   if (!kaydedilen) throw faturaHatasi('Faturalar başka bir kullanıcı tarafından güncellendi. Lütfen yeniden deneyin.', 'FATURA_CAKISMA');
   if (kayittanSonra) await kayittanSonra();
   proc.init(kaydedilen.toObject());
-  await syncInvoiceToMasterList(proc, {
-    gerceklesenAdet: proc.invoiceRealizedQty || 0,
-    gerceklesenTutar: proc.invoiceRealizedValue || 0
-  });
+  await syncInvoiceToMasterList(proc);
   await addLog({ proc, actionType: PROCESS_ACTION.FIELDS_UPDATED, note: not, meta: { kalem: proc.faturalar.length, toplam: proc.invoiceRealizedValue }, user, performedByLabel });
   return proc;
 }
@@ -395,9 +414,10 @@ function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
 }
 
 /** @param {{kaynak?: 'personel'|'firma', girenAdi?: string}} kim */
-async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId } = {}) {
+async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId, eskiIstemci = false } = {}) {
+  const tutarParaBirimi = eskiIstemci ? faturaKalemiParaBirimi({}, proc) : 'TRY';
   const kalem = faturaKalemiTemizle({
-    ...girdi, _id: kalemId, kaynak, girisTarihi: new Date(),
+    ...girdi, _id: kalemId, kaynak, tutarParaBirimi, girisTarihi: new Date(),
     girenAdi: girenAdi || (user && user.adSoyad) || ''
   });
   if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
@@ -406,14 +426,18 @@ async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel',
   return faturaKaydiniBitir(proc, (p) => p.faturalar.push(kalem), `Fatura kalemi eklendi${kalem.no ? `: ${kalem.no}` : ''}${kim ? ` (${kim})` : ''}`, user, kim);
 }
 
-async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null } = {}) {
+async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIstemci = false } = {}) {
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
     if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
     const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
     if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
     if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
-    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet });
+    const tutarParaBirimi = faturaKalemiParaBirimi(mevcut, p);
+    if (eskiIstemci && p.listType === 'import' && mevcut.tutarParaBirimi === 'TRY' && yeni.tutar !== mevcut.tutar) {
+      throw faturaHatasi('TL tutarını güncellemek için sayfayı yenileyip tekrar deneyin.');
+    }
+    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi });
   }, 'Fatura kalemi düzeltildi', user);
 }
 
@@ -434,11 +458,11 @@ async function faturaEvrakDepolariniSil(depolar) {
   }
 }
 
-function firmaFaturaEvraklariniEkle({ surecId, tesvikModel, tesvikId, rowId, kalemId, evraklar, istekId }) {
-  const kalem = { _id: kalemId, kaynak: 'firma' };
+function faturaEvraklariniEkle({ surecId, tesvikModel, tesvikId, rowId, listType, kalemId, kaynak, evraklar, istekId }) {
+  const kalem = { _id: kalemId, ...(kaynak && { kaynak }) };
   if (istekId) kalem['evraklar.istekId'] = { $ne: istekId };
   return MachineProcess.findOneAndUpdate({
-    _id: surecId, tesvikModel, tesvikId, rowId, listType: 'local', faturalar: { $elemMatch: kalem }
+    _id: surecId, tesvikModel, tesvikId, rowId, listType, faturalar: { $elemMatch: kalem }
   }, {
     $push: { 'faturalar.$.evraklar': { $each: evraklar } }, $inc: { __v: 1 }
   }, { new: true, runValidators: true });
@@ -923,11 +947,13 @@ async function getTimeline(proc) {
 
 module.exports = {
   faturaToplamlariniHesapla,
+  faturaTutarToplamlari,
+  faturaKalemiParaBirimi,
   faturaKalemiTemizle,
   faturaKalemiEkle,
   faturaKalemiGuncelle,
   faturaKalemiSil,
-  firmaFaturaEvraklariniEkle,
+  faturaEvraklariniEkle,
   faturaEvrakDepolariniSil,
   FATURA_EVRAK_OZEL_ALANLARI,
   eskiFaturaOzetleriniKalemeCevir,

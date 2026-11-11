@@ -27,12 +27,14 @@ app.use('/api/musteri-belge', musteriRoutes);
 
 const icerik = Buffer.from('%PDF-1.4\nSentetik fatura\n%%EOF\n');
 const kullanici = new mongoose.Types.ObjectId();
+const editor = new mongoose.Types.ObjectId();
 const tesvikId = new mongoose.Types.ObjectId();
 const evrakYolu = (surec, kalemId, evrakId) =>
   `/api/tesvik-makine/process/${surec._id}/fatura-kalemleri/${kalemId}/evrak/${evrakId}`;
 
 let mongo;
 let token;
+let editorToken;
 let dosya;
 let yerli;
 let ithal;
@@ -41,10 +43,15 @@ beforeAll(async () => {
   process.env.JWT_SECRET = 'fatura-evrak-indirme-testi';
   mongo = await MongoMemoryServer.create();
   await mongoose.connect(mongo.getUri());
-  await User.collection.insertOne({
-    _id: kullanici, email: 'personel@example.test', adSoyad: 'Test Personel', aktif: true, rol: 'readonly'
+  await User.collection.insertMany([
+    { _id: kullanici, email: 'personel@example.test', adSoyad: 'Test Personel', aktif: true, rol: 'readonly' },
+    { _id: editor, email: 'editor@example.test', adSoyad: 'Test Editör', aktif: true, rol: 'kullanici' }
+  ]);
+  await Tesvik.collection.insertOne({
+    _id: tesvikId, makineListeleri: { yerli: [{ rowId: 'local' }], ithal: [{ rowId: 'import' }] }
   });
   token = jwt.sign({ id: String(kullanici) }, process.env.JWT_SECRET);
+  editorToken = jwt.sign({ id: String(editor) }, process.env.JWT_SECRET);
   dosya = await depo.kaydet({ buffer: icerik, mimeType: 'application/pdf' });
 
   for (const listType of ['local', 'import']) {
@@ -54,7 +61,8 @@ beforeAll(async () => {
         {
           no: 'F-1',
           evraklar: [{
-            tur: 'fatura_pdf', dosyaAdi: 'fatura.pdf', mimeType: 'application/pdf', fileSize: icerik.length,
+            tur: listType === 'local' ? 'fatura_pdf' : 'beyanname_pdf', dosyaAdi: 'fatura.pdf',
+            mimeType: 'application/pdf', fileSize: icerik.length,
             depo: dosya, istekId: 'yukleme-testi', istekOzeti: 'ozet'
           }]
         },
@@ -85,13 +93,47 @@ test('oturumlu personel yerli faturanın kendi dosyasını güvenli başlıklarl
   expect(yanit.body).toEqual(icerik);
 });
 
-test('farklı kalemden veya ithal makineden indirme yapılamaz', async () => {
+test('ithal beyanname indirilir; farklı süreç ve kalemden indirme yapılamaz', async () => {
   const evrakId = yerli.faturalar[0].evraklar[0]._id;
   const ithalKalem = ithal.faturalar[0];
   await request(app).get(evrakYolu(yerli, yerli.faturalar[1]._id, evrakId))
     .auth(token, { type: 'bearer' }).expect(404);
-  await request(app).get(evrakYolu(ithal, ithalKalem._id, ithalKalem.evraklar[0]._id))
+  await request(app).get(evrakYolu(ithal, yerli.faturalar[0]._id, evrakId))
     .auth(token, { type: 'bearer' }).expect(404);
+  const yanit = await request(app).get(evrakYolu(ithal, ithalKalem._id, ithalKalem.evraklar[0]._id))
+    .auth(token, { type: 'bearer' }).expect(200);
+  expect(yanit.body).toEqual(icerik);
+});
+
+test('ithal beyannameye yalnız düzenleme yetkili personel ek yükler; personel kalemi de desteklenir', async () => {
+  const kalemId = ithal.faturalar[1].id;
+  const adres = `/api/tesvik-makine/process/${ithal._id}/fatura-kalemleri/${kalemId}/evrak`;
+  const yerliAdres = `/api/tesvik-makine/process/${yerli._id}/fatura-kalemleri/${yerli.faturalar[1].id}/evrak`;
+  const yukle = () => request(app).post(adres).field('istekId', 'personel-ithal-ek-1')
+    .attach('yurtdisiFaturaPdf', icerik, 'yurtdisi.pdf');
+  await yukle().expect(401);
+  await yukle().auth(token, { type: 'bearer' }).expect(403);
+  await request(app).post(yerliAdres).auth(editorToken, { type: 'bearer' })
+    .attach('beyannamePdf', icerik, 'beyanname.pdf').expect(404);
+  await request(app).post(adres).auth(editorToken, { type: 'bearer' })
+    .attach('faturaPdf', icerik, 'yerli.pdf').expect(400);
+  try {
+    const yanit = await yukle().auth(editorToken, { type: 'bearer' }).expect(200);
+    const kalem = yanit.body.data.faturalar.find((k) => k._id === kalemId);
+    expect(kalem.kaynak).toBe('personel');
+    expect(kalem.evraklar).toHaveLength(1);
+    expect(kalem.evraklar[0]).toMatchObject({ tur: 'yurtdisi_fatura_pdf', dosyaAdi: 'yurtdisi.pdf' });
+    expect(kalem.evraklar[0]).not.toHaveProperty('depo');
+    expect(kalem.evraklar[0]).not.toHaveProperty('istekId');
+    const tekrar = await yukle().auth(editorToken, { type: 'bearer' }).expect(200);
+    expect(tekrar.body.data.faturalar.find((k) => k._id === kalemId).evraklar).toEqual(kalem.evraklar);
+    const indirilen = await request(app).get(evrakYolu(ithal, kalemId, kalem.evraklar[0]._id))
+      .auth(token, { type: 'bearer' }).expect(200);
+    expect(indirilen.body).toEqual(icerik);
+  } finally {
+    const surec = await MachineProcess.findById(ithal._id).select('+faturalar.evraklar.depo');
+    await Promise.all(surec.faturalar.id(kalemId).evraklar.map((ek) => depo.sil(ek.depo)));
+  }
 });
 
 test('personel süreç detayında evrak bilgileri görünür ve depo bilgileri dönmez', async () => {
@@ -104,30 +146,35 @@ test('personel süreç detayında evrak bilgileri görünür ve depo bilgileri d
   expect(evrak).not.toHaveProperty('istekOzeti');
 });
 
-test('müşterinin kaleme yüklediği PDF ve XML dosyaları personel ekranından okunur', async () => {
+test.each([
+  ['local', 'yerli', 'faturaPdf', 'faturaXml', 'fatura.xml'],
+  ['import', 'ithal', 'beyannamePdf', 'yurtdisiFaturaPdf', 'yurtdisi.pdf']
+])('müşterinin %s kaleme yüklediği dosyalar personel ekranından okunur', async (listType, liste, pdfAlan, ucuncuAlan, ucuncuAd) => {
   const belgeId = new mongoose.Types.ObjectId();
-  const musteriToken = 'sentetik-evrak-yukleme-testi';
-  const rowId = 'YERLI-1';
+  const musteriToken = `sentetik-evrak-yukleme-${listType}`;
+  const rowId = 'MAKINE-1';
   const musteriYolu = `/api/musteri-belge/${musteriToken}`;
   await Tesvik.collection.insertOne({
     _id: belgeId, yatirimciUnvan: 'Sentetik Firma', musteriPortal: { token: musteriToken },
-    makineListeleri: { yerli: [{ rowId, makineId: '1', adiVeOzelligi: 'Test Makinesi' }] }
+    makineListeleri: { [liste]: [{ rowId, makineId: '1', adiVeOzelligi: 'Test Makinesi', gumrukDovizKodu: 'EUR' }] }
   });
   const kalem = await request(app).post(`${musteriYolu}/fatura-kalemi`)
-    .send({ rowId, listType: 'local', tarih: '2026-11-11', no: 'TEST-1', tutar: 123, adet: 1, giren: 'Test Müşteri' })
+    .send({ rowId, listType, tarih: '2026-11-11', no: 'TEST-1', tutar: 123, tutarParaBirimi: 'TRY', adet: 1, giren: 'Test Müşteri' })
     .expect(200);
   const kalemId = kalem.body.data.yeniKalemId;
   const xml = Buffer.from('<?xml version="1.0"?><Invoice><ID>TEST-1</ID></Invoice>');
+  const ithalMi = listType === 'import';
+  expect(kalem.body.data).toMatchObject({ faturaTutarToplamlari: { TRY: 123 }, faturaToplami: 123 });
   try {
     const yukleme = await request(app).post(`${musteriYolu}/fatura-kalemi/${kalemId}/evrak`)
       .field('rowId', rowId).field('istekId', 'sentetik-yukleme-1')
-      .attach('faturaPdf', icerik, { filename: 'fatura-1.pdf', contentType: 'application/pdf' })
-      .attach('faturaPdf', icerik, { filename: 'fatura-2.pdf', contentType: 'application/pdf' })
-      .attach('faturaXml', xml, { filename: 'fatura.xml', contentType: 'application/xml' })
+      .attach(pdfAlan, icerik, { filename: 'ek-1.pdf', contentType: 'application/pdf' })
+      .attach(pdfAlan, icerik, { filename: 'ek-2.pdf', contentType: 'application/pdf' })
+      .attach(ucuncuAlan, ithalMi ? icerik : xml, { filename: ucuncuAd, contentType: ithalMi ? 'application/pdf' : 'application/xml' })
       .attach('yevmiyePdf', icerik, { filename: 'yevmiye.pdf', contentType: 'application/pdf' })
       .expect(200);
     const ekler = yukleme.body.data.kalemler.find((k) => k._id === kalemId).evraklar;
-    expect(ekler.map((e) => e.dosyaAdi)).toEqual(['fatura-1.pdf', 'fatura-2.pdf', 'fatura.xml', 'yevmiye.pdf']);
+    expect(ekler.map((e) => e.dosyaAdi)).toEqual(['ek-1.pdf', 'ek-2.pdf', ucuncuAd, 'yevmiye.pdf']);
     const surec = await MachineProcess.findOne({ tesvikId: belgeId, rowId });
     for (const ek of ekler) {
       const yanit = await request(app).get(evrakYolu(surec, kalemId, ek._id)).auth(token, { type: 'bearer' })

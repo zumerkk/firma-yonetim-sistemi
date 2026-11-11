@@ -50,11 +50,14 @@ async function resolveByToken(token) {
 const faturaOzeti = (p) => {
   const kalemler = mps.faturaKalemleriniOku(p);
   if (!kalemler.length) return null;
+  const faturaTutarToplamlari = mps.faturaTutarToplamlari(p, kalemler);
+  const paraBirimi = faturaTutarToplamlari.TRY ? 'TRY' : mps.faturaKalemiParaBirimi(kalemler[0], p);
   return {
     kalemSayisi: kalemler.length,
-    toplamTutar: kalemler.reduce((toplam, k) => toplam + (Number(k.tutar) || 0), 0),
+    toplamTutar: faturaTutarToplamlari[paraBirimi] || 0,
+    faturaTutarToplamlari,
     toplamAdet: kalemler.reduce((toplam, k) => toplam + (Number(k.adet) || 0), 0),
-    paraBirimi: p.currency || (p.listType === 'import' ? 'USD' : 'TRY')
+    paraBirimi
   };
 };
 

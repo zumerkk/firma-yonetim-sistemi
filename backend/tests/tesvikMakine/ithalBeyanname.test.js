@@ -28,6 +28,8 @@ const { uploadMultiple, ALLOWED_EXT } = require('../../middleware/tesvikUpload')
 const { MAIL_TEMPLATE_CODE } = require('../../constants/tesvikMakineMail');
 const MachineProcess = require('../../models/MachineProcess');
 const MailLog = require('../../models/MailLog');
+const Tesvik = require('../../models/Tesvik');
+const YeniTesvik = require('../../models/YeniTesvik');
 
 jest.setTimeout(60000);
 
@@ -60,6 +62,8 @@ beforeAll(async () => {
   app.use((req, _res, next) => { req.user = user; next(); });
   app.post('/bulk/mail/preview', ctrl.bulkMailPreview);
   app.post('/bulk/mail/send', uploadMultiple('ekler'), ctrl.bulkMailSend);
+  app.post('/process/:id/fatura-kalemleri', ctrl.faturaKalemiEkle);
+  app.patch('/process/:id/fatura-kalemleri/:kalemId', ctrl.faturaKalemiGuncelle);
 });
 
 afterAll(async () => {
@@ -71,6 +75,41 @@ afterAll(async () => {
 beforeEach(async () => {
   await Promise.all([MachineProcess.deleteMany({}), MailLog.deleteMany({})]);
   jest.restoreAllMocks();
+});
+
+test.each([
+  ['Tesvik', Tesvik],
+  ['YeniTesvik', YeniTesvik]
+])('%s ithal mal bedelinin TL toplamı yalnız doğru ana makine satırına yansır', async (tesvikModel, Model) => {
+  const belgeId = new ObjectId();
+  const belgeler = Model.collection;
+  await belgeler.insertOne({
+    _id: belgeId, makineListeleri: {
+      yerli: [{ rowId: 'Y1', gerceklesenTutar: 77 }],
+      ithal: [ithal('I1', 1, 'Birinci'), { ...ithal('I2', 2, 'İkinci'), gerceklesenTutar: 99 }]
+    }
+  });
+  const proc = await mps.ensureProcess({ tesvikModel, tesvikId: belgeId, rowId: 'I1', listType: 'import' });
+  const adres = `/process/${proc._id}/fatura-kalemleri`;
+  const eski = await request(app).post(adres).send({ no: 'ESKI', tutar: 100, adet: 1 }).expect(200);
+  expect(eski.body.data.faturalar[0].tutarParaBirimi).toBe('EUR');
+
+  const yeni = await request(app).post(adres)
+    .send({ no: 'YENI', tutar: 1250.25, adet: 2, tutarParaBirimi: 'TRY' }).expect(200);
+  const { yeniKalemId } = yeni.body.data;
+  expect(yeni.body.data.faturalar.find((k) => k._id === yeniKalemId)).toMatchObject({ tutar: 1250.25, tutarParaBirimi: 'TRY' });
+  expect(yeni.body.data).toMatchObject({ invoiceRealizedValue: 1250.25, faturaTutarToplamlari: { TRY: 1250.25, EUR: 100 } });
+  await request(app).patch(`${adres}/${yeniKalemId}`).send({ tutar: 1000 }).expect(400);
+  await request(app).patch(`${adres}/${yeniKalemId}`).send({ tutar: 1200, tutarParaBirimi: 'TRY' }).expect(200);
+
+  const belge = await belgeler.findOne({ _id: belgeId });
+  expect(belge.makineListeleri.ithal[0]).toMatchObject({ gerceklesenTutar: 1200, gerceklesenAdet: 3, toplamTutarFobUsd: 179000 });
+  expect(belge.makineListeleri.ithal[1].gerceklesenTutar).toBe(99);
+  expect(belge.makineListeleri.yerli[0].gerceklesenTutar).toBe(77);
+  const liste = await mps.listForCertificate({ tesvikModel, tesvikId: belgeId });
+  expect(liste.rows.find((r) => r.rowId === 'I1')).toMatchObject({
+    invoiceRealizedValue: 1200, invoiceRealizedQty: 3, faturaTutarToplamlari: { TRY: 1200, EUR: 100 }
+  });
 });
 
 describe('toplu beyanname maili', () => {

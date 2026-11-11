@@ -29,6 +29,8 @@ const ParsedMinistryMail = require('../models/ParsedMinistryMail');
 const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
 const faturaEvrakDeposu = require('../services/tesvikMakine/faturaEvrakDeposu');
+const faturaEvrakService = require('../services/tesvikMakine/faturaEvrakService');
+const { EVRAK_ALANLARI } = require('../constants/faturaEvrak');
 const { evraklariGrupla, ayniYuklemeninKopyalari } = require('../services/tesvikMakine/ortakYukleme');
 const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
@@ -374,7 +376,7 @@ exports.downloadKdvMuafiyet = wrap(async (req, res) => {
 exports.ensureProcess = wrap(async (req, res) => {
   const { tesvikModel, tesvikId, listType, rowId } = req.body;
   const proc = await mps.ensureProcess({ tesvikModel, tesvikId, listType, rowId, user: req.user });
-  res.json({ success: true, data: proc });
+  res.json({ success: true, data: { ...proc.toJSON(), faturaTutarToplamlari: mps.faturaTutarToplamlari(proc) } });
 });
 
 exports.getProcess = wrap(async (req, res) => {
@@ -387,7 +389,10 @@ exports.getProcess = wrap(async (req, res) => {
     ReminderJob.find({ machineProcessId: proc._id }).sort({ dueAt: -1 }).limit(50).lean(),
     proc.folderId ? DocumentFolder.findById(proc.folderId).lean() : Promise.resolve(null)
   ]);
-  res.json({ success: true, data: { process: proc, statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder } });
+  res.json({ success: true, data: {
+    process: { ...proc.toJSON(), faturaTutarToplamlari: mps.faturaTutarToplamlari(proc) },
+    statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder
+  } });
 });
 
 // ───────── 🧾 FATURA KALEMLERİ (tek tek) ─────────
@@ -396,6 +401,7 @@ exports.getProcess = wrap(async (req, res) => {
 const faturaYaniti = (proc) => ({
   faturalar: proc.faturalar,
   invoiceRealizedValue: proc.invoiceRealizedValue,
+  faturaTutarToplamlari: mps.faturaTutarToplamlari(proc),
   invoiceRealizedQty: proc.invoiceRealizedQty,
   invoiceNo: proc.invoiceNo,
   invoiceDate: proc.invoiceDate
@@ -406,9 +412,9 @@ exports.faturaEvrakiIndir = wrap(async (req, res) => {
   const bulunamadi = () => res.status(404).json({ success: false, message: 'Fatura evrakı bulunamadı.' });
   if (![id, kalemId, evrakId].every((deger) => /^[a-f0-9]{24}$/i.test(deger))) return bulunamadi();
 
-  const proc = await MachineProcess.findOne({ _id: id, listType: 'local' }).select('+faturalar.evraklar.depo');
+  const proc = await MachineProcess.findById(id).select('+faturalar.evraklar.depo');
   const evrak = proc?.faturalar?.id(kalemId)?.evraklar?.id(evrakId);
-  if (!evrak?.depo) return bulunamadi();
+  if (!evrak?.depo || !Object.values(EVRAK_ALANLARI[proc.listType] || {}).some(({ tur }) => tur === evrak.tur)) return bulunamadi();
 
   let buffer;
   try {
@@ -427,17 +433,46 @@ exports.faturaEvrakiIndir = wrap(async (req, res) => {
   return res.send(buffer);
 });
 
+exports.faturaEvrakYuklemeYetkisi = async (req, res, next) => {
+  try {
+    await faturaEvrakService.personelBeyannamesiBaglami(req.params.id, req.params.kalemId);
+    req.faturaListType = 'import';
+    next();
+  } catch (error) { return fail(res, error); }
+};
+
+exports.faturaEvrakiYukle = async (req, res) => {
+  const { id, kalemId } = req.params;
+  try {
+    const { proc } = await faturaEvrakService.evrakYukle({
+      baglamiYukle: () => faturaEvrakService.personelBeyannamesiBaglami(id, kalemId),
+      kalemId, istekId: req.body?.istekId, dosyalar: req.files
+    });
+    return res.json({ success: true, data: faturaYaniti(proc) });
+  } catch (error) {
+    if (error.status && error.status < 500) {
+      return res.status(error.status).json({ success: false, message: error.message, code: error.code });
+    }
+    console.error('Beyanname eki kaydedilemedi:', error.message);
+    return res.status(error.status === 503 ? 503 : 500)
+      .json({ success: false, message: 'Beyanname eki kaydedilemedi. Lütfen tekrar deneyin.' });
+  }
+};
+
 // POST /process/:id/fatura-kalemleri   body: { tarih, no, icerik, tutar, adet }
 exports.faturaKalemiEkle = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  await mps.faturaKalemiEkle(proc, req.body || {}, { user: req.user, kaynak: 'personel' });
-  res.json({ success: true, message: 'Fatura kalemi kaydedildi', data: faturaYaniti(proc) });
+  const govde = req.body || {};
+  const kalemId = new mongoose.Types.ObjectId();
+  await mps.faturaKalemiEkle(proc, govde, { user: req.user, kaynak: 'personel', kalemId, eskiIstemci: govde.tutarParaBirimi !== 'TRY' });
+  res.json({ success: true, message: 'Fatura kalemi kaydedildi', data: { ...faturaYaniti(proc), yeniKalemId: String(kalemId) } });
 });
 
 // PATCH /process/:id/fatura-kalemleri/:kalemId
 exports.faturaKalemiGuncelle = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
-  await mps.faturaKalemiGuncelle(proc, req.params.kalemId, req.body || {}, { user: req.user });
+  const govde = req.body || {};
+  await mps.faturaKalemiGuncelle(proc, req.params.kalemId, govde, { user: req.user, eskiIstemci: govde.tutarParaBirimi !== 'TRY' });
   res.json({ success: true, message: 'Fatura kalemi güncellendi', data: faturaYaniti(proc) });
 });
 

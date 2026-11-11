@@ -15,6 +15,7 @@ const mps = require('../../services/tesvikMakine/machineProcessService');
 const MachineProcess = require('../../models/MachineProcess');
 const Tesvik = require('../../models/Tesvik');
 const depo = require('../../services/tesvikMakine/faturaEvrakDeposu');
+const { EVRAK_BOYUTU } = require('../../constants/faturaEvrak');
 const router = require('../../routes/musteriPortal');
 
 jest.setTimeout(60000);
@@ -269,7 +270,7 @@ test('çoklu yerli fatura ekleri yüklenir, künye lokatörleri saklı kalır, d
   expect((await MachineProcess.findById(proc._id)).faturalar).toHaveLength(0);
 });
 
-test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; farklı, ithal ve personel kalemleri dosya alamaz', async () => {
+test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; yanlış alan, satır ve personel kalemi dosya alamaz', async () => {
   const { kaydet } = sahteDepo();
   const token = await linkUret();
   const yerli = await faturaEkle(token);
@@ -278,10 +279,42 @@ test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; farklı, ithal
   await mps.faturaKalemiEkle(proc, { no: 'PERSONEL-1', tutar: 10 }, { user: personel });
   const personelKalemi = proc.faturalar.find((k) => k.kaynak === 'personel');
   await request(app).post(evrakYolu('kisa', yerli.yeniKalemId)).set('Content-Type', 'multipart/form-data').send('bozuk').expect(404);
-  await request(app).post(evrakYolu(token, ithal.yeniKalemId)).field('rowId', 'I1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
+  await request(app).post(evrakYolu(token, ithal.yeniKalemId)).field('rowId', 'I1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(400);
+  await request(app).post(evrakYolu(token, yerli.yeniKalemId)).field('rowId', 'R1').attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(400);
   await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'R1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
   await request(app).post(evrakYolu(token, yerli.yeniKalemId)).field('rowId', 'R2').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
   expect(kaydet).not.toHaveBeenCalled();
+});
+
+test('müşteri kendi ithal beyannamesine üç PDF türünü ekler; farklı belgeye ve personel kalemine yazamaz', async () => {
+  const { kaydet } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token, { listType: 'import', rowId: 'I1', tutarParaBirimi: 'TRY' });
+  const proc = await MachineProcess.findOne({ tesvikId: belge._id, rowId: 'I1' });
+  await mps.faturaKalemiEkle(proc, { no: 'PERSONEL-ITHAL', tutar: 10 }, { user: personel });
+  const personelKalemi = proc.faturalar.find((k) => k.kaynak === 'personel');
+  const digerToken = 'baska-firmanin-tokeni-test';
+  await Tesvik.collection.insertOne({
+    musteriPortal: { token: digerToken }, makineListeleri: { ithal: [{ rowId: 'I1' }] }
+  });
+  await request(app).post(evrakYolu(digerToken, yeniKalemId)).field('rowId', 'I1')
+    .attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(404);
+  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'I1')
+    .attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(404);
+  expect(kaydet).not.toHaveBeenCalled();
+
+  const yukle = () => request(app).post(evrakYolu(token, yeniKalemId)).field('rowId', 'I1')
+    .field('istekId', 'ithal-evrak-1').attach('beyannamePdf', pdf, 'Beyanname.pdf')
+    .attach('yurtdisiFaturaPdf', pdf, 'Yurt disi.pdf').attach('yevmiyePdf', pdf, 'Yevmiye.pdf');
+  const yanit = await yukle().expect(200);
+  const kalem = yanit.body.data.kalemler.find((k) => k._id === yeniKalemId);
+  expect(yanit.body.data).toMatchObject({ rowId: 'I1', listType: 'import' });
+  expect(kalem.evraklar.map((e) => e.tur)).toEqual(['beyanname_pdf', 'yurtdisi_fatura_pdf', 'yevmiye_pdf']);
+  expect(kalem.evraklar.every((e) => e.mimeType === 'application/pdf' && !e.depo && !e.istekId)).toBe(true);
+  expect((await yukle().expect(200)).body.data).toEqual(yanit.body.data);
+  expect(kaydet).toHaveBeenCalledTimes(3);
+  const belgeVerisi = await request(app).get(`/musteri-belge/${token}`).expect(200);
+  expect(belgeVerisi.body.data.makineler.ithal[0].kalemler.find((k) => k._id === yeniKalemId).evraklar).toEqual(kalem.evraklar);
 });
 
 test('ek dosya biçimi, 10 MiB ve 6 dosya sınırı depolamadan önce uygulanır', async () => {
@@ -293,7 +326,7 @@ test('ek dosya biçimi, 10 MiB ve 6 dosya sınırı depolamadan önce uygulanır
   await istek().attach('faturaPdf', xml, 'Fatura.pdf').expect(400);
   await istek().attach('faturaXml', Buffer.from('<html>dosya</html>'), 'Fatura.xml').expect(400);
   await istek().attach('yevmiyePdf', pdf, { filename: 'Yevmiye.pdf', contentType: 'image/png' }).expect(400);
-  const uzun = Buffer.alloc(portal.FATURA_EVRAK_BOYUTU + 1);
+  const uzun = Buffer.alloc(EVRAK_BOYUTU + 1);
   pdf.copy(uzun);
   await istek().attach('faturaPdf', uzun, 'Fatura.pdf').expect(400);
   const cok = istek();
@@ -324,11 +357,11 @@ test('eşzamanlı aynı yükleme kimliği yalnız bir kez kaydedilir; boşta kal
   const { sil, kaydet } = sahteDepo();
   const token = await linkUret();
   const { yeniKalemId } = await faturaEkle(token);
-  const orijinal = mps.firmaFaturaEvraklariniEkle;
+  const orijinal = mps.faturaEvraklariniEkle;
   let baslat;
   const birlikte = new Promise((resolve) => { baslat = resolve; });
   let hazir = 0;
-  const ekle = jest.spyOn(mps, 'firmaFaturaEvraklariniEkle').mockImplementation(async (...args) => {
+  const ekle = jest.spyOn(mps, 'faturaEvraklariniEkle').mockImplementation(async (...args) => {
     hazir += 1;
     if (hazir === 2) baslat();
     await birlikte;
@@ -350,8 +383,8 @@ test('yazım yanıtı kaybolduğunda kayıtlı dosyanın depo kopyası silinmez'
   const { sil } = sahteDepo();
   const token = await linkUret();
   const { yeniKalemId } = await faturaEkle(token);
-  const orijinal = mps.firmaFaturaEvraklariniEkle;
-  jest.spyOn(mps, 'firmaFaturaEvraklariniEkle').mockImplementationOnce(async (...args) => {
+  const orijinal = mps.faturaEvraklariniEkle;
+  jest.spyOn(mps, 'faturaEvraklariniEkle').mockImplementationOnce(async (...args) => {
     await orijinal(...args);
     throw new Error('Yazım yanıtı kayboldu');
   });

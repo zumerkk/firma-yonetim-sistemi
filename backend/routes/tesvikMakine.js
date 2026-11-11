@@ -5,6 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { authenticate, authorize, adminAuth } = require('../middleware/auth');
 const { uploadMultiple, uploadSingle } = require('../middleware/tesvikUpload');
+const faturaDosyalariniAl = require('../middleware/faturaEvrakYukleme');
 const ctrl = require('../controllers/tesvikMakineController');
 
 // Consultant = kullanici. readonly yazamaz.
@@ -75,6 +76,7 @@ router.delete('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, ctrl.
 router.post('/process', editor, ctrl.ensureProcess);
 router.get('/process/:id', ctrl.getProcess);
 router.get('/process/:id/fatura-kalemleri/:kalemId/evrak/:evrakId', ctrl.faturaEvrakiIndir);
+router.post('/process/:id/fatura-kalemleri/:kalemId/evrak', editor, ctrl.faturaEvrakYuklemeYetkisi, faturaDosyalariniAl, ctrl.faturaEvrakiYukle);
 router.patch('/process/:id/fields', editor, ctrl.updateProcessFields);
 router.post('/process/:id/fatura-kalemleri', editor, ctrl.faturaKalemiEkle);
 router.patch('/process/:id/fatura-kalemleri/:kalemId', editor, ctrl.faturaKalemiGuncelle);

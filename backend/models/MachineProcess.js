@@ -5,12 +5,13 @@
 
 const mongoose = require('mongoose');
 const { STATUS_VALUES, MACHINE_STATUS } = require('../constants/tesvikMakineStatus');
+const { EVRAK_BOYUTU, EVRAK_TURLERI } = require('../constants/faturaEvrak');
 
 const faturaEvrakSchema = new mongoose.Schema({
-  tur: { type: String, enum: ['fatura_pdf', 'fatura_xml', 'yevmiye_pdf'], required: true },
+  tur: { type: String, enum: EVRAK_TURLERI, required: true },
   dosyaAdi: { type: String, required: true, maxlength: 180 },
   mimeType: { type: String, enum: ['application/pdf', 'application/xml'], required: true },
-  fileSize: { type: Number, required: true, min: 1, max: 10 * 1024 * 1024 },
+  fileSize: { type: Number, required: true, min: 1, max: EVRAK_BOYUTU },
   yuklemeTarihi: { type: Date, default: Date.now },
   depo: { type: mongoose.Schema.Types.Mixed, select: false, required: true },
   istekId: { type: String, select: false },
@@ -45,6 +46,7 @@ const machineProcessSchema = new mongoose.Schema({
   machineName: { type: String, trim: true, default: '' },
   quantity: { type: Number, default: 0 },
   unit: { type: String, trim: true, default: '' },
+  unitDescription: { type: String, trim: true, default: '' },
   currency: { type: String, trim: true, default: '' },
   unitPrice: { type: Number, default: 0 },
   totalPrice: { type: Number, default: 0 },
@@ -87,6 +89,7 @@ const machineProcessSchema = new mongoose.Schema({
       no: { type: String, trim: true, default: '', maxlength: 100 },
       icerik: { type: String, trim: true, default: '', maxlength: 500 }, // kalem içeriği
       tutar: { type: Number, default: 0 },
+      tutarParaBirimi: { type: String, trim: true, uppercase: true, match: /^[A-Z0-9]{1,10}$/ },
       adet: { type: Number, default: 0 },
       kaynak: { type: String, enum: ['personel', 'firma'], default: 'personel' },
       girenAdi: { type: String, trim: true, default: '', maxlength: 120 },
