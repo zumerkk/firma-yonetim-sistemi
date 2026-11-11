@@ -1,7 +1,7 @@
 // 📋 Dosya İş Akış Takip Sistemi - React Context
 // State yönetimi ve global actions
 
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 import dosyaTakipService from '../services/dosyaTakipService';
 
 const DosyaTakipContext = createContext();
@@ -22,6 +22,11 @@ export const DosyaTakipProvider = ({ children }) => {
     const [pagination, setPagination] = useState({ toplam: 0, sayfa: 1, limit: 50, toplamSayfa: 0 });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    const detayIstek = useRef(null);
+    const talepSonucunuIsle = useCallback((id, data) => {
+        if (!detayIstek.current || detayIstek.current.id === String(id)) setSeciliTalep(data);
+    }, []);
 
     // 📊 Dashboard
     const fetchDashboard = useCallback(async () => {
@@ -65,15 +70,19 @@ export const DosyaTakipProvider = ({ children }) => {
 
     // 🔍 Tekil Talep
     const fetchTalep = useCallback(async (id) => {
+        const istek = { id: String(id) };
+        detayIstek.current = istek;
         try {
             setLoading(true);
+            setError(null);
             const result = await dosyaTakipService.getTalepById(id);
+            if (detayIstek.current !== istek) return undefined;
             if (result.success) setSeciliTalep(result.data);
             return result.data;
         } catch (err) {
-            setError(err.response?.data?.message || 'Talep bulunamadı');
+            if (detayIstek.current === istek) setError(err.response?.data?.message || 'Talep bulunamadı');
         } finally {
-            setLoading(false);
+            if (detayIstek.current === istek) setLoading(false);
         }
     }, []);
 
@@ -96,7 +105,7 @@ export const DosyaTakipProvider = ({ children }) => {
         try {
             setLoading(true);
             const result = await dosyaTakipService.talepGuncelle(id, data);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Talep güncellenemedi');
@@ -104,14 +113,14 @@ export const DosyaTakipProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🔄 Durum Değiştir
     const durumDegistir = useCallback(async (id, yeniDurum, aciklama) => {
         try {
             setLoading(true);
             const result = await dosyaTakipService.durumDegistir(id, yeniDurum, aciklama);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Durum değiştirilemedi');
@@ -119,21 +128,21 @@ export const DosyaTakipProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🕓 Durum geçmişi tarihi düzeltme (müşteri, 21.09.2026)
     const durumGecmisiTarihDuzelt = useCallback(async (id, gecmisId, tarih) => {
         const result = await dosyaTakipService.durumGecmisiTarihDuzelt(id, gecmisId, tarih);
-        if (result.success) setSeciliTalep(result.data);
+        if (result.success) talepSonucunuIsle(id, result.data);
         return result;
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🗑️ Durum geçmişi satırı silme (müşteri, 30.09.2026)
     const durumGecmisiSil = useCallback(async (id, gecmisId) => {
         const result = await dosyaTakipService.durumGecmisiSil(id, gecmisId);
-        if (result.success) setSeciliTalep(result.data);
+        if (result.success) talepSonucunuIsle(id, result.data);
         return result;
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // ☑️ E-TUYS takip kutusu — listeden tek tıkla. Liste yeniden yüklenmez (tablo "yükleniyor"a düşüp
     // satırlar zıplamasın); yalnız ilgili satır ve açık detay yamalanır.
@@ -157,7 +166,7 @@ export const DosyaTakipProvider = ({ children }) => {
         try {
             setLoading(true);
             const result = await dosyaTakipService.eksikTamamla(id);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Eksik tamamlanamadı');
@@ -165,13 +174,13 @@ export const DosyaTakipProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     const personelMailDusur = useCallback(async (id) => {
         try {
             setLoading(true);
             const result = await dosyaTakipService.personelMailDusur(id);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Mail gönderilemedi');
@@ -179,67 +188,67 @@ export const DosyaTakipProvider = ({ children }) => {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 📝 Not Ekle
     const notEkle = useCallback(async (id, metin, alan, bildirimKullanicilar = []) => {
         try {
             const result = await dosyaTakipService.notEkle(id, metin, alan, bildirimKullanicilar);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Not eklenemedi');
             throw err;
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 📁 Dosya Ekle
     const dosyaEkle = useCallback(async (id, file, alan, kategori, onProgress, aciklama) => {
         try {
             const result = await dosyaTakipService.dosyaEkle(id, file, alan, kategori, onProgress, aciklama);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Dosya yüklenemedi');
             throw err;
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🗑️ Not Sil
     const notSil = useCallback(async (id, notId, alan) => {
         try {
             const result = await dosyaTakipService.notSil(id, notId, alan);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Not silinemedi');
             throw err;
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🗑️ Dosya Sil
     const dosyaSil = useCallback(async (id, dosyaId, alan) => {
         try {
             const result = await dosyaTakipService.dosyaSil(id, dosyaId, alan);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Dosya silinemedi');
             throw err;
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 📝 Dosya açıklaması kaydet
     const dosyaAciklamaKaydet = useCallback(async (id, dosyaId, alan, aciklama) => {
         try {
             const result = await dosyaTakipService.dosyaAciklamaKaydet(id, dosyaId, alan, aciklama);
-            if (result.success) setSeciliTalep(result.data);
+            if (result.success) talepSonucunuIsle(id, result.data);
             return result;
         } catch (err) {
             setError(err.response?.data?.message || 'Açıklama kaydedilemedi');
             throw err;
         }
-    }, []);
+    }, [talepSonucunuIsle]);
 
     // 🗑️ Sil
     const talepSil = useCallback(async (id) => {

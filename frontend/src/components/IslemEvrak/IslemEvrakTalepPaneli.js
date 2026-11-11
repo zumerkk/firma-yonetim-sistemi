@@ -38,6 +38,7 @@ import ReplayIcon from '@mui/icons-material/Replay';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import UploadProgress from '../../components/common/UploadProgress';
 import ZenginMetinEditoru from '../common/ZenginMetinEditoru';
+import { mailGonderimIstegi, mailGonderimUyarilari } from '../../utils/mailGonderim';
 import DosyaOnizlemeDialog from '../common/DosyaOnizlemeDialog';
 import { htmlMetin } from '../../utils/mailHtml';
 import { ornekDosyalari } from '../../utils/islemEvrakOrnekleri';
@@ -192,7 +193,9 @@ const EvrakSatiri = memo(function EvrakSatiri({
  * @param {boolean}  gomulu   pencere içinde (Belge Takip) — sayfa kenar boşlukları ve geri düğmesi yok
  * @param {Function} onGeri   varsa başlıkta geri düğmesi
  */
-const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
+const IslemEvrakTalepPaneli = (props) => <IslemEvrakTalepIcerik key={props.talepId} {...props} />;
+
+const IslemEvrakTalepIcerik = ({ talepId, gomulu = false, onGeri }) => {
   const id = talepId;
   const navigate = useNavigate();
 
@@ -201,6 +204,8 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const nedenler = (talep?.istenenEvraklar || []).filter((e) => e.yuklenememeNedeni);
   const [talepMetni, setTalepMetni] = useState('');
   const [mailAcik, setMailAcik] = useState(false);
+  const mailAcikRef = useRef(false);
+  const mailiGoster = (acik) => { mailAcikRef.current = acik; setMailAcik(acik); };
   // 🔁 Devam maili modu — müşteri (09.10.2026): "Firmaya mail gönderdiğimiz maili aynı link üzerinden 2. bir
   // şekilde devam maili gibi devam edebileceğimiz bir sistem ... Firma evrak gönderince eksik veya yanlış
   // yüklese de işlem tamamlanıyor, biz aynı maili tekrar revize edip aynı link üzerinden gönderebilirsek."
@@ -210,6 +215,11 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   const [tur, setTur] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
+  const mailIslemi = useRef(null);
+  const mailOnizlemeIstegi = useRef(null);
+  const [mailOnizleniyor, setMailOnizleniyor] = useState(false);
+  const yuklemeIstegi = useRef(null);
+  const mailGovdeAnlik = useRef(null);
   const ornekIslemiSuruyorRef = useRef(false);
   const ornekIslemiSuruyor = busy === 'ornek' || busy === 'toplu';
   const [yukleme, setYukleme] = useState(null); // örnek dosya yükleme göstergesi
@@ -250,6 +260,9 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   useEffect(() => () => {
     clearTimeout(otomatikZamanlayiciRef.current);
     clearTimeout(kaydedildiZamanlayiciRef.current);
+    yuklemeIstegi.current = null;
+    mailOnizlemeIstegi.current = null;
+    mailIslemi.current = null;
   }, []);
   // 📂 Müşteri (21.09.2026): "'İstenen Evraklar' alanını açılır-kapanır (akordiyon) menü şeklinde
   // tasarlayabilir miyiz? Liste hep açık kalınca, mail gönderdikten sonra sayfada aşağıya inmek epey
@@ -273,11 +286,43 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const errMsg = (e) => e?.response?.data?.message || e?.message || 'İşlem başarısız';
+  const onizlemeyiDurdur = () => {
+    mailOnizlemeIstegi.current = null;
+    setMailOnizleniyor(false);
+  };
+  const mailIsleminiBaslat = (asama) => {
+    if (loading || !talep || busy || mailIslemi.current || kayitSuruyorRef.current || ornekIslemiSuruyorRef.current) return null;
+    const islem = Symbol();
+    mailIslemi.current = islem;
+    onizlemeyiDurdur();
+    setBusy(asama);
+    return islem;
+  };
+  const mailIsleminiBitir = (islem) => {
+    if (mailIslemi.current !== islem) return;
+    mailIslemi.current = null;
+    setBusy('');
+  };
+  const mailDuzenlendi = () => {
+    mailElleDegistiRef.current = true;
+    if (mailOnizlemeIstegi.current) { onizlemeyiDurdur(); setMetinBayat(true); }
+  };
+  const mailiKapat = () => {
+    if (mailIslemi.current) return;
+    onizlemeyiDurdur();
+    mailiGoster(false);
+  };
 
   const yukle = useCallback(async () => {
+    const istek = Symbol();
+    yuklemeIstegi.current = istek;
+    mailOnizlemeIstegi.current = null;
+    setMailOnizleniyor(false);
     setLoading(true);
     try {
       const t = await svc.talepDetay(id);
+      const tt = await svc.turDetay(t.islemTuru).catch(() => null);
+      if (yuklemeIstegi.current !== istek) return;
       setTalep(t);
       setEvraklar(listeyiAnahtarla(t.istenenEvraklar));
       // İlk açılışta bir kez karar verilir; "Yenile" kullanıcının açıp kapattığını ezmez
@@ -286,11 +331,11 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
         setEvrakListesiAcik(!(t.mailGonderimSayisi > 0));
       }
       setKaydedilmemis(false);
-      const tt = await svc.turDetay(t.islemTuru).catch(() => null);
       setTur(tt);
       setTalepMetni(t.talepMetni || '');
       setMetinDegisti(false);
       const m = { to: t.mailAlicilar, cc: t.mailCc, uploadLink: t.uploadLink, smtpConfigured: t.smtpConfigured };
+      mailGovdeAnlik.current = null;
       setMail({
         to: (m.to || []).join(', '),
         cc: (m.cc || []).join(', '),
@@ -302,14 +347,18 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
       mailElleDegistiRef.current = false;
       setMetinBayat(false);
       // Varsayılan zaten "hepsi ekli" (kaldirilanEkler boş) — ayrıca seçim gerekmez
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setLoading(false); }
+    } catch (e) {
+      if (yuklemeIstegi.current === istek) notify(errMsg(e), 'error');
+    } finally {
+      if (yuklemeIstegi.current === istek) setLoading(false);
+    }
   }, [id]);
 
   useEffect(() => { yukle(); }, [yukle]);
 
   // ── İstenen evraklar
   const yerelEvraklariDegistir = useCallback((degistir) => {
-    if (ornekIslemiSuruyorRef.current) return;
+    if (ornekIslemiSuruyorRef.current || mailIslemi.current) return;
     const yeni = degistir(evraklarRef.current);
     evraklarRef.current = yeni;
     setEvraklar(yeni);
@@ -343,22 +392,35 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // Kaydedilmiş taslak YOKSA metni şablondan tazeleriz; VARSA kullanıcının yazdığına
   // dokunmayız — bunun yerine ekranda "taslak güncel değil" uyarısı gösterilir.
   const mailMetniniTazele = async (guncelTalep, { zorla = false } = {}) => {
-    if (!mailAcik) { setMetinBayat(true); return; }
+    if (mailIslemi.current) return;
+    if (!mailAcikRef.current) { setMetinBayat(true); return; }
     if (guncelTalep?.mailGovdesi) return; // kullanıcı taslağı var, ezme
     // Kaydedilmemiş elle düzenleme de ezilmez; ekranda "Metni yenile" seçeneği çıkar
     if (mailElleDegistiRef.current && !zorla) { setMetinBayat(true); return; }
+    const istek = Symbol();
+    mailOnizlemeIstegi.current = istek;
+    setMailOnizleniyor(true);
     try {
       const m = await svc.mailOnizle(id);
+      if (mailOnizlemeIstegi.current !== istek) return;
+      mailGovdeAnlik.current = null;
       setMail((p) => ({ ...p, subject: m.subject || '', body: m.body || '' }));
       mailElleDegistiRef.current = false;
       setMetinBayat(false);
-    } catch (e) { /* önizleme tazelenemezse mevcut metin kalsın */ }
+    } catch (e) {
+      if (mailOnizlemeIstegi.current === istek) {
+        setMetinBayat(true);
+        if (zorla) notify(errMsg(e), 'error');
+      }
+    } finally {
+      if (mailOnizlemeIstegi.current === istek) onizlemeyiDurdur();
+    }
   };
 
   // Elle ya da "Mailde iste" işaretiyle otomatik kayıt. Otomatik kayıt arka planda çalışır: kullanıcı bu
   // sırada yazmaya devam edebildiği için yanıt listeyi ezmez, yalnız değişmemiş satırlara işlenir.
   const evraklariKaydet = async ({ otomatik = false, yuklemeOncesi = false } = {}) => {
-    if (ornekIslemiSuruyorRef.current && !yuklemeOncesi) return;
+    if (mailIslemi.current || (ornekIslemiSuruyorRef.current && !yuklemeOncesi)) return;
     // Süren kayıt varken yenisini sıraya al: iki istek aynı listeyi birbirinin üstüne yazmasın
     if (kayitSuruyorRef.current) {
       if (!yuklemeOncesi) { tekrarKaydetRef.current = true; return; }
@@ -412,14 +474,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   // "Mailde iste": işaret anında değişir, kayıt kısa bir beklemeyle arka planda yapılır — art arda
   // birkaç satır işaretlenirse tek istek gider
   const maildeIsteDegisti = useCallback((i, deger) => {
-    if (ornekIslemiSuruyorRef.current) return;
+    if (ornekIslemiSuruyorRef.current || mailIslemi.current) return;
     evrakDegistir(i, 'zorunlu', deger);
     clearTimeout(otomatikZamanlayiciRef.current);
     otomatikZamanlayiciRef.current = setTimeout(() => evraklariKaydetSabit({ otomatik: true }), 600);
   }, [evrakDegistir, evraklariKaydetSabit]);
 
   const varyantDegistir = async (kod) => {
-    if (ornekIslemiSuruyorRef.current) return;
+    if (ornekIslemiSuruyorRef.current || busy || mailIslemi.current || kayitSuruyorRef.current) return;
     if (!window.confirm('Evrak listesi bu türün şablonuyla yeniden oluşturulacak. Devam edilsin mi?')) return;
     setBusy('varyant');
     try {
@@ -428,17 +490,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
       notify(`${g.varyantAd || 'Varsayılan'} şablonu uygulandı`);
       setMetinBayat(true);
       if (!mailAcik) return;
-      const m = await svc.mailOnizle(id);
-      setMail((p) => ({ ...p, subject: m.subject, body: m.body }));
-      mailElleDegistiRef.current = false;
-      setMetinBayat(false);
+      await mailMetniniTazele(g);
     } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
   };
 
   // Örnek yükleme sunucudaki kayıtlı listeye ekler. Çipten kaldırılan örneğin
   // geri gelmemesi ve yeni satırların kimlik alması için önce bekleyen listeyi kaydet.
   const ornekIsleminiYurut = async (islemTuru, islem) => {
-    if (busy || ornekIslemiSuruyorRef.current) return;
+    if (busy || ornekIslemiSuruyorRef.current || mailIslemi.current) return;
     ornekIslemiSuruyorRef.current = true;
     setBusy(islemTuru);
     clearTimeout(otomatikZamanlayiciRef.current);
@@ -551,91 +610,125 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   usePanoDosyaYapistir((dosyalar) => topluDosyaSecildi(dosyalar), { aktif: !loading && !busy });
 
   const taslagiHazirla = async () => {
-    if (kayitSuruyorRef.current || ornekIslemiSuruyorRef.current || busy) return;
-    if (devamModu) { // devam maili metni duruyorsa ilk talep metnine dön
-      setDevamModu(false);
-      setMail((p) => ({ ...p, body: '', subject: '' }));
-    }
-    if (!kaydedilmemis && !metinDegisti && !metinBayat && mail.body) { setMailAcik(true); return; }
+    if (kayitSuruyorRef.current || ornekIslemiSuruyorRef.current || busy || mailIslemi.current) return;
+    if (!devamModu && !kaydedilmemis && !metinDegisti && !metinBayat && mail.body) { mailiGoster(true); return; }
     const yenidenOlustur = metinDegisti || kaydedilmemis || metinBayat;
     if (yenidenOlustur && (talep.mailGovdesi || mailElleDegistiRef.current) && !window.confirm('Talep metni veya evraklar değişti. Mail taslağındaki düzenlemeler yerine güncel bilgilerle yeni taslak oluşturulsun mu?')) return;
+    const islem = mailIsleminiBaslat('hazirla');
+    if (!islem) return;
     clearTimeout(otomatikZamanlayiciRef.current);
-    setBusy('hazirla');
     try {
       const g = await svc.talepGuncelle(id, {
         istenenEvraklar: gonderilecekSatirlar(evraklarRef.current.filter((e) => String(e.ad || '').trim())),
-        talepMetni,
-        ...(yenidenOlustur ? { mailGovdesi: '', mailKonusu: '' } : {})
+        talepMetni
       });
+      if (mailIslemi.current !== islem) return;
       setTalep(g); setEvraklar(listeyiAnahtarla(g.istenenEvraklar)); setKaydedilmemis(false);
       setMetinDegisti(false);
-      setMail((p) => ({ ...p, body: '', subject: '' }));
-      const m = await svc.mailOnizle(id);
+      const m = yenidenOlustur ? await svc.mailOnizle(id, { sablon: true }) : await svc.mailOnizle(id);
+      if (mailIslemi.current !== islem) return;
+      if (yenidenOlustur && (g.mailGovdesi || g.mailKonusu)) {
+        const temiz = await svc.talepGuncelle(id, { mailGovdesi: '', mailKonusu: '' });
+        if (mailIslemi.current !== islem) return;
+        setTalep(temiz);
+      }
+      mailGovdeAnlik.current = null;
       setMail({ ...m, to: (m.to || []).join(', '), cc: (m.cc || []).join(', ') });
+      if (devamModu) setMailEkleri([]);
+      setDevamModu(false);
       mailElleDegistiRef.current = false;
       setMetinBayat(false);
-      setMailAcik(true);
-    } catch (e) { notify(errMsg(e), 'error'); }
-    finally { setBusy(''); }
+      mailiGoster(true);
+    } catch (e) {
+      if (mailIslemi.current === islem) { setMetinBayat(true); notify(errMsg(e), 'error'); }
+    } finally { mailIsleminiBitir(islem); }
   };
 
   // ── Mail taslağı (gm modüller: "Maili istediğimiz gibi düzenleyip/kaydedip/silebilelim")
   const virgullu = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
 
   const mailTaslakKaydet = async () => {
-    if (ornekIslemiSuruyorRef.current) return;
-    setBusy('mail-kaydet');
+    const islem = mailIsleminiBaslat('mail-kaydet');
+    if (!islem) return;
     try {
       const g = await svc.talepGuncelle(id, {
         mailKonusu: mail.subject,
-        mailGovdesi: mail.body,
+        mailGovdesi: mailGovdeAnlik.current ?? mail.body,
         mailAlicilar: virgullu(mail.to),
         mailCc: virgullu(mail.cc)
       });
+      if (mailIslemi.current !== islem) return;
       setTalep(g);
       notify('Mail taslağı kaydedildi');
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    } catch (e) { if (mailIslemi.current === islem) notify(errMsg(e), 'error'); }
+    finally { mailIsleminiBitir(islem); }
   };
 
   // Taslağı sil → konu/gövde boşaltılır, önizleme tekrar şablondan üretilir
   const mailTaslakSil = async () => {
-    if (ornekIslemiSuruyorRef.current) return;
+    if (busy || mailIslemi.current || kayitSuruyorRef.current) return;
     if (!window.confirm('Kaydedilmiş mail taslağı silinecek ve metin şablondan yeniden üretilecek. Devam edilsin mi?')) return;
-    setBusy('mail-kaydet');
+    const islem = mailIsleminiBaslat('mail-kaydet');
+    if (!islem) return;
     try {
+      const m = await svc.mailOnizle(id, { sablon: true, devam: devamModu });
+      if (mailIslemi.current !== islem) return;
       const g = await svc.talepGuncelle(id, { mailKonusu: '', mailGovdesi: '' });
+      if (mailIslemi.current !== islem) return;
       setTalep(g); // "kaydedilmiş taslak" uyarısı ve Taslağı Sil düğmesi hemen güncellensin
-      const m = await svc.mailOnizle(id);
+      mailGovdeAnlik.current = null;
       setMail((p) => ({ ...p, subject: m.subject || '', body: m.body || '' }));
       mailElleDegistiRef.current = false;
       setMetinBayat(false);
       notify('Taslak silindi — şablon metni yüklendi');
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    } catch (e) { if (mailIslemi.current === islem) notify(errMsg(e), 'error'); }
+    finally { mailIsleminiBitir(islem); }
   };
 
   // ── Mail
   const mailGonder = async () => {
-    if (ornekIslemiSuruyorRef.current) return;
+    const body = mailGovdeAnlik.current ?? mail.body;
+    if (mailOnizlemeIstegi.current || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(body).trim()) return;
     if (mailEkBoyutu > MAIL_EK_SINIRI) { notify('Eklerin toplamı 20 MB\'ı geçmesin — mail sunucusu büyük maili reddeder.', 'warning'); return; }
-    setBusy('mail');
+    const islem = mailIsleminiBaslat('mail');
+    if (!islem) return;
     if (mailEkleri.length) setMailYukleme({ fileName: mailEkleri.length > 1 ? `${mailEkleri.length} ek` : mailEkleri[0].name, pct: 0, loaded: 0, total: mailEkBoyutu });
     try {
-      const sonuc = await svc.mailGonder(id, {
-        to: mail.to, cc: mail.cc, subject: mail.subject, body: mail.body, ekEvrakIdler: devamModu ? [] : gidecekEkIdler
-      }, mailEkleri, (p) => setMailYukleme((o) => (o ? { ...o, ...p } : o)));
-      setTalep(sonuc.talep);
+      const ekEvrakIdler = devamModu ? [] : [...gidecekEkIdler].sort();
+      const ekOrnekler = ekAdaylari.filter((e) => ekEvrakIdler.includes(String(e._id)))
+        .flatMap((e) => ornekDosyalari(e).map((o) => JSON.stringify([String(e._id), o.fileUrl || '', o.filePath || '', o.dosyaAdi || ''])))
+        .sort();
+      const icerik = { to: mail.to, cc: mail.cc, subject: mail.subject, body, ekEvrakIdler, ekOrnekler };
+      const istek = await mailGonderimIstegi('islem-evrak', id, {
+        ...icerik, ekler: mailEkleri.map((f) => [f.name, f.size, f.type, f.lastModified])
+      });
+      if (mailIslemi.current !== islem) return;
+      const sonuc = await svc.mailGonder(id, { ...icerik, istekId: istek.istekId }, mailEkleri,
+        (p) => setMailYukleme((o) => (o ? { ...o, ...p } : o)));
+      istek.tamamla(sonuc);
+      if (mailIslemi.current !== islem) return;
+      if (sonuc.talep) setTalep(sonuc.talep);
+      if (devamModu) {
+        setMail((p) => ({ ...p, body: '', subject: '' }));
+        mailGovdeAnlik.current = null;
+      }
       setDevamModu(false);
       setMailEkleri([]);
-      // Alınamayan örnek dosya atlanıp mail yine gidiyor; hangisinin gitmediği görünmeli
-      if (sonuc.atlananEkler?.length) {
-        notify(`Mail gönderildi ama ${sonuc.atlananEkler.length} ek eklenemedi: ${sonuc.atlananEkler.join(', ')} — dosyayı yeniden yükleyip gerekirse tekrar gönderin`, 'warning');
-      } else if (sonuc.linkeEklenemeyen?.length) {
-        // Mail ekle gitti ama yükleme linkine konamadı (depo hatası)
-        notify(`Mail gönderildi; şu ek(ler) yükleme linkine eklenemedi: ${sonuc.linkeEklenemeyen.join(', ')}`, 'warning');
-      } else {
-        notify(`Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`);
+      mailiGoster(false);
+      const uyari = mailGonderimUyarilari(sonuc);
+      notify(uyari || `Mail gönderildi${sonuc.ekSayisi ? ` · ${sonuc.ekSayisi} ek` : ''} ✅`, uyari ? 'warning' : 'success');
+    } catch (e) {
+      if (mailIslemi.current === islem) {
+        notify(e?.response?.data?.message || e?.kullaniciMesaji || 'Gönderim sonucu alınamadı. Aynı taslakla yeniden deneyerek sonucu kontrol edin.', 'error');
+        if (e?.response?.data?.code === 'MAIL_EK_DEGISTI') {
+          const guncel = await svc.talepDetay(id).catch(() => null);
+          if (guncel && mailIslemi.current === islem) {
+            setTalep(guncel);
+            setEvraklar(listeyiAnahtarla(guncel.istenenEvraklar));
+          }
+        }
       }
-    } catch (e) { notify(e?.kullaniciMesaji || errMsg(e), 'error'); } finally { setBusy(''); setMailYukleme(null); }
+    } finally { mailIsleminiBitir(islem); setMailYukleme(null); }
   };
 
   // Firmanın eklediği belge satırı (yüklenmiş dosya varsa o ayrıca durur)
@@ -718,17 +811,21 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
   };
   // Devam maili: aynı bağlantı, yalnız bekleyen / eksik-hatalı evraklar. Metin gönderilmeden düzenlenebilir.
   const devamMailiHazirla = async () => {
-    if (ornekIslemiSuruyorRef.current || busy) return;
-    setBusy('devam');
+    const islem = mailIsleminiBaslat('devam');
+    if (!islem) return;
     try {
       const m = await svc.mailOnizle(id, { devam: true });
+      if (mailIslemi.current !== islem) return;
+      mailGovdeAnlik.current = null;
       setMail({ ...m, to: (m.to || []).join(', '), cc: (m.cc || []).join(', ') });
+      if (!devamModu) setMailEkleri([]);
       mailElleDegistiRef.current = true; // evrak listesi kaydı bu metni şablonla ezmesin
       setMetinBayat(false);
       setDevamModu(true);
-      setMailAcik(true);
+      mailiGoster(true);
       if (!m.bekleyenSayisi) notify('Bekleyen evrak yok — önce gelen evraklarda "Eksik / Hatalı" işaretleyin', 'warning');
-    } catch (e) { notify(errMsg(e), 'error'); } finally { setBusy(''); }
+    } catch (e) { if (mailIslemi.current === islem) notify(errMsg(e), 'error'); }
+    finally { mailIsleminiBitir(islem); }
   };
 
   const yuklenenSil = async (dosyaId) => {
@@ -784,7 +881,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           <Tooltip title={mail.uploadLink || 'Link üretilecek'}>
             <Chip icon={<ContentCopyIcon />} label="Yükleme linki" onClick={linkKopyala} color="info" size="small" />
           </Tooltip>
-          <Tooltip title="Yenile"><span><IconButton onClick={yukle} disabled={ornekIslemiSuruyor}><RefreshIcon /></IconButton></span></Tooltip>
+          <Tooltip title="Yenile"><span><IconButton onClick={yukle} disabled={!!busy || otomatikKayit === 'kaydediliyor'}><RefreshIcon /></IconButton></span></Tooltip>
         </Paper>
 
         {/* 1) İstenen evraklar — açılır/kapanır (müşteri, 21.09.2026) */}
@@ -808,7 +905,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
               </Typography>
             </Box>
             <Stack direction="row" spacing={1}>
-              <Button size="small" startIcon={<AddIcon />} onClick={evrakEkle} disabled={ornekIslemiSuruyor}>Satır Ekle</Button>
+              <Button size="small" startIcon={<AddIcon />} onClick={evrakEkle} disabled={ornekIslemiSuruyor || busy === 'hazirla'}>Satır Ekle</Button>
               <Button size="small" variant="contained" startIcon={<SaveIcon />}
                 onClick={() => evraklariKaydet()} disabled={!!busy}>Kaydet</Button>
             </Stack>
@@ -853,7 +950,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 e={e}
                 i={i}
                 sonSatir={i === evraklar.length - 1}
-                ornekKilitli={ornekIslemiSuruyor}
+                ornekKilitli={ornekIslemiSuruyor || busy === 'hazirla'}
                 indirmeKilitli={kaydedilmemis || ornekIslemiSuruyor}
                 suruklemeProps={satirProps(i)}
                 onDegistir={evrakDegistir}
@@ -873,13 +970,14 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
 
         <Paper sx={{ p: 2, mb: 2 }}>
           <TextField label="Talep metni" fullWidth multiline minRows={5} value={talepMetni}
+            disabled={busy === 'hazirla'}
             inputProps={{ maxLength: 3000 }} helperText={`${talepMetni.length}/3000 karakter`}
-            onChange={(e) => { setTalepMetni(e.target.value); setMetinDegisti(true); }} />
+            onChange={(e) => { if (!mailIslemi.current) { setTalepMetni(e.target.value); setMetinDegisti(true); } }} />
           <Button variant="contained" sx={{ mt: 2 }} onClick={taslagiHazirla}
             disabled={!!busy || otomatikKayit === 'kaydediliyor'}>Mail Taslağı Hazırla</Button>
         </Paper>
-        <Dialog fullScreen open={mailAcik} onClose={() => setMailAcik(false)}>
-          <DialogTitle><Button startIcon={<ArrowBackIcon />} onClick={() => setMailAcik(false)}>Evraklara dön</Button> Mail Taslağı</DialogTitle>
+        <Dialog fullScreen open={mailAcik} onClose={mailiKapat}>
+          <DialogTitle><Button startIcon={<ArrowBackIcon />} onClick={mailiKapat} disabled={!!busy}>Evraklara dön</Button> Mail Taslağı</DialogTitle>
           <DialogContent>
         {/* 2) Mail */}
         <Paper sx={{ p: 2, mb: 2 }}>
@@ -908,7 +1006,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           {metinBayat && !talep.mailGovdesi && (
             <Alert severity="warning" sx={{ mb: 1 }}
               action={
-                <Button size="small" color="inherit" sx={{ textTransform: 'none' }}
+                <Button size="small" color="inherit" sx={{ textTransform: 'none' }} disabled={!!busy || mailOnizleniyor}
                   onClick={() => {
                     if (window.confirm('Mail metnine elle yaptığınız değişiklikler silinip metin güncel evrak listesine göre yeniden oluşturulacak. Devam edilsin mi?')) {
                       mailMetniniTazele(talep, { zorla: true });
@@ -931,7 +1029,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                   const secili = !kaldirilanEkler.includes(String(e._id));
                   return (
                     <Chip
-                      key={e._id} size="small"
+                      key={e._id} size="small" disabled={!!busy}
                       label={ornekDosyalari(e).map((o) => o.dosyaAdi).join(' · ')}
                       color={secili ? 'primary' : 'default'}
                       variant={secili ? 'filled' : 'outlined'}
@@ -945,28 +1043,29 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
           )}
 
           <Stack spacing={1.5}>
-            <TextField label="Kime" size="small" fullWidth value={mail.to}
+            <TextField label="Kime" size="small" fullWidth value={mail.to} disabled={!!busy}
               onChange={(e) => setMail((p) => ({ ...p, to: e.target.value }))}
               placeholder="firma@ornek.com (virgülle birden fazla)" />
-            <TextField label="CC" size="small" fullWidth value={mail.cc}
+            <TextField label="CC" size="small" fullWidth value={mail.cc} disabled={!!busy}
               onChange={(e) => setMail((p) => ({ ...p, cc: e.target.value }))} placeholder="isteğe bağlı" />
-            <TextField label="Konu" size="small" fullWidth value={mail.subject}
-              onChange={(e) => { mailElleDegistiRef.current = true; setMail((p) => ({ ...p, subject: e.target.value })); }} />
+            <TextField label="Konu" size="small" fullWidth value={mail.subject} disabled={!!busy}
+              onChange={(e) => { mailDuzenlendi(); setMail((p) => ({ ...p, subject: e.target.value })); }} />
             {/* Müşteri (13.10.2026): "Buraya mail düzenleme aparatı koyabilir miyiz?" — Gmail benzeri araç çubuğu */}
-            <ZenginMetinEditoru etiket="İçerik" value={mail.body}
-              onChange={(html) => { mailElleDegistiRef.current = true; setMail((p) => ({ ...p, body: html })); }}
+            <ZenginMetinEditoru etiket="İçerik" value={mail.body} disabled={!!busy}
+              onDuzenleme={(html) => { mailGovdeAnlik.current = html; mailDuzenlendi(); }}
+              onChange={(html) => setMail((p) => ({ ...p, body: html }))}
               yardim="Metni istediğiniz gibi düzenleyip biçimlendirebilirsiniz — mail bu haliyle gönderilir." />
             <Box>
               <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
-                <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }}>
+                <Button component="label" size="small" variant="outlined" startIcon={<AttachFileIcon />} sx={{ textTransform: 'none' }} disabled={!!busy}>
                   Dosya Ekle (yalnız bu mail)
-                  <input hidden multiple type="file"
+                  <input hidden multiple type="file" disabled={!!busy}
                     onChange={(e) => { const yeni = Array.from(e.target.files || []); e.target.value = ''; setMailEkleri((o) => [...o, ...yeni]); }} />
                 </Button>
                 {mailEkleri.map((f, i) => (
                   <Chip key={`${f.name}-${i}`} size="small" icon={<AttachFileIcon />}
                     label={`${f.name} · ${Math.max(1, Math.round((f.size || 0) / 1024))} KB`}
-                    onDelete={() => setMailEkleri((o) => o.filter((_, j) => j !== i))} />
+                    onDelete={busy ? undefined : () => setMailEkleri((o) => o.filter((_, j) => j !== i))} />
                 ))}
               </Stack>
               {mailEkBoyutu > MAIL_EK_SINIRI && (
@@ -1000,19 +1099,20 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
                 <Box component="span" key={`${g.tarih}-${i}`} sx={{ display: 'block' }}>
                   {i + 1}. {g.tur === 'devam' ? 'Devam maili' : 'İlk talep'} · {new Date(g.tarih).toLocaleString('tr-TR')}
                   {g.gonderenAdi ? ` · ${g.gonderenAdi}` : ''}
+                  {g.reddedilenler?.length ? ` · SMTP reddetti: ${g.reddedilenler.join(', ')}` : ''}
                 </Box>
               ))}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={ornekIslemiSuruyor || busy === 'mail-kaydet'}>
+              <Button size="small" startIcon={<SaveIcon />} onClick={mailTaslakKaydet} disabled={!!busy || mailOnizleniyor}>
                 Taslağı Kaydet
               </Button>
               <Button size="small" color="error" startIcon={<DeleteOutlineIcon />} onClick={mailTaslakSil}
-                disabled={ornekIslemiSuruyor || busy === 'mail-kaydet' || !talep.mailGovdesi}>
+                disabled={!!busy || mailOnizleniyor || !talep.mailGovdesi}>
                 Taslağı Sil
               </Button>
               <Button variant="contained" startIcon={busy === 'mail' ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
-                onClick={mailGonder} disabled={ornekIslemiSuruyor || busy === 'mail' || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(mail.body).trim()}>
+                onClick={mailGonder} disabled={!!busy || mailOnizleniyor || !mail.smtpConfigured || !mail.to.includes('@') || !htmlMetin(mail.body).trim()}>
                 SMTP ile Gönder
               </Button>
             </Stack>
@@ -1031,7 +1131,7 @@ const IslemEvrakTalepPaneli = ({ talepId, gomulu = false, onGeri }) => {
             {talep.mailGonderimSayisi > 0 && (
               <Tooltip title="Eksik ya da hatalı gelenleri ve hâlâ beklenenleri AYNI bağlantıyla yeniden iste">
                 <Button size="small" variant="contained" color="warning" onClick={devamMailiHazirla}
-                  disabled={ornekIslemiSuruyor || busy === 'devam'} startIcon={busy === 'devam' ? <CircularProgress size={14} color="inherit" /> : <ForwardToInboxIcon />}
+                  disabled={!!busy || otomatikKayit === 'kaydediliyor'} startIcon={busy === 'devam' ? <CircularProgress size={14} color="inherit" /> : <ForwardToInboxIcon />}
                   sx={{ textTransform: 'none' }}>
                   Devam Maili Hazırla
                 </Button>

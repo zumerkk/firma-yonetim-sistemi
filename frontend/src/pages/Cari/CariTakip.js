@@ -23,7 +23,7 @@
 // olsun)-kesilmedi olarak filtreleyebilirsek veya sıralayabilirsek" + "bütün sütunları sıralayabilirsek iyi
 // olur ödemelere, bakiyeye göre vs." Süzgeç düğmeleri + başlığa tıklayınca sıralama (utils/cariListe.js).
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import {
@@ -155,14 +155,27 @@ export default function CariTakip() {
     const [firmaSecenekleri, setFirmaSecenekleri] = useState([]);
     const [aramaYukleniyor, setAramaYukleniyor] = useState(false);
 
-    const [defter, setDefter] = useState(null);
+    const [yuklenenDefter, setDefter] = useState(null);
+    const defter = yuklenenDefter?.secim === firmaParam ? yuklenenDefter : null;
     const [defterYukleniyor, setDefterYukleniyor] = useState(false);
+    const defterIstegi = useRef(0);
+    const aktifFirma = useRef(firmaParam);
     const [hata, setHata] = useState('');
 
     const [duzenlenen, setDuzenlenen] = useState(null);
     const [silinecek, setSilinecek] = useState(null);
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const mesaj = (message, severity = 'success') => setSnackbar({ open: true, message, severity });
+
+    useLayoutEffect(() => {
+        aktifFirma.current = firmaParam;
+        setDuzenlenen(null);
+        setSilinecek(null);
+        return () => {
+            aktifFirma.current = null;
+            defterIstegi.current += 1;
+        };
+    }, [firmaParam]);
 
     const ozetleriYukle = useCallback(async () => {
         try {
@@ -176,26 +189,36 @@ export default function CariTakip() {
     }, []);
 
     const defteriYukle = useCallback(async (firmaId) => {
+        if (aktifFirma.current !== firmaId) return;
+        const istek = ++defterIstegi.current;
         if (!firmaId) {
             setDefter(null);
+            setDefterYukleniyor(false);
             return;
         }
         setDefterYukleniyor(true);
+        setHata('');
         try {
             const r = await cariService.firmaDefteri(firmaId);
+            if (istek !== defterIstegi.current) return;
             const d = r?.data || {};
+            if (String(d.firma?._id || '').toLowerCase() !== firmaId.toLowerCase()) {
+                throw new Error('Firma bilgisi doğrulanamadı. Tekrar deneyin.');
+            }
             setDefter({
-                firma: d.firma || null,
+                secim: firmaId,
+                firma: d.firma,
                 hareketler: Array.isArray(d.hareketler) ? d.hareketler : [],
                 ozet: d.ozet || null,
                 talepler: Array.isArray(d.talepler) ? d.talepler : []
             });
             setHata('');
         } catch (err) {
+            if (istek !== defterIstegi.current) return;
             setDefter(null);
             setHata(err?.response?.data?.message || 'Firmanın carisi yüklenemedi.');
         } finally {
-            setDefterYukleniyor(false);
+            if (istek === defterIstegi.current) setDefterYukleniyor(false);
         }
     }, []);
 
@@ -265,7 +288,7 @@ export default function CariTakip() {
         else navigate('/dosya-takip/liste');
     };
 
-    const yenile = () => Promise.all([defteriYukle(firmaParam), ozetleriYukle()]);
+    const yenile = (firmaId) => Promise.all([defteriYukle(firmaId), ozetleriYukle()]);
 
     const cariDurumunuYansit = (firmaId, cariDurumu) => {
         setOzetler((liste) => liste.map((f) => f.firma === firmaId ? { ...f, cariDurumu } : f));
@@ -273,9 +296,10 @@ export default function CariTakip() {
     };
 
     const ekle = async (alanlar, dosya) => {
+        if (!defter || aktifFirma.current !== defter.secim) return false;
         try {
-            await cariService.hareketEkle({ ...alanlar, firma: firmaParam }, dosya);
-            await yenile();
+            await cariService.hareketEkle({ ...alanlar, firma: defter.firma._id }, dosya);
+            await yenile(defter.secim);
             mesaj(`${HAREKET_TURU[alanlar.tur]?.etiket || 'Hareket'} kaydedildi`);
             return true;
         } catch (err) {
@@ -285,13 +309,13 @@ export default function CariTakip() {
     };
 
     const guncelle = async (alanlar, dosya) => {
-        if (!duzenlenen) return false;
+        if (!duzenlenen || !defter || aktifFirma.current !== defter.secim) return false;
         try {
             const degisim = { ...alanlar };
             delete degisim.tur; // tür değişmez
             await cariService.hareketGuncelle(duzenlenen._id, degisim, dosya);
-            setDuzenlenen(null);
-            await yenile();
+            if (aktifFirma.current === defter.secim) setDuzenlenen(null);
+            await yenile(defter.secim);
             mesaj('Hareket güncellendi');
             return true;
         } catch (err) {
@@ -303,10 +327,10 @@ export default function CariTakip() {
     const sil = async () => {
         const h = silinecek;
         setSilinecek(null);
-        if (!h) return;
+        if (!h || !defter || aktifFirma.current !== defter.secim) return;
         try {
             await cariService.hareketSil(h._id);
-            await yenile();
+            await yenile(defter.secim);
             mesaj('Hareket silindi');
         } catch (err) {
             mesaj(err?.response?.data?.message || 'Silinemedi.', 'error');
@@ -502,10 +526,10 @@ export default function CariTakip() {
                     </Paper>
                 )}
 
-                {firmaParam && defterYukleniyor && !defter && <LinearProgress sx={{ mb: 2 }} />}
+                {firmaParam && defterYukleniyor && !defter && <LinearProgress aria-label="Firma hesabı yükleniyor" sx={{ mb: 2 }} />}
 
                 {firmaParam && defter && (
-                    <>
+                    <React.Fragment key={defter.secim}>
                         <Paper sx={{ p: 2, mb: 2, border: '1px solid #e2e8f0' }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'flex-start', mb: 2 }}>
                                 <Box sx={{ minWidth: 0 }}>
@@ -517,8 +541,8 @@ export default function CariTakip() {
                                     </Typography>
                                 </Box>
                                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                                    <CariDurumuSecimi firmaId={firmaParam} value={defter.firma?.cariDurumu}
-                                        onDegis={(durum) => cariDurumunuYansit(firmaParam, durum)} />
+                                    <CariDurumuSecimi firmaId={defter.firma._id} value={defter.firma?.cariDurumu}
+                                        onDegis={(durum) => cariDurumunuYansit(defter.firma._id, durum)} />
                                     <Button
                                         size="small" variant="outlined" startIcon={<ExcelIcon />}
                                         onClick={() => excelAktar(defter)} disabled={!defter.hareketler.length}
@@ -565,7 +589,7 @@ export default function CariTakip() {
                             onSil={setSilinecek}
                             onDosya={dosyaAc}
                         />
-                    </>
+                    </React.Fragment>
                 )}
 
                 <Dialog open={!!talepSecimi} onClose={talepSeciminiKapat} fullWidth maxWidth="sm">
@@ -589,7 +613,7 @@ export default function CariTakip() {
                     </DialogActions>
                 </Dialog>
 
-                <Dialog open={!!duzenlenen} onClose={() => setDuzenlenen(null)} fullWidth maxWidth="xs">
+                <Dialog open={!!(defter && duzenlenen)} onClose={() => setDuzenlenen(null)} fullWidth maxWidth="xs">
                     <DialogTitle sx={{ color: HAREKET_TURU[duzenlenen?.tur]?.renk }}>
                         {HAREKET_TURU[duzenlenen?.tur]?.etiket || 'Hareket'} — Düzenle
                     </DialogTitle>
@@ -611,7 +635,7 @@ export default function CariTakip() {
                     </DialogActions>
                 </Dialog>
 
-                <Dialog open={!!silinecek} onClose={() => setSilinecek(null)}>
+                <Dialog open={!!(defter && silinecek)} onClose={() => setSilinecek(null)}>
                     <DialogTitle>Hareket silinsin mi?</DialogTitle>
                     <DialogContent>
                         <Typography variant="body2">

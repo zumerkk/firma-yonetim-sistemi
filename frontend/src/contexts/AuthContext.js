@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
 import { Alert, Snackbar } from '@mui/material';
-import api from '../utils/axios';
+import api, { clearConnectionIssues } from '../utils/axios';
 import { yerelYaz } from '../utils/yerelDepo';
 import {
   EXPIRED_MESSAGE, IDLE_MESSAGE, LAST_ACTIVITY_KEY, SESSION_EVENT, SESSION_MESSAGE_KEY,
@@ -82,6 +82,7 @@ export const AuthProvider = ({ children }) => {
     if (expectedToken && localStorage.getItem('token') !== expectedToken) return;
 
     authRequest.current += 1;
+    clearConnectionIssues();
     if (message) yerelYaz(SESSION_MESSAGE_KEY, message);
     else localStorage.removeItem(SESSION_MESSAGE_KEY);
     localStorage.removeItem('user');
@@ -210,7 +211,10 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem(SESSION_MESSAGE_KEY);
     dispatch({ type: 'CLEAR_SESSION_MESSAGE' });
   }, []);
-  const dismissConnectionIssue = () => dispatch({ type: 'CONNECTION_ISSUE', message: '' });
+  const dismissConnectionIssue = () => {
+    clearConnectionIssues();
+    dispatch({ type: 'CONNECTION_ISSUE', message: '' });
+  };
 
   const contextValue = {
     ...state,

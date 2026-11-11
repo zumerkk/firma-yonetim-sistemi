@@ -2,12 +2,13 @@
 // Kimlik doğrulama gerektiren sayfaları korur
 
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { Box, CircularProgress, Typography } from '@mui/material';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const { pathname, search, hash, state } = useLocation();
 
   // Loading durumunda loading göster
   if (loading) {
@@ -32,11 +33,11 @@ const ProtectedRoute = ({ children }) => {
 
   // Kullanıcı giriş yapmamışsa login sayfasına yönlendir
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ girisSonrasi: { pathname, search, hash, state } }} />;
   }
 
   // Giriş yapmışsa children'ı render et
   return children;
 };
 
-export default ProtectedRoute; 
+export default ProtectedRoute;

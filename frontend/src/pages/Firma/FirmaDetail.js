@@ -1,8 +1,8 @@
 // 🏢️ Firma Detail Page - ENHANCED PROFESSIONAL EDITION
 // Firma detay sayfası - Activity History, Edit-in-place, Related Records
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box,
   Container,
@@ -71,18 +71,26 @@ import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import activityService from '../../services/activityService';
 import api from '../../utils/axios';
+import { firmaListesineDon, firmaRotaEslesiyor } from '../../utils/firmaListeDonusu';
+import { hataMesajiSenkron } from '../../utils/hataMesaji';
 
 const FirmaDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { firma, loading, error, fetchFirma, deleteFirma, clearFirma, clearError } = useFirma();
+  const { state: donusDurumu } = useLocation();
+  const { firma: kayit, loading, error, fetchFirma, deleteFirma, clearFirma, clearError } = useFirma();
+  const firma = firmaRotaEslesiyor(kayit, id) ? kayit : null;
+  const rotaKimligi = useRef(id);
+  const aktiviteIstegi = useRef(0);
+  const handleBack = () => firmaListesineDon(navigate, donusDurumu);
   
   // 🎯 Layout State Management
   const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   
   // 🗑️ Silme dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [silinecekFirmaId, setSilinecekFirmaId] = useState(null);
+  const deleteDialogOpen = Boolean(firma && silinecekFirmaId === firma._id);
   const [deleting, setDeleting] = useState(false);
   
   // 📋 Tab state
@@ -99,6 +107,11 @@ const FirmaDetail = () => {
   
   // 📢 Snackbar state
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+
+  useLayoutEffect(() => {
+    rotaKimligi.current = id;
+    return () => { rotaKimligi.current = null; aktiviteIstegi.current += 1; };
+  }, [id]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -124,6 +137,13 @@ const FirmaDetail = () => {
 
   // 🔄 Firma verisini yükle
   useEffect(() => {
+    setSilinecekFirmaId(null);
+    setDeleting(false);
+    setEditMode({});
+    setEditValues({});
+    setEditLoading(false);
+    setActivities([]);
+    setActivityLoading(false);
     if (id) {
       fetchFirma(id);
     }
@@ -138,18 +158,17 @@ const FirmaDetail = () => {
   // 📋 Load firma activities
   const loadFirmaActivities = useCallback(async () => {
     if (!firma?._id || activeTab !== 1) return;
-    
+    const istek = ++aktiviteIstegi.current;
     setActivityLoading(true);
     try {
       const result = await activityService.getFirmaActivities(firma._id, { limit: 20 });
-      if (result.success) {
+      if (istek === aktiviteIstegi.current && result.success) {
         setActivities(result.data.activities || []);
       }
     } catch (error) {
-      console.error('Firma activities error:', error);
-      showSnackbar('Aktiviteler yüklenirken hata oluştu', 'error');
+      if (istek === aktiviteIstegi.current) showSnackbar(hataMesajiSenkron(error, 'Aktiviteler yüklenemedi'), 'error');
     } finally {
-      setActivityLoading(false);
+      if (istek === aktiviteIstegi.current) setActivityLoading(false);
     }
   }, [firma?._id, activeTab, showSnackbar]);
 
@@ -159,7 +178,8 @@ const FirmaDetail = () => {
 
   // ✏️ Edit-in-place handlers
   const startEdit = (field, currentValue) => {
-    setEditMode(prev => ({ ...prev, [field]: true }));
+    if (!firma || rotaKimligi.current !== id) return;
+    setEditMode(prev => ({ ...prev, [field]: firma._id }));
     setEditValues(prev => ({ ...prev, [field]: currentValue }));
   };
 
@@ -169,23 +189,26 @@ const FirmaDetail = () => {
   };
 
   const saveEdit = async (field) => {
+    if (!firma || editMode[field] !== firma._id || rotaKimligi.current !== id) return;
     setEditLoading(true);
     try {
       const updateData = { [field]: editValues[field] };
-      const response = await api.put(`/firma/${id}`, updateData);
-      
+      const response = await api.put(`/firma/${firma._id}`, updateData);
+      if (rotaKimligi.current !== id) return;
       if (response.data.success) {
         // Refresh firma data
         await fetchFirma(id);
+        if (rotaKimligi.current !== id) return;
         setEditMode(prev => ({ ...prev, [field]: false }));
         setEditValues(prev => ({ ...prev, [field]: undefined }));
         showSnackbar('Başarıyla güncellendi!', 'success');
+      } else {
+        showSnackbar(response.data.message || 'Firma güncellenemedi.', 'error');
       }
     } catch (error) {
-      console.error('Edit error:', error);
-      showSnackbar('Güncelleme sırasında hata oluştu', 'error');
+      if (rotaKimligi.current === id) showSnackbar(hataMesajiSenkron(error, 'Firma güncellenemedi.'), 'error');
     } finally {
-      setEditLoading(false);
+      if (rotaKimligi.current === id) setEditLoading(false);
     }
   };
 
@@ -224,33 +247,30 @@ const FirmaDetail = () => {
 
   // 🗑️ Firma silme fonksiyonu
   const handleDeleteFirma = async () => {
+    if (!deleteDialogOpen || rotaKimligi.current !== id) return;
     setDeleting(true);
     
     try {
-      const result = await deleteFirma(id);
-      
+      const result = await deleteFirma(firma._id);
+      if (rotaKimligi.current !== id) return;
       if (result.success) {
-        setDeleteDialogOpen(false);
-        navigate('/firmalar', { 
-          replace: true,
-          state: { 
-            message: `${firma.tamUnvan} başarıyla silindi`,
-            severity: 'success'
-          }
+        setSilinecekFirmaId(null);
+        firmaListesineDon(navigate, donusDurumu, {
+          message: `${firma.tamUnvan} başarıyla silindi`, severity: 'success'
         });
       } else {
         showSnackbar(result.message || 'Firma silinirken hata oluştu', 'error');
       }
     } catch (error) {
-      showSnackbar('Firma silinirken hata oluştu', 'error');
+      if (rotaKimligi.current === id) showSnackbar(hataMesajiSenkron(error, 'Firma silinemedi.'), 'error');
     } finally {
-      setDeleting(false);
+      if (rotaKimligi.current === id) setDeleting(false);
     }
   };
 
   // ✏️ Editable Field Component
   const EditableField = ({ field, value, label, type = 'text', multiline = false }) => {
-    const isEditing = editMode[field];
+    const isEditing = editMode[field] === firma._id;
     const editValue = editValues[field] ?? value;
 
     if (isEditing) {
@@ -268,6 +288,7 @@ const FirmaDetail = () => {
           <IconButton 
             size="small" 
             color="primary" 
+            aria-label={`${label} kaydet`}
             onClick={() => saveEdit(field)}
             disabled={editLoading}
           >
@@ -348,7 +369,7 @@ const FirmaDetail = () => {
                 <Button 
                   color="inherit" 
                   size="small" 
-                  onClick={() => navigate('/firmalar')}
+                  onClick={handleBack}
                 >
                   Firma Listesine Dön
                 </Button>
@@ -359,7 +380,7 @@ const FirmaDetail = () => {
           )}
 
           {/* 🔄 Loading durumu */}
-          {loading || !firma ? (
+          {loading || (!firma && !error) ? (
             (() => {
               // 🎨 Loading Component
               const LoadingSkeleton = () => (
@@ -391,7 +412,7 @@ const FirmaDetail = () => {
               
               return <LoadingSkeleton />;
             })()
-          ) : (
+          ) : firma ? (
             (() => {
               const etuysStatus = firma.aktif === false ? null : getYetkiStatus(firma.etuysYetkiBitisTarihi);
               const dysStatus = firma.aktif === false ? null : getYetkiStatus(firma.dysYetkiBitisTarihi);
@@ -402,7 +423,7 @@ const FirmaDetail = () => {
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <IconButton 
-                        onClick={() => navigate('/firmalar')}
+                        onClick={handleBack}
                         sx={{ mr: 2, color: 'primary.main' }}
                       >
                         <BackIcon />
@@ -421,7 +442,7 @@ const FirmaDetail = () => {
                       <Button
                         variant="contained"
                         startIcon={<EditIcon />}
-                        onClick={() => navigate(`/firmalar/${id}/duzenle`)}
+                        onClick={() => navigate(`/firmalar/${firma._id}/duzenle`, { state: donusDurumu })}
                       >
                         Düzenle
                       </Button>
@@ -430,7 +451,7 @@ const FirmaDetail = () => {
                         variant="outlined"
                         color="error"
                         startIcon={<DeleteIcon />}
-                        onClick={() => setDeleteDialogOpen(true)}
+                        onClick={() => setSilinecekFirmaId(firma._id)}
                       >
                         Sil
                       </Button>
@@ -907,13 +928,13 @@ const FirmaDetail = () => {
                 </>
               );
             })()
-          )}
+          ) : null}
         </Container>
 
         {/* 🗑️ Silme Onay Dialogu */}
         <Dialog
           open={deleteDialogOpen}
-          onClose={() => !deleting && setDeleteDialogOpen(false)}
+          onClose={() => !deleting && setSilinecekFirmaId(null)}
           maxWidth="sm"
           fullWidth
         >
@@ -930,7 +951,7 @@ const FirmaDetail = () => {
           </DialogContent>
           <DialogActions sx={{ p: 3, pt: 1 }}>
             <Button 
-              onClick={() => setDeleteDialogOpen(false)}
+              onClick={() => setSilinecekFirmaId(null)}
               disabled={deleting}
               variant="outlined"
             >

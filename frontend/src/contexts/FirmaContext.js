@@ -184,7 +184,7 @@ const firmaReducer = (state, action) => {
       return {
         ...state,
         submitLoading: false,
-        firma: action.payload,
+        firma: state.firma?._id === action.payload._id ? action.payload : state.firma,
         firmalar: state.firmalar.map(f => 
           f._id === action.payload._id ? action.payload : f
         ),
@@ -272,6 +272,7 @@ export const FirmaProvider = ({ children }) => {
   const [state, dispatch] = useReducer(firmaReducer, initialState);
   const listRequestRef = useRef(0);
   const searchRequestRef = useRef(0);
+  const detailRequestRef = useRef(0);
 
   // 🧹 Error Management
   const clearError = useCallback(() => {
@@ -317,6 +318,7 @@ export const FirmaProvider = ({ children }) => {
 
   // 👁️ Enhanced Fetch Single Firma
   const fetchFirma = useCallback(async (id) => {
+    const requestId = ++detailRequestRef.current;
     if (!id) {
       setError('Firma ID gereklidir');
       return { success: false, message: 'Firma ID gereklidir' };
@@ -327,6 +329,7 @@ export const FirmaProvider = ({ children }) => {
     
     try {
       const result = await firmaService.getFirma(id);
+      if (requestId !== detailRequestRef.current) return { success: false, stale: true };
       
       console.log('📥 Fetch Firma Result:', result);
       
@@ -344,6 +347,7 @@ export const FirmaProvider = ({ children }) => {
         throw new Error(result.message || 'Firma verisi bulunamadı');
       }
     } catch (error) {
+      if (requestId !== detailRequestRef.current) return { success: false, stale: true };
       console.error('🚨 Fetch Firma Error:', error);
       const errorMessage = error.response?.data?.message || error.message || 'Firma detayı yüklenemedi';
       dispatch({ type: ACTION_TYPES.SET_ERROR, payload: errorMessage });
@@ -582,6 +586,7 @@ export const FirmaProvider = ({ children }) => {
 
   // 🧹 Utility Functions
   const clearFirma = useCallback(() => {
+    detailRequestRef.current += 1;
     dispatch({ type: ACTION_TYPES.CLEAR_FIRMA });
   }, []);
 

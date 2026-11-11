@@ -1,6 +1,6 @@
 // 📋 TEŞVİK MAKİNE LİSTESİ - /tesvikler
 // Dashboard kartları + teşvik belgeleri tablosu (server-side sayfalama + filtre).
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Paper, Grid, Card, CardContent, Typography, TextField, MenuItem, Stack, Chip,
@@ -35,6 +35,7 @@ export default function TesvikMakineList() {
   const [rows, setRows] = useState([]);
   const [rowCount, setRowCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const listeIstegi = useRef(0);
   // Müşteri (13.10.2026): "ekipman takipde firmaya girip geri gelince bütün filtreleri sayfayı vs
   // sıfırlıyor en başa atıyor." Arama, belge türü/durumu ve sayfa adres çubuğunda tutulur: tarayıcının
   // geri tuşu da, detaydaki geri düğmesi de listeyi bırakıldığı yerde açar.
@@ -45,11 +46,13 @@ export default function TesvikMakineList() {
     page: Math.max(0, (Number(searchParams.get('sayfa')) || 1) - 1),
     pageSize: [25, 50, 100].includes(Number(searchParams.get('adet'))) ? Number(searchParams.get('adet')) : 25
   };
-  const parametreYaz = (degerler) => {
-    const sp = new URLSearchParams(searchParams);
-    Object.entries(degerler).forEach(([k, v]) => { if (v) sp.set(k, String(v)); else sp.delete(k); });
-    setSearchParams(sp, { replace: true });
-  };
+  const parametreYaz = useCallback((degerler) => {
+    setSearchParams((onceki) => {
+      const sp = new URLSearchParams(onceki);
+      Object.entries(degerler).forEach(([k, v]) => { if (v) sp.set(k, String(v)); else sp.delete(k); });
+      return sp;
+    }, { replace: true });
+  }, [setSearchParams]);
   const setModel = (v) => parametreYaz({ model: v, sayfa: '' });
   const setBelgeDurum = (v) => parametreYaz({ durum: v, sayfa: '' });
   const setPaginationModel = (m) => parametreYaz({ sayfa: m.page > 0 ? m.page + 1 : '', adet: m.pageSize !== 25 ? m.pageSize : '' });
@@ -57,12 +60,12 @@ export default function TesvikMakineList() {
   const qAdres = searchParams.get('q') || '';
   const [q, setQ] = useState(qAdres);
   useEffect(() => { setQ(qAdres); }, [qAdres]);
+  const arama = q.trim() ? q : '';
   useEffect(() => {
-    if (q === qAdres) return undefined;
-    const t = setTimeout(() => parametreYaz({ q: q.trim() ? q : '', sayfa: '' }), 300);
+    if (arama === qAdres) return undefined;
+    const t = setTimeout(() => parametreYaz({ q: arama, sayfa: '' }), 300);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
+  }, [arama, qAdres, parametreYaz]);
   const aramaParam = searchParams.toString();
   useEffect(() => {
     try { sessionStorage.setItem(LISTE_ADRESI_ANAHTARI, aramaParam ? `?${aramaParam}` : ''); } catch (_) { /* gizli sekme */ }
@@ -74,17 +77,28 @@ export default function TesvikMakineList() {
   const sayfa = paginationModel.page;
   const adet = paginationModel.pageSize;
   const loadList = useCallback(async () => {
+    const istek = ++listeIstegi.current;
     setLoading(true);
     try {
       const res = await svc.listCertificates({ q: qAdres, tesvikModel: model || undefined, belgeDurum: belgeDurum || undefined, page: sayfa + 1, limit: adet });
+      if (istek !== listeIstegi.current) return;
       setRows((res.data || []).map((r) => ({ id: `${r.tesvikModel}:${r.tesvikId}`, ...r })));
       setRowCount(res.pagination?.total || 0);
-    } catch (e) { setSnack({ message: e?.response?.data?.message || 'Liste yüklenemedi', severity: 'error' }); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if (istek !== listeIstegi.current) return;
+      setRows([]);
+      setRowCount(0);
+      setSnack({ message: e?.kullaniciMesaji || e?.response?.data?.message || 'Liste yüklenemedi', severity: 'error' });
+    } finally {
+      if (istek === listeIstegi.current) setLoading(false);
+    }
   }, [qAdres, model, belgeDurum, sayfa, adet]);
 
   useEffect(() => { loadDash(); }, [loadDash]);
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => {
+    loadList();
+    return () => { listeIstegi.current += 1; };
+  }, [loadList]);
 
   const columns = [
     { field: 'firmaAdi', headerName: 'Firma', flex: 1, minWidth: 220 },
@@ -155,13 +169,16 @@ export default function TesvikMakineList() {
         {/* Tablo */}
         <Paper sx={{ height: 600 }}>
           <DataGrid
-            rows={rows} columns={columns} loading={loading}
+            rows={rows} columns={columns} loading={loading || arama !== qAdres}
             paginationMode="server" rowCount={rowCount}
             paginationModel={paginationModel} onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[25, 50, 100]} density="compact" disableRowSelectionOnClick
-            onRowClick={(p) => navigate(`/tesvikler/${p.row.tesvikModel}/${p.row.tesvikId}`, {
-              state: { ekipmanListeAdresi: `/tesvikler${aramaParam ? `?${aramaParam}` : ''}` }
-            })}
+            onRowClick={(p) => {
+              if (loading || arama !== qAdres) return;
+              navigate(`/tesvikler/${p.row.tesvikModel}/${p.row.tesvikId}`, {
+                state: { ekipmanListeAdresi: `/tesvikler${aramaParam ? `?${aramaParam}` : ''}` }
+              });
+            }}
             sx={{ '& .MuiDataGrid-row': { cursor: 'pointer' } }}
           />
         </Paper>

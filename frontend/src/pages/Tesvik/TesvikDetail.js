@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Container, Typography, Grid, Chip, Paper, Button, Avatar, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, TextField, Alert, Stack,
@@ -63,6 +63,7 @@ const BOLUMLER = [
 const TesvikDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // 📄 Müşteri görünümü PDF (müşteri: "Excel var ya, bir de PDF indirebilir miyiz")
   // Font çalışma anında indiği için kısa bir hazırlık süresi olabiliyor; düğme kilitlenir.
@@ -376,6 +377,14 @@ const TesvikDetail = () => {
     };
     setRevizyonModalOpen(false);
     setRevizyonForm({ revizyonSebebi: '', kullaniciNotu: '' });
+    // Kaydedilen form bu detay girdisine geri döner. Tek seferlik modal parametresini tüket.
+    const params = new URLSearchParams(location.search);
+    if (params.get('revizyon') === '1') {
+      params.delete('revizyon');
+      navigate({ pathname: location.pathname, search: params.toString(), hash: location.hash }, {
+        replace: true, state: location.state
+      });
+    }
     navigate(`/tesvik/${id}/duzenle`, { state: { revizyonBaslatma } });
   };
 

@@ -96,6 +96,8 @@ const YeniTesvikForm = () => {
   const revizyonBaslatma = useLocation().state?.revizyonBaslatma || null;
   // Kayıttan sonra sayfa 2 sn açık kalıyor; ikinci "Kaydet" aynı revizyonu tekrar yazmasın
   const revizyonYazildiRef = useRef(false);
+  const kayitDonusZamanlayicisi = useRef(null);
+  useEffect(() => () => clearTimeout(kayitDonusZamanlayicisi.current), []);
 
   const handleNumberChange = (e, fieldPath) => {
     const rawValue = e.target.value;
@@ -2216,8 +2218,13 @@ const YeniTesvikForm = () => {
         // sonucu görmek istiyor; listeye dönmek onu tekrar aramaya zorluyordu.
         // Yeni kayıtta da sunucudan dönen _id ile doğrudan belgeye gidiyoruz.
         const yeniId = isEdit ? id : (response.data.data?._id || response.data.data?.id);
-        setTimeout(() => {
-          navigate(yeniId ? `/yeni-tesvik/${yeniId}` : '/yeni-tesvik/liste');
+        clearTimeout(kayitDonusZamanlayicisi.current);
+        kayitDonusZamanlayicisi.current = setTimeout(() => {
+          if (isEdit && revizyonBaslatma) {
+            navigate(-1);
+            return;
+          }
+          navigate(yeniId ? `/yeni-tesvik/${yeniId}` : '/yeni-tesvik/liste', { replace: true });
         }, 2000);
       }
     } catch (error) {

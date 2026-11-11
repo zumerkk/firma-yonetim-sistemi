@@ -53,6 +53,49 @@ test('kayıt başarısızsa taslak açılmaz, metin ekranda kalır', async () =>
   expect(svc.mailOnizle).not.toHaveBeenCalled();
 });
 
+test('gönderim belirsizse aynı taslak kimliğiyle sonucu sorgular, SMTP reddi ve geçmiş uyarısı birlikte görünür', async () => {
+  let ilkGonderimiBitir;
+  const ilk = new Promise((_resolve, reject) => { ilkGonderimiBitir = reject; });
+  svc.mailGonder.mockImplementationOnce(() => ilk).mockResolvedValueOnce({
+    sent: true, talep, kabulEdilenler: ['firma@test.com'], reddedilenler: ['baska@test.com'],
+    gecmisKaydedildi: false, linkeEklenemeyen: ['belge.pdf']
+  });
+  render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: 'Mail Taslağı Hazırla' }));
+  const gonder = await screen.findByRole('button', { name: 'SMTP ile Gönder' });
+  fireEvent.click(gonder);
+  await waitFor(() => expect(svc.mailGonder).toHaveBeenCalledTimes(1));
+  expect(gonder).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Taslağı Kaydet' })).toBeDisabled();
+  fireEvent.click(gonder);
+  await act(async () => ilkGonderimiBitir(new Error('Network Error')));
+  await screen.findByText(/Gönderim sonucu alınamadı/);
+  fireEvent.click(gonder);
+  await screen.findByText(/Gönderim geçmişine kayıt doğrulanamadı/);
+  expect(screen.getByText(/Reddedilenler: baska@test.com/)).toHaveTextContent('belge.pdf');
+  expect(svc.mailGonder).toHaveBeenCalledTimes(2);
+  const anahtarlar = svc.mailGonder.mock.calls.map(([, payload]) => payload.istekId);
+  expect(anahtarlar[0]).toBeTruthy();
+  expect(anahtarlar[1]).toBe(anahtarlar[0]);
+});
+
+test('taslak silinirken şablon önizlemesi hata verirse kaydedilmiş taslak korunur', async () => {
+  const kayitli = { ...talep, mailKonusu: 'Kaydedilmiş konu', mailGovdesi: 'Kaydedilmiş metin' };
+  svc.talepDetay.mockResolvedValue(kayitli);
+  svc.talepGuncelle.mockResolvedValue(kayitli);
+  svc.mailOnizle.mockResolvedValueOnce({ to: ['firma@test.com'], subject: kayitli.mailKonusu, body: kayitli.mailGovdesi, smtpConfigured: true });
+  svc.mailOnizle.mockRejectedValueOnce(new Error('Önizleme alınamadı'));
+  const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  try {
+    render(<MemoryRouter><Panel talepId="t1" gomulu /></MemoryRouter>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Mail Taslağı Hazırla' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Taslağı Sil' }));
+    await screen.findByText('Önizleme alınamadı');
+    expect(screen.getByLabelText('İçerik')).toHaveTextContent('Kaydedilmiş metin');
+    expect(svc.talepGuncelle).not.toHaveBeenCalledWith('t1', { mailKonusu: '', mailGovdesi: '' });
+  } finally { onay.mockRestore(); }
+});
+
 test('gelen evrakın Aç düğmesi dosyayı indirmeden uygulama içinde gösterir', async () => {
   svc.talepDetay.mockResolvedValue({ ...talep, yuklenenEvraklar: [{
     _id: 'dosya1', orijinalAd: 'Fatura.png', mimeType: 'image/png', yuklemeTarihi: '2026-10-17T10:00:00Z'

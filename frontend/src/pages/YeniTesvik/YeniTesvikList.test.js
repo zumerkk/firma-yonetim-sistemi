@@ -1,10 +1,10 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import YeniTesvikList from './YeniTesvikList';
 import api from '../../utils/axios';
 
-jest.mock('../../utils/axios', () => ({ __esModule: true, default: { get: jest.fn() } }));
+jest.mock('../../utils/axios', () => ({ __esModule: true, default: { get: jest.fn(), delete: jest.fn() } }));
 jest.mock('../../contexts/AuthContext', () => ({ useAuth: () => ({ user: { rol: 'admin', yetkiler: {} } }) }));
 jest.mock('../../components/Layout/Header', () => () => null);
 jest.mock('../../components/Layout/Sidebar', () => () => null);
@@ -94,4 +94,32 @@ test('Yeni Teşvik belgesinden dönünce Hüner araması, arşiv, filtreler, sı
     search: 'Hüner', il: 'ANKARA', durum: 'kapandi', arsiv: '1', sayfa: '2',
     siraBy: 'belgeYonetimi.belgeBitisTarihi', siraSekli: 'asc'
   });
+});
+
+test('son sayfadaki tek belge silinince önceki dolu sayfa ve toplam yüklenir', async () => {
+  let silindi = false;
+  api.get.mockImplementation(async (url) => {
+    const params = new URL(url, 'http://localhost').searchParams;
+    const sayfa = Number(params.get('sayfa'));
+    const tesvikler = sayfa === 1
+      ? [{ _id: 'ilk-belge', yatirimciUnvan: 'İlk sayfadaki belge' }]
+      : (silindi ? [] : [{ _id: 'son-belge', yatirimciUnvan: 'Son sayfadaki belge' }]);
+    return { data: { success: true, data: {
+      tesvikler, pagination: { currentPage: sayfa, totalPages: silindi ? 1 : 2, totalCount: silindi ? 20 : 21 }
+    } } };
+  });
+  api.delete.mockImplementation(async () => {
+    silindi = true;
+    return { data: { success: true } };
+  });
+  render(<MemoryRouter><YeniTesvikList /></MemoryRouter>);
+  fireEvent.click(await screen.findByRole('button', { name: /go to page 2/i }));
+  const satir = await screen.findByText('Son sayfadaki belge');
+  fireEvent.click(within(satir.closest('tr')).getByRole('button', { name: 'Sil' }));
+  fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Sil' }));
+
+  expect(await screen.findByText('İlk sayfadaki belge')).toBeInTheDocument();
+  expect(screen.getByText(/Toplam 20 yeni kayıt/)).toBeInTheDocument();
+  expect(api.delete).toHaveBeenCalledWith('/yeni-tesvik/son-belge');
+  expect(new URL(api.get.mock.calls.at(-1)[0], 'http://localhost').searchParams.get('sayfa')).toBe('1');
 });

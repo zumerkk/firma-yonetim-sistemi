@@ -28,7 +28,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { renk } from '../../tasarim';
 
 // 🎯 Validation Schema
@@ -43,9 +43,32 @@ const loginSchema = yup.object({
     .min(6, 'Şifre en az 6 karakter olmalıdır')
 });
 
+const girisHedefi = (onceki) => {
+  const { pathname, search, hash, state } = onceki || {};
+  if (typeof pathname !== 'string' || !pathname.startsWith('/') || pathname.startsWith('//') || pathname.includes('\\')) {
+    return { yol: '/dashboard' };
+  }
+  try {
+    const adres = new URL(pathname, window.location.origin);
+    if (adres.origin === window.location.origin && !adres.pathname.startsWith('//')
+      && !adres.search && !adres.hash && !/^\/login\/?$/i.test(adres.pathname)) {
+      return {
+        yol: {
+          pathname: adres.pathname,
+          search: typeof search === 'string' && search.startsWith('?') ? search : '',
+          hash: typeof hash === 'string' && hash.startsWith('#') ? hash : ''
+        },
+        state
+      };
+    }
+  } catch (_) { /* Geçersiz adres için ana sayfa kullanılır. */ }
+  return { yol: '/dashboard' };
+};
+
 const Login = () => {
   const { login, isAuthenticated, loading, error, clearError, sessionMessage, clearSessionMessage } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
 
@@ -62,13 +85,12 @@ const Login = () => {
     }
   });
 
-  // 🚀 Giriş yapmışsa dashboard'a yönlendir
   useEffect(() => {
     if (isAuthenticated && !loading) {
-      console.log('🎯 Authenticated user detected, redirecting to dashboard...');
-      navigate('/dashboard', { replace: true });
+      const hedef = girisHedefi(state?.girisSonrasi);
+      navigate(hedef.yol, { replace: true, state: hedef.state });
     }
-  }, [isAuthenticated, loading, navigate]);
+  }, [isAuthenticated, loading, navigate, state]);
 
   // 🧹 Component mount olduğunda hataları temizle
   useEffect(() => {

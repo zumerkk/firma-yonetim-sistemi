@@ -1,7 +1,7 @@
 // 🏢 Professional Firma Management System - COMPACT EDITION
 // Clean, efficient, and business-focused design
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Container,
@@ -34,7 +34,9 @@ import {
   GridToolbarContainer,
   GridToolbarFilterButton,
   GridToolbarDensitySelector,
-  GridToolbarColumnsButton
+  GridToolbarColumnsButton,
+  gridFilteredSortedRowIdsSelector,
+  useGridApiRef
 } from '@mui/x-data-grid';
 import {
   Add as AddIcon,
@@ -51,42 +53,63 @@ import {
   ExpandLess as ExpandLessIcon,
   CloudUpload as CloudUploadIcon
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 // 🎯 Layout Components Import
 import Header from '../../components/Layout/Header';
 import Sidebar from '../../components/Layout/Sidebar';
 import { useFirma } from '../../contexts/FirmaContext';
 import { TURKEY_CITIES } from '../../data/turkeyData';
 import ExcelJS from 'exceljs';
-import { importExcel, downloadTemplate } from '../../services/firmaService'; // Import servislerini ekledim
+import firmaService, { importExcel, downloadTemplate } from '../../services/firmaService';
 import UstKaydirmaCubugu from '../../components/common/UstKaydirmaCubugu';
 
 const FirmaList = () => {
   const navigate = useNavigate();
-  const {
-    firmalar,
-    loading,
-    fetchFirmalar,
-    deleteFirma,
-    updateFirma,
-    searchFirmalar,
-    searchResults,
-    clearSearchResults,
-    fetchStats,
-    filters,
-    setFilters,
-    resetFilters
-  } = useFirma();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { deleteFirma, updateFirma } = useFirma();
+  const gorunum = location.state?.firmaListeGorunumu;
+  const anaAlanRef = useRef(null);
+  const tabloRef = useRef(null);
+  const gridApiRef = useGridApiRef();
+  const geriYuklenecekKaydirma = useRef(gorunum?.kaydirma);
+  const listeIstegi = useRef(0);
+  const aktifEkran = useRef(false);
+
+  const searchQuery = searchParams.get('arama') || '';
+  const arama = searchQuery.trim().length >= 2 ? searchQuery.trim() : '';
+  const yetkiDurumu = searchParams.get('yetkiDurumu');
+  const yetkiTuru = searchParams.get('yetkiTuru');
+  const aktif = searchParams.get('aktif');
+  const filters = {
+    aktif: ['all', 'false'].includes(aktif) ? aktif : 'true',
+    yetkiDurumu: ['expired', 'expiring7', 'expiring30'].includes(yetkiDurumu) ? yetkiDurumu : '',
+    yetkiTuru: ['etuys', 'dys'].includes(yetkiTuru) ? yetkiTuru : '',
+    firmaIl: searchParams.get('firmaIl') || '',
+    firmaIlce: searchParams.get('firmaIlce') || '',
+    yabanciSermayeli: searchParams.get('yabanciSermayeli') || '',
+    anaFaaliyetKonusu: searchParams.get('anaFaaliyetKonusu') || ''
+  };
+  const sorgu = new URLSearchParams({
+    ...filters,
+    arama,
+    siralamaSekli: arama ? 'tamUnvan' : 'createdAt',
+    siralamaYonu: arama ? 'asc' : 'desc'
+  }).toString();
 
   // 🎯 State Management - Simplified + Layout State
   const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
-  const [localLoading, setLocalLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRows, setSelectedRows] = useState([]);
+  const [liste, setListe] = useState({ sorgu: null, firmalar: [], hata: '', loading: true });
+  const [paginationModel, setPaginationModel] = useState(() => gorunum?.paginationModel || { page: 0, pageSize: 25 });
+  const [sortModel, setSortModel] = useState(() => gorunum?.sortModel || []);
+  const [filterModel, setFilterModel] = useState(() => gorunum?.filterModel || { items: [] });
+  const [selectedRows, setSelectedRows] = useState(() => gorunum?.selectedRows || []);
   const [deleteDialog, setDeleteDialog] = useState({ open: false, firmaId: null, firmaAdi: '' });
-  const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' });
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [notification, setNotification] = useState(() => ({
+    open: Boolean(location.state?.message), message: location.state?.message || '', severity: location.state?.severity || 'success'
+  }));
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(() => Boolean(gorunum?.showAdvancedFilters));
   const [exportLoading, setExportLoading] = useState(false);
   const [importDialog, setImportDialog] = useState(false);
   const [importLoading, setImportLoading] = useState(false);
@@ -95,16 +118,6 @@ const FirmaList = () => {
   const activeTab = filters.yetkiDurumu || (
     filters.aktif === 'false' ? 'passive' : filters.aktif === 'true' ? 'active' : 'all'
   );
-
-  // 🏷️ Tab click handler
-  const handleTabChange = useCallback((tabKey) => {
-    const yetkiDurumu = ['expired', 'expiring7', 'expiring30'].includes(tabKey) ? tabKey : '';
-    const yalnizAktif = tabKey === 'active' || Boolean(yetkiDurumu);
-    setFilters({
-      aktif: tabKey === 'passive' ? 'false' : yalnizAktif ? 'true' : 'all',
-      yetkiDurumu
-    });
-  }, [setFilters]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -119,67 +132,105 @@ const FirmaList = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 📊 Arama durumuna göre doğru veriyi seç
-  const gorunumSatirlari = searchQuery.trim().length >= 2 ? (searchResults || []) : (firmalar || []);
-  const displayData = filters.yetkiDurumu ? gorunumSatirlari.filter((firma) => firma.aktif !== false) : gorunumSatirlari;
+  const guncelListe = liste.sorgu === sorgu;
+  const loading = !guncelListe || liste.loading;
+  const listeHatasi = guncelListe ? liste.hata : '';
+  const displayData = guncelListe ? liste.firmalar : [];
 
   // 📢 Notification Helper
   const showNotification = useCallback((message, severity = 'success') => {
     setNotification({ open: true, message, severity });
   }, []);
 
-  // 🔍 Search Handler
-  const handleSearch = useCallback(async () => {
-    if (searchQuery.trim().length < 2) return;
-
-    setLocalLoading(true);
+  // Arama, liste ve Excel aynı süzgeçlerle alınmış tam firma kayıtlarını kullanır.
+  const loadFirmalar = useCallback(async () => {
+    const istek = ++listeIstegi.current;
+    setListe((onceki) => ({ sorgu, firmalar: onceki.sorgu === sorgu ? onceki.firmalar : [], hata: '', loading: true }));
+    const params = Object.fromEntries(new URLSearchParams(sorgu));
     try {
-      // Arama, ekranda seçili aktiflik ve yetki süzgecini birlikte kullanır.
-      await searchFirmalar(searchQuery, null, filters.aktif || 'true', filters.yetkiDurumu);
+      const firmalar = [];
+      let sayfa = 1;
+      let toplamSayfa = 1;
+      do {
+        const result = await firmaService.getFirmalar({ ...params, sayfa, limit: 2000 });
+        if (istek !== listeIstegi.current) return { stale: true };
+        if (!result.success) throw new Error(result.message || 'Firma listesi yüklenemedi.');
+        firmalar.push(...(result.data.firmalar || []));
+        toplamSayfa = result.data.pagination?.toplamSayfa || 1;
+        sayfa += 1;
+      } while (sayfa <= toplamSayfa);
+      setListe({ sorgu, firmalar, hata: '', loading: false });
+      return { success: true };
     } catch (error) {
-      showNotification('Arama işlemi başarısız: ' + error.message, 'error');
-    } finally {
-      setLocalLoading(false);
+      if (istek !== listeIstegi.current) return { stale: true };
+      const hata = error.message || 'Firma listesi yüklenemedi.';
+      setListe((onceki) => ({ ...onceki, hata, loading: false }));
+      return { success: false, message: hata };
     }
-  }, [searchQuery, searchFirmalar, showNotification, filters]);
+  }, [sorgu]);
 
-  const currentViewRef = useRef({ fetchFirmalar, searchQuery, handleSearch });
-  currentViewRef.current = { fetchFirmalar, searchQuery, handleSearch };
-
-  // Bekleyen güncelleme veya yenileme bittiğinde kullanıcının son seçimini oku.
-  const refreshFirmalar = useCallback(async () => {
-    const result = await currentViewRef.current.fetchFirmalar();
-    if (result?.stale) return;
-    const currentView = currentViewRef.current;
-    if (currentView.searchQuery.trim().length >= 2) await currentView.handleSearch();
+  const guncelYukleyici = useRef(loadFirmalar);
+  guncelYukleyici.current = loadFirmalar;
+  const refreshFirmalar = useCallback(() => aktifEkran.current ? guncelYukleyici.current() : Promise.resolve({ stale: true }), []);
+  useLayoutEffect(() => {
+    aktifEkran.current = true;
+    return () => { aktifEkran.current = false; listeIstegi.current += 1; };
   }, []);
-
-  // 🔄 Data Loading
+  const oncekiArama = useRef(arama);
   useEffect(() => {
-    fetchFirmalar();
-  }, [fetchFirmalar]);
+    const bekle = arama && oncekiArama.current !== arama;
+    oncekiArama.current = arama;
+    const zamanlayici = bekle ? setTimeout(loadFirmalar, 500) : null;
+    if (!bekle) loadFirmalar();
+    return () => { clearTimeout(zamanlayici); listeIstegi.current += 1; };
+  }, [arama, loadFirmalar]);
 
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  const setFilters = (degisiklik) => {
+    const params = new URLSearchParams(searchParams);
+    Object.entries(degisiklik).forEach(([ad, deger]) => {
+      if (deger) params.set(ad, deger);
+      else params.delete(ad);
+    });
+    if (params.toString() === searchParams.toString()) return refreshFirmalar();
+    setPaginationModel((onceki) => ({ ...onceki, page: 0 }));
+    setSelectedRows([]);
+    setSearchParams(params, { replace: true, state: location.state });
+  };
 
-  // 🔍 Real-time Search with Debouncing
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      clearSearchResults();
-      return undefined;
+  const handleTabChange = (tabKey) => {
+    const secilenYetki = ['expired', 'expiring7', 'expiring30'].includes(tabKey) ? tabKey : '';
+    const yalnizAktif = tabKey === 'active' || Boolean(secilenYetki);
+    setFilters({ aktif: tabKey === 'passive' ? 'false' : yalnizAktif ? 'true' : 'all', yetkiDurumu: secilenYetki, yetkiTuru: '' });
+  };
+
+  useLayoutEffect(() => {
+    const kaydirma = geriYuklenecekKaydirma.current;
+    if (loading || !kaydirma) return;
+    const scroller = tabloRef.current?.querySelector('.MuiDataGrid-virtualScroller');
+    if (anaAlanRef.current) anaAlanRef.current.scrollTop = kaydirma.anaUst;
+    if (scroller) {
+      scroller.scrollTop = kaydirma.tabloUst;
+      scroller.scrollLeft = kaydirma.tabloSol;
     }
-    const timeoutId = setTimeout(handleSearch, 500);
+    geriYuklenecekKaydirma.current = null;
+  }, [loading]);
 
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, handleSearch, clearSearchResults]);
+  const listedenGit = (hedef) => {
+    const scroller = tabloRef.current?.querySelector('.MuiDataGrid-virtualScroller');
+    const firmaListeGorunumu = {
+      paginationModel, sortModel, filterModel, selectedRows, showAdvancedFilters,
+      kaydirma: { anaUst: anaAlanRef.current?.scrollTop || 0, tabloUst: scroller?.scrollTop || 0, tabloSol: scroller?.scrollLeft || 0 }
+    };
+    const { pathname, search, hash } = location;
+    navigate({ pathname, search, hash }, { replace: true, state: { firmaListeGorunumu } });
+    navigate(hedef, { state: { firmaListeDonusu: { search, hash, gorunum: firmaListeGorunumu } } });
+  };
 
   // 🔄 Refresh Handler
   const handleRefresh = async () => {
-    setLocalLoading(true);
-    await refreshFirmalar();
-    setLocalLoading(false);
-    showNotification('Veriler yenilendi');
+    const result = await refreshFirmalar();
+    if (result.success) showNotification('Veriler yenilendi');
+    else if (!result.stale) showNotification(result.message, 'error');
   };
 
   // 🗑️ Delete Handler
@@ -203,9 +254,11 @@ const FirmaList = () => {
   const handleExcelExport = async () => {
     setExportLoading(true);
     try {
-      const exportData = selectedRows.length > 0
-        ? displayData.filter(firma => selectedRows.includes(firma._id))
+      const grid = gridApiRef.current;
+      const gridRows = grid?.state?.filter
+        ? gridFilteredSortedRowIdsSelector(gridApiRef).map((id) => grid.getRow(id)).filter(Boolean)
         : displayData;
+      const exportData = selectedRows.length > 0 ? gridRows.filter((firma) => selectedRows.includes(firma._id)) : gridRows;
 
       await generateBusinessExcel(exportData);
       showNotification(`${exportData.length} firma Excel formatında dışa aktarıldı`);
@@ -334,7 +387,7 @@ const FirmaList = () => {
         firma.yetkiliKisiler?.[1]?.eposta1 || '',
         firma.yetkiliKisiler?.[1]?.eposta2 || '',
         firma.notlar || '',
-        new Date(firma.createdAt).toLocaleDateString('tr-TR')
+        firma.createdAt ? new Date(firma.createdAt).toLocaleDateString('tr-TR') : ''
       ]);
 
       // Style data rows
@@ -700,7 +753,7 @@ const FirmaList = () => {
           <Tooltip title="Görüntüle">
             <IconButton
               size="small"
-              onClick={() => navigate(`/firmalar/${params.row._id}`)}
+              onClick={() => listedenGit(`/firmalar/${params.row._id}`)}
             >
               <VisibilityIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -708,7 +761,7 @@ const FirmaList = () => {
           <Tooltip title="Düzenle">
             <IconButton
               size="small"
-              onClick={() => navigate(`/firmalar/${params.row._id}/duzenle`)}
+              onClick={() => listedenGit(`/firmalar/${params.row._id}/duzenle`)}
             >
               <EditIcon sx={{ fontSize: 16 }} />
             </IconButton>
@@ -798,7 +851,7 @@ const FirmaList = () => {
       )}
 
       {/* Main Content */}
-      <Box component="main" sx={{
+      <Box component="main" ref={anaAlanRef} sx={{
         gridArea: 'content',
         overflow: 'auto',
         p: 3
@@ -823,7 +876,9 @@ const FirmaList = () => {
                   Firma Veri Yönetim Paneli
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
-                  Toplam {displayData?.length || 0} firma kayıtlı {searchQuery.trim().length >= 2 ? '(arama sonucu)' : ''}
+                  {loading && !displayData.length ? 'Firmalar yükleniyor…'
+                    : !listeHatasi || displayData.length ? `Toplam ${displayData.length} firma kayıtlı${arama ? ' (arama sonucu)' : ''}`
+                      : 'Firma listesi yüklenemedi.'}
                 </Typography>
               </Box>
 
@@ -831,7 +886,7 @@ const FirmaList = () => {
                 variant="contained"
                 color="success"
                 startIcon={<AddIcon />}
-                onClick={() => navigate('/firmalar/yeni')}
+                onClick={() => listedenGit('/firmalar/yeni')}
                 size="medium"
                 sx={{
                   textTransform: 'none',
@@ -890,7 +945,7 @@ const FirmaList = () => {
                   size="small"
                   placeholder="Vergi No, Tam Ünvan veya Firma ID ile ara..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setFilters({ arama: e.target.value })}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -909,7 +964,7 @@ const FirmaList = () => {
                     labelId="firma-durum-label"
                     value={filters.aktif || 'all'}
                     label="Durum"
-                    onChange={(e) => setFilters({ aktif: e.target.value, yetkiDurumu: '' })}
+                    onChange={(e) => setFilters({ aktif: e.target.value, yetkiDurumu: '', yetkiTuru: '' })}
                     sx={{ fontSize: '0.875rem' }}
                   >
                     <MenuItem value="all">Tümü</MenuItem>
@@ -921,11 +976,12 @@ const FirmaList = () => {
 
               <Grid item xs={12} md={2}>
                 <FormControl fullWidth size="small">
-                  <InputLabel>Yabancı Sermaye</InputLabel>
+                  <InputLabel id="firma-sermaye-label">Yabancı Sermaye</InputLabel>
                   <Select
+                    labelId="firma-sermaye-label"
                     value={filters.yabanciSermayeli || 'all'}
                     label="Yabancı Sermaye"
-                    onChange={(e) => setFilters({ ...filters, yabanciSermayeli: e.target.value })}
+                    onChange={(e) => setFilters({ yabanciSermayeli: e.target.value === 'all' ? '' : e.target.value })}
                     sx={{ fontSize: '0.875rem' }}
                   >
                     <MenuItem value="all">Tümü</MenuItem>
@@ -952,7 +1008,7 @@ const FirmaList = () => {
                     size="small"
                     startIcon={<RefreshIcon />}
                     onClick={handleRefresh}
-                    disabled={localLoading}
+                    disabled={loading}
                     sx={{ textTransform: 'none' }}
                   >
                     Yenile
@@ -963,7 +1019,7 @@ const FirmaList = () => {
                     size="small"
                     startIcon={exportLoading ? <CircularProgress size={16} color="inherit" /> : <GetAppIcon />}
                     onClick={handleExcelExport}
-                    disabled={exportLoading}
+                    disabled={loading || Boolean(listeHatasi) || exportLoading}
                     sx={{ textTransform: 'none' }}
                   >
                     Excel
@@ -992,7 +1048,7 @@ const FirmaList = () => {
                     <Select
                       value={filters.firmaIl || ''}
                       label="İl"
-                      onChange={(e) => setFilters({ ...filters, firmaIl: e.target.value })}
+                      onChange={(e) => setFilters({ firmaIl: e.target.value, firmaIlce: '' })}
                       sx={{ fontSize: '0.875rem' }}
                     >
                       <MenuItem value="">Tümü</MenuItem>
@@ -1009,7 +1065,7 @@ const FirmaList = () => {
                     size="small"
                     label="Ana Faaliyet Konusu"
                     value={filters.anaFaaliyetKonusu || ''}
-                    onChange={(e) => setFilters({ ...filters, anaFaaliyetKonusu: e.target.value })}
+                    onChange={(e) => setFilters({ anaFaaliyetKonusu: e.target.value })}
                     sx={{ '& .MuiInputBase-input': { fontSize: '0.875rem' } }}
                   />
                 </Grid>
@@ -1021,9 +1077,10 @@ const FirmaList = () => {
                       size="small"
                       startIcon={<ClearIcon />}
                       onClick={() => {
-                        resetFilters();
-                        setSearchQuery('');
-                        clearSearchResults(); // Arama sonuçlarını da temizle
+                        setSearchParams({}, { replace: true });
+                        setPaginationModel((onceki) => ({ ...onceki, page: 0 }));
+                        setSelectedRows([]);
+                        setFilterModel({ items: [] });
                       }}
                       sx={{ textTransform: 'none' }}
                     >
@@ -1042,20 +1099,34 @@ const FirmaList = () => {
             </Collapse>
           </Paper>
 
+          {filters.yetkiDurumu && filters.yetkiTuru && (
+            <Chip size="small" sx={{ mb: 2 }} label={`${filters.yetkiTuru.toUpperCase()} yetkisi`}
+              onDelete={() => setFilters({ yetkiTuru: '' })} />
+          )}
+          {listeHatasi && <Alert severity="error" sx={{ mb: 2 }}>{listeHatasi}</Alert>}
+
           {/* 📊 Compact DataGrid */}
-          <Paper sx={{ overflow: 'hidden' }}>
+          <Paper ref={tabloRef} sx={{ overflow: 'hidden' }}>
             {/* müşteri: yatay kaydırma çubuğunun bir eşi tablonun üstünde de olsun */}
             <UstKaydirmaCubugu>
             <DataGrid
+              apiRef={gridApiRef}
               rows={displayData}
               columns={columns}
               getRowId={(row) => row._id}
-              loading={loading || localLoading}
+              loading={loading}
               checkboxSelection
               disableRowSelectionOnClick
               // müşteri: "firmanın üstüne tıklayınca açılsın" — kutucuklar toplu dışa aktarım için kalıyor
-              onRowClick={(params) => navigate(`/firmalar/${params.row._id}`)}
-              onRowSelectionModelChange={setSelectedRows}
+              onRowClick={(params) => listedenGit(`/firmalar/${params.row._id}`)}
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => { if (!loading) setPaginationModel(model); }}
+              sortModel={sortModel}
+              onSortModelChange={setSortModel}
+              filterModel={filterModel}
+              onFilterModelChange={setFilterModel}
+              rowSelectionModel={selectedRows}
+              onRowSelectionModelChange={(rows) => { if (!loading) setSelectedRows(rows); }}
               slots={{ toolbar: CustomToolbar }}
               sx={{
                 border: 'none',
@@ -1082,7 +1153,6 @@ const FirmaList = () => {
                 }
               }}
               initialState={{
-                pagination: { paginationModel: { pageSize: 25 } },
                 // Sürekli sağa kaydırmayı önlemek için ikincil kolonlar varsayılan gizli
                 // (üstteki "Columns" düğmesinden istenince tekrar açılır)
                 columns: {

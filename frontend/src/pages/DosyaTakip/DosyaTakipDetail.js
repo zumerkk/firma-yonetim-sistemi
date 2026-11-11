@@ -52,6 +52,7 @@ import DosyaOnizlemeDialog from '../../components/common/DosyaOnizlemeDialog';
 import usePanoDosyaYapistir from '../../hooks/usePanoDosyaYapistir';
 import BelgeTakipEvrakTalepleri from '../../components/IslemEvrak/BelgeTakipEvrakTalepleri';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
+import { mailGonderimIstegi, mailGonderimUyarilari } from '../../utils/mailGonderim';
 import axios from '../../utils/axios';
 import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
 import EtuysTakipKutusu, { etuysTakipGorunur } from '../../components/DosyaTakip/EtuysTakipKutusu';
@@ -467,20 +468,24 @@ const YuklemeAciklamaDialog = ({ open, dosyalar, kategori, turler, onKategoriCha
 const SEKME_ADLARI = ['notlar', 'dosyalar', 'gecmis', 'atamalar', 'zamanlama', 'odemeler', 'mail'];
 
 const DosyaTakipDetail = () => {
+    const { id } = useParams();
+    return <DosyaTakipDetailIcerik key={id} id={id} />;
+};
+
+const DosyaTakipDetailIcerik = ({ id }) => {
     const navigate = useNavigate();
     const location = useLocation();
     const [searchParams, setSearchParams] = useSearchParams();
-    const { id } = useParams();
     // Arşivden gelindiyse arşive dönülür; bildirim/dashboard gibi başka yerlerden
     // girildiyse state boştur ve normal listeye dönülür.
     const listeyeDon = () => location.state?.geriDon?.yol
         ? navigate(location.state.geriDon.yol, { state: location.state.geriDon.state })
         : navigate(`/dosya-takip/liste${location.state?.listeQuery || ''}`);
-    const { seciliTalep, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, durumGecmisiSil, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const { seciliTalep: kayit, fetchTalep, durumDegistir, durumGecmisiTarihDuzelt, durumGecmisiSil, etuysTakipIsaretle, eksikTamamla, notEkle, notSil, dosyaEkle, dosyaSil, dosyaAciklamaKaydet, talepGuncelle, loading, error, clearError } = useDosyaTakip();
+    const seciliTalep = kayit && String(kayit._id) === id ? kayit : null;
 
-    const [activeTab, setActiveTabDurumu] = useState(() => Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme'))));
+    const activeTab = Math.max(0, SEKME_ADLARI.indexOf(searchParams.get('sekme')));
     const setActiveTab = (v) => {
-        setActiveTabDurumu(v);
         // Durum (listeye dönüş filtresi) korunarak adres güncellenir; geçmişe yeni kayıt eklenmez
         setSearchParams(v ? { sekme: SEKME_ADLARI[v] } : {}, { replace: true, state: location.state });
     };
@@ -516,6 +521,9 @@ const DosyaTakipDetail = () => {
     const [mailEkler, setMailEkler] = useState([]);
     const [mailYukleniyor, setMailYukleniyor] = useState(false);
     const [mailGonderiliyor, setMailGonderiliyor] = useState(false);
+    const mailTaslakIstegi = useRef(null);
+    const mailGonderimSuruyor = useRef(false);
+    const ekranAcik = useRef(false);
     // 📤 Dosya yükleme göstergesi (müşteri: "yükleniyor mu internette mi sorun var anlaşılmıyor")
     const [yukleme, setYukleme] = useState(null);
     const [confirmDialog, setConfirmDialog] = useState({ open: false, type: '', id: '', alan: '', label: '' });
@@ -524,9 +532,11 @@ const DosyaTakipDetail = () => {
     const [oneriler, setOneriler] = useState({ daireler: [], uzmanlar: [] }); // daire/uzman öneri listesi
 
     useEffect(() => {
+        ekranAcik.current = true;
         if (id) fetchTalep(id);
         loadUsers();
         axios.get('/dosya-takip/oneriler').then(r => setOneriler(r.data?.data || { daireler: [], uzmanlar: [] })).catch(() => { });
+        return () => { ekranAcik.current = false; mailTaslakIstegi.current = null; };
     }, [id, fetchTalep]);
 
     // 🗑️ Daire/uzman önerisini kaldır (müşteri: "test1" gibi yanlış girilenler silinebilsin)
@@ -568,6 +578,10 @@ const DosyaTakipDetail = () => {
     const handleDosyaSil = async (dosyaId, alan) => {
         try {
             await dosyaSil(id, dosyaId, alan);
+            if (!alan || alan === 'dosyalar') {
+                setMailEkler((p) => p.filter((x) => x !== dosyaId));
+                setMailTaslak((p) => p && ({ ...p, dosyalar: (p.dosyalar || []).filter((d) => d._id !== dosyaId) }));
+            }
             setSnackbar({ open: true, message: 'Dosya silindi!', severity: 'success' });
         } catch (err) {
             setSnackbar({ open: true, message: 'Dosya silinemedi.', severity: 'error' });
@@ -672,9 +686,13 @@ const DosyaTakipDetail = () => {
     const sablonHatirla = () => { try { return localStorage.getItem(SABLON_ANAHTARI) || ''; } catch (_) { return ''; } };
     const govdeElleDegistiRef = useRef(false);
     const mailTaslakYukle = async (sablon = sablonHatirla()) => {
+        if (!seciliTalep || loading || mailTaslakIstegi.current || mailGonderimSuruyor.current) return;
+        const istek = Symbol();
+        mailTaslakIstegi.current = istek;
         setMailYukleniyor(true);
         try {
             const t = await dosyaTakipService.firmaMailTaslak(id, sablon);
+            if (mailTaslakIstegi.current !== istek) return;
             // Alıcı ve CC, firmaya en son gönderilen maile göre sunucudan gelir
             // (müşteri: "bizim yazdığımız mailleri kaydedebilir")
             setMailTaslak({ ...t, cc: t?.cc || '' });
@@ -683,24 +701,45 @@ const DosyaTakipDetail = () => {
             // firmaya istemeden dekont göndermek geri alınamaz bir hata olurdu.
             setMailEkler([]);
         } catch (err) {
-            setSnackbar({ open: true, message: err?.response?.data?.message || 'Taslak hazırlanamadı.', severity: 'error' });
-        } finally { setMailYukleniyor(false); }
+            if (mailTaslakIstegi.current === istek) setSnackbar({ open: true, message: err?.response?.data?.message || 'Taslak hazırlanamadı.', severity: 'error' });
+        } finally {
+            if (mailTaslakIstegi.current === istek) {
+                mailTaslakIstegi.current = null;
+                setMailYukleniyor(false);
+            }
+        }
     };
 
     // Şablon değişince yalnız metin yenilenir; yazılan alıcı/CC/konu korunur
     const mailSablonuDegistir = async (sablon) => {
-        if (!mailTaslak || sablon === mailTaslak.sablonId) return;
+        if (!mailTaslak || sablon === mailTaslak.sablonId || mailTaslakIstegi.current || mailGonderimSuruyor.current) return;
         if (govdeElleDegistiRef.current
             && !window.confirm('Mail metnine yaptığınız değişiklikler silinip metin seçilen şablondan yeniden oluşturulacak. Devam edilsin mi?')) return;
-        try { localStorage.setItem(SABLON_ANAHTARI, sablon); } catch (_) { /* gizli pencere vb. — hatırlanmaz */ }
+        const istek = Symbol();
+        mailTaslakIstegi.current = istek;
         setMailYukleniyor(true);
         try {
             const t = await dosyaTakipService.firmaMailTaslak(id, sablon);
-            setMailTaslak((p) => ({ ...p, govde: t.govde, sablonId: t.sablonId, sablonlar: t.sablonlar }));
+            if (mailTaslakIstegi.current !== istek) return;
+            try { localStorage.setItem(SABLON_ANAHTARI, sablon); } catch (_) { /* gizli pencere vb. — hatırlanmaz */ }
+            setMailTaslak((p) => p && ({ ...p, govde: t.govde, sablonId: t.sablonId, sablonlar: t.sablonlar }));
             govdeElleDegistiRef.current = false;
         } catch (err) {
-            setSnackbar({ open: true, message: err?.response?.data?.message || 'Şablon uygulanamadı.', severity: 'error' });
-        } finally { setMailYukleniyor(false); }
+            if (mailTaslakIstegi.current === istek) setSnackbar({ open: true, message: err?.response?.data?.message || 'Şablon uygulanamadı.', severity: 'error' });
+        } finally {
+            if (mailTaslakIstegi.current === istek) {
+                mailTaslakIstegi.current = null;
+                setMailYukleniyor(false);
+            }
+        }
+    };
+
+    const mailTaslagindanVazgec = () => {
+        if (mailGonderimSuruyor.current) return;
+        mailTaslakIstegi.current = null;
+        setMailYukleniyor(false);
+        setMailTaslak(null);
+        setMailEkler([]);
     };
 
     // 🕓 Durum geçmişi tarihi düzelt
@@ -738,22 +777,43 @@ const DosyaTakipDetail = () => {
     };
 
     const firmaMailiGonder = async () => {
-        if (!mailTaslak) return;
+        if (!seciliTalep || loading || !mailTaslak?.smtpHazir || mailTaslakIstegi.current || mailGonderimSuruyor.current) return;
+        mailGonderimSuruyor.current = true;
         setMailGonderiliyor(true);
         try {
-            const sonuc = await dosyaTakipService.firmaMailGonder(id, {
+            const icerik = {
                 alici: mailTaslak.alici,
                 cc: mailTaslak.cc,
                 konu: mailTaslak.konu,
                 govde: mailTaslak.govde,
-                dosyaIdler: mailEkler
-            });
+                dosyaIdler: [...mailEkler].sort()
+            };
+            const istek = await mailGonderimIstegi('dosya-takip', id, icerik);
+            if (!ekranAcik.current) return;
+            const sonuc = await dosyaTakipService.firmaMailGonder(id, { ...icerik, istekId: istek.istekId });
+            istek.tamamla(sonuc);
+            if (!ekranAcik.current) return;
             setMailTaslak(null); setMailEkler([]);
-            await fetchTalep(id);
-            setSnackbar({ open: true, message: sonuc?.message || 'Mail gönderildi', severity: 'success' });
+            const uyari = mailGonderimUyarilari(sonuc);
+            setSnackbar({ open: true, message: uyari || sonuc?.message || 'Mail gönderildi', severity: uyari ? 'warning' : 'success' });
+            if (sonuc?.gecmisKaydedildi !== false) await fetchTalep(id);
         } catch (err) {
-            setSnackbar({ open: true, message: err?.response?.data?.message || 'Mail gönderilemedi.', severity: 'error' });
-        } finally { setMailGonderiliyor(false); }
+            if (!ekranAcik.current) return;
+            setSnackbar({ open: true, message: err?.response?.data?.message
+                || 'Gönderim sonucu alınamadı. Aynı taslakla yeniden deneyerek sonucu kontrol edin.', severity: 'error' });
+            if (err?.response?.data?.code === 'MAIL_EK_DEGISTI') {
+                const guncel = await fetchTalep(id);
+                if (guncel && ekranAcik.current) {
+                    const dosyalar = guncel.dosyalar || [];
+                    const idler = new Set(dosyalar.map((d) => d._id));
+                    setMailTaslak((p) => p && ({ ...p, dosyalar }));
+                    setMailEkler((p) => p.filter((d) => idler.has(d)));
+                }
+            }
+        } finally {
+            mailGonderimSuruyor.current = false;
+            if (ekranAcik.current) setMailGonderiliyor(false);
+        }
     };
 
     // Firma yükleme bağlantısı WhatsApp vb. ile de paylaşılabilsin
@@ -1740,7 +1800,7 @@ const DosyaTakipDetail = () => {
                                         {!mailTaslak ? (
                                             <Box sx={{ textAlign: 'center', py: 4 }}>
                                                 <Button variant="contained" startIcon={<MailIcon />} onClick={() => mailTaslakYukle()}
-                                                    disabled={mailYukleniyor} sx={{ textTransform: 'none' }}>
+                                                    disabled={loading || mailYukleniyor || mailGonderiliyor} sx={{ textTransform: 'none' }}>
                                                     {mailYukleniyor ? 'Hazırlanıyor…' : 'Mail Taslağı Hazırla'}
                                                 </Button>
                                                 <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: '#64748b' }}>
@@ -1761,7 +1821,7 @@ const DosyaTakipDetail = () => {
                                                         <TextField select fullWidth size="small" label="Mail şablonu"
                                                             value={mailTaslak.sablonId || 'standart'}
                                                             onChange={(e) => mailSablonuDegistir(e.target.value)}
-                                                            disabled={mailYukleniyor}
+                                                            disabled={mailYukleniyor || mailGonderiliyor}
                                                             helperText="Şablonlar İşlem & Evrak › İşlem Türleri'nden gelir; {evrakListesi} yerine firmadan beklenen eksikler ve notlar yazılır.">
                                                             {(mailTaslak.sablonlar || []).map((s) => (
                                                                 <MenuItem key={s._id} value={s._id}>İşlem & Evrak: {s.ad}</MenuItem>
@@ -1772,7 +1832,7 @@ const DosyaTakipDetail = () => {
                                                     <Grid item xs={12} sm={6}>
                                                         <TextField fullWidth size="small" label="Alıcı(lar)"
                                                             placeholder="ornek@firma.com, ikinci@firma.com"
-                                                            value={mailTaslak.alici}
+                                                            value={mailTaslak.alici} disabled={mailGonderiliyor}
                                                             onChange={(e) => setMailTaslak((p) => ({ ...p, alici: e.target.value }))}
                                                             helperText="Birden fazla adres virgülle ayrılır" />
                                                         {/* müşteri: "firma bilgilerindeki maili otomatik çekebilir mi? Yetkili kişileri çekse
@@ -1783,7 +1843,7 @@ const DosyaTakipDetail = () => {
                                                                 {eklenebilirOneriler(mailTaslak.adresOnerileri, mailTaslak.alici, mailTaslak.cc).map((o) => (
                                                                     <Chip key={o.adres} size="small" variant="outlined" icon={<AddIcon />}
                                                                         label={`${o.adres} · ${o.etiket}`}
-                                                                        onClick={() => setMailTaslak((p) => ({ ...p, alici: adresEkle(p.alici, o.adres) }))}
+                                                                        disabled={mailGonderiliyor} onClick={() => setMailTaslak((p) => ({ ...p, alici: adresEkle(p.alici, o.adres) }))}
                                                                         sx={{ maxWidth: '100%' }} />
                                                                 ))}
                                                             </Box>
@@ -1791,17 +1851,17 @@ const DosyaTakipDetail = () => {
                                                     </Grid>
                                                     <Grid item xs={12} sm={6}>
                                                         <TextField fullWidth size="small" label="CC (opsiyonel)"
-                                                            value={mailTaslak.cc || ''}
+                                                            value={mailTaslak.cc || ''} disabled={mailGonderiliyor}
                                                             onChange={(e) => setMailTaslak((p) => ({ ...p, cc: e.target.value }))} />
                                                     </Grid>
                                                     <Grid item xs={12}>
                                                         <TextField fullWidth size="small" label="Konu"
-                                                            value={mailTaslak.konu}
+                                                            value={mailTaslak.konu} disabled={mailGonderiliyor}
                                                             onChange={(e) => setMailTaslak((p) => ({ ...p, konu: e.target.value }))} />
                                                     </Grid>
                                                     <Grid item xs={12}>
                                                         <TextField fullWidth multiline minRows={10} label="Mail Metni"
-                                                            value={mailTaslak.govde}
+                                                            value={mailTaslak.govde} disabled={mailYukleniyor || mailGonderiliyor}
                                                             onChange={(e) => { govdeElleDegistiRef.current = true; setMailTaslak((p) => ({ ...p, govde: e.target.value })); }} />
                                                     </Grid>
                                                 </Grid>
@@ -1837,7 +1897,7 @@ const DosyaTakipDetail = () => {
                                                                 <FormControlLabel key={d._id}
                                                                     sx={{ display: 'flex', alignItems: 'flex-start', ml: 0, mb: 0.25 }}
                                                                     control={<Checkbox size="small" sx={{ pt: 0.25 }}
-                                                                        checked={mailEkler.includes(d._id)}
+                                                                        checked={mailEkler.includes(d._id)} disabled={mailGonderiliyor}
                                                                         onChange={() => setMailEkler((p) => p.includes(d._id)
                                                                             ? p.filter((x) => x !== d._id) : [...p, d._id])} />}
                                                                     label={
@@ -1856,11 +1916,11 @@ const DosyaTakipDetail = () => {
                                                 )}
 
                                                 <Box sx={{ display: 'flex', gap: 1, mt: 2, justifyContent: 'flex-end' }}>
-                                                    <Button onClick={() => { setMailTaslak(null); setMailEkler([]); }} sx={{ textTransform: 'none' }}>
+                                                    <Button onClick={mailTaslagindanVazgec} disabled={mailGonderiliyor} sx={{ textTransform: 'none' }}>
                                                         Vazgeç
                                                     </Button>
                                                     <Button variant="contained" startIcon={<MailIcon />} onClick={firmaMailiGonder}
-                                                        disabled={mailGonderiliyor || !mailTaslak.smtpHazir}
+                                                        disabled={loading || mailYukleniyor || mailGonderiliyor || !mailTaslak.smtpHazir}
                                                         sx={{ textTransform: 'none', background: '#059669' }}>
                                                         {mailGonderiliyor ? 'Gönderiliyor…' : 'Gönder'}
                                                     </Button>
@@ -1911,9 +1971,15 @@ const DosyaTakipDetail = () => {
                                                         <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.konu}</Typography>
                                                         <Typography variant="caption" sx={{ color: '#64748b', display: 'block' }}>
                                                             {(m.alicilar || []).join(', ')} · {new Date(m.tarih).toLocaleString('tr-TR')}
+                                                            {m.cc?.length ? ` · CC: ${m.cc.join(', ')}` : ''}
                                                             {m.gonderenAdi ? ` · ${m.gonderenAdi}` : ''}
                                                             {m.ekDosyaAdlari?.length ? ` · ${m.ekDosyaAdlari.length} ek` : ''}
                                                         </Typography>
+                                                        {m.reddedilenler?.length > 0 && (
+                                                            <Typography variant="caption" color="warning.dark" sx={{ display: 'block' }}>
+                                                                SMTP reddetti: {m.reddedilenler.join(', ')}
+                                                            </Typography>
+                                                        )}
                                                         <Typography variant="caption" sx={{ display: 'block', mt: 0.5, whiteSpace: 'pre-wrap', color: '#475569' }}>
                                                             {String(m.govde || '').slice(0, 300)}{String(m.govde || '').length > 300 ? '…' : ''}
                                                         </Typography>

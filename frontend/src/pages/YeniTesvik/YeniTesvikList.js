@@ -167,6 +167,7 @@ const YeniTesvikList = () => {
   useEffect(() => {
     const istekNo = ++listeIstegi.current;
     const loadTesvikler = async () => {
+      let sayfaDegisti = false;
       try {
         setLoading(true);
         setError(null);
@@ -182,6 +183,12 @@ const YeniTesvikList = () => {
         if (istekNo !== listeIstegi.current) return;
 
         if (response.data.success) {
+          const sonSayfa = Math.max(1, response.data.data.pagination.totalPages);
+          if (sayfa > sonSayfa) {
+            sayfaDegisti = true;
+            sayfayaGec(sonSayfa);
+            return;
+          }
           setTesvikler(response.data.data.tesvikler);
           setPagination(response.data.data.pagination);
         } else {
@@ -192,12 +199,12 @@ const YeniTesvikList = () => {
         console.error('🚨 Teşvik list hatası:', error);
         setError('Veriler yüklenirken hata oluştu');
       } finally {
-        if (istekNo === listeIstegi.current) setLoading(false);
+        if (istekNo === listeIstegi.current && !sayfaDegisti) setLoading(false);
       }
     };
     loadTesvikler();
     return () => { listeIstegi.current += 1; };
-  }, [filters, siralama, sayfa, listeYenileme]);
+  }, [filters, siralama, sayfa, listeYenileme, sayfayaGec]);
 
   // 🗑️ SİLME FONKSİYONLARI
   const handleDeleteClick = (tesvik) => {
@@ -285,7 +292,9 @@ const YeniTesvikList = () => {
           durum: filters.durum,
           arsiv: filters.arsiv,
           il: filters.il,
-          search: filters.search
+          search: filters.search,
+          siraBy: siralama.alan,
+          siraSekli: siralama.yon
         }
       });
       
@@ -609,9 +618,7 @@ const YeniTesvikList = () => {
                             belgeId={tesvik._id}
                             sistem={'Yeni'}
                             durum={tesvik.durumBilgileri?.genelDurum}
-                            onDegisti={(yeniDurum) => setTesvikler((liste) => liste.map((x) => (x._id === tesvik._id
-                              ? { ...x, durumBilgileri: { ...(x.durumBilgileri || {}), genelDurum: yeniDurum } }
-                              : x)))}
+                            onDegisti={() => setListeYenileme((sayi) => sayi + 1)}
                             onHata={(mesaj) => window.alert(`Durum güncellenemedi: ${mesaj}`)}
                           />
                         </TableCell>

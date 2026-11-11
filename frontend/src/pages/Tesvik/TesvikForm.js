@@ -98,6 +98,8 @@ const TesvikForm = () => {
   const revizyonBaslatma = useLocation().state?.revizyonBaslatma || null;
   // Kayıttan sonra sayfa 2 sn açık kalıyor; ikinci "Kaydet" aynı revizyonu tekrar yazmasın
   const revizyonYazildiRef = useRef(false);
+  const kayitDonusZamanlayicisi = useRef(null);
+  useEffect(() => () => clearTimeout(kayitDonusZamanlayicisi.current), []);
 
   // 🔢 SAYI BİÇİMLENDİRME — mantık utils/sayiFormat.js'te (backend ile aynı kural)
   // Alanlar binlik NOKTA ile gösterilir ("18.000.000"), state'e ham rakam yazılır.
@@ -2210,8 +2212,13 @@ const TesvikForm = () => {
         // sonucu görmek istiyor; listeye dönmek onu tekrar aramaya zorluyordu.
         // Yeni kayıtta da sunucudan dönen _id ile doğrudan belgeye gidiyoruz.
         const yeniId = isEdit ? id : (response.data.data?._id || response.data.data?.id);
-        setTimeout(() => {
-          navigate(yeniId ? `/tesvik/${yeniId}` : '/tesvik/liste');
+        clearTimeout(kayitDonusZamanlayicisi.current);
+        kayitDonusZamanlayicisi.current = setTimeout(() => {
+          if (isEdit && revizyonBaslatma) {
+            navigate(-1);
+            return;
+          }
+          navigate(yeniId ? `/tesvik/${yeniId}` : '/tesvik/liste', { replace: true });
         }, 2000);
       }
     } catch (error) {

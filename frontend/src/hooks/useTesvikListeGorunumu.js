@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const ILK_FILTRELER = { search: '', durum: '', il: '', arsiv: '0' };
@@ -37,7 +37,7 @@ export default function useTesvikListeGorunumu(loading, birlesik = false) {
     sayfa: 1
   }));
   const sistemeGec = (sistemFiltre) => setGorunum((onceki) => ({ ...onceki, sistemFiltre, sayfa: 1 }));
-  const sayfayaGec = (sayfa) => setGorunum((onceki) => onceki.sayfa === sayfa ? onceki : { ...onceki, sayfa });
+  const sayfayaGec = useCallback((sayfa) => setGorunum((onceki) => onceki.sayfa === sayfa ? onceki : { ...onceki, sayfa }), []);
 
   const listedenGit = (hedef) => {
     const { pathname, search, hash } = location;

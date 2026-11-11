@@ -37,14 +37,14 @@ const handleError = (error) => {
     // Request was made but no response received
     return {
       success: false,
-      message: 'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.',
+      message: error.kullaniciMesaji || 'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edin.',
       status: 0
     };
   } else {
     // Something else happened
     return {
       success: false,
-      message: error.message || 'Beklenmeyen bir hata oluştu'
+      message: error.kullaniciMesaji || error.message || 'Beklenmeyen bir hata oluştu'
     };
   }
 };

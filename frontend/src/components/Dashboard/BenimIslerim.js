@@ -18,7 +18,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Typography, Chip, Stack, Skeleton } from '@mui/material';
+import { Alert, Box, Grid, Typography, Chip, Stack, Skeleton } from '@mui/material';
 import AssignmentIndIcon from '@mui/icons-material/AssignmentInd';
 import FolderSharedIcon from '@mui/icons-material/FolderShared';
 import MarkEmailUnreadIcon from '@mui/icons-material/MarkEmailUnread';
@@ -57,19 +57,27 @@ function Liste({ baslik, ikon, kayitlar, bos, satirCiz, onAc, yukleniyor, sayac 
   );
 }
 
-export default function BenimIslerim() {
+export default function BenimIslerim({ yenileme = 0 }) {
   const navigate = useNavigate();
   const [veri, setVeri] = useState({ takibimde: [], actiklarim: [], sonYuklemeler: [], gelenNotlar: [] });
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [hata, setHata] = useState('');
 
   useEffect(() => {
     let iptal = false;
+    setYukleniyor(true);
+    setHata('');
     api.get('/dosya-takip/benim')
-      .then((y) => { if (!iptal && y.data?.success) setVeri({ gelenNotlar: [], ...y.data.data }); })
-      .catch(() => { /* ana sayfa bu yüzden bozulmasın */ })
+      .then((y) => {
+        if (!y.data?.success || !y.data.data) throw new Error('Kişisel iş özeti yüklenemedi.');
+        if (!iptal) setVeri({ gelenNotlar: [], ...y.data.data });
+      })
+      .catch((error) => {
+        if (!iptal) setHata(error.kullaniciMesaji || error.response?.data?.message || 'Kişisel iş özeti yüklenemedi.');
+      })
       .finally(() => { if (!iptal) setYukleniyor(false); });
     return () => { iptal = true; };
-  }, []);
+  }, [yenileme]);
 
   const ac = (k) => navigate(`/dosya-takip/${k._id}`);
   // Firmadan gelenler iki kaynaktan: Belge Takip yükleme linki ve İşlem & Evrak linki (müşteri, 13.10.2026)
@@ -91,6 +99,8 @@ export default function BenimIslerim() {
       </Typography>
     </>
   );
+
+  if (hata) return <Alert severity="error" sx={{ mb: 1.5 }}>{hata}</Alert>;
 
   return (
     <Grid container spacing={1.2} sx={{ mb: 1.5 }}>

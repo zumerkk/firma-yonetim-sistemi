@@ -1,11 +1,11 @@
 import React, { act } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { AxiosError } from 'axios';
 import { AuthProvider, useAuth } from './AuthContext';
 import ProtectedRoute from '../components/Auth/ProtectedRoute';
 import Login from '../pages/Auth/Login';
-import api from '../utils/axios';
+import api, { clearConnectionIssues } from '../utils/axios';
 import { EXPIRED_MESSAGE, IDLE_MESSAGE, IDLE_TIMEOUT_MS, LAST_ACTIVITY_KEY, SESSION_MESSAGE_KEY } from '../utils/authSession';
 
 const A = { adSoyad: 'Test Kullanıcı A' };
@@ -33,12 +33,18 @@ const PrivateScreen = () => {
   return <><div>{user.adSoyad}</div><button onClick={logout}>Çıkış yap</button></>;
 };
 
+const BelgeEkrani = () => {
+  const { search, hash, state } = useLocation();
+  return <><PrivateScreen /><div>{`Belge ${search}${hash} ${state?.kaynak || ''}`}</div></>;
+};
+
 const open = (path = '/dashboard') => render(
   <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/dashboard" element={<ProtectedRoute><PrivateScreen /></ProtectedRoute>} />
+        <Route path="/tesvik/:id" element={<ProtectedRoute><BelgeEkrani /></ProtectedRoute>} />
         <Route path="/evrak/test" element={<div>Müşteri yükleme ekranı</div>} />
       </Routes>
     </AuthProvider>
@@ -61,6 +67,7 @@ beforeEach(() => {
 
 afterEach(() => {
   api.defaults.adapter = adapter;
+  clearConnectionIssues();
   localStorage.clear();
   jest.useRealTimers();
 });
@@ -167,6 +174,25 @@ test('giriş formu yeni oturumu başlatır ve önceki kapanma nedenini temizler'
   expect(Number(localStorage.getItem(LAST_ACTIVITY_KEY))).toBeGreaterThanOrEqual(start);
 });
 
+test('oturum süresi dolunca tekrar giriş, belgeyi aynı sekme ve ekran bilgileriyle açar', async () => {
+  open({ pathname: '/tesvik/test', search: '?sekme=evrak', hash: '#dosyalar', state: { kaynak: 'liste' } });
+  await screen.findByText('Belge ?sekme=evrak#dosyalar liste');
+  await advance(HOUR);
+  await screen.findByText(IDLE_MESSAGE);
+  api.defaults.adapter.mockImplementationOnce(async (config) => ok(config, { user: B, token: TOKEN_B }));
+  fireEvent.change(screen.getByLabelText('E-posta Adresi'), { target: { value: 'test@example.test' } });
+  fireEvent.change(screen.getByLabelText('Şifre'), { target: { value: 'deneme123' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Giriş Yap' }));
+  expect(await screen.findByText('Belge ?sekme=evrak#dosyalar liste')).toBeInTheDocument();
+  expect(screen.getByText(B.adSoyad)).toBeInTheDocument();
+});
+
+test('giriş hedefi harici adres biçimine dönüşebiliyorsa ana sayfa açılır', async () => {
+  open({ pathname: '/login', state: { girisSonrasi: { pathname: '/.//example.test' } } });
+  expect(await screen.findByText(A.adSoyad)).toBeInTheDocument();
+  expect(screen.queryByLabelText('E-posta Adresi')).not.toBeInTheDocument();
+});
+
 test('başka sekmeden çıkış, sebebiyle birlikte korumalı ekrandan girişe döndürür', async () => {
   open();
   await screen.findByText(A.adSoyad);
@@ -244,6 +270,8 @@ test.each([
   expect(await screen.findByText(message)).toBeInTheDocument();
   expect(screen.getByText(A.adSoyad)).toBeInTheDocument();
   expect(localStorage.getItem('token')).toBe(TOKEN_A);
+  await act(async () => { await api.get('/notifications/unread-count'); });
+  expect(screen.getByText(message)).toBeInTheDocument();
   await act(async () => { await api.get('/firma'); });
   expect(screen.queryByText(message)).not.toBeInTheDocument();
 });

@@ -167,6 +167,7 @@ const TesvikList = () => {
   // 📊 Teşvik Verilerini Yükle
   const loadTesvikler = useCallback(async () => {
     const istek = ++sonListeIstegi.current;
+    let sayfaDegisti = false;
     try {
       setLoading(true);
       setError(null);
@@ -177,7 +178,11 @@ const TesvikList = () => {
       if (aramaTerimi.length >= 2) {
         // 🔎 Firma araması: firmanın hem eski (Teşvik) hem yeni (Yeni Teşvik) belgelerini birlikte getir
         response = await axios.get('/tesvik/birlesik-arama', {
-          params: { q: aramaTerimi, sureDurumu: filters.sureDurumu || undefined, durum: filters.durum || undefined, arsiv: filters.arsiv, siraBy: siralama.alan, siraSekli: siralama.yon }
+          params: {
+            q: aramaTerimi, il: filters.il || undefined, sistem: sistemFiltre || undefined,
+            sureDurumu: filters.sureDurumu || undefined, durum: filters.durum || undefined, arsiv: filters.arsiv,
+            sayfa, limit: 20, siraBy: siralama.alan, siraSekli: siralama.yon
+          }
         });
         varsayilanSistem = '';
       } else if (sistemFiltre === 'Yeni') {
@@ -196,6 +201,12 @@ const TesvikList = () => {
 
       if (istek !== sonListeIstegi.current) return;
       if (response.data.success) {
+        const sonSayfa = Math.max(1, response.data.data.pagination.totalPages);
+        if (sayfa > sonSayfa) {
+          sayfaDegisti = true;
+          sayfayaGec(sonSayfa);
+          return;
+        }
         const gelen = response.data.data.tesvikler || [];
         setTesvikler(varsayilanSistem ? gelen.map(t => ({ ...t, sistem: t.sistem || varsayilanSistem })) : gelen);
         setPagination(response.data.data.pagination);
@@ -207,9 +218,9 @@ const TesvikList = () => {
       console.error('🚨 Teşvik list hatası:', error);
       setError('Veriler yüklenirken hata oluştu');
     } finally {
-      if (istek === sonListeIstegi.current) setLoading(false);
+      if (istek === sonListeIstegi.current && !sayfaDegisti) setLoading(false);
     }
-  }, [filters, sistemFiltre, siralama, sayfa]);
+  }, [filters, sistemFiltre, siralama, sayfa, sayfayaGec]);
 
   useEffect(() => {
     loadTesvikler();
@@ -306,6 +317,9 @@ const TesvikList = () => {
           arsiv: filters.arsiv,
           il: filters.il,
           search: filters.search,
+          sistem: sistemFiltre || 'all',
+          siraBy: siralama.alan,
+          siraSekli: siralama.yon,
           sureDurumu: filters.sureDurumu || undefined
         }
       });
@@ -613,10 +627,10 @@ const TesvikList = () => {
                         ))}
                       </TableRow>
                     ))
-                  ) : tesvikler.filter(t => !sistemFiltre || (t.sistem || 'Eski') === sistemFiltre).length > 0 ? (
-                    tesvikler.filter(t => !sistemFiltre || (t.sistem || 'Eski') === sistemFiltre).map((tesvik) => (
+                  ) : tesvikler.length > 0 ? (
+                    tesvikler.map((tesvik) => (
                       <TableRow 
-                        key={tesvik._id} 
+                        key={`${tesvik.sistem || 'Eski'}:${tesvik._id}`}
                         hover 
                         // müşteri: "işlemin üstüne tıklayınca açılsın" — küçük ekranlarda düğme aramak zor
                         onClick={() => listedenGit(tesvik.sistem === 'Yeni' ? `/yeni-tesvik/${tesvik._id}` : `/tesvik/${tesvik._id}`)}
@@ -701,9 +715,7 @@ const TesvikList = () => {
                             belgeId={tesvik._id}
                             sistem={tesvik.sistem || 'Eski'}
                             durum={tesvik.durumBilgileri?.genelDurum}
-                            onDegisti={(yeniDurum) => setTesvikler((liste) => liste.map((x) => (x._id === tesvik._id
-                              ? { ...x, durumBilgileri: { ...(x.durumBilgileri || {}), genelDurum: yeniDurum } }
-                              : x)))}
+                            onDegisti={listeyiYenile}
                             onHata={(mesaj) => window.alert(`Durum güncellenemedi: ${mesaj}`)}
                           />
                         </TableCell>

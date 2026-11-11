@@ -1,6 +1,6 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import DosyaTakipDetail from './DosyaTakipDetail';
 import api from '../../utils/axios';
 
@@ -19,7 +19,7 @@ jest.mock('../../contexts/DosyaTakipContext', () => ({ useDosyaTakip: () => mock
 jest.mock('../../components/Layout/LayoutWrapper', () => ({ children }) => children);
 jest.mock('../../components/Cari/TalepCariPaneli', () => () => null);
 jest.mock('../../components/IslemEvrak/BelgeTakipEvrakTalepleri', () => () => null);
-jest.mock('../../utils/axios', () => ({ __esModule: true, default: { get: jest.fn() } }));
+jest.mock('../../utils/axios', () => ({ __esModule: true, default: { get: jest.fn(), post: jest.fn() } }));
 
 test('Belge Takip dosya Aç işlemi yerel dosyayı da yetkili API ile önizler', async () => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -74,4 +74,45 @@ test.each([
   fireEvent.click(screen.getByRole('button', { name: state.geriDon ? 'Cari Takip ekranına dön' : 'Talep listesine dön' }));
   expect(await screen.findByTestId('donus-konumu')).toHaveTextContent(beklenen);
   if (state.geriDon) expect(screen.getByTestId('donus-konumu')).toHaveTextContent('"filtre":"FİRMA"');
+});
+
+test('firma maili başka talebe taşınmaz ve geç gelen taslak yeni talebi açmaz', async () => {
+  let eskiSablonuBitir;
+  const eskiSablon = new Promise((resolve) => { eskiSablonuBitir = resolve; });
+  const aTaslak = { alici: 'a@example.invalid', konu: 'A firması', govde: 'A metni', smtpHazir: true };
+  api.get.mockImplementation(async (url, opts) => {
+    if (url.endsWith('/firma-mail-taslak')) {
+      if (opts.params.sablon === 'standart') return eskiSablon;
+      return { data: { data: { ...aTaslak, sablonId: 'diger', sablonlar: [{ _id: 'diger', ad: 'Diğer' }] } } };
+    }
+    return { data: { data: [] } };
+  });
+  function DigerTalep() {
+    const navigate = useNavigate();
+    return <button onClick={() => {
+      mockContext.seciliTalep = { ...mockTalep, _id: 'talep2', firmaUnvan: 'Diğer Firma' };
+      navigate('/dosya-takip/talep2?sekme=mail');
+    }}>Diğer talebe geç</button>;
+  }
+  localStorage.removeItem('belgeTakip.firmaMailSablonu');
+  try {
+    render(<MemoryRouter initialEntries={['/dosya-takip/talep1?sekme=mail']}>
+      <DigerTalep />
+      <Routes><Route path="/dosya-takip/:id" element={<DosyaTakipDetail />} /></Routes>
+    </MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Mail Taslağı Hazırla' }));
+    expect(await screen.findByDisplayValue('a@example.invalid')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Gönder', exact: true })).toBeEnabled();
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'Mail şablonu' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Belge Takip standart metni' }));
+    expect(screen.getByRole('button', { name: 'Gönder', exact: true })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Diğer talebe geç' }));
+    await act(async () => eskiSablonuBitir({ data: { data: { ...aTaslak, sablonId: 'standart' } } }));
+    expect(screen.getByRole('button', { name: 'Mail Taslağı Hazırla' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Gönder', exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue('a@example.invalid')).not.toBeInTheDocument();
+    expect(api.post).not.toHaveBeenCalled();
+  } finally {
+    mockContext.seciliTalep = mockTalep;
+  }
 });

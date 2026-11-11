@@ -10,9 +10,9 @@
 // Hiçbiri veriden gelmiyordu; hiç değişmemişti. ETUYS'te trend rozeti de yok.
 // Gerçek trend istenirse backend'de tarihsel toplama gerekir — ayrı iş.
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Button, IconButton, LinearProgress } from '@mui/material';
+import { Alert, Box, Grid, Button, IconButton, LinearProgress } from '@mui/material';
 import {
   Business as BusinessIcon,
   CheckCircle as CheckCircleIcon,
@@ -25,7 +25,6 @@ import {
   Autorenew as AutorenewIcon,
   History as HistoryIcon
 } from '@mui/icons-material';
-import { useFirma } from '../../contexts/FirmaContext';
 import { useAuth } from '../../contexts/AuthContext';
 import activityService from '../../services/activityService';
 import api from '../../utils/axios';
@@ -54,12 +53,15 @@ const IslemHucresi = ({ zamanDegeri, ust, son, sayi }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { firmalar, loading, stats, fetchFirmalar, fetchStats } = useFirma();
   // Karşılama metninde ad sabit "Sistem" yazıyordu; gerçek kullanıcıdan geliyor.
   const { user } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivities, setRecentActivities] = useState([]);
-  const [criticalAlerts, setCriticalAlerts] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [ozetHatasi, setOzetHatasi] = useState('');
+  const [kisiselYenileme, setKisiselYenileme] = useState(0);
+  const ozetIstegi = useRef(0);
   
   // 📊 Sidebar Management
   const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
@@ -77,93 +79,36 @@ const Dashboard = () => {
     }
   }, []);
 
-  // 🚨 Calculate Critical Alerts
-  const calculateCriticalAlerts = useCallback(() => {
-    if (!firmalar || firmalar.length === 0) {
-      setCriticalAlerts([]);
-      return;
+  const loadFirmaOzeti = useCallback(async () => {
+    const istek = ++ozetIstegi.current;
+    setLoading(true);
+    setOzetHatasi('');
+    try {
+      const res = await api.get('/firma/dashboard');
+      if (!res.data?.success || !res.data.data) throw new Error('Firma özeti yüklenemedi.');
+      if (istek === ozetIstegi.current) setStats(res.data.data);
+    } catch (error) {
+      if (istek === ozetIstegi.current) {
+        setOzetHatasi(error.kullaniciMesaji || error.response?.data?.message || 'Firma özeti yüklenemedi.');
+      }
+    } finally {
+      if (istek === ozetIstegi.current) setLoading(false);
     }
+  }, []);
 
-    const today = new Date();
-    const alerts = [];
-
-    // ETUYS yetki süresi kontrolü
-    const etuysExpired = firmalar.filter(firma => {
-      if (!firma.etuysYetkiBitisTarihi || firma.aktif === false) return false;
-      const expiryDate = new Date(firma.etuysYetkiBitisTarihi);
-      return expiryDate < today;
+  const criticalAlerts = (stats?.yetkiUyarilari || []).filter(({ sayi }) => sayi > 0)
+    .map(({ yetkiTuru, yetkiDurumu, sayi, firmalar }) => {
+      const tur = yetkiTuru === 'etuys' ? 'ETUYS' : 'DYS';
+      const suresiGecmis = yetkiDurumu === 'expired';
+      return {
+        type: suresiGecmis ? 'error' : 'warning',
+        title: `${tur} Yetki Süresi ${suresiGecmis ? 'Geçmiş' : 'Yaklaşıyor'}`,
+        count: sayi,
+        message: `${sayi} firmanın ${tur} yetki süresi ${suresiGecmis ? 'geçmiş' : '30 gün içinde bitiyor'}`,
+        firms: firmalar,
+        action: () => navigate(`/firmalar?aktif=true&yetkiDurumu=${yetkiDurumu}&yetkiTuru=${yetkiTuru}`)
+      };
     });
-
-    const etuysExpiringSoon = firmalar.filter(firma => {
-      if (!firma.etuysYetkiBitisTarihi || firma.aktif === false) return false;
-      const expiryDate = new Date(firma.etuysYetkiBitisTarihi);
-      const diffTime = expiryDate - today;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 30;
-    });
-
-    // DYS yetki süresi kontrolü
-    const dysExpired = firmalar.filter(firma => {
-      if (!firma.dysYetkiBitisTarihi || firma.aktif === false) return false;
-      const expiryDate = new Date(firma.dysYetkiBitisTarihi);
-      return expiryDate < today;
-    });
-
-    const dysExpiringSoon = firmalar.filter(firma => {
-      if (!firma.dysYetkiBitisTarihi || firma.aktif === false) return false;
-      const expiryDate = new Date(firma.dysYetkiBitisTarihi);
-      const diffTime = expiryDate - today;
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays >= 0 && diffDays <= 30;
-    });
-
-    // Kritik uyarıları oluştur
-    if (etuysExpired.length > 0) {
-      alerts.push({
-        type: 'error',
-        title: 'ETUYS Yetki Süresi Geçmiş',
-        count: etuysExpired.length,
-        message: `${etuysExpired.length} firmanın ETUYS yetki süresi geçmiş`,
-        firms: etuysExpired.slice(0, 3),
-        action: () => navigate('/firmalar?etuysGecmis=true')
-      });
-    }
-
-    if (dysExpired.length > 0) {
-      alerts.push({
-        type: 'error',
-        title: 'DYS Yetki Süresi Geçmiş',
-        count: dysExpired.length,
-        message: `${dysExpired.length} firmanın DYS yetki süresi geçmiş`,
-        firms: dysExpired.slice(0, 3),
-        action: () => navigate('/firmalar?dysGecmis=true')
-      });
-    }
-
-    if (etuysExpiringSoon.length > 0) {
-      alerts.push({
-        type: 'warning',
-        title: 'ETUYS Yetki Süresi Yaklaşıyor',
-        count: etuysExpiringSoon.length,
-        message: `${etuysExpiringSoon.length} firmanın ETUYS yetki süresi 30 gün içinde bitiyor`,
-        firms: etuysExpiringSoon.slice(0, 3),
-        action: () => navigate('/firmalar?etuysUyari=true')
-      });
-    }
-
-    if (dysExpiringSoon.length > 0) {
-      alerts.push({
-        type: 'warning',
-        title: 'DYS Yetki Süresi Yaklaşıyor',
-        count: dysExpiringSoon.length,
-        message: `${dysExpiringSoon.length} firmanın DYS yetki süresi 30 gün içinde bitiyor`,
-        firms: dysExpiringSoon.slice(0, 3),
-        action: () => navigate('/firmalar?dysUyari=true')
-      });
-    }
-
-    setCriticalAlerts(alerts);
-  }, [firmalar, navigate]);
 
   // 📱 Responsive Handling
   useEffect(() => {
@@ -178,49 +123,23 @@ const Dashboard = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // 🔄 Data Loading
   useEffect(() => {
-    const loadData = async () => {
-      await Promise.all([
-        fetchFirmalar(),
-        fetchStats(),
-        loadRecentActivities()
-      ]);
-    };
-    loadData();
-  }, [fetchFirmalar, fetchStats, loadRecentActivities]);
+    loadFirmaOzeti();
+    loadRecentActivities();
+    return () => { ozetIstegi.current += 1; };
+  }, [loadFirmaOzeti, loadRecentActivities]);
 
-  // 🚨 Calculate Critical Alerts when firmalar changes
-  useEffect(() => {
-    calculateCriticalAlerts();
-  }, [calculateCriticalAlerts]);
-
-  // 🔄 Manual Refresh
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
-      fetchFirmalar(),
-      fetchStats(),
-      loadRecentActivities()
-    ]);
-    setTimeout(() => setRefreshing(false), 500);
+    setKisiselYenileme((onceki) => onceki + 1);
+    try {
+      await Promise.all([loadFirmaOzeti(), loadRecentActivities()]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  // 👨‍💼 Recent Companies - Son eklenen firmaları ID'ye göre sırala
-  const recentCompanies = (firmalar || [])
-    .filter(firma => firma.aktif !== false) // Sadece aktif firmaları göster
-    .sort((a, b) => {
-      // Önce createdAt'e göre sırala (en yeni önce)
-      const dateA = new Date(a.createdAt);
-      const dateB = new Date(b.createdAt);
-      if (dateB - dateA !== 0) return dateB - dateA;
-      
-      // Eğer tarihler aynıysa firmaId'ye göre sırala (A001185, A001184, ...)
-      const idA = a.firmaId ? parseInt(a.firmaId.substring(1)) : 0;
-      const idB = b.firmaId ? parseInt(b.firmaId.substring(1)) : 0;
-      return idB - idA;
-    })
-    .slice(0, 5);
+  const recentCompanies = stats?.sonEklenenler || [];
 
   // 📊 Özet kutuları — hepsi tıklanabilir
   // Not: burada eskiden `change`/`changeType` alanları vardı ve sabit yüzdeler
@@ -228,30 +147,30 @@ const Dashboard = () => {
   const dashboardStats = [
     {
       title: 'Toplam Firma',
-      value: stats?.toplamFirma || 0,
+      value: stats?.toplamFirma ?? '—',
       icon: <BusinessIcon />,
-      action: () => navigate('/firmalar')
+      action: () => navigate('/firmalar?aktif=all')
     },
     {
       title: 'Aktif Firmalar',
-      value: stats?.aktifFirma || 0,
+      value: stats?.aktifFirma ?? '—',
       icon: <CheckCircleIcon />,
       vurgu: 'onay',
       action: () => navigate('/firmalar?aktif=true')
     },
     {
       title: 'Yetki Süresi Yaklaşan',
-      value: stats?.etuysUyarilari?.count || 0,
+      value: stats?.yaklasanYetki ?? '—',
       icon: <WarningIcon />,
       vurgu: 'bekle',
-      action: () => navigate('/firmalar?etuysUyari=true')
+      action: () => navigate('/firmalar?aktif=true&yetkiDurumu=expiring30')
     },
     {
       title: 'Süresi Geçmiş',
-      value: stats?.suresiGecmisFirmaSayisi || 0,
+      value: stats?.suresiGecmisFirmaSayisi ?? '—',
       icon: <LocationIcon />,
       vurgu: 'red',
-      action: () => navigate('/firmalar?etuysGecmis=true')
+      action: () => navigate('/firmalar?aktif=true&yetkiDurumu=expired')
     }
   ];
 
@@ -269,7 +188,7 @@ const Dashboard = () => {
       description: 'Tüm firmaları görüntüle',
       icon: <ViewListIcon />,
       color: '#1e40af',
-      action: () => navigate('/firmalar')
+      action: () => navigate('/firmalar?aktif=all')
     }
   ];
 
@@ -331,6 +250,7 @@ const Dashboard = () => {
       </Box>
 
       {loading && <LinearProgress sx={{ mb: 1, height: 2 }} />}
+      {ozetHatasi && <Alert severity="error" sx={{ mb: 1 }}>{ozetHatasi}</Alert>}
 
       <SmartUpload />
 
@@ -338,7 +258,7 @@ const Dashboard = () => {
           talepler, belgelerden mail geldiyse mailler vs tarzı bir arayüz düşünüyoruz."
           "Ekran görüntüsünden belge oluştur kısmını da sol taraftaki akıllı excel yüklemenin içine
           alabiliriz zaten bir tek ben kullanıyorum" → o modül /import sayfasına taşındı. */}
-      <BenimIslerim />
+      <BenimIslerim yenileme={kisiselYenileme} />
 
       {/* Kritik durumlar — gradyanlı kart yerine kırmızı kenarlı panel */}
       {criticalAlerts.length > 0 && (
@@ -431,7 +351,7 @@ const Dashboard = () => {
             ikon={<CheckCircleIcon sx={{ fontSize: 14 }} />}
             bosluksuz
             sagUnsur={
-              <IconButton size="small" onClick={() => navigate('/firmalar')}
+              <IconButton size="small" onClick={() => navigate('/firmalar?aktif=all')}
                 aria-label="Firma listesini aç" sx={{ p: 0.15, color: renk.sessiz }}>
                 <ViewListIcon sx={{ fontSize: 16 }} />
               </IconButton>
@@ -446,7 +366,7 @@ const Dashboard = () => {
               ]}
               satirlar={recentCompanies}
               onSatirTik={(satir) => navigate(`/firmalar/${satir._id}`)}
-              bosMetin="Henüz firma eklenmemiş"
+              bosMetin={loading ? "Firmalar yükleniyor…" : ozetHatasi ? "Firma listesi yüklenemedi" : "Henüz firma eklenmemiş"}
             />
           </Panel>
         </Grid>

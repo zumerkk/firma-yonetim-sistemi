@@ -36,9 +36,11 @@ const BOYUTLAR = [{ ad: 'Küçük', deger: '2' }, { ad: 'Normal', deger: '3' }, 
 const RENKLER = ['#000000', '#434343', '#666666', '#c00000', '#e69138', '#f1c232', '#38761d', '#1155cc', '#674ea7', '#a61c00'];
 const BEKLEME_MS = 200;
 
-export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik', minYukseklik = 260, yardim }) {
+export default function ZenginMetinEditoru({ value, onChange, onDuzenleme, disabled = false, etiket = 'İçerik', minYukseklik = 260, yardim }) {
   const kutuRef = useRef(null);
   const sonGonderilenRef = useRef(null);
+  const sonIcerikRef = useRef(null);
+  const sonOkunanRef = useRef(null);
   const zamanlayiciRef = useRef(null);
   const [renkMenusu, setRenkMenusu] = useState(null);
   const [boyutMenusu, setBoyutMenusu] = useState(null);
@@ -48,20 +50,29 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
   // dönünce içerik yeniden kurulmaz, yoksa imleç başa atlardı
   useEffect(() => {
     if (!kutuRef.current || value === sonGonderilenRef.current) return;
+    clearTimeout(zamanlayiciRef.current);
     kutuRef.current.innerHTML = editoreHazirla(value || '');
+    sonOkunanRef.current = sonIcerikRef.current = kutuRef.current.innerHTML;
     sonGonderilenRef.current = value;
   }, [value]);
 
   const ilet = useCallback((hemen = false) => {
     clearTimeout(zamanlayiciRef.current);
+    if (!kutuRef.current || disabled) return;
+    const anlik = kutuRef.current.innerHTML;
+    if (anlik !== sonOkunanRef.current) {
+      sonOkunanRef.current = anlik;
+      onDuzenleme?.(anlik);
+    }
+    if (anlik === sonIcerikRef.current) return;
     const gonder = () => {
       if (!kutuRef.current) return;
       const html = kutuRef.current.innerHTML;
-      sonGonderilenRef.current = html;
+      sonIcerikRef.current = sonGonderilenRef.current = html;
       onChange(html);
     };
     if (hemen) gonder(); else zamanlayiciRef.current = setTimeout(gonder, BEKLEME_MS);
-  }, [onChange]);
+  }, [disabled, onChange, onDuzenleme]);
   useEffect(() => () => clearTimeout(zamanlayiciRef.current), []);
 
   // Seçim saklanır: yazı tipi/renk menüsü açılınca odak editörden çıkıyor ve tarayıcı seçimi unutuyor
@@ -77,6 +88,7 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
   };
 
   const komut = (ad, deger = null) => {
+    if (disabled) return;
     secimiGeriYukle();
     document.execCommand('styleWithCSS', false, ad === 'foreColor' || ad === 'fontName');
     document.execCommand(ad, false, deger);
@@ -96,7 +108,7 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
   const dugme = (baslik, simge, ad, deger) => (
     <Tooltip title={baslik} key={baslik}>
       {/* mousedown'da odak editörde kalsın (seçim kaybolmasın) */}
-      <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={() => komut(ad, deger)} aria-label={baslik}>
+      <IconButton size="small" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={() => komut(ad, deger)} aria-label={baslik}>
         {simge}
       </IconButton>
     </Tooltip>
@@ -111,13 +123,13 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
           {dugme('Geri al', <UndoIcon fontSize="small" />, 'undo')}
           {dugme('Yinele', <RedoIcon fontSize="small" />, 'redo')}
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
-          <Select size="small" variant="standard" disableUnderline value={yaziTipi} aria-label="Yazı tipi"
+          <Select size="small" variant="standard" disableUnderline value={yaziTipi} aria-label="Yazı tipi" disabled={disabled}
             onChange={(e) => { setYaziTipi(e.target.value); komut('fontName', e.target.value); }}
             sx={{ fontSize: 13, minWidth: 110, px: 0.5 }}>
             {YAZI_TIPLERI.map((y) => <MenuItem key={y.deger} value={y.deger} sx={{ fontFamily: y.deger }}>{y.ad}</MenuItem>)}
           </Select>
           <Tooltip title="Boyut">
-            <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={(e) => setBoyutMenusu(e.currentTarget)} aria-label="Boyut">
+            <IconButton size="small" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={(e) => setBoyutMenusu(e.currentTarget)} aria-label="Boyut">
               <FormatSizeIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -126,7 +138,7 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
           {dugme('İtalik', <FormatItalicIcon fontSize="small" />, 'italic')}
           {dugme('Altı çizili', <FormatUnderlinedIcon fontSize="small" />, 'underline')}
           <Tooltip title="Yazı rengi">
-            <IconButton size="small" onMouseDown={(e) => e.preventDefault()} onClick={(e) => setRenkMenusu(e.currentTarget)} aria-label="Yazı rengi">
+            <IconButton size="small" disabled={disabled} onMouseDown={(e) => e.preventDefault()} onClick={(e) => setRenkMenusu(e.currentTarget)} aria-label="Yazı rengi">
               <FormatColorTextIcon fontSize="small" />
             </IconButton>
           </Tooltip>
@@ -143,10 +155,11 @@ export default function ZenginMetinEditoru({ value, onChange, etiket = 'İçerik
         </Box>
         <Box
           ref={kutuRef}
-          contentEditable
+          contentEditable={!disabled}
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
+          aria-readonly={disabled}
           aria-label={etiket}
           spellCheck
           onInput={() => { secimiSakla(); ilet(false); }}

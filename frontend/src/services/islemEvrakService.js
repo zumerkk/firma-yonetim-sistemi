@@ -26,8 +26,8 @@ const islemEvrakService = {
   talepSil: (id) => api.delete(`${base}/talepler/${id}`).then((r) => r.data),
   varyantUygula: (id, varyantKod) => api.post(`${base}/talepler/${id}/varyant`, { varyantKod }).then(d),
   // devam: true → yalnız bekleyen / eksik-hatalı evrakları aynı bağlantıyla isteyen devam maili
-  mailOnizle: (id, { devam = false } = {}) =>
-    api.get(`${base}/talepler/${id}/mail-onizle`, { params: devam ? { devam: 1 } : {} }).then(d),
+  mailOnizle: (id, { devam = false, sablon = false } = {}) =>
+    api.get(`${base}/talepler/${id}/mail-onizle`, { params: { ...(devam && { devam: 1 }), ...(sablon && { sablon: 1 }) } }).then(d),
   // ekler: bu maile özel dosyalar (saklanmaz) — varsa çok parçalı gider, alanlar metin olarak
   mailGonder: (id, body, ekler = [], onProgress) => {
     if (!ekler.length) return api.post(`${base}/talepler/${id}/mail-gonder`, body).then(d);

@@ -21,6 +21,30 @@ const isPublicRequest = (url = '') => {
     || /^\/musteri-belge\/[^/]+(?:\/fatura-kalemi)?\/?$/.test(path);
 };
 
+let baglantiOturumu;
+const basarisizIslemler = new Map();
+
+export const clearConnectionIssues = () => {
+  basarisizIslemler.clear();
+  baglantiOturumu = undefined;
+};
+
+const baglantiSonucu = (config, message = '') => {
+  const token = config?.sessionToken;
+  if (!token || token !== localStorage.getItem('token')) return;
+  if (baglantiOturumu !== token) {
+    clearConnectionIssues();
+    baglantiOturumu = token;
+  }
+  const yol = new URL(config.url, window.location.origin).pathname.replace(/^\/api(?=\/)/, '');
+  const anahtar = `${config.method}:${yol}`;
+  const silindi = basarisizIslemler.delete(anahtar);
+  if (message) basarisizIslemler.set(anahtar, message);
+  if (message || silindi) {
+    notifySession('connection', token, [...basarisizIslemler.values()].at(-1) || '');
+  }
+};
+
 api.interceptors.request.use(
   (config) => {
     const publicRequest = isPublicRequest(config.url);
@@ -50,7 +74,7 @@ api.interceptors.request.use(
 // Response interceptor - gelişmiş hata yönetimi
 api.interceptors.response.use(
   (response) => {
-    notifySession('connection', response.config?.sessionToken, '');
+    baglantiSonucu(response.config);
     return response;
   },
   (error) => {
@@ -78,7 +102,7 @@ api.interceptors.response.use(
         ? 'Sunucu işlemi tamamlayamadı. Lütfen tekrar deneyin.'
         : 'Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.');
       if (!status) error.kullaniciMesaji = message;
-      notifySession('connection', token, message);
+      baglantiSonucu(error.config, message);
     }
 
     // 📦 Çok büyük dosya: sunucunun kendi mesajı varsa o (multer sınırı), yoksa (Cloudflare'in 100 MB

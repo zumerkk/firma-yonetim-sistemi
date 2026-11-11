@@ -1,6 +1,6 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import TesvikForm from './TesvikForm';
 import YeniTesvikForm from '../YeniTesvik/YeniTesvikForm';
 import api from '../../utils/axios';
@@ -63,15 +63,22 @@ const kayitliBelge = () => ({
 });
 
 const basariliYanit = (data) => ({ data: { success: true, data } });
+function BelgeDetayi() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>Belgeden Geri Git</button>;
+}
 const zamanlayiciKur = global.setTimeout;
 let zamanlayicilar;
+let kayitDonusleri;
 
 beforeEach(() => {
   jest.clearAllMocks();
   zamanlayicilar = [];
+  kayitDonusleri = [];
   global.setTimeout = (callback, delay, ...args) => {
     const timer = zamanlayiciKur(callback, delay, ...args);
     zamanlayicilar.push(timer);
+    if (delay === 2000) kayitDonusleri.push({ timer, don: () => callback(...args) });
     return timer;
   };
   jest.spyOn(console, 'log').mockImplementation(() => {});
@@ -95,12 +102,21 @@ afterEach(() => {
 });
 
 test.each([
-  ['eski teşvik', '/tesvik', TesvikForm],
-  ['yeni teşvik', '/yeni-tesvik', YeniTesvikForm]
-])('%s formu küsuratlı ürün kapasitesini yükler, düzenler ve yuvarlamadan kaydeder', async (_ad, endpoint, Form) => {
+  ['eski teşvik', '/tesvik', TesvikForm, true],
+  ['yeni teşvik', '/yeni-tesvik', YeniTesvikForm, false]
+])('%s formu kapasiteyi yuvarlamadan kaydeder ve detaydan Geri ile açıldığı listeye döner', async (_ad, endpoint, Form, detaydan) => {
+  const belgeYolu = `${endpoint}/belge-1`;
+  const listeYolu = `${endpoint}/liste`;
+  const gecmis = [listeYolu];
+  if (detaydan) gecmis.push(belgeYolu);
+  gecmis.push({ pathname: `${belgeYolu}/duzenle`, state: detaydan ? {
+    revizyonBaslatma: { revizyonSebebi: 'Kapasite güncellemesi' }
+  } : null });
   render(
-    <MemoryRouter initialEntries={[`${endpoint}/belge-1/duzenle`]}>
+    <MemoryRouter initialEntries={gecmis}>
       <Routes>
+        <Route path={listeYolu} element={<h1>Hüner filtreli liste</h1>} />
+        <Route path={`${endpoint}/:id`} element={<BelgeDetayi />} />
         <Route path={`${endpoint}/:id/duzenle`} element={<Form />} />
       </Routes>
     </MemoryRouter>
@@ -148,4 +164,10 @@ test.each([
       kapasiteBirimi: 'MW'
     })]
   }));
-});
+  await waitFor(() => expect(kayitDonusleri).toHaveLength(1));
+  const { timer, don } = kayitDonusleri[0];
+  clearTimeout(timer);
+  await act(async () => { don(); });
+  fireEvent.click(await screen.findByRole('button', { name: 'Belgeden Geri Git' }));
+  expect(await screen.findByRole('heading', { name: 'Hüner filtreli liste' })).toBeInTheDocument();
+}, 15000);

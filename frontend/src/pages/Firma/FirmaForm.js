@@ -2,9 +2,10 @@
 // Ultra-performance optimized with zero re-render issues
 // State-of-the-art React best practices implementation
 
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef, memo } from 'react';
 import { createFormDatePasteHandler } from '../../utils/dateUtils';
-import { useNavigate, useParams } from 'react-router-dom';
+import { firmaListesineDon, firmaRotaEslesiyor } from '../../utils/firmaListeDonusu';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Container,
   Card,
@@ -333,11 +334,14 @@ const YetkiliKisiForm = memo(({
 const FirmaForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { state: donusDurumu } = useLocation();
   const isEdit = Boolean(id);
+  const rota = id || 'yeni';
+  const rotaKimligi = useRef(rota);
 
   // Context & State
   const {
-    firma: selectedFirma,
+    firma: kayit,
     loading,
     searchResults,
     fetchFirma,
@@ -348,6 +352,7 @@ const FirmaForm = () => {
     clearError,
     clearSearchResults
   } = useFirma();
+  const selectedFirma = firmaRotaEslesiyor(kayit, id) ? kayit : null;
 
   // 🎯 Layout State Management
   const [sidebarOpen, setSidebarOpen] = useState(false); // yalnız mobil çekmece
@@ -355,6 +360,7 @@ const FirmaForm = () => {
 
   // 🎯 State Management - Optimized
   const [formData, setFormData] = useState(createInitialFormData);
+  const duzenlemeHazir = !isEdit || Boolean(selectedFirma && formData._id === selectedFirma._id);
   const [validationErrors, setValidationErrors] = useState([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -449,12 +455,20 @@ const FirmaForm = () => {
   }, [formData.yetkiliKisiler.length]);
 
   // Load data for edit mode
+  useLayoutEffect(() => {
+    rotaKimligi.current = rota;
+    return () => { rotaKimligi.current = null; };
+  }, [rota]);
+
   useEffect(() => {
+    setFormData(createInitialFormData());
+    setValidationErrors([]);
     if (isEdit && id) {
       console.log('🔄 Loading firma for edit, ID:', id);
       fetchFirma(id);
     }
-  }, [isEdit, id, fetchFirma]);
+    return clearFirma;
+  }, [isEdit, id, fetchFirma, clearFirma]);
 
   useEffect(() => {
     if (isEdit && selectedFirma && selectedFirma._id) {
@@ -477,11 +491,12 @@ const FirmaForm = () => {
 
   // 🆔 Load next Firma ID on component mount
   useEffect(() => {
+    let iptal = false;
     const loadNextFirmaId = async () => {
       if (!isEdit) { // Sadece yeni firma eklerken
         try {
           const result = await getNextFirmaId();
-          if (result.success) {
+          if (!iptal && result.success) {
             setFormData(prevData => ({
               ...prevData,
               firmaId: result.nextFirmaId
@@ -495,6 +510,7 @@ const FirmaForm = () => {
     };
 
     loadNextFirmaId();
+    return () => { iptal = true; };
   }, [isEdit]);
 
   // 🔍 Enhanced Search handling
@@ -528,7 +544,7 @@ const FirmaForm = () => {
     // Firma seçildiğinde detay sayfasına yönlendir
     if (firma.firmaId) {
       showSnackbar(`✅ ${firma.tamUnvan} firma detayına yönlendiriliyor...`, 'success');
-      navigate(`/firmalar/${firma.firmaId}`);
+      navigate(`/firmalar/${firma.firmaId}`, { state: donusDurumu });
       return;
     }
 
@@ -590,7 +606,7 @@ const FirmaForm = () => {
 
     // Başarı mesajı göster
     showSnackbar(`✅ ${firma.tamUnvan} firma bilgileri yüklendi`, 'success');
-  }, [clearSearchResults, showSnackbar, setValidationErrors, navigate]);
+  }, [clearSearchResults, showSnackbar, navigate, donusDurumu]);
 
   // 📝 Form Validation
   const validateForm = useCallback(async () => {
@@ -629,11 +645,13 @@ const FirmaForm = () => {
   // 💾 Form Submission
   const handleSubmit = useCallback(async (e) => {
     e.preventDefault();
+    if (!duzenlemeHazir || rotaKimligi.current !== rota) return;
 
     console.log('🔍 Form Data Being Sent:', formData);
 
     // Frontend validation kontrolü
     const frontendErrors = await validateForm();
+    if (rotaKimligi.current !== rota) return;
 
     if (frontendErrors.length > 0) {
       setValidationErrors(frontendErrors);
@@ -645,22 +663,19 @@ const FirmaForm = () => {
       console.log('🚀 Calling createFirma with:', JSON.stringify(formData, null, 2));
 
       const result = isEdit
-        ? await updateFirma(id, formData)
+        ? await updateFirma(selectedFirma._id, formData)
         : await createFirma(formData);
+      if (rotaKimligi.current !== rota) return;
 
       console.log('📥 Backend Response:', result);
 
       if (result.success) {
         // Aktiflik değiştiyse sunucu belgelerin ne olduğunu da söyler ("2 belge Pasife Alındı yapıldı")
         const belgeNotu = isEdit ? String(result.message || '').split(' · ').slice(1).join(' · ') : '';
-        showSnackbar(
-          isEdit ? `Firma başarıyla güncellendi ✅${belgeNotu ? ` · ${belgeNotu}` : ''}` : 'Firma başarıyla oluşturuldu ✅',
-          'success'
-        );
-
-        setTimeout(() => {
-          navigate('/firmalar');
-        }, 1500);
+        firmaListesineDon(navigate, donusDurumu, {
+          message: isEdit ? `Firma başarıyla güncellendi${belgeNotu ? ` · ${belgeNotu}` : ''}` : 'Firma başarıyla oluşturuldu',
+          severity: 'success'
+        });
       } else {
         console.log('❌ Backend Error:', result);
         // Backend'den gelen detaylı hataları işle
@@ -678,6 +693,7 @@ const FirmaForm = () => {
         }
       }
     } catch (error) {
+      if (rotaKimligi.current !== rota) return;
       console.error('💥 Form submission error:', error);
       console.log('🔴 Error details:', {
         message: error.message,
@@ -707,24 +723,23 @@ const FirmaForm = () => {
         showSnackbar('Hata: ' + errorMessage, 'error');
       }
     }
-  }, [validateForm, isEdit, updateFirma, id, formData, createFirma, showSnackbar, navigate]);
+  }, [duzenlemeHazir, rota, validateForm, isEdit, updateFirma, selectedFirma, formData, createFirma, showSnackbar, navigate, donusDurumu]);
 
   // 🔙 Navigation
   const handleBack = useCallback(() => {
     clearFirma();
     clearError();
     clearSearchResults();
-    navigate('/firmalar');
-  }, [clearFirma, clearError, clearSearchResults, navigate]);
+    firmaListesineDon(navigate, donusDurumu);
+  }, [clearFirma, clearError, clearSearchResults, navigate, donusDurumu]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      clearFirma();
       clearError();
       clearSearchResults();
     };
-  }, [clearFirma, clearError, clearSearchResults]);
+  }, [clearError, clearSearchResults]);
 
   // Helper to get districts for selected city - removed unused selectedIlceler
 
@@ -1675,6 +1690,7 @@ const FirmaForm = () => {
                       size="large"
                       disabled={
                         loading ||
+                        !duzenlemeHazir ||
                         validationErrors.length > 0 ||
                         !formData.vergiNoTC ||
                         !formData.tamUnvan ||

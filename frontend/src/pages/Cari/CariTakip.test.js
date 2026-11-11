@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import CariTakip from './CariTakip';
 import TalepCariPaneli from '../../components/Cari/TalepCariPaneli';
@@ -7,7 +7,7 @@ import cariService from '../../services/cariService';
 jest.mock('../../components/Layout/LayoutWrapper', () => ({ children }) => children);
 jest.mock('../../services/cariService', () => ({
     firmaOzetleri: jest.fn(), firmaDefteri: jest.fn(), firmaTalepleri: jest.fn(), talepDefteri: jest.fn(),
-    firmaDurumuGuncelle: jest.fn(), talepCariDurumuGuncelle: jest.fn()
+    firmaDurumuGuncelle: jest.fn(), talepCariDurumuGuncelle: jest.fn(), hareketEkle: jest.fn()
 }));
 
 beforeEach(() => { jest.clearAllMocks(); });
@@ -111,4 +111,56 @@ test('talebi olmayan firmanın cari defteri hem liste düğmesinden hem seçim p
     fireEvent.click(screen.getByRole('button', { name: 'Tüm Firmalar' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Cari Hesabı' }));
     expect(await screen.findByRole('button', { name: 'Tüm Firmalar' })).toBeInTheDocument();
+});
+
+function DigerFirmayaGit() {
+    const git = useNavigate();
+    return <button onClick={() => git('/cari-takip?firma=firma-b')}>Diğer firmaya geç</button>;
+}
+
+const defterYaniti = (id, unvan) => ({ data: {
+    firma: { _id: id, tamUnvan: unvan }, hareketler: [], talepler: [], ozet: {}
+} });
+
+function firmaDegistirmeEkrani() {
+    cariService.firmaOzetleri.mockResolvedValue({ data: [] });
+    render(<MemoryRouter initialEntries={['/cari-takip?firma=firma-a']}>
+        <DigerFirmayaGit /><CariTakip />
+    </MemoryRouter>);
+}
+
+test('firma değişirken eski defter ve form gösterilmez, ödeme görünen firmaya gönderilir', async () => {
+    let bDon;
+    cariService.firmaDefteri.mockImplementation((id) => id === 'firma-a'
+        ? Promise.resolve(defterYaniti(id, 'ÖRNEK FİRMA A'))
+        : new Promise((resolve) => { bDon = () => resolve(defterYaniti(id, 'ÖRNEK FİRMA B')); }));
+    cariService.hareketEkle.mockImplementation(() => new Promise(() => {}));
+    firmaDegistirmeEkrani();
+    await screen.findByRole('heading', { name: 'ÖRNEK FİRMA A' });
+    fireEvent.click(screen.getByRole('button', { name: 'Diğer firmaya geç' }));
+    expect(screen.queryByRole('heading', { name: 'ÖRNEK FİRMA A' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ekle', exact: true })).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Firma hesabı yükleniyor' })).toBeInTheDocument();
+    await act(async () => { bDon(); });
+
+    await screen.findByRole('heading', { name: 'ÖRNEK FİRMA B' });
+    fireEvent.change(screen.getByLabelText('Hizmet ve Yatırım Ödemeleri'), { target: { value: 'Örnek harç' } });
+    fireEvent.change(screen.getAllByLabelText('Tutar')[0], { target: { value: '100' } });
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ekle', exact: true })[0]);
+    await waitFor(() => expect(cariService.hareketEkle).toHaveBeenCalledWith(
+        expect.objectContaining({ firma: 'firma-b', tutar: 100 }), null
+    ));
+});
+
+test('ilk firmanın geciken cevabı sonraki firmanın defterini değiştirmez', async () => {
+    let aDon;
+    cariService.firmaDefteri.mockImplementation((id) => id === 'firma-a'
+        ? new Promise((resolve) => { aDon = () => resolve(defterYaniti(id, 'ÖRNEK FİRMA A')); })
+        : Promise.resolve(defterYaniti(id, 'ÖRNEK FİRMA B')));
+    firmaDegistirmeEkrani();
+    fireEvent.click(screen.getByRole('button', { name: 'Diğer firmaya geç' }));
+    await screen.findByRole('heading', { name: 'ÖRNEK FİRMA B' });
+    await act(async () => { aDon(); });
+    expect(screen.getByRole('heading', { name: 'ÖRNEK FİRMA B' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'ÖRNEK FİRMA A' })).not.toBeInTheDocument();
 });
