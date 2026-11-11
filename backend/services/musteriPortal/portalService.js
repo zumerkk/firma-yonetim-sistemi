@@ -13,17 +13,26 @@
 // diğer linklerin token'ları hiç gönderilmez). Firma yalnız kalem EKLER; düzeltme/silme personelde.
 
 const crypto = require('crypto');
+const path = require('path');
 const mongoose = require('mongoose');
 const Tesvik = require('../../models/Tesvik');
 const YeniTesvik = require('../../models/YeniTesvik');
 const MachineProcess = require('../../models/MachineProcess');
 const resolver = require('../tesvikMakine/certificateResolver');
 const mps = require('../tesvikMakine/machineProcessService');
+const faturaEvrakDeposu = require('../tesvikMakine/faturaEvrakDeposu');
 const { buildUploadLink } = require('../tesvikMakine/uploadTokenService');
+const { dosyaAdiDuzelt } = require('../../utils/dosyaAdiKodlama');
 
 const MODELLER = { Tesvik, YeniTesvik };
 const TOKEN_BICIMI = /^[A-Za-z0-9_-]{20,64}$/;
 const SAYFA_YOLU = '/belge';
+const FATURA_EVRAK_BOYUTU = 10 * 1024 * 1024;
+const FATURA_EVRAK_ALANLARI = {
+  faturaPdf: { tur: 'fatura_pdf', uzanti: '.pdf', mimeType: 'application/pdf' },
+  faturaXml: { tur: 'fatura_xml', uzanti: '.xml', mimeType: 'application/xml' },
+  yevmiyePdf: { tur: 'yevmiye_pdf', uzanti: '.pdf', mimeType: 'application/pdf' }
+};
 
 function hata(mesaj, code, status) {
   const e = new Error(mesaj); e.code = code; e.status = status; return e;
@@ -119,20 +128,20 @@ async function linkKapat(tesvikModel, tesvikId) {
 
 // ───────── Firma tarafı (token) ─────────
 
-async function belgeBul(token) {
-  if (!TOKEN_BICIMI.test(String(token || ''))) return null;
+async function belgeBul(token, { yalnizYerliSatirlar = false } = {}) {
+  if (typeof token !== 'string' || !TOKEN_BICIMI.test(token)) return null;
   for (const [tesvikModel, M] of Object.entries(MODELLER)) {
-    const belge = await M.findOne({ 'musteriPortal.token': token })
-      .select('-makineRevizyonlari -revizyonlar -evrakListesi')
-      .populate('firma', 'tamUnvan yabanciSermayeli')
-      .lean();
+    const sorgu = M.findOne({ 'musteriPortal.token': token });
+    if (yalnizYerliSatirlar) sorgu.select('makineListeleri.yerli');
+    else sorgu.select('-makineRevizyonlari -revizyonlar -evrakListesi').populate('firma', 'tamUnvan yabanciSermayeli');
+    const belge = await sorgu.lean();
     if (belge) return { tesvikModel, belge };
   }
   return null;
 }
 
-async function belgeBulVeyaHata(token) {
-  const sonuc = await belgeBul(token);
+async function belgeBulVeyaHata(token, secenekler) {
+  const sonuc = await belgeBul(token, secenekler);
   if (!sonuc) throw hata('Bağlantı bulunamadı veya geçersiz. Lütfen danışmanınızla iletişime geçin.', 'LINK_YOK', 404);
   return sonuc;
 }
@@ -184,7 +193,10 @@ const kalemGorunumu = (k) => ({
   tutar: Number(k.tutar) || 0, adet: Number(k.adet) || 0,
   kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
   girenAdi: k.kaynak === 'firma' ? (k.girenAdi || '') : '',
-  girisTarihi: k.girisTarihi || null
+  girisTarihi: k.girisTarihi || null,
+  evraklar: (k.evraklar || []).map(({ _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi }) => ({
+    _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi
+  }))
 });
 
 function makineGorunumu(satir, listType, surec) {
@@ -246,12 +258,123 @@ async function firmaKalemiEkle(token, govde = {}) {
   if (!giren) throw hata('Adınızı yazın — kaydı kimin girdiği görünsün.', 'FATURA_GECERSIZ', 400);
 
   const proc = await mps.ensureProcess({ tesvikModel, tesvikId: belge._id, listType, rowId: satir.rowId });
-  await mps.faturaKalemiEkle(proc, { tarih, no, icerik: govde.icerik, tutar, adet }, { kaynak: 'firma', girenAdi: giren });
-  return makineGorunumu(satir, listType, proc.toObject());
+  const kalemId = new mongoose.Types.ObjectId();
+  await mps.faturaKalemiEkle(proc, { tarih, no, icerik: govde.icerik, tutar, adet }, { kaynak: 'firma', girenAdi: giren, kalemId });
+  return { ...makineGorunumu(satir, listType, proc), yeniKalemId: String(kalemId) };
+}
+
+async function firmaFaturaEvrakBaglami(token, kalemId, rowId) {
+  const { tesvikModel, belge } = await belgeBulVeyaHata(token, { yalnizYerliSatirlar: true });
+  const bulunamadi = () => hata('Yerli fatura kalemi bu belgede bulunamadı. Sayfayı yenileyip tekrar deneyin.', 'FATURA_YOK', 404);
+  if (!mongoose.isObjectIdOrHexString(kalemId)) throw bulunamadi();
+  if (rowId !== undefined && (typeof rowId !== 'string' || !rowId || rowId.length > 200)) throw bulunamadi();
+  const proc = await MachineProcess.findOne({
+    tesvikModel, tesvikId: belge._id, listType: 'local',
+    ...(rowId !== undefined ? { rowId } : {}),
+    faturalar: { $elemMatch: { _id: kalemId, kaynak: 'firma' } }
+  }).select(mps.FATURA_EVRAK_OZEL_ALANLARI);
+  const satir = proc && resolver.findMachineRow(belge, 'local', proc.rowId);
+  if (!satir) throw bulunamadi();
+  return { proc, satir, kalem: proc.faturalar.id(kalemId) };
+}
+
+function xmlBaslangici(buffer) {
+  const ilkBaytlar = buffer.subarray(0, 4096);
+  let kodlama = 'utf-8';
+  if ((ilkBaytlar[0] === 0xff && ilkBaytlar[1] === 0xfe) || (ilkBaytlar[0] === 0x3c && ilkBaytlar[1] === 0)) kodlama = 'utf-16le';
+  if ((ilkBaytlar[0] === 0xfe && ilkBaytlar[1] === 0xff) || (ilkBaytlar[0] === 0 && ilkBaytlar[1] === 0x3c)) kodlama = 'utf-16be';
+  const baslangic = new TextDecoder(kodlama).decode(ilkBaytlar)
+    .replace(/^(?:\s|<\?[a-z_:][\w.:-]*(?:\s[\s\S]*?)?\?>|<!--[\s\S]*?-->)+/i, '');
+  // İmza kontrolü: XML ayrıştırılmaz ve dış varlıklar çözümlenmez.
+  return /^<[\p{L}_][\p{L}\p{N}_.:-]*(?:[\s/>])/u.test(baslangic)
+    && !/^<(?:html|head|body|script)(?=[\s/>])/i.test(baslangic);
+}
+
+function faturaEvrakDosyasi(dosya, ayarlar) {
+  const ad = path.posix.basename(dosyaAdiDuzelt(dosya.originalname).replace(/\\/g, '/'))
+    .replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const uzanti = path.extname(ad);
+  const { buffer } = dosya;
+  const mime = String(dosya.mimetype || '').toLowerCase();
+  const pdf = ayarlar.uzanti === '.pdf';
+  const mimeUygun = mime === ayarlar.mimeType || mime === 'application/octet-stream'
+    || (!pdf && (mime === 'text/xml' || /^application\/[a-z0-9.+-]+\+xml$/.test(mime)));
+  if (!Buffer.isBuffer(buffer) || !buffer.length || buffer.length > FATURA_EVRAK_BOYUTU) {
+    throw hata('Fatura eki boş olamaz ve 10 MB sınırını aşamaz.', 'FATURA_EVRAK_BOYUTU', 400);
+  }
+  const imzaUygun = pdf ? /^%PDF-[12]\.\d/.test(buffer.subarray(0, 8).toString('ascii')) : xmlBaslangici(buffer);
+  if (uzanti.toLowerCase() !== ayarlar.uzanti || !mimeUygun || !imzaUygun) {
+    throw hata(`Geçerli bir ${pdf ? 'PDF' : 'XML'} dosyası seçin${ad ? ` (${ad})` : ''}.`, 'FATURA_EVRAK_TURU', 400);
+  }
+  return {
+    _id: new mongoose.Types.ObjectId(), tur: ayarlar.tur, mimeType: ayarlar.mimeType,
+    dosyaAdi: `${ad.slice(0, -uzanti.length).slice(0, 180 - uzanti.length)}${uzanti}`,
+    fileSize: buffer.length, yuklemeTarihi: new Date(), buffer
+  };
+}
+
+const dosyaOzeti = (ekler) => crypto.createHash('sha256').update(JSON.stringify(ekler.map((e) => [
+  e.tur, e.dosyaAdi, crypto.createHash('sha256').update(e.buffer).digest('hex')
+]).sort())).digest('hex');
+
+function tekrarEvrakIstegi(kalem, istekId, istekOzeti) {
+  const kayitli = istekId && kalem.evraklar.find((e) => e.istekId === istekId);
+  if (kayitli && kayitli.istekOzeti !== istekOzeti) {
+    throw hata('Bu yükleme kimliği farklı dosyalarla kullanılmış. Dosyaları yeniden seçin.', 'FATURA_EVRAK_ISTEK_CAKISMA', 409);
+  }
+  return Boolean(kayitli);
+}
+
+async function firmaFaturaEvrakiYukle(token, kalemId, { rowId, istekId } = {}, dosyalar = {}) {
+  if (rowId === undefined) throw hata('Makine satırı zorunludur.', 'ROW_NOT_FOUND', 400);
+  if (istekId !== undefined && (typeof istekId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(istekId))) {
+    throw hata('Geçersiz yükleme kimliği.', 'BAD_REQUEST_ID', 400);
+  }
+  let { proc, satir, kalem } = await firmaFaturaEvrakBaglami(token, kalemId, rowId);
+  const ekler = Object.entries(FATURA_EVRAK_ALANLARI).flatMap(([alan, ayarlar]) =>
+    (dosyalar[alan] || []).map((dosya) => faturaEvrakDosyasi(dosya, ayarlar)));
+  if (!ekler.length || ekler.length > 6) throw hata('Bir seferde 1–6 dosya seçin.', 'FATURA_EVRAK_ADEDI', 400);
+  const istekOzeti = istekId ? dosyaOzeti(ekler) : undefined;
+  if (tekrarEvrakIstegi(kalem, istekId, istekOzeti)) return makineGorunumu(satir, 'local', proc);
+
+  const evraklar = [];
+  let temizle = true;
+  try {
+    for (const { buffer, ...ek } of ekler) {
+      const depo = await faturaEvrakDeposu.kaydet({ buffer, dosyaAdi: ek.dosyaAdi, mimeType: ek.mimeType });
+      evraklar.push({ ...ek, depo, ...(istekId ? { istekId, istekOzeti } : {}) });
+    }
+    ({ proc, satir, kalem } = await firmaFaturaEvrakBaglami(token, kalemId, rowId));
+    if (tekrarEvrakIstegi(kalem, istekId, istekOzeti)) return makineGorunumu(satir, 'local', proc);
+
+    let kaydedilen;
+    try {
+      kaydedilen = await mps.firmaFaturaEvraklariniEkle({
+        surecId: proc._id, tesvikModel: proc.tesvikModel, tesvikId: proc.tesvikId, rowId, kalemId, evraklar, istekId
+      });
+    } catch (error) {
+      // Yazımın yanıtı kaybolduysa gerçekten kaydedilen dosyaların depo kopyasına dokunma.
+      const sonuc = await MachineProcess.findById(proc._id).catch(() => undefined);
+      if (sonuc === undefined) temizle = false;
+      const mevcut = sonuc?.faturalar.id(kalemId)?.evraklar;
+      if (!mevcut || !evraklar.every((ek) => mevcut.id(ek._id))) throw error;
+      kaydedilen = sonuc;
+    }
+    if (kaydedilen) {
+      temizle = false;
+      return makineGorunumu(satir, 'local', kaydedilen);
+    }
+    ({ proc, satir, kalem } = await firmaFaturaEvrakBaglami(token, kalemId, rowId));
+    if (tekrarEvrakIstegi(kalem, istekId, istekOzeti)) return makineGorunumu(satir, 'local', proc);
+    throw hata('Fatura kalemi değişti. Sayfayı yenileyip tekrar deneyin.', 'FATURA_CAKISMA', 409);
+  } finally {
+    if (temizle) await mps.faturaEvrakDepolariniSil(evraklar.map((e) => e.depo));
+  }
 }
 
 module.exports = {
   SAYFA_YOLU, linkGetir, linkUret, linkKapat, belgeBul, portalVerisi, firmaKalemiEkle,
+  FATURA_EVRAK_ALANLARI, FATURA_EVRAK_BOYUTU, firmaFaturaEvrakBaglami, firmaFaturaEvrakiYukle,
   // test için
   belgeGorunumu, kalemGorunumu
 };

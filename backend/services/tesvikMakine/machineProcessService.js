@@ -19,12 +19,14 @@ const resolver = require('./certificateResolver');
 const mailService = require('./mailService');
 const engine = require('./mailTemplateEngine');
 const storageService = require('./storageService');
+const faturaEvrakDeposu = require('./faturaEvrakDeposu');
 const tokenService = require('./uploadTokenService');
 const kdvMuafiyetService = require('./kdvMuafiyetService');
 const { resolveTemplate } = require('./mailTemplateProvider');
 const { belgeSuresiDurumu, mailGonderilebilirMi } = require('../../utils/belgeGecerlilik');
 
 const { MACHINE_STATUS } = status;
+const FATURA_EVRAK_OZEL_ALANLARI = '+faturalar.evraklar.depo +faturalar.evraklar.istekId +faturalar.evraklar.istekOzeti';
 
 // ───────────────────────── Yardımcılar ─────────────────────────
 function reminderDays() {
@@ -355,10 +357,10 @@ async function eskiFaturaOzetleriniKalemeCevir() {
 // Bütün listeyi yeniden yazmak yerine kalem bazlı: firma kendi linkinden kalem eklerken personel aynı
 // makinede düzeltme yapıyorsa biri ötekinin kalemini silmesin.
 
-async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel) {
+async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, kayittanSonra) {
   let kaydedilen;
   for (let deneme = 0; deneme < 5; deneme += 1) {
-    const taze = await MachineProcess.findById(proc._id);
+    const taze = await MachineProcess.findById(proc._id).select(FATURA_EVRAK_OZEL_ALANLARI);
     if (!taze) throw faturaHatasi('Makine süreci bulunamadı.', 'PROC_NOT_FOUND');
     taze.faturalar = faturaKalemleriniOku(taze);
     degistir(taze);
@@ -375,6 +377,7 @@ async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel) {
     if (kaydedilen) break;
   }
   if (!kaydedilen) throw faturaHatasi('Faturalar başka bir kullanıcı tarafından güncellendi. Lütfen yeniden deneyin.', 'FATURA_CAKISMA');
+  if (kayittanSonra) await kayittanSonra();
   proc.init(kaydedilen.toObject());
   await syncInvoiceToMasterList(proc, {
     gerceklesenAdet: proc.invoiceRealizedQty || 0,
@@ -392,9 +395,9 @@ function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
 }
 
 /** @param {{kaynak?: 'personel'|'firma', girenAdi?: string}} kim */
-async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '' } = {}) {
+async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId } = {}) {
   const kalem = faturaKalemiTemizle({
-    ...girdi, _id: undefined, kaynak, girisTarihi: new Date(),
+    ...girdi, _id: kalemId, kaynak, girisTarihi: new Date(),
     girenAdi: girenAdi || (user && user.adSoyad) || ''
   });
   if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
@@ -415,11 +418,30 @@ async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null } = {}) 
 }
 
 async function faturaKalemiSil(proc, kalemId, { user = null } = {}) {
+  let silinecekler;
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
     if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
+    silinecekler = mevcut.evraklar.map((e) => e.depo).filter(Boolean);
     mevcut.deleteOne();
-  }, 'Fatura kalemi silindi', user);
+  }, 'Fatura kalemi silindi', user, undefined, () => faturaEvrakDepolariniSil(silinecekler));
+}
+
+async function faturaEvrakDepolariniSil(depolar) {
+  for (const depo of depolar) {
+    try { await faturaEvrakDeposu.sil(depo); }
+    catch (error) { console.warn('Fatura ekinin depo kopyası silinemedi:', error.message); }
+  }
+}
+
+function firmaFaturaEvraklariniEkle({ surecId, tesvikModel, tesvikId, rowId, kalemId, evraklar, istekId }) {
+  const kalem = { _id: kalemId, kaynak: 'firma' };
+  if (istekId) kalem['evraklar.istekId'] = { $ne: istekId };
+  return MachineProcess.findOneAndUpdate({
+    _id: surecId, tesvikModel, tesvikId, rowId, listType: 'local', faturalar: { $elemMatch: kalem }
+  }, {
+    $push: { 'faturalar.$.evraklar': { $each: evraklar } }, $inc: { __v: 1 }
+  }, { new: true, runValidators: true });
 }
 
 async function updateFields(proc, fields = {}, user) {
@@ -905,6 +927,9 @@ module.exports = {
   faturaKalemiEkle,
   faturaKalemiGuncelle,
   faturaKalemiSil,
+  firmaFaturaEvraklariniEkle,
+  faturaEvrakDepolariniSil,
+  FATURA_EVRAK_OZEL_ALANLARI,
   eskiFaturaOzetleriniKalemeCevir,
   eskiFaturaOzetiniKalemeCevir,
   faturaKalemleriniOku,

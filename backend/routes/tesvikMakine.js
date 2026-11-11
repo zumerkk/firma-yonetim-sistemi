@@ -74,6 +74,7 @@ router.delete('/certificates/:tesvikModel/:tesvikId/kdv-muafiyet', editor, ctrl.
 // Süreç (makine) işlemleri
 router.post('/process', editor, ctrl.ensureProcess);
 router.get('/process/:id', ctrl.getProcess);
+router.get('/process/:id/fatura-kalemleri/:kalemId/evrak/:evrakId', ctrl.faturaEvrakiIndir);
 router.patch('/process/:id/fields', editor, ctrl.updateProcessFields);
 router.post('/process/:id/fatura-kalemleri', editor, ctrl.faturaKalemiEkle);
 router.patch('/process/:id/fatura-kalemleri/:kalemId', editor, ctrl.faturaKalemiGuncelle);

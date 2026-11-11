@@ -5,6 +5,8 @@
 // veya düzenleyemesin - 'onaylandı' olsun, biz manuel olarak onaylandıyı silip-düzenleyebilelim."
 
 const mongoose = require('mongoose');
+const express = require('express');
+const request = require('supertest');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const { ObjectId } = mongoose.Types;
 
@@ -12,11 +14,15 @@ const portal = require('../../services/musteriPortal/portalService');
 const mps = require('../../services/tesvikMakine/machineProcessService');
 const MachineProcess = require('../../models/MachineProcess');
 const Tesvik = require('../../models/Tesvik');
+const depo = require('../../services/tesvikMakine/faturaEvrakDeposu');
+const router = require('../../routes/musteriPortal');
 
 jest.setTimeout(60000);
 
 let mem;
 let belge;
+const app = express();
+app.use('/musteri-belge', router);
 const personel = { _id: new ObjectId(), adSoyad: 'Berk Acar' };
 
 beforeAll(async () => {
@@ -24,6 +30,7 @@ beforeAll(async () => {
   await mongoose.connect(mem.getUri(), { monitorCommands: true });
 });
 afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); });
+afterEach(() => jest.restoreAllMocks());
 
 beforeEach(async () => {
   await Promise.all([MachineProcess.deleteMany({}), Tesvik.deleteMany({})]);
@@ -157,6 +164,7 @@ test('firma kalemi girer → onaylı (firma) kalem, toplamlar ana listeye yansı
     listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'GMP2026000123', icerik: 'Lisans', tutar: 400000, adet: 1, giren: 'Ayşe Y.'
   });
   expect(m.kalemler).toHaveLength(1);
+  expect(m.yeniKalemId).toBe(String(m.kalemler[0]._id));
   expect(m.kalemler[0]).toMatchObject({ kaynak: 'firma', girenAdi: 'Ayşe Y.', no: 'GMP2026000123' });
   expect(m.faturaToplami).toBe(400000);
 
@@ -211,4 +219,143 @@ test('eski fatura özeti açılış göçü beklemeden müşteriye görünür', 
   const veri = await portal.portalVerisi(await linkUret());
   expect(veri.makineler.yerli[0]).toMatchObject({ faturaToplami: 1000, faturaAdedi: 2 });
   expect(veri.makineler.yerli[0].kalemler[0].no).toBe('ESKI-1');
+});
+
+const pdf = Buffer.from('%PDF-1.7\nFatura evrakı');
+const xml = Buffer.from('<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="fatura.xsl"?>\n<Invoice xmlns="urn:fatura"><ID>F-1</ID></Invoice>');
+const faturaEkle = (token, ek = {}) => portal.firmaKalemiEkle(token, {
+  listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'F-1', tutar: 10, giren: 'Ali', ...ek
+});
+const evrakYolu = (token, kalemId) => `/musteri-belge/${token}/fatura-kalemi/${kalemId}/evrak`;
+const sahteDepo = () => {
+  const sil = jest.spyOn(depo, 'sil').mockResolvedValue();
+  const kaydet = jest.spyOn(depo, 'kaydet').mockImplementation(async () => ({
+    provider: 'local', dosyaYolu: `ozel-depo-${kaydet.mock.calls.length}`
+  }));
+  return { sil, kaydet };
+};
+
+test('çoklu yerli fatura ekleri yüklenir, künye lokatörleri saklı kalır, düzenleme ekleri korur', async () => {
+  const { sil, kaydet } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token);
+  const yol = evrakYolu(token, yeniKalemId);
+  const r = await request(app).post(yol).field('rowId', 'R1').field('istekId', 'fatura-evrak-1')
+    .attach('faturaPdf', pdf, 'Fatura.pdf')
+    .attach('faturaPdf', pdf, 'Ek Fatura.pdf')
+    .attach('faturaXml', xml, { filename: 'Fatura.xml', contentType: 'text/xml' })
+    .attach('yevmiyePdf', pdf, 'Yevmiye.pdf').expect(200);
+  expect(r.body.data).toMatchObject({ rowId: 'R1', faturaToplami: 10 });
+  expect(r.body.data.kalemler[0].evraklar.map((e) => [e.tur, e.dosyaAdi, e.mimeType])).toEqual([
+    ['fatura_pdf', 'Fatura.pdf', 'application/pdf'], ['fatura_pdf', 'Ek Fatura.pdf', 'application/pdf'],
+    ['fatura_xml', 'Fatura.xml', 'application/xml'], ['yevmiye_pdf', 'Yevmiye.pdf', 'application/pdf']
+  ]);
+  expect(Object.keys(r.body.data.kalemler[0].evraklar[0]).sort()).toEqual(['_id', 'dosyaAdi', 'fileSize', 'mimeType', 'tur', 'yuklemeTarihi']);
+  const proc = await MachineProcess.findOne({ tesvikId: belge._id, rowId: 'R1' }).select(mps.FATURA_EVRAK_OZEL_ALANLARI);
+  expect(proc.faturalar[0].evraklar[0].depo).toEqual({ provider: 'local', dosyaYolu: 'ozel-depo-1' });
+  expect(JSON.stringify(proc)).not.toContain('ozel-depo');
+  expect(JSON.stringify(proc)).not.toContain('fatura-evrak-1');
+  const normal = await MachineProcess.findById(proc._id).lean();
+  expect(normal.faturalar[0].evraklar[0].depo).toBeUndefined();
+  await mps.faturaKalemiGuncelle(proc, yeniKalemId, { tutar: 15 }, { user: personel });
+  const guncel = await MachineProcess.findById(proc._id).select(mps.FATURA_EVRAK_OZEL_ALANLARI);
+  expect(guncel.faturalar[0].evraklar[0].depo.dosyaYolu).toBe('ozel-depo-1');
+  expect(guncel.faturalar[0].evraklar[0].istekId).toBe('fatura-evrak-1');
+  expect((await portal.portalVerisi(token)).makineler.yerli[0].kalemler[0].evraklar).toHaveLength(4);
+  await request(app).post(yol).field('rowId', 'R1').attach('yevmiyePdf', pdf, 'Sonraki.pdf').expect(200);
+  expect(kaydet).toHaveBeenCalledTimes(5);
+  await mps.faturaKalemiSil(proc, yeniKalemId, { user: personel });
+  expect(sil).toHaveBeenCalledTimes(5);
+  expect((await MachineProcess.findById(proc._id)).faturalar).toHaveLength(0);
+});
+
+test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; farklı, ithal ve personel kalemleri dosya alamaz', async () => {
+  const { kaydet } = sahteDepo();
+  const token = await linkUret();
+  const yerli = await faturaEkle(token);
+  const ithal = await faturaEkle(token, { listType: 'import', rowId: 'I1' });
+  const proc = await MachineProcess.findOne({ tesvikId: belge._id, rowId: 'R1' });
+  await mps.faturaKalemiEkle(proc, { no: 'PERSONEL-1', tutar: 10 }, { user: personel });
+  const personelKalemi = proc.faturalar.find((k) => k.kaynak === 'personel');
+  await request(app).post(evrakYolu('kisa', yerli.yeniKalemId)).set('Content-Type', 'multipart/form-data').send('bozuk').expect(404);
+  await request(app).post(evrakYolu(token, ithal.yeniKalemId)).field('rowId', 'I1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
+  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'R1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
+  await request(app).post(evrakYolu(token, yerli.yeniKalemId)).field('rowId', 'R2').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
+  expect(kaydet).not.toHaveBeenCalled();
+});
+
+test('ek dosya biçimi, 10 MiB ve 6 dosya sınırı depolamadan önce uygulanır', async () => {
+  const { kaydet } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token);
+  const yol = evrakYolu(token, yeniKalemId);
+  const istek = () => request(app).post(yol).field('rowId', 'R1');
+  await istek().attach('faturaPdf', xml, 'Fatura.pdf').expect(400);
+  await istek().attach('faturaXml', Buffer.from('<html>dosya</html>'), 'Fatura.xml').expect(400);
+  await istek().attach('yevmiyePdf', pdf, { filename: 'Yevmiye.pdf', contentType: 'image/png' }).expect(400);
+  const uzun = Buffer.alloc(portal.FATURA_EVRAK_BOYUTU + 1);
+  pdf.copy(uzun);
+  await istek().attach('faturaPdf', uzun, 'Fatura.pdf').expect(400);
+  const cok = istek();
+  for (let i = 0; i < 7; i += 1) cok.attach('faturaPdf', pdf, `Fatura${i}.pdf`);
+  await cok.expect(400);
+  expect(kaydet).not.toHaveBeenCalled();
+  await istek().attach('faturaPdf', uzun.subarray(0, -1), 'Fatura.pdf').expect(200);
+  expect(kaydet).toHaveBeenCalledTimes(1);
+});
+
+const evraklar = (govde = pdf) => ({ faturaPdf: [{ originalname: 'Fatura.pdf', mimetype: 'application/pdf', buffer: govde }] });
+
+test('yükleme sırasında kapatılan link kayıt yapmaz ve depolanan dosyayı temizler', async () => {
+  const { sil, kaydet } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token);
+  kaydet.mockImplementationOnce(async () => {
+    await portal.linkKapat('Tesvik', belge._id);
+    return { provider: 'local', dosyaYolu: 'kapatilan-link' };
+  });
+  await expect(portal.firmaFaturaEvrakiYukle(token, yeniKalemId, { rowId: 'R1' }, evraklar())).rejects.toMatchObject({ status: 404 });
+  expect(sil).toHaveBeenCalledWith({ provider: 'local', dosyaYolu: 'kapatilan-link' });
+  const p = await MachineProcess.findOne({ tesvikId: belge._id, rowId: 'R1' });
+  expect(p.faturalar[0].evraklar).toHaveLength(0);
+});
+
+test('eşzamanlı aynı yükleme kimliği yalnız bir kez kaydedilir; boşta kalan kopya silinir', async () => {
+  const { sil, kaydet } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token);
+  const orijinal = mps.firmaFaturaEvraklariniEkle;
+  let baslat;
+  const birlikte = new Promise((resolve) => { baslat = resolve; });
+  let hazir = 0;
+  const ekle = jest.spyOn(mps, 'firmaFaturaEvraklariniEkle').mockImplementation(async (...args) => {
+    hazir += 1;
+    if (hazir === 2) baslat();
+    await birlikte;
+    return orijinal(...args);
+  });
+  const istek = { rowId: 'R1', istekId: 'es-zamanli-istek' };
+  const yukle = (girdi = evraklar()) => portal.firmaFaturaEvrakiYukle(token, yeniKalemId, istek, girdi);
+  const [ilk, tekrar] = await Promise.all([yukle(), yukle()]);
+  expect(ilk.kalemler[0].evraklar).toHaveLength(1);
+  expect(tekrar.kalemler[0].evraklar).toEqual(ilk.kalemler[0].evraklar);
+  expect(ekle).toHaveBeenCalledTimes(2);
+  expect(sil).toHaveBeenCalledTimes(1);
+  expect(await yukle()).toEqual(ilk);
+  await expect(yukle(evraklar(Buffer.concat([pdf, Buffer.from('değişti')])))).rejects.toMatchObject({ status: 409 });
+  expect(kaydet).toHaveBeenCalledTimes(2);
+});
+
+test('yazım yanıtı kaybolduğunda kayıtlı dosyanın depo kopyası silinmez', async () => {
+  const { sil } = sahteDepo();
+  const token = await linkUret();
+  const { yeniKalemId } = await faturaEkle(token);
+  const orijinal = mps.firmaFaturaEvraklariniEkle;
+  jest.spyOn(mps, 'firmaFaturaEvraklariniEkle').mockImplementationOnce(async (...args) => {
+    await orijinal(...args);
+    throw new Error('Yazım yanıtı kayboldu');
+  });
+  const sonuc = await portal.firmaFaturaEvrakiYukle(token, yeniKalemId, { rowId: 'R1' }, evraklar());
+  expect(sonuc.kalemler[0].evraklar).toHaveLength(1);
+  expect(sil).not.toHaveBeenCalled();
 });

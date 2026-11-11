@@ -28,6 +28,7 @@ const ministryParser = require('../services/tesvikMakine/ministryMailParser');
 const ParsedMinistryMail = require('../models/ParsedMinistryMail');
 const araKontrolService = require('../services/tesvikMakine/araKontrolService');
 const kdvMuafiyetService = require('../services/tesvikMakine/kdvMuafiyetService');
+const faturaEvrakDeposu = require('../services/tesvikMakine/faturaEvrakDeposu');
 const { evraklariGrupla, ayniYuklemeninKopyalari } = require('../services/tesvikMakine/ortakYukleme');
 const { dosyaAdiDuzelt } = require('../utils/dosyaAdiKodlama');
 const { createTurkishInsensitiveRegex } = require('../utils/turkishUtils');
@@ -398,6 +399,32 @@ const faturaYaniti = (proc) => ({
   invoiceRealizedQty: proc.invoiceRealizedQty,
   invoiceNo: proc.invoiceNo,
   invoiceDate: proc.invoiceDate
+});
+
+exports.faturaEvrakiIndir = wrap(async (req, res) => {
+  const { id, kalemId, evrakId } = req.params;
+  const bulunamadi = () => res.status(404).json({ success: false, message: 'Fatura evrakı bulunamadı.' });
+  if (![id, kalemId, evrakId].every((deger) => /^[a-f0-9]{24}$/i.test(deger))) return bulunamadi();
+
+  const proc = await MachineProcess.findOne({ _id: id, listType: 'local' }).select('+faturalar.evraklar.depo');
+  const evrak = proc?.faturalar?.id(kalemId)?.evraklar?.id(evrakId);
+  if (!evrak?.depo) return bulunamadi();
+
+  let buffer;
+  try {
+    buffer = await faturaEvrakDeposu.oku(evrak.depo);
+  } catch (error) {
+    if (error.status === 404) return bulunamadi();
+    return res.status(error.status === 503 ? 503 : 502).json({ success: false, message: 'Fatura evrakı depodan alınamadı. Tekrar deneyin.' });
+  }
+
+  res.attachment(evrak.dosyaAdi);
+  res.set({
+    'Content-Type': evrak.tur === 'fatura_xml' ? 'application/xml' : 'application/pdf',
+    'Cache-Control': 'private, no-store',
+    'X-Content-Type-Options': 'nosniff'
+  });
+  return res.send(buffer);
 });
 
 // POST /process/:id/fatura-kalemleri   body: { tarih, no, icerik, tutar, adet }
