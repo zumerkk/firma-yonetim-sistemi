@@ -49,8 +49,9 @@ afterEach(() => {
   URL.revokeObjectURL = eskiKaldir;
 });
 
-test('seçili yerli fatura kaleminin birden çok evrakı türüne göre görünür', async () => {
-  kur();
+test('salt okunur yerli fatura kaleminin birden çok evrakı türüne göre görünür', async () => {
+  api.get.mockResolvedValueOnce({ data: { data: { process: surec } } });
+  kur({ duzenlenebilir: false, makine: { ...makine, process: { _id: surec._id } } });
   fireEvent.click(await screen.findByRole('cell', { name: 'F-1' }));
   const liste = within(screen.getByRole('region', { name: 'F-1 evrak listesi' }));
   expect(liste.getByText('Fatura PDF')).toBeInTheDocument();
@@ -61,11 +62,43 @@ test('seçili yerli fatura kaleminin birden çok evrakı türüne göre görün�
   expect(liste.getByRole('button', { name: 'e-fatura.xml indir' })).toBeInTheDocument();
   expect(liste.getByRole('button', { name: 'yevmiye.pdf aç' })).toBeInTheDocument();
   expect(liste.queryByText('gosterme.html')).not.toBeInTheDocument();
+  expect(liste.queryByLabelText('Fatura PDF')).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'F-3 evrakları' })).not.toBeInTheDocument();
 
   fireEvent.click(screen.getByRole('button', { name: 'F-2 evrakları' }));
   expect(screen.queryByRole('region', { name: 'F-1 evrak listesi' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'baska.xml indir' })).toBeInTheDocument();
+});
+
+test('yerli fatura kalemi kaydedilince üç türde birden fazla evrak aynı kaleme yüklenebilir', async () => {
+  const yeni = { _id: 'yeni', no: 'F-YENI', kaynak: 'personel' };
+  api.post.mockResolvedValueOnce({ data: { data: surec } });
+  api.post.mockResolvedValueOnce({ data: { data: { yeniKalemId: yeni._id, faturalar: [...surec.faturalar, yeni] } } });
+  const dosyaGruplari = [
+    ['Fatura PDF', 'faturaPdf', 'fatura_pdf', ['fatura-1.pdf', 'fatura-2.pdf'], '%PDF-1.4'],
+    ['Fatura XML', 'faturaXml', 'fatura_xml', ['fatura-1.xml', 'fatura-2.xml'], '<Invoice/>'],
+    ['Yevmiye Kayıt PDF', 'yevmiyePdf', 'yevmiye_pdf', ['yevmiye-1.pdf', 'yevmiye-2.pdf'], '%PDF-1.4']
+  ];
+  const evraklar = dosyaGruplari.flatMap(([, , tur, adlar]) => adlar.map((ad) => ({ _id: ad, tur, dosyaAdi: ad })));
+  uploadPost.mockResolvedValueOnce({ data: { data: { faturalar: [...surec.faturalar, { ...yeni, evraklar }] } } });
+  kur();
+  expect(await screen.findByRole('button', { name: 'F-3 evrakları' })).toBeEnabled();
+  fireEvent.change(screen.getByRole('textbox', { name: 'Fatura Sayısı' }), { target: { value: yeni.no } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const panel = within(await screen.findByRole('region', { name: 'F-YENI evrak listesi' }));
+
+  dosyaGruplari.forEach(([etiket, , , adlar, icerik]) => {
+    const input = panel.getByLabelText(etiket);
+    expect(input).toHaveAttribute('multiple');
+    fireEvent.change(input, { target: { files: adlar.map((ad) => new File([icerik], ad)) } });
+  });
+  fireEvent.click(panel.getByRole('button', { name: 'Dosyaları Yükle' }));
+  expect(await panel.findByRole('alert')).toHaveTextContent('Evraklar yüklendi.');
+  const [url, form] = uploadPost.mock.calls[0];
+  expect(url).toBe('/tesvik-makine/process/surec-1/fatura-kalemleri/yeni/evrak');
+  dosyaGruplari.forEach(([, alan, , adlar]) => expect(form.getAll(alan).map((dosya) => dosya.name)).toEqual(adlar));
+  expect(panel.getByRole('button', { name: 'fatura-2.xml indir' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'F-YENI evrakları' })).toHaveTextContent('Evraklar (6)');
 });
 
 test('PDF yalnız kimlikli blob isteği sonrası bağımsız sekmeye açılır, XML dosya olarak iner', async () => {

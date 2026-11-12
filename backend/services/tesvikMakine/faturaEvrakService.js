@@ -12,14 +12,17 @@ function hata(message, code, status) {
   return Object.assign(new Error(message), { code, status });
 }
 
-async function personelBeyannamesiBaglami(surecId, kalemId) {
-  const bulunamadi = () => hata('İthal beyanname kalemi bulunamadı.', 'FATURA_YOK', 404);
+async function personelFaturaEvrakBaglami(surecId, kalemId) {
+  const bulunamadi = () => hata('Fatura veya beyanname kalemi bulunamadı.', 'FATURA_YOK', 404);
   if (![surecId, kalemId].every((id) => mongoose.isObjectIdOrHexString(id))) throw bulunamadi();
-  const proc = await MachineProcess.findOne({ _id: surecId, listType: 'import', 'faturalar._id': kalemId })
+  const proc = await MachineProcess.findOne({
+    _id: surecId, listType: { $in: Object.keys(EVRAK_ALANLARI) }, 'faturalar._id': kalemId
+  })
     .select(mps.FATURA_EVRAK_OZEL_ALANLARI);
   if (!proc) throw bulunamadi();
-  const belge = await resolver.modelFor(proc.tesvikModel).findById(proc.tesvikId).select('makineListeleri.ithal').lean();
-  if (!resolver.findMachineRow(belge, 'import', proc.rowId)) throw bulunamadi();
+  const belge = await resolver.modelFor(proc.tesvikModel).findById(proc.tesvikId)
+    .select('makineListeleri.yerli.rowId makineListeleri.ithal.rowId').lean();
+  if (!resolver.findMachineRow(belge, proc.listType, proc.rowId)) throw bulunamadi();
   return { proc, kalem: proc.faturalar.id(kalemId) };
 }
 
@@ -126,4 +129,4 @@ async function evrakYukle({ baglamiYukle, kalemId, kaynak, istekId, dosyalar = {
   }
 }
 
-module.exports = { evrakYukle, personelBeyannamesiBaglami };
+module.exports = { evrakYukle, personelFaturaEvrakBaglami };

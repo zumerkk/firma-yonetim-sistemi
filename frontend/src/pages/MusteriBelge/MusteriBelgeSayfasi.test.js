@@ -41,6 +41,15 @@ test('müşteri ithal makinede birim etiketini, EUR birim fiyatını ve USD FOB 
   expect(within(screen.getByRole('dialog')).getByText(`1 ADET · Birim: ${para(165000, 'EUR')} · FOB Toplam: ${para(179000, 'USD')}`)).toBeInTheDocument();
 });
 
+test('ithal beyanname toplamı sıfır olduğunda TL gösterilir', async () => {
+  const kayit = { ...kalem('b1', 'BY-001', 'personel'), tutar: 0, tutarParaBirimi: 'TRY' };
+  belgeyiAc({ yerli: [], ithal: [{ ...makine('I1', 'import', [kayit]), faturaToplami: 0, faturaTutarToplamlari: {} }] });
+  fireEvent.click(await screen.findByText('İthal Liste (1)'));
+  expect(screen.getByText(`1 kalem · ${para(0)}`)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Gör / Ekle' }));
+  expect(within(screen.getByRole('row', { name: /Toplam/ })).getByText(para(0))).toBeInTheDocument();
+});
+
 test('yerli fatura evraksız kaydedilir ve yalnız dönen yeni kaleme PDF, XML ve yevmiye eklenir', async () => {
   const ilkMakine = makine('Y1', 'local');
   const yeniKalem = kalem('hedef', 'FT-001');

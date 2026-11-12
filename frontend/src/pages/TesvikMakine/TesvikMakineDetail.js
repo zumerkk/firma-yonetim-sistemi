@@ -312,8 +312,8 @@ export default function TesvikMakineDetail() {
           <Paper sx={{ p: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>
               {tab === 1
-                ? 'Fatura kalemi girmek, görmek veya düzeltmek için makinenin üstüne tıklayın.'
-                : 'Beyanname kalemi girmek için makinenin üstüne tıklayın. Beyanname talebi için Makine Talepleri › İthal (Beyanname) › Toplu İşlem.'}
+                ? 'Fatura kalemlerini ve evraklarını açmak için makineye tıklayın.'
+                : 'Beyanname kalemlerini ve evraklarını açmak için makineye tıklayın. Beyanname talebi için Makine Talepleri › İthal (Beyanname) › Toplu İşlem.'}
             </Typography>
             <Box sx={{ height: 540 }}>
               <DataGrid

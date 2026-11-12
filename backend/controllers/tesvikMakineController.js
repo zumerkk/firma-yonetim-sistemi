@@ -435,8 +435,8 @@ exports.faturaEvrakiIndir = wrap(async (req, res) => {
 
 exports.faturaEvrakYuklemeYetkisi = async (req, res, next) => {
   try {
-    await faturaEvrakService.personelBeyannamesiBaglami(req.params.id, req.params.kalemId);
-    req.faturaListType = 'import';
+    const { proc } = await faturaEvrakService.personelFaturaEvrakBaglami(req.params.id, req.params.kalemId);
+    req.faturaListType = proc.listType;
     next();
   } catch (error) { return fail(res, error); }
 };
@@ -445,7 +445,7 @@ exports.faturaEvrakiYukle = async (req, res) => {
   const { id, kalemId } = req.params;
   try {
     const { proc } = await faturaEvrakService.evrakYukle({
-      baglamiYukle: () => faturaEvrakService.personelBeyannamesiBaglami(id, kalemId),
+      baglamiYukle: () => faturaEvrakService.personelFaturaEvrakBaglami(id, kalemId),
       kalemId, istekId: req.body?.istekId, dosyalar: req.files
     });
     return res.json({ success: true, data: faturaYaniti(proc) });
@@ -453,9 +453,9 @@ exports.faturaEvrakiYukle = async (req, res) => {
     if (error.status && error.status < 500) {
       return res.status(error.status).json({ success: false, message: error.message, code: error.code });
     }
-    console.error('Beyanname eki kaydedilemedi:', error.message);
+    console.error('Kalem evrakı kaydedilemedi:', error.message);
     return res.status(error.status === 503 ? 503 : 500)
-      .json({ success: false, message: 'Beyanname eki kaydedilemedi. Lütfen tekrar deneyin.' });
+      .json({ success: false, message: 'Kalem evrakı kaydedilemedi. Lütfen tekrar deneyin.' });
   }
 };
 

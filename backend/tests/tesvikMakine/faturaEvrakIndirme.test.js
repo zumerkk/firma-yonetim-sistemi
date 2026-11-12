@@ -114,7 +114,7 @@ test('ithal beyannameye yalnız düzenleme yetkili personel ek yükler; personel
   await yukle().expect(401);
   await yukle().auth(token, { type: 'bearer' }).expect(403);
   await request(app).post(yerliAdres).auth(editorToken, { type: 'bearer' })
-    .attach('beyannamePdf', icerik, 'beyanname.pdf').expect(404);
+    .attach('beyannamePdf', icerik, 'beyanname.pdf').expect(400);
   await request(app).post(adres).auth(editorToken, { type: 'bearer' })
     .attach('faturaPdf', icerik, 'yerli.pdf').expect(400);
   try {
@@ -132,6 +132,35 @@ test('ithal beyannameye yalnız düzenleme yetkili personel ek yükler; personel
     expect(indirilen.body).toEqual(icerik);
   } finally {
     const surec = await MachineProcess.findById(ithal._id).select('+faturalar.evraklar.depo');
+    await Promise.all(surec.faturalar.id(kalemId).evraklar.map((ek) => depo.sil(ek.depo)));
+  }
+});
+
+test('personel yerli kaleme her türden birden fazla evrak yükleyebilir', async () => {
+  const kalemId = yerli.faturalar[1].id;
+  const adres = `/api/tesvik-makine/process/${yerli._id}/fatura-kalemleri/${kalemId}/evrak`;
+  const xml = Buffer.from('<?xml version="1.0"?><Invoice><ID>TEST-2</ID></Invoice>');
+  const ekle = (istekId) => request(app).post(adres).auth(editorToken, { type: 'bearer' })
+    .field('istekId', istekId);
+
+  await request(app).post(`/api/tesvik-makine/process/${ithal._id}/fatura-kalemleri/${kalemId}/evrak`)
+    .auth(editorToken, { type: 'bearer' }).attach('faturaPdf', icerik, 'fatura.pdf').expect(404);
+  try {
+    const yanit = await ekle('personel-yerli-ek-1')
+      .attach('faturaPdf', icerik, 'fatura-1.pdf').attach('faturaPdf', icerik, 'fatura-2.pdf')
+      .attach('faturaXml', xml, { filename: 'fatura-1.xml', contentType: 'application/xml' })
+      .attach('faturaXml', xml, { filename: 'fatura-2.xml', contentType: 'application/xml' })
+      .attach('yevmiyePdf', icerik, 'yevmiye-1.pdf').attach('yevmiyePdf', icerik, 'yevmiye-2.pdf').expect(200);
+    const ekler = yanit.body.data.faturalar.find((k) => k._id === kalemId).evraklar;
+    expect(ekler.map((ek) => ek.tur)).toEqual([
+      'fatura_pdf', 'fatura_pdf', 'fatura_xml', 'fatura_xml', 'yevmiye_pdf', 'yevmiye_pdf'
+    ]);
+    const sonraki = await ekle('personel-yerli-ek-2').attach('yevmiyePdf', icerik, 'yevmiye-3.pdf').expect(200);
+    expect(sonraki.body.data.faturalar.find((k) => k._id === kalemId).evraklar).toEqual([
+      ...ekler, expect.objectContaining({ tur: 'yevmiye_pdf', dosyaAdi: 'yevmiye-3.pdf' })
+    ]);
+  } finally {
+    const surec = await MachineProcess.findById(yerli._id).select('+faturalar.evraklar.depo');
     await Promise.all(surec.faturalar.id(kalemId).evraklar.map((ek) => depo.sil(ek.depo)));
   }
 });

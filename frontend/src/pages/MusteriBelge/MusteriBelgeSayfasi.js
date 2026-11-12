@@ -41,12 +41,12 @@ const para = (v, kod = 'TRY') => {
 const tarih = (v) => (v ? new Date(v).toLocaleDateString('tr-TR') : '-');
 const miktarMetni = (m) => `${m.miktar || 0} ${birimEtiketi(m.birim, m.birimAciklamasi)}`.trimEnd();
 const kalemToplamMetni = (m) => {
-  const { TRY, ...dovizler } = m.faturaTutarToplamlari || {};
+  const { TRY, ...dovizler } = m.faturaTutarToplamlari || { [m.listType === 'import' ? 'USD' : 'TRY']: m.faturaToplami };
   const toplamlar = Object.entries(dovizler);
   if (TRY != null) toplamlar.unshift(['TRY', TRY]);
   return toplamlar.length
     ? toplamlar.map(([kod, tutar]) => para(tutar, kod)).join(' · ')
-    : para(m.faturaToplami, m.listType === 'import' ? 'USD' : 'TRY');
+    : para(m.faturaToplami);
 };
 const BOS_KALEM = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
 const GIREN_ANAHTARI = 'musteriBelge.giren';

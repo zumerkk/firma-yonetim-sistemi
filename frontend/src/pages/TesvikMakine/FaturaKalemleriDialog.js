@@ -120,7 +120,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   }, [open, makine, tesvikModel, tesvikId, duzenlenebilir]);
 
   const kalemler = proc?.faturalar || [];
-  const evrakEklenebilir = ithal && duzenlenebilir;
+  const evrakEklenebilir = duzenlenebilir;
   const evrakSutunu = evrakEklenebilir || kalemler.some((kalem) => kalemEvraklari(kalem, evrakTurleri).length);
   const toplamTutar = proc?.faturaTutarToplamlari || kalemler.reduce((toplamlar, k) => {
     const kod = kalemParaBirimi(k);
@@ -182,7 +182,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
     try {
       const data = await svc.faturaKalemiEvrakYukle(proc._id, kalemId, formData, { onProgress, signal: controller.signal });
       if (controller.signal.aborted) return false;
-      if (!data?.faturalar?.some((k) => k._id === kalemId)) throw new Error('Beyanname evrakları güncellenemedi.');
+      if (!data?.faturalar?.some((k) => k._id === kalemId)) throw new Error('Kalem evrakları güncellenemedi.');
       setProc((onceki) => ({ ...onceki, ...data }));
       onChanged?.();
       return true;
@@ -322,7 +322,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                           </TableRow>
                           {evrakAcik && <KalemEvraklari id={evrakPaneli} kalem={k} evraklar={evraklar}
                             evrakTurleri={evrakTurleri} yuklenenler={yuklenenEvraklar} onAc={evrakiAc}
-                            yuklemePaneli={evrakEklenebilir && <KalemEvrakPaneli kalem={k} ithal islem={evrakYukleniyor ? 'evrak' : (mesgul ? 'kalem' : '')}
+                            yuklemePaneli={evrakEklenebilir && <KalemEvrakPaneli kalem={k} ithal={ithal} islem={evrakYukleniyor ? 'evrak' : (mesgul ? 'kalem' : '')}
                               onYukle={evrakYukle} yuklenenleriGoster={false} />}
                             hata={evrakHatasi?.kalemId === k._id ? evrakHatasi.mesaj : ''} />}
                         </React.Fragment>
