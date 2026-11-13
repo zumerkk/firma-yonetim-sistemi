@@ -62,6 +62,8 @@ beforeAll(async () => {
   app.use((req, _res, next) => { req.user = user; next(); });
   app.post('/bulk/mail/preview', ctrl.bulkMailPreview);
   app.post('/bulk/mail/send', uploadMultiple('ekler'), ctrl.bulkMailSend);
+  app.post('/process', ctrl.ensureProcess);
+  app.get('/process/:id', ctrl.getProcess);
   app.post('/process/:id/fatura-kalemleri', ctrl.faturaKalemiEkle);
   app.patch('/process/:id/fatura-kalemleri/:kalemId', ctrl.faturaKalemiGuncelle);
 });
@@ -110,6 +112,26 @@ test.each([
   expect(liste.rows.find((r) => r.rowId === 'I1')).toMatchObject({
     invoiceRealizedValue: 1200, invoiceRealizedQty: 3, faturaTutarToplamlari: { TRY: 1200, EUR: 100 }
   });
+});
+
+test('eski firma ve personel kalemleri personel yanıtlarında özgün dövizleriyle görünür', async () => {
+  const secim = hedef('i1', 'import');
+  const proc = await mps.ensureProcess(secim);
+  await MachineProcess.updateOne({ _id: proc._id }, { $set: { faturalar: [
+    { no: 'FIRMA-USD', kaynak: 'firma', tutar: 100 },
+    { no: 'PERSONEL-EUR', kaynak: 'personel', tutar: 75 },
+    { no: 'KAYITLI-GBP', kaynak: 'firma', tutar: 50, tutarParaBirimi: 'GBP' }
+  ] } });
+  const dogrula = ({ faturalar, faturaTutarToplamlari }) => {
+    expect(faturalar.map((k) => [k.no, k.tutarParaBirimi])).toEqual([
+      ['FIRMA-USD', 'USD'], ['PERSONEL-EUR', 'EUR'], ['KAYITLI-GBP', 'GBP']
+    ]);
+    expect(faturaTutarToplamlari).toEqual({ USD: 100, EUR: 75, GBP: 50 });
+  };
+  dogrula((await request(app).post('/process').send(secim).expect(200)).body.data);
+  dogrula((await request(app).get(`/process/${proc._id}`).expect(200)).body.data.process);
+  const kayit = await MachineProcess.findById(proc._id).lean();
+  expect(kayit.faturalar.map((k) => k.tutarParaBirimi)).toEqual([undefined, undefined, 'GBP']);
 });
 
 describe('toplu beyanname maili', () => {

@@ -263,7 +263,9 @@ const faturaSayi = (v) => { const n = Number(v); return Number.isFinite(n) ? n :
 
 function faturaKalemiParaBirimi(kalem, proc) {
   if (proc.listType !== 'import') return 'TRY';
-  const kod = String(kalem.tutarParaBirimi || proc.currency || 'USD').trim().toUpperCase();
+  // Eski firma formu USD, personel formu makinenin döviz cinsini kullanıyordu.
+  const eskiParaBirimi = kalem.kaynak === 'firma' ? 'USD' : proc.currency || 'USD';
+  const kod = String(kalem.tutarParaBirimi || eskiParaBirimi).trim().toUpperCase();
   if (kod === 'TL') return 'TRY';
   return /^[A-Z0-9]{1,10}$/.test(kod) ? kod : 'USD';
 }
@@ -415,7 +417,7 @@ function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
 
 /** @param {{kaynak?: 'personel'|'firma', girenAdi?: string}} kim */
 async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId, eskiIstemci = false } = {}) {
-  const tutarParaBirimi = eskiIstemci ? faturaKalemiParaBirimi({}, proc) : 'TRY';
+  const tutarParaBirimi = eskiIstemci ? faturaKalemiParaBirimi({ kaynak }, proc) : 'TRY';
   const kalem = faturaKalemiTemizle({
     ...girdi, _id: kalemId, kaynak, tutarParaBirimi, girisTarihi: new Date(),
     girenAdi: girenAdi || (user && user.adSoyad) || ''

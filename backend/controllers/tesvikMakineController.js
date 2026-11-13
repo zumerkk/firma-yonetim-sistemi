@@ -373,10 +373,23 @@ exports.downloadKdvMuafiyet = wrap(async (req, res) => {
 });
 
 // ───────── SÜREÇ ─────────
+function faturaYaniti(proc) {
+  const kalemler = mps.faturaKalemleriniOku(proc);
+  return {
+    faturalar: kalemler.map((kalem) => ({ ...kalem, tutarParaBirimi: mps.faturaKalemiParaBirimi(kalem, proc) })),
+    invoiceRealizedValue: proc.invoiceRealizedValue,
+    faturaTutarToplamlari: mps.faturaTutarToplamlari(proc, kalemler),
+    invoiceRealizedQty: proc.invoiceRealizedQty,
+    invoiceNo: proc.invoiceNo,
+    invoiceDate: proc.invoiceDate
+  };
+}
+
 exports.ensureProcess = wrap(async (req, res) => {
   const { tesvikModel, tesvikId, listType, rowId } = req.body;
   const proc = await mps.ensureProcess({ tesvikModel, tesvikId, listType, rowId, user: req.user });
-  res.json({ success: true, data: { ...proc.toJSON(), faturaTutarToplamlari: mps.faturaTutarToplamlari(proc) } });
+  const surec = proc.toJSON();
+  res.json({ success: true, data: { ...surec, ...faturaYaniti(surec) } });
 });
 
 exports.getProcess = wrap(async (req, res) => {
@@ -389,8 +402,9 @@ exports.getProcess = wrap(async (req, res) => {
     ReminderJob.find({ machineProcessId: proc._id }).sort({ dueAt: -1 }).limit(50).lean(),
     proc.folderId ? DocumentFolder.findById(proc.folderId).lean() : Promise.resolve(null)
   ]);
+  const surec = proc.toJSON();
   res.json({ success: true, data: {
-    process: { ...proc.toJSON(), faturaTutarToplamlari: mps.faturaTutarToplamlari(proc) },
+    process: { ...surec, ...faturaYaniti(surec) },
     statusBadge: status.getStatusBadge(proc.status), timeline, mails, documents: docs, reminders, folder
   } });
 });
@@ -398,15 +412,6 @@ exports.getProcess = wrap(async (req, res) => {
 // ───────── 🧾 FATURA KALEMLERİ (tek tek) ─────────
 // Müşteri (13.10.2026): kalem girişi İşlem penceresinden ayrıldı; Yerli/İthal Liste'de makineye
 // tıklayınca "üstte makinanın bilgisi, altta fatura listesi, onun altında kalem girme ve kaydetme yeri".
-const faturaYaniti = (proc) => ({
-  faturalar: proc.faturalar,
-  invoiceRealizedValue: proc.invoiceRealizedValue,
-  faturaTutarToplamlari: mps.faturaTutarToplamlari(proc),
-  invoiceRealizedQty: proc.invoiceRealizedQty,
-  invoiceNo: proc.invoiceNo,
-  invoiceDate: proc.invoiceDate
-});
-
 exports.faturaEvrakiIndir = wrap(async (req, res) => {
   const { id, kalemId, evrakId } = req.params;
   const bulunamadi = () => res.status(404).json({ success: false, message: 'Fatura evrakı bulunamadı.' });
@@ -448,7 +453,7 @@ exports.faturaEvrakiYukle = async (req, res) => {
       baglamiYukle: () => faturaEvrakService.personelFaturaEvrakBaglami(id, kalemId),
       kalemId, istekId: req.body?.istekId, dosyalar: req.files
     });
-    return res.json({ success: true, data: faturaYaniti(proc) });
+    return res.json({ success: true, data: faturaYaniti(proc.toJSON()) });
   } catch (error) {
     if (error.status && error.status < 500) {
       return res.status(error.status).json({ success: false, message: error.message, code: error.code });
@@ -465,7 +470,7 @@ exports.faturaKalemiEkle = wrap(async (req, res) => {
   const govde = req.body || {};
   const kalemId = new mongoose.Types.ObjectId();
   await mps.faturaKalemiEkle(proc, govde, { user: req.user, kaynak: 'personel', kalemId, eskiIstemci: govde.tutarParaBirimi !== 'TRY' });
-  res.json({ success: true, message: 'Fatura kalemi kaydedildi', data: { ...faturaYaniti(proc), yeniKalemId: String(kalemId) } });
+  res.json({ success: true, message: 'Fatura kalemi kaydedildi', data: { ...faturaYaniti(proc.toJSON()), yeniKalemId: String(kalemId) } });
 });
 
 // PATCH /process/:id/fatura-kalemleri/:kalemId
@@ -473,14 +478,14 @@ exports.faturaKalemiGuncelle = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
   const govde = req.body || {};
   await mps.faturaKalemiGuncelle(proc, req.params.kalemId, govde, { user: req.user, eskiIstemci: govde.tutarParaBirimi !== 'TRY' });
-  res.json({ success: true, message: 'Fatura kalemi güncellendi', data: faturaYaniti(proc) });
+  res.json({ success: true, message: 'Fatura kalemi güncellendi', data: faturaYaniti(proc.toJSON()) });
 });
 
 // DELETE /process/:id/fatura-kalemleri/:kalemId
 exports.faturaKalemiSil = wrap(async (req, res) => {
   const proc = await loadProc(req.params.id);
   await mps.faturaKalemiSil(proc, req.params.kalemId, { user: req.user });
-  res.json({ success: true, message: 'Fatura kalemi silindi', data: faturaYaniti(proc) });
+  res.json({ success: true, message: 'Fatura kalemi silindi', data: faturaYaniti(proc.toJSON()) });
 });
 
 exports.updateProcessFields = wrap(async (req, res) => {

@@ -227,6 +227,28 @@ const xml = Buffer.from('<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl"
 const faturaEkle = (token, ek = {}) => portal.firmaKalemiEkle(token, {
   listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'F-1', tutar: 10, giren: 'Ali', ...ek
 });
+
+test('eski ithal firma formunun USD tutarları makinenin EUR dövizine karışmaz', async () => {
+  await Tesvik.updateOne({ _id: belge._id }, { $set: { 'makineListeleri.ithal.0.gumrukDovizKodu': 'EUR' } });
+  const proc = await mps.ensureProcess({ tesvikModel: 'Tesvik', tesvikId: belge._id, listType: 'import', rowId: 'I1' });
+  await MachineProcess.updateOne({ _id: proc._id }, { $set: { faturalar: [
+    { no: 'FIRMA-ESKI', kaynak: 'firma', tutar: 100 }, { no: 'PERSONEL-ESKI', kaynak: 'personel', tutar: 75 }
+  ] } });
+  const token = await linkUret();
+  const hedef = { listType: 'import', rowId: 'I1' };
+  const eskiForm = await faturaEkle(token, { ...hedef, no: 'FIRMA-USD', tutar: 50 });
+  expect(eskiForm.kalemler.find((k) => k._id.toString() === eskiForm.yeniKalemId).tutarParaBirimi).toBe('USD');
+  const yeniForm = await faturaEkle(token, { ...hedef, no: 'FIRMA-TL', tutar: 1250.25, tutarParaBirimi: 'TRY' });
+  expect(yeniForm.kalemler.find((k) => k._id.toString() === yeniForm.yeniKalemId).tutarParaBirimi).toBe('TRY');
+
+  const { makineler } = await portal.portalVerisi(token);
+  const makine = makineler.ithal[0];
+  expect(makine.kalemler.map((k) => [k.no, k.tutarParaBirimi])).toEqual([
+    ['FIRMA-ESKI', 'USD'], ['PERSONEL-ESKI', 'EUR'], ['FIRMA-USD', 'USD'], ['FIRMA-TL', 'TRY']
+  ]);
+  expect(makine).toMatchObject({ faturaToplami: 1250.25, faturaTutarToplamlari: { USD: 150, EUR: 75, TRY: 1250.25 } });
+});
+
 const evrakYolu = (token, kalemId) => `/musteri-belge/${token}/fatura-kalemi/${kalemId}/evrak`;
 const sahteDepo = () => {
   const sil = jest.spyOn(depo, 'sil').mockResolvedValue();
