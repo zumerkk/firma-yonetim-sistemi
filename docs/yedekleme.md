@@ -106,6 +106,9 @@ Yedek, geri yüklenebildiği kanıtlanana kadar yedek sayılmaz. Yılda birkaç 
 4. Evraklar Drive'daki `evraklar/` klasöründedir; kayıtlardaki adresler eski Cloudinary
    adresleridir, gerçek bir geri dönüşte dosyaların yeniden yüklenip adreslerin
    güncellenmesi gerekir.
+   Harcama ve makine kalemi evraklarında `depo.dosyaYolu` değeri Drive dosya adındaki
+   kimliktir. Eski adla kopyalanan dosyaları bulmak için `yedek_dosya_eslesmeleri.json`
+   içindeki `fatura:<provider>:<dosyaYolu>` kaydının `driveId` değerini kullanın.
 
 ## Ayrıca yapılması önerilen
 

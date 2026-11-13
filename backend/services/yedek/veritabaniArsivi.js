@@ -46,6 +46,7 @@ const IslemTalebi = require('../../models/IslemTalebi');
 const MachineProcess = require('../../models/MachineProcess');
 const HarcamaKalemi = require('../../models/HarcamaKalemi');
 const UploadedDocument = require('../../models/UploadedDocument');
+const YedekDosya = require('../../models/YedekDosya');
 const MailLog = require('../../models/MailLog');
 const MakineRevizyonKaydi = require('../../models/MakineRevizyonKaydi');
 const BelgeOzelNot = require('../../models/BelgeOzelNot');
@@ -67,6 +68,7 @@ const KOLEKSIYONLAR = [
   { model: MachineProcess, dosya: 'makine_surecleri.json', etiket: 'Ekipman Takip Süreçleri', gizle: [], gizliAlanlariAl: true },
   { model: HarcamaKalemi, dosya: 'harcama_kalemleri.json', etiket: 'Harcama Kalemleri', gizle: [], gizliAlanlariAl: true },
   { model: UploadedDocument, dosya: 'yuklenen_evraklar.json', etiket: 'Yüklenen Evrak Künyeleri', gizle: [] },
+  { model: YedekDosya, dosya: 'yedek_dosya_eslesmeleri.json', etiket: 'Yedek Dosya Eşleşmeleri', gizle: [] },
   { model: MailLog, dosya: 'mail_gecmisi.json', etiket: 'Mail Geçmişi', gizle: [] },
   { model: DestekUnsuru, dosya: 'destek_unsurlari.json', etiket: 'Destek Unsurları', gizle: [] },
   { model: DestekSarti, dosya: 'destek_sartlari.json', etiket: 'Destek Şartları', gizle: [] },

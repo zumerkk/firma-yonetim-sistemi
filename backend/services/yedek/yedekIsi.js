@@ -10,7 +10,6 @@
 //   3. Saklama süresi dolan eski veritabanı yedeklerini siler
 //   4. Sonucu YedekCalismasi'na yazar — "sessizce durmuş yedek"i fark edebilelim
 
-const path = require('path');
 const { Readable } = require('stream');
 
 const drive = require('./driveIstemcisi');
@@ -75,8 +74,9 @@ async function evraklariYedekle({ klasorId, gunluk, istemci = drive, indir = sto
         ? { buffer: await faturaEvrakDeposu.oku(d.depo), contentType: d.mimeType }
         : await indir(d.anahtar, d.mimeType);
       if (!icerik || !icerik.buffer) throw new Error('dosya indirilemedi');
-      const uzanti = path.extname(d.ad) || '';
-      const driveAd = `${d.kaynak}_${d.ad}${uzanti ? '' : ''}`.slice(0, 200);
+      const driveAd = d.depo
+        ? `${d.kaynak}_${d.depo.dosyaYolu}`
+        : `${d.kaynak}_${d.ad}`.slice(0, 200);
       const yuklenen = await istemci.dosyaYukle({
         ad: driveAd,
         mimeType: icerik.contentType || d.mimeType || 'application/octet-stream',

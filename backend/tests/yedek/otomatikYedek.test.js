@@ -86,6 +86,10 @@ describe('veritabanı yedeği', () => {
       tesvikModel: 'YeniTesvik', tesvikId: not.tesvikId, listType: 'local', rowId: 'Y-1',
       faturalar: [{ no: 'FT-1', evraklar: [{ tur: 'fatura_pdf', dosyaAdi: 'fatura.pdf', mimeType: 'application/pdf', fileSize: 100, depo }] }]
     });
+    const eslesme = await YedekDosya.create({
+      anahtar: `fatura:${depo.provider}:${depo.dosyaYolu}`, kaynak: 'harcamaTakip',
+      ad: 'fatura.pdf', driveId: 'eski-drive-id', driveAd: 'harcamaTakip_fatura.pdf'
+    });
     const istemci = sahteDrive();
     const sonuc = await yedekIsi.veritabaniniYedekle({ klasorId: 'vt', baslatan: 'Test', gunluk: sessiz, istemci });
 
@@ -116,6 +120,9 @@ describe('veritabanı yedeği', () => {
     expect(JSON.parse(zip.readAsText('makine_surecleri.json'))).toEqual([
       expect.objectContaining({ _id: String(makine._id), faturalar: [expect.objectContaining({ evraklar: [expect.objectContaining({ depo })] })] })
     ]);
+    expect(JSON.parse(zip.readAsText('yedek_dosya_eslesmeleri.json'))).toEqual([
+      expect.objectContaining({ anahtar: eslesme.anahtar, driveId: eslesme.driveId, driveAd: eslesme.driveAd })
+    ]);
     expect(sonuc.eksikler).toEqual([]);
   });
 
@@ -139,13 +146,16 @@ describe('evrak yedeği (artımlı)', () => {
     const buffer = Buffer.from('%PDF-1.4\nHarcama yedeği');
     const depo = { provider: 'cloudinary', dosyaYolu: '12345678-1234-1234-1234-123456789012.pdf' };
     const makineDeposu = { ...depo, dosyaYolu: '12345678-1234-1234-1234-123456789013.pdf' };
+    const digerDepo = { ...depo, dosyaYolu: '12345678-1234-1234-1234-123456789014.pdf' };
     const ozelIndir = jest.spyOn(faturaEvrakDeposu, 'oku').mockResolvedValue(buffer);
     const genelIndir = jest.fn();
     try {
       await HarcamaKalemi.create({
         tesvikModel: 'Tesvik', tesvikId: new ObjectId(), kategori: 'arazi', altKategori: 'arazi',
         tarih: new Date(), no: 'FT-1', tutar: 1150.5,
-        evraklar: [{ tur: 'fatura_pdf', dosyaAdi: 'harcama.pdf', mimeType: 'application/pdf', fileSize: buffer.length, depo }]
+        evraklar: [depo, digerDepo].map((konum) => ({
+          tur: 'fatura_pdf', dosyaAdi: 'harcama.pdf', mimeType: 'application/pdf', fileSize: buffer.length, depo: konum
+        }))
       });
       await MachineProcess.create({
         tesvikModel: 'Tesvik', tesvikId: new ObjectId(), listType: 'import', rowId: 'I-1',
@@ -155,15 +165,17 @@ describe('evrak yedeği (artımlı)', () => {
       });
       const istemci = sahteDrive();
       const islem = { klasorId: 'ev', gunluk: sessiz, istemci, indir: genelIndir };
-      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 2, yuklenen: 2, hatali: 0 });
-      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 2, yedekliOnceden: 2, yuklenen: 0 });
-      expect(ozelIndir).toHaveBeenCalledTimes(2);
+      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 3, yuklenen: 3, hatali: 0 });
+      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 3, yedekliOnceden: 3, yuklenen: 0 });
+      expect(ozelIndir).toHaveBeenCalledTimes(3);
       expect(ozelIndir).toHaveBeenCalledWith(depo);
       expect(ozelIndir).toHaveBeenCalledWith(makineDeposu);
+      expect(ozelIndir).toHaveBeenCalledWith(digerDepo);
       expect(genelIndir).not.toHaveBeenCalled();
       expect(istemci.yuklenenler).toEqual([
-        expect.objectContaining({ name: 'harcamaTakip_harcama.pdf', icerik: buffer, mimeType: 'application/pdf' }),
-        expect.objectContaining({ name: 'makineFaturasi_beyanname.pdf', icerik: buffer, mimeType: 'application/pdf' })
+        expect.objectContaining({ name: `harcamaTakip_${depo.dosyaYolu}`, icerik: buffer, mimeType: 'application/pdf' }),
+        expect.objectContaining({ name: `harcamaTakip_${digerDepo.dosyaYolu}`, icerik: buffer, mimeType: 'application/pdf' }),
+        expect.objectContaining({ name: `makineFaturasi_${makineDeposu.dosyaYolu}`, icerik: buffer, mimeType: 'application/pdf' })
       ]);
     } finally { ozelIndir.mockRestore(); }
   });
