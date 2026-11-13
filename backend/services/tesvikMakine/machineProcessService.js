@@ -270,12 +270,26 @@ function faturaKalemiParaBirimi(kalem, proc) {
   return /^[A-Z0-9]{1,10}$/.test(kod) ? kod : 'USD';
 }
 
+function faturaKalemiTlTutari(kalem, paraBirimi) {
+  return paraBirimi === 'TRY' ? faturaSayi(kalem.tutar) : kalem.malBedeliTl;
+}
+
+function tutariKurusaCevir(deger) {
+  const tutar = faturaSayi(deger);
+  // Ondalık basamağı sayı çarpımıyla kaydırmak 1.005 gibi değerlerde yarım kuruşu kaybettirir.
+  const [katsayi, us = '0'] = Math.abs(tutar).toString().split('e');
+  return Math.sign(tutar) * Math.round(Number(`${katsayi}e${Number(us) + 2}`));
+}
+
 function faturaTutarToplamlari(proc, kalemler = faturaKalemleriniOku(proc)) {
   const kurus = new Map();
+  const tutariEkle = (paraBirimi, tutar) => {
+    if (tutar) kurus.set(paraBirimi, (kurus.get(paraBirimi) || 0) + tutariKurusaCevir(tutar));
+  };
   for (const kalem of kalemler) {
     const paraBirimi = faturaKalemiParaBirimi(kalem, proc);
-    const tutar = faturaSayi(kalem.tutar);
-    if (tutar) kurus.set(paraBirimi, (kurus.get(paraBirimi) || 0) + Math.round(tutar * 100));
+    tutariEkle('TRY', faturaKalemiTlTutari(kalem, paraBirimi));
+    if (paraBirimi !== 'TRY') tutariEkle(paraBirimi, faturaSayi(kalem.tutar));
   }
   return Object.fromEntries(Array.from(kurus, ([kod, tutar]) => [kod, tutar / 100]));
 }
@@ -293,6 +307,7 @@ function faturaKalemiTemizle(k = {}) {
     icerik: String(k.icerik || '').trim().slice(0, 500),
     tutar: faturaSayi(k.tutar),
     tutarParaBirimi: k.tutarParaBirimi,
+    malBedeliTl: k.malBedeliTl,
     adet: faturaSayi(k.adet),
     kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
     girenAdi: String(k.girenAdi || '').trim().slice(0, 120),
@@ -300,7 +315,7 @@ function faturaKalemiTemizle(k = {}) {
   };
   if (k._id) kalem._id = k._id;
   // Tamamen boş satır kaydedilmez (kullanıcı satır ekleyip vazgeçebiliyor)
-  if (!kalem.no && !kalem.tutar && !kalem.adet && !kalem.tarih && !kalem.icerik) return null;
+  if (!kalem.no && !kalem.tutar && !kalem.malBedeliTl && !kalem.adet && !kalem.tarih && !kalem.icerik) return null;
   return kalem;
 }
 
@@ -393,7 +408,7 @@ async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, k
     // arada kalem eklediyse yeni liste üzerinden yeniden denenir; eski listeyle üstüne yazılmaz.
     kaydedilen = await MachineProcess.findOneAndUpdate(
       { _id: taze._id, __v: taze.__v === undefined ? { $exists: false } : taze.__v },
-      { $set: { faturalar: taze.faturalar.toObject(), invoiceRealizedValue: taze.invoiceRealizedValue,
+      { $set: { faturalar: taze.faturalar.toObject(), faturaKalemleriKaydedildi: true, invoiceRealizedValue: taze.invoiceRealizedValue,
         invoiceRealizedQty: taze.invoiceRealizedQty, invoiceNo: taze.invoiceNo, invoiceDate: taze.invoiceDate || null,
         updatedByUserId: user ? user._id : taze.updatedByUserId }, $inc: { __v: 1 } },
       { new: true, runValidators: true }
@@ -419,7 +434,7 @@ function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
 async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId, eskiIstemci = false } = {}) {
   const tutarParaBirimi = eskiIstemci ? faturaKalemiParaBirimi({ kaynak }, proc) : 'TRY';
   const kalem = faturaKalemiTemizle({
-    ...girdi, _id: kalemId, kaynak, tutarParaBirimi, girisTarihi: new Date(),
+    ...girdi, _id: kalemId, kaynak, tutarParaBirimi, malBedeliTl: undefined, girisTarihi: new Date(),
     girenAdi: girenAdi || (user && user.adSoyad) || ''
   });
   if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
@@ -432,14 +447,23 @@ async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIst
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
     if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
-    const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
+    const tutarParaBirimi = faturaKalemiParaBirimi(mevcut, p);
+    let malBedeliTl = mevcut.malBedeliTl;
+    if (Object.hasOwn(girdi, 'malBedeliTl')) {
+      if (tutarParaBirimi === 'TRY') throw faturaHatasi('TL karşılığı yalnız dövizli ithal kalemlere girilebilir.');
+      malBedeliTl = girdi.malBedeliTl;
+      if (malBedeliTl === null) malBedeliTl = undefined;
+      else if (typeof malBedeliTl !== 'number' || !/^\d{1,13}(?:\.\d{1,2})?$/.test(String(malBedeliTl)) || malBedeliTl <= 0) {
+        throw faturaHatasi('Mal bedelini sıfırdan büyük ve en fazla iki ondalık hane ile girin.');
+      }
+    }
+    const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, malBedeliTl, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
     if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
     if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
-    const tutarParaBirimi = faturaKalemiParaBirimi(mevcut, p);
     if (eskiIstemci && p.listType === 'import' && mevcut.tutarParaBirimi === 'TRY' && yeni.tutar !== mevcut.tutar) {
       throw faturaHatasi('TL tutarını güncellemek için sayfayı yenileyip tekrar deneyin.');
     }
-    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi });
+    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi, malBedeliTl });
   }, 'Fatura kalemi düzeltildi', user);
 }
 
@@ -951,6 +975,8 @@ module.exports = {
   faturaToplamlariniHesapla,
   faturaTutarToplamlari,
   faturaKalemiParaBirimi,
+  faturaKalemiTlTutari,
+  tutariKurusaCevir,
   faturaKalemiTemizle,
   faturaKalemiEkle,
   faturaKalemiGuncelle,

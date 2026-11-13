@@ -18,7 +18,7 @@ const EVRAK_SAYI_SINIRI = 6;
 const EVRAK_BOYUT_SINIRI = 10 * 1024 * 1024;
 const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, yuklenenleriGoster = true }) {
+export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, onIndir, yuklenenleriGoster = true }) {
   const belgeTuru = ithal ? 'Beyanname' : 'Fatura';
   const evrakTurleri = ithal ? BEYANNAME_EVRAK_TURLERI : FATURA_EVRAK_TURLERI;
   const [dosyalar, setDosyalar] = useState({});
@@ -99,7 +99,10 @@ export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, 
               {yuklenenleriGoster && yuklenenler.length > 0 && (
                 <Box component="ul" aria-label={`${tur.etiket} yüklenen dosyalar`} sx={{ m: 0, mt: 0.5, pl: 2 }}>
                   {yuklenenler.map((evrak) => (
-                    <Typography key={evrak._id} component="li" variant="caption" sx={{ overflowWrap: 'anywhere' }}>{evrak.dosyaAdi}</Typography>
+                    <Typography key={evrak._id} component="li" variant="caption" sx={{ overflowWrap: 'anywhere' }}>
+                      {onIndir ? <Button size="small" disabled={!!islem} onClick={() => onIndir(evrak)}
+                        aria-label={`${evrak.dosyaAdi} indir`} sx={{ textTransform: 'none', textAlign: 'left' }}>{evrak.dosyaAdi}</Button> : evrak.dosyaAdi}
+                    </Typography>
                   ))}
                 </Box>
               )}

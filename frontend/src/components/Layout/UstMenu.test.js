@@ -18,11 +18,11 @@ beforeEach(() => {
   useAuth.mockReturnValue({ user: { adSoyad: 'Ayşe Uzman', rol: 'kullanici', yetkiler: {} }, logout: jest.fn() });
 });
 
-test('aktif öğe en uzun yol önekiyle bulunur; Ekipman Takip Teşvik Listesi sayılmaz', () => {
+test('aktif öğe en uzun yol önekiyle bulunur; Harcama Takip Teşvik Listesi sayılmaz', () => {
   const ad = (yol) => aktifMenuOgesi(yol)?.text;
   expect(ad('/')).toBe('Dashboard');
-  expect(ad('/tesvikler')).toBe('Ekipman Takip');
-  expect(ad('/tesvikler/belge/123')).toBe('Ekipman Takip');
+  expect(ad('/tesvikler')).toBe('Harcama Takip');
+  expect(ad('/tesvikler/belge/123')).toBe('Harcama Takip');
   expect(ad('/tesvik/abc')).toBe('Teşvik Listesi');
   expect(ad('/yeni-tesvik/makine-yonetimi')).toBe('Makine Listesi');
   expect(ad('/dosya-takip/65f0')).toBe('Belge Takip');
@@ -37,7 +37,7 @@ test('üst menü tüm ana ekranlara bağlantı verir ve bulunulan sayfayı işar
   expect(baglantilar.map((a) => a.textContent)).toEqual(ustMenuOgeleri.map((o) => o.kisaAd || o.text));
   expect(within(menu).getByRole('link', { ...H, name: 'Belge Takip' })).toHaveAttribute('aria-current', 'page');
   expect(within(menu).getByRole('link', { ...H, name: 'Belge Takip' })).toHaveAttribute('href', '/dosya-takip/liste');
-  expect(within(menu).getByRole('link', { ...H, name: 'Ekipman Takip' })).not.toHaveAttribute('aria-current');
+  expect(within(menu).getByRole('link', { ...H, name: 'Harcama Takip' })).not.toHaveAttribute('aria-current');
 });
 
 test('yetki isteyen öğe yetkisiz kullanıcıya gösterilmez', () => {

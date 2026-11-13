@@ -14,7 +14,7 @@ const bicimle = (v) => {
   return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-export default function TutarAlani({ value, onChange, label = 'Tutar', simge = '₺', ...props }) {
+export default function TutarAlani({ value, onChange, label = 'Tutar', simge = '₺', bosDeger = 0, ...props }) {
   const [yazi, setYazi] = useState(null);   // null = odakta değil, gösterim biçimli
 
   return (
@@ -25,7 +25,7 @@ export default function TutarAlani({ value, onChange, label = 'Tutar', simge = '
       onFocus={() => setYazi(value ? String(value) : '')}
       onChange={(e) => {
         setYazi(e.target.value);
-        onChange(sayiCoz(e.target.value) || 0);
+        onChange(e.target.value.trim() ? sayiCoz(e.target.value) || 0 : bosDeger);
       }}
       onBlur={() => setYazi(null)}
       inputProps={{ inputMode: 'decimal', ...(props.inputProps || {}) }}

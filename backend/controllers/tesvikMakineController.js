@@ -21,6 +21,7 @@ const resolver = require('../services/tesvikMakine/certificateResolver');
 const storageService = require('../services/tesvikMakine/storageService');
 const mailService = require('../services/tesvikMakine/mailService');
 const mps = require('../services/tesvikMakine/machineProcessService');
+const gerceklesmeService = require('../services/tesvikMakine/gerceklesmeService');
 const reminderService = require('../services/tesvikMakine/reminderService');
 const { resolveTemplate } = require('../services/tesvikMakine/mailTemplateProvider');
 const { extractPlaceholders } = require('../services/tesvikMakine/mailTemplateEngine');
@@ -261,6 +262,16 @@ exports.getCertificateMachines = wrap(async (req, res) => {
   const { tesvikModel, tesvikId } = req.params;
   getModel(tesvikModel);
   const data = await mps.listForCertificate({ tesvikModel, tesvikId });
+  res.json({ success: true, data });
+});
+
+exports.getCertificateGerceklesme = wrap(async (req, res) => {
+  const { tesvikModel, tesvikId } = req.params;
+  getModel(tesvikModel);
+  if (!mongoose.isObjectIdOrHexString(tesvikId)) {
+    throw Object.assign(new Error('Teşvik belgesi bulunamadı.'), { code: 'CERT_NOT_FOUND' });
+  }
+  const data = await gerceklesmeService.belgeGerceklesmesi(tesvikModel, tesvikId);
   res.json({ success: true, data });
 });
 

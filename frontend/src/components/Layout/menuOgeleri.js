@@ -72,13 +72,13 @@ export const firmaMenusu = [
     description: 'Makine teçhizat yönetimi'
   },
   {
-    text: 'Ekipman Takip',
+    text: 'Harcama Takip',
     icon: <FactCheckIcon />,
     path: '/tesvikler',
     aktifYollar: ['/tesvikler'],
     color: '#0d9488',
     gradient: '#134e4a',
-    description: 'Süreç, mail, evrak takibi'
+    description: 'Ekipman, yatırım harcamaları ve gerçekleşme takibi'
   },
   // "Ara Kontrol Maili" sayfası kaldırıldı (müşteri, 13.10.2026: "komple kaldırabiliriz"); mail Ekipman
   // Takip › İşlem penceresindeki şablon listesinden gönderiliyor, firmanın elindeki linkler çalışıyor.

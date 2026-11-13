@@ -12,6 +12,8 @@ jest.mock('../../components/Tesvik/MusteriLinkiDugmesi', () => () => null);
 jest.mock('../../contexts/AuthContext', () => ({ useAuth: jest.fn() }));
 jest.mock('../../services/tesvikMakineService', () => ({ getCertificate: jest.fn(), getMachines: jest.fn(), meta: jest.fn() }));
 jest.mock('./MakineDetailModal', () => () => null);
+jest.mock('./Harcamalar', () => ({ kategori, duzenlenebilir }) => <div>{`${kategori}-${duzenlenebilir}`}</div>);
+jest.mock('./GerceklesmeOzeti', () => ({ tesvikModel, tesvikId }) => <div>{`${tesvikModel}-${tesvikId}-gerçekleşme`}</div>);
 jest.mock('./FaturaKalemleriDialog', () => ({ open, duzenlenebilir }) => open && (
   <div role="dialog">{duzenlenebilir ? 'Düzenleme açık' : 'Sadece okuma'}</div>
 ));
@@ -48,6 +50,21 @@ function detayAc() {
     <Routes><Route path="/tesvikler/:tesvikModel/:tesvikId" element={<TesvikMakineDetail />} /></Routes>
   </MemoryRouter>);
 }
+
+test('belge detayında üç harcama sekmesi ve en sonda gerçekleşme özeti açılır', async () => {
+  useAuth.mockReturnValue({ user: { rol: 'kullanici' } });
+  detayAc();
+  const sekmeler = await screen.findAllByRole('tab');
+  expect(sekmeler.slice(-4).map((tab) => tab.textContent)).toEqual([
+    'Diğer Harcamalar', 'Bina İnşaat Harcamaları', 'Arazi-Arsa Harcamaları', 'Gerçekleşme Özeti'
+  ]);
+  for (const [sekme, kategori] of [[-4, 'diger'], [-3, 'bina'], [-2, 'arazi']]) {
+    fireEvent.click(sekmeler.at(sekme));
+    expect(screen.getByText(`${kategori}-true`)).toBeInTheDocument();
+  }
+  fireEvent.click(sekmeler.at(-1));
+  expect(screen.getByText('Tesvik-belge-gerçekleşme')).toBeInTheDocument();
+});
 
 test('makine talepleri, yerli ve ithal listeler miktar etiketini gösterir; ithal tutarlar kendi dövizinde görünür', async () => {
   detayAc();

@@ -20,6 +20,9 @@ const DosyaTakip = require('../../models/DosyaTakip');
 const UploadedDocument = require('../../models/UploadedDocument');
 const BelgeOzelNot = require('../../models/BelgeOzelNot');
 const CariHareket = require('../../models/CariHareket');
+const HarcamaKalemi = require('../../models/HarcamaKalemi');
+const MachineProcess = require('../../models/MachineProcess');
+const faturaEvrakDeposu = require('../../services/tesvikMakine/faturaEvrakDeposu');
 
 jest.setTimeout(60000);
 
@@ -59,7 +62,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await mongoose.disconnect(); if (mem) await mem.stop(); delete process.env.YEDEK_DRIVE_KLASOR_ID; });
 beforeEach(async () => {
-  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({}), BelgeOzelNot.deleteMany({}), CariHareket.deleteMany({})]);
+  await Promise.all([YedekDosya.deleteMany({}), YedekCalismasi.deleteMany({}), DosyaTakip.deleteMany({}), UploadedDocument.deleteMany({}), BelgeOzelNot.deleteMany({}), CariHareket.deleteMany({}), HarcamaKalemi.deleteMany({}), MachineProcess.deleteMany({})]);
 });
 
 describe('veritabanı yedeği', () => {
@@ -72,6 +75,16 @@ describe('veritabanı yedeği', () => {
     const hareket = await CariHareket.create({
       firma, tur: 'odenen', belgeAdi: 'Danışmanlık hizmeti', tutar: 12500.75, tarih: new Date('2026-10-20'),
       olusturan: kullanici, olusturanAdi: 'Test Personel'
+    });
+    const depo = { provider: 'cloudinary', dosyaYolu: '12345678-1234-1234-1234-123456789012.pdf' };
+    const harcama = await HarcamaKalemi.create({
+      tesvikModel: 'YeniTesvik', tesvikId: not.tesvikId, kategori: 'bina', altKategori: 'anaBina',
+      tarih: new Date('2026-10-20'), no: 'TEST', tutar: 1150.5,
+      evraklar: [{ tur: 'fatura_pdf', dosyaAdi: 'fatura.pdf', mimeType: 'application/pdf', fileSize: 100, depo }]
+    });
+    const makine = await MachineProcess.create({
+      tesvikModel: 'YeniTesvik', tesvikId: not.tesvikId, listType: 'local', rowId: 'Y-1',
+      faturalar: [{ no: 'FT-1', evraklar: [{ tur: 'fatura_pdf', dosyaAdi: 'fatura.pdf', mimeType: 'application/pdf', fileSize: 100, depo }] }]
     });
     const istemci = sahteDrive();
     const sonuc = await yedekIsi.veritabaniniYedekle({ klasorId: 'vt', baslatan: 'Test', gunluk: sessiz, istemci });
@@ -97,6 +110,12 @@ describe('veritabanı yedeği', () => {
     expect(JSON.parse(zip.readAsText('cari_hareketler.json'))).toEqual([
       expect.objectContaining({ _id: String(hareket._id), firma: String(firma), tutar: 12500.75 })
     ]);
+    expect(JSON.parse(zip.readAsText('harcama_kalemleri.json'))).toEqual([
+      expect.objectContaining({ _id: String(harcama._id), tutar: 1150.5, evraklar: [expect.objectContaining({ depo })] })
+    ]);
+    expect(JSON.parse(zip.readAsText('makine_surecleri.json'))).toEqual([
+      expect.objectContaining({ _id: String(makine._id), faturalar: [expect.objectContaining({ evraklar: [expect.objectContaining({ depo })] })] })
+    ]);
     expect(sonuc.eksikler).toEqual([]);
   });
 
@@ -104,7 +123,7 @@ describe('veritabanı yedeği', () => {
     const { KOLEKSIYONLAR } = require('../../services/yedek/veritabaniArsivi');
     const dosyalar = KOLEKSIYONLAR.map((k) => k.dosya);
     expect(dosyalar).toEqual(expect.arrayContaining([
-      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json', 'belge_ozel_notlari.json', 'cari_hareketler.json'
+      'islem_talepleri.json', 'yuklenen_evraklar.json', 'makine_surecleri.json', 'mail_gecmisi.json', 'belge_ozel_notlari.json', 'cari_hareketler.json', 'harcama_kalemleri.json'
     ]));
   });
 });
@@ -115,6 +134,39 @@ describe('evrak yedeği (artımlı)', () => {
     { anahtar: 'https://res.cloudinary.com/x/b.pdf', kaynak: 'dosyaTakip', ad: 'b.pdf', boyut: 20, mimeType: 'application/pdf' }
   ]);
   const indir = async () => ({ buffer: Buffer.from('dosya içeriği'), contentType: 'application/pdf' });
+
+  test('harcama ve makine evrakları özel depodan alınır ve adresleri paylaşılmadan bir kez yedeklenir', async () => {
+    const buffer = Buffer.from('%PDF-1.4\nHarcama yedeği');
+    const depo = { provider: 'cloudinary', dosyaYolu: '12345678-1234-1234-1234-123456789012.pdf' };
+    const makineDeposu = { ...depo, dosyaYolu: '12345678-1234-1234-1234-123456789013.pdf' };
+    const ozelIndir = jest.spyOn(faturaEvrakDeposu, 'oku').mockResolvedValue(buffer);
+    const genelIndir = jest.fn();
+    try {
+      await HarcamaKalemi.create({
+        tesvikModel: 'Tesvik', tesvikId: new ObjectId(), kategori: 'arazi', altKategori: 'arazi',
+        tarih: new Date(), no: 'FT-1', tutar: 1150.5,
+        evraklar: [{ tur: 'fatura_pdf', dosyaAdi: 'harcama.pdf', mimeType: 'application/pdf', fileSize: buffer.length, depo }]
+      });
+      await MachineProcess.create({
+        tesvikModel: 'Tesvik', tesvikId: new ObjectId(), listType: 'import', rowId: 'I-1',
+        faturalar: [{ no: 'BY-1', evraklar: [{
+          tur: 'beyanname_pdf', dosyaAdi: 'beyanname.pdf', mimeType: 'application/pdf', fileSize: buffer.length, depo: makineDeposu
+        }] }]
+      });
+      const istemci = sahteDrive();
+      const islem = { klasorId: 'ev', gunluk: sessiz, istemci, indir: genelIndir };
+      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 2, yuklenen: 2, hatali: 0 });
+      expect(await yedekIsi.evraklariYedekle(islem)).toMatchObject({ envanter: 2, yedekliOnceden: 2, yuklenen: 0 });
+      expect(ozelIndir).toHaveBeenCalledTimes(2);
+      expect(ozelIndir).toHaveBeenCalledWith(depo);
+      expect(ozelIndir).toHaveBeenCalledWith(makineDeposu);
+      expect(genelIndir).not.toHaveBeenCalled();
+      expect(istemci.yuklenenler).toEqual([
+        expect.objectContaining({ name: 'harcamaTakip_harcama.pdf', icerik: buffer, mimeType: 'application/pdf' }),
+        expect.objectContaining({ name: 'makineFaturasi_beyanname.pdf', icerik: buffer, mimeType: 'application/pdf' })
+      ]);
+    } finally { ozelIndir.mockRestore(); }
+  });
 
   test('eksik dosyaları kopyalar ve kaydeder', async () => {
     const istemci = sahteDrive();

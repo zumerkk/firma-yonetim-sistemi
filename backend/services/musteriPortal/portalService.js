@@ -184,6 +184,7 @@ const kalemGorunumu = (k, surec = {}) => ({
   _id: k._id, tarih: k.tarih || null, no: k.no || '', icerik: k.icerik || '',
   tutar: Number(k.tutar) || 0, adet: Number(k.adet) || 0,
   tutarParaBirimi: mps.faturaKalemiParaBirimi(k, surec),
+  malBedeliTl: k.malBedeliTl,
   kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
   girenAdi: k.kaynak === 'firma' ? (k.girenAdi || '') : '',
   girisTarihi: k.girisTarihi || null,

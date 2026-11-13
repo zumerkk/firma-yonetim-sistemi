@@ -44,6 +44,7 @@ const UsedMachineCode = require('../../models/UsedMachineCode');
 const IslemTuru = require('../../models/IslemTuru');
 const IslemTalebi = require('../../models/IslemTalebi');
 const MachineProcess = require('../../models/MachineProcess');
+const HarcamaKalemi = require('../../models/HarcamaKalemi');
 const UploadedDocument = require('../../models/UploadedDocument');
 const MailLog = require('../../models/MailLog');
 const MakineRevizyonKaydi = require('../../models/MakineRevizyonKaydi');
@@ -63,7 +64,8 @@ const KOLEKSIYONLAR = [
   { model: Notification, dosya: 'bildirimler.json', etiket: 'Bildirimler', gizle: [] },
   { model: IslemTuru, dosya: 'islem_turleri.json', etiket: 'İşlem Türleri (şablonlar)', gizle: [] },
   { model: IslemTalebi, dosya: 'islem_talepleri.json', etiket: 'İşlem & Evrak Talepleri', gizle: [] },
-  { model: MachineProcess, dosya: 'makine_surecleri.json', etiket: 'Ekipman Takip Süreçleri', gizle: [] },
+  { model: MachineProcess, dosya: 'makine_surecleri.json', etiket: 'Ekipman Takip Süreçleri', gizle: [], gizliAlanlariAl: true },
+  { model: HarcamaKalemi, dosya: 'harcama_kalemleri.json', etiket: 'Harcama Kalemleri', gizle: [], gizliAlanlariAl: true },
   { model: UploadedDocument, dosya: 'yuklenen_evraklar.json', etiket: 'Yüklenen Evrak Künyeleri', gizle: [] },
   { model: MailLog, dosya: 'mail_gecmisi.json', etiket: 'Mail Geçmişi', gizle: [] },
   { model: DestekUnsuru, dosya: 'destek_unsurlari.json', etiket: 'Destek Unsurları', gizle: [] },
@@ -87,10 +89,12 @@ const KOLEKSIYONLAR = [
  * 🚿 Bir koleksiyonu JSON dizisi olarak akıtan Readable.
  * Çıktı geçerli bir JSON dizisidir; her kayıt kendi satırında durur.
  */
-const koleksiyonAkisi = (model, gizle = []) => {
+const koleksiyonAkisi = (model, gizle = [], gizliAlanlariAl = false) => {
   const projeksiyon = {};
   gizle.forEach((f) => { projeksiyon[f] = 0; });
-  const cursor = model.find({}, projeksiyon).lean().cursor({ batchSize: BATCH_BOYUTU });
+  const sorgu = model.find({}, projeksiyon).lean();
+  if (gizliAlanlariAl) sorgu.schemaLevelProjections(false);
+  const cursor = sorgu.cursor({ batchSize: BATCH_BOYUTU });
 
   let sayac = 0;
   let ilk = true;
@@ -199,7 +203,7 @@ async function arsiveYaz(arsiv, { yedekAlan = 'Otomatik yedek', yedekAlanEmail =
   // SIRAYLA: her koleksiyonun arşive tamamen yazılmasını bekliyoruz (bellek notu)
   for (const kol of KOLEKSIYONLAR) {
     try {
-      const akis = koleksiyonAkisi(kol.model, kol.gizle);
+      const akis = koleksiyonAkisi(kol.model, kol.gizle, kol.gizliAlanlariAl);
       await arsiveEkleVeBekle(arsiv, akis, kol.dosya);
       const adet = akis.kayitSayisi();
       const hata = akis.hataMesaji();

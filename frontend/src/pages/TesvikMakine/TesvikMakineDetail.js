@@ -20,6 +20,8 @@ import { EVRAK_ACCEPT } from '../../utils/yuklemeTurleri';
 import { turkceIcerir } from '../../utils/turkceKatla';
 import MakineDetailModal from './MakineDetailModal';
 import FaturaKalemleriDialog from './FaturaKalemleriDialog';
+import Harcamalar from './Harcamalar';
+import GerceklesmeOzeti from './GerceklesmeOzeti';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
 import { LISTE_ADRESI_ANAHTARI } from './TesvikMakineList';
 import {
@@ -33,6 +35,11 @@ const miktarSutunu = {
 };
 
 const planlananTutar = ({ row }) => formatMoney(row.totalPrice, row.listType === 'import' ? 'USD' : 'TRY');
+const HARCAMA_SEKMELERI = [
+  { deger: 8, kategori: 'diger', baslik: 'Diğer Harcamalar' },
+  { deger: 9, kategori: 'bina', baslik: 'Bina İnşaat Harcamaları' },
+  { deger: 10, kategori: 'arazi', baslik: 'Arazi-Arsa Harcamaları' }
+];
 
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
@@ -44,8 +51,11 @@ export default function TesvikMakineDetail() {
   const [machines, setMachines] = useState([]);
   const [meta, setMeta] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [finansalYenileme, setFinansalYenileme] = useState(0);
   const [snack, setSnack] = useState(null);
   const notify = (message, severity = 'success') => setSnack({ message, severity });
+  const duzenlenebilir = ['admin', 'kullanici'].includes(user?.rol);
+  const harcamaSekmesi = HARCAMA_SEKMELERI.find(({ deger }) => deger === tab);
 
   // Modal
   const [modalTarget, setModalTarget] = useState(null);
@@ -87,7 +97,11 @@ export default function TesvikMakineDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
-  const refreshAll = () => { setDocs(null); setMails(null); setReminders(null); setTimeline(null); loadCore(); };
+  const refreshAll = () => {
+    setDocs(null); setMails(null); setReminders(null); setTimeline(null);
+    setFinansalYenileme((deger) => deger + 1);
+    loadCore();
+  };
 
   // Müşteri (21.09.2026): toplu mailden sonra "hepsinde evrak sayısı 0 görünüyor". Canlıda sayaçlar doğru
   // (17.09: mailden 34 sn sonra linke yüklenen dosyalar her makinede sayılmış); ama yükleme başka sekmede
@@ -287,6 +301,8 @@ export default function TesvikMakineDetail() {
             <Tab label="Mail Geçmişi" value={5} />
             <Tab label="Hatırlatmalar" value={6} />
             <Tab label="Notlar / Geçmiş" value={7} />
+            {HARCAMA_SEKMELERI.map(({ deger, baslik }) => <Tab key={deger} label={baslik} value={deger} />)}
+            <Tab label="Gerçekleşme Özeti" value={11} />
           </Tabs>
         </Paper>
 
@@ -589,12 +605,17 @@ export default function TesvikMakineDetail() {
               ]} density="compact" disableRowSelectionOnClick />
           </Paper>
         )}
+
+        {harcamaSekmesi && <Harcamalar key={`${tesvikModel}/${tesvikId}/${harcamaSekmesi.kategori}`}
+          tesvikModel={tesvikModel} tesvikId={tesvikId} kategori={harcamaSekmesi.kategori} baslik={harcamaSekmesi.baslik}
+          duzenlenebilir={duzenlenebilir} yenileme={finansalYenileme} />}
+        {tab === 11 && <GerceklesmeOzeti tesvikModel={tesvikModel} tesvikId={tesvikId} yenileme={finansalYenileme} />}
       </Box>
 
       <MakineDetailModal open={!!modalTarget} target={modalTarget} meta={meta}
         onClose={() => setModalTarget(null)} onChanged={makineleriTazele} />
       <FaturaKalemleriDialog open={!!faturaMakinesi} makine={faturaMakinesi} tesvikModel={tesvikModel} tesvikId={tesvikId}
-        duzenlenebilir={['admin', 'kullanici'].includes(user?.rol)}
+        duzenlenebilir={duzenlenebilir}
         onClose={() => setFaturaMakinesi(null)} onChanged={makineleriTazele} />
 
       <Snackbar open={!!snack} autoHideDuration={4000} onClose={() => setSnack(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>

@@ -173,7 +173,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Firma bu linkle belge bilgilerini (evrak listesi hariç), yerli ve ithal makine listesini görür;
             makinelere fatura kalemi girebilir. Girdiği kalem kaydedilince firmaya kilitlenir
-            ("Onaylandı"); düzeltme ve silme Ekipman Takip › Yerli / İthal Liste'den yapılır.
+            ("Onaylandı"). Düzeltme ve silme Harcama Takip › Yerli / İthal Liste'den yapılır.
           </Typography>
           {mesgul && <Stack alignItems="center" spacing={1} sx={{ py: 2 }}>
             <CircularProgress size={24} />

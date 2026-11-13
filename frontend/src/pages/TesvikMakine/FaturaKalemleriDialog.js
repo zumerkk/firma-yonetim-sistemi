@@ -27,7 +27,7 @@ import { hataMesaji } from '../../utils/hataMesaji';
 import { birimEtiketi } from '../../utils/makineFormat';
 import { formatDate, formatFaturaToplamlari, formatMoney } from './helpers';
 
-const BOS = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
+const BOS = { tarih: '', no: '', icerik: '', tutar: 0, adet: '', malBedeliTl: undefined };
 const PARA_SIMGESI = { TRY: '₺', USD: '$', EUR: '€' };
 const kalemEvraklari = (kalem, turler) => (Array.isArray(kalem.evraklar) ? kalem.evraklar : [])
   .filter((evrak) => evrak?._id && turler.some(({ tur }) => tur === evrak.tur));
@@ -88,7 +88,12 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   const evrakTurleri = ithal ? BEYANNAME_EVRAK_TURLERI : FATURA_EVRAK_TURLERI;
   const eskiParaBirimi = proc?.currency || makine?.currency || 'USD';
   const kalemParaBirimi = (kalem) => ithal ? (kalem?.tutarParaBirimi || eskiParaBirimi) : 'TRY';
-  const formParaBirimi = duzenlenen ? kalemParaBirimi(proc?.faturalar?.find((k) => k._id === duzenlenen)) : 'TRY';
+  const duzenlenenKalem = proc?.faturalar?.find((k) => k._id === duzenlenen);
+  const formParaBirimi = duzenlenenKalem ? kalemParaBirimi(duzenlenenKalem) : 'TRY';
+  const dovizliKalem = formParaBirimi !== 'TRY';
+  const malBedeliTl = form.malBedeliTl === undefined ? duzenlenenKalem?.malBedeliTl : form.malBedeliTl;
+  const malBedeliHatasi = dovizliKalem && malBedeliTl != null
+    && (malBedeliTl <= 0 || !/^\d{1,13}(?:\.\d{1,2})?$/.test(String(malBedeliTl)));
   const tutarEtiketi = ithal ? 'Kalem Tutarı – Mal Bedeli TL' : 'Kalem Tutarı';
   const birim = birimEtiketi(makine?.unit, makine?.unitDescription);
 
@@ -125,6 +130,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   const toplamTutar = proc?.faturaTutarToplamlari || kalemler.reduce((toplamlar, k) => {
     const kod = kalemParaBirimi(k);
     toplamlar[kod] = (toplamlar[kod] || 0) + (Number(k.tutar) || 0);
+    if (kod !== 'TRY' && k.malBedeliTl != null) toplamlar.TRY = (toplamlar.TRY || 0) + k.malBedeliTl;
     return toplamlar;
   }, {});
   const toplamAdet = kalemler.reduce((t, k) => t + (Number(k.adet) || 0), 0);
@@ -139,10 +145,11 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   };
 
   const kaydet = async () => {
-    if (!proc || kilitli || !duzenlenebilir) return;
+    if (!proc || kilitli || !duzenlenebilir || malBedeliHatasi) return;
     setMesgul(true); setHata(''); setBilgi('');
     const govde = { tarih: form.tarih || null, no: form.no, icerik: form.icerik, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0 };
-    if (formParaBirimi === 'TRY') govde.tutarParaBirimi = 'TRY';
+    if (!dovizliKalem) govde.tutarParaBirimi = 'TRY';
+    if (dovizliKalem && form.malBedeliTl !== undefined) govde.malBedeliTl = form.malBedeliTl;
     try {
       const data = duzenlenen
         ? await svc.faturaKalemiGuncelle(proc._id, duzenlenen, govde)
@@ -238,7 +245,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
     }
   };
 
-  const formDolu = form.no || form.icerik || form.tarih || Number(form.tutar) || Number(form.adet);
+  const formDolu = form.no || form.icerik || form.tarih || Number(form.tutar) || Number(form.adet) || form.malBedeliTl;
 
   return (
     <Dialog open={open} onClose={kapat} maxWidth="md" fullWidth scroll="paper">
@@ -297,7 +304,12 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(k.tarih)}</TableCell>
                             <TableCell>{k.no || '-'}</TableCell>
                             <TableCell sx={{ maxWidth: 220, wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
-                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar, kalemParaBirimi(k))}</TableCell>
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                              {formatMoney(k.tutar, kalemParaBirimi(k))}
+                              {ithal && k.malBedeliTl != null && <Typography variant="caption" display="block" color="text.secondary">
+                                Mal Bedeli TL {formatMoney(k.malBedeliTl)}
+                              </Typography>}
+                            </TableCell>
                             <TableCell align="right">{k.adet || 0}</TableCell>
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                               {k.kaynak === 'firma'
@@ -356,7 +368,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                   <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} />
                 </Grid>
                 <Grid item xs={8} sm={4}>
-                  <TutarAlani fullWidth size="small" label={ithal && formParaBirimi !== 'TRY' ? `Kalem Tutarı – Mal Bedeli (${formParaBirimi})` : tutarEtiketi}
+                  <TutarAlani fullWidth size="small" label={dovizliKalem ? `Kalem Tutarı – Mal Bedeli (${formParaBirimi})` : tutarEtiketi}
                     value={form.tutar} simge={PARA_SIMGESI[formParaBirimi] || formParaBirimi}
                     onChange={(v) => setForm((f) => ({ ...f, tutar: v }))} />
                 </Grid>
@@ -364,11 +376,16 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                   <TextField fullWidth size="small" type="number" label="Adet" value={form.adet} onChange={alan('adet')}
                     inputProps={{ min: 0 }} />
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                {dovizliKalem && <Grid item xs={8} sm={4}>
+                  <TutarAlani key={duzenlenen} fullWidth size="small" label="Mal Bedeli TL" value={malBedeliTl ?? 0} bosDeger={null}
+                    error={malBedeliHatasi} helperText={malBedeliHatasi ? 'En fazla iki ondalık haneli, pozitif tutar girin.' : undefined}
+                    onChange={(v) => setForm((f) => ({ ...f, malBedeliTl: v }))} />
+                </Grid>}
+                <Grid item xs={12} sm={dovizliKalem ? 2 : 6}>
                   <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ height: '100%' }} alignItems="center">
                     {duzenlenen && <Button onClick={() => { setDuzenlenen(null); setForm(BOS); }} disabled={kilitli}>Vazgeç</Button>}
                     <Button variant="contained" startIcon={mesgul ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                      onClick={kaydet} disabled={kilitli || !formDolu}>
+                      onClick={kaydet} disabled={kilitli || !formDolu || malBedeliHatasi}>
                       Kaydet
                     </Button>
                   </Stack>

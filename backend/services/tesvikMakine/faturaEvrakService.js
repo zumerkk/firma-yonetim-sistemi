@@ -73,12 +73,16 @@ function tekrarEvrakIstegi(kalem, istekId, istekOzeti) {
   return Boolean(kayitli);
 }
 
-async function evrakYukle({ baglamiYukle, kalemId, kaynak, istekId, dosyalar = {} }) {
+function istekIdDogrula(istekId) {
   if (istekId !== undefined && (typeof istekId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(istekId))) {
     throw hata('Geçersiz yükleme kimliği.', 'BAD_REQUEST_ID', 400);
   }
+}
+
+async function kalemeEvrakYukle({ baglamiYukle, ekleriKaydet, kaydiTekrarOku, istekId, dosyalar = {} }) {
+  istekIdDogrula(istekId);
   let baglam = await baglamiYukle();
-  const { listType } = baglam.proc;
+  const { listType } = baglam;
   const alanlar = EVRAK_ALANLARI[listType];
   if (!alanlar || Object.keys(dosyalar).some((alan) => !Object.hasOwn(alanlar, alan))) {
     throw hata('Bu makine listesi için dosya alanları geçersiz.', 'FATURA_EVRAK_TURU', 400);
@@ -99,27 +103,23 @@ async function evrakYukle({ baglamiYukle, kalemId, kaynak, istekId, dosyalar = {
       evraklar.push({ ...ek, depo, ...(istekId ? { istekId, istekOzeti } : {}) });
     }
     baglam = await baglamiYukle();
-    if (baglam.proc.listType !== listType) throw hata('Makine listesi değişti. Sayfayı yenileyip tekrar deneyin.', 'FATURA_CAKISMA', 409);
+    if (baglam.listType !== listType) throw hata('Kalemin listesi değişti. Sayfayı yenileyip tekrar deneyin.', 'FATURA_CAKISMA', 409);
     if (tekrarEvrakIstegi(baglam.kalem, istekId, istekOzeti)) return baglam;
 
-    const proc = baglam.proc;
     let kaydedilen;
     try {
-      kaydedilen = await mps.faturaEvraklariniEkle({
-        surecId: proc._id, tesvikModel: proc.tesvikModel, tesvikId: proc.tesvikId, rowId: proc.rowId,
-        listType: proc.listType, kalemId, kaynak, evraklar, istekId
-      });
+      kaydedilen = await ekleriKaydet(baglam, evraklar);
     } catch (error) {
       // Yazımın yanıtı kaybolduysa gerçekten kaydedilen dosyaların depo kopyasına dokunma.
-      const sonuc = await MachineProcess.findById(proc._id).catch(() => undefined);
+      const sonuc = await kaydiTekrarOku(baglam).catch(() => undefined);
       if (sonuc === undefined) temizle = false;
-      const mevcut = sonuc?.faturalar.id(kalemId)?.evraklar;
+      const mevcut = sonuc?.kalem?.evraklar;
       if (!mevcut || !evraklar.every((ek) => mevcut.id(ek._id))) throw error;
       kaydedilen = sonuc;
     }
     if (kaydedilen) {
       temizle = false;
-      return { ...baglam, proc: kaydedilen, kalem: kaydedilen.faturalar.id(kalemId) };
+      return kaydedilen;
     }
     baglam = await baglamiYukle();
     if (tekrarEvrakIstegi(baglam.kalem, istekId, istekOzeti)) return baglam;
@@ -129,4 +129,23 @@ async function evrakYukle({ baglamiYukle, kalemId, kaynak, istekId, dosyalar = {
   }
 }
 
-module.exports = { evrakYukle, personelFaturaEvrakBaglami };
+function evrakYukle({ baglamiYukle, kalemId, kaynak, istekId, dosyalar }) {
+  const guncelBaglam = (baglam, proc) => proc && { ...baglam, proc, kalem: proc.faturalar.id(kalemId) };
+  return kalemeEvrakYukle({
+    baglamiYukle: async () => {
+      const baglam = await baglamiYukle();
+      return { ...baglam, listType: baglam.proc.listType };
+    },
+    ekleriKaydet: async (baglam, evraklar) => {
+      const proc = baglam.proc;
+      return guncelBaglam(baglam, await mps.faturaEvraklariniEkle({
+        surecId: proc._id, tesvikModel: proc.tesvikModel, tesvikId: proc.tesvikId, rowId: proc.rowId,
+        listType: proc.listType, kalemId, kaynak, evraklar, istekId
+      }));
+    },
+    kaydiTekrarOku: async (baglam) => guncelBaglam(baglam, await MachineProcess.findById(baglam.proc._id)),
+    istekId, dosyalar
+  });
+}
+
+module.exports = { evrakYukle, kalemeEvrakYukle, personelFaturaEvrakBaglami, istekIdDogrula };

@@ -7,6 +7,7 @@ const { authenticate, authorize, adminAuth } = require('../middleware/auth');
 const { uploadMultiple, uploadSingle } = require('../middleware/tesvikUpload');
 const faturaDosyalariniAl = require('../middleware/faturaEvrakYukleme');
 const ctrl = require('../controllers/tesvikMakineController');
+const harcamalar = require('./tesvikHarcamalari');
 
 // Consultant = kullanici. readonly yazamaz.
 const editor = authorize('admin', 'kullanici');
@@ -58,8 +59,10 @@ router.delete('/document/:id', editor, ctrl.deleteDocument);
 
 // Sertifika (teşvik belgesi) listesi & detayları
 router.get('/certificates', ctrl.listCertificates);
+router.use('/certificates/:tesvikModel/:tesvikId/harcamalar', harcamalar);
 router.get('/certificates/:tesvikModel/:tesvikId', ctrl.getCertificate);
 router.get('/certificates/:tesvikModel/:tesvikId/machines', ctrl.getCertificateMachines);
+router.get('/certificates/:tesvikModel/:tesvikId/gerceklesme', ctrl.getCertificateGerceklesme);
 router.get('/certificates/:tesvikModel/:tesvikId/mails', ctrl.getCertificateMails);
 router.get('/certificates/:tesvikModel/:tesvikId/documents', ctrl.getCertificateDocuments);
 router.get('/certificates/:tesvikModel/:tesvikId/reminders', ctrl.getCertificateReminders);

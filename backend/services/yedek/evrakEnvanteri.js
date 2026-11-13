@@ -15,6 +15,8 @@ const { ornekDosyalari } = require('../../utils/islemEvrakOrnekleri');
 const Tesvik = require('../../models/Tesvik');
 const YeniTesvik = require('../../models/YeniTesvik');
 const CariHareket = require('../../models/CariHareket');
+const HarcamaKalemi = require('../../models/HarcamaKalemi');
+const MachineProcess = require('../../models/MachineProcess');
 
 const adTemizle = (s) => String(s || 'dosya').replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_').slice(0, 180);
 
@@ -23,6 +25,11 @@ const kayit = (kaynak, url, ad, boyut, mimeType) => (
     ? { anahtar: String(url), kaynak, ad: adTemizle(ad), boyut: Number(boyut) || 0, mimeType: mimeType || '' }
     : null
 );
+
+const ozelKayit = (kaynak, { depo, dosyaAdi, fileSize, mimeType }) => depo ? {
+  anahtar: `fatura:${depo.provider}:${depo.dosyaYolu}`,
+  kaynak, ad: adTemizle(dosyaAdi), boyut: fileSize, mimeType, depo
+} : null;
 
 /**
  * Bütün dosyaları tek listede toplar (tekrarlar ayıklanır).
@@ -47,6 +54,20 @@ async function envanter() {
   for (const hareket of cariHareketler) {
     const d = hareket.dosya || {};
     hepsi.push(kayit('cariHareket', d.dosyaYolu, d.dosyaAdi, d.dosyaBoyutu, d.dosyaTipi));
+  }
+
+  const harcamalar = HarcamaKalemi.find({ 'evraklar.0': { $exists: true } })
+    .select('evraklar').schemaLevelProjections(false).lean().cursor();
+  for await (const harcama of harcamalar) {
+    for (const evrak of harcama.evraklar) hepsi.push(ozelKayit('harcamaTakip', evrak));
+  }
+
+  const makineler = MachineProcess.find({ 'faturalar.evraklar.0': { $exists: true } })
+    .select('faturalar.evraklar').schemaLevelProjections(false).lean().cursor();
+  for await (const makine of makineler) {
+    for (const fatura of makine.faturalar) {
+      for (const evrak of fatura.evraklar || []) hepsi.push(ozelKayit('makineFaturasi', evrak));
+    }
   }
 
   const talepler = await IslemTalebi.find({}, { yuklenenEvraklar: 1, istenenEvraklar: 1, firmaAdi: 1 }).lean();

@@ -17,6 +17,7 @@ const drive = require('./driveIstemcisi');
 const { yeniArsiv, arsiveYaz } = require('./veritabaniArsivi');
 const { envanter } = require('./evrakEnvanteri');
 const storageService = require('../tesvikMakine/storageService');
+const faturaEvrakDeposu = require('../tesvikMakine/faturaEvrakDeposu');
 const YedekDosya = require('../../models/YedekDosya');
 const YedekCalismasi = require('../../models/YedekCalismasi');
 
@@ -70,7 +71,9 @@ async function evraklariYedekle({ klasorId, gunluk, istemci = drive, indir = sto
   for (const d of eksikler) {
     if (sonuc.yuklenen + sonuc.hatali >= enFazla || simdi() >= bitis) { sonuc.sureDoldu = true; break; }
     try {
-      const icerik = await indir(d.anahtar, d.mimeType);
+      const icerik = d.depo
+        ? { buffer: await faturaEvrakDeposu.oku(d.depo), contentType: d.mimeType }
+        : await indir(d.anahtar, d.mimeType);
       if (!icerik || !icerik.buffer) throw new Error('dosya indirilemedi');
       const uzanti = path.extname(d.ad) || '';
       const driveAd = `${d.kaynak}_${d.ad}${uzanti ? '' : ''}`.slice(0, 200);

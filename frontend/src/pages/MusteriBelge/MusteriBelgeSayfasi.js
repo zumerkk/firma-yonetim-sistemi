@@ -289,7 +289,12 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
                         <TableCell>{k.no || '-'}</TableCell>
                         <TableCell sx={{ wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
-                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{para(k.tutar, k.tutarParaBirimi || kod)}</TableCell>
+                        <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                          {para(k.tutar, k.tutarParaBirimi || kod)}
+                          {ithal && k.malBedeliTl != null && <Typography variant="caption" display="block" color="text.secondary">
+                            Mal Bedeli TL {para(k.malBedeliTl)}
+                          </Typography>}
+                        </TableCell>
                         <TableCell align="right">{k.adet || 0}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           <Chip size="small" icon={<LockIcon sx={{ fontSize: 14 }} />} color={k.kaynak === 'firma' ? 'success' : 'default'}

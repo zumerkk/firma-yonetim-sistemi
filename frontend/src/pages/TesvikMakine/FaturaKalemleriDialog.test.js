@@ -5,7 +5,7 @@ import api, { uploadPost } from '../../utils/axios';
 
 jest.mock('../../utils/axios', () => ({
   __esModule: true,
-  default: { get: jest.fn(), post: jest.fn() },
+  default: { get: jest.fn(), post: jest.fn(), patch: jest.fn() },
   uploadPost: jest.fn()
 }));
 
@@ -205,4 +205,36 @@ test('salt okunur personel beyanname ekini açabilir ve yükleme alanını görm
   expect(api.post).not.toHaveBeenCalled();
   expect(screen.queryByRole('button', { name: 'Kaydet' })).not.toBeInTheDocument();
   expect(screen.queryByLabelText('Beyanname PDF')).not.toBeInTheDocument();
+});
+
+test('eski dövizli beyannamenin TL karşılığı düzenlenirken özgün tutar ayrı kalır', async () => {
+  const eski = { _id: 'eski', no: 'B-ESKI', tutar: 75, tutarParaBirimi: 'EUR', kaynak: 'personel' };
+  const guncel = { ...eski, malBedeliTl: 2450.75 };
+  api.post.mockResolvedValueOnce({ data: { data: { _id: 'surec-1', currency: 'EUR', faturalar: [eski] } } });
+  api.patch
+    .mockResolvedValueOnce({ data: { data: { faturalar: [guncel], faturaTutarToplamlari: { EUR: 75, TRY: 2450.75 } } } })
+    .mockResolvedValueOnce({ data: { data: { faturalar: [eski], faturaTutarToplamlari: { EUR: 75 } } } });
+  kur({ makine: { ...makine, listType: 'import', currency: 'EUR' } });
+  fireEvent.click(await screen.findByRole('button', { name: 'B-ESKI düzelt' }));
+  expect(screen.getByRole('textbox', { name: 'Kalem Tutarı – Mal Bedeli (EUR)' })).toHaveValue('75,00');
+  const malBedeli = screen.getByRole('textbox', { name: 'Mal Bedeli TL' });
+  fireEvent.change(malBedeli, { target: { value: '0' } });
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+  fireEvent.change(malBedeli, { target: { value: '2.450,75' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+
+  await screen.findByText('Kalem güncellendi');
+  expect(api.patch).toHaveBeenCalledWith('/tesvik-makine/process/surec-1/fatura-kalemleri/eski', expect.objectContaining({
+    tutar: 75, malBedeliTl: 2450.75
+  }));
+  const satir = within(screen.getByRole('row', { name: /B-ESKI/ }));
+  expect(satir.getByText('€75,00')).toBeInTheDocument();
+  expect(satir.getByText('Mal Bedeli TL ₺2.450,75')).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'B-ESKI düzelt' }));
+  const kayitliTutar = screen.getByRole('textbox', { name: 'Mal Bedeli TL' });
+  expect(kayitliTutar).toHaveValue('2.450,75');
+  fireEvent.change(kayitliTutar, { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  await waitFor(() => expect(screen.queryByText('Mal Bedeli TL ₺2.450,75')).not.toBeInTheDocument());
+  expect(api.patch.mock.calls[1][1]).toMatchObject({ tutar: 75, malBedeliTl: null });
 });

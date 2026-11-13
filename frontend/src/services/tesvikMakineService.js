@@ -3,6 +3,7 @@ import api, { uploadPost } from '../utils/axios';
 
 const base = '/tesvik-makine';
 const d = (r) => r.data?.data;
+const harcamaYolu = (model, belgeId) => `${base}/certificates/${model}/${belgeId}/harcamalar`;
 
 const tesvikMakineService = {
   // Meta & dashboard
@@ -19,6 +20,16 @@ const tesvikMakineService = {
   getCertDocuments: (m, id) => api.get(`${base}/certificates/${m}/${id}/documents`).then(d),
   getCertReminders: (m, id) => api.get(`${base}/certificates/${m}/${id}/reminders`).then(d),
   getCertTimeline: (m, id) => api.get(`${base}/certificates/${m}/${id}/timeline`).then(d),
+  harcamalariGetir: (m, id, { signal } = {}) => api.get(harcamaYolu(m, id), { signal }).then(d),
+  harcamaEkle: (m, id, veri) => api.post(harcamaYolu(m, id), veri).then(d),
+  harcamaGuncelle: (m, id, kalemId, veri) => api.patch(`${harcamaYolu(m, id)}/${kalemId}`, veri).then(d),
+  harcamaSil: (m, id, kalemId) => api.delete(`${harcamaYolu(m, id)}/${kalemId}`).then(d),
+  harcamaEvrakiYukle: (m, id, kalemId, formData, options) =>
+    uploadPost(`${harcamaYolu(m, id)}/${kalemId}/evrak`, formData, options).then(d),
+  harcamaEvrakiIndir: (m, id, kalemId, evrakId) =>
+    api.get(`${harcamaYolu(m, id)}/${kalemId}/evrak/${evrakId}`, { responseType: 'blob', timeout: 120000 }),
+  getGerceklesme: (m, id, { signal } = {}) =>
+    api.get(`${base}/certificates/${m}/${id}/gerceklesme`, { signal }).then(d),
 
   // Süreç (makine)
   ensureProcess: (body) => api.post(`${base}/process`, body).then(d),

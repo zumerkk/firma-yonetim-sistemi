@@ -6,9 +6,9 @@
 const mongoose = require('mongoose');
 
 const yedekDosyaSchema = new mongoose.Schema({
-  // Kaynak adres (Cloudinary URL) — kimlik olarak bu kullanılır
+  // Kaynak URL veya özel deponun sabit kimliği
   anahtar: { type: String, required: true, unique: true, index: true },
-  kaynak: { type: String, trim: true, default: '' },   // dosyaTakip | ekipmanTakip | islemEvrak | kdvMuafiyet | ornekDosya
+  kaynak: { type: String, trim: true, default: '' },
   ad: { type: String, trim: true, default: '' },
   boyut: { type: Number, default: 0 },
   driveId: { type: String, trim: true, default: '' },
