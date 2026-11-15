@@ -161,7 +161,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   return (
     <>
       {/* describeChild: ipucu düğmenin ADI olmasın — ekran okuyucu "Müşteri Linki" desin, ipucu açıklama olsun */}
-      <Tooltip describeChild title="Firmanın belgeyi görüp makinelere fatura kalemi gireceği link">
+      <Tooltip describeChild title="Firmanın belgeyi, harcama kalemlerini ve gerçekleşme özetini açacağı link">
         <Button size="small" variant="outlined" startIcon={<LinkIcon />} onClick={ac}
           sx={{ textTransform: 'none', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
           Müşteri Linki
@@ -171,9 +171,10 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
         <DialogTitle sx={{ fontWeight: 700 }}>Müşteri Belge Linki</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Firma bu linkle belge bilgilerini (evrak listesi hariç), yerli ve ithal makine listesini görür;
-            makinelere fatura kalemi girebilir. Girdiği kalem kaydedilince firmaya kilitlenir
-            ("Onaylandı"). Düzeltme ve silme Harcama Takip › Yerli / İthal Liste'den yapılır.
+            Firma bu linkle belge bilgilerini, yerli ve ithal makine listelerini, üç harcama listesini ve
+            gerçekleşme özetini görür. Fatura, beyanname ve harcama kalemi ekleyebilir, kendi kalemlerine evrak
+            yükleyebilir ve gerçekleşme listesini Excel olarak indirebilir. Kalemleri personel Harcama Takip
+            ekranından düzenler veya siler.
           </Typography>
           {mesgul && <Stack alignItems="center" spacing={1} sx={{ py: 2 }}>
             <CircularProgress size={24} />

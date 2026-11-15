@@ -2,8 +2,7 @@
 //
 // Müşteri (13.10.2026): firma kendi teşvik belgesini görür (belge ekranındaki sekmeler — evrak listesi
 // hariç), yerli ve ithal listede makinelerine fatura (ithalde beyanname) kalemi girer. Kaydedilen kalem
-// firmaya kilitlidir ("Onaylandı"); düzeltmeyi personel yapar. Sekmeler belge ekranıyla AYNI
-// bileşenlerden çizilir — ekran ile müşteri linki ayrışmasın.
+// firmaya kilitlidir ("Onaylandı"); düzeltmeyi personel yapar. Bu yetkiler harcama kalemleri için de geçerlidir.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -21,6 +20,9 @@ import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiP
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
 import TutarAlani from '../../components/common/TutarAlani';
 import KalemEvrakPaneli from '../../components/Tesvik/KalemEvrakPaneli';
+import { HARCAMA_SEKMELERI, GERCEKLESME_SEKMESI } from '../../components/Tesvik/harcamaSekmeleri';
+import Harcamalar from '../TesvikMakine/Harcamalar';
+import GerceklesmeOzeti from '../TesvikMakine/GerceklesmeOzeti';
 
 // Belge ekranının sekme sırası (ETUYS) — "Evrak Listesi" firmaya açılmaz
 const BOLUMLER = [
@@ -31,6 +33,8 @@ const BOLUMLER = [
   { anahtar: 'ithal', baslik: 'İthal Liste' },
   { anahtar: 'finansal', baslik: 'Finansal Bilgiler' },
   { anahtar: 'sart', baslik: 'Özel Şartlar' },
+  ...HARCAMA_SEKMELERI,
+  GERCEKLESME_SEKMESI,
   { anahtar: 'destek', baslik: 'Destek Unsurları' }
 ];
 
@@ -85,6 +89,7 @@ function BelgeGorunumu({ token }) {
   if (!veri) return <Kabuk><Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box></Kabuk>;
 
   const { belge, tur, etiketler, makineler } = veri;
+  const harcamaSekmesi = HARCAMA_SEKMELERI.find(({ anahtar }) => anahtar === aktif);
   const by = belge.belgeYonetimi || {};
   const konuGoster = (kod) => (etiketler.konu ? `${kod} — ${etiketler.konu}` : kod);
   const oecdGoster = (kod) => etiketler.oecd || kod || '-';
@@ -112,6 +117,9 @@ function BelgeGorunumu({ token }) {
         )}
         {aktif === 'finansal' && <FinansalPaneli tesvik={belge} />}
         {aktif === 'sart' && <OzelSartTablosu tesvik={belge} />}
+        {harcamaSekmesi && <Harcamalar key={harcamaSekmesi.anahtar} musteriToken={token}
+          kategori={harcamaSekmesi.anahtar} baslik={harcamaSekmesi.baslik} />}
+        {aktif === GERCEKLESME_SEKMESI.anahtar && <GerceklesmeOzeti musteriToken={token} />}
         {aktif === 'destek' && <DestekUnsuruTablosu tesvik={belge} />}
       </Box>
 

@@ -12,6 +12,7 @@ const schema = new mongoose.Schema({
   icerik: { type: String, default: '', maxlength: 500 },
   tutar: { type: Number, required: true, min: 0.01 },
   adet: { type: Number, min: 0, default: 0 },
+  kaynak: { type: String, enum: ['personel', 'firma'], default: 'personel', immutable: true },
   girenAdi: { type: String, default: '', maxlength: 120 },
   olusturanKullanici: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   sonGuncelleyen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

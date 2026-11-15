@@ -19,8 +19,9 @@ const kurusToplami = (kalemler) => kalemler.reduce((toplam, kalem) => toplam + M
 const para = (kurus) => formatMoney(kurus / 100, 'TRY');
 const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const tarihMetni = (tarih) => tarih ? tarih.slice(0, 10).split('-').reverse().join('.') : '–';
+const GIREN_ANAHTARI = 'musteriBelge.giren';
 
-export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, duzenlenebilir, yenileme }) {
+export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, kategori, baslik, duzenlenebilir, yenileme }) {
   const [veri, setVeri] = useState(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [hata, setHata] = useState('');
@@ -29,16 +30,28 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
   const [form, setForm] = useState(BOS_KALEM);
   const [islem, setIslem] = useState('');
   const [pencereHatasi, setPencereHatasi] = useState('');
+  const [giren, setGiren] = useState(() => {
+    if (!musteriToken) return '';
+    try { return localStorage.getItem(GIREN_ANAHTARI) || ''; } catch { return ''; }
+  });
   const istekId = useRef(null);
-  const devamEden = useRef(false);
+  const devamEden = useRef(null);
   const listeIstegi = useRef(null);
+  const kalemEklenebilir = !!musteriToken || duzenlenebilir;
+  const evrakEklenebilir = (kalem) => musteriToken ? kalem?.evrakEklenebilir === true : duzenlenebilir;
+
+  useEffect(() => () => devamEden.current?.abort(), []);
 
   useEffect(() => {
     const controller = new AbortController();
     listeIstegi.current = controller;
     setYukleniyor(true);
     setHata('');
-    svc.harcamalariGetir(tesvikModel, tesvikId, { signal: controller.signal })
+    const secenekler = { signal: controller.signal };
+    const istek = musteriToken
+      ? svc.musteriHarcamalariniGetir(musteriToken, secenekler)
+      : svc.harcamalariGetir(tesvikModel, tesvikId, secenekler);
+    istek
       .then((sonuc) => { if (!controller.signal.aborted) setVeri(sonuc); })
       .catch(async (error) => {
         const mesaj = await hataMesaji(error, 'Harcamalar yüklenemedi.');
@@ -49,19 +62,23 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
       controller.abort();
       if (listeIstegi.current === controller) listeIstegi.current = null;
     };
-  }, [tesvikModel, tesvikId, yenileme, yeniden]);
+  }, [tesvikModel, tesvikId, musteriToken, yenileme, yeniden]);
 
   const altKategoriler = veri?.kategoriler?.[kategori]?.altKategoriler || [];
   const kalemler = (veri?.kalemler || []).filter((k) => k.kategori === kategori);
   const secili = kalemler.find((k) => k._id === pencere?.id);
   const tutarGecerli = form.tutar >= 0.01 && /^\d{1,13}(?:\.\d{1,2})?$/.test(String(form.tutar));
   const formGecerli = altKategoriler.some(({ id }) => id === form.altKategori)
-    && form.tarih && form.no.trim() && tutarGecerli && Number(form.adet) >= 0;
+    && form.tarih && form.no.trim() && tutarGecerli && Number(form.adet) >= 0 && (!musteriToken || giren.trim());
+
+  const formHatasiniTemizle = () => {
+    istekId.current = null;
+    setPencereHatasi('');
+  };
 
   const formAlani = (alan, deger) => {
     setForm((onceki) => ({ ...onceki, [alan]: deger }));
-    istekId.current = null;
-    setPencereHatasi('');
+    formHatasiniTemizle();
   };
 
   const pencereAc = (tur, kalem) => {
@@ -76,7 +93,8 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
 
   const islemYap = async (tur, fn, hataGoster, mesaj) => {
     if (devamEden.current) return false;
-    devamEden.current = true;
+    const controller = new AbortController();
+    devamEden.current = controller;
     setIslem(tur);
     if (tur !== 'indir') {
       listeIstegi.current?.abort();
@@ -84,15 +102,17 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
     }
     hataGoster?.('');
     try {
-      await fn();
-      return true;
+      await fn(controller.signal);
+      return !controller.signal.aborted;
     } catch (error) {
+      if (controller.signal.aborted) return false;
       if (!hataGoster) throw error;
-      hataGoster(await hataMesaji(error, mesaj));
+      const aciklama = await hataMesaji(error, mesaj);
+      if (!controller.signal.aborted) hataGoster(aciklama);
       return false;
     } finally {
-      devamEden.current = false;
-      setIslem('');
+      devamEden.current = null;
+      if (!controller.signal.aborted) setIslem('');
     }
   };
 
@@ -105,24 +125,34 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
 
   const kaydet = (event) => {
     event.preventDefault();
-    if (!duzenlenebilir || !formGecerli) return;
-    islemYap('kalem', async () => {
+    if (!kalemEklenebilir || !formGecerli || (secili && !duzenlenebilir)) return;
+    islemYap('kalem', async (signal) => {
       const govde = { ...form, kategori, no: form.no.trim(), icerik: form.icerik.trim(), adet: Number(form.adet) };
       if (!secili) {
         if (!istekId.current) istekId.current = yeniIstekId();
         govde.istekId = istekId.current;
       }
-      const sonuc = secili
+      let sonuc;
+      if (musteriToken) {
+        sonuc = await svc.musteriHarcamaEkle(musteriToken, { ...govde, giren: giren.trim() }, { signal });
+        if (!signal.aborted) {
+          try { localStorage.setItem(GIREN_ANAHTARI, giren.trim()); } catch { /* depolama kapalı */ }
+        }
+      } else sonuc = secili
         ? await svc.harcamaGuncelle(tesvikModel, tesvikId, secili._id, govde)
         : await svc.harcamaEkle(tesvikModel, tesvikId, govde);
+      if (signal.aborted) return;
       kalemiYansit(sonuc);
       pencereAc('evrak', sonuc);
     }, setPencereHatasi, 'Harcama kalemi kaydedilemedi.');
   };
 
-  const evrakYukle = (kalemId, formData, onProgress) => islemYap('evrak', async () => {
-    const kalem = await svc.harcamaEvrakiYukle(tesvikModel, tesvikId, kalemId, formData, { onProgress });
-    kalemiYansit(kalem);
+  const evrakYukle = (kalemId, formData, onProgress) => islemYap('evrak', async (signal) => {
+    const secenekler = { onProgress, signal };
+    const kalem = musteriToken
+      ? await svc.musteriHarcamaEvrakiYukle(musteriToken, kalemId, formData, secenekler)
+      : await svc.harcamaEvrakiYukle(tesvikModel, tesvikId, kalemId, formData, secenekler);
+    if (!signal.aborted) kalemiYansit(kalem);
   });
 
   const evrakIndir = (kalem, evrak) => islemYap('indir', async () => {
@@ -142,7 +172,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
     <Paper component="section" aria-label={baslik} variant="outlined" sx={{ p: { xs: 1.5, sm: 2 } }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1} flexWrap="wrap" sx={{ mb: 2 }}>
         <Typography component="h2" variant="h6" fontWeight={700}>{baslik}</Typography>
-        {duzenlenebilir && <Button variant="contained" startIcon={<AddIcon />} onClick={() => pencereAc('form')}
+        {kalemEklenebilir && <Button variant="contained" startIcon={<AddIcon />} onClick={() => pencereAc('form')}
           disabled={yukleniyor || !!hata || !altKategoriler.length}>Kalem Gir</Button>}
       </Stack>
       {hata && <Alert severity="error" action={<Button color="inherit" onClick={() => setYeniden((n) => n + 1)}>Tekrar Dene</Button>}>
@@ -175,7 +205,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
                 <TableCell>{k.no}</TableCell><TableCell sx={{ overflowWrap: 'anywhere', maxWidth: 360 }}>{k.icerik || '–'}</TableCell>
                 <TableCell align="right">{k.adet || '–'}</TableCell><TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {(duzenlenebilir || !!k.evraklar?.length) && <Button size="small" startIcon={<AttachFileIcon />}
+                  {(evrakEklenebilir(k) || (!musteriToken && !!k.evraklar?.length)) && <Button size="small" startIcon={<AttachFileIcon />}
                     onClick={() => pencereAc('evrak', k)} aria-label={`${k.no} evrakları`}>
                     {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
                   </Button>}
@@ -218,6 +248,13 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
                 helperText={form.tutar !== 0 && !tutarGecerli ? 'En fazla iki ondalık haneli, pozitif tutar girin.' : undefined} /></Grid>
               <Grid item xs={4}><TextField type="number" label="Adet" size="small" fullWidth inputProps={{ min: 0, step: 'any' }}
                 value={form.adet} disabled={!!islem} onChange={(e) => formAlani('adet', e.target.value)} /></Grid>
+              {musteriToken && <Grid item xs={12}>
+                <TextField label="Adınız Soyadınız" size="small" fullWidth required inputProps={{ maxLength: 120 }}
+                  value={giren} disabled={!!islem} onChange={(e) => { setGiren(e.target.value); formHatasiniTemizle(); }} />
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Kaydedilen kalemde düzeltme ve silme işlemlerini danışmanınız yapabilir.
+                </Typography>
+              </Grid>}
             </Grid>}
             {pencereHatasi && <Alert severity="error" sx={{ mt: 2 }}>{pencereHatasi}</Alert>}
           </DialogContent>
@@ -231,8 +268,8 @@ export default function Harcamalar({ tesvikModel, tesvikId, kategori, baslik, du
       {pencere?.tur === 'evrak' && secili && <Dialog open fullWidth maxWidth="sm" onClose={kapat} aria-labelledby="harcama-evrak-baslik">
         <DialogTitle id="harcama-evrak-baslik">{secili.no} Evrakları</DialogTitle>
         <DialogContent dividers>
-          {duzenlenebilir ? <KalemEvrakPaneli key={secili._id} kalem={secili} islem={islem}
-            onYukle={evrakYukle} onIndir={(evrak) => evrakIndir(secili, evrak)} /> : (
+          {evrakEklenebilir(secili) ? <KalemEvrakPaneli key={secili._id} kalem={secili} islem={islem}
+            onYukle={evrakYukle} onIndir={musteriToken ? undefined : (evrak) => evrakIndir(secili, evrak)} /> : (
             <Stack alignItems="flex-start">
               {secili.evraklar.map((evrak) => <Button key={evrak._id} onClick={() => evrakIndir(secili, evrak)} disabled={!!islem}
                 sx={{ textTransform: 'none' }}>{evrak.dosyaAdi}</Button>)}

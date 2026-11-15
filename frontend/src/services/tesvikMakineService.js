@@ -4,6 +4,7 @@ import api, { uploadPost } from '../utils/axios';
 const base = '/tesvik-makine';
 const d = (r) => r.data?.data;
 const harcamaYolu = (model, belgeId) => `${base}/certificates/${model}/${belgeId}/harcamalar`;
+const musteriBelgeYolu = (token) => `/musteri-belge/${encodeURIComponent(token)}`;
 
 const tesvikMakineService = {
   // Meta & dashboard
@@ -28,6 +29,11 @@ const tesvikMakineService = {
     uploadPost(`${harcamaYolu(m, id)}/${kalemId}/evrak`, formData, options).then(d),
   harcamaEvrakiIndir: (m, id, kalemId, evrakId) =>
     api.get(`${harcamaYolu(m, id)}/${kalemId}/evrak/${evrakId}`, { responseType: 'blob', timeout: 120000 }),
+  musteriHarcamalariniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/harcamalar`, options).then(d),
+  musteriHarcamaEkle: (token, veri, options) => api.post(`${musteriBelgeYolu(token)}/harcamalar`, veri, options).then(d),
+  musteriHarcamaEvrakiYukle: (token, kalemId, formData, options) =>
+    uploadPost(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}/evrak`, formData, options).then(d),
+  musteriGerceklesmesiniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/gerceklesme`, options).then(d),
   getGerceklesme: (m, id, { signal } = {}) =>
     api.get(`${base}/certificates/${m}/${id}/gerceklesme`, { signal }).then(d),
 

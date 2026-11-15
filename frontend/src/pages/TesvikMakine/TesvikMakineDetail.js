@@ -22,6 +22,7 @@ import MakineDetailModal from './MakineDetailModal';
 import FaturaKalemleriDialog from './FaturaKalemleriDialog';
 import Harcamalar from './Harcamalar';
 import GerceklesmeOzeti from './GerceklesmeOzeti';
+import { GERCEKLESME_SEKMESI, HARCAMA_SEKMELERI } from '../../components/Tesvik/harcamaSekmeleri';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
 import { LISTE_ADRESI_ANAHTARI } from './TesvikMakineList';
 import {
@@ -35,11 +36,6 @@ const miktarSutunu = {
 };
 
 const planlananTutar = ({ row }) => formatMoney(row.totalPrice, row.listType === 'import' ? 'USD' : 'TRY');
-const HARCAMA_SEKMELERI = [
-  { deger: 8, kategori: 'diger', baslik: 'Diğer Harcamalar' },
-  { deger: 9, kategori: 'bina', baslik: 'Bina İnşaat Harcamaları' },
-  { deger: 10, kategori: 'arazi', baslik: 'Arazi-Arsa Harcamaları' }
-];
 
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
@@ -55,7 +51,7 @@ export default function TesvikMakineDetail() {
   const [snack, setSnack] = useState(null);
   const notify = (message, severity = 'success') => setSnack({ message, severity });
   const duzenlenebilir = ['admin', 'kullanici'].includes(user?.rol);
-  const harcamaSekmesi = HARCAMA_SEKMELERI.find(({ deger }) => deger === tab);
+  const harcamaSekmesi = HARCAMA_SEKMELERI.find(({ anahtar }) => anahtar === tab);
 
   // Modal
   const [modalTarget, setModalTarget] = useState(null);
@@ -301,8 +297,8 @@ export default function TesvikMakineDetail() {
             <Tab label="Mail Geçmişi" value={5} />
             <Tab label="Hatırlatmalar" value={6} />
             <Tab label="Notlar / Geçmiş" value={7} />
-            {HARCAMA_SEKMELERI.map(({ deger, baslik }) => <Tab key={deger} label={baslik} value={deger} />)}
-            <Tab label="Gerçekleşme Özeti" value={11} />
+            {HARCAMA_SEKMELERI.map(({ anahtar, baslik }) => <Tab key={anahtar} label={baslik} value={anahtar} />)}
+            <Tab label={GERCEKLESME_SEKMESI.baslik} value={GERCEKLESME_SEKMESI.anahtar} />
           </Tabs>
         </Paper>
 
@@ -606,10 +602,10 @@ export default function TesvikMakineDetail() {
           </Paper>
         )}
 
-        {harcamaSekmesi && <Harcamalar key={`${tesvikModel}/${tesvikId}/${harcamaSekmesi.kategori}`}
-          tesvikModel={tesvikModel} tesvikId={tesvikId} kategori={harcamaSekmesi.kategori} baslik={harcamaSekmesi.baslik}
+        {harcamaSekmesi && <Harcamalar key={`${tesvikModel}/${tesvikId}/${harcamaSekmesi.anahtar}`}
+          tesvikModel={tesvikModel} tesvikId={tesvikId} kategori={harcamaSekmesi.anahtar} baslik={harcamaSekmesi.baslik}
           duzenlenebilir={duzenlenebilir} yenileme={finansalYenileme} />}
-        {tab === 11 && <GerceklesmeOzeti tesvikModel={tesvikModel} tesvikId={tesvikId} yenileme={finansalYenileme} />}
+        {tab === GERCEKLESME_SEKMESI.anahtar && <GerceklesmeOzeti tesvikModel={tesvikModel} tesvikId={tesvikId} yenileme={finansalYenileme} />}
       </Box>
 
       <MakineDetailModal open={!!modalTarget} target={modalTarget} meta={meta}

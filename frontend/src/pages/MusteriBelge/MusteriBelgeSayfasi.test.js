@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import MusteriBelgeSayfasi from './MusteriBelgeSayfasi';
 import api, { uploadPost } from '../../utils/axios';
@@ -28,6 +28,71 @@ const belgeyiAc = (makineler) => {
   </Routes></MemoryRouter>);
 };
 const dosyaSec = (etiket, files) => fireEvent.change(screen.getByLabelText(etiket), { target: { files } });
+
+test('müşteri üç harcama sekmesinden kayıt ve evrak ekler, özet güncel TL toplamını gösterir', async () => {
+  const kategoriler = {
+    diger: { altKategoriler: [{ id: 'montaj', etiket: 'Montaj Giderleri' }] },
+    bina: { altKategoriler: [{ id: 'anaBina', etiket: 'Ana Bina' }] },
+    arazi: { altKategoriler: [{ id: 'arazi', etiket: 'Arazi' }] }
+  };
+  const personel = { ...kalem('personel-1', 'PERSONEL-1', 'personel'), kategori: 'diger', altKategori: 'montaj', evrakEklenebilir: false };
+  const yeni = { ...kalem('yeni-1', 'GIDER-1'), kategori: 'diger', altKategori: 'montaj', tutar: 1200.25, evrakEklenebilir: true };
+  api.post.mockResolvedValueOnce(yanit(yeni));
+  uploadPost.mockResolvedValueOnce(yanit({ ...yeni, evraklar: [{ _id: 'd1', tur: 'fatura_pdf', dosyaAdi: 'gider.pdf' }] }));
+
+  belgeyiAc({ yerli: [], ithal: [] });
+  const sekmeAdlari = ['Diğer Harcamalar', 'Bina İnşaat Harcamaları', 'Arazi-Arsa Harcamaları', 'Gerçekleşme Özeti'];
+  const sekmeler = await screen.findAllByRole('tab');
+  const sirasi = sekmeler.findIndex((sekme) => sekme.textContent === 'Özel Şartlar');
+  expect(sekmeler.slice(sirasi + 1, sirasi + 6).map((sekme) => sekme.textContent)).toEqual([...sekmeAdlari, 'Destek Unsurları']);
+  for (const ad of sekmeAdlari.slice(0, 3).reverse()) {
+    api.get.mockResolvedValueOnce(yanit({ kategoriler, kalemler: [personel] }));
+    fireEvent.click(screen.getByRole('tab', { name: ad }));
+    expect(await screen.findByRole('region', { name: ad })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Kalem Gir' })).toBeEnabled());
+  }
+  const liste = screen.getByRole('region', { name: 'Diğer Harcamalar' });
+  expect(screen.getByText('PERSONEL-1')).toBeInTheDocument();
+  expect(within(liste).queryByRole('button', { name: /PERSONEL-1 (düzenle|sil|evrakları)/ })).toBeNull();
+
+  fireEvent.click(within(liste).getByRole('button', { name: 'Kalem Gir' }));
+  fireEvent.mouseDown(screen.getByRole('combobox', { name: /Harcama Türü/ }));
+  fireEvent.click(screen.getByRole('option', { name: 'Montaj Giderleri' }));
+  fireEvent.change(screen.getByLabelText(/Fatura Tarihi/), { target: { value: '2026-11-05' } });
+  fireEvent.change(screen.getByLabelText(/Fatura Sayısı/), { target: { value: 'GIDER-1' } });
+  fireEvent.change(screen.getByLabelText(/Kalem Tutarı/), { target: { value: '1.200,25' } });
+  expect(screen.getByRole('button', { name: 'Kaydet' })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText(/Adınız Soyadınız/), { target: { value: 'Test Yetkili' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const evrak = within(await screen.findByRole('dialog', { name: 'GIDER-1 Evrakları' }));
+  expect(api.post).toHaveBeenCalledWith('/musteri-belge/test-token/harcamalar', expect.objectContaining({
+    kategori: 'diger', altKategori: 'montaj', tutar: 1200.25, giren: 'Test Yetkili', istekId: expect.any(String)
+  }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+
+  expect(evrak.getByLabelText('Fatura PDF')).toHaveAttribute('multiple');
+  dosyaSec('Fatura PDF', [dosya('gider.pdf'), dosya('ikinci.pdf')]);
+  dosyaSec('Fatura XML', [dosya('gider.xml', 'application/xml')]);
+  dosyaSec('Yevmiye Kayıt PDF', [dosya('yevmiye.pdf')]);
+  fireEvent.click(evrak.getByRole('button', { name: 'Dosyaları Yükle' }));
+  expect(await evrak.findByText('Evraklar yüklendi.')).toBeInTheDocument();
+  const [yol, govde] = uploadPost.mock.calls[0];
+  expect(yol).toBe('/musteri-belge/test-token/harcamalar/yeni-1/evrak');
+  expect(govde.getAll('faturaPdf')).toHaveLength(2);
+  expect(govde.get('faturaXml').name).toBe('gider.xml');
+  expect(govde.get('yevmiyePdf').name).toBe('yevmiye.pdf');
+  expect(evrak.queryByRole('button', { name: /gider\.pdf indir/ })).toBeNull();
+  fireEvent.click(evrak.getByRole('button', { name: 'Kapat' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(within(liste).queryByRole('button', { name: /GIDER-1 (düzenle|sil)/ })).toBeNull();
+
+  api.get.mockResolvedValueOnce(yanit({ gruplar: [], yerli: 100, ithal: 150, kurFarki: 0, toplam: 1450.25 }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Gerçekleşme Özeti' }));
+  const ozet = await screen.findByRole('table', { name: 'Gerçekleşme özeti' });
+  expect(within(ozet).getByText(para(1450.25))).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Tüm Gerçekleşme Listesi' })).toBeEnabled();
+  expect(api.get).toHaveBeenLastCalledWith('/musteri-belge/test-token/gerceklesme', expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(api.get.mock.calls.every(([adres]) => adres.startsWith('/musteri-belge/test-token'))).toBe(true);
+});
 
 test('müşteri ithal makinede birim etiketini, EUR birim fiyatını ve USD FOB toplamını görür', async () => {
   belgeyiAc({ yerli: [], ithal: [{

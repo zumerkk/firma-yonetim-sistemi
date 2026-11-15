@@ -29,7 +29,7 @@ const MAKINE_GRUPLARI = [
 
 const kurusaCevir = mps.tutariKurusaCevir;
 
-function makineKalemleriniHesapla(belge, surecler, kalemler) {
+function makineKalemleriniHesapla(belge, surecler, kalemler, { musteri }) {
   const surecHaritasi = new Map(surecler.map((surec) => [`${surec.listType}:${surec.rowId}`, surec]));
   const makineToplamlari = { yerli: 0, ithal: 0 };
   let cevrilmemisIthalKalemSayisi = 0;
@@ -52,9 +52,10 @@ function makineKalemleriniHesapla(belge, surecler, kalemler) {
         const kurus = kurusaCevir(tutarTl);
         if (!kurus) continue;
         makineToplamlari[id] += kurus;
+        const kalemIcerigi = !musteri || fatura.kaynak === 'firma' ? fatura.icerik : '';
         kalemler.push({
           grup: etiket, kategori, tarih: fatura.tarih || null, no: fatura.no || '',
-          icerik: [makine.adiVeOzelligi, fatura.icerik].filter(Boolean).join(' · '), adet: fatura.adet ?? null, tutar: kurus / 100
+          icerik: [makine.adiVeOzelligi, kalemIcerigi].filter(Boolean).join(' · '), adet: fatura.adet ?? null, tutar: kurus / 100
         });
       }
     }
@@ -62,9 +63,9 @@ function makineKalemleriniHesapla(belge, surecler, kalemler) {
   return { makineToplamlari, cevrilmemisIthalKalemSayisi };
 }
 
-function gerceklesmeyiHesapla(belge, surecler, harcamalar) {
+function gerceklesmeyiHesapla(belge, surecler, harcamalar, { musteri }) {
   const kalemler = [];
-  const { makineToplamlari: { yerli, ithal }, cevrilmemisIthalKalemSayisi } = makineKalemleriniHesapla(belge, surecler, kalemler);
+  const { makineToplamlari: { yerli, ithal }, cevrilmemisIthalKalemSayisi } = makineKalemleriniHesapla(belge, surecler, kalemler, { musteri });
   const harcamaToplamlari = new Map();
   let kurFarki = 0;
 
@@ -81,7 +82,8 @@ function gerceklesmeyiHesapla(belge, surecler, harcamalar) {
     }
     kalemler.push({
       grup: grup.etiket, kategori: kategori.etiket, tarih: harcama.tarih || null, no: harcama.no || '',
-      icerik: harcama.icerik || '', adet: harcama.adet ?? null, tutar: kurus / 100
+      icerik: (!musteri || harcama.kaynak === 'firma') ? harcama.icerik || '' : '',
+      adet: harcama.adet ?? null, tutar: kurus / 100
     });
   }
 
@@ -101,7 +103,7 @@ function gerceklesmeyiHesapla(belge, surecler, harcamalar) {
   return { gruplar, kalemler, yerli: yerli / 100, ithal: ithal / 100, kurFarki: kurFarki / 100, toplam: toplam / 100, cevrilmemisIthalKalemSayisi };
 }
 
-async function belgeGerceklesmesi(tesvikModel, tesvikId) {
+async function belgeGerceklesmesi(tesvikModel, tesvikId, { musteri = false } = {}) {
   const Model = resolver.modelFor(tesvikModel);
   const makineAlanlari = ['yerli', 'ithal'].flatMap((liste) =>
     ['rowId', 'adiVeOzelligi', 'gerceklesenTutar', 'gerceklesenAdet', 'silinmeTarihi'].map((alan) => `makineListeleri.${liste}.${alan}`));
@@ -113,9 +115,9 @@ async function belgeGerceklesmesi(tesvikModel, tesvikId) {
       'rowId listType currency faturaKalemleriKaydedildi invoiceRealizedValue invoiceRealizedQty invoiceNo invoiceDate',
       'faturalar.tarih faturalar.no faturalar.icerik faturalar.tutar faturalar.tutarParaBirimi faturalar.malBedeliTl faturalar.adet faturalar.kaynak'
     ].join(' ')).lean(),
-    HarcamaKalemi.find(kapsam).select('kategori altKategori tarih no icerik adet tutar').sort({ createdAt: 1, _id: 1 }).lean()
+    HarcamaKalemi.find(kapsam).select('kategori altKategori tarih no icerik adet tutar kaynak').sort({ createdAt: 1, _id: 1 }).lean()
   ]);
-  return gerceklesmeyiHesapla(belge, surecler, harcamalar);
+  return gerceklesmeyiHesapla(belge, surecler, harcamalar, { musteri });
 }
 
 module.exports = { belgeGerceklesmesi };

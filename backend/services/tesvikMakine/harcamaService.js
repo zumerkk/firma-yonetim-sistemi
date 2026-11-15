@@ -71,17 +71,16 @@ function listele(belge) {
   return HarcamaKalemi.find(belge).sort({ createdAt: 1, _id: 1 });
 }
 
-async function ekle(belge, govde, user) {
-  const veri = kalemVerisi(govde);
-  const { istekId } = govde;
+async function kalemiKaydet(belge, veri, { kaynak, girenAdi, kullaniciId, istekId, yetkiyiDogrula }) {
   istekIdDogrula(istekId);
-  const sahip = { olusturanKullanici: user._id };
-  const yeniKalem = { ...belge, ...veri, ...sahip, girenAdi: (user.adSoyad || '').slice(0, 120) };
+  const yeniKalem = { ...belge, ...veri, kaynak, girenAdi, olusturanKullanici: kullaniciId };
+  if (istekId) await HarcamaKalemi.init();
+  if (yetkiyiDogrula) await yetkiyiDogrula();
   if (!istekId) return HarcamaKalemi.create(yeniKalem);
 
-  const istekOzeti = createHash('sha256').update(JSON.stringify(veri)).digest('hex');
-  const filtre = { ...belge, ...sahip, istekId };
-  await HarcamaKalemi.init();
+  const ozeteAlinan = kaynak === 'firma' ? { ...veri, girenAdi } : veri;
+  const istekOzeti = createHash('sha256').update(JSON.stringify(ozeteAlinan)).digest('hex');
+  const filtre = { ...belge, olusturanKullanici: kullaniciId ?? null, istekId };
   try {
     return await HarcamaKalemi.create({ ...yeniKalem, istekId, istekOzeti });
   } catch (error) {
@@ -90,6 +89,20 @@ async function ekle(belge, govde, user) {
     if (!mevcut || mevcut.istekOzeti !== istekOzeti) throw hata(409, 'Bu kayıt kimliği farklı bir harcama için kullanılmış.');
     return mevcut;
   }
+}
+
+function ekle(belge, govde, user) {
+  return kalemiKaydet(belge, kalemVerisi(govde), {
+    kaynak: 'personel', girenAdi: (user.adSoyad || '').slice(0, 120), kullaniciId: user._id, istekId: govde.istekId
+  });
+}
+
+function firmaKalemiEkle(belge, govde, yetkiyiDogrula) {
+  const girenAdi = metin(govde.giren ?? '', 'Adınız', 120);
+  if (!girenAdi) throw hata(400, 'Adınızı yazın.');
+  const veri = kalemVerisi(govde);
+  if (veri.tarih > new Date(Date.now() + 864e5)) throw hata(400, 'Fatura tarihi ileri bir tarih olamaz.');
+  return kalemiKaydet(belge, veri, { kaynak: 'firma', girenAdi, istekId: govde.istekId, yetkiyiDogrula });
 }
 
 async function guncelle(filtre, govde, user) {
@@ -117,12 +130,13 @@ async function evrakBaglami(filtre) {
   return { listType: 'local', kalem };
 }
 
-async function evrakYukle(filtre, { istekId, dosyalar, user }) {
+async function evrakYukle(filtre, { istekId, dosyalar, user, yetkiyiDogrula }) {
   const ekleriKaydet = async (_baglam, evraklar) => {
     const kalem = await HarcamaKalemi.findOneAndUpdate({
       ...filtre, ...(istekId ? { 'evraklar.istekId': { $ne: istekId } } : {})
     }, {
-      $push: { evraklar: { $each: evraklar } }, $set: { sonGuncelleyen: user._id }
+      $push: { evraklar: { $each: evraklar } },
+      ...(user && { $set: { sonGuncelleyen: user._id } })
     }, { new: true, runValidators: true });
     return kalem && { listType: 'local', kalem };
   };
@@ -130,7 +144,11 @@ async function evrakYukle(filtre, { istekId, dosyalar, user }) {
     const kalem = await HarcamaKalemi.findOne(filtre);
     return kalem && { listType: 'local', kalem };
   };
-  const { kalem } = await kalemeEvrakYukle({ baglamiYukle: () => evrakBaglami(filtre), ekleriKaydet, kaydiTekrarOku, istekId, dosyalar });
+  const baglamiYukle = async () => {
+    if (yetkiyiDogrula) await yetkiyiDogrula();
+    return evrakBaglami(filtre);
+  };
+  const { kalem } = await kalemeEvrakYukle({ baglamiYukle, ekleriKaydet, kaydiTekrarOku, istekId, dosyalar });
   return kalem;
 }
 
@@ -142,4 +160,4 @@ async function evrakIndir(filtre, evrakId) {
   return { evrak, buffer: await evrakDeposu.oku(evrak.depo) };
 }
 
-module.exports = { belgeFiltresi, kalemFiltresi, listele, ekle, guncelle, sil, evrakBaglami, evrakYukle, evrakIndir };
+module.exports = { belgeFiltresi, kalemFiltresi, listele, ekle, firmaKalemiEkle, guncelle, sil, evrakBaglami, evrakYukle, evrakIndir };

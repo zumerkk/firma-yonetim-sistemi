@@ -51,7 +51,13 @@ const kalemSiniri = rateLimit({
   message: { success: false, message: 'Çok fazla kayıt denemesi. Lütfen biraz sonra tekrar deneyin.' }
 });
 
+function ozelYanit(_req, res, next) {
+  res.set('Cache-Control', 'private, no-store');
+  next();
+}
+
 router.get('/:token', gonder((req) => portal.portalVerisi(req.params.token)));
+router.get('/:token/gerceklesme', ozelYanit, gonder((req) => portal.firmaGerceklesmesi(req.params.token)));
 router.post('/:token/fatura-kalemi', kalemSiniri, gonder((req) => portal.firmaKalemiEkle(req.params.token, req.body || {})));
 
 async function faturaBaglantisiniDogrula(req, res, next) {
@@ -64,5 +70,21 @@ async function faturaBaglantisiniDogrula(req, res, next) {
 
 router.post('/:token/fatura-kalemi/:kalemId/evrak', kalemSiniri, faturaBaglantisiniDogrula, faturaDosyalariniAl,
   gonder((req) => portal.firmaFaturaEvrakiYukle(req.params.token, req.params.kalemId, req.body, req.files)));
+
+router.use('/:token/harcamalar', ozelYanit);
+router.get('/:token/harcamalar', gonder((req) => portal.firmaHarcamalariListele(req.params.token)));
+router.post('/:token/harcamalar', kalemSiniri,
+  gonder((req) => portal.firmaHarcamaKalemiEkle(req.params.token, req.body || {})));
+
+async function harcamaBaglantisiniDogrula(req, res, next) {
+  try {
+    const { listType } = await portal.firmaHarcamaEvrakBaglami(req.params.token, req.params.kalemId);
+    req.faturaListType = listType;
+    next();
+  } catch (err) { hataGonder(res, err); }
+}
+
+router.post('/:token/harcamalar/:kalemId/evrak', kalemSiniri, harcamaBaglantisiniDogrula, faturaDosyalariniAl,
+  gonder((req) => portal.firmaHarcamaEvrakiYukle(req.params.token, req.params.kalemId, req.body, req.files)));
 
 module.exports = router;

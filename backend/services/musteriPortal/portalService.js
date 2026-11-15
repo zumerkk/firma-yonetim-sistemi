@@ -20,6 +20,9 @@ const MachineProcess = require('../../models/MachineProcess');
 const resolver = require('../tesvikMakine/certificateResolver');
 const mps = require('../tesvikMakine/machineProcessService');
 const faturaEvrakService = require('../tesvikMakine/faturaEvrakService');
+const harcama = require('../tesvikMakine/harcamaService');
+const { HARCAMA_KATEGORILERI } = require('../../constants/harcama');
+const gerceklesmeService = require('../tesvikMakine/gerceklesmeService');
 const { buildUploadLink } = require('../tesvikMakine/uploadTokenService');
 
 const MODELLER = { Tesvik, YeniTesvik };
@@ -120,11 +123,12 @@ async function linkKapat(tesvikModel, tesvikId) {
 
 // ───────── Firma tarafı (token) ─────────
 
-async function belgeBul(token, { yalnizMakineListeleri = false } = {}) {
+async function belgeBul(token, { yalnizMakineListeleri = false, yalnizKimlik = false } = {}) {
   if (typeof token !== 'string' || !TOKEN_BICIMI.test(token)) return null;
   for (const [tesvikModel, M] of Object.entries(MODELLER)) {
     const sorgu = M.findOne({ 'musteriPortal.token': token });
-    if (yalnizMakineListeleri) sorgu.select('makineListeleri.yerli makineListeleri.ithal');
+    if (yalnizKimlik) sorgu.select('_id');
+    else if (yalnizMakineListeleri) sorgu.select('makineListeleri.yerli makineListeleri.ithal');
     else sorgu.select('-makineRevizyonlari -revizyonlar -evrakListesi').populate('firma', 'tamUnvan yabanciSermayeli');
     const belge = await sorgu.lean();
     if (belge) return { tesvikModel, belge };
@@ -132,10 +136,17 @@ async function belgeBul(token, { yalnizMakineListeleri = false } = {}) {
   return null;
 }
 
+const gecersizBaglanti = () => hata('Bağlantı bulunamadı veya geçersiz. Lütfen danışmanınızla iletişime geçin.', 'LINK_YOK', 404);
+
 async function belgeBulVeyaHata(token, secenekler) {
   const sonuc = await belgeBul(token, secenekler);
-  if (!sonuc) throw hata('Bağlantı bulunamadı veya geçersiz. Lütfen danışmanınızla iletişime geçin.', 'LINK_YOK', 404);
+  if (!sonuc) throw gecersizBaglanti();
   return sonuc;
+}
+
+async function firmaBaglantisiniDogrula({ tesvikModel, tesvikId }, token) {
+  const gecerli = await modelAl(tesvikModel).exists({ _id: tesvikId, 'musteriPortal.token': token });
+  if (!gecerli) throw gecersizBaglanti();
 }
 
 // Belge ekranındaki sekmelerin (künye, cins, ürün, finansal, şartlar, destek) okuduğu alanlar —
@@ -179,6 +190,10 @@ async function etiketleriCoz(b, tesvikModel) {
   return etiketler;
 }
 
+const firmaEvraklari = (evraklar = []) => evraklar.map(({ _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi }) => ({
+  _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi
+}));
+
 // Firmaya giden kalem: kim girdi bilgisinde personelin adı yer almaz
 const kalemGorunumu = (k, surec = {}) => ({
   _id: k._id, tarih: k.tarih || null, no: k.no || '', icerik: k.icerik || '',
@@ -188,9 +203,7 @@ const kalemGorunumu = (k, surec = {}) => ({
   kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
   girenAdi: k.kaynak === 'firma' ? (k.girenAdi || '') : '',
   girisTarihi: k.girisTarihi || null,
-  evraklar: (k.evraklar || []).map(({ _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi }) => ({
-    _id, tur, dosyaAdi, mimeType, fileSize, yuklemeTarihi
-  }))
+  evraklar: firmaEvraklari(k.evraklar || [])
 });
 
 function makineGorunumu(satir, listType, surec) {
@@ -229,6 +242,16 @@ async function portalVerisi(token) {
     etiketler: await etiketleriCoz(belge, tesvikModel),
     makineler: { yerli: liste('local'), ithal: liste('import') }
   };
+}
+
+async function firmaGerceklesmesi(token) {
+  const { tesvikModel, belge } = await belgeBulVeyaHata(token, { yalnizKimlik: true });
+  const sonuc = await gerceklesmeService.belgeGerceklesmesi(tesvikModel, belge._id, { musteri: true }).catch((error) => {
+    if (error.code === 'CERT_NOT_FOUND') throw gecersizBaglanti();
+    throw error;
+  });
+  await firmaBaglantisiniDogrula({ tesvikModel, tesvikId: belge._id }, token);
+  return sonuc;
 }
 
 /**
@@ -286,9 +309,59 @@ async function firmaFaturaEvrakiYukle(token, kalemId, { rowId, istekId } = {}, d
   return makineGorunumu(satir, proc.listType, proc);
 }
 
+function harcamaGorunumu(kalem) {
+  const firmaKaydi = kalem.kaynak === 'firma';
+  return {
+    _id: kalem._id, kategori: kalem.kategori, altKategori: kalem.altKategori,
+    tarih: kalem.tarih, no: kalem.no, tutar: kalem.tutar, adet: kalem.adet,
+    icerik: firmaKaydi ? kalem.icerik : '', girenAdi: firmaKaydi ? kalem.girenAdi : '',
+    kaynak: firmaKaydi ? 'firma' : 'personel', evrakEklenebilir: firmaKaydi,
+    createdAt: kalem.createdAt, updatedAt: kalem.updatedAt,
+    evraklar: firmaKaydi ? firmaEvraklari(kalem.evraklar || []) : []
+  };
+}
+
+async function firmaHarcamaBelgesi(token) {
+  const { tesvikModel, belge } = await belgeBulVeyaHata(token, { yalnizKimlik: true });
+  const filtre = { tesvikModel, tesvikId: belge._id };
+  return { filtre, yetkiyiDogrula: () => firmaBaglantisiniDogrula(filtre, token) };
+}
+
+async function firmaHarcamalariListele(token) {
+  const { filtre, yetkiyiDogrula } = await firmaHarcamaBelgesi(token);
+  const kalemler = await harcama.listele(filtre);
+  await yetkiyiDogrula();
+  return { kalemler: kalemler.map(harcamaGorunumu), kategoriler: HARCAMA_KATEGORILERI };
+}
+
+async function firmaHarcamaKalemiEkle(token, govde) {
+  const { filtre, yetkiyiDogrula } = await firmaHarcamaBelgesi(token);
+  const kalem = await harcama.firmaKalemiEkle(filtre, govde, yetkiyiDogrula);
+  await yetkiyiDogrula();
+  return harcamaGorunumu(kalem);
+}
+
+async function firmaHarcamaEvrakYetkisi(token, kalemId) {
+  const { filtre, yetkiyiDogrula } = await firmaHarcamaBelgesi(token);
+  return { filtre: harcama.kalemFiltresi({ ...filtre, kaynak: 'firma' }, kalemId), yetkiyiDogrula };
+}
+
+async function firmaHarcamaEvrakBaglami(token, kalemId) {
+  const { filtre } = await firmaHarcamaEvrakYetkisi(token, kalemId);
+  return harcama.evrakBaglami(filtre);
+}
+
+async function firmaHarcamaEvrakiYukle(token, kalemId, { istekId } = {}, dosyalar = {}) {
+  const { filtre, yetkiyiDogrula } = await firmaHarcamaEvrakYetkisi(token, kalemId);
+  const kalem = await harcama.evrakYukle(filtre, { istekId, dosyalar, yetkiyiDogrula });
+  await yetkiyiDogrula();
+  return harcamaGorunumu(kalem);
+}
+
 module.exports = {
-  SAYFA_YOLU, linkGetir, linkUret, linkKapat, belgeBul, portalVerisi, firmaKalemiEkle,
+  SAYFA_YOLU, linkGetir, linkUret, linkKapat, belgeBul, portalVerisi, firmaGerceklesmesi, firmaKalemiEkle,
   firmaFaturaEvrakBaglami, firmaFaturaEvrakiYukle,
+  firmaHarcamalariListele, firmaHarcamaKalemiEkle, firmaHarcamaEvrakBaglami, firmaHarcamaEvrakiYukle,
   // test için
   belgeGorunumu, kalemGorunumu
 };

@@ -18,7 +18,7 @@ const api = axios.create({
 const isPublicRequest = (url = '') => {
   const path = new URL(url, window.location.origin).pathname.replace(/^\/api(?=\/)/, '');
   return /^\/(?:auth\/(?:login|logout|register)|tesvik-evrak|belge-takip-yukleme|islem-evrak\/public)(?:\/|$)/.test(path)
-    || /^\/musteri-belge\/[^/]+(?:\/fatura-kalemi(?:\/[^/]+\/evrak)?)?\/?$/.test(path);
+    || /^\/musteri-belge\/[^/]+(?:\/(?:fatura-kalemi|harcamalar)(?:\/[^/]+\/evrak)?|\/gerceklesme)?\/?$/.test(path);
 };
 
 let baglantiOturumu;

@@ -66,16 +66,20 @@ async function listeyiIndir(bolumler, kalemler, uyari) {
   saveBlobResponse({ data }, 'Tüm Gerçekleşme Listesi.xlsx');
 }
 
-export default function GerceklesmeOzeti({ tesvikModel, tesvikId, yenileme }) {
+export default function GerceklesmeOzeti({ tesvikModel, tesvikId, musteriToken, yenileme }) {
   const [manuelYenileme, setManuelYenileme] = useState(0);
   const [sonuc, setSonuc] = useState(null);
   const [indirmeHatasi, setIndirmeHatasi] = useState('');
   const [indiriliyor, setIndiriliyor] = useState(false);
-  const istekAnahtari = JSON.stringify([tesvikModel, tesvikId, yenileme, manuelYenileme]);
+  const istekAnahtari = JSON.stringify([tesvikModel, tesvikId, musteriToken, yenileme, manuelYenileme]);
 
   useEffect(() => {
     const controller = new AbortController();
-    svc.getGerceklesme(tesvikModel, tesvikId, { signal: controller.signal })
+    const secenekler = { signal: controller.signal };
+    const istek = musteriToken
+      ? svc.musteriGerceklesmesiniGetir(musteriToken, secenekler)
+      : svc.getGerceklesme(tesvikModel, tesvikId, secenekler);
+    istek
       .then((ozet) => {
         if (!Array.isArray(ozet?.gruplar)) throw new Error('Geçersiz gerçekleşme özeti');
         if (!controller.signal.aborted) setSonuc({ istekAnahtari, ozet });
@@ -86,7 +90,7 @@ export default function GerceklesmeOzeti({ tesvikModel, tesvikId, yenileme }) {
         }
       });
     return () => controller.abort();
-  }, [tesvikModel, tesvikId, istekAnahtari]);
+  }, [tesvikModel, tesvikId, musteriToken, istekAnahtari]);
 
   const guncel = sonuc?.istekAnahtari === istekAnahtari ? sonuc : null;
   const ozet = guncel?.ozet;
