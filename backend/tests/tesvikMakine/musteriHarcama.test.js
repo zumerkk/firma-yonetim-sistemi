@@ -46,7 +46,9 @@ afterAll(async () => {
 beforeEach(async () => {
   await Promise.all([Tesvik.deleteMany({}), YeniTesvik.deleteMany({}), HarcamaKalemi.deleteMany({})]);
   await Promise.all([Tesvik.collection.insertOne({ _id: belgeId }), YeniTesvik.collection.insertOne({ _id: belgeId })]);
-  const linkler = await Promise.all(['Tesvik', 'YeniTesvik'].map((model) => portal.linkUret(model, belgeId)));
+  const linkler = await Promise.all(['Tesvik', 'YeniTesvik'].map((model) => portal.linkUret(model, belgeId, {
+    baslangicTarihi: '2000-01-01', bitisTarihi: '2099-12-31'
+  })));
   [token, digerToken] = linkler.map(({ link }) => link.split('/belge/')[1]);
 });
 

@@ -603,12 +603,14 @@ const tesvikSchema = new mongoose.Schema({
   },
 
   // 🔗 Müşteri belge linki — firma belge künyesini + yerli/ithal listeyi görür, makinelere fatura kalemi
-  // girer (müşteri, 13.10.2026). Süresiz; personel yenileyince eski link geçersiz olur.
+  // girer. İş günü sınırları İstanbul takvimindedir; eski tarihsiz linkler süresizdir.
   musteriPortal: {
     token: { type: String, trim: true, index: true, sparse: true },
     istekId: { type: String, maxlength: 100 },
     olusturmaTarihi: { type: Date },
-    olusturanAdi: { type: String, trim: true, default: '' }
+    olusturanAdi: { type: String, trim: true, default: '' },
+    baslangicTarihi: { type: Date },
+    bitisTarihi: { type: Date }
   },
 
   // 🧾 KDV Muafiyet Yazısı — belge geneli TEK dosya + geçerlilik aralığı.

@@ -83,7 +83,8 @@ const createTesvik = async (req, res) => {
       });
     }
 
-    const tesvikData = req.body;
+    const tesvikData = Object.fromEntries(Object.entries(req.body)
+      .filter(([key]) => key !== 'musteriPortal' && !key.startsWith('musteriPortal.')));
     // Makine listelerinde boş satırları ayıkla ve sayısal alanları normalize et
     if (tesvikData.makineListeleri) {
       const normalizeYerli = (arr = []) => arr
@@ -496,6 +497,7 @@ const updateTesvik = async (req, res) => {
           return false;
         }
         if (key === 'guncellemeNotu') return false; // Skip update note
+        if (key === 'musteriPortal' || key.startsWith('musteriPortal.')) return false;
         if (key === 'revizyonBaslatma') return false; // belge alanı değil, aşağıda revizyona yazılır
         // Makine listesi bu uçtan YAZILMAZ. Müşteri (05.10.2026): "Belgede revize işlemi yapınca makine
         // listesi kendi kendine değişiyor, fiyatlar, tarihler vs ya sıfırlanıyor ya ilk eklediğimiz hale

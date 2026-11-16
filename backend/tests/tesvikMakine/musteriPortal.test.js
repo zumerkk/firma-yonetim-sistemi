@@ -14,6 +14,7 @@ const portal = require('../../services/musteriPortal/portalService');
 const mps = require('../../services/tesvikMakine/machineProcessService');
 const MachineProcess = require('../../models/MachineProcess');
 const Tesvik = require('../../models/Tesvik');
+const YeniTesvik = require('../../models/YeniTesvik');
 const depo = require('../../services/tesvikMakine/faturaEvrakDeposu');
 const { EVRAK_BOYUTU } = require('../../constants/faturaEvrak');
 const router = require('../../routes/musteriPortal');
@@ -25,6 +26,7 @@ let belge;
 const app = express();
 app.use('/musteri-belge', router);
 const personel = { _id: new ObjectId(), adSoyad: 'Berk Acar' };
+const linkTarihleri = { baslangicTarihi: '2000-01-01', bitisTarihi: '2099-12-31' };
 
 beforeAll(async () => {
   mem = await MongoMemoryServer.create();
@@ -54,7 +56,7 @@ beforeEach(async () => {
 });
 
 const linkUret = async () => {
-  const bilgi = await portal.linkUret('Tesvik', belge._id, { user: personel });
+  const bilgi = await portal.linkUret('Tesvik', belge._id, { user: personel, ...linkTarihleri });
   return bilgi.link.split('/belge/')[1];
 };
 
@@ -71,13 +73,13 @@ test('link aynı kalır; yenilenince eskisi geçersiz olur', async () => {
 
 test('eşzamanlı ilk üretimler aynı geçerli linki döndürür', async () => {
   const sonuclar = await Promise.all(Array.from({ length: 8 }, (_, i) =>
-    portal.linkUret('Tesvik', belge._id, { user: personel, istekId: `ilk-istek-${i}` })));
+    portal.linkUret('Tesvik', belge._id, { user: personel, istekId: `ilk-istek-${i}`, ...linkTarihleri })));
   expect(new Set(sonuclar.map((r) => r.link)).size).toBe(1);
   expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(sonuclar[0].link);
 });
 
 test('yenileme aynı istekle güvenle tekrarlanır; eski tekrar daha yeni linki veya kapatmayı ezmez', async () => {
-  const ilk = await portal.linkUret('Tesvik', belge._id);
+  const ilk = await portal.linkUret('Tesvik', belge._id, linkTarihleri);
   const islem = { user: personel, yenile: true, istekId: 'yenile-istek-1', beklenenSurum: ilk.surum };
   const sonuclar = await Promise.all(Array.from({ length: 5 }, () => portal.linkUret('Tesvik', belge._id, islem)));
   const yenilenen = sonuclar[0];
@@ -95,7 +97,7 @@ test('yenileme aynı istekle güvenle tekrarlanır; eski tekrar daha yeni linki 
 });
 
 test('ilk üretim yanıtı kaybolup link kapatılırsa aynı istek açmaz; yeni bilinçli üretim açabilir', async () => {
-  const islem = { user: personel, istekId: 'ilk-istek-kayip-yanit' };
+  const islem = { user: personel, istekId: 'ilk-istek-kayip-yanit', ...linkTarihleri };
   const ilk = await portal.linkUret('Tesvik', belge._id, islem);
   await portal.linkKapat('Tesvik', belge._id);
   expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
@@ -103,7 +105,7 @@ test('ilk üretim yanıtı kaybolup link kapatılırsa aynı istek açmaz; yeni 
   const kapali = await Tesvik.findById(belge._id).select('musteriPortal').lean();
   expect(kapali.musteriPortal.istekId).toBe(islem.istekId);
   expect(kapali.musteriPortal.token).toBeUndefined();
-  const yeni = await portal.linkUret('Tesvik', belge._id, { user: personel, istekId: 'yeni-bilincli-istek' });
+  const yeni = await portal.linkUret('Tesvik', belge._id, { user: personel, istekId: 'yeni-bilincli-istek', ...linkTarihleri });
   expect(yeni.link).not.toBe(ilk.link);
   expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(yeni.link);
 });
@@ -132,7 +134,7 @@ test('link okumak/üretmek büyük geçmişi MongoDB’den getirmez ve onu yenid
   istemci.on('commandStarted', dinle);
   try {
     expect(await portal.linkGetir('Tesvik', belge._id)).toBeNull();
-    const uretilen = await portal.linkUret('Tesvik', belge._id, { istekId: 'buyuk-belge-istegi' });
+    const uretilen = await portal.linkUret('Tesvik', belge._id, { istekId: 'buyuk-belge-istegi', ...linkTarihleri });
     expect((await portal.linkGetir('Tesvik', belge._id)).link).toBe(uretilen.link);
     expect(projeksiyonlar).toHaveLength(3);
     expect(projeksiyonlar.every((p) => p?.musteriPortal === 1 && Object.keys(p).length === 1)).toBe(true);
@@ -157,6 +159,28 @@ test('firmaya evrak listesi, başka linklerin token\'ları ve iç alanlar gitmez
 test('geçersiz/bozuk token: 404, sorgu yapılmaz', async () => {
   await expect(portal.portalVerisi('kisa')).rejects.toMatchObject({ status: 404 });
   await expect(portal.portalVerisi({ $ne: null })).rejects.toMatchObject({ status: 404 });
+});
+
+test.each([['eski', Tesvik], ['yeni', YeniTesvik]])('%s belge: onaylı listeler yalnız belge tablosunun alanlarını açar', async (tur, Model) => {
+  const token = `onayli-liste-test-token-${tur}`;
+  const yerli = { rowId: 'Y-ONAY', siraNo: 1, makineId: 'Y-1', adiVeOzelligi: 'Yerli test makinesi', miktar: 2, birim: '142', birimAciklamasi: 'ADET', birimFiyatiTl: 25, toplamTutariTl: 50 };
+  const ithal = { rowId: 'I-ONAY', siraNo: 1, makineId: 'I-1', adiVeOzelligi: 'İthal test makinesi', miktar: 1, birim: '142', gtipKodu: '8477.80', birimFiyatiFob: 180, gumrukDovizKodu: 'EUR', toplamTutarFobUsd: 200, kullanilmisMakine: '3' };
+  const { insertedId } = await Model.collection.insertOne({
+    musteriPortal: { token },
+    makineListeleri: {
+      yerli: [{ ...yerli, gerceklesenTutar: 26, notlar: 'İÇ NOT', evraklar: [{ depo: 'GİZLİ KONUM' }] }],
+      ithal: [{ ...ithal, birimFiyatiTl: 998, gerceklesenTutar: 17, revizyonGecmisi: [{ not: 'İÇ GEÇMİŞ' }] }]
+    }
+  });
+  try {
+    const { body } = await request(app).get(`/musteri-belge/${token}`).expect(200);
+    expect(body.data.tur).toBe(tur);
+    expect(body.data.belge.makineListeleri).toEqual({ yerli: [yerli], ithal: [ithal] });
+    expect(body.data.makineler.ithal[0]).toMatchObject({ rowId: 'I-ONAY', listType: 'import', kalemler: [] });
+    expect(JSON.stringify(body.data)).not.toMatch(/İÇ NOT|GİZLİ KONUM|İÇ GEÇMİŞ/);
+  } finally {
+    await Model.collection.deleteOne({ _id: insertedId });
+  }
 });
 
 test('firma kalemi girer → onaylı (firma) kalem, toplamlar ana listeye yansır', async () => {

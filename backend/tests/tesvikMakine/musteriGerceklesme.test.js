@@ -93,7 +93,9 @@ test('bozuk, yenilenmiş veya kapanmış bağlantı özet döndürmez', async ()
   await request(app).get(adres('kisa')).expect(404);
   await request(app).get(adres(baskaToken)).expect(404);
 
-  const yeni = await portal.linkUret('Tesvik', belgeId, { yenile: true });
+  const yeni = await portal.linkUret('Tesvik', belgeId, {
+    yenile: true, baslangicTarihi: '2000-01-01', bitisTarihi: '2099-12-31'
+  });
   const yeniToken = yeni.link.split('/belge/')[1];
   await request(app).get(adres()).expect(404);
   await request(app).get(adres(yeniToken)).expect(200);

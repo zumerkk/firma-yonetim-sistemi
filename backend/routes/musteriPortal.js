@@ -11,6 +11,11 @@ const ozelNotlar = require('../services/tesvik/belgeOzelNotlar');
 const router = express.Router();
 const editor = authorize('admin', 'kullanici');
 
+router.use((_req, res, next) => {
+  res.set('Cache-Control', 'private, no-store');
+  next();
+});
+
 function hataGonder(res, err) {
   const status = err.status || 500;
   if (status >= 500) console.error('🚨 [musteriPortal]', err && (err.stack || err.message));
@@ -36,7 +41,8 @@ router.get('/yonetim/:tesvikModel/:tesvikId', authenticate,
   gonder((req) => portal.linkGetir(req.params.tesvikModel, req.params.tesvikId)));
 router.post('/yonetim/:tesvikModel/:tesvikId', authenticate, editor,
   gonder((req) => portal.linkUret(req.params.tesvikModel, req.params.tesvikId, {
-    user: req.user, yenile: req.body?.yenile === true, istekId: req.body?.istekId, beklenenSurum: req.body?.beklenenSurum
+    user: req.user, yenile: req.body?.yenile === true, istekId: req.body?.istekId, beklenenSurum: req.body?.beklenenSurum,
+    baslangicTarihi: req.body?.baslangicTarihi, bitisTarihi: req.body?.bitisTarihi
   })));
 router.delete('/yonetim/:tesvikModel/:tesvikId', authenticate, editor,
   gonder((req) => portal.linkKapat(req.params.tesvikModel, req.params.tesvikId)));
@@ -51,13 +57,8 @@ const kalemSiniri = rateLimit({
   message: { success: false, message: 'Çok fazla kayıt denemesi. Lütfen biraz sonra tekrar deneyin.' }
 });
 
-function ozelYanit(_req, res, next) {
-  res.set('Cache-Control', 'private, no-store');
-  next();
-}
-
 router.get('/:token', gonder((req) => portal.portalVerisi(req.params.token)));
-router.get('/:token/gerceklesme', ozelYanit, gonder((req) => portal.firmaGerceklesmesi(req.params.token)));
+router.get('/:token/gerceklesme', gonder((req) => portal.firmaGerceklesmesi(req.params.token)));
 router.post('/:token/fatura-kalemi', kalemSiniri, gonder((req) => portal.firmaKalemiEkle(req.params.token, req.body || {})));
 
 async function faturaBaglantisiniDogrula(req, res, next) {
@@ -71,7 +72,6 @@ async function faturaBaglantisiniDogrula(req, res, next) {
 router.post('/:token/fatura-kalemi/:kalemId/evrak', kalemSiniri, faturaBaglantisiniDogrula, faturaDosyalariniAl,
   gonder((req) => portal.firmaFaturaEvrakiYukle(req.params.token, req.params.kalemId, req.body, req.files)));
 
-router.use('/:token/harcamalar', ozelYanit);
 router.get('/:token/harcamalar', gonder((req) => portal.firmaHarcamalariListele(req.params.token)));
 router.post('/:token/harcamalar', kalemSiniri,
   gonder((req) => portal.firmaHarcamaKalemiEkle(req.params.token, req.body || {})));

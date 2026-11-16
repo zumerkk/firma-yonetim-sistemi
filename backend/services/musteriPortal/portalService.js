@@ -24,6 +24,7 @@ const harcama = require('../tesvikMakine/harcamaService');
 const { HARCAMA_KATEGORILERI } = require('../../constants/harcama');
 const gerceklesmeService = require('../tesvikMakine/gerceklesmeService');
 const { buildUploadLink } = require('../tesvikMakine/uploadTokenService');
+const { bugunBaslangici } = require('../../utils/belgeSureFiltresi');
 
 const MODELLER = { Tesvik, YeniTesvik };
 const TOKEN_BICIMI = /^[A-Za-z0-9_-]{20,64}$/;
@@ -51,11 +52,32 @@ const portalOku = (M, tesvikId) => M.findById(tesvikId).select('musteriPortal').
 
 const linkYaz = (token) => buildUploadLink(token, SAYFA_YOLU);
 
+function gunTarihiniOku(deger) {
+  if (typeof deger !== 'string' || !/^(?!0000)\d{4}-\d{2}-\d{2}$/.test(deger)) return null;
+  const tarih = new Date(`${deger}T00:00:00.000Z`);
+  return Number.isFinite(tarih.getTime()) && tarih.toISOString().slice(0, 10) === deger ? tarih : null;
+}
+
+function tarihGecerliligi(baslangic, bitis) {
+  return baslangic instanceof Date && bitis instanceof Date && Number.isFinite(baslangic.getTime())
+    && Number.isFinite(bitis.getTime()) && baslangic <= bitis;
+}
+
 function linkBilgisi(belge) {
   const mp = belge && belge.musteriPortal;
   if (!mp || !mp.token) return null;
+  const { baslangicTarihi, bitisTarihi } = mp;
+  const bugun = bugunBaslangici();
+  const tarihsiz = baslangicTarihi == null && bitisTarihi == null;
+  const tarihli = tarihGecerliligi(baslangicTarihi, bitisTarihi);
+  const durum = tarihsiz ? 'aktif'
+    : !tarihli || bitisTarihi < bugun ? 'suresi_doldu'
+    : baslangicTarihi > bugun ? 'planlandi' : 'aktif';
   return {
     link: linkYaz(mp.token), olusturmaTarihi: mp.olusturmaTarihi || null, olusturanAdi: mp.olusturanAdi || '',
+    baslangicTarihi: tarihli ? baslangicTarihi.toISOString().slice(0, 10) : null,
+    bitisTarihi: tarihli ? bitisTarihi.toISOString().slice(0, 10) : null,
+    durum,
     // Yenileme, kullanıcının gördüğü sürümü değiştirir; eski bir tekrar yeni linki ezmez.
     surum: crypto.createHash('sha256').update(mp.token).digest('hex')
   };
@@ -72,7 +94,9 @@ async function linkGetir(tesvikModel, tesvikId) {
 }
 
 /** Varsa mevcut link döner (firmaya gitmiş link bozulmasın); yenile=true eskisini geçersiz kılar. */
-async function linkUret(tesvikModel, tesvikId, { user = null, yenile = false, istekId, beklenenSurum } = {}) {
+async function linkUret(tesvikModel, tesvikId, {
+  user = null, yenile = false, istekId, beklenenSurum, baslangicTarihi, bitisTarihi
+} = {}) {
   const M = modelAl(tesvikModel);
   belgeKimliginiDogrula(tesvikId);
   if (istekId !== undefined && (typeof istekId !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(istekId))) {
@@ -89,16 +113,28 @@ async function linkUret(tesvikModel, tesvikId, { user = null, yenile = false, is
   if (istekId && belge.musteriPortal?.istekId === istekId) return mevcut;
   if (yenile && beklenenSurum !== undefined && mevcut?.surum !== beklenenSurum) return mevcut;
 
+  const onceki = belge.musteriPortal || {};
+  const mevcutTakvimiKoru = mevcut && baslangicTarihi === undefined && bitisTarihi === undefined;
+  const baslangic = mevcutTakvimiKoru ? onceki.baslangicTarihi : gunTarihiniOku(baslangicTarihi);
+  const bitis = mevcutTakvimiKoru ? onceki.bitisTarihi : gunTarihiniOku(bitisTarihi);
+  if (!tarihGecerliligi(baslangic, bitis)) {
+    throw hata('Geçerli başlangıç ve bitiş tarihlerini girin. Bitiş, başlangıçtan önce olamaz.', 'BAD_LINK_DATES', 400);
+  }
+  if (bitis < bugunBaslangici()) {
+    throw hata('Bitiş tarihi bugünden önce olamaz.', 'BAD_LINK_DATES', 400);
+  }
   const musteriPortal = {
     token: crypto.randomBytes(18).toString('base64url'), // 24 karakter, tahmin edilemez
     olusturmaTarihi: new Date(),
     olusturanAdi: (user && user.adSoyad) || '',
-    ...(istekId ? { istekId } : {})
+    ...(istekId ? { istekId } : {}),
+    baslangicTarihi: baslangic,
+    bitisTarihi: bitis
   };
   // Oku → yaz arasında başka bir istek link ürettiyse onun token'ını koru.
   const filtre = mevcut
     ? { _id: tesvikId, 'musteriPortal.token': belge.musteriPortal.token }
-    : { _id: tesvikId, $or: [
+    : { _id: tesvikId, 'musteriPortal.olusturmaTarihi': onceki.olusturmaTarihi || null, $or: [
       { 'musteriPortal.token': { $exists: false } },
       { 'musteriPortal.token': null },
       { 'musteriPortal.token': '' }
@@ -123,10 +159,21 @@ async function linkKapat(tesvikModel, tesvikId) {
 
 // ───────── Firma tarafı (token) ─────────
 
+function aktifTokenFiltresi(token) {
+  const bugun = bugunBaslangici();
+  return {
+    'musteriPortal.token': token,
+    $or: [
+      { 'musteriPortal.baslangicTarihi': null, 'musteriPortal.bitisTarihi': null },
+      { 'musteriPortal.baslangicTarihi': { $lte: bugun }, 'musteriPortal.bitisTarihi': { $gte: bugun } }
+    ]
+  };
+}
+
 async function belgeBul(token, { yalnizMakineListeleri = false, yalnizKimlik = false } = {}) {
   if (typeof token !== 'string' || !TOKEN_BICIMI.test(token)) return null;
   for (const [tesvikModel, M] of Object.entries(MODELLER)) {
-    const sorgu = M.findOne({ 'musteriPortal.token': token });
+    const sorgu = M.findOne(aktifTokenFiltresi(token));
     if (yalnizKimlik) sorgu.select('_id');
     else if (yalnizMakineListeleri) sorgu.select('makineListeleri.yerli makineListeleri.ithal');
     else sorgu.select('-makineRevizyonlari -revizyonlar -evrakListesi').populate('firma', 'tamUnvan yabanciSermayeli');
@@ -145,11 +192,24 @@ async function belgeBulVeyaHata(token, secenekler) {
 }
 
 async function firmaBaglantisiniDogrula({ tesvikModel, tesvikId }, token) {
-  const gecerli = await modelAl(tesvikModel).exists({ _id: tesvikId, 'musteriPortal.token': token });
+  const gecerli = await modelAl(tesvikModel).exists({ _id: tesvikId, ...aktifTokenFiltresi(token) });
   if (!gecerli) throw gecersizBaglanti();
 }
 
-// Belge ekranındaki sekmelerin (künye, cins, ürün, finansal, şartlar, destek) okuduğu alanlar —
+const MAKINE_BELGE_ORTAK_ALANLARI = ['rowId', 'siraNo', 'makineId', 'adiVeOzelligi', 'miktar', 'birim', 'birimAciklamasi'];
+const MAKINE_BELGE_ALANLARI = {
+  local: [...MAKINE_BELGE_ORTAK_ALANLARI, 'birimFiyatiTl', 'toplamTutariTl'],
+  import: [...MAKINE_BELGE_ORTAK_ALANLARI, 'gtipKodu', 'birimFiyatiFob', 'gumrukDovizKodu', 'toplamTutarFobUsd', 'kullanilmisMakine']
+};
+
+// Salt okunur onaylı liste, belge tablosuyla aynı alan adlarını kullanır.
+// Gerçekleşen tutar, iç not, süreç ve belge depolama alanlarını bu tablodan göndermeyin.
+const onayliMakineListesi = (belge, listType) => resolver.listFor(belge, listType).filter(Boolean)
+  .map((satir) => Object.fromEntries(MAKINE_BELGE_ALANLARI[listType]
+    .filter((alan) => ['string', 'number', 'boolean'].includes(typeof satir[alan]))
+    .map((alan) => [alan, satir[alan]])));
+
+// Belge ekranındaki sekmelerin (künye, cins, ürün, onaylı listeler, finansal, şartlar, destek) okuduğu alanlar —
 // frontend utils/belgeKunye + belgeFinansal. Burada olmayan hiçbir alan firmaya gitmez.
 function belgeGorunumu(b) {
   const firma = b.firma && typeof b.firma === 'object'
@@ -165,6 +225,7 @@ function belgeGorunumu(b) {
     belgeYonetimi: b.belgeYonetimi || {},
     istihdam: b.istihdam || {},
     maliHesaplamalar: b.maliHesaplamalar || {},
+    makineListeleri: { yerli: onayliMakineListesi(b, 'local'), ithal: onayliMakineListesi(b, 'import') },
     urunler: b.urunler || [],
     ozelSartlar: b.ozelSartlar || [],
     destekUnsurlari: b.destekUnsurlari || []
@@ -236,10 +297,12 @@ async function portalVerisi(token) {
     .map((r) => makineGorunumu(r, listType, surecAl(listType, r.rowId)))
     .sort((a, b) => a.siraNo - b.siraNo);
 
+  const etiketler = await etiketleriCoz(belge, tesvikModel);
+  await firmaBaglantisiniDogrula({ tesvikModel, tesvikId: belge._id }, token);
   return {
     tur: tesvikModel === 'YeniTesvik' ? 'yeni' : 'eski',
     belge: belgeGorunumu(belge),
-    etiketler: await etiketleriCoz(belge, tesvikModel),
+    etiketler,
     makineler: { yerli: liste('local'), ithal: liste('import') }
   };
 }
@@ -278,6 +341,7 @@ async function firmaKalemiEkle(token, govde = {}) {
   if (!giren) throw hata('Adınızı yazın — kaydı kimin girdiği görünsün.', 'FATURA_GECERSIZ', 400);
 
   const proc = await mps.ensureProcess({ tesvikModel, tesvikId: belge._id, listType, rowId: satir.rowId });
+  await firmaBaglantisiniDogrula({ tesvikModel, tesvikId: belge._id }, token);
   const kalemId = new mongoose.Types.ObjectId();
   await mps.faturaKalemiEkle(proc, { tarih, no, icerik: govde.icerik, tutar, adet }, {
     kaynak: 'firma', girenAdi: giren, kalemId, eskiIstemci: govde.tutarParaBirimi !== 'TRY'
