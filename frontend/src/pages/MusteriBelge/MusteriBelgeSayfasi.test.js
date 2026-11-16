@@ -21,13 +21,45 @@ const makine = (rowId, listType, kalemler = []) => ({
 const kalem = (_id, no, kaynak = 'firma', evraklar = []) => ({ _id, no, kaynak, evraklar, tarih: '2026-11-05', tutar: 100 });
 const dosya = (ad, tur = 'application/pdf') => new File(['örnek'], ad, { type: tur });
 const para = (tutar, currency = 'TRY') => tutar.toLocaleString('tr-TR', { style: 'currency', currency, maximumFractionDigits: 2 });
-const belgeyiAc = (makineler) => {
-  api.get.mockResolvedValue(yanit({ tur: 'eski', belge: { yatirimciUnvan: 'TEST FİRMA', belgeYonetimi: { belgeNo: '123' } }, etiketler: {}, makineler }));
+const belgeyiAc = (makineler, makineListeleri = { yerli: [], ithal: [] }) => {
+  api.get.mockResolvedValue(yanit({ tur: 'eski', belge: { yatirimciUnvan: 'TEST FİRMA', belgeYonetimi: { belgeNo: '123' }, makineListeleri }, etiketler: {}, makineler }));
   return render(<MemoryRouter initialEntries={['/belge/test-token']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><Routes>
     <Route path="/belge/:token" element={<MusteriBelgeSayfasi />} />
   </Routes></MemoryRouter>);
 };
 const dosyaSec = (etiket, files) => fireEvent.change(screen.getByLabelText(etiket), { target: { files } });
+
+test('müşteri belge düzenindeki onaylı listeleri salt okunur, gerçekleşen listeleri ayrı görür', async () => {
+  belgeyiAc({ yerli: [makine('Y1', 'local')], ithal: [makine('I1', 'import', [kalem('b1', 'BEYAN-1')])] }, {
+    yerli: [{ rowId: 'Y1', siraNo: 1, makineId: 'MAK-1', adiVeOzelligi: 'Onaylı Yerli Makine', miktar: 2, birim: '142', birimFiyatiTl: 123.45, toplamTutariTl: 246.9 }],
+    ithal: [{ rowId: 'I1', siraNo: 1, makineId: 'MAK-2', adiVeOzelligi: 'Onaylı İthal Makine', miktar: 1, birim: '142', gtipKodu: '8477.80', birimFiyatiFob: 180, gumrukDovizKodu: 'EUR', toplamTutarFobUsd: 200, kullanilmisMakine: '3' }]
+  });
+  const tabs = await screen.findAllByRole('tab');
+  expect(tabs.map((tab) => tab.textContent)).toEqual([
+    'Belge Künye Bilgileri', 'Yatırım Cinsi', 'Ürün Bilgileri', 'Onaylı Yerli Liste (1)', 'Onaylı İthal Liste (1)',
+    'Finansal Bilgiler', 'Özel Şartlar', 'Destek Unsurları', 'Gerçekleşen Yerli Liste', 'Gerçekleşen İthal Liste',
+    'Diğer Harcamalar', 'Bina İnşaat Harcamaları', 'Arazi-Arsa Harcamaları', 'Gerçekleşme Özeti'
+  ]);
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Onaylı Yerli Liste (1)' }));
+  expect(screen.getByRole('columnheader', { name: 'Birim' })).toBeInTheDocument();
+  expect(screen.getByRole('row', { name: /MAK-1 Onaylı Yerli Makine.*ADET.*123,45 TL.*246,9 TL/ })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Kalem Gir|Gör \/ Ekle/ })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Onaylı İthal Liste (1)' }));
+  expect(screen.getByRole('columnheader', { name: 'Kullanılmış' })).toBeInTheDocument();
+  expect(screen.getByRole('row', { name: /8477.80 Onaylı İthal Makine.*180 EUR.*200 USD.*KULLANILMIŞ MÜNFERİT/ })).toBeInTheDocument();
+  expect(screen.queryByText('BEYAN-1')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Kalem Gir|Gör \/ Ekle/ })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('tab', { name: 'Gerçekleşen İthal Liste' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Gör / Ekle' }));
+  const pencere = within(screen.getByRole('dialog', { name: 'Beyanname Kalemleri' }));
+  expect(pencere.getByText('BEYAN-1')).toBeInTheDocument();
+  expect(pencere.getByText(/düzeltilemez veya silinemez/)).toBeInTheDocument();
+  expect(pencere.queryByRole('button', { name: /düzenle|sil/i })).not.toBeInTheDocument();
+  expect(api.get).toHaveBeenCalledTimes(1);
+});
 
 test('müşteri üç harcama sekmesinden kayıt ve evrak ekler, özet güncel TL toplamını gösterir', async () => {
   const kategoriler = {
@@ -44,7 +76,9 @@ test('müşteri üç harcama sekmesinden kayıt ve evrak ekler, özet güncel TL
   const sekmeAdlari = ['Diğer Harcamalar', 'Bina İnşaat Harcamaları', 'Arazi-Arsa Harcamaları', 'Gerçekleşme Özeti'];
   const sekmeler = await screen.findAllByRole('tab');
   const sirasi = sekmeler.findIndex((sekme) => sekme.textContent === 'Özel Şartlar');
-  expect(sekmeler.slice(sirasi + 1, sirasi + 6).map((sekme) => sekme.textContent)).toEqual([...sekmeAdlari, 'Destek Unsurları']);
+  expect(sekmeler.slice(sirasi + 1).map((sekme) => sekme.textContent)).toEqual([
+    'Destek Unsurları', 'Gerçekleşen Yerli Liste', 'Gerçekleşen İthal Liste', ...sekmeAdlari
+  ]);
   for (const ad of sekmeAdlari.slice(0, 3).reverse()) {
     api.get.mockResolvedValueOnce(yanit({ kategoriler, kalemler: [personel] }));
     fireEvent.click(screen.getByRole('tab', { name: ad }));
@@ -98,7 +132,7 @@ test('müşteri ithal makinede birim etiketini, EUR birim fiyatını ve USD FOB 
   belgeyiAc({ yerli: [], ithal: [{
     ...makine('I1', 'import'), birim: '142', birimFiyat: 165000, birimParaBirimi: 'EUR', toplam: 179000, paraBirimi: 'USD'
   }] });
-  fireEvent.click(await screen.findByText('İthal Liste (1)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen İthal Liste' }));
   expect(screen.getByText('1 ADET')).toBeInTheDocument();
   expect(screen.getByText(para(165000, 'EUR'))).toBeInTheDocument();
   expect(screen.getByText(para(179000, 'USD'))).toBeInTheDocument();
@@ -109,7 +143,7 @@ test('müşteri ithal makinede birim etiketini, EUR birim fiyatını ve USD FOB 
 test('ithal beyanname toplamı sıfır olduğunda TL gösterilir', async () => {
   const kayit = { ...kalem('b1', 'BY-001', 'personel'), tutar: 0, tutarParaBirimi: 'TRY' };
   belgeyiAc({ yerli: [], ithal: [{ ...makine('I1', 'import', [kayit]), faturaToplami: 0, faturaTutarToplamlari: {} }] });
-  fireEvent.click(await screen.findByText('İthal Liste (1)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen İthal Liste' }));
   expect(screen.getByText(`1 kalem · ${para(0)}`)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Gör / Ekle' }));
   expect(within(screen.getByRole('row', { name: /Toplam/ })).getByText(para(0))).toBeInTheDocument();
@@ -130,7 +164,7 @@ test('yerli fatura evraksız kaydedilir ve yalnız dönen yeni kaleme PDF, XML v
   uploadPost.mockResolvedValue(yanit({ ...kayit, kalemler: [{ ...yeniKalem, evraklar }, baskaKalem] }));
   jest.spyOn(window, 'confirm').mockReturnValue(true);
   belgeyiAc({ yerli: [ilkMakine], ithal: [] });
-  fireEvent.click(await screen.findByText('Yerli Liste (1)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen Yerli Liste' }));
   fireEvent.click(screen.getByRole('button', { name: 'Kalem Gir' }));
   expect(screen.queryByLabelText('Fatura PDF')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText(/Fatura Tarihi/), { target: { value: '2026-11-05' } });
@@ -169,7 +203,7 @@ test('var olan yerli faturada yükleme sınırları uygulanır ve bağlantı hat
   uploadPost.mockRejectedValueOnce(new Error('Bağlantı kesildi'));
   uploadPost.mockImplementationOnce(() => new Promise((resolve) => { tamamla = resolve; }));
   belgeyiAc({ yerli: [ilkMakine], ithal: [] });
-  fireEvent.click(await screen.findByText('Yerli Liste (1)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen Yerli Liste' }));
   fireEvent.click(screen.getByRole('button', { name: 'Gör / Ekle' }));
   expect(screen.getAllByRole('button', { name: 'Evrak Yükle' })).toHaveLength(1);
   fireEvent.click(screen.getByRole('button', { name: 'Evrak Yükle' }));
@@ -215,7 +249,7 @@ test('bekleyen dosya başka makineye taşınmaz', async () => {
     yerli: [makine('Y1', 'local', [kalem('k1', 'FT-001')]), makine('Y2', 'local', [kalem('k2', 'FT-002')])],
     ithal: []
   });
-  fireEvent.click(await screen.findByText('Yerli Liste (2)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen Yerli Liste' }));
   fireEvent.click(screen.getByText('Makine Y1'));
   fireEvent.click(screen.getByRole('button', { name: 'Evrak Yükle' }));
   dosyaSec('Fatura PDF', [dosya('bekleyen.pdf')]);
@@ -246,7 +280,7 @@ test('yeni beyanname mal bedeli TL ile kaydedilir ve ithal evrak türleri yükle
   uploadPost.mockResolvedValue(yanit({ ...kayit, kalemler: [eskiKalem, personelKalemi, { ...yeniKalem, evraklar }] }));
   const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
   belgeyiAc({ yerli: [], ithal: [ilkMakine] });
-  fireEvent.click(await screen.findByText('İthal Liste (1)'));
+  fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen İthal Liste' }));
   expect(screen.getByText(`2 kalem · ${para(100, 'EUR')} · ${para(75, 'USD')}`)).toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Gör / Ekle' }));
   const eskiSatir = screen.getByRole('row', { name: /BY-ESKI/ });

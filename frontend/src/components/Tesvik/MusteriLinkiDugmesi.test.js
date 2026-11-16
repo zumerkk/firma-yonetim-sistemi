@@ -8,6 +8,10 @@ const bilgi = { link: 'https://ornek.test/belge/gecerli-link', surum: 'a'.repeat
 const cevap = (data) => ({ data: { success: true, data } });
 const ac = () => fireEvent.click(screen.getByRole('button', { name: 'Müşteri Linki' }));
 const kur = () => render(<MusteriLinkiDugmesi tesvikModel="Tesvik" tesvikId="belge-1" />);
+const tarihleriSec = (baslangicTarihi = '2090-03-02', bitisTarihi = '2090-03-10') => {
+  fireEvent.change(screen.getByLabelText(/Başlangıç tarihi/), { target: { value: baslangicTarihi } });
+  fireEvent.change(screen.getByLabelText(/Bitiş tarihi/), { target: { value: bitisTarihi } });
+};
 const ertelenen = () => {
   let resolve;
   const promise = new Promise((r) => { resolve = r; });
@@ -85,11 +89,15 @@ test('yenileme yanıtı kaybolursa aynı işlem kimliği ve görülen sürümle 
   const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
   kur(); ac();
   await screen.findByDisplayValue(bilgi.link);
+  tarihleriSec();
   fireEvent.click(screen.getByRole('button', { name: 'Yeni Link Üret' }));
   expect(await screen.findByText(/İşlem tamamlanmış olabilir/)).toBeInTheDocument();
   expect(api.post).toHaveBeenCalledTimes(1);
   const ilkGovde = api.post.mock.calls[0][1];
-  expect(ilkGovde).toMatchObject({ yenile: true, beklenenSurum: bilgi.surum, istekId: expect.any(String) });
+  expect(ilkGovde).toMatchObject({
+    yenile: true, beklenenSurum: bilgi.surum, istekId: expect.any(String),
+    baslangicTarihi: '2090-03-02', bitisTarihi: '2090-03-10'
+  });
   fireEvent.click(screen.getByRole('button', { name: 'Tekrar Dene' }));
   await screen.findByDisplayValue(`${bilgi.link}-yeni`);
   expect(api.post.mock.calls[1][1]).toEqual(ilkGovde);
@@ -146,6 +154,7 @@ test('ilk üretim yanıtı kaybolunca tekrar yalnız okur; kapalı link ancak bi
   api.post.mockRejectedValueOnce({ code: 'ERR_NETWORK' }).mockResolvedValueOnce(cevap(bilgi));
   kur(); ac();
   await screen.findByText(/henüz link üretilmedi/);
+  tarihleriSec();
   fireEvent.click(screen.getByRole('button', { name: 'Link Üret' }));
   await screen.findByText(/İşlem tamamlanmış olabilir/);
   fireEvent.click(screen.getByRole('button', { name: 'Tekrar Dene' }));
@@ -156,6 +165,42 @@ test('ilk üretim yanıtı kaybolunca tekrar yalnız okur; kapalı link ancak bi
   await screen.findByDisplayValue(bilgi.link);
   expect(api.post).toHaveBeenCalledTimes(2);
   expect(api.post.mock.calls[1][1].istekId).not.toBe(api.post.mock.calls[0][1].istekId);
+});
+
+test('geçerli başlangıç ve bitiş seçilmeden link üretmez; aynı gün geçerlidir', async () => {
+  api.get.mockResolvedValueOnce(cevap(null));
+  api.post.mockResolvedValueOnce(cevap({
+    ...bilgi, baslangicTarihi: '2090-03-02', bitisTarihi: '2090-03-02', durum: 'planlandi'
+  }));
+  kur(); ac();
+  await screen.findByText(/henüz link üretilmedi/);
+  const dugme = screen.getByRole('button', { name: 'Link Üret' });
+  expect(dugme).toBeDisabled();
+  tarihleriSec('2090-03-02', '2090-03-01');
+  expect(screen.getByText('Bitiş tarihi başlangıç tarihinden önce olamaz.')).toBeInTheDocument();
+  expect(dugme).toBeDisabled();
+  expect(api.post).not.toHaveBeenCalled();
+  tarihleriSec('2090-03-02', '2090-03-02');
+  fireEvent.click(dugme);
+  expect(await screen.findByText(/Link planlandı/)).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith('/musteri-belge/yonetim/Tesvik/belge-1', {
+    baslangicTarihi: '2090-03-02', bitisTarihi: '2090-03-02', istekId: expect.any(String)
+  }, expect.any(Object));
+  expect(screen.getByRole('button', { name: 'Kopyala' })).toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Yeni sekmede aç' })).not.toBeInTheDocument();
+});
+
+test('süresi dolan linkin tarihini gösterir ve yeni ileri tarih seçilene dek yenilemeyi engeller', async () => {
+  api.get.mockResolvedValueOnce(cevap({
+    ...bilgi, baslangicTarihi: '2020-01-02', bitisTarihi: '2020-01-03', durum: 'suresi_doldu'
+  }));
+  kur(); ac();
+  expect(await screen.findByText(/Linkin süresi doldu.*02\.01\.2020.*03\.01\.2020/)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'Kopyala' })).not.toBeInTheDocument();
+  const dugme = screen.getByRole('button', { name: 'Yeni Link Üret' });
+  expect(dugme).toBeDisabled();
+  tarihleriSec();
+  expect(dugme).toBeEnabled();
 });
 
 test.each([{ data: '<html>Sunucu hazırlanıyor</html>' }, cevap({})])('beklenmeyen yanıt link yok gibi gösterilmez ve üretim açılmaz: %p', async (yanit) => {

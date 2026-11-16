@@ -1,5 +1,5 @@
 // 📄 TEŞVİK MAKİNE DETAY - /tesvikler/:tesvikModel/:tesvikId
-// Sekmeler: Künye · Yerli · İthal · Makine Talepleri · Evraklar · Mail Geçmişi · Hatırlatmalar · Geçmiş
+// Sekmeler: Belge bilgileri · Gerçekleşen harcamalar · Makine ve evrak işlemleri
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -15,6 +15,7 @@ import BuildCircleIcon from '@mui/icons-material/BuildCircle';
 import LayoutWrapper from '../../components/Layout/LayoutWrapper';
 import { useAuth } from '../../contexts/AuthContext';
 import svc from '../../services/tesvikMakineService';
+import api from '../../utils/axios';
 import { birimEtiketi } from '../../utils/makineFormat';
 import { EVRAK_ACCEPT } from '../../utils/yuklemeTurleri';
 import { turkceIcerir } from '../../utils/turkceKatla';
@@ -23,6 +24,7 @@ import FaturaKalemleriDialog from './FaturaKalemleriDialog';
 import Harcamalar from './Harcamalar';
 import GerceklesmeOzeti from './GerceklesmeOzeti';
 import { GERCEKLESME_SEKMESI, HARCAMA_SEKMELERI } from '../../components/Tesvik/harcamaSekmeleri';
+import BelgeMakineListesi from '../../components/Tesvik/BelgeMakineListesi';
 import MusteriLinkiDugmesi from '../../components/Tesvik/MusteriLinkiDugmesi';
 import { LISTE_ADRESI_ANAHTARI } from './TesvikMakineList';
 import {
@@ -36,6 +38,48 @@ const miktarSutunu = {
 };
 
 const planlananTutar = ({ row }) => formatMoney(row.totalPrice, row.listType === 'import' ? 'USD' : 'TRY');
+
+const ONAYLI_YERLI = 'onayli-yerli';
+const ONAYLI_ITHAL = 'onayli-ithal';
+
+function OnayliMakineListesi({ tesvikModel, tesvikId, ithal, yenileme }) {
+  const [listeler, setListeler] = useState(null);
+  const [hata, setHata] = useState(false);
+  const [deneme, setDeneme] = useState(0);
+
+  useEffect(() => {
+    const kaynak = tesvikModel === 'YeniTesvik' ? 'yeni-tesvik' : tesvikModel === 'Tesvik' ? 'tesvik' : null;
+    const controller = new AbortController();
+    setListeler(null);
+    setHata(false);
+    if (!kaynak) {
+      setHata(true);
+      return () => controller.abort();
+    }
+    // Süreç verisi bazı onaylı belge alanlarını içermez (ör. kullanılmış makine).
+    // Belge Detayı ile aynı veriyi ve aynı salt okunur tabloyu kullan.
+    api.get(`/${kaynak}/${encodeURIComponent(tesvikId)}`, { signal: controller.signal })
+      .then(({ data }) => {
+        if (controller.signal.aborted) return;
+        if (!data?.data) { setHata(true); return; }
+        setListeler(data.data.makineListeleri || {});
+      })
+      .catch(() => { if (!controller.signal.aborted) setHata(true); });
+    return () => controller.abort();
+  }, [tesvikModel, tesvikId, yenileme, deneme]);
+
+  const baslik = ithal ? 'Onaylı İthal Liste' : 'Onaylı Yerli Liste';
+  const satirlar = listeler?.[ithal ? 'ithal' : 'yerli'];
+  return (
+    <Paper component="section" aria-label={baslik} sx={{ p: 2 }}>
+      {hata ? <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => setDeneme((deger) => deger + 1)}>Tekrar Dene</Button>}>
+        Onaylı makine listesi yüklenemedi.
+      </Alert> : listeler ? (
+        <BelgeMakineListesi key={baslik} ithal={ithal} satirlar={Array.isArray(satirlar) ? satirlar : []} />
+      ) : <Box sx={{ textAlign: 'center', p: 3 }}><CircularProgress size={24} aria-label="Onaylı makine listesi yükleniyor" /></Box>}
+    </Paper>
+  );
+}
 
 export default function TesvikMakineDetail() {
   const { tesvikModel, tesvikId } = useParams();
@@ -136,8 +180,7 @@ export default function TesvikMakineDetail() {
     () => machines.filter((m) => m.listType === listeTipi),
     [machines, listeTipi]
   );
-  // Yerli / İthal Liste sekmeleri seçimden bağımsız (eskiden Yerli Liste sekmesi de listeTipi'ne bağlıydı:
-  // Makine Talepleri'nde İthal seçiliyken "Yerli Liste" ithal makineleri gösteriyordu)
+  // Gerçekleşen listeler, Makine Talepleri'nde seçilen liste tipinden bağımsızdır.
   const yerliMakineler = useMemo(() => machines.filter((m) => m.listType === 'local'), [machines]);
   const ithalMakineler = useMemo(() => machines.filter((m) => m.listType === 'import'), [machines]);
 
@@ -154,7 +197,7 @@ export default function TesvikMakineDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localMachines, q, fStatus, fQuick]);
 
-  // 🧾 Yerli / İthal Liste: fatura (ithalde beyanname) değerleri ızgarada DÜZENLENMEZ, yalnız kayıtlılar
+  // 🧾 Gerçekleşen Yerli / İthal Liste: fatura (ithalde beyanname) değerleri ızgarada DÜZENLENMEZ, yalnız kayıtlılar
   // görünür; makineye tıklayınca kalem penceresi açılır (müşteri, 13.10.2026: "Fatura değerleri vs buradan
   // güncellenmesin sadece kayıt edilenler görünsün, Makinelerin üstüne tıklayınca fatura kalem kaydetme
   // kısmı açılsın"). Toplamlar kalemlerden hesaplanır ve ana makine listesine yansır.
@@ -286,19 +329,19 @@ export default function TesvikMakineDetail() {
         </Stack>
 
         <Paper sx={{ mb: 2 }}>
-          {/* İthal Liste bir dönem kaldırılmıştı (#5). Müşteri (22.09.2026): "ithal makineler görünmüyor ama
-              sadece yerli makineler görünüyor" — geri geldi (beyanname akışı 11.09'dan beri var). */}
           <Tabs value={tab} onChange={(e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
             <Tab label="Belge Künyesi" value={0} />
-            <Tab label={`Yerli Liste (${cert?.totals?.localCount || 0})`} value={1} />
-            <Tab label={`İthal Liste (${cert?.totals?.importCount || 0})`} value={2} />
+            <Tab label={`Onaylı Yerli Liste (${cert?.totals?.localCount || 0})`} value={ONAYLI_YERLI} />
+            <Tab label={`Onaylı İthal Liste (${cert?.totals?.importCount || 0})`} value={ONAYLI_ITHAL} />
+            <Tab label="Gerçekleşen Yerli Liste" value={1} />
+            <Tab label="Gerçekleşen İthal Liste" value={2} />
+            {HARCAMA_SEKMELERI.map(({ anahtar, baslik }) => <Tab key={anahtar} label={baslik} value={anahtar} />)}
+            <Tab label={GERCEKLESME_SEKMESI.baslik} value={GERCEKLESME_SEKMESI.anahtar} />
             <Tab label="Makine Talepleri" value={3} />
             <Tab label="Evraklar" value={4} />
             <Tab label="Mail Geçmişi" value={5} />
             <Tab label="Hatırlatmalar" value={6} />
             <Tab label="Notlar / Geçmiş" value={7} />
-            {HARCAMA_SEKMELERI.map(({ anahtar, baslik }) => <Tab key={anahtar} label={baslik} value={anahtar} />)}
-            <Tab label={GERCEKLESME_SEKMESI.baslik} value={GERCEKLESME_SEKMESI.anahtar} />
           </Tabs>
         </Paper>
 
@@ -319,7 +362,12 @@ export default function TesvikMakineDetail() {
           </Paper>
         )}
 
-        {/* 1 Yerli Liste / 2 İthal Liste — fatura (beyanname) kalemleri: satıra tıkla → kalem penceresi */}
+        {(tab === ONAYLI_YERLI || tab === ONAYLI_ITHAL) && (
+          <OnayliMakineListesi key={`${tesvikModel}/${tesvikId}`} tesvikModel={tesvikModel} tesvikId={tesvikId}
+            ithal={tab === ONAYLI_ITHAL} yenileme={finansalYenileme} />
+        )}
+
+        {/* Gerçekleşen listeler — fatura (beyanname) kalemleri: satıra tıkla → kalem penceresi */}
         {(tab === 1 || tab === 2) && (
           <Paper sx={{ p: 1 }}>
             <Typography variant="caption" color="text.secondary" sx={{ px: 1 }}>

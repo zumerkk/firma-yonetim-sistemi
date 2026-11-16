@@ -18,24 +18,27 @@ import { birimEtiketi } from '../../utils/makineFormat';
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
+import BelgeMakineListesi from '../../components/Tesvik/BelgeMakineListesi';
 import TutarAlani from '../../components/common/TutarAlani';
 import KalemEvrakPaneli from '../../components/Tesvik/KalemEvrakPaneli';
 import { HARCAMA_SEKMELERI, GERCEKLESME_SEKMESI } from '../../components/Tesvik/harcamaSekmeleri';
 import Harcamalar from '../TesvikMakine/Harcamalar';
 import GerceklesmeOzeti from '../TesvikMakine/GerceklesmeOzeti';
 
-// Belge ekranının sekme sırası (ETUYS) — "Evrak Listesi" firmaya açılmaz
+// Belge bilgileri önde, gerçekleşen harcamalar ayrı sekmelerde. İç sekmeler firmaya açılmaz.
 const BOLUMLER = [
   { anahtar: 'kunye', baslik: 'Belge Künye Bilgileri' },
   { anahtar: 'cins', baslik: 'Yatırım Cinsi' },
   { anahtar: 'urun', baslik: 'Ürün Bilgileri' },
-  { anahtar: 'yerli', baslik: 'Yerli Liste' },
-  { anahtar: 'ithal', baslik: 'İthal Liste' },
+  { anahtar: 'yerli', baslik: 'Onaylı Yerli Liste' },
+  { anahtar: 'ithal', baslik: 'Onaylı İthal Liste' },
   { anahtar: 'finansal', baslik: 'Finansal Bilgiler' },
   { anahtar: 'sart', baslik: 'Özel Şartlar' },
+  { anahtar: 'destek', baslik: 'Destek Unsurları' },
+  { anahtar: 'gerceklesenYerli', baslik: 'Gerçekleşen Yerli Liste' },
+  { anahtar: 'gerceklesenIthal', baslik: 'Gerçekleşen İthal Liste' },
   ...HARCAMA_SEKMELERI,
-  GERCEKLESME_SEKMESI,
-  { anahtar: 'destek', baslik: 'Destek Unsurları' }
+  GERCEKLESME_SEKMESI
 ];
 
 const para = (v, kod = 'TRY') => {
@@ -89,6 +92,10 @@ function BelgeGorunumu({ token }) {
   if (!veri) return <Kabuk><Box sx={{ textAlign: 'center', py: 6 }}><CircularProgress /></Box></Kabuk>;
 
   const { belge, tur, etiketler, makineler } = veri;
+  const onayliListeler = belge.makineListeleri || {};
+  const onayliListe = aktif === 'yerli' || aktif === 'ithal';
+  const gerceklesenListe = aktif === 'gerceklesenYerli' || aktif === 'gerceklesenIthal';
+  const gerceklesenIthal = aktif === 'gerceklesenIthal';
   const harcamaSekmesi = HARCAMA_SEKMELERI.find(({ anahtar }) => anahtar === aktif);
   const by = belge.belgeYonetimi || {};
   const konuGoster = (kod) => (etiketler.konu ? `${kod} — ${etiketler.konu}` : kod);
@@ -105,15 +112,16 @@ function BelgeGorunumu({ token }) {
         </Typography>
       </Box>
 
-      <SekmeSeridi sekmeler={BOLUMLER.map((b) => (b.anahtar === 'yerli' ? { ...b, baslik: `Yerli Liste (${makineler.yerli.length})` }
-        : b.anahtar === 'ithal' ? { ...b, baslik: `İthal Liste (${makineler.ithal.length})` } : b))}
+      <SekmeSeridi sekmeler={BOLUMLER.map((b) => (b.anahtar === 'yerli' || b.anahtar === 'ithal')
+        ? { ...b, baslik: `${b.baslik} (${onayliListeler[b.anahtar]?.length || 0})` } : b)}
         etkin={aktif} onDegis={setAktif} />
       <Box sx={{ border: `1px solid ${renk.cizgi}`, borderTop: 'none', backgroundColor: renk.yuzey, p: { xs: 1, sm: 1.75 } }}>
         {aktif === 'kunye' && <KunyePaneli tesvik={belge} tur={tur} konuGoster={tur === 'yeni' ? konuGoster : undefined} oecdGoster={oecdGoster} />}
         {aktif === 'cins' && <YatirimCinsiTablosu tesvik={belge} />}
         {aktif === 'urun' && <UrunTablosu tesvik={belge} tur={tur} />}
-        {(aktif === 'yerli' || aktif === 'ithal') && (
-          <MakineListesi ithal={aktif === 'ithal'} satirlar={aktif === 'ithal' ? makineler.ithal : makineler.yerli} onSec={setSecili} />
+        {onayliListe && <BelgeMakineListesi key={aktif} ithal={aktif === 'ithal'} satirlar={onayliListeler[aktif] || []} />}
+        {gerceklesenListe && (
+          <MakineListesi ithal={gerceklesenIthal} satirlar={gerceklesenIthal ? makineler.ithal : makineler.yerli} onSec={setSecili} />
         )}
         {aktif === 'finansal' && <FinansalPaneli tesvik={belge} />}
         {aktif === 'sart' && <OzelSartTablosu tesvik={belge} />}

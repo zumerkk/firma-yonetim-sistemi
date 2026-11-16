@@ -13,7 +13,17 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import api from '../../utils/axios';
 
-const tarihYaz = (v) => (v ? new Date(v).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '');
+const tarihYaz = (v) => (v ? new Date(v).toLocaleString('tr-TR', {
+  dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Istanbul'
+}) : '');
+const isGunuYaz = (v) => typeof v === 'string' ? v.split('-').reverse().join('.') : '';
+const takvimFormati = new Intl.DateTimeFormat('en-CA', {
+  year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Europe/Istanbul'
+});
+const istanbulBugun = () => {
+  const parcalar = Object.fromEntries(takvimFormati.formatToParts(new Date()).map(({ type, value }) => [type, value]));
+  return `${parcalar.year}-${parcalar.month}-${parcalar.day}`;
+};
 const LINK_TIMEOUT = 60000;
 const tekrarEdilebilir = (e) => !e.response || [502, 503, 504].includes(e.response.status);
 const istekKimligi = () => window.crypto?.randomUUID?.()
@@ -48,6 +58,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   const [kopyalandi, setKopyalandi] = useState(false);
   const [kopyalamaHatasi, setKopyalamaHatasi] = useState(false);
   const [okundu, setOkundu] = useState(false);
+  const [tarihler, setTarihler] = useState(() => ({ baslangicTarihi: istanbulBugun(), bitisTarihi: '' }));
   const kontrol = useRef({ sira: 0, iptal: null, mesgul: false });
   const sonIstek = useRef(null);
   const linkAlani = useRef(null);
@@ -58,6 +69,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   useEffect(() => {
     const durum = kontrol.current;
     setAcik(false); setBilgi(null); setHata(''); setOkundu(false); setMesgul(false);
+    setTarihler({ baslangicTarihi: istanbulBugun(), bitisTarihi: '' });
     sonIstek.current = null;
     durum.mesgul = false;
     return () => {
@@ -106,6 +118,9 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
         throw Object.assign(new Error('Beklenmeyen yanıt'), { code: 'ERR_BAD_RESPONSE' });
       }
       setBilgi(islem.yontem === 'delete' ? null : veri);
+      if (islem.yontem === 'delete' || veri) {
+        setTarihler({ baslangicTarihi: veri?.baslangicTarihi || istanbulBugun(), bitisTarihi: veri?.bitisTarihi || '' });
+      }
       setOkundu(true);
     } catch (e) {
       if (!guncel()) return;
@@ -128,19 +143,29 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
   const ac = () => {
     setAcik(true);
     setOkundu(false);
+    setTarihler({ baslangicTarihi: istanbulBugun(), bitisTarihi: '' });
     istek({ yontem: 'get' });
   };
-  const uret = () => istek({ yontem: 'post', veri: { istekId: istekKimligi() } });
+  const { baslangicTarihi, bitisTarihi } = tarihler;
+  const tarihHatasi = baslangicTarihi && bitisTarihi && (bitisTarihi < baslangicTarihi
+    ? 'Bitiş tarihi başlangıç tarihinden önce olamaz.'
+    : bitisTarihi < istanbulBugun() ? 'Bitiş tarihi bugün veya daha ileri bir gün olmalıdır.' : '');
+  const tarihGecerli = !!baslangicTarihi && !!bitisTarihi && !tarihHatasi;
+  const islemKapali = mesgul || !okundu || !!hata;
+  const suresiDoldu = bilgi?.durum === 'suresi_doldu';
+  const planlandi = bilgi?.durum === 'planlandi';
+  const uret = () => tarihGecerli && istek({ yontem: 'post', veri: { ...tarihler, istekId: istekKimligi() } });
   const yenile = () => {
+    if (!tarihGecerli) return;
     if (!window.confirm('Yeni link üretilsin mi? Firmaya daha önce gönderdiğiniz link çalışmaz hale gelir.')) return;
-    istek({ yontem: 'post', veri: { yenile: true, istekId: istekKimligi(), beklenenSurum: bilgi.surum } });
+    istek({ yontem: 'post', veri: { ...tarihler, yenile: true, istekId: istekKimligi(), beklenenSurum: bilgi.surum } });
   };
   const kapat = () => {
     if (!window.confirm('Link kapatılsın mı? Firma bu belgeyi artık göremez ve fatura kalemi giremez.')) return;
     istek({ yontem: 'delete' });
   };
   const kopyala = async () => {
-    if (!bilgi?.link) return;
+    if (!bilgi?.link || suresiDoldu) return;
     const sira = kontrol.current.sira;
     const kopyalama = ++kopyalamaSayaci.current;
     const guncel = () => sira === kontrol.current.sira && kopyalama === kopyalamaSayaci.current;
@@ -171,10 +196,9 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
         <DialogTitle sx={{ fontWeight: 700 }}>Müşteri Belge Linki</DialogTitle>
         <DialogContent dividers>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Firma bu linkle belge bilgilerini, yerli ve ithal makine listelerini, üç harcama listesini ve
-            gerçekleşme özetini görür. Fatura, beyanname ve harcama kalemi ekleyebilir, kendi kalemlerine evrak
-            yükleyebilir ve gerçekleşme listesini Excel olarak indirebilir. Kalemleri personel Harcama Takip
-            ekranından düzenler veya siler.
+            Firma bu linkle belge bilgilerini, onaylı ve gerçekleşen makine listelerini, diğer harcamaları ve
+            gerçekleşme özetini ayrı görür. Fatura, beyanname ve harcama kalemi ekleyebilir; kendi kalemlerine evrak
+            yükleyebilir. Kaydedilen kalemleri yalnızca personel Harcama Takip ekranından düzenleyebilir veya silebilir.
           </Typography>
           {mesgul && <Stack alignItems="center" spacing={1} sx={{ py: 2 }}>
             <CircularProgress size={24} />
@@ -182,12 +206,18 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
           </Stack>}
           {!mesgul && !hata && bilgi?.link && (
             <>
+              <Alert severity={suresiDoldu ? 'warning' : planlandi || !bilgi.bitisTarihi ? 'info' : 'success'} sx={{ mb: 1.5 }}>
+                {suresiDoldu ? 'Linkin süresi doldu; firma artık bu linki kullanamaz.'
+                  : planlandi ? 'Link planlandı; başlangıç gününde açılacak.'
+                    : bilgi.bitisTarihi ? 'Link aktif.' : 'Bu eski linkin bitiş tarihi yok.'}
+                {bilgi.bitisTarihi && ` Geçerlilik: ${isGunuYaz(bilgi.baslangicTarihi)} – ${isGunuYaz(bilgi.bitisTarihi)}.`}
+              </Alert>
               <TextField fullWidth size="small" value={bilgi.link} inputRef={linkAlani} InputProps={{
                 readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
-                    <Tooltip title="Kopyala"><IconButton size="small" onClick={kopyala}><ContentCopyIcon fontSize="small" /></IconButton></Tooltip>
-                    <Tooltip title="Yeni sekmede aç"><IconButton size="small" component="a" href={bilgi.link} target="_blank" rel="noopener noreferrer"><OpenInNewIcon fontSize="small" /></IconButton></Tooltip>
+                    {!suresiDoldu && <Tooltip title="Kopyala"><IconButton size="small" onClick={kopyala}><ContentCopyIcon fontSize="small" /></IconButton></Tooltip>}
+                    {!suresiDoldu && !planlandi && <Tooltip title="Yeni sekmede aç"><IconButton size="small" component="a" href={bilgi.link} target="_blank" rel="noopener noreferrer"><OpenInNewIcon fontSize="small" /></IconButton></Tooltip>}
                   </InputAdornment>
                 )
               }} />
@@ -201,7 +231,26 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
             </>
           )}
           {!mesgul && okundu && !bilgi && !hata && (
-            <Alert severity="info">Bu belge için henüz link üretilmedi. "Link Üret" ile oluşturabilirsiniz.</Alert>
+            <Alert severity="info">Bu belge için henüz link üretilmedi. Tarih aralığını seçip "Link Üret" ile oluşturabilirsiniz.</Alert>
+          )}
+          {!mesgul && okundu && !hata && (
+            <Stack spacing={1.5} sx={{ mt: 2 }}>
+              <Typography variant="subtitle2" component="div">{bilgi ? 'Yeni linkin geçerlilik aralığı' : 'Linkin geçerlilik aralığı'}</Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField type="date" label="Başlangıç tarihi" size="small" fullWidth required
+                  value={baslangicTarihi} InputLabelProps={{ shrink: true }}
+                  onChange={(e) => setTarihler((onceki) => ({ ...onceki, baslangicTarihi: e.target.value }))} />
+                <TextField type="date" label="Bitiş tarihi" size="small" fullWidth required
+                  value={bitisTarihi} error={!!tarihHatasi} helperText={tarihHatasi || undefined}
+                  InputLabelProps={{ shrink: true }}
+                  inputProps={{ min: baslangicTarihi > istanbulBugun() ? baslangicTarihi : istanbulBugun() }}
+                  onChange={(e) => setTarihler((onceki) => ({ ...onceki, bitisTarihi: e.target.value }))} />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">
+                Başlangıç ve bitiş günleri dahildir (Türkiye saati). Link, bitiş günü sona erdiğinde otomatik kapanır.
+                {bilgi && ' Tarihleri uygulamak için yeni link üretin; önceki link kapanır.'}
+              </Typography>
+            </Stack>
           )}
           {hata && <Alert severity="error" sx={{ mt: 1 }} action={
             <Button color="inherit" size="small" onClick={() => sonIstek.current && istek(sonIstek.current)} disabled={mesgul}>Tekrar Dene</Button>
@@ -209,10 +258,10 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'space-between', px: 3 }}>
           <Stack direction="row" spacing={1}>
-            {bilgi?.link && <Button color="error" size="small" onClick={kapat} disabled={mesgul || !okundu || !!hata}>Linki Kapat</Button>}
+            {bilgi?.link && <Button color="error" size="small" onClick={kapat} disabled={islemKapali}>Linki Kapat</Button>}
             {bilgi?.link
-              ? <Button size="small" onClick={yenile} disabled={mesgul || !okundu || !!hata}>Yeni Link Üret</Button>
-              : <Button size="small" variant="contained" onClick={uret} disabled={mesgul || !okundu || !!hata}>Link Üret</Button>}
+              ? <Button size="small" onClick={yenile} disabled={islemKapali || !tarihGecerli}>Yeni Link Üret</Button>
+              : <Button size="small" variant="contained" onClick={uret} disabled={islemKapali || !tarihGecerli}>Link Üret</Button>}
           </Stack>
           <Button onClick={pencereyiKapat}>Kapat</Button>
         </DialogActions>
