@@ -64,7 +64,9 @@ test('tür seçildikten sonra girilen fatura kendi grubuna ve toplama eklenir; �
   fireEvent.click(ekPenceresi.getByRole('button', { name: 'Kapat' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.getByRole('row', { name: /Genel Toplam/ })).toHaveTextContent('₺1.497,00');
-  const grup = screen.getByRole('rowheader', { name: 'Kur Farkı Giderleri' }).closest('tbody');
+  const grup = screen.getAllByRole('rowgroup').find((satirGrubu) => (
+    within(satirGrubu).queryByRole('rowheader', { name: 'Kur Farkı Giderleri' })
+  ));
   expect(within(grup).getByText('F-002')).toBeInTheDocument();
   expect(within(grup).getByText('00042')).toBeInTheDocument();
   expect(within(grup).getByText('17.11.2026')).toBeInTheDocument();
@@ -92,12 +94,8 @@ test.each([true, false])('personel düzenlemesinde sadece değiştirilen yevmiye
   expect(await screen.findByRole('dialog', { name: 'F-001 Evrakları' })).toBeInTheDocument();
   const [model, belge, id, govde] = svc.harcamaGuncelle.mock.calls[0];
   expect([model, belge, id]).toEqual(['Tesvik', 'belge-1', '1']);
-  if (temizle) {
-    expect(govde).toMatchObject({ yevmiyeNo: '', yevmiyeTarihi: '' });
-  } else {
-    expect(govde).not.toHaveProperty('yevmiyeNo');
-    expect(govde).not.toHaveProperty('yevmiyeTarihi');
-  }
+  const yevmiyeAlanlari = Object.fromEntries(Object.entries(govde).filter(([alan]) => alan.startsWith('yevmiye')));
+  expect(yevmiyeAlanlari).toEqual(temizle ? { yevmiyeNo: '', yevmiyeTarihi: '' } : {});
 });
 
 test('müşteri yevmiye bilgisiyle harcama ekler ve kayıt için düzenleme veya silme düğmesi görmez', async () => {
