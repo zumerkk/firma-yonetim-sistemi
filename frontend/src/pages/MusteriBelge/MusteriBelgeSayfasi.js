@@ -15,6 +15,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import LockIcon from '@mui/icons-material/Lock';
 import api, { uploadPost } from '../../utils/axios';
 import { birimEtiketi } from '../../utils/makineFormat';
+import { tarihYaz } from '../../utils/cariFormat';
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
@@ -55,7 +56,7 @@ const kalemToplamMetni = (m) => {
     ? toplamlar.map(([kod, tutar]) => para(tutar, kod)).join(' · ')
     : para(m.faturaToplami);
 };
-const BOS_KALEM = { tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
+const BOS_KALEM = { tarih: '', no: '', yevmiyeNo: '', yevmiyeTarihi: '', icerik: '', tutar: 0, adet: '' };
 const GIREN_ANAHTARI = 'musteriBelge.giren';
 
 export default function MusteriBelgeSayfasi() {
@@ -230,14 +231,21 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
 
   const kaydet = async () => {
     if (devamEdenIstek.current) return;
+    const yevmiyeNo = form.yevmiyeNo.trim();
+    const yevmiyeTarihi = form.yevmiyeTarihi || null;
+    const yevmiyeBilgisi = [
+      yevmiyeNo && `Yevmiye No: ${yevmiyeNo}`,
+      yevmiyeTarihi && `Yevmiye Tarihi: ${tarihYaz(yevmiyeTarihi)}`
+    ].filter(Boolean).map((satir) => `\n${satir}`).join('');
     // Firma kaydettiği kalemi düzeltemez — gönderimden önce son kez sorulur
-    if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\n${ithal ? 'Mal Bedeli TL' : 'Tutar'}: ${para(form.tutar)}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
+    if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\n${ithal ? 'Mal Bedeli TL' : 'Tutar'}: ${para(form.tutar)}${yevmiyeBilgisi}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
     const denetim = islemiBaslat('kalem');
     if (!denetim) return;
     setHata(''); setBilgi('');
     try {
       const r = await api.post(`/musteri-belge/${token}/fatura-kalemi`, {
-        listType: makine.listType, rowId: makine.rowId, ...form, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren,
+        listType: makine.listType, rowId: makine.rowId, ...form, yevmiyeNo, yevmiyeTarihi,
+        tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren,
         ...(ithal ? { tutarParaBirimi: 'TRY' } : {})
       }, { signal: denetim.signal });
       if (denetim.signal.aborted) return;
@@ -290,7 +298,8 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>{etiket.tarih}</TableCell><TableCell>{etiket.no}</TableCell><TableCell>Kalem İçeriği</TableCell>
+                  <TableCell>{etiket.tarih}</TableCell><TableCell>{etiket.no}</TableCell>
+                  <TableCell>Yevmiye No</TableCell><TableCell>Yevmiye Tarihi</TableCell><TableCell>Kalem İçeriği</TableCell>
                   <TableCell align="right">Tutar</TableCell><TableCell align="right">Adet</TableCell><TableCell>Durum</TableCell>
                   <TableCell>Evraklar</TableCell>
                 </TableRow>
@@ -304,6 +313,8 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                       <TableRow>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
                         <TableCell>{k.no || '-'}</TableCell>
+                        <TableCell sx={{ overflowWrap: 'anywhere' }}>{k.yevmiyeNo || '—'}</TableCell>
+                        <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarihYaz(k.yevmiyeTarihi)}</TableCell>
                         <TableCell sx={{ wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
                         <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                           {para(k.tutar, k.tutarParaBirimi || kod)}
@@ -327,7 +338,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                       </TableRow>
                       {evraklarAcik && (
                         <TableRow>
-                          <TableCell colSpan={7}>
+                          <TableCell colSpan={9}>
                             <KalemEvrakPaneli kalem={k} rowId={makine.rowId} ithal={ithal} islem={islem} onYukle={evrakYukle} />
                           </TableCell>
                         </TableRow>
@@ -336,7 +347,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                   );
                 })}
                 <TableRow>
-                  <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Toplam</TableCell>
+                  <TableCell colSpan={5} sx={{ fontWeight: 700 }}>Toplam</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{kalemToplamMetni(makine)}</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{makine.faturaAdedi}</TableCell>
                   <TableCell />
@@ -355,6 +366,14 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
             </Grid>
             <Grid item xs={6} sm={3}>
               <TextField fullWidth size="small" required label={etiket.no} value={form.no} onChange={alan('no')} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField fullWidth size="small" label="Yevmiye No" value={form.yevmiyeNo} onChange={alan('yevmiyeNo')}
+                inputProps={{ maxLength: 100 }} disabled={!!islem} />
+            </Grid>
+            <Grid item xs={6} sm={3}>
+              <TextField fullWidth size="small" type="date" label="Yevmiye Tarihi" InputLabelProps={{ shrink: true }}
+                value={form.yevmiyeTarihi} onChange={alan('yevmiyeTarihi')} disabled={!!islem} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} />

@@ -14,7 +14,9 @@ import svc from '../../services/tesvikMakineService';
 import { hataMesaji } from '../../utils/hataMesaji';
 import { formatMoney, saveBlobResponse } from './helpers';
 
-const BOS_KALEM = { altKategori: '', tarih: '', no: '', icerik: '', tutar: 0, adet: '' };
+const BOS_KALEM = {
+  altKategori: '', tarih: '', no: '', yevmiyeNo: '', yevmiyeTarihi: '', icerik: '', tutar: 0, adet: ''
+};
 const kurusToplami = (kalemler) => kalemler.reduce((toplam, kalem) => toplam + Math.round(kalem.tutar * 100), 0);
 const para = (kurus) => formatMoney(kurus / 100, 'TRY');
 const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -84,11 +86,15 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
   const pencereAc = (tur, kalem) => {
     istekId.current = null;
     setPencereHatasi('');
+    const ilkYevmiye = {
+      yevmiyeNo: kalem?.yevmiyeNo || '', yevmiyeTarihi: String(kalem?.yevmiyeTarihi || '').slice(0, 10)
+    };
     setForm(kalem && tur === 'form' ? {
       altKategori: kalem.altKategori, tarih: String(kalem.tarih || '').slice(0, 10), no: kalem.no,
+      ...ilkYevmiye,
       icerik: kalem.icerik || '', tutar: kalem.tutar, adet: kalem.adet || ''
     } : BOS_KALEM);
-    setPencere({ tur, id: kalem?._id });
+    setPencere({ tur, id: kalem?._id, ilkYevmiye });
   };
 
   const islemYap = async (tur, fn, hataGoster, mesaj) => {
@@ -127,7 +133,13 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
     event.preventDefault();
     if (!kalemEklenebilir || !formGecerli || (secili && !duzenlenebilir)) return;
     islemYap('kalem', async (signal) => {
-      const govde = { ...form, kategori, no: form.no.trim(), icerik: form.icerik.trim(), adet: Number(form.adet) };
+      const { yevmiyeNo, yevmiyeTarihi, ...digerAlanlar } = form;
+      const govde = {
+        ...digerAlanlar, kategori, no: form.no.trim(), icerik: form.icerik.trim(), adet: Number(form.adet)
+      };
+      const duzeltilenNo = yevmiyeNo.trim();
+      if (!secili || duzeltilenNo !== pencere.ilkYevmiye.yevmiyeNo) govde.yevmiyeNo = duzeltilenNo;
+      if (!secili || yevmiyeTarihi !== pencere.ilkYevmiye.yevmiyeTarihi) govde.yevmiyeTarihi = yevmiyeTarihi;
       if (!secili) {
         if (!istekId.current) istekId.current = yeniIstekId();
         govde.istekId = istekId.current;
@@ -183,10 +195,11 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
         Henüz harcama kalemi yok.
       </Typography>}
       {!yukleniyor && !hata && !!kalemler.length && <TableContainer>
-        <Table size="small" aria-label={`${baslik} kalemleri`} sx={{ minWidth: 660 }}>
+        <Table size="small" aria-label={`${baslik} kalemleri`} sx={{ minWidth: 860 }}>
           <TableHead>
             <TableRow>
               <TableCell>Sıra</TableCell><TableCell>Fatura Tarihi</TableCell><TableCell>Fatura Sayısı</TableCell>
+              <TableCell>Yevmiye No</TableCell><TableCell>Yevmiye Tarihi</TableCell>
               <TableCell>Kalem İçeriği</TableCell><TableCell align="right">Adet</TableCell>
               <TableCell align="right">Kalem Tutarı (TL)</TableCell><TableCell>İşlemler</TableCell>
             </TableRow>
@@ -196,13 +209,16 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
             if (!satirlar.length) return null;
             return <TableBody key={id}>
               <TableRow sx={{ bgcolor: 'action.hover' }}>
-                <TableCell component="th" scope="rowgroup" colSpan={5} sx={{ fontWeight: 700 }}>{etiket}</TableCell>
+                <TableCell component="th" scope="rowgroup" colSpan={7} sx={{ fontWeight: 700 }}>{etiket}</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{para(kurusToplami(satirlar))}</TableCell>
                 <TableCell />
               </TableRow>
               {satirlar.map((k, i) => <TableRow key={k._id} hover>
                 <TableCell>{i + 1}</TableCell><TableCell sx={{ whiteSpace: 'nowrap' }}>{tarihMetni(k.tarih)}</TableCell>
-                <TableCell>{k.no}</TableCell><TableCell sx={{ overflowWrap: 'anywhere', maxWidth: 360 }}>{k.icerik || '–'}</TableCell>
+                <TableCell>{k.no}</TableCell>
+                <TableCell sx={{ overflowWrap: 'anywhere' }}>{k.yevmiyeNo || '–'}</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarihMetni(k.yevmiyeTarihi)}</TableCell>
+                <TableCell sx={{ overflowWrap: 'anywhere', maxWidth: 360 }}>{k.icerik || '–'}</TableCell>
                 <TableCell align="right">{k.adet || '–'}</TableCell><TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
                   {(evrakEklenebilir(k) || (!musteriToken && !!k.evraklar?.length)) && <Button size="small" startIcon={<AttachFileIcon />}
@@ -219,7 +235,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
           })}
           <TableBody>
             <TableRow>
-              <TableCell component="th" scope="row" colSpan={5} sx={{ fontWeight: 700 }}>Genel Toplam</TableCell>
+              <TableCell component="th" scope="row" colSpan={7} sx={{ fontWeight: 700 }}>Genel Toplam</TableCell>
               <TableCell align="right" sx={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{para(kurusToplami(kalemler))}</TableCell>
               <TableCell />
             </TableRow>
@@ -240,6 +256,11 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
                 InputLabelProps={{ shrink: true }} value={form.tarih} disabled={!!islem} onChange={(e) => formAlani('tarih', e.target.value)} /></Grid>
               <Grid item xs={12} sm={6}><TextField label="Fatura Sayısı" size="small" fullWidth required inputProps={{ maxLength: 100 }}
                 value={form.no} disabled={!!islem} onChange={(e) => formAlani('no', e.target.value)} /></Grid>
+              <Grid item xs={12} sm={6}><TextField label="Yevmiye No" size="small" fullWidth inputProps={{ maxLength: 100 }}
+                value={form.yevmiyeNo} disabled={!!islem} onChange={(e) => formAlani('yevmiyeNo', e.target.value)} /></Grid>
+              <Grid item xs={12} sm={6}><TextField type="date" label="Yevmiye Tarihi" size="small" fullWidth
+                InputLabelProps={{ shrink: true }} value={form.yevmiyeTarihi} disabled={!!islem}
+                onChange={(e) => formAlani('yevmiyeTarihi', e.target.value)} /></Grid>
               <Grid item xs={12}><TextField label="Kalem İçeriği" size="small" fullWidth inputProps={{ maxLength: 500 }}
                 value={form.icerik} disabled={!!islem} onChange={(e) => formAlani('icerik', e.target.value)} /></Grid>
               <Grid item xs={8}><TutarAlani label="Kalem Tutarı (TL)" size="small" fullWidth required

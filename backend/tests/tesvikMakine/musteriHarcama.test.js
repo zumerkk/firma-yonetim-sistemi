@@ -141,3 +141,20 @@ test('dosya kaydedilirken kapatılan firma bağlantısı eki kaleme işlemez ve 
   expect(temizle).toHaveBeenCalledWith(depoKaydi);
   expect((await HarcamaKalemi.findById(_id)).evraklar).toHaveLength(0);
 });
+
+test('müşteri harcamaya yevmiye tarihi ve başında sıfır olan numara girebilir', async () => {
+  const staff = await harcama.ekle(belgeFiltresi, {
+    ...veri, no: 'PERSONEL', icerik: 'Gizli açıklama', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10'
+  }, personel);
+  const create = { ...veri, yevmiyeNo: '00018', yevmiyeTarihi: '2025-10-11' };
+  const ilk = await kalemEkle(token, create).expect(200);
+  expect(ilk.body.data).toMatchObject({ yevmiyeNo: '00018', yevmiyeTarihi: '2025-10-11T00:00:00.000Z' });
+  await kalemEkle(token, { ...create, yevmiyeNo: 18 }).expect(400);
+  await kalemEkle(token, { ...create, yevmiyeTarihi: '2025-10-32' }).expect(400);
+  await kalemEkle(token, { ...create, yevmiyeNo: '00019' }).expect(409);
+  const liste = (await request(sunucu).get(adres(token)).expect(200)).body.data.kalemler;
+  expect(liste).toEqual(expect.arrayContaining([
+    expect.objectContaining({ _id: String(staff._id), icerik: '', girenAdi: '', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10T00:00:00.000Z' }),
+    expect.objectContaining({ _id: ilk.body.data._id, yevmiyeNo: '00018', yevmiyeTarihi: '2025-10-11T00:00:00.000Z' })
+  ]));
+});

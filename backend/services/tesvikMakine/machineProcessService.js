@@ -24,6 +24,7 @@ const tokenService = require('./uploadTokenService');
 const kdvMuafiyetService = require('./kdvMuafiyetService');
 const { resolveTemplate } = require('./mailTemplateProvider');
 const { belgeSuresiDurumu, mailGonderilebilirMi } = require('../../utils/belgeGecerlilik');
+const { yevmiyeKaydiniOku } = require('../../utils/yevmiyeKaydi');
 
 const { MACHINE_STATUS } = status;
 const FATURA_EVRAK_OZEL_ALANLARI = '+faturalar.evraklar.depo +faturalar.evraklar.istekId +faturalar.evraklar.istekOzeti';
@@ -304,6 +305,8 @@ function faturaKalemiTemizle(k = {}) {
   const kalem = {
     tarih: tarih && !Number.isNaN(tarih.getTime()) ? tarih : undefined,
     no: String(k.no || '').trim().slice(0, 100),
+    ...(Object.hasOwn(k, 'yevmiyeNo') && { yevmiyeNo: k.yevmiyeNo }),
+    ...(Object.hasOwn(k, 'yevmiyeTarihi') && { yevmiyeTarihi: k.yevmiyeTarihi }),
     icerik: String(k.icerik || '').trim().slice(0, 500),
     tutar: faturaSayi(k.tutar),
     tutarParaBirimi: k.tutarParaBirimi,
@@ -434,7 +437,7 @@ function faturaHatasi(mesaj, code = 'FATURA_GECERSIZ') {
 async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel', girenAdi = '', kalemId, eskiIstemci = false } = {}) {
   const tutarParaBirimi = eskiIstemci ? faturaKalemiParaBirimi({ kaynak }, proc) : 'TRY';
   const kalem = faturaKalemiTemizle({
-    ...girdi, _id: kalemId, kaynak, tutarParaBirimi, malBedeliTl: undefined, girisTarihi: new Date(),
+    ...girdi, ...yevmiyeKaydiniOku(girdi), _id: kalemId, kaynak, tutarParaBirimi, malBedeliTl: undefined, girisTarihi: new Date(),
     girenAdi: girenAdi || (user && user.adSoyad) || ''
   });
   if (!kalem) throw faturaHatasi('Fatura tarihi, sayısı, içeriği veya tutarından en az birini girin.');
@@ -444,6 +447,7 @@ async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel',
 }
 
 async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIstemci = false } = {}) {
+  const yevmiye = yevmiyeKaydiniOku(girdi);
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
     if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
@@ -457,13 +461,13 @@ async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIst
         throw faturaHatasi('Mal bedelini sıfırdan büyük ve en fazla iki ondalık hane ile girin.');
       }
     }
-    const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, malBedeliTl, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
+    const yeni = faturaKalemiTemizle({ ...mevcut.toObject(), ...girdi, ...yevmiye, malBedeliTl, _id: mevcut._id, kaynak: mevcut.kaynak, girenAdi: mevcut.girenAdi, girisTarihi: mevcut.girisTarihi });
     if (!yeni) throw faturaHatasi('Kalem boş bırakılamaz; silmek için Sil düğmesini kullanın.');
     if (yeni.tutar < 0 || yeni.adet < 0) throw faturaHatasi('Tutar ve adet eksi olamaz.');
     if (eskiIstemci && p.listType === 'import' && mevcut.tutarParaBirimi === 'TRY' && yeni.tutar !== mevcut.tutar) {
       throw faturaHatasi('TL tutarını güncellemek için sayfayı yenileyip tekrar deneyin.');
     }
-    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi, malBedeliTl });
+    mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi, malBedeliTl, ...yevmiye });
   }, 'Fatura kalemi düzeltildi', user);
 }
 

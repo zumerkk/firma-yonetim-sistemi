@@ -79,6 +79,31 @@ beforeEach(async () => {
   jest.restoreAllMocks();
 });
 
+test.each([['local', 'y1'], ['import', 'i1']])('%s kaleminin yevmiye bilgileri eklenir, korunur ve ayrı ayrı temizlenir', async (listType, rowId) => {
+  const proc = await mps.ensureProcess(hedef(rowId, listType));
+  const adres = `/process/${proc._id}/fatura-kalemleri`;
+  const kalem = { no: 'K-01', tutar: 1250.25, tutarParaBirimi: 'TRY' };
+  await request(app).post(adres).send({ ...kalem, yevmiyeNo: 7 }).expect(400);
+  await request(app).post(adres).send({ ...kalem, yevmiyeNo: 'X'.repeat(101) }).expect(400);
+  await request(app).post(adres).send({ ...kalem, yevmiyeTarihi: '2026-02-29' }).expect(400);
+  await request(app).post(adres).send({ ...kalem, yevmiyeTarihi: '2024-02-29T00:00:00Z' }).expect(400);
+  const { body: { data } } = await request(app).post(adres)
+    .send({ ...kalem, yevmiyeNo: '  0007  ', yevmiyeTarihi: '2024-02-29' }).expect(200);
+  const guncelle = (veri) => request(app).patch(`${adres}/${data.yeniKalemId}`).send(veri);
+  const yevmiye = { yevmiyeNo: '0007', yevmiyeTarihi: '2024-02-29T00:00:00.000Z' };
+  expect(data.faturalar).toHaveLength(1);
+  expect(data.faturalar[0]).toMatchObject(yevmiye);
+  await guncelle({ icerik: 'güncellenen kalem' }).expect(200);
+  await guncelle({ yevmiyeTarihi: '2024-04-31' }).expect(400);
+  const { body } = await request(app).get(`/process/${proc._id}`).expect(200);
+  expect(body.data.process.faturalar[0]).toMatchObject({ ...yevmiye, icerik: 'güncellenen kalem' });
+
+  const noTemiz = await guncelle({ yevmiyeNo: '' }).expect(200);
+  expect(noTemiz.body.data.faturalar[0]).toMatchObject({ ...yevmiye, yevmiyeNo: null });
+  const tarihTemiz = await guncelle({ yevmiyeTarihi: null }).expect(200);
+  expect(tarihTemiz.body.data.faturalar[0]).toMatchObject({ yevmiyeNo: null, yevmiyeTarihi: null });
+});
+
 test.each([
   ['Tesvik', Tesvik],
   ['YeniTesvik', YeniTesvik]

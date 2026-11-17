@@ -143,3 +143,25 @@ test('her türden birden çok evrak eklenir, yalnız yetkili aynı belge ve kale
   await request(app).get(`${yol}/${ekId}`).auth(editor, { type: 'bearer' }).expect(404);
   for (const ek of kayitli.evraklar) await expect(depo.oku(ek.depo)).rejects.toMatchObject({ status: 404 });
 });
+
+test('yevmiye bilgileri tüm harcama gruplarında kaydolur, kısmi düzeltmede korunur ve boş değerlerle temizlenir', async () => {
+  for (const [kategori, altKategori] of [['diger', 'etutProje'], ['bina', 'anaBina'], ['arazi', 'arazi']]) {
+    const ilk = await ekle(adres(), { ...veri, kategori, altKategori, yevmiyeNo: ' 00042 ', yevmiyeTarihi: '2024-02-29' }).expect(201);
+    expect(ilk.body.data).toMatchObject({ yevmiyeNo: '00042', yevmiyeTarihi: '2024-02-29T00:00:00.000Z' });
+    const yol = `${adres()}/${ilk.body.data._id}`;
+    const patch = (girdi) => request(app).patch(yol).auth(editor, { type: 'bearer' }).send(girdi);
+    const digerAlan = await patch({ icerik: 'Yeni içerik' }).expect(200);
+    expect(digerAlan.body.data).toMatchObject({ yevmiyeNo: '00042', yevmiyeTarihi: '2024-02-29T00:00:00.000Z' });
+    const yalnizNo = await patch({ yevmiyeNo: '00043' }).expect(200);
+    expect(yalnizNo.body.data).toMatchObject({ yevmiyeNo: '00043', yevmiyeTarihi: '2024-02-29T00:00:00.000Z' });
+    await patch({ yevmiyeTarihi: '2025-02-29' }).expect(400);
+    const temiz = await patch({ yevmiyeNo: '', yevmiyeTarihi: null }).expect(200);
+    expect(temiz.body.data).toMatchObject({ yevmiyeNo: null, yevmiyeTarihi: null });
+  }
+  await ekle(adres(), { ...veri, yevmiyeNo: '0'.repeat(101) }).expect(400);
+  await ekle(adres(), { ...veri, yevmiyeTarihi: '2024-02-29T01:02:03.000Z' }).expect(400);
+  const alanYok = { ...veri, istekId: 'yevmiye-yok-kayit-1' };
+  const bosKayit = await ekle(adres(), alanYok).expect(201);
+  const bosTekrar = await ekle(adres(), { ...alanYok, yevmiyeNo: null, yevmiyeTarihi: '' }).expect(201);
+  expect(bosTekrar.body.data).toMatchObject({ _id: bosKayit.body.data._id, yevmiyeNo: null, yevmiyeTarihi: null });
+});

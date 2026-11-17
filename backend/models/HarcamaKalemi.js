@@ -9,6 +9,8 @@ const schema = new mongoose.Schema({
   altKategori: { type: String, required: true },
   tarih: { type: Date, required: true },
   no: { type: String, required: true, maxlength: 100 },
+  yevmiyeNo: { type: String, maxlength: 100, default: null },
+  yevmiyeTarihi: { type: Date, default: null },
   icerik: { type: String, default: '', maxlength: 500 },
   tutar: { type: Number, required: true, min: 0.01 },
   adet: { type: Number, min: 0, default: 0 },

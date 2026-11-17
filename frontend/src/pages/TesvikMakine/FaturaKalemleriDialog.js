@@ -25,9 +25,10 @@ import KalemEvrakPaneli, { BEYANNAME_EVRAK_TURLERI, FATURA_EVRAK_TURLERI } from 
 import svc from '../../services/tesvikMakineService';
 import { hataMesaji } from '../../utils/hataMesaji';
 import { birimEtiketi } from '../../utils/makineFormat';
+import { isoGun, tarihYaz } from '../../utils/cariFormat';
 import { formatDate, formatFaturaToplamlari, formatMoney } from './helpers';
 
-const BOS = { tarih: '', no: '', icerik: '', tutar: 0, adet: '', malBedeliTl: undefined };
+const BOS = { tarih: '', no: '', yevmiyeNo: '', yevmiyeTarihi: '', icerik: '', tutar: 0, adet: '', malBedeliTl: undefined };
 const PARA_SIMGESI = { TRY: '₺', USD: '$', EUR: '€' };
 const kalemEvraklari = (kalem, turler) => (Array.isArray(kalem.evraklar) ? kalem.evraklar : [])
   .filter((evrak) => evrak?._id && turler.some(({ tur }) => tur === evrak.tur));
@@ -73,6 +74,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   const [yukleniyor, setYukleniyor] = useState(false);
   const [form, setForm] = useState(BOS);
   const [duzenlenen, setDuzenlenen] = useState(null); // kalem _id
+  const yevmiyeBaslangici = useRef(null);
   const [mesgul, setMesgul] = useState(false);
   const [hata, setHata] = useState('');
   const [bilgi, setBilgi] = useState('');
@@ -147,7 +149,15 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   const kaydet = async () => {
     if (!proc || kilitli || !duzenlenebilir || malBedeliHatasi) return;
     setMesgul(true); setHata(''); setBilgi('');
-    const govde = { tarih: form.tarih || null, no: form.no, icerik: form.icerik, tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0 };
+    const govde = {
+      tarih: form.tarih || null, no: form.no, icerik: form.icerik,
+      tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0
+    };
+    // Evrak yanıtı satırı yenilese de düzenleme sırasında dokunulmayan alanları göndermeyiz.
+    const ilkYevmiye = duzenlenen ? yevmiyeBaslangici.current : BOS;
+    const yevmiyeNo = form.yevmiyeNo.trim();
+    if (yevmiyeNo !== ilkYevmiye.yevmiyeNo) govde.yevmiyeNo = yevmiyeNo;
+    if (form.yevmiyeTarihi !== ilkYevmiye.yevmiyeTarihi) govde.yevmiyeTarihi = form.yevmiyeTarihi || null;
     if (!dovizliKalem) govde.tutarParaBirimi = 'TRY';
     if (dovizliKalem && form.malBedeliTl !== undefined) govde.malBedeliTl = form.malBedeliTl;
     try {
@@ -162,9 +172,11 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
   };
 
   const duzenle = (k) => {
+    yevmiyeBaslangici.current = { yevmiyeNo: k.yevmiyeNo?.trim() || '', yevmiyeTarihi: isoGun(k.yevmiyeTarihi) };
     setDuzenlenen(k._id);
     setForm({
-      tarih: k.tarih ? String(k.tarih).slice(0, 10) : '', no: k.no || '', icerik: k.icerik || '',
+      ...BOS, tarih: k.tarih ? String(k.tarih).slice(0, 10) : '', no: k.no || '', icerik: k.icerik || '',
+      ...yevmiyeBaslangici.current,
       tutar: Number(k.tutar) || 0, adet: k.adet ? String(k.adet) : ''
     });
     setBilgi(''); setHata('');
@@ -281,6 +293,8 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                     <TableRow>
                       <TableCell>{etiket.tarih}</TableCell>
                       <TableCell>{etiket.no}</TableCell>
+                      <TableCell>Yevmiye No</TableCell>
+                      <TableCell>Yevmiye Tarihi</TableCell>
                       <TableCell>Kalem İçeriği</TableCell>
                       <TableCell align="right">{ithal ? 'Mal Bedeli' : 'Kalem Tutarı'}</TableCell>
                       <TableCell align="right">Adet</TableCell>
@@ -303,6 +317,8 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                             sx={evrakVar ? { cursor: 'pointer' } : undefined}>
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDate(k.tarih)}</TableCell>
                             <TableCell>{k.no || '-'}</TableCell>
+                            <TableCell sx={{ overflowWrap: 'anywhere' }}>{k.yevmiyeNo || '—'}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarihYaz(k.yevmiyeTarihi)}</TableCell>
                             <TableCell sx={{ maxWidth: 220, wordBreak: 'break-word' }}>{k.icerik || '-'}</TableCell>
                             <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                               {formatMoney(k.tutar, kalemParaBirimi(k))}
@@ -341,7 +357,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                       );
                     })}
                     <TableRow>
-                      <TableCell colSpan={3} sx={{ fontWeight: 700 }}>Toplam</TableCell>
+                      <TableCell colSpan={5} sx={{ fontWeight: 700 }}>Toplam</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatFaturaToplamlari(toplamTutar)}</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700 }}>{toplamAdet}</TableCell>
                       <TableCell colSpan={evrakSutunu ? 3 : 2} />
@@ -364,6 +380,14 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                 <Grid item xs={6} sm={3}>
                   <TextField fullWidth size="small" label={etiket.no} value={form.no} onChange={alan('no')} />
                 </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth size="small" label="Yevmiye No" value={form.yevmiyeNo} onChange={alan('yevmiyeNo')}
+                    inputProps={{ maxLength: 100 }} disabled={kilitli} />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth size="small" type="date" label="Yevmiye Tarihi" InputLabelProps={{ shrink: true }}
+                    value={form.yevmiyeTarihi} onChange={alan('yevmiyeTarihi')} disabled={kilitli} />
+                </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} />
                 </Grid>
@@ -381,7 +405,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                     error={malBedeliHatasi} helperText={malBedeliHatasi ? 'En fazla iki ondalık haneli, pozitif tutar girin.' : undefined}
                     onChange={(v) => setForm((f) => ({ ...f, malBedeliTl: v }))} />
                 </Grid>}
-                <Grid item xs={12} sm={dovizliKalem ? 2 : 6}>
+                <Grid item xs={12} sm={dovizliKalem ? 8 : 12}>
                   <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ height: '100%' }} alignItems="center">
                     {duzenlenen && <Button onClick={() => { setDuzenlenen(null); setForm(BOS); }} disabled={kilitli}>Vazgeç</Button>}
                     <Button variant="contained" startIcon={mesgul ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
@@ -404,7 +428,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
 
 function KalemEvraklari({ id, kalem, evraklar, evrakTurleri, yuklenenler, onAc, hata, yuklemePaneli }) {
   return <TableRow>
-    <TableCell colSpan={8} sx={{ bgcolor: 'action.hover' }}>
+    <TableCell colSpan={10} sx={{ bgcolor: 'action.hover' }}>
       <Stack id={id} spacing={1} role="region" aria-label={`${kalem.no || 'Fatura'} evrak listesi`}>
         {evrakTurleri.map(({ tur, etiket }) => {
           const ayniTur = evraklar.filter((evrak) => evrak.tur === tur);

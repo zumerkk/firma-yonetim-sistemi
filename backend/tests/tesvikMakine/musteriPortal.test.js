@@ -24,6 +24,7 @@ jest.setTimeout(60000);
 let mem;
 let belge;
 const app = express();
+app.use(express.json());
 app.use('/musteri-belge', router);
 const personel = { _id: new ObjectId(), adSoyad: 'Berk Acar' };
 const linkTarihleri = { baslangicTarihi: '2000-01-01', bitisTarihi: '2099-12-31' };
@@ -250,6 +251,20 @@ const pdf = Buffer.from('%PDF-1.7\nFatura evrakı');
 const xml = Buffer.from('<?xml version="1.0"?>\n<?xml-stylesheet type="text/xsl" href="fatura.xsl"?>\n<Invoice xmlns="urn:fatura"><ID>F-1</ID></Invoice>');
 const faturaEkle = (token, ek = {}) => portal.firmaKalemiEkle(token, {
   listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'F-1', tutar: 10, giren: 'Ali', ...ek
+});
+
+test.each([['local', 'yerli', 'R1'], ['import', 'ithal', 'I1']])('müşteri %s kaleminin yevmiye bilgilerini kaydedebilir ve görebilir', async (listType, liste, rowId) => {
+  const token = await linkUret();
+  const yol = `/musteri-belge/${token}`;
+  const govde = { listType, rowId, tarih: '2026-10-10', no: 'K-01', tutar: 10, tutarParaBirimi: 'TRY', giren: 'Ali' };
+  await request(app).post(`${yol}/fatura-kalemi`).send({ ...govde, yevmiyeTarihi: '2026-10-32' }).expect(400);
+  const { body: { data } } = await request(app).post(`${yol}/fatura-kalemi`)
+    .send({ ...govde, yevmiyeNo: ' 00042 ', yevmiyeTarihi: '2026-10-11' }).expect(200);
+  const yevmiye = { yevmiyeNo: '00042', yevmiyeTarihi: '2026-10-11T00:00:00.000Z' };
+  expect(data.kalemler).toHaveLength(1);
+  expect(data.kalemler[0]).toMatchObject(yevmiye);
+  const { body } = await request(app).get(yol).expect(200);
+  expect(body.data.makineler[liste].find((makine) => makine.rowId === rowId).kalemler[0]).toMatchObject(yevmiye);
 });
 
 test('eski ithal firma formunun USD tutarları makinenin EUR dövizine karışmaz', async () => {

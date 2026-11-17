@@ -71,7 +71,7 @@ test('salt okunur yerli fatura kaleminin birden çok evrakı türüne göre gör
 });
 
 test('yerli fatura kalemi kaydedilince üç türde birden fazla evrak aynı kaleme yüklenebilir', async () => {
-  const yeni = { _id: 'yeni', no: 'F-YENI', kaynak: 'personel' };
+  const yeni = { _id: 'yeni', no: 'F-YENI', kaynak: 'personel', yevmiyeNo: '000041', yevmiyeTarihi: '2026-11-12' };
   api.post.mockResolvedValueOnce({ data: { data: surec } });
   api.post.mockResolvedValueOnce({ data: { data: { yeniKalemId: yeni._id, faturalar: [...surec.faturalar, yeni] } } });
   const dosyaGruplari = [
@@ -84,8 +84,17 @@ test('yerli fatura kalemi kaydedilince üç türde birden fazla evrak aynı kale
   kur();
   expect(await screen.findByRole('button', { name: 'F-3 evrakları' })).toBeEnabled();
   fireEvent.change(screen.getByRole('textbox', { name: 'Fatura Sayısı' }), { target: { value: yeni.no } });
+  const yevmiyeNo = screen.getByLabelText('Yevmiye No');
+  expect(yevmiyeNo).toHaveAttribute('maxlength', '100');
+  expect(yevmiyeNo).not.toBeRequired();
+  fireEvent.change(yevmiyeNo, { target: { value: yeni.yevmiyeNo } });
+  fireEvent.change(screen.getByLabelText('Yevmiye Tarihi'), { target: { value: yeni.yevmiyeTarihi } });
   fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
   const panel = within(await screen.findByRole('region', { name: 'F-YENI evrak listesi' }));
+  expect(api.post.mock.calls[1][1]).toMatchObject({ yevmiyeNo: '000041', yevmiyeTarihi: '2026-11-12' });
+  const yeniSatir = within(screen.getByRole('row', { name: /F-YENI 000041/ }));
+  expect(yeniSatir.getByRole('cell', { name: '000041' })).toBeInTheDocument();
+  expect(yeniSatir.getByRole('cell', { name: '12.11.2026' })).toBeInTheDocument();
 
   dosyaGruplari.forEach(([etiket, , , adlar, icerik]) => {
     const input = panel.getByLabelText(etiket);
@@ -99,6 +108,67 @@ test('yerli fatura kalemi kaydedilince üç türde birden fazla evrak aynı kale
   dosyaGruplari.forEach(([, alan, , adlar]) => expect(form.getAll(alan).map((dosya) => dosya.name)).toEqual(adlar));
   expect(panel.getByRole('button', { name: 'fatura-2.xml indir' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'F-YENI evrakları' })).toHaveTextContent('Evraklar (6)');
+});
+
+test('personel kayıtlı yevmiye numarası ve tarihini düzenleyip temizleyebilir', async () => {
+  const ilk = { _id: 'eski', no: 'B-ESKI', tutar: 75, tutarParaBirimi: 'TRY',
+    yevmiyeNo: '000012', yevmiyeTarihi: '2026-11-12T00:00:00.000Z' };
+  const guncel = { ...ilk, yevmiyeNo: '000013-A', yevmiyeTarihi: '2026-11-13T00:00:00.000Z' };
+  api.post.mockResolvedValueOnce({ data: { data: { _id: 'surec-1', faturalar: [ilk] } } });
+  api.patch
+    .mockResolvedValueOnce({ data: { data: { faturalar: [guncel] } } })
+    .mockResolvedValueOnce({ data: { data: { faturalar: [{ ...ilk, yevmiyeNo: '', yevmiyeTarihi: null }] } } });
+  kur({ makine: { ...makine, listType: 'import' } });
+
+  const duzenle = await screen.findByRole('button', { name: 'B-ESKI düzelt' });
+  fireEvent.click(duzenle);
+  const no = screen.getByLabelText('Yevmiye No');
+  const tarih = screen.getByLabelText('Yevmiye Tarihi');
+  expect(no).toHaveValue('000012');
+  expect(tarih).toHaveValue('2026-11-12');
+  fireEvent.change(no, { target: { value: '000013-A' } });
+  fireEvent.change(tarih, { target: { value: '2026-11-13' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  expect(await screen.findByRole('cell', { name: '000013-A' })).toBeInTheDocument();
+  expect(screen.getByRole('cell', { name: '13.11.2026' })).toBeInTheDocument();
+  expect(api.patch).toHaveBeenNthCalledWith(1, '/tesvik-makine/process/surec-1/fatura-kalemleri/eski',
+    expect.objectContaining({ yevmiyeNo: '000013-A', yevmiyeTarihi: '2026-11-13' }));
+
+  fireEvent.click(duzenle);
+  fireEvent.change(no, { target: { value: '' } });
+  fireEvent.change(tarih, { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  await waitFor(() => expect(screen.queryByRole('cell', { name: '000013-A' })).not.toBeInTheDocument());
+  expect(screen.queryByRole('cell', { name: '13.11.2026' })).not.toBeInTheDocument();
+  expect(api.patch).toHaveBeenNthCalledWith(2, '/tesvik-makine/process/surec-1/fatura-kalemleri/eski',
+    expect.objectContaining({ yevmiyeNo: '', yevmiyeTarihi: null }));
+});
+
+test('evrak yükleme yanıtıyla gelen eşzamanlı yevmiye değişikliği düzenleme penceresinden silinmez', async () => {
+  const guncel = {
+    ...surec.faturalar[2], yevmiyeNo: '000014', yevmiyeTarihi: '2026-11-14T00:00:00.000Z',
+    evraklar: [{ _id: 'pdf-yeni', tur: 'fatura_pdf', dosyaAdi: 'yeni.pdf' }]
+  };
+  const faturalar = [...surec.faturalar.slice(0, 2), guncel];
+  uploadPost.mockResolvedValueOnce({ data: { data: { faturalar } } });
+  api.patch.mockResolvedValueOnce({ data: { data: { faturalar } } });
+  kur();
+
+  fireEvent.click(await screen.findByRole('button', { name: 'F-3 düzelt' }));
+  fireEvent.click(screen.getByRole('button', { name: 'F-3 evrakları' }));
+  const panel = within(screen.getByRole('region', { name: 'F-3 evrak listesi' }));
+  fireEvent.change(panel.getByLabelText('Fatura PDF'), { target: { files: [new File(['%PDF-1.4'], 'yeni.pdf')] } });
+  fireEvent.click(panel.getByRole('button', { name: 'Dosyaları Yükle' }));
+  expect(await screen.findByRole('cell', { name: '000014' })).toBeInTheDocument();
+  expect(screen.getByLabelText('Yevmiye No')).toHaveValue('');
+  expect(screen.getByLabelText('Yevmiye Tarihi')).toHaveValue('');
+
+  fireEvent.change(screen.getByLabelText('Kalem İçeriği'), { target: { value: 'Yeni açıklama' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  await screen.findByText('Kalem güncellendi');
+  expect(api.patch.mock.calls[0][1]).toMatchObject({ icerik: 'Yeni açıklama' });
+  expect(api.patch.mock.calls[0][1]).not.toHaveProperty('yevmiyeNo');
+  expect(api.patch.mock.calls[0][1]).not.toHaveProperty('yevmiyeTarihi');
 });
 
 test('PDF yalnız kimlikli blob isteği sonrası bağımsız sekmeye açılır, XML dosya olarak iner', async () => {
@@ -227,6 +297,8 @@ test('eski dövizli beyannamenin TL karşılığı düzenlenirken özgün tutar 
   expect(api.patch).toHaveBeenCalledWith('/tesvik-makine/process/surec-1/fatura-kalemleri/eski', expect.objectContaining({
     tutar: 75, malBedeliTl: 2450.75
   }));
+  expect(api.patch.mock.calls[0][1]).not.toHaveProperty('yevmiyeNo');
+  expect(api.patch.mock.calls[0][1]).not.toHaveProperty('yevmiyeTarihi');
   const satir = within(screen.getByRole('row', { name: /B-ESKI/ }));
   expect(satir.getByText('€75,00')).toBeInTheDocument();
   expect(satir.getByText('Mal Bedeli TL ₺2.450,75')).toBeInTheDocument();

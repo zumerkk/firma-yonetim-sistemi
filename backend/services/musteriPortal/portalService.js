@@ -258,6 +258,7 @@ const firmaEvraklari = (evraklar = []) => evraklar.map(({ _id, tur, dosyaAdi, mi
 // Firmaya giden kalem: kim girdi bilgisinde personelin adı yer almaz
 const kalemGorunumu = (k, surec = {}) => ({
   _id: k._id, tarih: k.tarih || null, no: k.no || '', icerik: k.icerik || '',
+  yevmiyeNo: k.yevmiyeNo, yevmiyeTarihi: k.yevmiyeTarihi,
   tutar: Number(k.tutar) || 0, adet: Number(k.adet) || 0,
   tutarParaBirimi: mps.faturaKalemiParaBirimi(k, surec),
   malBedeliTl: k.malBedeliTl,
@@ -343,7 +344,11 @@ async function firmaKalemiEkle(token, govde = {}) {
   const proc = await mps.ensureProcess({ tesvikModel, tesvikId: belge._id, listType, rowId: satir.rowId });
   await firmaBaglantisiniDogrula({ tesvikModel, tesvikId: belge._id }, token);
   const kalemId = new mongoose.Types.ObjectId();
-  await mps.faturaKalemiEkle(proc, { tarih, no, icerik: govde.icerik, tutar, adet }, {
+  await mps.faturaKalemiEkle(proc, {
+    tarih, no, icerik: govde.icerik, tutar, adet,
+    ...(Object.hasOwn(govde, 'yevmiyeNo') && { yevmiyeNo: govde.yevmiyeNo }),
+    ...(Object.hasOwn(govde, 'yevmiyeTarihi') && { yevmiyeTarihi: govde.yevmiyeTarihi })
+  }, {
     kaynak: 'firma', girenAdi: giren, kalemId, eskiIstemci: govde.tutarParaBirimi !== 'TRY'
   });
   return { ...makineGorunumu(satir, listType, proc), yeniKalemId: String(kalemId) };
@@ -378,6 +383,7 @@ function harcamaGorunumu(kalem) {
   return {
     _id: kalem._id, kategori: kalem.kategori, altKategori: kalem.altKategori,
     tarih: kalem.tarih, no: kalem.no, tutar: kalem.tutar, adet: kalem.adet,
+    yevmiyeNo: kalem.yevmiyeNo ?? null, yevmiyeTarihi: kalem.yevmiyeTarihi ?? null,
     icerik: firmaKaydi ? kalem.icerik : '', girenAdi: firmaKaydi ? kalem.girenAdi : '',
     kaynak: firmaKaydi ? 'firma' : 'personel', evrakEklenebilir: firmaKaydi,
     createdAt: kalem.createdAt, updatedAt: kalem.updatedAt,

@@ -67,6 +67,8 @@ const machineProcessSchema = new mongoose.Schema({
     type: [new mongoose.Schema({
       tarih: { type: Date },
       no: { type: String, trim: true, default: '', maxlength: 100 },
+      yevmiyeNo: { type: String, trim: true, maxlength: 100 },
+      yevmiyeTarihi: { type: Date },
       icerik: { type: String, trim: true, default: '', maxlength: 500 }, // kalem içeriği
       tutar: { type: Number, default: 0 },
       tutarParaBirimi: { type: String, trim: true, uppercase: true, match: /^[A-Z0-9]{1,10}$/ },

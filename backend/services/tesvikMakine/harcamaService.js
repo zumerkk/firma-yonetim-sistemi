@@ -2,6 +2,7 @@ const { createHash } = require('node:crypto');
 const mongoose = require('mongoose');
 const HarcamaKalemi = require('../../models/HarcamaKalemi');
 const { HARCAMA_KATEGORILERI } = require('../../constants/harcama');
+const { yevmiyeKaydiniOku } = require('../../utils/yevmiyeKaydi');
 const { kalemeEvrakYukle, istekIdDogrula } = require('./faturaEvrakService');
 const { faturaEvrakDepolariniSil } = require('./machineProcessService');
 const evrakDeposu = require('./faturaEvrakDeposu');
@@ -11,7 +12,7 @@ const hata = (status, message) => Object.assign(new Error(message), { status });
 const kalemYok = () => hata(404, 'Harcama kalemi bulunamadı.');
 const evrakYok = () => hata(404, 'Harcama evrakı bulunamadı.');
 const OZEL_EVRAK_ALANLARI = '+evraklar.depo +evraklar.istekId +evraklar.istekOzeti';
-const KALEM_ALANLARI = ['kategori', 'altKategori', 'tarih', 'no', 'icerik', 'tutar', 'adet'];
+const KALEM_ALANLARI = ['kategori', 'altKategori', 'tarih', 'no', 'icerik', 'tutar', 'adet', 'yevmiyeNo', 'yevmiyeTarihi'];
 
 async function belgeFiltresi({ tesvikModel, tesvikId }) {
   if (!['Tesvik', 'YeniTesvik'].includes(tesvikModel)) throw hata(400, 'Geçersiz teşvik belge türü.');
@@ -64,7 +65,7 @@ function kalemVerisi(govde, mevcut = {}) {
   const tutar = sayiOku(alan('tutar'), /^\d{1,13}(?:\.\d{1,2})?$/, tutarHatasi);
   if (tutar <= 0) throw hata(400, tutarHatasi);
   const adet = sayiOku(alan('adet') ?? 0, /^\d{1,13}(?:\.\d+)?$/, 'Adet sıfır veya pozitif bir sayı olmalıdır.');
-  return { kategori, altKategori, tarih, no, icerik, tutar, adet };
+  return { kategori, altKategori, tarih, no, icerik, tutar, adet, ...yevmiyeKaydiniOku(govde) };
 }
 
 function listele(belge) {
@@ -73,12 +74,15 @@ function listele(belge) {
 
 async function kalemiKaydet(belge, veri, { kaynak, girenAdi, kullaniciId, istekId, yetkiyiDogrula }) {
   istekIdDogrula(istekId);
-  const yeniKalem = { ...belge, ...veri, kaynak, girenAdi, olusturanKullanici: kullaniciId };
+  const { yevmiyeNo, yevmiyeTarihi, ...digerAlanlar } = veri;
+  // Boş yevmiye alanları daha eski istemcilerden gelen tekrarların özetini değiştirmez.
+  const kayit = { ...digerAlanlar, ...(yevmiyeNo && { yevmiyeNo }), ...(yevmiyeTarihi && { yevmiyeTarihi }) };
+  const yeniKalem = { ...belge, ...kayit, kaynak, girenAdi, olusturanKullanici: kullaniciId };
   if (istekId) await HarcamaKalemi.init();
   if (yetkiyiDogrula) await yetkiyiDogrula();
   if (!istekId) return HarcamaKalemi.create(yeniKalem);
 
-  const ozeteAlinan = kaynak === 'firma' ? { ...veri, girenAdi } : veri;
+  const ozeteAlinan = kaynak === 'firma' ? { ...kayit, girenAdi } : kayit;
   const istekOzeti = createHash('sha256').update(JSON.stringify(ozeteAlinan)).digest('hex');
   const filtre = { ...belge, olusturanKullanici: kullaniciId ?? null, istekId };
   try {

@@ -151,7 +151,7 @@ test('ithal beyanname toplamı sıfır olduğunda TL gösterilir', async () => {
 
 test('yerli fatura evraksız kaydedilir ve yalnız dönen yeni kaleme PDF, XML ve yevmiye eklenir', async () => {
   const ilkMakine = makine('Y1', 'local');
-  const yeniKalem = kalem('hedef', 'FT-001');
+  const yeniKalem = { ...kalem('hedef', 'FT-001'), yevmiyeNo: '000032', yevmiyeTarihi: '2026-11-12T00:00:00.000Z' };
   const baskaKalem = kalem('es-zamanli', 'FT-002');
   const kayit = { ...ilkMakine, kalemler: [yeniKalem, baskaKalem], yeniKalemId: 'hedef' };
   const evraklar = [
@@ -162,20 +162,31 @@ test('yerli fatura evraksız kaydedilir ve yalnız dönen yeni kaleme PDF, XML v
   ];
   api.post.mockResolvedValue(yanit(kayit));
   uploadPost.mockResolvedValue(yanit({ ...kayit, kalemler: [{ ...yeniKalem, evraklar }, baskaKalem] }));
-  jest.spyOn(window, 'confirm').mockReturnValue(true);
+  const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
   belgeyiAc({ yerli: [ilkMakine], ithal: [] });
   fireEvent.click(await screen.findByRole('tab', { name: 'Gerçekleşen Yerli Liste' }));
   fireEvent.click(screen.getByRole('button', { name: 'Kalem Gir' }));
   expect(screen.queryByLabelText('Fatura PDF')).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText(/Fatura Tarihi/), { target: { value: '2026-11-05' } });
   fireEvent.change(screen.getByLabelText(/Fatura Sayısı/), { target: { value: 'FT-001' } });
+  const yevmiyeNo = screen.getByLabelText('Yevmiye No');
+  expect(yevmiyeNo).toHaveAttribute('maxlength', '100');
+  expect(yevmiyeNo).not.toBeRequired();
+  fireEvent.change(yevmiyeNo, { target: { value: '000032' } });
+  fireEvent.change(screen.getByLabelText('Yevmiye Tarihi'), { target: { value: '2026-11-12' } });
   fireEvent.change(screen.getByLabelText(/Kalem Tutarı/), { target: { value: '100' } });
   fireEvent.change(screen.getByLabelText(/Adınız Soyadınız/), { target: { value: 'Test Yetkili' } });
   fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
 
   expect(await screen.findByText('Fatura Evrakları · FT-001')).toBeInTheDocument();
   expect(screen.queryByText('Fatura Evrakları · FT-002')).not.toBeInTheDocument();
-  expect(api.post).toHaveBeenCalledWith('/musteri-belge/test-token/fatura-kalemi', expect.objectContaining({ no: 'FT-001', rowId: 'Y1' }), expect.any(Object));
+  expect(onay).toHaveBeenCalledWith(expect.stringContaining('Yevmiye No: 000032\nYevmiye Tarihi: 12.11.2026'));
+  expect(api.post).toHaveBeenCalledWith('/musteri-belge/test-token/fatura-kalemi', expect.objectContaining({
+    no: 'FT-001', rowId: 'Y1', yevmiyeNo: '000032', yevmiyeTarihi: '2026-11-12'
+  }), expect.any(Object));
+  const yeniSatir = within(screen.getByRole('row', { name: /FT-001 000032/ }));
+  expect(yeniSatir.getByRole('cell', { name: '000032' })).toBeInTheDocument();
+  expect(yeniSatir.getByRole('cell', { name: '12.11.2026' })).toBeInTheDocument();
   expect(uploadPost).not.toHaveBeenCalled();
 
   dosyaSec('Fatura PDF', [dosya('bir.pdf'), dosya('iki.pdf')]);
@@ -264,7 +275,7 @@ test('bekleyen dosya başka makineye taşınmaz', async () => {
 test('yeni beyanname mal bedeli TL ile kaydedilir ve ithal evrak türleri yüklenebilir', async () => {
   const eskiKalem = { ...kalem('eski', 'BY-ESKI'), tutarParaBirimi: 'EUR' };
   const personelKalemi = { ...kalem('personel', 'BY-DANISMAN', 'personel'), tutar: 75, tutarParaBirimi: 'USD' };
-  const yeniKalem = { ...kalem('yeni', 'BY-YENI'), tutar: 1250.75, tutarParaBirimi: 'TRY' };
+  const yeniKalem = { ...kalem('yeni', 'BY-YENI'), tutar: 1250.75, tutarParaBirimi: 'TRY', yevmiyeNo: '000055' };
   const ilkMakine = { ...makine('I1', 'import', [eskiKalem, personelKalemi]), faturaTutarToplamlari: { EUR: 100, USD: 75 } };
   const kayit = {
     ...ilkMakine, kalemler: [eskiKalem, personelKalemi, yeniKalem], yeniKalemId: 'yeni',
@@ -295,6 +306,7 @@ test('yeni beyanname mal bedeli TL ile kaydedilir ve ithal evrak türleri yükle
 
   fireEvent.change(screen.getByLabelText(/Beyanname Tarihi/), { target: { value: '2026-11-05' } });
   fireEvent.change(screen.getByLabelText(/Beyanname No/), { target: { value: 'BY-YENI' } });
+  fireEvent.change(screen.getByLabelText('Yevmiye No'), { target: { value: '000055' } });
   fireEvent.change(screen.getByLabelText(/Kalem Tutarı – Mal Bedeli TL/), { target: { value: '1.250,75' } });
   fireEvent.change(screen.getByLabelText(/Adınız Soyadınız/), { target: { value: 'Test Yetkili' } });
   fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
@@ -302,7 +314,8 @@ test('yeni beyanname mal bedeli TL ile kaydedilir ve ithal evrak türleri yükle
   expect(screen.queryByText('Beyanname Evrakları · BY-ESKI')).not.toBeInTheDocument();
   expect(onay).toHaveBeenCalledWith(expect.stringContaining(`Mal Bedeli TL: ${para(1250.75)}`));
   expect(api.post).toHaveBeenCalledWith('/musteri-belge/test-token/fatura-kalemi', expect.objectContaining({
-    listType: 'import', rowId: 'I1', no: 'BY-YENI', tutar: 1250.75, tutarParaBirimi: 'TRY'
+    listType: 'import', rowId: 'I1', no: 'BY-YENI', tutar: 1250.75, tutarParaBirimi: 'TRY',
+    yevmiyeNo: '000055', yevmiyeTarihi: null
   }), expect.any(Object));
   expect(uploadPost).not.toHaveBeenCalled();
   expect(within(screen.getByRole('row', { name: /BY-YENI .*Onaylandı/ })).getByText(para(1250.75))).toBeInTheDocument();
