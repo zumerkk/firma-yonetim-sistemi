@@ -24,10 +24,13 @@ jest.mock('../../components/Tesvik/EkipmanSatiri', () => () => null);
 jest.mock('../../components/common/UstKaydirmaCubugu', () => ({ children }) => <div>{children}</div>);
 // Sayfa state'i, servis çağrıları ve gerçek Excel kitabı test edilir;
 // tablo kütüphanesinin tarayıcı ölçüm/virtualization ayrıntıları kapsam dışıdır.
-jest.mock('@mui/x-data-grid', () => ({ DataGrid: ({ rows, onRowSelectionModelChange }) => <div>
-  <button onClick={() => onRowSelectionModelChange(rows.map(r => r.id))}>Test satırlarını seç</button>
-  {rows.map(r => <span key={r.id}>{r.adi} TL:{r.toplamTl}</span>)}
-</div> }));
+jest.mock('@mui/x-data-grid', () => ({
+  useGridApiRef: jest.requireActual('@mui/x-data-grid').useGridApiRef,
+  DataGrid: ({ rows, onRowSelectionModelChange }) => <div>
+    <button onClick={() => onRowSelectionModelChange(rows.map(r => r.id))}>Test satırlarını seç</button>
+    {rows.map(r => <span key={r.id}>{r.adi} TL:{r.toplamTl}</span>)}
+  </div>
+}));
 
 const belge = {
   _id: 'belge-1', tesvikId: '568289', gmId: 'GM-1', yatirimciUnvan: 'TEST FİRMASI',
