@@ -104,6 +104,7 @@ async function revizeyiAc(Component) {
   await waitFor(() => expect(revize).toBeEnabled());
   fireEvent.click(revize);
   await screen.findByRole('button', { name: 'Bitir' });
+  await waitFor(() => expect(hucre(0, 'birimFiyatiTl')).toBeInTheDocument());
   return gorunum;
 }
 
@@ -204,7 +205,7 @@ test('Türkçe fiyat yapıştırılınca dördüncü satır ve genel toplam odak
   gorunum.unmount();
   await revizeyiAc(Component);
   expect(screen.getByText(/Yerli: 2\.900\.000/)).toBeInTheDocument();
-  expect(hucre(3, 'toplamTl')).toHaveTextContent('800.000');
+  await waitFor(() => expect(hucre(3, 'toplamTl')).toHaveTextContent('800.000'));
 });
 
 test('Hızlı modda Türkçe ondalıklı fiyat odak ve girdi kimliği korunarak canlı hesaplanır ve kaydedilir', async () => {
