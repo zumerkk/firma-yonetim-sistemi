@@ -60,6 +60,10 @@ const kalemSiniri = rateLimit({
 router.get('/:token', gonder((req) => portal.portalVerisi(req.params.token)));
 router.get('/:token/gerceklesme', gonder((req) => portal.firmaGerceklesmesi(req.params.token)));
 router.post('/:token/fatura-kalemi', kalemSiniri, gonder((req) => portal.firmaKalemiEkle(req.params.token, req.body || {})));
+router.patch('/:token/fatura-kalemi/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaKalemiGuncelle(req.params.token, req.params.kalemId, req.body || {})));
+router.delete('/:token/fatura-kalemi/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaKalemiSil(req.params.token, req.params.kalemId, req.body || {})));
 
 async function faturaBaglantisiniDogrula(req, res, next) {
   try {
@@ -75,6 +79,10 @@ router.post('/:token/fatura-kalemi/:kalemId/evrak', kalemSiniri, faturaBaglantis
 router.get('/:token/harcamalar', gonder((req) => portal.firmaHarcamalariListele(req.params.token)));
 router.post('/:token/harcamalar', kalemSiniri,
   gonder((req) => portal.firmaHarcamaKalemiEkle(req.params.token, req.body || {})));
+router.patch('/:token/harcamalar/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaHarcamaKalemiGuncelle(req.params.token, req.params.kalemId, req.body || {})));
+router.delete('/:token/harcamalar/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaHarcamaKalemiSil(req.params.token, req.params.kalemId)));
 
 async function harcamaBaglantisiniDogrula(req, res, next) {
   try {
@@ -86,5 +94,23 @@ async function harcamaBaglantisiniDogrula(req, res, next) {
 
 router.post('/:token/harcamalar/:kalemId/evrak', kalemSiniri, harcamaBaglantisiniDogrula, faturaDosyalariniAl,
   gonder((req) => portal.firmaHarcamaEvrakiYukle(req.params.token, req.params.kalemId, req.body, req.files)));
+
+const evrakGonder = (indir) => async (req, res) => {
+  try {
+    const { evrak, buffer } = await indir(req);
+    res.attachment(evrak.dosyaAdi);
+    res.set({ 'Content-Type': evrak.mimeType, 'X-Content-Type-Options': 'nosniff' });
+    res.send(buffer);
+  } catch (err) { hataGonder(res, err); }
+};
+
+router.get('/:token/fatura-kalemi/:kalemId/evrak/:evrakId',
+  evrakGonder((req) => portal.firmaFaturaEvrakiIndir(req.params.token, req.params.kalemId, req.params.evrakId, req.query)));
+router.delete('/:token/fatura-kalemi/:kalemId/evrak/:evrakId', kalemSiniri,
+  gonder((req) => portal.firmaFaturaEvrakiSil(req.params.token, req.params.kalemId, req.params.evrakId, req.query)));
+router.get('/:token/harcamalar/:kalemId/evrak/:evrakId',
+  evrakGonder((req) => portal.firmaHarcamaEvrakiIndir(req.params.token, req.params.kalemId, req.params.evrakId)));
+router.delete('/:token/harcamalar/:kalemId/evrak/:evrakId', kalemSiniri,
+  gonder((req) => portal.firmaHarcamaEvrakiSil(req.params.token, req.params.kalemId, req.params.evrakId)));
 
 module.exports = router;

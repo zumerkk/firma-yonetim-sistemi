@@ -3,6 +3,8 @@ import React, { useEffect, useMemo, useState, useRef, useCallback, memo, forward
 import { flushSync } from 'react-dom';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox, LinearProgress, Collapse } from '@mui/material';
 import { DataGrid, useGridApiRef } from '@mui/x-data-grid';
+import MakineSayisalHucre from '../../components/Tesvik/MakineSayisalHucre';
+import { yerliTutarlariniGuncelle } from '../../utils/yerliTutar';
 import FileUpload from '../../components/Files/FileUpload';
 import tesvikService from '../../services/tesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
@@ -293,6 +295,12 @@ const MakineYonetimi = () => {
   // Bu şekilde makine ID'leri teşvik bazlı kalıcı olacak (YeniTesvik ile tutarlı)
   const [yerliRows, setYerliRows] = useState([]);
   const [ithalRows, setIthalRows] = useState([]);
+  const [yerliHucreTaslagi, setYerliHucreTaslagi] = useState(null);
+  const gorunenYerliRows = useMemo(() => yerliRows.map((satir) => (
+    satir.id === yerliHucreTaslagi?.id
+      ? yerliTutarlariniGuncelle({ ...satir, [yerliHucreTaslagi.field]: yerliHucreTaslagi.value }, [yerliHucreTaslagi.field])
+      : satir
+  )), [yerliRows, yerliHucreTaslagi]);
   const [uploadRowId, setUploadRowId] = useState(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [selectionModel, setSelectionModel] = useState([]);
@@ -801,7 +809,7 @@ const MakineYonetimi = () => {
     return () => { iptal = true; };
   }, [ithalRows, kurlariHazirla]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const yerliToplamTl = useMemo(() => yerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [yerliRows]);
+  const yerliToplamTl = useMemo(() => gorunenYerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [gorunenYerliRows]);
   const ithalToplamUsd = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamUsd), 0), [ithalRows]);
   const ithalToplamTl = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [ithalRows]);
 
@@ -863,7 +871,7 @@ const MakineYonetimi = () => {
   }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard]);
 
   const updateYerli = (id, patch) => {
-    setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
+    setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }, Object.keys(patch)) : r));
   };
   const updateIthal = (id, patch) => {
     setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }, Object.keys(patch)) : r));
@@ -876,7 +884,7 @@ const MakineYonetimi = () => {
       patch.tlYerliManuel = true;
     }
     updateYerli(newRow.id, patch);
-    return calcYerli({ ...oldRow, ...patch });
+    return calcYerli({ ...oldRow, ...patch }, Object.keys(patch));
   };
   const ithalSatirDuzenle = async (newRow, oldRow) => {
     console.log('🔧 İthal row güncelleniyor:', newRow);
@@ -938,12 +946,7 @@ const MakineYonetimi = () => {
     return islem;
   };
 
-  const calcYerli = (r) => {
-    const miktar = numberOrZero(r.miktar);
-    const bf = numberOrZero(r.birimFiyatiTl);
-    const computed = miktar * bf;
-    return { ...r, toplamTl: r.tlYerliManuel ? (r.toplamTl ?? computed) : computed };
-  };
+  const calcYerli = yerliTutarlariniGuncelle;
   // İthal satırın tutarları — kural utils/ithalTutar'da (yalnız girdisi değişen tutar hesaplanır)
   const calcIthal = (r, degisenler = Object.keys(r)) => ithalTutarlariniGuncelle(r, degisenler, satirKurlari(r));
   const satiriYaz = (satir) => setIthalRows((rows) => rows.map((r) => (r.id === satir.id ? satir : r)));
@@ -2475,7 +2478,8 @@ const MakineYonetimi = () => {
       { field: 'kdvIstisnasi', headerName: 'KDV', description: 'KDV İstisnası', width: 65, renderCell: (p) => (
         <SecimHucresi deger={p.row.kdvIstisnasi} secenekler={IZGARA_SECENEK_5} duzenlenebilir={isReviseMode} onDegis={(v) => updateYerli(p.row.id, { kdvIstisnasi: v })} />
       ) },
-      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} onTaslak={setYerliHucreTaslagi} /> },
       { field: 'birim', headerName: 'Birim', width: 160, renderCell: (p) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -2485,7 +2489,8 @@ const MakineYonetimi = () => {
             <HafifDugme baslik="Favori birim" onClick={(e)=> openFavMenu(e, 'unit', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></HafifDugme>
           </div>
         ) },
-      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', description: 'Birim Fiyatı (TL)', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', description: 'Birim Fiyatı (TL)', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} onTaslak={setYerliHucreTaslagi} /> },
       { field: 'makineTechizatTipi', headerName: 'Tip', description: 'Makine / Teçhizat Tipi', width: 85, renderCell: (p) => (
         <SecimHucresi deger={p.row.makineTechizatTipi} secenekler={IZGARA_SECENEK_4} duzenlenebilir={isReviseMode} onDegis={(v) => updateYerli(p.row.id, { makineTechizatTipi: v })} />
       ) },
@@ -2501,7 +2506,8 @@ const MakineYonetimi = () => {
       ) },
       { field: 'iadeDevirSatisAdet', headerName: 'DVR#', description: 'İade / Devir / Satış Adedi', width: 55, editable: isReviseMode, type: 'number' },
       { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', description: 'İade / Devir / Satış Tutarı', width: 70, editable: isReviseMode, type: 'number' },
-      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, align:'right', headerAlign:'right',
+        renderCell: (p) => (gorunenYerliRows.find((satir) => satir.id === p.id)?.toplamTl ?? p.value)?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <div onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <HafifMetinDugme disabled={hucreYukleme === p.row.id}
@@ -2625,7 +2631,7 @@ const MakineYonetimi = () => {
         <DataGrid 
         apiRef={gridApiRef}
         onCellModesModelChange={hucreModlariDegisti}
-        rows={filteredYerliRows} 
+        rows={filteredYerliRows}
         columns={cols} 
         initialState={{ pagination: { paginationModel: { pageSize: sayfaBoyutu } } }}
         pageSizeOptions={[10, 25, 50, 100, 200]}
@@ -2727,7 +2733,8 @@ const MakineYonetimi = () => {
       ) },
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', flex: 1, minWidth: 220, editable: true, renderCell: (p) => <MetinHucresi deger={p.value} /> },
       { field: 'adi', headerName: 'Adı ve Özelliği', flex: 1, minWidth: 260, editable: isReviseMode, renderCell: (p) => <MetinHucresi deger={p.value} /> },
-      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} /> },
       { field: 'birim', headerName: 'Birim', width: 280, renderCell: (p) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -2738,7 +2745,8 @@ const MakineYonetimi = () => {
           </div>
         ) },
       // birimAciklamasi kolonu kaldırıldı
-      { field: 'birimFiyatiFob', headerName: 'FOB', description: 'Birim Fiyatı (FOB)', width: 75, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'birimFiyatiFob', headerName: 'FOB', description: 'Birim Fiyatı (FOB)', width: 75, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} /> },
       { field: 'doviz', headerName: 'Döviz', description: 'Döviz Cinsi / Kur', width: 140, renderCell: (p)=>(
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, width: '100%', minWidth: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>

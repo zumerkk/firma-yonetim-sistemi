@@ -6,8 +6,8 @@
 // kaydedilen fatura varsa burada görünsün), onun altında da kalem girme ve kaydetme yeri olsun.
 // (F. Tarih - F. Sayı, Kalem içeriği, Kalem tutarı - Kaydet)"
 //
-// Firmanın belge linkinden girdiği kalemler firmaya kilitlidir ("Onaylandı"); personel buradan
-// düzeltir/siler. İthal makinede aynı pencere beyanname kalemleri içindir.
+// Personel bu pencereden kalemleri yönetir. Firma aynı işlemleri kendi belge linkinde yapar.
+// İthal makinede aynı pencere beyanname kalemleri içindir.
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Grid, Typography, TextField, Stack,
@@ -184,7 +184,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
 
   const sil = async (k) => {
     if (kilitli || !duzenlenebilir) return;
-    const kim = k.kaynak === 'firma' ? ' Firmanın girdiği (onaylanmış) bir kalem.' : '';
+    const kim = k.kaynak === 'firma' ? ' Firmanın girdiği bir kalem.' : '';
     const ekler = k.evraklar?.length ? ` Kaleme bağlı ${k.evraklar.length} evrak da silinecek.` : '';
     if (!window.confirm(`"${k.no || k.icerik || 'Kalem'}" silinsin mi?${kim}${ekler}`)) return;
     setMesgul(true); setHata(''); setBilgi('');
@@ -330,7 +330,7 @@ export default function FaturaKalemleriDialog({ open, onClose, tesvikModel, tesv
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>
                               {k.kaynak === 'firma'
                                 ? <Tooltip title={`Firma linkinden girildi${k.girenAdi ? ` — ${k.girenAdi}` : ''} · ${formatDate(k.girisTarihi, true)}`}>
-                                    <Chip size="small" color="success" label="Onaylandı · Firma" />
+                                    <Chip size="small" color="success" label="Firma" />
                                   </Tooltip>
                                 : <Typography variant="caption" color="text.secondary">{k.girenAdi || 'Personel'}</Typography>}
                             </TableCell>

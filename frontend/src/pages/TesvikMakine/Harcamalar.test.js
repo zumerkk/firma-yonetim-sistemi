@@ -6,7 +6,8 @@ import svc from '../../services/tesvikMakineService';
 jest.mock('../../services/tesvikMakineService', () => ({
   harcamalariGetir: jest.fn(), harcamaEkle: jest.fn(), harcamaGuncelle: jest.fn(),
   harcamaSil: jest.fn(), harcamaEvrakiYukle: jest.fn(), harcamaEvrakiIndir: jest.fn(),
-  musteriHarcamalariniGetir: jest.fn(), musteriHarcamaEkle: jest.fn()
+  musteriHarcamalariniGetir: jest.fn(), musteriHarcamaEkle: jest.fn(), musteriHarcamaGuncelle: jest.fn(),
+  musteriHarcamaSil: jest.fn(), musteriHarcamaEvrakiSil: jest.fn()
 }));
 
 const kategoriler = { diger: { altKategoriler: [
@@ -98,7 +99,7 @@ test.each([true, false])('personel düzenlemesinde sadece değiştirilen yevmiye
   expect(yevmiyeAlanlari).toEqual(temizle ? { yevmiyeNo: '', yevmiyeTarihi: '' } : {});
 });
 
-test('müşteri yevmiye bilgisiyle harcama ekler ve kayıt için düzenleme veya silme düğmesi görmez', async () => {
+test('müşteri yevmiye bilgisiyle harcama ekler ve kaydını düzenleyip silebilir', async () => {
   svc.musteriHarcamalariniGetir.mockResolvedValue({ kategoriler, kalemler: [] });
   svc.musteriHarcamaEkle.mockResolvedValue({
     ...ilk, yevmiyeNo: '00042', yevmiyeTarihi: '2026-11-17T00:00:00.000Z', evrakEklenebilir: true
@@ -122,8 +123,44 @@ test('müşteri yevmiye bilgisiyle harcama ekler ve kayıt için düzenleme veya
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.getByText('00042')).toBeInTheDocument();
   expect(screen.getByText('17.11.2026')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'F-001 düzenle' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'F-001 sil' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'F-001 düzenle' })).toBeEnabled();
+  expect(screen.getByRole('button', { name: 'F-001 sil' })).toBeEnabled();
+});
+
+test.each([
+  ['diger', 'montaj'], ['bina', 'anaBina'], ['arazi', 'arazi']
+])('müşteri %s kaleminde tutarı ve yevmiyeyi belge bağlantısı üzerinden değiştirir ve kalemi siler', async (kategori, altKategori) => {
+  const kalem = { ...ilk, kategori, altKategori, kaynak: 'personel', evrakEklenebilir: false,
+    yevmiyeNo: '00042', yevmiyeTarihi: '2026-11-17T00:00:00.000Z' };
+  const guncel = { ...kalem, tutar: 2430.5, yevmiyeNo: '00057', yevmiyeTarihi: '2026-11-19' };
+  svc.musteriHarcamalariniGetir.mockResolvedValue({
+    kategoriler: { [kategori]: { altKategoriler: [{ id: altKategori, etiket: 'Harcama' }] } }, kalemler: [kalem]
+  });
+  svc.musteriHarcamaGuncelle.mockResolvedValue(guncel);
+  svc.musteriHarcamaSil.mockResolvedValue(true);
+  render(<Harcamalar musteriToken="belgeye-ozel-token" kategori={kategori} baslik="Harcama" />);
+  fireEvent.click(await screen.findByRole('button', { name: 'F-001 düzenle' }));
+  expect(screen.getByLabelText('Yevmiye No')).toHaveValue('00042');
+  fireEvent.change(screen.getByLabelText(/Kalem Tutarı/), { target: { value: '2.430,50' } });
+  fireEvent.change(screen.getByLabelText('Yevmiye No'), { target: { value: '00057' } });
+  fireEvent.change(screen.getByLabelText('Yevmiye Tarihi'), { target: { value: '2026-11-19' } });
+  fireEvent.change(screen.getByLabelText(/Adınız Soyadınız/), { target: { value: 'Firma Yetkilisi' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  const evrak = within(await screen.findByRole('dialog', { name: 'F-001 Evrakları' }));
+  expect(svc.musteriHarcamaGuncelle).toHaveBeenCalledWith('belgeye-ozel-token', '1', expect.objectContaining({
+    kategori, altKategori, tutar: 2430.5, yevmiyeNo: '00057', yevmiyeTarihi: '2026-11-19', giren: 'Firma Yetkilisi'
+  }), expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(svc.harcamaGuncelle).not.toHaveBeenCalled();
+  expect(evrak.getByLabelText('Fatura PDF')).toBeInTheDocument();
+  fireEvent.click(evrak.getByRole('button', { name: 'Kapat' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.getByRole('row', { name: /Genel Toplam/ })).toHaveTextContent('₺2.430,50');
+  fireEvent.click(screen.getByRole('button', { name: 'F-001 sil' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Sil' }));
+  await waitFor(() => expect(screen.queryByText('F-001')).toBeNull());
+  expect(svc.musteriHarcamaSil).toHaveBeenCalledWith('belgeye-ozel-token', '1', { giren: 'Firma Yetkilisi' },
+    expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  expect(svc.harcamaSil).not.toHaveBeenCalled();
 });
 
 test('salt okunur kullanıcı kayıtlı evrakları görür, ekleme ve düzenleme yapamaz', async () => {
@@ -135,4 +172,24 @@ test('salt okunur kullanıcı kayıtlı evrakları görür, ekleme ve düzenleme
   expect(screen.queryByLabelText('Fatura PDF')).toBeNull();
   expect(screen.queryByRole('button', { name: 'Kalem Gir' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'F-001 düzenle' })).toBeNull();
+});
+
+test('müşteri personel harcamasındaki yanlış evrakı siler, başarısız silmede kayıt korunur', async () => {
+  const evrak = { _id: 'ek-1', dosyaAdi: 'yanlis.pdf', tur: 'fatura_pdf' };
+  const kalem = { ...ilk, kaynak: 'personel', evrakEklenebilir: false, evraklar: [evrak] };
+  svc.musteriHarcamalariniGetir.mockResolvedValue({ kategoriler, kalemler: [kalem] });
+  svc.musteriHarcamaEvrakiSil.mockRejectedValueOnce(new Error('Evrak silinemedi'))
+    .mockResolvedValueOnce({ ...kalem, evraklar: [] });
+  const onay = jest.spyOn(window, 'confirm').mockReturnValue(true);
+  render(<Harcamalar musteriToken="belge-token" kategori="diger" baslik="Harcama" />);
+  fireEvent.click(await screen.findByRole('button', { name: 'F-001 evrakları' }));
+  fireEvent.click(screen.getByRole('button', { name: 'yanlis.pdf sil' }));
+  expect(await screen.findByText('Evrak silinemedi')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'yanlis.pdf indir' })).toBeEnabled();
+  fireEvent.click(screen.getByRole('button', { name: 'yanlis.pdf sil' }));
+  expect(await screen.findByText('Evrak silindi.')).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'yanlis.pdf sil' })).toBeNull();
+  expect(svc.musteriHarcamaEvrakiSil).toHaveBeenLastCalledWith('belge-token', '1', 'ek-1',
+    expect.objectContaining({ signal: expect.any(AbortSignal) }));
+  onay.mockRestore();
 });

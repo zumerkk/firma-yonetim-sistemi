@@ -399,7 +399,7 @@ async function eskiFaturaOzetleriniKalemeCevir() {
 // Bütün listeyi yeniden yazmak yerine kalem bazlı: firma kendi linkinden kalem eklerken personel aynı
 // makinede düzeltme yapıyorsa biri ötekinin kalemini silmesin.
 
-async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, kayittanSonra) {
+async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, kayittanSonra, yetkiyiDogrula) {
   let kaydedilen;
   for (let deneme = 0; deneme < 5; deneme += 1) {
     const taze = await MachineProcess.findById(proc._id).select(FATURA_EVRAK_OZEL_ALANLARI);
@@ -407,6 +407,7 @@ async function faturaKaydiniBitir(proc, degistir, not, user, performedByLabel, k
     taze.faturalar = faturaKalemleriniOku(taze);
     degistir(taze);
     faturaOzetiniYenile(taze);
+    if (yetkiyiDogrula) await yetkiyiDogrula();
     // Kalem listesi ve toplamları birlikte, ancak okunan sürüm hâlâ güncelse yazılır. Başka kullanıcı
     // arada kalem eklediyse yeni liste üzerinden yeniden denenir; eski listeyle üstüne yazılmaz.
     kaydedilen = await MachineProcess.findOneAndUpdate(
@@ -446,7 +447,7 @@ async function faturaKalemiEkle(proc, girdi, { user = null, kaynak = 'personel',
   return faturaKaydiniBitir(proc, (p) => p.faturalar.push(kalem), `Fatura kalemi eklendi${kalem.no ? `: ${kalem.no}` : ''}${kim ? ` (${kim})` : ''}`, user, kim);
 }
 
-async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIstemci = false } = {}) {
+async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIstemci = false, yetkiyiDogrula } = {}) {
   const yevmiye = yevmiyeKaydiniOku(girdi);
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
@@ -468,17 +469,28 @@ async function faturaKalemiGuncelle(proc, kalemId, girdi, { user = null, eskiIst
       throw faturaHatasi('TL tutarını güncellemek için sayfayı yenileyip tekrar deneyin.');
     }
     mevcut.set({ tarih: yeni.tarih, no: yeni.no, icerik: yeni.icerik, tutar: yeni.tutar, adet: yeni.adet, tutarParaBirimi, malBedeliTl, ...yevmiye });
-  }, 'Fatura kalemi düzeltildi', user);
+  }, 'Fatura kalemi düzeltildi', user, undefined, undefined, yetkiyiDogrula);
 }
 
-async function faturaKalemiSil(proc, kalemId, { user = null } = {}) {
+async function faturaKalemiSil(proc, kalemId, { user = null, yetkiyiDogrula } = {}) {
   let silinecekler;
   return faturaKaydiniBitir(proc, (p) => {
     const mevcut = p.faturalar.id(kalemId);
     if (!mevcut) throw faturaHatasi('Fatura kalemi bulunamadı.', 'FATURA_YOK');
     silinecekler = mevcut.evraklar.map((e) => e.depo).filter(Boolean);
     mevcut.deleteOne();
-  }, 'Fatura kalemi silindi', user, undefined, () => faturaEvrakDepolariniSil(silinecekler));
+  }, 'Fatura kalemi silindi', user, undefined, () => faturaEvrakDepolariniSil(silinecekler), yetkiyiDogrula);
+}
+
+async function faturaEvrakiSil(proc, kalemId, evrakId, { yetkiyiDogrula } = {}) {
+  let depo;
+  return faturaKaydiniBitir(proc, (p) => {
+    const kalem = p.faturalar.id(kalemId);
+    const evrak = kalem?.evraklar.id(evrakId);
+    if (!evrak) throw faturaHatasi('Fatura evrakı bulunamadı.', 'FATURA_YOK');
+    depo = evrak.depo;
+    evrak.deleteOne();
+  }, 'Fatura evrakı silindi', null, 'Firma', () => faturaEvrakDepolariniSil(depo ? [depo] : []), yetkiyiDogrula);
 }
 
 async function faturaEvrakDepolariniSil(depolar) {
@@ -985,6 +997,7 @@ module.exports = {
   faturaKalemiEkle,
   faturaKalemiGuncelle,
   faturaKalemiSil,
+  faturaEvrakiSil,
   faturaEvraklariniEkle,
   faturaEvrakDepolariniSil,
   FATURA_EVRAK_OZEL_ALANLARI,

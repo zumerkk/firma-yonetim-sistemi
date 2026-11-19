@@ -127,10 +127,18 @@ test('hem açılıştan önce hem bitişten sonra bütün token yolları aynı 4
     ['get', musteri],
     ['get', `${musteri}/gerceklesme`],
     ['post', `${musteri}/fatura-kalemi`],
+    ['patch', `${musteri}/fatura-kalemi/${kalemId}`],
+    ['delete', `${musteri}/fatura-kalemi/${kalemId}`],
     ['post', `${musteri}/fatura-kalemi/${kalemId}/evrak`],
+    ['get', `${musteri}/fatura-kalemi/${kalemId}/evrak/${kalemId}`],
+    ['delete', `${musteri}/fatura-kalemi/${kalemId}/evrak/${kalemId}`],
     ['get', `${musteri}/harcamalar`],
     ['post', `${musteri}/harcamalar`],
-    ['post', `${musteri}/harcamalar/${kalemId}/evrak`]
+    ['patch', `${musteri}/harcamalar/${kalemId}`],
+    ['delete', `${musteri}/harcamalar/${kalemId}`],
+    ['post', `${musteri}/harcamalar/${kalemId}/evrak`],
+    ['get', `${musteri}/harcamalar/${kalemId}/evrak/${kalemId}`],
+    ['delete', `${musteri}/harcamalar/${kalemId}/evrak/${kalemId}`]
   ];
   for (const saat of ['2032-02-28T20:59:59.999Z', '2032-02-29T21:00:00.000Z']) {
     jest.setSystemTime(new Date(saat));
