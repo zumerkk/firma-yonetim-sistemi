@@ -109,13 +109,22 @@ function firmaKalemiEkle(belge, govde, yetkiyiDogrula) {
   return kalemiKaydet(belge, veri, { kaynak: 'firma', girenAdi, istekId: govde.istekId, yetkiyiDogrula });
 }
 
-async function guncelle(filtre, govde, user) {
+async function guncelle(filtre, govde, user, { yetkiyiDogrula, duzenleyenAdi } = {}) {
   if (!KALEM_ALANLARI.some((ad) => Object.hasOwn(govde, ad))) throw hata(400, 'Güncellenecek bir kalem bilgisi girin.');
   const mevcut = await HarcamaKalemi.findOne(filtre).select([...KALEM_ALANLARI, '__v'].join(' '));
   if (!mevcut) throw kalemYok();
   const veri = kalemVerisi(govde, mevcut);
+  if (yetkiyiDogrula && Object.hasOwn(govde, 'tarih') && veri.tarih > new Date(Date.now() + 864e5)) {
+    throw hata(400, 'Fatura tarihi ileri bir tarih olamaz.');
+  }
+  if (yetkiyiDogrula) await yetkiyiDogrula();
   const kalem = await HarcamaKalemi.findOneAndUpdate({ ...filtre, __v: mevcut.__v }, {
-    $set: { ...veri, sonGuncelleyen: user._id }, $inc: { __v: 1 }
+    $set: {
+      ...veri,
+      ...(user && { sonGuncelleyen: user._id }),
+      ...(duzenleyenAdi !== undefined && { sonFirmaDuzenlemesi: { ad: duzenleyenAdi, tarih: new Date() } })
+    },
+    $inc: { __v: 1 }
   }, { new: true, runValidators: true });
   if (!kalem) throw hata(409, 'Harcama kalemi değişti. Sayfayı yenileyip tekrar deneyin.');
   return kalem;

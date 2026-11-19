@@ -18,6 +18,10 @@ const schema = new mongoose.Schema({
   girenAdi: { type: String, default: '', maxlength: 120 },
   olusturanKullanici: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   sonGuncelleyen: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  sonFirmaDuzenlemesi: {
+    ad: { type: String, maxlength: 120 },
+    tarih: { type: Date }
+  },
   istekId: { type: String, select: false, immutable: true },
   istekOzeti: { type: String, select: false, immutable: true },
   evraklar: { type: [faturaEvrakSchema], default: [] }

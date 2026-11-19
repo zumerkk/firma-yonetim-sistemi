@@ -127,9 +127,11 @@ test('hem açılıştan önce hem bitişten sonra bütün token yolları aynı 4
     ['get', musteri],
     ['get', `${musteri}/gerceklesme`],
     ['post', `${musteri}/fatura-kalemi`],
+    ['patch', `${musteri}/fatura-kalemi/${kalemId}`],
     ['post', `${musteri}/fatura-kalemi/${kalemId}/evrak`],
     ['get', `${musteri}/harcamalar`],
     ['post', `${musteri}/harcamalar`],
+    ['patch', `${musteri}/harcamalar/${kalemId}`],
     ['post', `${musteri}/harcamalar/${kalemId}/evrak`]
   ];
   for (const saat of ['2032-02-28T20:59:59.999Z', '2032-02-29T21:00:00.000Z']) {

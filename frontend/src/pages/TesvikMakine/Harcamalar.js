@@ -40,6 +40,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
   const devamEden = useRef(null);
   const listeIstegi = useRef(null);
   const kalemEklenebilir = !!musteriToken || duzenlenebilir;
+  const kalemDuzenlenebilir = (kalem) => musteriToken ? kalem?.duzenlenebilir === true : duzenlenebilir;
   const evrakEklenebilir = (kalem) => musteriToken ? kalem?.evrakEklenebilir === true : duzenlenebilir;
 
   useEffect(() => () => devamEden.current?.abort(), []);
@@ -71,7 +72,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
   const secili = kalemler.find((k) => k._id === pencere?.id);
   const tutarGecerli = form.tutar >= 0.01 && /^\d{1,13}(?:\.\d{1,2})?$/.test(String(form.tutar));
   const formGecerli = altKategoriler.some(({ id }) => id === form.altKategori)
-    && form.tarih && form.no.trim() && tutarGecerli && Number(form.adet) >= 0 && (!musteriToken || giren.trim());
+    && form.tarih && form.no.trim() && tutarGecerli && Number(form.adet) >= 0 && (!musteriToken || secili || giren.trim());
 
   const formHatasiniTemizle = () => {
     istekId.current = null;
@@ -89,12 +90,13 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
     const ilkYevmiye = {
       yevmiyeNo: kalem?.yevmiyeNo || '', yevmiyeTarihi: String(kalem?.yevmiyeTarihi || '').slice(0, 10)
     };
-    setForm(kalem && tur === 'form' ? {
+    const ilkForm = kalem && tur === 'form' ? {
       altKategori: kalem.altKategori, tarih: String(kalem.tarih || '').slice(0, 10), no: kalem.no,
       ...ilkYevmiye,
       icerik: kalem.icerik || '', tutar: kalem.tutar, adet: kalem.adet || ''
-    } : BOS_KALEM);
-    setPencere({ tur, id: kalem?._id, ilkYevmiye });
+    } : BOS_KALEM;
+    setForm(ilkForm);
+    setPencere({ tur, id: kalem?._id, ilkForm });
   };
 
   const islemYap = async (tur, fn, hataGoster, mesaj) => {
@@ -131,22 +133,37 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
 
   const kaydet = (event) => {
     event.preventDefault();
-    if (!kalemEklenebilir || !formGecerli || (secili && !duzenlenebilir)) return;
+    if (!kalemEklenebilir || !formGecerli || (secili && !kalemDuzenlenebilir(secili))) return;
     islemYap('kalem', async (signal) => {
       const { yevmiyeNo, yevmiyeTarihi, ...digerAlanlar } = form;
       const govde = {
         ...digerAlanlar, kategori, no: form.no.trim(), icerik: form.icerik.trim(), adet: Number(form.adet)
       };
       const duzeltilenNo = yevmiyeNo.trim();
-      if (!secili || duzeltilenNo !== pencere.ilkYevmiye.yevmiyeNo) govde.yevmiyeNo = duzeltilenNo;
-      if (!secili || yevmiyeTarihi !== pencere.ilkYevmiye.yevmiyeTarihi) govde.yevmiyeTarihi = yevmiyeTarihi;
+      if (!secili || duzeltilenNo !== pencere.ilkForm.yevmiyeNo) govde.yevmiyeNo = duzeltilenNo;
+      if (!secili || yevmiyeTarihi !== pencere.ilkForm.yevmiyeTarihi) govde.yevmiyeTarihi = yevmiyeTarihi;
       if (!secili) {
         if (!istekId.current) istekId.current = yeniIstekId();
         govde.istekId = istekId.current;
       }
       let sonuc;
       if (musteriToken) {
-        sonuc = await svc.musteriHarcamaEkle(musteriToken, { ...govde, giren: giren.trim() }, { signal });
+        const ilkDegerler = {
+          ...pencere.ilkForm, no: pencere.ilkForm.no.trim(),
+          icerik: pencere.ilkForm.icerik.trim(), adet: Number(pencere.ilkForm.adet)
+        };
+        const musteriGovdesi = secili
+          ? Object.fromEntries(Object.entries(govde).filter(([alan, deger]) => (
+            alan !== 'kategori' && deger !== ilkDegerler[alan]
+          ))) : govde;
+        if (secili && !Object.keys(musteriGovdesi).length) {
+          setPencere(null);
+          return;
+        }
+        const veri = { ...musteriGovdesi, giren: giren.trim() };
+        sonuc = secili
+          ? await svc.musteriHarcamaGuncelle(musteriToken, secili._id, veri, { signal })
+          : await svc.musteriHarcamaEkle(musteriToken, veri, { signal });
         if (!signal.aborted) {
           try { localStorage.setItem(GIREN_ANAHTARI, giren.trim()); } catch { /* depolama kapalı */ }
         }
@@ -155,7 +172,8 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
         : await svc.harcamaEkle(tesvikModel, tesvikId, govde);
       if (signal.aborted) return;
       kalemiYansit(sonuc);
-      pencereAc('evrak', sonuc);
+      if (evrakEklenebilir(sonuc)) pencereAc('evrak', sonuc);
+      else setPencere(null);
     }, setPencereHatasi, 'Harcama kalemi kaydedilemedi.');
   };
 
@@ -225,8 +243,9 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
                     onClick={() => pencereAc('evrak', k)} aria-label={`${k.no} evrakları`}>
                     {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
                   </Button>}
+                  {kalemDuzenlenebilir(k) && <IconButton size="small" aria-label={`${k.no} düzenle`}
+                    onClick={() => pencereAc('form', k)}><EditIcon fontSize="small" /></IconButton>}
                   {duzenlenebilir && <>
-                    <IconButton size="small" aria-label={`${k.no} düzenle`} onClick={() => pencereAc('form', k)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" aria-label={`${k.no} sil`} onClick={() => pencereAc('sil', k)}><DeleteOutlineIcon fontSize="small" /></IconButton>
                   </>}
                 </TableCell>
@@ -270,11 +289,8 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
               <Grid item xs={4}><TextField type="number" label="Adet" size="small" fullWidth inputProps={{ min: 0, step: 'any' }}
                 value={form.adet} disabled={!!islem} onChange={(e) => formAlani('adet', e.target.value)} /></Grid>
               {musteriToken && <Grid item xs={12}>
-                <TextField label="Adınız Soyadınız" size="small" fullWidth required inputProps={{ maxLength: 120 }}
+                <TextField label="Adınız Soyadınız" size="small" fullWidth required={!secili} inputProps={{ maxLength: 120 }}
                   value={giren} disabled={!!islem} onChange={(e) => { setGiren(e.target.value); formHatasiniTemizle(); }} />
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  Kaydedilen kalemde düzeltme ve silme işlemlerini danışmanınız yapabilir.
-                </Typography>
               </Grid>}
             </Grid>}
             {pencereHatasi && <Alert severity="error" sx={{ mt: 2 }}>{pencereHatasi}</Alert>}

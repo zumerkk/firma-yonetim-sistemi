@@ -75,13 +75,13 @@ test.each([
   expect(data.kalemler.reduce((toplam, { tutar }) => toplam + Math.round(tutar * 100), 0)).toBe(35285);
   expect(data.kalemler).toHaveLength(6);
   expect(data.kalemler.map(({ no, icerik }) => [no, icerik])).toEqual(expect.arrayContaining([
-    ['F-1', 'Pres · firma fatura açıklaması'], ['F-2', 'Pres'], ['B-1', 'Robot'],
-    ['H-1', 'firma harcama açıklaması'], ['H-2', ''], ['H-3', '']
+    ['F-1', 'Pres · firma fatura açıklaması'], ['F-2', 'Pres · özel fatura açıklaması'], ['B-1', 'Robot'],
+    ['H-1', 'firma harcama açıklaması'], ['H-2', 'özel harcama açıklaması'], ['H-3', '']
   ]));
   for (const kalem of data.kalemler) {
     expect(Object.keys(kalem).sort()).toEqual(['adet', 'grup', 'icerik', 'kategori', 'no', 'tarih', 'tutar']);
   }
-  expect(JSON.stringify(data)).not.toMatch(/özel|gizli\.pdf|BAŞKA BELGE|MODELE AİT|B-2/);
+  expect(JSON.stringify(data)).not.toMatch(/özel belge notu|özel müşteri adı|özel danışman adı|özel yetkili adı|gizli\.pdf|BAŞKA BELGE|MODELE AİT|B-2/);
 
   const personelOzeti = await gerceklesmeService.belgeGerceklesmesi(tesvikModel, belgeId);
   expect(personelOzeti.kalemler.find((kalem) => kalem.no === 'H-2').icerik).toBe('özel harcama açıklaması');

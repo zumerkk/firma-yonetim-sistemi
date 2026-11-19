@@ -31,9 +31,13 @@ const tesvikMakineService = {
     api.get(`${harcamaYolu(m, id)}/${kalemId}/evrak/${evrakId}`, { responseType: 'blob', timeout: 120000 }),
   musteriHarcamalariniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/harcamalar`, options).then(d),
   musteriHarcamaEkle: (token, veri, options) => api.post(`${musteriBelgeYolu(token)}/harcamalar`, veri, options).then(d),
+  musteriHarcamaGuncelle: (token, kalemId, veri, options) =>
+    api.patch(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}`, veri, options).then(d),
   musteriHarcamaEvrakiYukle: (token, kalemId, formData, options) =>
     uploadPost(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}/evrak`, formData, options).then(d),
   musteriGerceklesmesiniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/gerceklesme`, options).then(d),
+  musteriFaturaKalemiGuncelle: (token, kalemId, veri, options) =>
+    api.patch(`${musteriBelgeYolu(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}`, veri, options).then(d),
   getGerceklesme: (m, id, { signal } = {}) =>
     api.get(`${base}/certificates/${m}/${id}/gerceklesme`, { signal }).then(d),
 

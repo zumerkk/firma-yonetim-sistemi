@@ -6,7 +6,7 @@ import svc from '../../services/tesvikMakineService';
 jest.mock('../../services/tesvikMakineService', () => ({
   harcamalariGetir: jest.fn(), harcamaEkle: jest.fn(), harcamaGuncelle: jest.fn(),
   harcamaSil: jest.fn(), harcamaEvrakiYukle: jest.fn(), harcamaEvrakiIndir: jest.fn(),
-  musteriHarcamalariniGetir: jest.fn(), musteriHarcamaEkle: jest.fn()
+  musteriHarcamalariniGetir: jest.fn(), musteriHarcamaEkle: jest.fn(), musteriHarcamaGuncelle: jest.fn()
 }));
 
 const kategoriler = { diger: { altKategoriler: [
@@ -21,7 +21,7 @@ const turSec = (ad) => {
   fireEvent.click(screen.getByRole('option', { name: ad }));
 };
 
-beforeEach(() => { jest.resetAllMocks(); });
+beforeEach(() => { jest.resetAllMocks(); localStorage.clear(); });
 
 test('tür seçildikten sonra girilen fatura kendi grubuna ve toplama eklenir; üç türden dosya yüklenebilir', async () => {
   const yeni = {
@@ -98,10 +98,10 @@ test.each([true, false])('personel düzenlemesinde sadece değiştirilen yevmiye
   expect(yevmiyeAlanlari).toEqual(temizle ? { yevmiyeNo: '', yevmiyeTarihi: '' } : {});
 });
 
-test('müşteri yevmiye bilgisiyle harcama ekler ve kayıt için düzenleme veya silme düğmesi görmez', async () => {
+test('müşteri yevmiye bilgisiyle harcama ekler ve kaydı düzenleyebilir', async () => {
   svc.musteriHarcamalariniGetir.mockResolvedValue({ kategoriler, kalemler: [] });
   svc.musteriHarcamaEkle.mockResolvedValue({
-    ...ilk, yevmiyeNo: '00042', yevmiyeTarihi: '2026-11-17T00:00:00.000Z', evrakEklenebilir: true
+    ...ilk, yevmiyeNo: '00042', yevmiyeTarihi: '2026-11-17T00:00:00.000Z', evrakEklenebilir: true, duzenlenebilir: true
   });
   render(<Harcamalar musteriToken="musteri-linki" kategori="diger" baslik="Diğer Harcamalar" />);
   await waitFor(() => expect(screen.getByRole('button', { name: 'Kalem Gir' })).toBeEnabled());
@@ -122,8 +122,51 @@ test('müşteri yevmiye bilgisiyle harcama ekler ve kayıt için düzenleme veya
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.getByText('00042')).toBeInTheDocument();
   expect(screen.getByText('17.11.2026')).toBeInTheDocument();
-  expect(screen.queryByRole('button', { name: 'F-001 düzenle' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'F-001 düzenle' })).toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'F-001 sil' })).toBeNull();
+});
+
+test.each([
+  ['diger', 'montaj', 'Diğer Harcamalar', 'firma'],
+  ['diger', 'montaj', 'Diğer Harcamalar', 'personel'],
+  ['bina', 'anaBina', 'Bina İnşaat Harcamaları', 'firma'],
+  ['bina', 'anaBina', 'Bina İnşaat Harcamaları', 'personel'],
+  ['arazi', 'arazi', 'Arazi-Arsa Harcamaları', 'firma'],
+  ['arazi', 'arazi', 'Arazi-Arsa Harcamaları', 'personel']
+])('müşteri %s harcamasındaki %s alt türünü %s ekranında %s kaynağıyla düzenler', async (kategori, altKategori, baslik, kaynak) => {
+  localStorage.setItem('musteriBelge.giren', 'Test Kullanıcısı');
+  const kayit = {
+    ...ilk, kategori, altKategori, kaynak, icerik: 'İlk fatura açıklaması',
+    yevmiyeNo: '00042', yevmiyeTarihi: '2026-11-17T00:00:00.000Z',
+    duzenlenebilir: true, evrakEklenebilir: kaynak === 'firma'
+  };
+  const sonuc = { ...kayit, no: 'F-003', tutar: 1500.5, yevmiyeNo: '00043' };
+  svc.musteriHarcamalariniGetir.mockResolvedValue({
+    kategoriler: { [kategori]: { altKategoriler: [{ id: altKategori, etiket: 'Harcama Alt Türü' }] } },
+    kalemler: [kayit]
+  });
+  svc.musteriHarcamaGuncelle.mockResolvedValue(sonuc);
+  render(<Harcamalar musteriToken="musteri-linki" kategori={kategori} baslik={baslik} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'F-001 düzenle' }));
+  expect(screen.getByLabelText('Kalem İçeriği')).toHaveValue('İlk fatura açıklaması');
+  expect(screen.getByLabelText('Yevmiye No')).toHaveValue('00042');
+  fireEvent.change(screen.getByLabelText(/Fatura Sayısı/), { target: { value: 'F-003' } });
+  fireEvent.change(screen.getByLabelText(/Kalem Tutarı/), { target: { value: '1.500,50' } });
+  fireEvent.change(screen.getByLabelText('Yevmiye No'), { target: { value: '00043' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+  await waitFor(() => expect(svc.musteriHarcamaGuncelle).toHaveBeenCalledWith(
+    'musteri-linki', '1', { no: 'F-003', tutar: 1500.5, yevmiyeNo: '00043', giren: 'Test Kullanıcısı' },
+    expect.objectContaining({ signal: expect.anything() })
+  ));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Harcama Kalemini Düzenle' })).toBeNull());
+  const acikPencere = screen.queryByRole('dialog');
+  if (acikPencere) fireEvent.click(within(acikPencere).getByRole('button', { name: 'Kapat' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.getByText('F-003')).toBeInTheDocument();
+  expect(screen.queryByText('F-001')).toBeNull();
+  expect(screen.getByText('00043')).toBeInTheDocument();
+  expect(await screen.findByRole('row', { name: /Genel Toplam/ })).toHaveTextContent('₺1.500,50');
+  expect(svc.musteriHarcamaEkle).not.toHaveBeenCalled();
 });
 
 test('salt okunur kullanıcı kayıtlı evrakları görür, ekleme ve düzenleme yapamaz', async () => {

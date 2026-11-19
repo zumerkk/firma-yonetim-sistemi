@@ -205,7 +205,7 @@ test('firma kalemi girer → onaylı (firma) kalem, toplamlar ana listeye yansı
   expect(personelKalemi).toMatchObject({ kaynak: 'personel', girenAdi: '' });
 });
 
-test('firma girişi sıkı doğrulanır (düzeltme şansı yok)', async () => {
+test('firma kalem girişi doğrulanır', async () => {
   const token = await linkUret();
   const temel = { listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'F-1', tutar: 10, giren: 'Ali' };
   await expect(portal.firmaKalemiEkle(token, { ...temel, tarih: '' })).rejects.toMatchObject({ status: 400 });

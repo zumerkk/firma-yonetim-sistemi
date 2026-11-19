@@ -1,16 +1,5 @@
-// 🔗 MÜŞTERİ BELGE LİNKİ — firma kendi teşvik belgesini görür, makinelerine fatura kalemi girer.
-//
-// Müşteri (13.10.2026), üç istek tek linkte:
-//  • genel: "Müşterinin sadece burayı görebileceği bir link üretmemiz mümkün mü acaba? - Evrak listesi
-//    hariç. Sadece bu fotoğraftaki belge bilgilerini görebilsin - alttaki ve üstteki bilgiler hariç."
-//  • ekipman takip: "Yükleme linki … 'Yerli liste' ve 'İthal Liste' kısmını açsın, müşteri buradan
-//    istediği makinaya istediği kalemi girebilsin, bir kere kalemi kaydedince silemesin veya
-//    düzenleyemesin - 'onaylandı' olsun, biz manuel olarak onaylandıyı silip-düzenleyebilelim."
-//  • "teşvik görüntüleme linki ve … yerli-ithal liste-teşvik belgesi kısmının üçünün bir arada
-//    görülebildiği bir link olursa çok iyi olur"
-//
-// Güvenlik: belge alanları BEYAZ LİSTE ile çıkar (evrak listesi, notlar, revizyonlar, kullanıcılar,
-// diğer linklerin token'ları hiç gönderilmez). Firma yalnız kalem EKLER; düzeltme/silme personelde.
+// Müşteri bağlantısı kendi belgesinin harcama ve gerçekleşen makine kalemlerini ekler ve düzeltir.
+// Yanıtlar yalnız müşteri alanlarını içerir. Personel kimlikleri, iç notlar ve depo bilgileri saklıdır.
 
 const crypto = require('crypto');
 const mongoose = require('mongoose');
@@ -263,6 +252,7 @@ const kalemGorunumu = (k, surec = {}) => ({
   tutarParaBirimi: mps.faturaKalemiParaBirimi(k, surec),
   malBedeliTl: k.malBedeliTl,
   kaynak: k.kaynak === 'firma' ? 'firma' : 'personel',
+  duzenlenebilir: true,
   girenAdi: k.kaynak === 'firma' ? (k.girenAdi || '') : '',
   girisTarihi: k.girisTarihi || null,
   evraklar: firmaEvraklari(k.evraklar || [])
@@ -310,7 +300,7 @@ async function portalVerisi(token) {
 
 async function firmaGerceklesmesi(token) {
   const { tesvikModel, belge } = await belgeBulVeyaHata(token, { yalnizKimlik: true });
-  const sonuc = await gerceklesmeService.belgeGerceklesmesi(tesvikModel, belge._id, { musteri: true }).catch((error) => {
+  const sonuc = await gerceklesmeService.belgeGerceklesmesi(tesvikModel, belge._id).catch((error) => {
     if (error.code === 'CERT_NOT_FOUND') throw gecersizBaglanti();
     throw error;
   });
@@ -318,10 +308,7 @@ async function firmaGerceklesmesi(token) {
   return sonuc;
 }
 
-/**
- * Firma bir makineye fatura (ithalde beyanname) kalemi girer. Kayıt firmaya kilitlidir.
- * Firmanın düzeltme şansı olmadığı için alanlar personel girişinden SIKI doğrulanır.
- */
+/** Firma bir makineye fatura veya ithal beyanname kalemi girer. */
 async function firmaKalemiEkle(token, govde = {}) {
   const { tesvikModel, belge } = await belgeBulVeyaHata(token);
   const listType = govde.listType === 'import' ? 'import' : 'local';
@@ -378,14 +365,83 @@ async function firmaFaturaEvrakiYukle(token, kalemId, { rowId, istekId } = {}, d
   return makineGorunumu(satir, proc.listType, proc);
 }
 
+async function firmaFaturaKalemBaglami(token, kalemId, { rowId, listType } = {}) {
+  const { tesvikModel, belge } = await belgeBulVeyaHata(token, { yalnizMakineListeleri: true });
+  const bulunamadi = () => hata('Fatura veya beyanname kalemi bu belgede bulunamadı. Sayfayı yenileyip tekrar deneyin.', 'FATURA_YOK', 404);
+  if (!mongoose.isObjectIdOrHexString(kalemId)) throw bulunamadi();
+  if (rowId === undefined) throw hata('Makine satırı zorunludur.', 'ROW_NOT_FOUND', 400);
+  if (typeof rowId !== 'string' || !rowId || rowId.length > 200) throw bulunamadi();
+  if (listType !== undefined && !['local', 'import'].includes(listType)) throw bulunamadi();
+  const proc = await MachineProcess.findOne({
+    tesvikModel, tesvikId: belge._id, rowId,
+    listType: listType || { $in: ['local', 'import'] },
+    $or: [{ 'faturalar._id': kalemId }, { _id: kalemId, 'faturalar.0': { $exists: false } }]
+  }).select(mps.FATURA_EVRAK_OZEL_ALANLARI);
+  const satir = proc && resolver.findMachineRow(belge, proc.listType, proc.rowId);
+  const kalem = proc && mps.faturaKalemleriniOku(proc).find((kayit) => String(kayit._id) === String(kalemId));
+  if (!satir || !kalem) throw bulunamadi();
+  const yetkiyiDogrula = async (guncel) => {
+    if (guncel && (guncel.tesvikModel !== tesvikModel || String(guncel.tesvikId) !== String(belge._id)
+      || guncel.rowId !== rowId || guncel.listType !== proc.listType)) throw bulunamadi();
+    const etkin = await belgeBulVeyaHata(token, { yalnizMakineListeleri: true });
+    if (etkin.tesvikModel !== tesvikModel || String(etkin.belge._id) !== String(belge._id)
+      || !resolver.findMachineRow(etkin.belge, proc.listType, rowId)) throw bulunamadi();
+  };
+  return { proc, satir, kalem, yetkiyiDogrula };
+}
+
+function firmaDuzenleyenAdi(govde) {
+  const giren = govde.giren;
+  if (giren === undefined) return '';
+  if (typeof giren !== 'string' || giren.trim().length > 120) {
+    throw hata('Adınız en fazla 120 karakterlik bir metin olmalıdır.', 'FATURA_GECERSIZ', 400);
+  }
+  return giren.trim();
+}
+
+function firmaFaturaDuzeltmesi(govde) {
+  const alanlar = ['tarih', 'no', 'icerik', 'tutar', 'adet', 'yevmiyeNo', 'yevmiyeTarihi', 'malBedeliTl'];
+  const girdi = Object.fromEntries(alanlar.filter((alan) => Object.hasOwn(govde, alan)).map((alan) => [alan, govde[alan]]));
+  if (!Object.keys(girdi).length) throw hata('Güncellenecek bir kalem bilgisi girin.', 'FATURA_GECERSIZ', 400);
+  if (Object.hasOwn(girdi, 'tarih')) {
+    const tarih = gunTarihiniOku(girdi.tarih);
+    if (!tarih || tarih > new Date(Date.now() + 864e5)) throw hata('Geçerli bir fatura veya beyanname tarihi girin.', 'FATURA_GECERSIZ', 400);
+  }
+  for (const [alan, uzunluk] of [['no', 100], ['icerik', 500]]) {
+    if (!Object.hasOwn(girdi, alan)) continue;
+    if (typeof girdi[alan] !== 'string' || girdi[alan].trim().length > uzunluk || (alan === 'no' && !girdi[alan].trim())) {
+      throw hata('Fatura veya beyanname bilgisi geçersiz.', 'FATURA_GECERSIZ', 400);
+    }
+  }
+  for (const alan of ['tutar', 'adet']) {
+    if (!Object.hasOwn(girdi, alan)) continue;
+    const deger = girdi[alan];
+    const desen = alan === 'tutar' ? /^\d{1,13}(?:\.\d{1,2})?$/ : /^\d{1,13}(?:\.\d+)?$/;
+    if (!['number', 'string'].includes(typeof deger) || !desen.test(String(deger).trim())
+        || !Number.isFinite(Number(deger)) || (alan === 'tutar' && Number(deger) <= 0)) {
+      throw hata('Kalem tutarı veya adet geçersiz.', 'FATURA_GECERSIZ', 400);
+    }
+  }
+  return girdi;
+}
+
+async function firmaKalemiGuncelle(token, kalemId, govde = {}) {
+  const { proc, satir, yetkiyiDogrula } = await firmaFaturaKalemBaglami(token, kalemId, govde);
+  const girdi = firmaFaturaDuzeltmesi(govde);
+  const ad = firmaDuzenleyenAdi(govde);
+  await mps.faturaKalemiGuncelle(proc, kalemId, girdi, { yetkiyiDogrula, performedByLabel: ad ? `Firma — ${ad}` : 'Firma' });
+  await yetkiyiDogrula();
+  return makineGorunumu(satir, proc.listType, proc);
+}
+
 function harcamaGorunumu(kalem) {
   const firmaKaydi = kalem.kaynak === 'firma';
   return {
     _id: kalem._id, kategori: kalem.kategori, altKategori: kalem.altKategori,
     tarih: kalem.tarih, no: kalem.no, tutar: kalem.tutar, adet: kalem.adet,
     yevmiyeNo: kalem.yevmiyeNo ?? null, yevmiyeTarihi: kalem.yevmiyeTarihi ?? null,
-    icerik: firmaKaydi ? kalem.icerik : '', girenAdi: firmaKaydi ? kalem.girenAdi : '',
-    kaynak: firmaKaydi ? 'firma' : 'personel', evrakEklenebilir: firmaKaydi,
+    icerik: kalem.icerik || '', girenAdi: firmaKaydi ? kalem.girenAdi : '',
+    kaynak: firmaKaydi ? 'firma' : 'personel', evrakEklenebilir: firmaKaydi, duzenlenebilir: true,
     createdAt: kalem.createdAt, updatedAt: kalem.updatedAt,
     evraklar: firmaKaydi ? firmaEvraklari(kalem.evraklar || []) : []
   };
@@ -411,6 +467,14 @@ async function firmaHarcamaKalemiEkle(token, govde) {
   return harcamaGorunumu(kalem);
 }
 
+async function firmaHarcamaKalemiGuncelle(token, kalemId, govde = {}) {
+  const { filtre, yetkiyiDogrula } = await firmaHarcamaBelgesi(token);
+  const duzenleyenAdi = firmaDuzenleyenAdi(govde);
+  const kalem = await harcama.guncelle(harcama.kalemFiltresi(filtre, kalemId), govde, null, { yetkiyiDogrula, duzenleyenAdi });
+  await yetkiyiDogrula();
+  return harcamaGorunumu(kalem);
+}
+
 async function firmaHarcamaEvrakYetkisi(token, kalemId) {
   const { filtre, yetkiyiDogrula } = await firmaHarcamaBelgesi(token);
   return { filtre: harcama.kalemFiltresi({ ...filtre, kaynak: 'firma' }, kalemId), yetkiyiDogrula };
@@ -429,9 +493,9 @@ async function firmaHarcamaEvrakiYukle(token, kalemId, { istekId } = {}, dosyala
 }
 
 module.exports = {
-  SAYFA_YOLU, linkGetir, linkUret, linkKapat, belgeBul, portalVerisi, firmaGerceklesmesi, firmaKalemiEkle,
+  SAYFA_YOLU, linkGetir, linkUret, linkKapat, belgeBul, portalVerisi, firmaGerceklesmesi, firmaKalemiEkle, firmaKalemiGuncelle,
   firmaFaturaEvrakBaglami, firmaFaturaEvrakiYukle,
-  firmaHarcamalariListele, firmaHarcamaKalemiEkle, firmaHarcamaEvrakBaglami, firmaHarcamaEvrakiYukle,
+  firmaHarcamalariListele, firmaHarcamaKalemiEkle, firmaHarcamaKalemiGuncelle, firmaHarcamaEvrakBaglami, firmaHarcamaEvrakiYukle,
   // test için
   belgeGorunumu, kalemGorunumu
 };

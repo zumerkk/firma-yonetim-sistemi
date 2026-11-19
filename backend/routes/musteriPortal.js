@@ -60,6 +60,8 @@ const kalemSiniri = rateLimit({
 router.get('/:token', gonder((req) => portal.portalVerisi(req.params.token)));
 router.get('/:token/gerceklesme', gonder((req) => portal.firmaGerceklesmesi(req.params.token)));
 router.post('/:token/fatura-kalemi', kalemSiniri, gonder((req) => portal.firmaKalemiEkle(req.params.token, req.body || {})));
+router.patch('/:token/fatura-kalemi/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaKalemiGuncelle(req.params.token, req.params.kalemId, req.body || {})));
 
 async function faturaBaglantisiniDogrula(req, res, next) {
   try {
@@ -75,6 +77,8 @@ router.post('/:token/fatura-kalemi/:kalemId/evrak', kalemSiniri, faturaBaglantis
 router.get('/:token/harcamalar', gonder((req) => portal.firmaHarcamalariListele(req.params.token)));
 router.post('/:token/harcamalar', kalemSiniri,
   gonder((req) => portal.firmaHarcamaKalemiEkle(req.params.token, req.body || {})));
+router.patch('/:token/harcamalar/:kalemId', kalemSiniri,
+  gonder((req) => portal.firmaHarcamaKalemiGuncelle(req.params.token, req.params.kalemId, req.body || {})));
 
 async function harcamaBaglantisiniDogrula(req, res, next) {
   try {

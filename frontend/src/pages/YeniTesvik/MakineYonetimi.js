@@ -1,7 +1,10 @@
 import { createDatePasteHandler } from '../../utils/dateUtils';
 import React, { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, memo } from 'react';
 import { Box, Paper, Typography, Button, Tabs, Tab, Chip, Stack, IconButton, Tooltip, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Select, Drawer, Breadcrumbs, Snackbar, Alert, Checkbox, LinearProgress, ToggleButton, ToggleButtonGroup, Collapse } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+import { flushSync } from 'react-dom';
+import { DataGrid, useGridApiRef } from '@mui/x-data-grid';
+import MakineSayisalHucre from '../../components/Tesvik/MakineSayisalHucre';
+import { yerliTutarlariniGuncelle } from '../../utils/yerliTutar';
 import FileUpload from '../../components/Files/FileUpload';
 import yeniTesvikService from '../../services/yeniTesvikService';
 import { Autocomplete, TextField, Divider, FormControlLabel } from '@mui/material';
@@ -37,6 +40,7 @@ const IZGARA_SECENEK_4 = [{ deger: '', etiket: '-' }, { deger: 'Ana Makine', eti
 
 // 🇹🇷 Türkçe sayı girişini güvenle parse et (786.861 => 786861, 1.651.332 => 1651332, 10,5 => 10.5)
 const parseTrCurrency = (value) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
   const str = (value ?? '').toString().trim();
   if (!str) return 0;
   if (str.includes('.') && str.includes(',')) {
@@ -83,7 +87,7 @@ const saveLS = (key, val) => { makineOnbellegiKaydet(key, val); };
 
 
 // 🔧 FIX: Hücre component'leri parent DIŞINDA tanımlı - remount sorunu çözüldü
-const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...props }) => {
+const EditableCell = memo(({ value, onCommit, onDraft, style, disabled, placeholder, ...props }) => {
   const [local, setLocal] = useState(value ?? '');
   const ref = useRef(null);
   useEffect(() => { if (document.activeElement !== ref.current) setLocal(value ?? ''); }, [value]);
@@ -92,13 +96,16 @@ const EditableCell = memo(({ value, onCommit, style, disabled, placeholder, ...p
       ref={ref}
       type="text"
       value={local}
-      onChange={(e) => setLocal(e.target.value)}
-      onBlur={() => { if (String(local) !== String(value)) onCommit(local); }}
+      onChange={(e) => { setLocal(e.target.value); onDraft?.(e.target.value); }}
+      onBlur={() => { if (String(local) !== String(value)) onCommit(local); onDraft?.(null); }}
       onKeyDown={(e) => { 
         if (e.key === 'Enter') { e.preventDefault(); onCommit(local); }
         if (e.key === 'Tab') { onCommit(local); }
+        if (e.key === 'Escape') { setLocal(value ?? ''); onDraft?.(null); }
       }}
-      onPaste={(e) => e.stopPropagation()}
+      onPaste={(e) => {
+        if (!/[\t\r\n]/.test(e.clipboardData?.getData('text/plain') || '')) e.stopPropagation();
+      }}
       disabled={disabled}
       placeholder={placeholder}
       style={style}
@@ -254,6 +261,13 @@ const MakineYonetimi = () => {
   // Bu şekilde makine ID'leri teşvik bazlı kalıcı olacak
   const [yerliRows, setYerliRows] = useState([]);
   const [ithalRows, setIthalRows] = useState([]);
+  const [hucreTaslagi, setHucreTaslagi] = useState(null);
+  const [taslakKurSurumu, setTaslakKurSurumu] = useState(0);
+  const hucreTaslagiDegisti = useCallback((taslak) => {
+    setHucreTaslagi((onceki) => taslak.temizle
+      ? (onceki?.id === taslak.id && onceki?.field === taslak.field && onceki?.liste === taslak.liste ? null : onceki)
+      : taslak);
+  }, []);
   
   // 🚀 ENTERPRISE: İki Modlu Sistem - Standard vs Hızlı Yönetim
   // 'standard' = Mevcut detaylı görünüm (küçük veri setleri için)
@@ -263,6 +277,11 @@ const MakineYonetimi = () => {
   const quickScrollRef = useRef({ top: 0, left: 0 });
   const lastFocusedCellRef = useRef({ rowIdx: 0, colIdx: 0 });
   const revizeFinalizingRef = useRef(false); // Çift tıklama engeli
+  const [bitirilecekBelgeId, setBitirilecekBelgeId] = useState(null);
+  const gridApiRef = useGridApiRef();
+  const hucreModlariRef = useRef({});
+  const bekleyenIthalDuzenlemeleriRef = useRef(new Set());
+  const hucreModlariDegisti = useCallback((model) => { hucreModlariRef.current = model; }, []);
   const aktifRevizeIdRef = useRef(null);
   const [revizeMesgul, setRevizeMesgul] = useState(false);
   const autoSaveTimerRef = useRef(null); // Auto-save iptal için
@@ -299,15 +318,22 @@ const MakineYonetimi = () => {
   // 💱 Kur önbelleği ref'te: setState geri çağrılarındaki eşzamanlı hesaplar da okuyabilsin
   // (updateIthal ilk render'ın kapanışını kullanıyor). Anahtar "EUR->USD" / "EUR->TRY".
   const kurOnbellekRef = useRef({});
+  const kurIstekleriRef = useRef({});
   const kurAl = useCallback(async (kaynak, hedef) => {
     const anahtar = `${kaynak}->${hedef}`;
     if (kurOnbellekRef.current[anahtar]) return kurOnbellekRef.current[anahtar];
-    try {
-      const deger = Number(await currencyService.getRate(kaynak, hedef));
-      if (!(deger > 0)) return null;
-      kurOnbellekRef.current = { ...kurOnbellekRef.current, [anahtar]: deger };
-      return deger;
-    } catch { return null; }
+    if (!kurIstekleriRef.current[anahtar]) {
+      kurIstekleriRef.current[anahtar] = currencyService.getRate(kaynak, hedef)
+        .then((sonuc) => {
+          const deger = Number(sonuc);
+          if (!(deger > 0)) return null;
+          kurOnbellekRef.current[anahtar] = deger;
+          return deger;
+        })
+        .catch(() => null)
+        .finally(() => { delete kurIstekleriRef.current[anahtar]; });
+    }
+    return kurIstekleriRef.current[anahtar];
   }, []);
   // Bir dövizin $ paritesi ve TL kuru (USD/TL için istek atılmaz)
   const kurlariHazirla = useCallback(async (doviz) => {
@@ -542,7 +568,7 @@ const MakineYonetimi = () => {
 
 
   // Invalid Date temizleyici - Mongoose CastError önlemi
-  const cleanDateFields = (obj) => {
+  const cleanDateFields = useCallback((obj) => {
     if (!obj) return obj;
     const result = { ...obj };
     ['talepTarihi', 'kararTarihi', 'silinmeTarihi'].forEach(key => {
@@ -557,7 +583,7 @@ const MakineYonetimi = () => {
       }
     });
     return result;
-  };
+  }, []);
 
   const [revertOpen, setRevertOpen] = useState(false);
   // 📜 Revizyon Geçmişi (müşteri: kim hangi makineyi ekledi/sildi, ne zaman)
@@ -577,7 +603,7 @@ const MakineYonetimi = () => {
   // Hücre içi sürükle-bırak yükleme göstergesi (hangi satır yükleniyor + yüzde)
   const [hucreYukleme, setHucreYukleme] = useState(null);
   const [hucreYuklemePct, setHucreYuklemePct] = useState(0);
-  const openToast = (severity, message) => setToast({ open:true, severity, message });
+  const openToast = useCallback((severity, message) => setToast({ open:true, severity, message }), []);
   const closeToast = () => setToast(t => ({ ...t, open:false }));
   
   // 🚀 ENTERPRISE: Auto-save ve sync state'leri
@@ -593,34 +619,8 @@ const MakineYonetimi = () => {
   const [batchEditValue, setBatchEditValue] = useState('');
   const [quickStatsOpen, setQuickStatsOpen] = useState(false);
   
-  // 🚀 ENTERPRISE: Auto-save to DB (3 saniye debounce)
-  // 🔧 FIX: Sadece revize modunda değil, her zaman veritabanına kaydet
-  // Böylece makineId ve diğer alanlar sayfa yenilendiğinde kaybolmaz
-  const autoSaveToDb = useCallback(async () => {
-    if (!selectedTesvik?._id || revizeFinalizingRef.current) return;
-    
-    setIsSaving(true);
-    setSyncStatus('syncing');
-    
-    try {
-      const payload = {
-        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
-        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
-      };
-      await yeniTesvikService.saveMakineListeleri(selectedTesvik._id, payload);
-      setLastSaved(new Date());
-      setHasUnsavedChanges(false);
-      setSyncStatus('synced');
-      // 2 saniye sonra idle'a dön
-      setTimeout(() => setSyncStatus('idle'), 2000);
-    } catch (error) {
-      console.error('Auto-save error:', error);
-      setSyncStatus('error');
-      openToast('error', 'Otomatik kayıt başarısız');
-    } finally {
-      setIsSaving(false);
-    }
-  }, [selectedTesvik, yerliRows, ithalRows, isReviseStarted]);
+  // Manuel Kaydet ve Bitir, odaktaki hücreyi aynı kayıt akışıyla tamamlar.
+  const autoSaveToDb = () => duzenlemeleriKaydet(false);
   
   // 🚀 ENTERPRISE: Değişiklik takibi (auto-save devre dışı - sadece manuel kaydet)
   useEffect(() => {
@@ -823,9 +823,45 @@ const MakineYonetimi = () => {
     return () => { iptal = true; };
   }, [ithalRows, kurlariHazirla]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const yerliToplamTl = useMemo(() => yerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [yerliRows]);
-  const ithalToplamUsd = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamUsd), 0), [ithalRows]);
-  const ithalToplamTl = useMemo(() => ithalRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [ithalRows]);
+  // Düzenlenmekte olan hücre toplamları anında gösterir. Kaydetme ve Escape,
+  // DataGrid'in kendi düzenleme yaşam döngüsünü kullanmaya devam eder.
+  useEffect(() => {
+    if (hucreTaslagi?.liste !== 'ithal') return undefined;
+    const satir = ithalRows.find((r) => r.id === hucreTaslagi.id);
+    if (!satir) return undefined;
+    let iptal = false;
+    kurlariHazirla(satir.doviz).then(() => {
+      if (!iptal) setTaslakKurSurumu((surum) => surum + 1);
+    });
+    return () => { iptal = true; };
+  }, [hucreTaslagi?.liste, hucreTaslagi?.id, ithalRows, kurlariHazirla]);
+
+  const gorunenYerliRows = useMemo(() => yerliRows.map((satir) => {
+    if (hucreTaslagi?.liste !== 'yerli' || satir.id !== hucreTaslagi.id) return satir;
+    const { field, value } = hucreTaslagi;
+    return yerliTutarlariniGuncelle({ ...satir, [field]: value,
+      ...(field === 'toplamTl' ? { tlYerliManuel: true } : {}) }, [field]);
+  }), [yerliRows, hucreTaslagi]);
+  const gorunenIthalRows = useMemo(() => ithalRows.map((satir) => {
+    if (hucreTaslagi?.liste !== 'ithal' || satir.id !== hucreTaslagi.id) return satir;
+    const { field, value } = hucreTaslagi;
+    const girdi = { ...satir, [field]: value };
+    if (field === 'toplamTl') return { ...girdi, tlManuel: true };
+    if (field === 'toplamUsd') girdi.usdManuel = true;
+    if (field === 'miktar' || field === 'birimFiyatiFob') {
+      girdi.tlManuel = false;
+      girdi.usdManuel = false;
+    }
+    return ithalTutarlariniGuncelle(girdi, [field], satirKurlari(girdi));
+  // Kurlar ref'te tutulur; tamamlanan kur isteği taslağın yeniden hesaplanmasını sağlar.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [ithalRows, hucreTaslagi, taslakKurSurumu]);
+  const gorunenYerliMap = new Map(gorunenYerliRows.map((r) => [r.id, r]));
+  const gorunenIthalMap = new Map(gorunenIthalRows.map((r) => [r.id, r]));
+
+  const yerliToplamTl = useMemo(() => gorunenYerliRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [gorunenYerliRows]);
+  const ithalToplamUsd = useMemo(() => gorunenIthalRows.reduce((s, r) => s + numberOrZero(r.toplamUsd), 0), [gorunenIthalRows]);
+  const ithalToplamTl = useMemo(() => gorunenIthalRows.reduce((s, r) => s + numberOrZero(r.toplamTl), 0), [gorunenIthalRows]);
 
   const filteredYerliRows = useMemo(() => {
     const q = (filterText || '').toLowerCase();
@@ -838,18 +874,18 @@ const MakineYonetimi = () => {
     return ithalRows.filter(r => (r.adi||'').toLowerCase().includes(q) || (r.gtipKodu||'').toLowerCase().includes(q));
   }, [ithalRows, filterText]);
 
-  const totals = useMemo(()=>({
+  const totals = {
     yerli: {
-      filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-      all: yerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+      filtered: filteredYerliRows.reduce((s,r)=> s + numberOrZero(gorunenYerliMap.get(r.id)?.toplamTl), 0),
+      all: gorunenYerliRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
     },
     ithal: {
-      filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-      filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0),
-      allUsd: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
-      allTl: ithalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
+      filteredUsd: filteredIthalRows.reduce((s,r)=> s + numberOrZero(gorunenIthalMap.get(r.id)?.toplamUsd), 0),
+      filteredTl: filteredIthalRows.reduce((s,r)=> s + numberOrZero(gorunenIthalMap.get(r.id)?.toplamTl), 0),
+      allUsd: gorunenIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamUsd), 0),
+      allTl: gorunenIthalRows.reduce((s,r)=> s + numberOrZero(r.toplamTl), 0)
     }
-  }), [filteredYerliRows, yerliRows, filteredIthalRows, ithalRows]);
+  };
 
   const groupSummary = useMemo(()=>{
     const list = tab==='yerli' ? filteredYerliRows : filteredIthalRows;
@@ -883,7 +919,7 @@ const MakineYonetimi = () => {
       // Ctrl+S - Manuel kaydet
       if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='s') { 
         e.preventDefault(); 
-        if (isReviseStarted && hasUnsavedChanges) {
+        if (isReviseStarted && (hasUnsavedChanges || hucreTaslagi)) {
           autoSaveToDb();
           openToast('info', 'Kaydediliyor...');
         } else if (!isReviseStarted) {
@@ -929,7 +965,7 @@ const MakineYonetimi = () => {
     };
     window.addEventListener('keydown', handler);
     return ()=> window.removeEventListener('keydown', handler);
-  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard, isReviseStarted, hasUnsavedChanges, autoSaveToDb]);
+  }, [selectionModel, tab, yerliRows, ithalRows, rowClipboard, isReviseStarted, hasUnsavedChanges, hucreTaslagi, autoSaveToDb]);
 
   // 🔧 SCROLL POZİSYONU KORUMA - YENİ YAKLAŞIM
   // DataGrid container ref'leri
@@ -1008,28 +1044,23 @@ const MakineYonetimi = () => {
 
   // 🔧 OPTIMIZED: updateYerli ve updateIthal - functional update pattern
   const updateYerli = useCallback((id, patch) => {
-    setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }) : r));
+    setYerliRows(rows => rows.map(r => r.id === id ? calcYerli({ ...r, ...patch }, Object.keys(patch)) : r));
   }, []);
 
   const updateIthal = useCallback((id, patch) => {
     setIthalRows(rows => rows.map(r => r.id === id ? calcIthal({ ...r, ...patch }, Object.keys(patch)) : r));
   }, []);
 
-  // DataGrid v6 için doğru event: onCellEditStop veya onCellEditCommit
-  // 🔧 DataGrid v6 API: processRowUpdate kullan (onCellEditCommit deprecated!)
   const processYerliRowUpdate = (newRow, oldRow) => {
-    console.log('🔧 Yerli row güncelleniyor:', newRow);
-    const changedFields = Object.keys(newRow).filter(key => newRow[key] !== oldRow[key]);
-    let updatedRow = { ...newRow };
-    // Kullanıcı TL'yi elle girdiyse manuel moda geç
-    if (changedFields.includes('toplamTl')) {
-      updatedRow.tlYerliManuel = true;
+    const patch = Object.fromEntries(Object.entries(newRow).filter(([key, value]) => value !== oldRow[key]));
+    if ('toplamTl' in patch) {
+      patch.toplamTl = parseTrCurrency(patch.toplamTl);
+      patch.tlYerliManuel = true;
     }
-    // State'i güncelle (calcYerli tlYerliManuel=true ise mevcut TL'yi korur)
-    updateYerli(updatedRow.id, updatedRow);
-    return updatedRow;
+    updateYerli(newRow.id, patch);
+    return calcYerli({ ...oldRow, ...patch }, Object.keys(patch));
   };
-  const processIthalRowUpdate = async (newRow, oldRow) => {
+  const ithalSatirDuzenle = async (newRow, oldRow) => {
     console.log('🔧 İthal row güncelleniyor:', newRow);
     
     try {
@@ -1038,7 +1069,7 @@ const MakineYonetimi = () => {
       console.log('📝 Değişen alanlar:', changedFields);
       // TL elle düzenlendiyse manuel moda geçir ve değeri koru
       if (changedFields.includes('toplamTl')) {
-        const raw = (newRow.toplamTl ?? newRow.__manualTLInput ?? '').toString();
+        const raw = newRow.toplamTl ?? newRow.__manualTLInput ?? '';
         const parsed = parseTrCurrency(raw);
         const updatedRow = { ...newRow, tlManuel: true, toplamTl: parsed, __manualTLInput: raw };
         updateIthal(newRow.id, { tlManuel: true, toplamTl: parsed, __manualTLInput: raw });
@@ -1049,7 +1080,7 @@ const MakineYonetimi = () => {
       // toplam tutarını değiştirince kaydetmiyor eski haline geri çeviriyor." TL de yeniden hesaplanır
       // (dolar satırında yazılan $'dan; manuel kur varsa o kurdan) ki iki tutar tutarsız kalmasın.
       if (changedFields.includes('toplamUsd')) {
-        const usd = parseTrCurrency((newRow.toplamUsd ?? '').toString());
+        const usd = parseTrCurrency(newRow.toplamUsd ?? '');
         await kurlariHazirla(newRow.doviz);
         const updatedRow = calcIthal({ ...newRow, toplamUsd: usd, usdManuel: true }, ['toplamUsd', 'usdManuel']);
         satiriYaz(updatedRow);
@@ -1061,7 +1092,7 @@ const MakineYonetimi = () => {
       // yazmıyor hepsini USD üzerinden alıyor" — $ eskiden miktar × birim fiyattı (EUR'yu dolar sayıyordu).
       const girdiler = ['miktar', 'birimFiyatiFob', 'doviz'].filter((f) => changedFields.includes(f));
       if (girdiler.length) {
-        let satir = { ...newRow, tlManuel: false };
+        let satir = { ...newRow, tlManuel: false, usdManuel: false };
         // Döviz değiştiğinde eski dövizin manuel kuru geçersiz
         if (girdiler.includes('doviz')) satir = { ...satir, kurManuel: false, kurManuelDeger: 0 };
         await kurlariHazirla(satir.doviz);
@@ -1081,12 +1112,16 @@ const MakineYonetimi = () => {
     }
   };
 
-  const calcYerli = (r) => {
-    const miktar = numberOrZero(r.miktar);
-    const bf = numberOrZero(r.birimFiyatiTl);
-    const computed = miktar * bf;
-    return { ...r, toplamTl: r.tlYerliManuel ? (r.toplamTl ?? computed) : computed };
+  const processIthalRowUpdate = (newRow, oldRow) => {
+    const islem = ithalSatirDuzenle(newRow, oldRow);
+    const bekleyenler = bekleyenIthalDuzenlemeleriRef.current;
+    bekleyenler.add(islem);
+    const temizle = () => bekleyenler.delete(islem);
+    islem.then(temizle, temizle);
+    return islem;
   };
+
+  const calcYerli = yerliTutarlariniGuncelle;
   // İthal satırın tutarları — kural utils/ithalTutar'da (yalnız girdisi değişen tutar hesaplanır)
   const calcIthal = (r, degisenler = Object.keys(r)) => ithalTutarlariniGuncelle(r, degisenler, satirKurlari(r));
   const satiriYaz = (satir) => setIthalRows((rows) => rows.map((r) => (r.id === satir.id ? satir : r)));
@@ -2017,6 +2052,71 @@ const MakineYonetimi = () => {
     }
   };
 
+  const seciliBelgeId = selectedTesvik?._id;
+  const duzenlemeleriKaydet = async (sonlandir) => {
+    if (!seciliBelgeId || revizeFinalizingRef.current) return;
+    if (sonlandir && !window.confirm('Revize bitir?')) return;
+    revizeFinalizingRef.current = true;
+    clearTimeout(autoSaveTimerRef.current);
+    clearTimeout(autoSaveTimeoutRef.current);
+    try {
+      flushSync(() => {
+        const grid = gridApiRef.current;
+        for (const [id, alanlar] of Object.entries(hucreModlariRef.current)) {
+          for (const [field, { mode }] of Object.entries(alanlar)) {
+            if (mode === 'edit' && grid.getCellMode(id, field) === 'edit') {
+              grid.stopCellEditMode({ id, field });
+            }
+          }
+        }
+        const odak = document.activeElement;
+        if (odak?.matches('input, select, textarea')) odak.blur();
+        setRevizeMesgul(true);
+      });
+      openToast('info', 'Revize kaydediliyor...');
+      await Promise.all(bekleyenIthalDuzenlemeleriRef.current);
+      setBitirilecekBelgeId({ belgeId: seciliBelgeId, sonlandir });
+    } catch (error) {
+      revizeFinalizingRef.current = false;
+      setRevizeMesgul(false);
+      openToast('error', `Makine listesi kaydedilemedi: ${error?.response?.data?.message || error.message}`);
+    }
+  };
+
+  const revizeBitir = () => duzenlemeleriKaydet(true);
+
+  useEffect(() => {
+    if (!bitirilecekBelgeId) return;
+    const { belgeId, sonlandir } = bitirilecekBelgeId;
+    setBitirilecekBelgeId(null);
+    const kaydet = async () => {
+      try {
+        if (belgeId !== seciliBelgeId) throw new Error('Seçili belge değişti.');
+        const payload = {
+          yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
+          ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, etuysSecili: !!r.etuysSecili, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
+        };
+        if (sonlandir) {
+          await yeniTesvikService.finalizeMakineRevizyon(belgeId, { aciklama: 'Finalize', ...payload });
+          aktifRevizeIdRef.current = null;
+          setIsReviseMode(false);
+          setIsReviseStarted(false);
+        } else {
+          await yeniTesvikService.saveMakineListeleri(belgeId, payload);
+        }
+        setHasUnsavedChanges(false);
+        setLastSaved(new Date());
+        openToast('success', sonlandir ? 'Revize tamamlandı' : 'Makine listesi kaydedildi');
+      } catch (error) {
+        openToast('error', `Makine listesi kaydedilemedi: ${error?.response?.data?.message || error.message}`);
+      } finally {
+        revizeFinalizingRef.current = false;
+        setRevizeMesgul(false);
+      }
+    };
+    kaydet();
+  }, [bitirilecekBelgeId, seciliBelgeId, yerliRows, ithalRows, cleanDateFields, openToast]);
+
   // Toplu tarih/durum diyaloğunun "Uygula" düğmesi
   const topluUygula = async () => {
     const tarih = topluTarih ? new Date(topluTarih) : undefined;
@@ -2073,7 +2173,8 @@ const MakineYonetimi = () => {
       { field: 'kdvIstisnasi', headerName: 'KDV', description: 'KDV İstisnası', width: 65, renderCell: (p) => (
         <SecimHucresi deger={p.row.kdvIstisnasi} secenekler={IZGARA_SECENEK_1} duzenlenebilir={isReviseMode} onDegis={(v) => updateYerli(p.row.id, { kdvIstisnasi: v })} />
       ) },
-      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="yerli" onTaslak={hucreTaslagiDegisti} /> },
       { field: 'birim', headerName: 'Birim', width: 160, renderCell: (p) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -2083,7 +2184,8 @@ const MakineYonetimi = () => {
             <HafifDugme baslik="Favori birim" onClick={(e)=> openFavMenu(e, 'unit', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></HafifDugme>
           </div>
         ) },
-      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', description: 'Birim Fiyatı (TL)', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'birimFiyatiTl', headerName: 'B.Fiyat', description: 'Birim Fiyatı (TL)', width: 80, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="yerli" onTaslak={hucreTaslagiDegisti} /> },
       { field: 'makineTechizatTipi', headerName: 'Tip', description: 'Makine / Teçhizat Tipi', width: 85, renderCell: (p) => (
         <SecimHucresi deger={p.row.makineTechizatTipi} secenekler={IZGARA_SECENEK_4} duzenlenebilir={isReviseMode} onDegis={(v) => updateYerli(p.row.id, { makineTechizatTipi: v })} />
       ) },
@@ -2099,7 +2201,9 @@ const MakineYonetimi = () => {
       ) },
       { field: 'iadeDevirSatisAdet', headerName: 'DVR#', description: 'İade / Devir / Satış Adedi', width: 55, editable: isReviseMode, type: 'number' },
       { field: 'iadeDevirSatisTutar', headerName: 'DVR₺', description: 'İade / Devir / Satış Tutarı', width: 70, editable: isReviseMode, type: 'number' },
-      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, align:'right', headerAlign:'right', valueFormatter: (p)=> p.value?.toLocaleString('tr-TR') },
+      { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="yerli" onTaslak={hucreTaslagiDegisti} />,
+        renderCell: (p) => (gorunenYerliMap.get(p.id)?.toplamTl ?? p.value)?.toLocaleString('tr-TR') },
       { field: 'dosya', headerName: '📎', description: 'Ekli Dosyalar', width: 70, sortable: false, renderCell: (p)=> (
         <div onDragOver={(e)=>{e.preventDefault();}} onDrop={async(e)=>{ if(!isReviseMode) return; e.preventDefault(); const files = Array.from(e.dataTransfer.files||[]); if(files.length===0) return; const form = new FormData(); files.forEach(f=> form.append('files', f)); form.append('path', `makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`); setHucreYukleme(p.row.id); try { await uploadPost('/files/upload', form, { onProgress: ({ pct }) => { if (typeof pct === 'number') setHucreYuklemePct(pct); } }); updateYerli(p.row.id, { dosyalar: [...(p.row.dosyalar||[]), ...files.map(f=>({ name:f.name })) ] }); openToast('success', `${files.length} dosya yüklendi`); } catch (hata) { openToast('error', hata?.kullaniciMesaji || hata?.response?.data?.message || 'Dosya yüklenemedi'); } finally { setHucreYukleme(null); setHucreYuklemePct(0); } }}>
           <HafifMetinDugme disabled={hucreYukleme === p.row.id} onClick={()=> isReviseMode ? openUpload(p.row.id) : openFilesDialog(`makine-yonetimi/${selectedTesvik?._id || 'global'}/${tab}/${p.row.id}`)}>{hucreYukleme === p.row.id ? `%${hucreYuklemePct}` : (Array.isArray(p.row.dosyalar) && p.row.dosyalar.length>0 ? p.row.dosyalar.length : '+')}</HafifMetinDugme>
@@ -2214,6 +2318,8 @@ const MakineYonetimi = () => {
       <Box ref={yerliGridRef} sx={{ height: '100%', width: '100%' }}>
       <UstKaydirmaCubugu>
         <DataGrid 
+        apiRef={gridApiRef}
+        onCellModesModelChange={hucreModlariDegisti}
         rows={filteredYerliRows} 
         columns={cols} 
         getRowId={(row) => row.id}
@@ -2341,7 +2447,8 @@ const MakineYonetimi = () => {
       ) },
       { field: 'gtipAciklama', headerName: 'GTIP Açıklama', width: 150, editable: true, renderCell: (p) => <MetinHucresi deger={p.value} /> },
       { field: 'adi', headerName: 'Adı', flex: 1, minWidth: 160, editable: isReviseMode, renderCell: (p) => <MetinHucresi deger={p.value} /> },
-      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'miktar', headerName: 'Adet', description: 'Miktar', width: 55, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="ithal" onTaslak={hucreTaslagiDegisti} /> },
       { field: 'birim', headerName: 'Birim', width: 140, renderCell: (p) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -2351,7 +2458,8 @@ const MakineYonetimi = () => {
             <HafifDugme baslik="Favori birim" onClick={(e)=> openFavMenu(e, 'unit', p.row.id)}><StarBorderIcon sx={{ fontSize: 12 }}/></HafifDugme>
           </div>
         ) },
-      { field: 'birimFiyatiFob', headerName: 'FOB', description: 'Birim Fiyatı (FOB)', width: 75, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right' },
+      { field: 'birimFiyatiFob', headerName: 'FOB', description: 'Birim Fiyatı (FOB)', width: 75, editable: isReviseMode, type: 'number', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="ithal" onTaslak={hucreTaslagiDegisti} /> },
       { field: 'doviz', headerName: 'Döviz', description: 'Döviz Cinsi / Kur', width: 140, renderCell: (p)=>(
         <div style={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', minWidth: 0 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -2371,10 +2479,11 @@ const MakineYonetimi = () => {
       // Hücre, elle girildiğinde ipucuyla işaretlenir (eski belge ekranıyla aynı).
       { field: 'toplamUsd', headerName: '$', description: 'Toplam Tutar (FOB $) — döviz USD değilse pariteyle çevrilir; elle de girilebilir', width: 75,
         align:'right', headerAlign:'right', editable: isReviseMode, type:'string',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="ithal" onTaslak={hucreTaslagiDegisti} />,
         // Döviz USD değilse $ pariteyle çevrilmiş tutardır (utils/ithalTutar); hesap state'te tutulur
         valueGetter: (p)=> numberOrZero(p.row.toplamUsd),
         renderCell: (p)=> {
-          const metin = numberOrZero(p.value).toLocaleString('tr-TR');
+          const metin = numberOrZero(gorunenIthalMap.get(p.id)?.toplamUsd ?? p.value).toLocaleString('tr-TR');
           if (!p.row.usdManuel) return metin;
           return (
             <span title="Elle girildi ya da E-TUYS dosyasından geldi — kur/parite hesabı bu satırda uygulanmıyor" style={{ fontWeight: 700, color: '#7c3aed' }}>{metin}</span>
@@ -2382,15 +2491,12 @@ const MakineYonetimi = () => {
         }
       },
       { field: 'toplamTl', headerName: 'Toplam', description: 'Toplam Tutar (TL)', width: 90, editable: isReviseMode, type:'string', align:'right', headerAlign:'right',
+        renderEditCell: (p) => <MakineSayisalHucre {...p} liste="ithal" onTaslak={hucreTaslagiDegisti} />,
         renderCell: (p) => {
-          const formattedValue = p.row.__manualTLInput || Number(numberOrZero(p.value)).toLocaleString('tr-TR');
+          const formattedValue = numberOrZero(gorunenIthalMap.get(p.id)?.toplamTl ?? p.value).toLocaleString('tr-TR');
           return p.row.kurManuel ? (
             <span title={`Kur: ${p.row.kurManuelDeger}`} style={{ color: '#10b981' }}>{formattedValue}</span>
           ) : formattedValue;
-        },
-        preProcessEditCellProps: (params)=> {
-          const parsed = parseTrCurrency((params.props.value ?? '').toString());
-          return { ...params.props, error: !Number.isFinite(parsed) };
         }
       },
       // Müşteri: "kullanılmış makinelere de seçiciye gerek yok, 3 seçenek arasında
@@ -2540,6 +2646,8 @@ const MakineYonetimi = () => {
       <Box ref={ithalGridRef} sx={{ height: '100%', width: '100%' }}>
       <UstKaydirmaCubugu>
         <DataGrid 
+        apiRef={gridApiRef}
+        onCellModesModelChange={hucreModlariDegisti}
         rows={filteredIthalRows} 
         columns={cols} 
         getRowId={(row) => row.id}
@@ -2554,13 +2662,7 @@ const MakineYonetimi = () => {
         rowSelectionModel={selectionModel}
         onRowSelectionModelChange={(m)=> setSelectionModel(m)}
         processRowUpdate={processIthalRowUpdate}
-        onCellEditStop={(params)=>{
-          if (params.field === 'toplamTl') {
-            const id = params.id;
-            const committed = parseTrCurrency(params.value);
-            setIthalRows(rows => rows.map(r => r.id === id ? { ...r, tlManuel: true, toplamTl: committed, __manualTLInput: (params.value ?? '').toString() } : r));
-          }
-        }}
+
         onCellContextMenu={(params, event)=>{ event.preventDefault(); setContextAnchor(event.currentTarget); setContextRow({ ...params.row, id: params.id }); }}
         density="compact"
         columnVisibilityModel={columnVisibilityModel}
@@ -2634,11 +2736,9 @@ const MakineYonetimi = () => {
     );
   };
 
-  // 🚀 HIZLI MOD: Tam Ekran Excel Benzeri Grid
-  // 🔧 FIX: quickTab, gtipSuggestions gibi state'ler PARENT'ta tutuluyor
-  // çünkü QuickExcelGrid memo() ile parent içinde tanımlı olduğundan
-  // her re-render'da remount oluyor ve internal state sıfırlanıyordu.
-  const QuickExcelGrid = memo(() => {
+  // Hızlı grid'in hook'ları her çizimde aynı sırada çalışır. Parent içinde yeni
+  // component tipi oluşturulmaz; canlı toplam değişirken odaktaki girdi korunur.
+  const useQuickExcelGrid = () => {
     const rows = quickTab === 'yerli' ? yerliRows : ithalRows;
     const setRows = quickTab === 'yerli' ? setYerliRows : setIthalRows;
     const emptyRowFn = quickTab === 'yerli' ? emptyYerli : emptyIthal;
@@ -2790,7 +2890,12 @@ const MakineYonetimi = () => {
         else if (value === 'A') finalValue = 'Ana Makine';
         else if (value === 'Y') finalValue = 'Yardımcı Makine';
       }
-      updater(rowId, { [field]: finalValue });
+      const satir = rows.find((r) => r.id === rowId);
+      if (col?.type === 'number' && satir) {
+        const yeni = { ...satir, [field]: finalValue };
+        if (quickTab === 'yerli') processYerliRowUpdate(yeni, satir);
+        else processIthalRowUpdate(yeni, satir);
+      } else updater(rowId, { [field]: finalValue });
     }, [cols, updater, isReviseStarted]);
     
     // Excel yapıştırma
@@ -2909,6 +3014,8 @@ const MakineYonetimi = () => {
       boxSizing: 'border-box'
     };
     
+    if (viewMode !== 'quick') return null;
+
     return (
       <Box sx={{ 
         position: 'fixed', 
@@ -3031,7 +3138,8 @@ const MakineYonetimi = () => {
                   </td>
                   {cols.map((col, colIdx) => {
                     // Değer al (özel getValue fonksiyonu varsa kullan)
-                    const rawVal = col.getValue ? col.getValue(row) : row[col.key];
+                    const gorunenSatir = quickTab === 'yerli' ? gorunenYerliMap.get(row.id) : gorunenIthalMap.get(row.id);
+                    const rawVal = col.getValue ? col.getValue(row) : (['toplamTl', 'toplamUsd'].includes(col.key) ? gorunenSatir?.[col.key] : row[col.key]);
                     const val = rawVal;
                     const displayVal = col.type === 'number' && val != null ? val : (val ?? '');
                     // E/H kısaltma
@@ -3131,6 +3239,10 @@ const MakineYonetimi = () => {
                         ) : (
                           <EditableCell
                             value={shortVal}
+                            aria-label={`${row.siraNo}. ${col.label}`}
+                            onDraft={col.type === 'number' ? (value) => hucreTaslagiDegisti({
+                              liste: quickTab, id: row.id, field: col.key, value: parseTrCurrency(value), temizle: value === null
+                            }) : undefined}
                             onCommit={(val) => {
                               if (col.onUpdate) col.onUpdate(row.id, val);
                               else updateCell(row.id, col.key, val);
@@ -3165,7 +3277,7 @@ const MakineYonetimi = () => {
         </Box>
       </Box>
     );
-  });
+  };
 
   // 🎨 PREMIUM ENTERPRISE THEME - Modern & Professional
   const theme = {
@@ -3222,6 +3334,8 @@ const MakineYonetimi = () => {
     yerli: { bg: '#10b981', light: '#d1fae5', text: '#065f46' },
     ithal: { bg: '#f59e0b', light: '#fef3c7', text: '#92400e' }
   };
+
+  const quickGrid = useQuickExcelGrid();
 
   return (
     <Box inert={revizeMesgul ? '' : undefined} aria-busy={revizeMesgul} sx={{
@@ -3695,7 +3809,7 @@ const MakineYonetimi = () => {
                 <IconButton 
                   size="small" 
                   onClick={autoSaveToDb}
-                  disabled={!hasUnsavedChanges || isSaving || revizeMesgul}
+                  disabled={!(hasUnsavedChanges || hucreTaslagi) || isSaving || revizeMesgul}
                   sx={{ 
                     color: hasUnsavedChanges ? theme.accent : '#94a3b8',
                     '&:hover': { color: theme.accent, bgcolor: theme.accentGlow },
@@ -3773,34 +3887,7 @@ const MakineYonetimi = () => {
                 <Button 
                   size="small" 
                   disabled={!selectedTesvik || revizeMesgul || revizeFinalizingRef.current}
-                  onClick={async()=>{
-                    if (revizeFinalizingRef.current) return;
-                    const ok = window.confirm('Revize bitir?');
-                    if (!ok) return;
-                    revizeFinalizingRef.current = true;
-                    if (autoSaveTimerRef?.current) clearTimeout(autoSaveTimerRef.current);
-                    try {
-                      openToast('info', 'Revize kaydediliyor...');
-                      const payload = {
-                        yerli: yerliRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiTl:r.birimFiyatiTl, toplamTutariTl:r.toplamTl, kdvIstisnasi:r.kdvIstisnasi, makineTechizatTipi:r.makineTechizatTipi, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) })),
-                        ithal: ithalRows.map(r=>({ siraNo:r.siraNo, makineId:r.makineId, rowId:r.rowId, gtipKodu:r.gtipKodu, gtipAciklamasi:r.gtipAciklama, adiVeOzelligi:r.adi, miktar:r.miktar, birim:r.birim, birimAciklamasi:r.birimAciklamasi, birimFiyatiFob:r.birimFiyatiFob, gumrukDovizKodu:r.doviz, toplamTutarFobUsd:r.toplamUsd, toplamTutarFobTl:r.toplamTl, kurManuel:r.kurManuel, kurManuelDeger:r.kurManuelDeger, usdManuel: !!r.usdManuel, kullanilmisMakine:r.kullanilmisKod, kullanilmisMakineAciklama:r.kullanilmisAciklama, ckdSkdMi:r.ckdSkd, aracMi:r.aracMi, makineTechizatTipi:r.makineTechizatTipi, kdvMuafiyeti:r.kdvMuafiyeti, gumrukVergisiMuafiyeti:r.gumrukVergisiMuafiyeti, finansalKiralamaMi:r.finansalKiralamaMi, finansalKiralamaAdet:r.finansalKiralamaAdet, finansalKiralamaSirket:r.finansalKiralamaSirket, gerceklesenAdet:r.gerceklesenAdet, gerceklesenTutar:r.gerceklesenTutar, iadeDevirSatisVarMi:r.iadeDevirSatisVarMi, iadeDevirSatisAdet:r.iadeDevirSatisAdet, iadeDevirSatisTutar:r.iadeDevirSatisTutar, silinmeTarihi:r.silinmeTarihi, talep: cleanDateFields(r.talep), karar: cleanDateFields(r.karar) }))
-                      };
-                      // 🔧 FIX: Save + Finalize TEK API çağrısı
-                      await yeniTesvikService.finalizeMakineRevizyon(selectedTesvik._id, { 
-                        aciklama: 'Finalize', 
-                        yerli: payload.yerli, 
-                        ithal: payload.ithal 
-                      });
-                      aktifRevizeIdRef.current = null;
-                      setIsReviseMode(false); setIsReviseStarted(false);
-                      openToast('success', 'Revize tamamlandı');
-                    } catch (e) { 
-                      console.error('Revize bitirme hatası:', e);
-                      openToast('error', `Revize bitirilemedi: ${e?.response?.data?.message || e.message || 'Hata'}`); 
-                    } finally {
-                      revizeFinalizingRef.current = false;
-                    }
-                  }} 
+                  onClick={revizeBitir}
                   sx={{ 
                     fontSize: '0.68rem',
                     py: 0.5,
@@ -3966,7 +4053,7 @@ const MakineYonetimi = () => {
           </Box>
           
           {/* 🚀 Hızlı Mod - Tam Ekran Excel Grid */}
-          {viewMode === 'quick' && <QuickExcelGrid />}
+          {quickGrid}
           
         </Box>
         

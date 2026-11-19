@@ -77,24 +77,24 @@ test('firma kalemleri yalnız linkin belge modelinde oluşturulur ve personel al
   const yanit = await request(sunucu).get(adres(token)).expect('Cache-Control', 'private, no-store').expect(200);
   expect(Object.keys(yanit.body.data.kategoriler)).toEqual(expect.arrayContaining(['arazi', 'bina', 'diger']));
   expect(yanit.body.data.kalemler).toEqual(expect.arrayContaining([
-    expect.objectContaining({ _id: String(staff._id), kaynak: 'personel', girenAdi: '', icerik: '', evraklar: [], evrakEklenebilir: false }),
+    expect.objectContaining({ _id: String(staff._id), kaynak: 'personel', girenAdi: '', icerik: 'Özel personel açıklaması', evraklar: [], evrakEklenebilir: false, duzenlenebilir: true }),
     expect.objectContaining({ _id: ayni.body.data._id, kaynak: 'firma', girenAdi: veri.giren, icerik: veri.icerik, evrakEklenebilir: true })
   ]));
-  expect(yanit.text).not.toMatch(/Özel [Pp]ersonel|ozel-personel|depo-kimligi|tesvikId|tesvikModel|olusturanKullanici|sonGuncelleyen|istekOzeti|istekId/);
+  expect(yanit.text).not.toMatch(/Özel Personel Adı|ozel-personel|depo-kimligi|tesvikId|tesvikModel|olusturanKullanici|sonGuncelleyen|istekOzeti|istekId/);
   expect((await request(sunucu).get(adres(digerToken)).expect(200)).body.data.kalemler).toEqual([]);
   expect((await kalemEkle(digerToken).expect(200)).body.data._id).not.toBe(ayni.body.data._id);
 
   await kalemEkle(token, { ...veri, giren: '' }).expect(400);
   await kalemEkle(token, { ...veri, altKategori: 'anaBina' }).expect(400);
   await kalemEkle('gecersiz', veri).expect(404);
-  await request(sunucu).patch(`${adres(token)}/${ayni.body.data._id}`).send({ tutar: 999 }).expect(404);
+  await request(sunucu).patch(`${adres(token)}/${ayni.body.data._id}`).send({ tutar: 200 }).expect(200);
   await request(sunucu).delete(`${adres(token)}/${ayni.body.data._id}`).expect(404);
   const guncel = await harcama.guncelle({ ...belgeFiltresi, _id: ayni.body.data._id }, { tutar: 200, kaynak: 'personel' }, personel);
   expect(guncel).toMatchObject({ kaynak: 'firma', tutar: 200, sonGuncelleyen: personel._id });
   const ozet = await request(sunucu).get(`/api/musteri-belge/${token}/gerceklesme`).expect(200);
   expect(ozet.body.data.toplam).toBe(325.25);
   expect(ozet.body.data.kalemler.map(({ tutar, icerik }) => ({ tutar, icerik }))).toEqual([
-    { tutar: 125.25, icerik: '' }, { tutar: 200, icerik: veri.icerik }
+    { tutar: 125.25, icerik: 'Özel personel açıklaması' }, { tutar: 200, icerik: veri.icerik }
   ]);
 });
 
@@ -154,7 +154,7 @@ test('müşteri harcamaya yevmiye tarihi ve başında sıfır olan numara girebi
   await kalemEkle(token, { ...create, yevmiyeNo: '00019' }).expect(409);
   const liste = (await request(sunucu).get(adres(token)).expect(200)).body.data.kalemler;
   expect(liste).toEqual(expect.arrayContaining([
-    expect.objectContaining({ _id: String(staff._id), icerik: '', girenAdi: '', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10T00:00:00.000Z' }),
+    expect.objectContaining({ _id: String(staff._id), icerik: 'Gizli açıklama', girenAdi: '', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10T00:00:00.000Z' }),
     expect.objectContaining({ _id: ilk.body.data._id, yevmiyeNo: '00018', yevmiyeTarihi: '2025-10-11T00:00:00.000Z' })
   ]));
 });

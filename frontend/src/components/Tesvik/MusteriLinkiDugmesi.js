@@ -198,7 +198,7 @@ export default function MusteriLinkiDugmesi({ tesvikModel, tesvikId }) {
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Firma bu linkle belge bilgilerini, onaylı ve gerçekleşen makine listelerini, diğer harcamaları ve
             gerçekleşme özetini ayrı görür. Fatura, beyanname ve harcama kalemi ekleyebilir; kendi kalemlerine evrak
-            yükleyebilir. Kaydedilen kalemleri yalnızca personel Harcama Takip ekranından düzenleyebilir veya silebilir.
+            yükleyebilir. Firma, kaydedilen harcama kalemlerini de düzenleyebilir. Silme işlemlerini personel yapar.
           </Typography>
           {mesgul && <Stack alignItems="center" spacing={1} sx={{ py: 2 }}>
             <CircularProgress size={24} />
