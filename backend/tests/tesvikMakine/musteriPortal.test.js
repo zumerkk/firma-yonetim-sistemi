@@ -1,6 +1,8 @@
 // 🧪 Müşteri belge linki — firma belgeyi görür, makinelere fatura kalemi girer.
 //
-// Firma bağlantısı kendi belgesine bağlı kalemleri ve ekleri yönetir.
+// Müşteri (13.10.2026): "Müşterinin sadece burayı görebileceği bir link … Evrak listesi hariç" +
+// "müşteri buradan istediği makinaya istediği kalemi girebilsin, bir kere kalemi kaydedince silemesin
+// veya düzenleyemesin - 'onaylandı' olsun, biz manuel olarak onaylandıyı silip-düzenleyebilelim."
 
 const mongoose = require('mongoose');
 const express = require('express');
@@ -203,7 +205,7 @@ test('firma kalemi girer → onaylı (firma) kalem, toplamlar ana listeye yansı
   expect(personelKalemi).toMatchObject({ kaynak: 'personel', girenAdi: '' });
 });
 
-test('firma girişi tarih, tutar ve belge bağlantısıyla doğrulanır', async () => {
+test('firma girişi sıkı doğrulanır (düzeltme şansı yok)', async () => {
   const token = await linkUret();
   const temel = { listType: 'local', rowId: 'R1', tarih: '2026-10-10', no: 'F-1', tutar: 10, giren: 'Ali' };
   await expect(portal.firmaKalemiEkle(token, { ...temel, tarih: '' })).rejects.toMatchObject({ status: 400 });
@@ -329,7 +331,7 @@ test('çoklu yerli fatura ekleri yüklenir, künye lokatörleri saklı kalır, d
   expect((await MachineProcess.findById(proc._id)).faturalar).toHaveLength(0);
 });
 
-test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; yanlış alan ve satır dosya alamaz', async () => {
+test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; yanlış alan, satır ve personel kalemi dosya alamaz', async () => {
   const { kaydet } = sahteDepo();
   const token = await linkUret();
   const yerli = await faturaEkle(token);
@@ -340,12 +342,12 @@ test('geçersiz bağlantı multipart ayrıştırmadan reddedilir; yanlış alan 
   await request(app).post(evrakYolu('kisa', yerli.yeniKalemId)).set('Content-Type', 'multipart/form-data').send('bozuk').expect(404);
   await request(app).post(evrakYolu(token, ithal.yeniKalemId)).field('rowId', 'I1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(400);
   await request(app).post(evrakYolu(token, yerli.yeniKalemId)).field('rowId', 'R1').attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(400);
+  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'R1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
   await request(app).post(evrakYolu(token, yerli.yeniKalemId)).field('rowId', 'R2').attach('faturaPdf', pdf, 'Fatura.pdf').expect(404);
   expect(kaydet).not.toHaveBeenCalled();
-  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'R1').attach('faturaPdf', pdf, 'Fatura.pdf').expect(200);
 });
 
-test('müşteri kendi belgesindeki ithal beyannamelere üç PDF türünü ekler; farklı belgeye yazamaz', async () => {
+test('müşteri kendi ithal beyannamesine üç PDF türünü ekler; farklı belgeye ve personel kalemine yazamaz', async () => {
   const { kaydet } = sahteDepo();
   const token = await linkUret();
   const { yeniKalemId } = await faturaEkle(token, { listType: 'import', rowId: 'I1', tutarParaBirimi: 'TRY' });
@@ -357,6 +359,8 @@ test('müşteri kendi belgesindeki ithal beyannamelere üç PDF türünü ekler;
     musteriPortal: { token: digerToken }, makineListeleri: { ithal: [{ rowId: 'I1' }] }
   });
   await request(app).post(evrakYolu(digerToken, yeniKalemId)).field('rowId', 'I1')
+    .attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(404);
+  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'I1')
     .attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(404);
   expect(kaydet).not.toHaveBeenCalled();
 
@@ -370,8 +374,6 @@ test('müşteri kendi belgesindeki ithal beyannamelere üç PDF türünü ekler;
   expect(kalem.evraklar.every((e) => e.mimeType === 'application/pdf' && !e.depo && !e.istekId)).toBe(true);
   expect((await yukle().expect(200)).body.data).toEqual(yanit.body.data);
   expect(kaydet).toHaveBeenCalledTimes(3);
-  await request(app).post(evrakYolu(token, personelKalemi.id)).field('rowId', 'I1')
-    .attach('beyannamePdf', pdf, 'Beyanname.pdf').expect(200);
   const belgeVerisi = await request(app).get(`/musteri-belge/${token}`).expect(200);
   expect(belgeVerisi.body.data.makineler.ithal[0].kalemler.find((k) => k._id === yeniKalemId).evraklar).toEqual(kalem.evraklar);
 });

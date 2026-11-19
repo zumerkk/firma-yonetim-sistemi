@@ -58,7 +58,7 @@ const kalemEkle = (baglanti, girdi = veri) => request(sunucu).post(adres(baglant
 const evrakYolu = (baglanti, id) => `${adres(baglanti)}/${id}/evrak`;
 const ekYukle = (baglanti, id) => request(sunucu).post(evrakYolu(baglanti, id)).attach('faturaPdf', pdf, 'fatura.pdf');
 
-test('firma kalemleri yalnız linkin belge modelinde oluşturulur ve personel kimlikleri gizlenir', async () => {
+test('firma kalemleri yalnız linkin belge modelinde oluşturulur ve personel alanları gizlenir', async () => {
   const staff = await harcama.ekle(belgeFiltresi, { ...veri, icerik: 'Özel personel açıklaması' }, personel);
   await HarcamaKalemi.collection.updateOne({ _id: staff._id }, { $unset: { kaynak: 1 }, $set: { evraklar: [{
     _id: new mongoose.Types.ObjectId(), dosyaAdi: 'ozel-personel.pdf', tur: 'fatura_pdf',
@@ -77,19 +77,18 @@ test('firma kalemleri yalnız linkin belge modelinde oluşturulur ve personel ki
   const yanit = await request(sunucu).get(adres(token)).expect('Cache-Control', 'private, no-store').expect(200);
   expect(Object.keys(yanit.body.data.kategoriler)).toEqual(expect.arrayContaining(['arazi', 'bina', 'diger']));
   expect(yanit.body.data.kalemler).toEqual(expect.arrayContaining([
-    expect.objectContaining({ _id: String(staff._id), kaynak: 'personel', girenAdi: '', icerik: 'Özel personel açıklaması',
-      evraklar: [expect.objectContaining({ dosyaAdi: 'ozel-personel.pdf' })], evrakEklenebilir: true }),
+    expect.objectContaining({ _id: String(staff._id), kaynak: 'personel', girenAdi: '', icerik: '', evraklar: [], evrakEklenebilir: false }),
     expect.objectContaining({ _id: ayni.body.data._id, kaynak: 'firma', girenAdi: veri.giren, icerik: veri.icerik, evrakEklenebilir: true })
   ]));
-  expect(yanit.text).not.toMatch(/Özel Personel Adı|depo-kimligi|tesvikId|tesvikModel|olusturanKullanici|sonGuncelleyen|istekOzeti|istekId/);
+  expect(yanit.text).not.toMatch(/Özel [Pp]ersonel|ozel-personel|depo-kimligi|tesvikId|tesvikModel|olusturanKullanici|sonGuncelleyen|istekOzeti|istekId/);
   expect((await request(sunucu).get(adres(digerToken)).expect(200)).body.data.kalemler).toEqual([]);
   expect((await kalemEkle(digerToken).expect(200)).body.data._id).not.toBe(ayni.body.data._id);
 
   await kalemEkle(token, { ...veri, giren: '' }).expect(400);
   await kalemEkle(token, { ...veri, altKategori: 'anaBina' }).expect(400);
   await kalemEkle('gecersiz', veri).expect(404);
-  await request(sunucu).patch(`${adres(digerToken)}/${ayni.body.data._id}`).send({ tutar: 999 }).expect(404);
-  await request(sunucu).delete(`${adres(digerToken)}/${ayni.body.data._id}`).expect(404);
+  await request(sunucu).patch(`${adres(token)}/${ayni.body.data._id}`).send({ tutar: 999 }).expect(404);
+  await request(sunucu).delete(`${adres(token)}/${ayni.body.data._id}`).expect(404);
   const guncel = await harcama.guncelle({ ...belgeFiltresi, _id: ayni.body.data._id }, { tutar: 200, kaynak: 'personel' }, personel);
   expect(guncel).toMatchObject({ kaynak: 'firma', tutar: 200, sonGuncelleyen: personel._id });
   const ozet = await request(sunucu).get(`/api/musteri-belge/${token}/gerceklesme`).expect(200);
@@ -99,10 +98,11 @@ test('firma kalemleri yalnız linkin belge modelinde oluşturulur ve personel ki
   ]);
 });
 
-test('firma aynı belgedeki kalemlere üç türden birden fazla dosya yükleyebilir', async () => {
+test('firma sadece aynı belgedeki firma kalemine üç türden birden fazla dosya yükleyebilir', async () => {
   const sahteKaydet = jest.spyOn(depo, 'kaydet').mockImplementation(async () => ({ provider: 'cloudinary', dosyaYolu: 'ozel-depo.pdf' }));
   const { _id } = (await kalemEkle(token).expect(200)).body.data;
   const staff = await harcama.ekle(belgeFiltresi, veri, personel);
+  await ekYukle(token, staff._id).expect(404);
   await ekYukle(digerToken, _id).expect(404);
   await ekYukle('gecersiz', _id).expect(404);
   await request(sunucu).post(evrakYolu(token, _id)).attach('beyannamePdf', pdf, 'beyanname.pdf').expect(400);
@@ -119,9 +119,7 @@ test('firma aynı belgedeki kalemlere üç türden birden fazla dosya yükleyebi
   expect(yanit.text).not.toMatch(/ozel-depo|cloudinary|istekOzeti|istekId|sonGuncelleyen/);
   expect((await yukle().expect(200)).body.data.evraklar).toEqual(ekler);
   expect(sahteKaydet).toHaveBeenCalledTimes(6);
-  jest.spyOn(depo, 'oku').mockResolvedValue(pdf);
-  await request(sunucu).get(`${evrakYolu(token, _id)}/${ekler[0]._id}`).expect(200);
-  await ekYukle(token, staff._id).expect(200);
+  await request(sunucu).get(`${evrakYolu(token, _id)}/${ekler[0]._id}`).expect(404);
 
   const yeni = await portal.linkUret('Tesvik', belgeId, { yenile: true });
   const yeniToken = yeni.link.split('/belge/')[1];
@@ -156,7 +154,7 @@ test('müşteri harcamaya yevmiye tarihi ve başında sıfır olan numara girebi
   await kalemEkle(token, { ...create, yevmiyeNo: '00019' }).expect(409);
   const liste = (await request(sunucu).get(adres(token)).expect(200)).body.data.kalemler;
   expect(liste).toEqual(expect.arrayContaining([
-    expect.objectContaining({ _id: String(staff._id), icerik: 'Gizli açıklama', girenAdi: '', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10T00:00:00.000Z' }),
+    expect.objectContaining({ _id: String(staff._id), icerik: '', girenAdi: '', yevmiyeNo: '00017', yevmiyeTarihi: '2025-10-10T00:00:00.000Z' }),
     expect.objectContaining({ _id: ilk.body.data._id, yevmiyeNo: '00018', yevmiyeTarihi: '2025-10-11T00:00:00.000Z' })
   ]));
 });

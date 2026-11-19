@@ -1,7 +1,8 @@
 // 🔗 MÜŞTERİ BELGE SAYFASI — /belge/:token (AUTH YOK)
 //
 // Müşteri (13.10.2026): firma kendi teşvik belgesini görür (belge ekranındaki sekmeler — evrak listesi
-// hariç), gerçekleşen yerli/ithal ve diğer harcamalarda kalemleri ve evraklarını yönetir.
+// hariç), yerli ve ithal listede makinelerine fatura (ithalde beyanname) kalemi girer. Kaydedilen kalem
+// firmaya kilitlidir ("Onaylandı"); düzeltmeyi personel yapar. Bu yetkiler harcama kalemleri için de geçerlidir.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -11,13 +12,10 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import AddIcon from '@mui/icons-material/Add';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import LockIcon from '@mui/icons-material/Lock';
 import api, { uploadPost } from '../../utils/axios';
-import svc from '../../services/tesvikMakineService';
 import { birimEtiketi } from '../../utils/makineFormat';
-import { isoGun, tarihYaz } from '../../utils/cariFormat';
-import { saveBlobResponse } from '../TesvikMakine/helpers';
+import { tarihYaz } from '../../utils/cariFormat';
 import { renk, SekmeSeridi, VeriTablosu } from '../../tasarim';
 import { KunyePaneli, FinansalPaneli } from '../../components/Tesvik/BelgeBilgiPanelleri';
 import { YatirimCinsiTablosu, UrunTablosu, OzelSartTablosu, DestekUnsuruTablosu } from '../../components/Tesvik/BelgeSekmeTablolari';
@@ -58,7 +56,7 @@ const kalemToplamMetni = (m) => {
     ? toplamlar.map(([kod, tutar]) => para(tutar, kod)).join(' · ')
     : para(m.faturaToplami);
 };
-const BOS_KALEM = { tarih: '', no: '', yevmiyeNo: '', yevmiyeTarihi: '', icerik: '', tutar: 0, adet: '', malBedeliTl: undefined };
+const BOS_KALEM = { tarih: '', no: '', yevmiyeNo: '', yevmiyeTarihi: '', icerik: '', tutar: 0, adet: '' };
 const GIREN_ANAHTARI = 'musteriBelge.giren';
 
 export default function MusteriBelgeSayfasi() {
@@ -198,22 +196,12 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
   const kod = ithal ? 'USD' : 'TRY';
   const etiket = ithal ? { tarih: 'Beyanname Tarihi', no: 'Beyanname No' } : { tarih: 'Fatura Tarihi', no: 'Fatura Sayısı' };
   const [form, setForm] = useState(BOS_KALEM);
-  const [duzenlenen, setDuzenlenen] = useState(null);
-  const ilkYevmiye = useRef(BOS_KALEM);
   const [giren, setGiren] = useState(() => { try { return localStorage.getItem(GIREN_ANAHTARI) || ''; } catch (_) { return ''; } });
   const [islem, setIslem] = useState('');
   const devamEdenIstek = useRef(null);
   const [evrakKalemiId, setEvrakKalemiId] = useState(null);
   const [hata, setHata] = useState('');
   const [bilgi, setBilgi] = useState('');
-  const duzenlenenKalem = makine.kalemler.find((kalem) => kalem._id === duzenlenen);
-  const formParaBirimi = ithal && duzenlenenKalem ? duzenlenenKalem.tutarParaBirimi || kod : 'TRY';
-  const dovizliKalem = formParaBirimi !== 'TRY';
-  const malBedeliTl = form.malBedeliTl === undefined ? duzenlenenKalem?.malBedeliTl : form.malBedeliTl;
-  const tutarGecerli = form.tutar >= 0.01 && /^\d{1,13}(?:\.\d{1,2})?$/.test(String(form.tutar));
-  const malBedeliHatasi = dovizliKalem && malBedeliTl != null
-    && (malBedeliTl <= 0 || !/^\d{1,13}(?:\.\d{1,2})?$/.test(String(malBedeliTl)));
-  const formGecerli = form.tarih && form.no.trim() && tutarGecerli && Number(form.adet) >= 0 && giren.trim() && !malBedeliHatasi;
   const alan = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
   useEffect(() => () => devamEdenIstek.current?.abort(), []);
 
@@ -233,106 +221,42 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
 
   const kapat = () => { if (!devamEdenIstek.current) onClose(); };
 
-  const makineYaniti = (guncel) => {
+  const makineYaniti = (r) => {
+    const guncel = r.data?.data;
     if (guncel?.rowId !== makine.rowId || guncel?.listType !== makine.listType || !Array.isArray(guncel?.kalemler)) {
       throw new Error('Makine bilgileri güncellenemedi. Lütfen tekrar deneyin.');
     }
     return guncel;
   };
 
-  const formuTemizle = () => { setForm(BOS_KALEM); setDuzenlenen(null); };
-
-  const duzenle = (kalem) => {
-    if (devamEdenIstek.current) return;
-    ilkYevmiye.current = { yevmiyeNo: kalem.yevmiyeNo || '', yevmiyeTarihi: isoGun(kalem.yevmiyeTarihi) };
-    setForm({
-      ...BOS_KALEM, ...ilkYevmiye.current, tarih: isoGun(kalem.tarih), no: kalem.no || '',
-      icerik: kalem.icerik || '', tutar: kalem.tutar, adet: kalem.adet || ''
-    });
-    setDuzenlenen(kalem._id);
-    setHata(''); setBilgi('');
-  };
-
   const kaydet = async () => {
-    if (devamEdenIstek.current || !formGecerli) return;
+    if (devamEdenIstek.current) return;
     const yevmiyeNo = form.yevmiyeNo.trim();
     const yevmiyeTarihi = form.yevmiyeTarihi || null;
     const yevmiyeBilgisi = [
       yevmiyeNo && `Yevmiye No: ${yevmiyeNo}`,
       yevmiyeTarihi && `Yevmiye Tarihi: ${tarihYaz(yevmiyeTarihi)}`
     ].filter(Boolean).map((satir) => `\n${satir}`).join('');
-    if (!window.confirm(`Kalem ${duzenlenen ? 'güncellensin' : 'kaydedilsin'} mi?\n\n${etiket.no}: ${form.no}\n${ithal && !dovizliKalem ? 'Mal Bedeli TL' : 'Tutar'}: ${para(form.tutar, formParaBirimi)}${yevmiyeBilgisi}`)) return;
+    // Firma kaydettiği kalemi düzeltemez — gönderimden önce son kez sorulur
+    if (!window.confirm(`Kalem kaydedilsin mi?\n\n${etiket.no}: ${form.no}\n${ithal ? 'Mal Bedeli TL' : 'Tutar'}: ${para(form.tutar)}${yevmiyeBilgisi}\n\nKaydedilen kalemi siz düzeltemezsiniz; hata olursa danışmanınıza bildirin.`)) return;
     const denetim = islemiBaslat('kalem');
     if (!denetim) return;
     setHata(''); setBilgi('');
     try {
-      const govde = {
-        listType: makine.listType, rowId: makine.rowId, tarih: form.tarih, no: form.no.trim(), icerik: form.icerik.trim(),
-        tutar: Number(form.tutar), adet: Number(form.adet) || 0, giren: giren.trim()
-      };
-      if (!duzenlenen || yevmiyeNo !== ilkYevmiye.current.yevmiyeNo) govde.yevmiyeNo = yevmiyeNo;
-      if (!duzenlenen || form.yevmiyeTarihi !== ilkYevmiye.current.yevmiyeTarihi) govde.yevmiyeTarihi = yevmiyeTarihi;
-      if (!dovizliKalem) govde.tutarParaBirimi = 'TRY';
-      if (dovizliKalem && form.malBedeliTl !== undefined) govde.malBedeliTl = form.malBedeliTl;
-      const secenekler = { signal: denetim.signal };
-      const veri = duzenlenen
-        ? await svc.musteriFaturaKalemiGuncelle(token, duzenlenen, govde, secenekler)
-        : (await api.post(`/musteri-belge/${encodeURIComponent(token)}/fatura-kalemi`, govde, secenekler)).data?.data;
+      const r = await api.post(`/musteri-belge/${token}/fatura-kalemi`, {
+        listType: makine.listType, rowId: makine.rowId, ...form, yevmiyeNo, yevmiyeTarihi,
+        tutar: Number(form.tutar) || 0, adet: Number(form.adet) || 0, giren,
+        ...(ithal ? { tutarParaBirimi: 'TRY' } : {})
+      }, { signal: denetim.signal });
       if (denetim.signal.aborted) return;
-      const guncel = makineYaniti(veri);
+      const guncel = makineYaniti(r);
       try { localStorage.setItem(GIREN_ANAHTARI, giren); } catch (_) { /* gizli sekme */ }
-      formuTemizle();
-      setBilgi(duzenlenen ? 'Kalem güncellendi.' : 'Kalem kaydedildi. Teşekkür ederiz.');
+      setForm(BOS_KALEM);
+      setBilgi('Kalem kaydedildi. Teşekkür ederiz.');
       onKaydedildi(guncel);
       if (guncel.yeniKalemId) setEvrakKalemiId(guncel.yeniKalemId);
     } catch (e) {
       if (!denetim.signal.aborted) setHata(e?.response?.data?.message || e?.message || 'Kaydedilemedi. Lütfen tekrar deneyin.');
-    } finally { islemiBitir(denetim); }
-  };
-
-  const kalemiSil = async (kalem) => {
-    if (devamEdenIstek.current || !window.confirm(`"${kalem.no || 'Kalem'}" ve bağlı evrakları silinsin mi?`)) return;
-    const denetim = islemiBaslat('sil');
-    if (!denetim) return;
-    setHata(''); setBilgi('');
-    try {
-      const veri = await svc.musteriFaturaKalemiSil(token, kalem._id,
-        { rowId: makine.rowId, listType: makine.listType, giren: giren.trim() }, { signal: denetim.signal });
-      if (denetim.signal.aborted) return;
-      onKaydedildi(makineYaniti(veri));
-      if (duzenlenen === kalem._id) formuTemizle();
-      if (evrakKalemiId === kalem._id) setEvrakKalemiId(null);
-      setBilgi('Kalem silindi.');
-    } catch (e) {
-      if (!denetim.signal.aborted) setHata(e?.response?.data?.message || e?.message || 'Kalem silinemedi.');
-    } finally { islemiBitir(denetim); }
-  };
-
-  const evrakIndir = async (kalem, evrak) => {
-    const denetim = islemiBaslat('indir');
-    if (!denetim) return;
-    setHata('');
-    try {
-      const yanit = await svc.musteriFaturaEvrakiIndir(token, kalem._id, evrak._id,
-        { rowId: makine.rowId, listType: makine.listType }, { signal: denetim.signal });
-      if (!denetim.signal.aborted) saveBlobResponse(yanit, evrak.dosyaAdi);
-    } catch (e) {
-      if (!denetim.signal.aborted) setHata(e?.response?.data?.message || e?.message || 'Evrak indirilemedi.');
-    } finally { islemiBitir(denetim); }
-  };
-
-  const evrakSil = async (kalem, evrak) => {
-    const denetim = islemiBaslat('evrakSil');
-    if (!denetim) return false;
-    try {
-      const veri = await svc.musteriFaturaEvrakiSil(token, kalem._id, evrak._id,
-        { rowId: makine.rowId, listType: makine.listType }, { signal: denetim.signal });
-      if (denetim.signal.aborted) return false;
-      onKaydedildi(makineYaniti(veri));
-      return true;
-    } catch (e) {
-      if (denetim.signal.aborted) return false;
-      throw e;
     } finally { islemiBitir(denetim); }
   };
 
@@ -343,7 +267,7 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
       const r = await uploadPost(`/musteri-belge/${encodeURIComponent(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}/evrak`,
         formData, { onProgress, signal: denetim.signal });
       if (denetim.signal.aborted) return false;
-      onKaydedildi(makineYaniti(r.data?.data));
+      onKaydedildi(makineYaniti(r));
       return true;
     } catch (e) {
       if (denetim.signal.aborted) return false;
@@ -376,17 +300,17 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                 <TableRow>
                   <TableCell>{etiket.tarih}</TableCell><TableCell>{etiket.no}</TableCell>
                   <TableCell>Yevmiye No</TableCell><TableCell>Yevmiye Tarihi</TableCell><TableCell>Kalem İçeriği</TableCell>
-                  <TableCell align="right">Tutar</TableCell><TableCell align="right">Adet</TableCell><TableCell>Giren</TableCell>
-                  <TableCell>Evraklar</TableCell><TableCell>İşlemler</TableCell>
+                  <TableCell align="right">Tutar</TableCell><TableCell align="right">Adet</TableCell><TableCell>Durum</TableCell>
+                  <TableCell>Evraklar</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {makine.kalemler.map((k) => {
-                  const yuklenebilir = !!k._id;
+                  const yuklenebilir = k.kaynak === 'firma' && !!k._id;
                   const evraklarAcik = yuklenebilir && String(evrakKalemiId) === String(k._id);
                   return (
                     <React.Fragment key={k._id}>
-                      <TableRow selected={duzenlenen === k._id}>
+                      <TableRow>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{tarih(k.tarih)}</TableCell>
                         <TableCell>{k.no || '-'}</TableCell>
                         <TableCell sx={{ overflowWrap: 'anywhere' }}>{k.yevmiyeNo || '—'}</TableCell>
@@ -400,8 +324,8 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                         </TableCell>
                         <TableCell align="right">{k.adet || 0}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <Chip size="small" color={k.kaynak === 'firma' ? 'success' : 'default'}
-                            label={k.kaynak === 'firma' ? `Firma${k.girenAdi ? ` · ${k.girenAdi}` : ''}` : 'Danışman girdi'} />
+                          <Chip size="small" icon={<LockIcon sx={{ fontSize: 14 }} />} color={k.kaynak === 'firma' ? 'success' : 'default'}
+                            label={k.kaynak === 'firma' ? `Onaylandı${k.girenAdi ? ` · ${k.girenAdi}` : ''}` : 'Danışman girdi'} />
                         </TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>
                           {yuklenebilir && (
@@ -411,20 +335,11 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                             </Button>
                           )}
                         </TableCell>
-                        <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                          <IconButton size="small" aria-label={`${k.no || 'Kalem'} düzenle`} disabled={!!islem} onClick={() => duzenle(k)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" color="error" aria-label={`${k.no || 'Kalem'} sil`} disabled={!!islem} onClick={() => kalemiSil(k)}>
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
                       </TableRow>
                       {evraklarAcik && (
                         <TableRow>
-                          <TableCell colSpan={10}>
-                            <KalemEvrakPaneli key={k._id} kalem={k} rowId={makine.rowId} ithal={ithal} islem={islem} onYukle={evrakYukle}
-                              onIndir={(evrak) => evrakIndir(k, evrak)} onSil={(evrak) => evrakSil(k, evrak)} />
+                          <TableCell colSpan={9}>
+                            <KalemEvrakPaneli kalem={k} rowId={makine.rowId} ithal={ithal} islem={islem} onYukle={evrakYukle} />
                           </TableCell>
                         </TableRow>
                       )}
@@ -437,7 +352,6 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                   <TableCell align="right" sx={{ fontWeight: 700 }}>{makine.faturaAdedi}</TableCell>
                   <TableCell />
                   <TableCell />
-                  <TableCell />
                 </TableRow>
               </TableBody>
             </Table>
@@ -445,13 +359,13 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
         )}
 
         <Box sx={{ border: '1px solid #e2e8f0', borderRadius: 1, p: 1.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>{duzenlenen ? 'Kalemi Düzenle' : 'Yeni Kalem'}</Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Yeni Kalem</Typography>
           <Grid container spacing={1}>
             <Grid item xs={6} sm={3}>
-              <TextField fullWidth size="small" type="date" required label={etiket.tarih} InputLabelProps={{ shrink: true }} value={form.tarih} onChange={alan('tarih')} disabled={!!islem} />
+              <TextField fullWidth size="small" type="date" required label={etiket.tarih} InputLabelProps={{ shrink: true }} value={form.tarih} onChange={alan('tarih')} />
             </Grid>
             <Grid item xs={6} sm={3}>
-              <TextField fullWidth size="small" required label={etiket.no} value={form.no} onChange={alan('no')} inputProps={{ maxLength: 100 }} disabled={!!islem} />
+              <TextField fullWidth size="small" required label={etiket.no} value={form.no} onChange={alan('no')} />
             </Grid>
             <Grid item xs={6} sm={3}>
               <TextField fullWidth size="small" label="Yevmiye No" value={form.yevmiyeNo} onChange={alan('yevmiyeNo')}
@@ -462,38 +376,32 @@ function KalemPenceresi({ token, makine, onClose, onKaydedildi }) {
                 value={form.yevmiyeTarihi} onChange={alan('yevmiyeTarihi')} disabled={!!islem} />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} inputProps={{ maxLength: 500 }} disabled={!!islem} />
+              <TextField fullWidth size="small" label="Kalem İçeriği" value={form.icerik} onChange={alan('icerik')} />
             </Grid>
             <Grid item xs={8} sm={4}>
-              <TutarAlani fullWidth size="small" required
-                label={dovizliKalem ? `Kalem Tutarı – Mal Bedeli (${formParaBirimi})` : ithal ? 'Kalem Tutarı – Mal Bedeli TL' : 'Kalem Tutarı'}
-                simge={dovizliKalem ? formParaBirimi : '₺'} value={form.tutar} disabled={!!islem}
-                error={form.tutar !== 0 && !tutarGecerli}
+              <TutarAlani fullWidth size="small" required label={ithal ? 'Kalem Tutarı – Mal Bedeli TL' : 'Kalem Tutarı'} value={form.tutar}
                 onChange={(v) => setForm((f) => ({ ...f, tutar: v }))} />
             </Grid>
             <Grid item xs={4} sm={2}>
-              <TextField fullWidth size="small" type="number" label="Adet" value={form.adet} onChange={alan('adet')} inputProps={{ min: 0 }} disabled={!!islem} />
+              <TextField fullWidth size="small" type="number" label="Adet" value={form.adet} onChange={alan('adet')} inputProps={{ min: 0 }} />
             </Grid>
-            {dovizliKalem && <Grid item xs={12} sm={6}>
-              <TutarAlani key={duzenlenen} fullWidth size="small" label="Mal Bedeli TL" value={malBedeliTl ?? 0} bosDeger={null}
-                disabled={!!islem} error={malBedeliHatasi}
-                onChange={(v) => setForm((f) => ({ ...f, malBedeliTl: v }))} />
-            </Grid>}
             <Grid item xs={12} sm={6}>
-              <TextField fullWidth size="small" required label="Adınız Soyadınız" value={giren} onChange={(e) => setGiren(e.target.value)} inputProps={{ maxLength: 120 }} disabled={!!islem} />
+              <TextField fullWidth size="small" required label="Adınız Soyadınız" value={giren} onChange={(e) => setGiren(e.target.value)} />
             </Grid>
           </Grid>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+            Kaydedilen kalem onaylanmış sayılır, sizin tarafınızdan düzeltilemez veya silinemez.
+          </Typography>
         </Box>
         {hata && <Alert severity="error" sx={{ mt: 2 }}>{hata}</Alert>}
         {bilgi && <Alert severity="success" sx={{ mt: 2 }}>{bilgi}</Alert>}
       </DialogContent>
       <DialogActions sx={{ px: 3 }}>
         <Button onClick={kapat} disabled={!!islem}>Kapat</Button>
-        {duzenlenen && <Button onClick={formuTemizle} disabled={!!islem}>Vazgeç</Button>}
         <Button variant="contained" onClick={kaydet}
-          disabled={!!islem || !formGecerli}
+          disabled={!!islem || !form.tarih || !form.no.trim() || !(Number(form.tutar) > 0) || !giren.trim()}
           startIcon={islem === 'kalem' ? <CircularProgress size={16} color="inherit" /> : null}>
-          {duzenlenen ? 'Güncelle' : 'Kaydet'}
+          Kaydet
         </Button>
       </DialogActions>
     </Dialog>

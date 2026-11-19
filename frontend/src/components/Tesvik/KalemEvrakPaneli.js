@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Box, Button, Chip, Grid, IconButton, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Grid, Typography } from '@mui/material';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import UploadProgress from '../common/UploadProgress';
 
 const YEVMIYE_EVRAK_TURU = { alan: 'yevmiyePdf', tur: 'yevmiye_pdf', etiket: 'Yevmiye Kayıt PDF', uzanti: '.pdf' };
@@ -19,7 +18,7 @@ const EVRAK_SAYI_SINIRI = 6;
 const EVRAK_BOYUT_SINIRI = 10 * 1024 * 1024;
 const yeniIstekId = () => window.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, onIndir, onSil, yuklenenleriGoster = true }) {
+export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, onIndir, yuklenenleriGoster = true }) {
   const belgeTuru = ithal ? 'Beyanname' : 'Fatura';
   const evrakTurleri = ithal ? BEYANNAME_EVRAK_TURLERI : FATURA_EVRAK_TURLERI;
   const [dosyalar, setDosyalar] = useState({});
@@ -81,17 +80,6 @@ export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, 
     } finally { setIlerleme(null); }
   };
 
-  const evrakiSil = async (evrak) => {
-    if (islem || !window.confirm(`"${evrak.dosyaAdi}" evrakı silinsin mi?`)) return;
-    setHata('');
-    setBilgi('');
-    try {
-      if (await onSil(evrak)) setBilgi('Evrak silindi.');
-    } catch (e) {
-      setHata(e?.response?.data?.message || e?.message || 'Evrak silinemedi. Lütfen tekrar deneyin.');
-    }
-  };
-
   return (
     <Box ref={panel} sx={{ p: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 1 }}>
       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{belgeTuru} Evrakları · {kalem.no || belgeTuru}</Typography>
@@ -114,10 +102,6 @@ export default function KalemEvrakPaneli({ kalem, rowId, ithal, islem, onYukle, 
                     <Typography key={evrak._id} component="li" variant="caption" sx={{ overflowWrap: 'anywhere' }}>
                       {onIndir ? <Button size="small" disabled={!!islem} onClick={() => onIndir(evrak)}
                         aria-label={`${evrak.dosyaAdi} indir`} sx={{ textTransform: 'none', textAlign: 'left' }}>{evrak.dosyaAdi}</Button> : evrak.dosyaAdi}
-                      {onSil && <IconButton size="small" color="error" disabled={!!islem}
-                        aria-label={`${evrak.dosyaAdi} sil`} onClick={() => evrakiSil(evrak)}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>}
                     </Typography>
                   ))}
                 </Box>

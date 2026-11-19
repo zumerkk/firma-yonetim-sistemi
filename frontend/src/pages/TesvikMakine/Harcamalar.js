@@ -40,6 +40,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
   const devamEden = useRef(null);
   const listeIstegi = useRef(null);
   const kalemEklenebilir = !!musteriToken || duzenlenebilir;
+  const evrakEklenebilir = (kalem) => musteriToken ? kalem?.evrakEklenebilir === true : duzenlenebilir;
 
   useEffect(() => () => devamEden.current?.abort(), []);
 
@@ -130,7 +131,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
 
   const kaydet = (event) => {
     event.preventDefault();
-    if (!kalemEklenebilir || !formGecerli) return;
+    if (!kalemEklenebilir || !formGecerli || (secili && !duzenlenebilir)) return;
     islemYap('kalem', async (signal) => {
       const { yevmiyeNo, yevmiyeTarihi, ...digerAlanlar } = form;
       const govde = {
@@ -145,10 +146,7 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
       }
       let sonuc;
       if (musteriToken) {
-        const veri = { ...govde, giren: giren.trim() };
-        sonuc = secili
-          ? await svc.musteriHarcamaGuncelle(musteriToken, secili._id, veri, { signal })
-          : await svc.musteriHarcamaEkle(musteriToken, veri, { signal });
+        sonuc = await svc.musteriHarcamaEkle(musteriToken, { ...govde, giren: giren.trim() }, { signal });
         if (!signal.aborted) {
           try { localStorage.setItem(GIREN_ANAHTARI, giren.trim()); } catch { /* depolama kapalı */ }
         }
@@ -169,23 +167,13 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
     if (!signal.aborted) kalemiYansit(kalem);
   });
 
-  const evrakIndir = (kalem, evrak) => islemYap('indir', async (signal) => {
-    const response = musteriToken
-      ? await svc.musteriHarcamaEvrakiIndir(musteriToken, kalem._id, evrak._id, { signal })
-      : await svc.harcamaEvrakiIndir(tesvikModel, tesvikId, kalem._id, evrak._id);
-    if (signal.aborted) return;
+  const evrakIndir = (kalem, evrak) => islemYap('indir', async () => {
+    const response = await svc.harcamaEvrakiIndir(tesvikModel, tesvikId, kalem._id, evrak._id);
     saveBlobResponse(response, evrak.dosyaAdi);
   }, setPencereHatasi, 'Evrak indirilemedi.');
 
-  const evrakSil = (evrak) => islemYap('evrakSil', async (signal) => {
-    const kalem = await svc.musteriHarcamaEvrakiSil(musteriToken, secili._id, evrak._id, { signal });
-    if (!signal.aborted) kalemiYansit(kalem);
-  });
-
-  const kalemiSil = () => islemYap('sil', async (signal) => {
-    if (musteriToken) await svc.musteriHarcamaSil(musteriToken, secili._id, { giren: giren.trim() }, { signal });
-    else await svc.harcamaSil(tesvikModel, tesvikId, secili._id);
-    if (signal.aborted) return;
+  const kalemiSil = () => islemYap('sil', async () => {
+    await svc.harcamaSil(tesvikModel, tesvikId, secili._id);
     setVeri((onceki) => ({ ...onceki, kalemler: onceki.kalemler.filter((k) => k._id !== secili._id) }));
     setPencere(null);
   }, setPencereHatasi, 'Harcama kalemi silinemedi.');
@@ -233,11 +221,11 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
                 <TableCell sx={{ overflowWrap: 'anywhere', maxWidth: 360 }}>{k.icerik || '–'}</TableCell>
                 <TableCell align="right">{k.adet || '–'}</TableCell><TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{formatMoney(k.tutar)}</TableCell>
                 <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                  {(kalemEklenebilir || (!musteriToken && !!k.evraklar?.length)) && <Button size="small" startIcon={<AttachFileIcon />}
+                  {(evrakEklenebilir(k) || (!musteriToken && !!k.evraklar?.length)) && <Button size="small" startIcon={<AttachFileIcon />}
                     onClick={() => pencereAc('evrak', k)} aria-label={`${k.no} evrakları`}>
                     {k.evraklar?.length ? `Evraklar (${k.evraklar.length})` : 'Evrak Yükle'}
                   </Button>}
-                  {kalemEklenebilir && <>
+                  {duzenlenebilir && <>
                     <IconButton size="small" aria-label={`${k.no} düzenle`} onClick={() => pencereAc('form', k)}><EditIcon fontSize="small" /></IconButton>
                     <IconButton size="small" color="error" aria-label={`${k.no} sil`} onClick={() => pencereAc('sil', k)}><DeleteOutlineIcon fontSize="small" /></IconButton>
                   </>}
@@ -284,6 +272,9 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
               {musteriToken && <Grid item xs={12}>
                 <TextField label="Adınız Soyadınız" size="small" fullWidth required inputProps={{ maxLength: 120 }}
                   value={giren} disabled={!!islem} onChange={(e) => { setGiren(e.target.value); formHatasiniTemizle(); }} />
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  Kaydedilen kalemde düzeltme ve silme işlemlerini danışmanınız yapabilir.
+                </Typography>
               </Grid>}
             </Grid>}
             {pencereHatasi && <Alert severity="error" sx={{ mt: 2 }}>{pencereHatasi}</Alert>}
@@ -298,9 +289,8 @@ export default function Harcamalar({ tesvikModel, tesvikId, musteriToken, katego
       {pencere?.tur === 'evrak' && secili && <Dialog open fullWidth maxWidth="sm" onClose={kapat} aria-labelledby="harcama-evrak-baslik">
         <DialogTitle id="harcama-evrak-baslik">{secili.no} Evrakları</DialogTitle>
         <DialogContent dividers>
-          {kalemEklenebilir ? <KalemEvrakPaneli key={secili._id} kalem={secili} islem={islem}
-            onYukle={evrakYukle} onIndir={(evrak) => evrakIndir(secili, evrak)}
-            onSil={musteriToken ? evrakSil : undefined} /> : (
+          {evrakEklenebilir(secili) ? <KalemEvrakPaneli key={secili._id} kalem={secili} islem={islem}
+            onYukle={evrakYukle} onIndir={musteriToken ? undefined : (evrak) => evrakIndir(secili, evrak)} /> : (
             <Stack alignItems="flex-start">
               {secili.evraklar.map((evrak) => <Button key={evrak._id} onClick={() => evrakIndir(secili, evrak)} disabled={!!islem}
                 sx={{ textTransform: 'none' }}>{evrak.dosyaAdi}</Button>)}

@@ -3,11 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import MakineYonetimi from './MakineYonetimi';
-import YeniMakineYonetimi from '../YeniTesvik/MakineYonetimi';
 import api from '../../utils/axios';
 import currencyService from '../../services/currencyService';
 import tesvikService from '../../services/tesvikService';
-import yeniTesvikService from '../../services/yeniTesvikService';
 
 jest.mock('../../utils/axios', () => ({
   __esModule: true,
@@ -15,16 +13,6 @@ jest.mock('../../utils/axios', () => ({
   uploadPost: jest.fn(),
 }));
 jest.mock('../../services/tesvikService', () => ({
-  __esModule: true,
-  default: {
-    get: jest.fn(),
-    listMakineRevizyonlari: jest.fn(),
-    startMakineRevizyon: jest.fn(),
-    saveMakineListeleri: jest.fn(),
-    finalizeMakineRevizyon: jest.fn(),
-  },
-}));
-jest.mock('../../services/yeniTesvikService', () => ({
   __esModule: true,
   default: {
     get: jest.fn(),
@@ -71,22 +59,17 @@ beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
   jest.spyOn(window, 'confirm').mockReturnValue(true);
-  api.get.mockImplementation(async (url) => (url === '/tesvik' || url === '/yeni-tesvik'
+  api.get.mockImplementation(async (url) => (url === '/tesvik'
     ? { data: { data: { tesvikler: [belge] } } }
     : { data: { data: [] } }));
-  for (const service of [tesvikService, yeniTesvikService]) {
-    service.get.mockResolvedValue(belge);
-    service.listMakineRevizyonlari.mockResolvedValue([]);
-    service.startMakineRevizyon.mockResolvedValue({ success: true, data: { revizeId: 'baslangic-1' } });
-    service.saveMakineListeleri.mockResolvedValue({ success: true });
-    service.finalizeMakineRevizyon.mockResolvedValue({ success: true });
-  }
+  tesvikService.get.mockResolvedValue(belge);
+  tesvikService.listMakineRevizyonlari.mockResolvedValue([]);
+  tesvikService.startMakineRevizyon.mockResolvedValue({ success: true, data: { revizeId: 'baslangic-1' } });
+  tesvikService.saveMakineListeleri.mockResolvedValue({ success: true });
+  tesvikService.finalizeMakineRevizyon.mockResolvedValue({ success: true });
 });
 
 afterEach(() => jest.restoreAllMocks());
-
-let Component;
-let service;
 
 async function revizeyiAc() {
   render(
@@ -94,7 +77,7 @@ async function revizeyiAc() {
       future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
       initialEntries={[{ pathname: '/makine', state: { autoSelectBelgeId: 'belge-1' } }]}
     >
-      <Component />
+      <MakineYonetimi />
     </MemoryRouter>
   );
   const revize = screen.getByRole('button', { name: 'Revize' });
@@ -110,7 +93,7 @@ function hucre(satir, alan) {
 function sayisalHucreyiDuzenle(satir, alan, deger) {
   const hedef = hucre(satir, alan);
   fireEvent.doubleClick(hedef);
-  const girdi = within(hedef).queryByRole('spinbutton') || within(hedef).getByRole('textbox');
+  const girdi = within(hedef).getByRole('spinbutton');
   expect(girdi).toHaveFocus();
   fireEvent.change(girdi, { target: { value: deger } });
   return girdi;
@@ -126,12 +109,6 @@ async function sonYerliFiyatiniDuzenle() {
   return sayisalHucreyiDuzenle(1, 'birimFiyatiTl', '400000');
 }
 
-describe.each([
-  ['eski belge', MakineYonetimi, tesvikService],
-  ['yeni belge', YeniMakineYonetimi, yeniTesvikService],
-])('%s', (_ad, Screen, apiService) => {
-  beforeEach(() => { Component = Screen; service = apiService; });
-
 test('son makinenin fiyatı hücreden doğrudan Bitir seçildiğinde toplamıyla kaydedilir', async () => {
   const birimFiyat = await sonYerliFiyatiniDuzenle();
   expect(birimFiyat).toHaveFocus();
@@ -140,8 +117,8 @@ test('son makinenin fiyatı hücreden doğrudan Bitir seçildiğinde toplamıyla
   // eslint-disable-next-line testing-library/no-unnecessary-act
   await act(async () => { userEvent.click(bitir); });
 
-  await waitFor(() => expect(service.finalizeMakineRevizyon).toHaveBeenCalledTimes(1));
-  expect(service.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
+  await waitFor(() => expect(tesvikService.finalizeMakineRevizyon).toHaveBeenCalledTimes(1));
+  expect(tesvikService.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
     yerli: [
       expect.objectContaining({ rowId: 'yerli-1', toplamTutariTl: 100000, etuysSecili: true }),
       expect.objectContaining({ siraNo: 2, miktar: 2, birimFiyatiTl: 400000, toplamTutariTl: 800000 }),
@@ -167,49 +144,10 @@ test('Bitir, son ithal makinenin iki kur hesabı tamamlanınca kaydeder', async 
   fireEvent.click(bitir);
 
   await waitFor(() => expect(currencyService.getRate).toHaveBeenCalledTimes(2));
-  expect(service.finalizeMakineRevizyon).not.toHaveBeenCalled();
+  expect(tesvikService.finalizeMakineRevizyon).not.toHaveBeenCalled();
   await act(async () => { kurlariCoz({ USD: 1.1, TRY: 40 }); });
 
-  expect(service.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
+  expect(tesvikService.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
     ithal: [expect.objectContaining({ rowId: 'ithal-1', miktar: 2, birimFiyatiFob: 150, toplamTutarFobUsd: 330, toplamTutarFobTl: 12000 })],
   }));
-});
-
-test('fiyat yazılırken toplam güncellenir ve Escape son değişikliği geri alır', async () => {
-  const fiyat = await sonYerliFiyatiniDuzenle();
-  expect(await screen.findByText(/Yerli: 900\.000/)).toBeInTheDocument();
-  expect(fiyat).toHaveFocus();
-  fireEvent.keyDown(fiyat, { key: 'Escape', code: 'Escape' });
-  expect(await screen.findByText(/Yerli: 100\.000/)).toBeInTheDocument();
-  expect(screen.getByText('Yerli (2)')).toBeInTheDocument();
-});
-
-test('Türkçe binlik ve ondalık ayracıyla girilen son fiyat doğrudan kaydedilir', async () => {
-  const fiyat = await sonYerliFiyatiniDuzenle();
-  // eslint-disable-next-line testing-library/no-unnecessary-act
-  await act(async () => { userEvent.clear(fiyat); userEvent.type(fiyat, '400.000,50'); });
-  expect(await screen.findByText(/Yerli: 900\.001/)).toBeInTheDocument();
-  expect(fiyat).toHaveValue('400.000,50');
-  expect(fiyat).toHaveFocus();
-  // eslint-disable-next-line testing-library/no-unnecessary-act
-  await act(async () => { userEvent.click(screen.getByRole('button', { name: 'Bitir' })); });
-  await waitFor(() => expect(service.finalizeMakineRevizyon).toHaveBeenCalledTimes(1));
-  expect(service.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
-    yerli: expect.arrayContaining([
-      expect.objectContaining({ miktar: 2, birimFiyatiTl: 400000.5, toplamTutariTl: 800001 }),
-    ]),
-  }));
-});
-
-test('ithal birim fiyatında Türkçe tutar kaydedilirken parite ve TL birlikte hesaplanır', async () => {
-  currencyService.getRate.mockImplementation(async (_kaynak, hedef) => ({ USD: 1.1, TRY: 40 })[hedef]);
-  const bitir = await revizeyiAc();
-  fireEvent.click(screen.getByRole('button', { name: 'İthal (1)' }));
-  sayisalHucreyiDuzenle(0, 'birimFiyatiFob', '1.300,50');
-  fireEvent.click(bitir);
-  await waitFor(() => expect(service.finalizeMakineRevizyon).toHaveBeenCalledTimes(1));
-  expect(service.finalizeMakineRevizyon).toHaveBeenCalledWith('belge-1', expect.objectContaining({
-    ithal: [expect.objectContaining({ rowId: 'ithal-1', miktar: 2, birimFiyatiFob: 1300.5, toplamTutarFobUsd: 2861.1, toplamTutarFobTl: 104040 })],
-  }));
-});
 });

@@ -31,27 +31,8 @@ const tesvikMakineService = {
     api.get(`${harcamaYolu(m, id)}/${kalemId}/evrak/${evrakId}`, { responseType: 'blob', timeout: 120000 }),
   musteriHarcamalariniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/harcamalar`, options).then(d),
   musteriHarcamaEkle: (token, veri, options) => api.post(`${musteriBelgeYolu(token)}/harcamalar`, veri, options).then(d),
-  musteriHarcamaGuncelle: (token, kalemId, veri, options) =>
-    api.patch(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}`, veri, options).then(d),
-  musteriHarcamaSil: (token, kalemId, veri, options) =>
-    api.delete(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}`, { ...options, data: veri }).then(d),
   musteriHarcamaEvrakiYukle: (token, kalemId, formData, options) =>
     uploadPost(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}/evrak`, formData, options).then(d),
-  musteriHarcamaEvrakiIndir: (token, kalemId, evrakId, options) =>
-    api.get(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}/evrak/${encodeURIComponent(evrakId)}`,
-      { ...options, responseType: 'blob', timeout: 120000 }),
-  musteriHarcamaEvrakiSil: (token, kalemId, evrakId, options) =>
-    api.delete(`${musteriBelgeYolu(token)}/harcamalar/${encodeURIComponent(kalemId)}/evrak/${encodeURIComponent(evrakId)}`, options).then(d),
-  musteriFaturaKalemiGuncelle: (token, kalemId, veri, options) =>
-    api.patch(`${musteriBelgeYolu(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}`, veri, options).then(d),
-  musteriFaturaKalemiSil: (token, kalemId, veri, options) =>
-    api.delete(`${musteriBelgeYolu(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}`, { ...options, data: veri }).then(d),
-  musteriFaturaEvrakiIndir: (token, kalemId, evrakId, params, options) =>
-    api.get(`${musteriBelgeYolu(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}/evrak/${encodeURIComponent(evrakId)}`,
-      { ...options, params, responseType: 'blob', timeout: 120000 }),
-  musteriFaturaEvrakiSil: (token, kalemId, evrakId, params, options) =>
-    api.delete(`${musteriBelgeYolu(token)}/fatura-kalemi/${encodeURIComponent(kalemId)}/evrak/${encodeURIComponent(evrakId)}`,
-      { ...options, params }).then(d),
   musteriGerceklesmesiniGetir: (token, options) => api.get(`${musteriBelgeYolu(token)}/gerceklesme`, options).then(d),
   getGerceklesme: (m, id, { signal } = {}) =>
     api.get(`${base}/certificates/${m}/${id}/gerceklesme`, { signal }).then(d),

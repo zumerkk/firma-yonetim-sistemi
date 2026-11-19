@@ -109,21 +109,19 @@ function firmaKalemiEkle(belge, govde, yetkiyiDogrula) {
   return kalemiKaydet(belge, veri, { kaynak: 'firma', girenAdi, istekId: govde.istekId, yetkiyiDogrula });
 }
 
-async function guncelle(filtre, govde, user, { yetkiyiDogrula } = {}) {
+async function guncelle(filtre, govde, user) {
   if (!KALEM_ALANLARI.some((ad) => Object.hasOwn(govde, ad))) throw hata(400, 'Güncellenecek bir kalem bilgisi girin.');
   const mevcut = await HarcamaKalemi.findOne(filtre).select([...KALEM_ALANLARI, '__v'].join(' '));
   if (!mevcut) throw kalemYok();
   const veri = kalemVerisi(govde, mevcut);
-  if (yetkiyiDogrula) await yetkiyiDogrula();
   const kalem = await HarcamaKalemi.findOneAndUpdate({ ...filtre, __v: mevcut.__v }, {
-    $set: { ...veri, ...(user && { sonGuncelleyen: user._id }) }, $inc: { __v: 1 }
+    $set: { ...veri, sonGuncelleyen: user._id }, $inc: { __v: 1 }
   }, { new: true, runValidators: true });
   if (!kalem) throw hata(409, 'Harcama kalemi değişti. Sayfayı yenileyip tekrar deneyin.');
   return kalem;
 }
 
-async function sil(filtre, { yetkiyiDogrula } = {}) {
-  if (yetkiyiDogrula) await yetkiyiDogrula();
+async function sil(filtre) {
   const kalem = await HarcamaKalemi.findOneAndDelete(filtre).select('+evraklar.depo');
   if (!kalem) throw kalemYok();
   await faturaEvrakDepolariniSil(kalem.evraklar.map((e) => e.depo).filter(Boolean));
@@ -166,18 +164,4 @@ async function evrakIndir(filtre, evrakId) {
   return { evrak, buffer: await evrakDeposu.oku(evrak.depo) };
 }
 
-async function evrakSil(filtre, evrakId, { yetkiyiDogrula } = {}) {
-  if (!mongoose.isObjectIdOrHexString(evrakId)) throw evrakYok();
-  if (yetkiyiDogrula) await yetkiyiDogrula();
-  const onceki = await HarcamaKalemi.findOneAndUpdate({ ...filtre, 'evraklar._id': evrakId }, {
-    $pull: { evraklar: { _id: evrakId } }, $inc: { __v: 1 }
-  }, { new: false }).select('+evraklar.depo');
-  if (!onceki) throw evrakYok();
-  const evrak = onceki.evraklar.id(evrakId);
-  if (evrak.depo) await faturaEvrakDepolariniSil([evrak.depo]);
-  const kalem = await HarcamaKalemi.findOne(filtre);
-  if (!kalem) throw kalemYok();
-  return kalem;
-}
-
-module.exports = { belgeFiltresi, kalemFiltresi, listele, ekle, firmaKalemiEkle, guncelle, sil, evrakBaglami, evrakYukle, evrakIndir, evrakSil };
+module.exports = { belgeFiltresi, kalemFiltresi, listele, ekle, firmaKalemiEkle, guncelle, sil, evrakBaglami, evrakYukle, evrakIndir };
